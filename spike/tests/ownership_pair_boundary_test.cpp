@@ -94,8 +94,8 @@ Json envelope(int schema,const std::string& epoch,const std::string& op,Json pay
 Json send(Broker& b,const Json& j) {return Json::parse(b.handle("xrspike "+j.dump()));}
 const std::string uuid="12345678-1234-1234-1234-123456789abc";
 Json spec(bool isolated) {
-    Json s={{"id",uuid},{"name","XR-SPIKE-run-0"},{"index",0},{"width",1920},{"height",1080},
-        {"refresh_millihz",120000},{"scale",1},{"x",1280},{"y",0},{"workspace",11},{"workspace_name","XR-SPIKE-run-workspace-0"}};
+    Json s={{"id",uuid},{"name","XR-1"},{"index",0},{"width",1920},{"height",1080},
+        {"refresh_millihz",120000},{"scale",1},{"x",1280},{"y",0}};
     if(isolated) s["mode"]="isolated-vm";
     return s;
 }
@@ -138,7 +138,7 @@ void isolatedLifecycle() {
         }
         CHECK(send(broker,envelope(2,epoch,"inspect",{{"id",uuid},{"mode","isolated-vm"}}))["result"]["fallback_usable"]==true);
         // Wrong fallback token, then the pair's own token.
-        Json remove={{"id",uuid},{"name","XR-SPIKE-run-0"},{"fallback",std::string(48,'f')},{"mode","isolated-vm"}};
+        Json remove={{"id",uuid},{"name","XR-1"},{"fallback",std::string(48,'f')},{"mode","isolated-vm"}};
         CHECK(send(broker,envelope(2,epoch,"evacuate_remove",remove)).contains("error"));
         remove["fallback"]=fallback;
         // Fallback substitution after creation blocks recovery; target loss does not.

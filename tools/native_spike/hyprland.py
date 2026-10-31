@@ -19,7 +19,8 @@ from .ipc import strict_json, token
 
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 NAME = r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}'
-OWNED = r'XR-SPIKE-[A-Za-z0-9][A-Za-z0-9_.:-]*-(?:0|[1-9][0-9]*)'
+# Stable managed-output names: Omarchy gives each its own persistent workspace block.
+OWNED = r'XR-[1-9][0-9]*'
 QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 LIMIT = 1048576
 DEADLINE = 2.0
@@ -99,9 +100,7 @@ class HyprlandClient:
         if not isinstance(command, str) or len(command) > 512: raise ValueError('invalid mutation')
         if not any(re.fullmatch(p, command) for p in patterns): raise ValueError('mutation not allowlisted')
         for word in re.split(r'[ ,]', command):
-            if word.startswith('XR-SPIKE-'):
-                token(word)
-                if int(word.rsplit('-', 1)[1]) > 2147483647: raise ValueError('invalid index')
+            if word.startswith('XR-') and not re.fullmatch(OWNED, word): raise ValueError('invalid managed output name')
         if command.startswith('dispatch') and int(command.split()[2]) > 2147483647:
             raise ValueError('invalid workspace')
         return self._request('/' + command).decode('utf-8', errors='strict').strip()
@@ -191,7 +190,7 @@ class RecoveryAdapter:
             snapshot = monitors(self.client.query('monitors'))
             if not snapshot: raise ValueError('empty output snapshot cannot prove safe recovery')
             for m in snapshot:
-                if m['name'].startswith('XR-SPIKE-'):
+                if re.fullmatch(OWNED, m['name']):
                     raise OwnershipBlocked('cannot bind observed monitor incarnation to journal UUID')
                 result.append({'id': 'unowned:' + m['name'], 'name': m['name'],
                                'physical': m['name'] == self.approved_physical and not m['disabled']
@@ -234,18 +233,13 @@ def plan_outputs(existing, workspaces, run_id):
     y = min((m['y'] for m in existing), default=0)
     specs = []
     for index in range(3):
-        name = token(f'XR-SPIKE-{run_id}-{index}')
+        name = token(f'XR-{index + 1}')
         if any(m['name'] == name for m in existing): raise ValueError('output name already exists')
-        wid = 1
-        while wid in used: wid += 1
-        used.add(wid)
-        workspace_name = f'XR-SPIKE-{run_id}-workspace-{index}'
-        if any(w['name'] == workspace_name for w in workspaces): raise ValueError('workspace name already exists')
         x = right + index * 1920
         if x + 1920 > 2147483647: raise ValueError('layout overflow')
         specs.append({'id': str(uuid.uuid4()), 'name': name, 'index': index, 'width': 1920,
                       'height': 1080, 'refresh_millihz': 120000, 'scale': 1.0,
-                      'x': x, 'y': y, 'workspace': wid, 'workspace_name': workspace_name})
+                      'x': x, 'y': y})
     return specs
 
 

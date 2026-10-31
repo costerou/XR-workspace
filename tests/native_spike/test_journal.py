@@ -24,8 +24,8 @@ class JournalTests(unittest.TestCase):
     def test_planned_output_names_bind_run_and_index_not_uuid(self):
         journal = Journal.open(self.path, "run", "session")
         for index, name, identity in (
-            (0, "XR-SPIKE-run-0", "12345678-1234-4234-8234-123456789abc"),
-            (1, "XR-SPIKE-run-1", "87654321-1234-4234-8234-123456789abc"),
+            (0, "XR-1", "12345678-1234-4234-8234-123456789abc"),
+            (1, "XR-2", "87654321-1234-4234-8234-123456789abc"),
         ):
             op = {"kind": "output", "id": identity, "name": name,
                   "index": index, "before": None}
@@ -33,18 +33,18 @@ class JournalTests(unittest.TestCase):
             journal.confirm(oid, {"id": identity, "name": name, "physical": False})
         reopened = Journal.open(self.path, "run", "session")
         self.assertEqual([r["operation"]["name"] for r in reopened.operations],
-                         ["XR-SPIKE-run-0", "XR-SPIKE-run-1"])
+                         ["XR-1", "XR-2"])
         self.assertTrue(all(r["state"] == "confirmed" for r in reopened.operations))
 
     def test_output_rejects_wrong_run_index_and_name_at_prepare_and_load(self):
         journal = Journal.open(self.path, "run", "session")
         valid = {"kind": "output", "id": "12345678-1234-4234-8234-123456789abc",
-                 "name": "XR-SPIKE-run-0", "index": 0, "before": None}
+                 "name": "XR-1", "index": 0, "before": None}
         journal.prepare(valid)
         original = self.path.read_text()
-        for changes in ({"name": "XR-SPIKE-other-0"}, {"name": "XR-SPIKE-run-1"},
+        for changes in ({"name": "XR-SPIKE-other-0"}, {"name": "XR-2"}, {"name": "XR-SPIKE-run-0"},
                         {"index": True}, {"index": -1}, {"index": 0.0},
-                        {"name": "XR-SPIKE-run-00"}, {"id": "not-a-uuid"},
+                        {"name": "XR-01"}, {"id": "not-a-uuid"},
                         {"name": "XR-12345678-1234-4234-8234-123456789abc"}):
             with self.subTest(changes=changes):
                 op = dict(valid, **changes)

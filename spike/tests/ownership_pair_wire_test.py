@@ -16,18 +16,20 @@ cases = [(hello, True), (observe, True), (legacy, True),
          (dict(hello, request_id=2**64 - 1), False),
          (dict(hello, payload=dict(hello["payload"], mode="normal")), False)]
 uuid = "12345678-1234-1234-1234-123456789abc"
-spec = dict(id=uuid, name="XR-SPIKE-run-0", index=0, width=1920, height=1080, refresh_millihz=120000,
-            scale=1, x=1280, y=0, workspace=11, workspace_name="XR-SPIKE-run-workspace-0")
+spec = dict(id=uuid, name="XR-1", index=0, width=1920, height=1080, refresh_millihz=120000, scale=1, x=1280, y=0)
 iso = dict(observe, op="create", payload=dict(spec, mode="isolated-vm"))
 iso_inspect = dict(observe, op="inspect", payload=dict(id=uuid, mode="isolated-vm"))
 iso_remove = dict(observe, op="evacuate_remove",
-                  payload=dict(id=uuid, name="XR-SPIKE-run-0", fallback="c" * 48, mode="isolated-vm"))
+                  payload=dict(id=uuid, name="XR-1", fallback="c" * 48, mode="isolated-vm"))
 cases += [(iso, True), (iso_inspect, True), (iso_remove, True),
           (dict(iso, schema=1), False),  # mode field never accepted by schema 1
           (dict(iso, payload=spec), False),  # schema 2 lifecycle requires mode
           (dict(iso_inspect, payload=dict(id=uuid, mode="normal")), False),
           (dict(iso_remove, payload=dict(iso_remove["payload"], fallback="C" * 48)), False),
-          (dict(observe, op="hello", payload=dict(mode="isolated-vm", fallback_name="Virtual-2")), False)]
+          (dict(observe, op="hello", payload=dict(mode="isolated-vm", fallback_name="Virtual-2")), False),
+          (dict(iso, payload=dict(spec, mode="isolated-vm", name="XR-SPIKE-run-0")), False),
+          (dict(iso, payload=dict(spec, mode="isolated-vm", workspace=11)), False),
+          (dict(iso, payload=dict(spec, mode="isolated-vm", index=1)), False)]
 for request, accepted in cases:
     result = subprocess.run([sys.argv[1], "--validate"], input="xrspike " + json.dumps(request),
                             text=True, capture_output=True, timeout=5, check=False)
