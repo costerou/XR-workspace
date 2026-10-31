@@ -36,7 +36,7 @@ Json parse_request(const std::string& wire) {
     }
     if(p.size()!=wanted.size()) throw std::runtime_error("payload shape");
     for(auto& key:wanted) if(!p.contains(key)) throw std::runtime_error("payload field");
-    for(auto key:{"id","name","fallback","fallback_name","workspace_name","target","target_name"}) if(p.contains(key)) {
+    for(auto key:{"id","name","fallback","fallback_name","target","target_name"}) if(p.contains(key)) {
         if(!p[key].is_string() || !std::regex_match(p[key].get<std::string>(),std::regex("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}"))) throw std::runtime_error("payload token");
     }
     if(j["schema"]==2) for(auto key:{"target","fallback"}) if(p.contains(key))

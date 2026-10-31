@@ -82,6 +82,21 @@ int main(int argc,char** argv) {
         f.reach=fault!=0; f.migration=fault!=1; f.special=fault==2; f.pinned=fault==3; f.dropFallback=fault==4;
         CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==0 && f.released.empty());
     }
+    { // Stable names: run B may reuse XR-1 after run A's is dead; neither can address the other's UUID.
+        Fake f; Registry registry(f);
+        Json a={{"id","uuid-a"},{"name","XR-1"}}, b={{"id","uuid-b"},{"name","XR-1"}};
+        CHECK(registry.create("s","runA",a)=="live"); auto objectA=f.source;
+        CHECK(registry.remove("s","runA","uuid-a",f.fallback)=="dead");
+        CHECK(registry.create("s","runB",b)=="live"); auto objectB=f.source;
+        CHECK(objectA!=objectB && objectB->live);
+        CHECK(registry.remove("s","runA","uuid-a",f.fallback)=="dead"); CHECK(objectB->live && f.destroys==1);
+        CHECK(registry.inspect("s","runA","uuid-a")=="dead");
+        for(auto [run,id]: std::vector<std::pair<std::string,std::string>>{{"runB","uuid-a"},{"runA","uuid-b"}}) {
+            bool unproven=false; try { registry.remove("s",run,id,f.fallback); } catch(...) {unproven=true;}
+            CHECK(unproven && objectB->live);
+        }
+        CHECK(registry.remove("s","runB","uuid-b",f.fallback)=="dead"); CHECK(!objectB->live && f.destroys==2);
+    }
     { // Destroyed but not proven reachable: stays blocked, yet compositor references are released.
         Fake f; Registry registry(f); CHECK(registry.create("s","r",spec())=="live"); f.reachAfterDestroy=false;
         CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==1 && f.released.size()==1);

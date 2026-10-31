@@ -21,7 +21,7 @@ class JournalTests(unittest.TestCase):
         self.assertEqual(Journal.open(self.path, "run", "session").operations[0]["state"], "confirmed")
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
-    def test_planned_output_names_bind_run_and_index_not_uuid(self):
+    def test_planned_output_names_bind_index_not_uuid(self):
         journal = Journal.open(self.path, "run", "session")
         for index, name, identity in (
             (0, "XR-1", "12345678-1234-4234-8234-123456789abc"),
@@ -36,7 +36,7 @@ class JournalTests(unittest.TestCase):
                          ["XR-1", "XR-2"])
         self.assertTrue(all(r["state"] == "confirmed" for r in reopened.operations))
 
-    def test_output_rejects_wrong_run_index_and_name_at_prepare_and_load(self):
+    def test_output_rejects_wrong_index_and_name_at_prepare_and_load(self):
         journal = Journal.open(self.path, "run", "session")
         valid = {"kind": "output", "id": "12345678-1234-4234-8234-123456789abc",
                  "name": "XR-1", "index": 0, "before": None}

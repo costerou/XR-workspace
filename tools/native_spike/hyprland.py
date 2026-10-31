@@ -21,6 +21,8 @@ INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 NAME = r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}'
 # Stable managed-output names: Omarchy gives each its own persistent workspace block.
 OWNED = r'XR-[1-9][0-9]*'
+# Any managed name, including pre-Omarchy per-run names: never adoptable without a broker.
+MANAGED_ANY = r'XR-(?:[1-9][0-9]*|SPIKE-.*)'
 QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 LIMIT = 1048576
 DEADLINE = 2.0
@@ -190,7 +192,7 @@ class RecoveryAdapter:
             snapshot = monitors(self.client.query('monitors'))
             if not snapshot: raise ValueError('empty output snapshot cannot prove safe recovery')
             for m in snapshot:
-                if re.fullmatch(OWNED, m['name']):
+                if re.fullmatch(MANAGED_ANY, m['name']):
                     raise OwnershipBlocked('cannot bind observed monitor incarnation to journal UUID')
                 result.append({'id': 'unowned:' + m['name'], 'name': m['name'],
                                'physical': m['name'] == self.approved_physical and not m['disabled']

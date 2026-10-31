@@ -137,11 +137,14 @@ class OwnershipBrokerClient:
         workspaces = o.get('workspaces')
         if (not isinstance(workspaces, list) or not workspaces or any(
                 not isinstance(w, dict) or set(w) != {'id', 'name', 'special'} or type(w['id']) is not int
-                or w['id'] <= 0 or w['special'] is not False or not isinstance(w['name'], str) for w in workspaces)):
+                or not 0 < w['id'] <= 2147483647 or w['special'] is not False or not isinstance(w['name'], str)
+                for w in workspaces) or len({w['id'] for w in workspaces}) != len(workspaces)):
             raise OwnershipBlocked(f'workspace placement mismatch: expected regular workspaces observed {_brief(workspaces)}')
         ids = {w['id'] for w in workspaces}
+        if type(o.get('workspace')) is not int or o['workspace'] not in ids:
+            raise OwnershipBlocked(f"workspace placement mismatch: active {_brief(o.get('workspace'))} not among {sorted(ids)[:8]}")
         windows = o.get('windows')
-        if not isinstance(windows,list) or any(not isinstance(w,dict) or type(w.get('workspace')) is not int or w.get('workspace') not in ids or w.get('pinned') is not False for w in windows):
+        if not isinstance(windows,list) or any(not isinstance(w,dict) or set(w) != {'workspace', 'pinned'} or type(w['workspace']) is not int or w['workspace'] not in ids or w['pinned'] is not False for w in windows):
             raise OwnershipBlocked(f"unsupported or unreachable mapped window: workspaces {sorted(ids)} observed {_brief(windows)}")
 
     def evacuate_remove(self, output_id, output_name):
