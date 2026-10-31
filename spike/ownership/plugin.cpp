@@ -28,7 +28,10 @@ std::string randomToken() {
 }
 struct NativeObject : Object {
     SP<Aquamarine::IOutput> output;
-    PHLMONITOR monitor;
+    // Weak: a strong reference kept destroyed CMonitors alive, turning Hyprland's harmless
+    // late wl_output bind (expired monitor) into a use of a torn-down output (phys1 crash).
+    PHLMONITORREF monitor;
+    bool monitorBound=false;
     SP<Aquamarine::IBackendImplementation> pairBackend;
     std::optional<PairObservation> pairProof; // First DRM identity of a pair-selected object.
     bool legacyDrmEligible=false;
@@ -85,8 +88,8 @@ public:
         if(!h || !h->live) return nullptr;
         auto o=native(h);
         for(auto& m:State::monitorState()->allMonitors()) if(m->m_output==o->output) {
-            if(o->monitor && o->monitor!=m) return nullptr;
-            o->monitor=m; return m;
+            if(o->monitorBound && o->monitor!=m) return nullptr; // expired or replaced
+            o->monitor=m; o->monitorBound=true; return m;
         }
         return nullptr;
     }
@@ -96,6 +99,7 @@ public:
             if(selected || !m->m_output) throw std::runtime_error("ambiguous/missing pair output");
             selected=wrap(m->m_output);
             native(selected)->monitor=m;
+            native(selected)->monitorBound=true;
             native(selected)->pairBackend=m->m_output->getBackend();
         }
         if(!selected) throw std::runtime_error("pair output absent");
