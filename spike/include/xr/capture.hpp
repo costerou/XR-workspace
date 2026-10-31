@@ -18,20 +18,49 @@ struct ShmPlan { std::uint32_t width = 0, height = 0, stride = 0, format = 0; st
 // Choose a 32-bit SHM layout from the session's constraints; nothing else is accepted.
 std::optional<ShmPlan> plan_capture_buffer(std::uint32_t width, std::uint32_t height, const std::vector<std::uint32_t>& formats);
 
+// Zero-copy capture (C2b): DRM fourcc + modifier the compositor offers and our EGL can import.
+constexpr std::uint32_t kDrmXrgb8888 = 0x34325258, kDrmArgb8888 = 0x34325241;  // 'XR24', 'AR24'
+constexpr std::uint64_t kModLinear = 0, kModInvalid = 0x00ffffffffffffffULL;     // INVALID = implicit modifier
+struct DmabufFormat { std::uint32_t fourcc = 0; std::vector<std::uint64_t> modifiers; };
+struct DmabufChoice { std::uint32_t fourcc = 0; std::uint64_t modifier = 0; };
+// Prefer XRGB then ARGB; among offered modifiers EGL can import, prefer LINEAR, then the first.
+template <class Importable>
+std::optional<DmabufChoice> choose_dmabuf(const std::vector<DmabufFormat>& offered, Importable importable) {
+    for (auto fourcc : {kDrmXrgb8888, kDrmArgb8888})
+        for (const auto& f : offered) if (f.fourcc == fourcc) {
+            std::optional<std::uint64_t> first;
+            for (auto m : f.modifiers) if (importable(fourcc, m)) {
+                if (m == kModLinear) return DmabufChoice{fourcc, m};
+                if (!first) first = m;
+            }
+            if (first) return DmabufChoice{fourcc, *first};
+        }
+    return std::nullopt;
+}
+
 // Session constraints arrive as any order of shm_format/buffer_size events, then done
 // (Hyprland efb5099 sends formats first). Accumulate; reset only once a batch is complete.
 class SessionConstraints {
 public:
     void size(std::uint32_t width, std::uint32_t height) { width_ = width; height_ = height; }
     void format(std::uint32_t format) { formats_.push_back(format); }
-    std::optional<ShmPlan> done() {
-        auto plan = plan_capture_buffer(width_, height_, formats_);
-        width_ = height_ = 0; formats_.clear();
-        return plan;
+    void dmabuf_device(std::uint64_t device) { device_ = device; }
+    void dmabuf_format(std::uint32_t fourcc, std::vector<std::uint64_t> modifiers) {
+        for (auto& f : dmabuf_) if (f.fourcc == fourcc) { f.modifiers.insert(f.modifiers.end(), modifiers.begin(), modifiers.end()); return; }
+        dmabuf_.push_back({fourcc, std::move(modifiers)});
     }
+    struct Batch { std::optional<ShmPlan> shm; std::optional<std::uint64_t> device; std::vector<DmabufFormat> dmabuf; std::uint32_t width = 0, height = 0; };
+    Batch done_all() {
+        Batch b{plan_capture_buffer(width_, height_, formats_), device_, dmabuf_, width_, height_};
+        width_ = height_ = 0; formats_.clear(); device_.reset(); dmabuf_.clear();
+        return b;
+    }
+    std::optional<ShmPlan> done() { return done_all().shm; }
 private:
     std::uint32_t width_ = 0, height_ = 0;
     std::vector<std::uint32_t> formats_;
+    std::optional<std::uint64_t> device_;
+    std::vector<DmabufFormat> dmabuf_;
 };
 
 struct Rect { std::uint32_t x = 0, y = 0, width = 0, height = 0; };
