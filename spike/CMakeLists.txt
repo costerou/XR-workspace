@@ -3,7 +3,7 @@ project(xr_native_spike VERSION 0.1.0 LANGUAGES CXX)
 
 option(XR_ENABLE_HARDWARE "Enable later opt-in hardware components" OFF)
 option(XR_ENABLE_SDK "Enable later approved SDK worker" OFF)
-option(XR_ENABLE_IPC "Check local dependencies for future native IPC" OFF)
+option(XR_ENABLE_IPC "Build offline native IPC parser and tests" ON)
 
 # Component-scoped: the offline layout contract uses only the standard library.
 # No downloads, implicit fallback JSON implementation, or runtime device probes.
@@ -12,7 +12,7 @@ if(XR_ENABLE_IPC)
   if(NOT nlohmann_json_FOUND)
     message(FATAL_ERROR "XR_ENABLE_IPC requires local nlohmann_json >=3.12 (nlohmann_jsonConfig.cmake). Request package approval; no auto-fetch. Layout-only build: -DXR_ENABLE_IPC=OFF")
   endif()
-  message(FATAL_ERROR "Native IPC is not implemented until Task 2; use -DXR_ENABLE_IPC=OFF for Task 1")
+
 endif()
 if(XR_ENABLE_HARDWARE)
   message(FATAL_ERROR "Hardware components are not implemented in Task 1. Use -DXR_ENABLE_HARDWARE=OFF; see dependencies.md and obtain run-scoped permission for later tasks")
@@ -33,3 +33,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(layout_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 add_test(NAME layout COMMAND layout_test)
+
+if(XR_ENABLE_IPC)
+  add_library(xr_ipc STATIC src/ipc.cpp)
+  target_link_libraries(xr_ipc PUBLIC xr_types PRIVATE nlohmann_json::nlohmann_json)
+  add_executable(ipc_test tests/ipc_test.cpp)
+  target_link_libraries(ipc_test PRIVATE xr_ipc)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(xr_ipc PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(ipc_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME ipc COMMAND ipc_test)
+endif()
