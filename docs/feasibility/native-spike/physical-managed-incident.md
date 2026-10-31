@@ -66,4 +66,9 @@ The cause of phys1's placement mismatch is still unknown.
    - Follow-up from the review, now confirmed and fixed. `isolated-vm-wsretain-before-live.json` (module `973942be…`): after 4 complete recoveries and a full CLI run, every evacuated `XR-SPIKE-…-workspace-N` (on the fallback) and every Hyprland auto-created gap workspace (on the other output) stayed listed, empty, for the compositor lifetime. The registry keeps dead entries for readback, and their objects held strong `PHLWORKSPACE` members.
    - Fix `fa7a3ca`: the registry calls `Backend::release` when an entry is proven dead, and the native backend drops its workspace references and snapshots.
    - Verified in `isolated-vm-wsretain-fixed-live.json` (module `7643f411…`), with output-binding clients active and the compositor alive: the workspace list matched the baseline after every recovery and after a CLI run. A workspace holding a migrated window stayed on the fallback with its window and disappeared when the window closed.
-4. Get explicit new user consent. A retry with module `7643f411…` (`build/native-spike-ws-release`) would report the actual placement mismatch. The physical managed run is **not** qualified.
+   - Release fix review (`fa7a3ca`): no blocking findings. Fixed in `51fbeb0`:
+     - Release whenever the output is no longer live, including destroyed-but-blocked entries.
+     - `Backend::release` is now pure virtual.
+     - `NativeModel` really clears its gap and owned references and snapshots, and its repeat-dead check runs against the released state. A mutation that drops the not-live release is caught.
+   - Re-verified in the VM (`isolated-vm-wsretain-final-live.json`, module `e031543a…`): identical clean result, with binders active and the compositor alive.
+4. Get explicit new user consent. A retry would use module `e031543a…` (`build/native-spike-ws-release-2`) and would report the actual placement mismatch. The physical managed run is **not** qualified.
