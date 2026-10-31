@@ -1,6 +1,6 @@
 # Viture Workspace — proposed design
 
-Status: awaiting design approval. Control-panel direction approved; implementation not started.
+Status: design approved by Cody on 2026-10-31. Implementation planning in progress; application implementation not started.
 Local home: `/home/cody/Projects/viture-workspace`. No GitHub account, remote, publication, or cloud service required.
 
 ## Intent
