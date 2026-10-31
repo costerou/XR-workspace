@@ -149,10 +149,10 @@ Mat3 view_from(Quat head, Quat anchor) {
 void ModeController::set_mode(ViewMode mode, double now_ms) {
     if (mode == mode_) return;
     from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;
-    if (mode == ViewMode::follow) { follow_ = level(anchor_); chasing_ = false; }
+    if (mode == ViewMode::follow) { follow_ = anchor_; chasing_ = false; speed_deg_s_ = 0; }
     mode_ = mode;
 }
-void ModeController::recenter() { anchor_ = from_ = follow_ = Quat{}; transitioning_ = chasing_ = false; }
+void ModeController::recenter() { anchor_ = from_ = follow_ = Quat{}; transitioning_ = chasing_ = false; speed_deg_s_ = 0; }
 Quat ModeController::target(Quat head) const {
     switch (mode_) {
     case ViewMode::locked: return head;
@@ -165,12 +165,18 @@ Quat ModeController::update(Quat head, double now_ms) {
     const double dt = last_ms_ < 0 ? 0 : std::clamp(now_ms - last_ms_, 0.0, 100.0);
     last_ms_ = now_ms;
     if (mode_ == ViewMode::follow) {
-        const Quat want = level(head);
+        const Quat want = head;  // full orientation: yaw, pitch and roll
         const float off = quat_angle(follow_, want) * 180.f / float(M_PI);
-        if (!chasing_ && off > tuning_.deadzone_deg) chasing_ = true;
-        if (chasing_) {
-            follow_ = quat_slerp(follow_, want, float(1 - std::exp(-dt / tuning_.follow_tau_ms)));
-            if (quat_angle(follow_, want) * 180.f / float(M_PI) < tuning_.settle_deg) chasing_ = false;
+        if (!chasing_ && off > tuning_.deadzone_deg) { chasing_ = true; speed_deg_s_ = 0; }
+        if (chasing_ && dt > 0) {
+            // Desired speed shrinks with the error (eases in, no overshoot); rising speed is
+            // acceleration-limited so the follow starts with a short, firm ramp rather than a jolt.
+            const float desired = off / (tuning_.follow_tau_ms / 1000.f);
+            const float s = float(dt / 1000.0);
+            speed_deg_s_ = std::min(desired, speed_deg_s_ + tuning_.accel_deg_s2 * s);
+            const float step = std::min(off, speed_deg_s_ * s);
+            if (off > 1e-4f) follow_ = quat_slerp(follow_, want, step / off);
+            if (quat_angle(follow_, want) * 180.f / float(M_PI) < tuning_.settle_deg) { chasing_ = false; speed_deg_s_ = 0; }
         }
     }
     const Quat goal = target(head);

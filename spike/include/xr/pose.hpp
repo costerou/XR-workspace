@@ -69,12 +69,14 @@ Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canva
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
 //   anchor: fixed in space (3DoF world-locked)
 //   locked: 0DoF, rigidly attached to the display (head-locked, includes roll)
-//   follow: world-locked inside a dead zone; outside it eases back in front, level (no roll)
+//   follow: world-locked inside a small dead zone; outside it, the canvas accelerates toward the
+//           full head orientation (roll included) at a speed proportional to the remaining error
+//           (time constant tau), ramped by a bounded acceleration and never overshooting
 // Mode changes blend smoothly from wherever the canvas currently is; steady states are exact.
 enum class ViewMode : std::uint8_t { anchor = 0, locked = 1, follow = 2 };
 class ModeController {
 public:
-    struct Tuning { float transition_ms = 300, deadzone_deg = 12, settle_deg = 1.5f, follow_tau_ms = 220; };
+    struct Tuning { float transition_ms = 300, deadzone_deg = 4, settle_deg = 0.5f, follow_tau_ms = 90, accel_deg_s2 = 1800; };
     ModeController() = default;
     explicit ModeController(Tuning t) : tuning_(t) {}
     void set_mode(ViewMode mode, double now_ms);
@@ -89,6 +91,7 @@ private:
     ViewMode mode_ = ViewMode::anchor;
     Quat anchor_{}, from_{}, follow_{};
     double started_ms_ = -1, last_ms_ = -1;
+    float speed_deg_s_ = 0;  // current follow angular speed (accelerates from rest)
     bool chasing_ = false, transitioning_ = false;
 };
 }
