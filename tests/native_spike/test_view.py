@@ -161,3 +161,20 @@ class HyprlandViewRequestTests(unittest.TestCase):
             with self.assertRaises(ValueError): c.mutate(bad)
         c._request = lambda wire: b'some lua error'
         with self.assertRaises(ValueError): c.remove_view_binds()
+
+
+class SupervisorResetTests(unittest.TestCase):
+    def test_renderer_exit_with_unread_frame_is_a_disconnect(self):
+        """A renderer that exits before reading a queued view frame resets the socket (ECONNRESET)."""
+        from tools.native_spike.supervisor import Supervisor
+        parent, renderer = socket.socketpair()
+        self.addCleanup(parent.close)
+        class Child:
+            done = False
+            def poll(self): return 0 if self.done else None
+            def terminate(self): self.done = True
+            def kill(self): self.done = True
+        child = Child()
+        parent.sendall(b'{"op":"view"}\n')     # queued, never read
+        renderer.close(); child.done = True    # renderer gone with unread data
+        self.assertEqual(Supervisor(child, lambda: 'recovered').run(parent), 'recovered')
