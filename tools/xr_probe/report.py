@@ -1,7 +1,9 @@
 """Schema-v1 diagnostic reporting; observation is not performance validation."""
 from datetime import datetime, timezone
+from decimal import Decimal
 import html
 import math
+import re
 from .hardware import clean_text
 from .session import classify_output
 from .model import HostReport, ProbeResult, SessionCandidate, to_json as model_json
@@ -18,6 +20,48 @@ def _number(value):
         return value if math.isfinite(value) and 0 < value <= 100000 else None
     except (OverflowError, ValueError):
         return None
+
+
+def parse_available_mode(token: str) -> dict | None:
+    """Parse a bounded compositor token without normalizing its spelling."""
+    if not isinstance(token, str) or len(token) > 64:
+        return None
+    match = re.fullmatch(r'([0-9]+)x([0-9]+)@([0-9]+(?:\.[0-9]+)?)Hz', token)
+    if match is None:
+        return None
+    width, height = int(match[1]), int(match[2])
+    rate = float(match[3])
+    if width <= 0 or height <= 0 or not math.isfinite(rate) or rate <= 0:
+        return None
+    return dict(width=width, height=height, refreshRate=rate, raw=token)
+
+
+def _raw_available(raw, source, collected_status=None):
+    modes = []
+    status = 'ok' if isinstance(raw, list) and raw else 'unknown'
+    if isinstance(raw, list):
+        if len(raw) > 256:
+            status = 'truncated'
+        for index, token in enumerate(raw[:256]):
+            path = f'{source}[{index}]'
+            parsed = parse_available_mode(token)
+            if parsed is None:
+                if isinstance(token, str) and len(token) > 64:
+                    status = 'truncated'
+                elif status != 'truncated':
+                    status = 'unknown'
+            # Keep bounded malformed strings as raw evidence, never as capability.
+            exact = token if isinstance(token, str) and len(token) <= 64 else None
+            mode = {key: _field(parsed[original] if parsed else None, path)
+                    for key, original in [('width', 'width'), ('height', 'height'),
+                                          ('refresh_hz', 'refreshRate')]}
+            mode['raw'] = _field(exact, path)
+            modes.append(mode)
+    if collected_status == 'truncated':
+        status = 'truncated'
+    elif collected_status == 'unknown' and status != 'truncated':
+        status = 'unknown'
+    return dict(value=modes or None, status=status, source=source)
 
 
 def _available(raw, source):
@@ -85,7 +129,10 @@ def _output(raw, index):
             'active_mode': {key: _field(_number(raw.get(original)), source + '.' + original)
                             for key, original in [('width', 'width'), ('height', 'height'),
                                                   ('refresh_hz', 'refreshRate')]},
-            'available_modes': _available(raw.get('available_modes'), source + '.available_modes')}
+            'available_modes': (_raw_available(raw['availableModes'], source + '.availableModes',
+                                                raw.get('availableModes_status'))
+                                if 'availableModes' in raw else
+                                _available(raw.get('available_modes'), source + '.available_modes'))}
 
 
 def build_report(session: ProbeResult, usb: ProbeResult, drm: ProbeResult,
@@ -110,7 +157,11 @@ def build_report(session: ProbeResult, usb: ProbeResult, drm: ProbeResult,
     advertised = [mode['refresh_hz']['source'] for output in outputs
                   if output['classification'] == 'physical'
                   for mode in (output['available_modes']['value'] or [])
-                  if mode['refresh_hz']['value'] == 120]
+                  if mode['refresh_hz']['value'] == 120
+                  # Binary float can round a near-120 decimal to 120.0.
+                  # Only grammar-validated raw tokens reach this branch.
+                  and ('raw' not in mode or
+                       Decimal(mode['raw']['value'].split('@')[1][:-2]) == 120)]
     capabilities = {
         'active_120_hz': {'state': 'observed' if active else 'untested', 'evidence': active,
                           'reason': 'Selected compositor output only; not attributed to VITURE and not measured presentation.'},

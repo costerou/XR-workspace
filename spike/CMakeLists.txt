@@ -1,0 +1,35 @@
+cmake_minimum_required(VERSION 3.25)
+project(xr_native_spike VERSION 0.1.0 LANGUAGES CXX)
+
+option(XR_ENABLE_HARDWARE "Enable later opt-in hardware components" OFF)
+option(XR_ENABLE_SDK "Enable later approved SDK worker" OFF)
+option(XR_ENABLE_IPC "Check local dependencies for future native IPC" OFF)
+
+# Component-scoped: the offline layout contract uses only the standard library.
+# No downloads, implicit fallback JSON implementation, or runtime device probes.
+if(XR_ENABLE_IPC)
+  find_package(nlohmann_json 3.12 CONFIG QUIET)
+  if(NOT nlohmann_json_FOUND)
+    message(FATAL_ERROR "XR_ENABLE_IPC requires local nlohmann_json >=3.12 (nlohmann_jsonConfig.cmake). Request package approval; no auto-fetch. Layout-only build: -DXR_ENABLE_IPC=OFF")
+  endif()
+  message(FATAL_ERROR "Native IPC is not implemented until Task 2; use -DXR_ENABLE_IPC=OFF for Task 1")
+endif()
+if(XR_ENABLE_HARDWARE)
+  message(FATAL_ERROR "Hardware components are not implemented in Task 1. Use -DXR_ENABLE_HARDWARE=OFF; see dependencies.md and obtain run-scoped permission for later tasks")
+endif()
+if(XR_ENABLE_SDK)
+  message(FATAL_ERROR "SDK worker is not implemented/authorized in Task 1. Use -DXR_ENABLE_SDK=OFF; later work requires approved absolute XR_SDK_ROOT and recorded package hash")
+endif()
+
+add_library(xr_types INTERFACE)
+target_include_directories(xr_types INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_features(xr_types INTERFACE cxx_std_20)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+enable_testing()
+add_executable(layout_test tests/layout_test.cpp)
+target_link_libraries(layout_test PRIVATE xr_types)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(layout_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
+add_test(NAME layout COMMAND layout_test)
