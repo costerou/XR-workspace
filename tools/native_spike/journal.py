@@ -21,6 +21,7 @@ class RecoveryBackend(Protocol):
     """
     def query(self, kind: str) -> dict | list: ...
     def mutate(self, command: str) -> str: ...
+    def evacuate_remove(self, output_id: str, output_name: str) -> bool: ...
 
 
 @dataclass
@@ -176,31 +177,9 @@ def _undo(journal, hypr, op):
         if not any(o["name"] == op["before"] and o["physical"] is True for o in outputs): return False
         _mutate(journal, hypr, f"dispatch moveworkspacetomonitor {op['workspace']} {op['before']}")
         return any(w["id"] == op["workspace"] and w["output"] == op["before"] for w in hypr.query("workspaces"))
-    outputs = hypr.query("outputs")
-    matches = [o for o in outputs if o["name"] == op["name"] or o["id"] == op["id"]]
-    if not matches:
-        # Disappearance alone is not evidence that stranded workspaces are reachable.
-        return not any(w["output"] == op["name"] for w in hypr.query("workspaces"))
-    if len(matches) != 1 or matches[0] != {"id": op["id"], "name": op["name"], "physical": False}: return False
-    fallback = next((o for o in outputs if o["physical"] is True and o["name"] != op["name"]), None)
-    if fallback is None: return False
-    destination = token(fallback["name"])
-    for workspace in hypr.query("workspaces"):
-        if workspace["output"] != op["name"]: continue
-        wid = workspace["id"]
-        if type(wid) is not int or not 0 < wid <= 2147483647: return False
-        # Re-query immediately before moving, preserving intervening user moves.
-        current = [w for w in hypr.query("workspaces") if w["id"] == wid]
-        if len(current) != 1: return False
-        if current[0]["output"] != op["name"]: continue
-        _mutate(journal, hypr, f"dispatch moveworkspacetomonitor {wid} {destination}")
-        if not any(w["id"] == wid and w["output"] == destination for w in hypr.query("workspaces")): return False
-    # Revalidate identity and fallback after migration and before removal.
-    outputs = hypr.query("outputs")
-    if matches[0] not in outputs or fallback not in outputs: return False
-    if any(w["output"] == op["name"] for w in hypr.query("workspaces")): return False
-    _mutate(journal, hypr, f"output remove {op['name']}")
-    return not any(o["name"] == op["name"] or o["id"] == op["id"] for o in hypr.query("outputs"))
+    # Identity, evacuation and mapped-window reachability are one broker transaction.
+    # No snapshot/name-addressed compatibility fallback is safe here.
+    return hypr.evacuate_remove(op["id"], op["name"]) is True
 
 
 def recover(journal: Journal, hypr: RecoveryBackend) -> RecoveryResult:
