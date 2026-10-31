@@ -57,3 +57,10 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Binds exist only during a run (Ctrl+Alt+arrows stay free for text navigation otherwise).
 - The view covers the whole output, so the Luma's own bar no longer shows above the tiles.
 - Evidence: VM `isolated-vm-zoom-controls-live.json`, live `physical-zoom-controls-live.json`. The user confirmed zoom, switching and focus work and feel smooth. Spacing keys are not yet pressed live.
+
+**T1 done (2026-10-31).**
+- VM: synthetic driver feed, `isolated-vm-tracking-live.json`. Live: `physical-tracking-trk1-live.json`.
+- The user confirmed yaw, pitch and roll keep the desktops fixed in space, and Ctrl+Alt+Space recenter works and feels good.
+- Measured: a sustained ~119.8 Hz presentation over 3.5 min (mean 8.346 ms, 0 discarded, 0 tracking losses) with the driver network-blocked.
+- Not yet: motion-to-photon latency, prediction, the Beast, long-session comfort, Anchor/0DoF/smooth-follow modes.
+- Next: C2b (dmabuf zero-copy), then T2 modes.
