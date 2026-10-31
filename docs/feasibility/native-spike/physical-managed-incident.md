@@ -83,3 +83,15 @@ The user approved it and confirmed a clean 1200p120 image and saved work. Eviden
 - **Root cause of the mismatch:** Omarchy's `/usr/share/omarchy/default/hypr/monitor-workspaces.lua` gives every monitor its own block of ten workspaces (reconciled on `monitor.added`/`removed`/`config.reloaded`). It persists block assignments by monitor identity in `~/.local/state/omarchy/monitor-workspaces`. Each per-run headless name (`XR-SPIKE-phys1-0`, `XR-SPIKE-phys2-0`) was registered as a new monitor (blocks 6 and 7), and Omarchy showed workspace 71 on it. The broker's pre-planned workspace id therefore always conflicts on Omarchy.
 - **Side effect:** those two block entries now persist in the user's Omarchy state file. Left untouched pending the user's decision.
 - **Status:** the managed lifecycle is now safe on the live desktop in this failure path (create, refuse, recover, no crash, no residue in compositor state). Managed operation is still blocked by the design conflict with Omarchy's per-monitor workspaces.
+
+## Third live attempt `phys3` (Omarchy-native module `1d6bbd1c…`, commit `547502f`): PASSED
+
+The user approved it, confirmed a clean 1920x1200@120 image and saved work. Evidence: `physical-managed-phys3-live.json`.
+
+- **Creation:** the managed CLI created `XR-1`, `XR-2` and `XR-3` at 1920x1080@120 (refresh readback), at x = 5632, 7552 and 9472. Omarchy assigned blocks 6–8 and showed workspaces 61, 71 and 81 with full bars. All journal entries were `confirmed`.
+- **Renderer:** the test pattern was only on DP-2. The user confirmed it was clear in the glasses and DP-1 was normal.
+- **Teardown:** SIGTERM to the exact renderer child (parent: the CLI) gave CLI exit 0, `complete`, renderer return code 0.
+- **Afterwards:** the same compositor instance, with no config errors. Workspaces (1, 21), all 5 clients, layers and monitors matched the baseline, except DP-2's session-only 1200p120. Omarchy's merged record was unchanged and no renderer process remained.
+- **Kept on purpose:** Omarchy's registry now permanently holds `XR-1`–`XR-3` as blocks 6–8, as designed.
+
+This is the first successful physical managed lifecycle. It is lifecycle evidence only: no capture, tracking, focus or controls, and no sustained-120 FPS, motion-to-photon or comfort claim. The renderer-crash and controller-crash paths have not yet been run live.
