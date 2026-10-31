@@ -176,5 +176,5 @@ class SupervisorResetTests(unittest.TestCase):
             def kill(self): self.done = True
         child = Child()
         parent.sendall(b'{"op":"view"}\n')     # queued, never read
-        renderer.close(); child.done = True    # renderer gone with unread data
+        renderer.close()                       # renderer gone with unread data; child alive until terminated
         self.assertEqual(Supervisor(child, lambda: 'recovered').run(parent), 'recovered')
