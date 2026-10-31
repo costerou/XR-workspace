@@ -29,9 +29,9 @@ class Transport:
                 records = json.loads(self.path.read_text())['operations']
                 assert any(r['operation']['id'] == p['id'] and r['state'] == 'pending' for r in records)
                 self.registry[p['id']] = {'id': p['id'], 'name': p['name'], 'state': 'live', 'physical': False,
-                    'fallback_usable': True, 'observation': {**{k:p[k] for k in ('width','height','refresh_millihz','scale','x','y','workspace')},
+                    'fallback_usable': True, 'observation': {**{k:p[k] for k in ('width','height','refresh_millihz','scale','x','y')}, 'workspace': 61 + 10 * p['index'],
                     'enabled': True, 'dpms': True, 'mirrored': False, 'transform': 0,
-                    'workspaces': [{'id':p['workspace'], 'name':p['workspace_name'], 'special':False}], 'windows': []}}
+                    'workspaces': [{'id':61 + 10 * p['index'], 'name':str(61 + 10 * p['index']), 'special':False}], 'windows': []}}
                 if p['index'] == self.fail_index: self.registry[p['id']]['state'] = 'failed'
                 if self.lost_reply: raise OSError('reply lost after creation')
             if p['id'] not in self.registry: return b'{"error":"unproven UUID"}'
@@ -150,26 +150,44 @@ class VerifyDiagnosticsTests(unittest.TestCase):
     def setUp(self):
         self.spec = plan_outputs([], [], 'run')[0]
         self.result = {'id': self.spec['id'], 'name': self.spec['name'], 'state': 'live', 'physical': False, 'fallback_usable': True,
-                       'observation': {**{k: self.spec[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y', 'workspace')},
+                       'observation': {**{k: self.spec[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y')}, 'workspace': 61,
                                        'enabled': True, 'dpms': True, 'mirrored': False, 'transform': 0,
-                                       'workspaces': [{'id': self.spec['workspace'], 'name': self.spec['workspace_name'], 'special': False}],
+                                       'workspaces': [{'id': 61, 'name': '61', 'special': False}],
                                        'windows': []}}
 
     def test_mismatch_reports_bounded_expected_and_observed(self):
         bad = copy.deepcopy(self.result)
-        bad['observation']['workspaces'] += [{'id': 21 + i, 'name': 'x\n‮' * 200, 'special': False} for i in range(40)]
+        bad['observation']['workspaces'] += [{'id': -98, 'name': 'special:x\n\u202e' * 200, 'special': True}] + \
+            [{'id': 21 + i, 'name': 'x', 'special': False} for i in range(40)]
         with self.assertRaises(OwnershipBlocked) as raised:
             OwnershipBrokerClient.verify(bad, self.spec)
         message = str(raised.exception)
         self.assertIn('workspace placement mismatch', message)
-        self.assertIn(f"'id': {self.spec['workspace']}", message.replace('"', "'").replace(': ', ': '))
-        self.assertIn('21', message)
+        self.assertIn('-98', message)
+        self.assertTrue(message.endswith('...'))  # bounded: later entries truncated
         self.assertLessEqual(len(message), 700)
         self.assertTrue(message.isascii() and '\n' not in message)
 
     def test_window_mismatch_reports_observed(self):
         bad = copy.deepcopy(self.result)
-        bad['observation']['windows'] = [{'workspace': -98, 'pinned': False}]
-        with self.assertRaisesRegex(OwnershipBlocked, 'unsupported or unreachable mapped window.*-98'):
+        bad['observation']['windows'] = [{'workspace': 62, 'pinned': False}]
+        with self.assertRaisesRegex(OwnershipBlocked, 'unsupported or unreachable mapped window.*62'):
             OwnershipBrokerClient.verify(bad, self.spec)
         OwnershipBrokerClient.verify(self.result, self.spec)
+
+    def test_omarchy_owned_workspaces_and_returning_windows_are_accepted(self):
+        ok = copy.deepcopy(self.result)
+        ok['observation']['workspaces'] = [{'id': 61, 'name': '61', 'special': False}, {'id': 63, 'name': '63', 'special': False}]
+        ok['observation']['workspace'] = 63  # user switched; broker does not pin
+        ok['observation']['windows'] = [{'workspace': 63, 'pinned': False}]
+        OwnershipBrokerClient.verify(ok, self.spec)
+        for bad_windows in ([{'workspace': 63, 'pinned': True}],):
+            bad = copy.deepcopy(ok); bad['observation']['windows'] = bad_windows
+            with self.assertRaises(OwnershipBlocked): OwnershipBrokerClient.verify(bad, self.spec)
+        empty = copy.deepcopy(ok); empty['observation']['workspaces'] = []
+        with self.assertRaises(OwnershipBlocked): OwnershipBrokerClient.verify(empty, self.spec)
+
+    def test_plan_has_stable_names_and_no_workspaces(self):
+        specs = plan_outputs([], [{'id': 1, 'name': '1'}], 'any-run')
+        self.assertEqual([s['name'] for s in specs], ['XR-1', 'XR-2', 'XR-3'])
+        self.assertTrue(all('workspace' not in s and 'workspace_name' not in s for s in specs))

@@ -36,8 +36,9 @@ struct NativeObject : Object {
     SP<Aquamarine::IBackendImplementation> pairBackend;
     std::optional<PairObservation> pairProof; // First DRM identity of a pair-selected object.
     bool legacyDrmEligible=false;
-    PHLWORKSPACE workspace, createdDefault, retirement;
-    std::vector<PHLWORKSPACEREF> beforeCreate, beforeEvacuation;
+    // Workspaces on managed outputs belong to Omarchy/the user; only teardown state is kept.
+    PHLWORKSPACE retirement;
+    std::vector<PHLWORKSPACEREF> beforeEvacuation;
     CHyprSignalListener destroyListener;
     std::optional<Config::CMonitorRule> rule;
     bool ruleLost=false;
@@ -139,11 +140,9 @@ public:
     bool collision(const Json& p) override {
         for(auto& m:State::monitorState()->allMonitors()) if(m->m_name==p["name"].get<std::string>()) return true;
         for(auto& rule:Config::monitorRuleMgr()->all()) if(rule.m_name==p["name"].get<std::string>()) return true;
-        for(auto& w:State::workspaceState()->workspacesCopy()) if(w->m_id==p["workspace"] || w->m_name==p["workspace_name"].get<std::string>()) return true;
         return false;
     }
     bool create(const Json& p,const Capture& capture) override {
-        const auto before=State::workspaceState()->workspacesCopy();
         std::shared_ptr<NativeObject> captured;
         auto listener=g_pCompositor->m_aqBackend->events.newOutput.listen([&](const SP<Aquamarine::IOutput>& output) {
             // Bind at emission, before createOutput returns. No name-based adoption.
@@ -154,23 +153,12 @@ public:
             }
             catch(...) { capture({},false); }
         });
-        const bool result=headless->createOutput(p["name"].get<std::string>());
-        if(captured) {
-            captured->beforeCreate.assign(before.begin(),before.end());
-            auto m=resolve(captured);
-            const auto after=State::workspaceState()->workspacesCopy();
-            if(m && freshDefault(m->m_activeWorkspace,before,after,m)) captured->createdDefault=m->m_activeWorkspace;
-        }
-        return result;
+        return headless->createOutput(p["name"].get<std::string>());
     }
     bool configure(const Handle& h,const Json& p) override {
         auto m=resolve(h); if(!m) return false; auto o=native(h);
-        // Recheck workspace/rule collisions after synchronous creation callbacks.
-        const auto current=State::workspaceState()->workspacesCopy();
-        const auto candidate=o->createdDefault;
-        const bool adopt=freshDefault(candidate,o->beforeCreate,current,m) && candidate->m_id==p["workspace"];
-        for(auto& w:current) if(w->m_id==p["workspace"] || w->m_name==p["workspace_name"].get<std::string>())
-            if(!adopt || w!=candidate) return false;
+        // Recheck rule collisions after synchronous creation callbacks. Workspaces are
+        // never created, adopted, renamed or switched: Omarchy gives each monitor its block.
         for(auto& rule:Config::monitorRuleMgr()->all()) if(rule.m_name==p["name"].get<std::string>()) return false;
         Config::CMonitorRule rule;
         rule.m_name=p["name"]; rule.m_resolution={1920,1080}; rule.m_refreshRate=120;
@@ -183,15 +171,6 @@ public:
         // a deferred reload may skip arrange when the active rule already matches.
         State::monitorLayoutController()->arrange();
         if(!resolve(h)) return false; // layout notifications may destroy the output
-        if(adopt) {
-            // Revalidate the retained object after applyMonitorRule callbacks.
-            if(!freshDefault(candidate,o->beforeCreate,State::workspaceState()->workspacesCopy(),m) ||
-               candidate->m_id!=p["workspace"]) return false;
-            o->workspace=candidate;
-            candidate->rename(p["workspace_name"].get<std::string>());
-        } else o->workspace=State::workspaceState()->create(p["workspace"].get<int64_t>(),m->m_id,p["workspace_name"],true);
-        if(!o->workspace || !resolve(h)) return false;
-        m->changeWorkspace(o->workspace,true,true,true);
         configured.emplace_back(o,p);
         return h->live;
     }
@@ -203,14 +182,11 @@ public:
             if(!sameRule(rule,*o->rule)) { o->ruleLost=true; return false; } ++matched;
         }
         if(matched!=1) { o->ruleLost=true; return false; }
-        auto w=o->workspace;
-        const auto workspaces=State::workspaceState()->workspacesCopy();
-        if(std::find(workspaces.begin(),workspaces.end(),w)==workspaces.end()) return false;
+        // Output identity/geometry only: which workspace is shown is the user's choice.
         return m->m_currentMode && m->m_currentMode->pixelSize==Vector2D(1920,1080) && m->m_currentMode->refreshRate==120000 &&
             m->enabled() && m->m_dpmsStatus && !m->m_mirrorOf && m->m_pixelSize==Vector2D(1920,1080) &&
             m->m_scale==1 && m->m_refreshRate==120 && m->m_position==Vector2D(p["x"].get<double>(),p["y"].get<double>()) &&
-            m->m_transform==WL_OUTPUT_TRANSFORM_NORMAL && w && !w->inert() && w->m_id==p["workspace"] &&
-            w->m_name==p["workspace_name"].get<std::string>() && w->m_monitor==m && m->m_activeWorkspace==w;
+            m->m_transform==WL_OUTPUT_TRANSFORM_NORMAL;
     }
     bool usable(const Handle& h) override {
         auto m=resolve(h);
@@ -271,8 +247,7 @@ public:
         // Deliberately keep `output`: reachable() uses it to prove no monitor still holds that
         // output, and retaining it prevents address reuse from faking that identity.
         auto o=native(h);
-        o->workspace.reset(); o->createdDefault.reset(); o->retirement.reset();
-        o->beforeCreate.clear(); o->beforeEvacuation.clear();
+        o->retirement.reset(); o->beforeEvacuation.clear();
     }
     bool destroy(const Handle& h) override {
         auto m=resolve(h); if(!m) return false;

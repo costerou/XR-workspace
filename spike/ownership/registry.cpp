@@ -27,7 +27,7 @@ Json parse_request(const std::string& wire) {
     else if(op=="pair_observe" && j["schema"]==2) wanted={"target","fallback"};
     else if(op=="inspect") wanted={"id"};
     else if(op=="evacuate_remove") wanted={"id","name","fallback"};
-    else if(op=="create") wanted={"id","name","index","width","height","refresh_millihz","scale","x","y","workspace","workspace_name"};
+    else if(op=="create") wanted={"id","name","index","width","height","refresh_millihz","scale","x","y"};
     else throw std::runtime_error("operation");
     // Schema 2 is the explicit isolated-VM scope: every request carries the mode.
     if(j["schema"]==2) {
@@ -43,13 +43,12 @@ Json parse_request(const std::string& wire) {
         if(!std::regex_match(p[key].get<std::string>(),std::regex("[0-9a-f]{48}"))) throw std::runtime_error("pair handle");
     if(p.contains("id") && !std::regex_match(p["id"].get<std::string>(),std::regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))) throw std::runtime_error("UUID");
     if(op=="create") {
-        for(auto key:{"index","width","height","refresh_millihz","x","y","workspace"})
+        for(auto key:{"index","width","height","refresh_millihz","x","y"})
             if(!p[key].is_number_integer() || (p[key].is_number_unsigned() ? p[key].get<uint64_t>()>2147483647ULL :
                 (p[key].get<int64_t>() < -2147483648LL || p[key].get<int64_t>()>2147483647LL))) throw std::runtime_error("integer");
-        if(p["index"]<0 || p["index"]>2 || p["width"]!=1920 || p["height"]!=1080 || p["refresh_millihz"]!=120000 || !p["scale"].is_number() || p["scale"]!=1 || p["workspace"]<=0) throw std::runtime_error("geometry/workspace");
-        auto prefix="XR-SPIKE-"+j["run_id"].get<std::string>();
-        auto index=std::to_string(p["index"].get<int>());
-        if(p["name"]!=prefix+"-"+index || p["workspace_name"]!=prefix+"-workspace-"+index) throw std::runtime_error("run names");
+        if(p["index"]<0 || p["index"]>2 || p["width"]!=1920 || p["height"]!=1080 || p["refresh_millihz"]!=120000 || !p["scale"].is_number() || p["scale"]!=1) throw std::runtime_error("geometry");
+        // Stable names: Omarchy gives each managed output its own persistent workspace block.
+        if(p["name"]!="XR-"+std::to_string(p["index"].get<int>()+1)) throw std::runtime_error("output name");
     }
     return j;
 }

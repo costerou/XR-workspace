@@ -50,8 +50,8 @@ def validate_operation(op, run_id):
         if type(op["index"]) is not int or not 0 <= op["index"] <= 2147483647:
             raise ValueError("invalid output index")
         token(op["name"])
-        if op["name"] != f"XR-SPIKE-{run_id}-{op['index']}":
-            raise ValueError("output name does not match journal run and index")
+        if op["name"] != f"XR-{op['index'] + 1}":
+            raise ValueError("output name does not match journal index")
     return op
 
 

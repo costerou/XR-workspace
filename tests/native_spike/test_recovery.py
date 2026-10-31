@@ -6,7 +6,7 @@ from tools.native_spike.journal import Journal, recover
 from tools.native_spike.supervisor import Supervisor
 
 ID = "12345678-1234-4234-8234-123456789abc"
-NAME = "XR-SPIKE-run-0"
+NAME = "XR-1"
 
 class FakeHypr:
     def __init__(self):
@@ -78,7 +78,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(self.hypr.commands, [])
     def test_wrong_run_live_output_with_same_uuid_is_not_removed(self):
         oid = self.output()
-        self.hypr.outputs[1]["name"] = "XR-SPIKE-other-0"
+        self.hypr.outputs[1]["name"] = "XR-2"
         self.assertEqual(recover(self.j, self.hypr).remaining, [oid])
         self.assertEqual(self.hypr.commands, [])
 

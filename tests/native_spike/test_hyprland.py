@@ -67,7 +67,7 @@ class HyprlandTests(unittest.TestCase):
             with self.assertRaises(ValueError): h.HyprlandClient(value, self.root)
     def test_mutation_validation_before_socket(self):
         c = h.HyprlandClient(INSTANCE, self.root)
-        for command in ('dispatch exec evil', 'output remove DP-1', 'output remove XR-SPIKE-run-0', 'output create headless X\nexec evil',
+        for command in ('dispatch exec evil', 'output remove DP-1', 'output remove XR-1', 'output create headless X\nexec evil',
                         'keyword input:follow_mouse 4', 'dispatch moveworkspacetomonitor 0 DP-1'):
             with self.assertRaises(ValueError): c.mutate(command)
     def test_response_cap(self):
@@ -119,16 +119,16 @@ class HyprlandTests(unittest.TestCase):
         self.assertEqual(a.query('settings'), {'input:follow_mouse': 1})
         self.assertTrue(a.query('outputs')[0]['physical'])
     def test_name_and_numeric_id_never_become_uuid_ownership(self):
-        raw = RawFixture(); raw.monitors[0]['name'] = 'XR-SPIKE-run-0'
+        raw = RawFixture(); raw.monitors[0]['name'] = 'XR-1'
         a = h.RecoveryAdapter(raw, approved_physical='DP-1')
         with self.assertRaises(h.OwnershipBlocked): a.query('outputs')
         journal = Journal.open(self.root / 'journal.json', 'run', 'verified-session')
         journal.prepare({'kind': 'output', 'id': '12345678-1234-4234-8234-123456789abc',
-                         'name': 'XR-SPIKE-run-0', 'index': 0, 'before': None})
+                         'name': 'XR-1', 'index': 0, 'before': None})
         self.assertFalse(recover(journal, a).complete)
         self.assertEqual(raw.commands, [])
     def test_ok_without_output_is_failure(self):
-        with self.assertRaises(ValueError): h.verify_output([], {'name': 'XR-SPIKE-run-0'})
+        with self.assertRaises(ValueError): h.verify_output([], {'name': 'XR-1'})
     def test_creation_is_blocked_before_partial_mutation(self):
         raw = RawFixture(); journal = Journal.open(self.root / 'journal.json', 'run', 'verified-session')
         specs = h.plan_outputs(raw.monitors, [], 'run')
@@ -136,11 +136,13 @@ class HyprlandTests(unittest.TestCase):
         self.assertEqual(raw.commands, []); self.assertEqual(journal.operations, [])
     def test_layout_does_not_overlap_scaled_existing_outputs(self):
         raw = RawFixture(); raw.monitors[0].update(x=-100, width=3840, scale=2.0)
-        specs = h.plan_outputs(raw.monitors, [{'id': 1, 'name': 'XR-SPIKE-run-0'}], 'run')
+        specs = h.plan_outputs(raw.monitors, [{'id': 1, 'name': '1'}], 'run')
         self.assertEqual([(s['width'], s['height'], s['refresh_millihz'], s['scale']) for s in specs],
                          [(1920, 1080, 120000, 1.0)] * 3)
         self.assertEqual([s['x'] for s in specs], [1820, 3740, 5660])
-        self.assertEqual([s['workspace'] for s in specs], [2, 3, 4])
+        self.assertEqual([s['name'] for s in specs], ['XR-1', 'XR-2', 'XR-3'])
+        raw.monitors.append(dict(raw.monitors[0], id=1, name='XR-2', x=9000))
+        with self.assertRaises(ValueError): h.plan_outputs(raw.monitors, [], 'run')  # stale/orphan name
         self.assertEqual(len({s['id'] for s in specs}), 3)
     def test_rotated_output_reserves_transformed_logical_rectangle(self):
         raw = RawFixture(); raw.monitors[0].update(width=1080, height=1920, transform=1)
@@ -154,7 +156,7 @@ class HyprlandTests(unittest.TestCase):
         adapter = h.RecoveryAdapter(raw, approved_physical='DP-1')
         journal = Journal.open(self.root / 'journal.json', 'run', 'verified-session')
         journal.prepare({'kind': 'output', 'id': '12345678-1234-4234-8234-123456789abc',
-                         'name': 'XR-SPIKE-run-0', 'index': 0, 'before': None})
+                         'name': 'XR-1', 'index': 0, 'before': None})
         self.assertFalse(recover(journal, adapter).complete)
         self.assertEqual(raw.commands, [])
     def test_supervisor_wiring_sends_start_and_recovers_after_child_exit(self):

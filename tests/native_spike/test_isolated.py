@@ -108,9 +108,9 @@ class PairTransport:
                 records = json.loads(self.path.read_text())['operations']
                 assert any(r['operation']['id'] == p['id'] and r['state'] == 'pending' for r in records)
                 self.registry[p['id']] = {'id': p['id'], 'name': p['name'], 'state': 'live', 'physical': False,
-                    'fallback_usable': True, 'observation': {**{k: p[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y', 'workspace')},
+                    'fallback_usable': True, 'observation': {**{k: p[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y')}, 'workspace': 61 + 10 * p['index'],
                     'enabled': True, 'dpms': True, 'mirrored': False, 'transform': 0,
-                    'workspaces': [{'id': p['workspace'], 'name': p['workspace_name'], 'special': False}], 'windows': []}}
+                    'workspaces': [{'id': 61 + 10 * p['index'], 'name': str(61 + 10 * p['index']), 'special': False}], 'windows': []}}
             if p['id'] not in self.registry: return b'{"error":"unproven UUID"}'
             if op == 'evacuate_remove':
                 assert p['fallback'] == FALLBACK

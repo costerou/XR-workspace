@@ -119,9 +119,18 @@ int main(int argc,char** argv) {
         bool bad=false; try { parse_request(wire); } catch(...) {bad=true;} CHECK(bad);
     }
     valid["op"]="create";
-    valid["payload"]={{"id","12345678-1234-4234-8234-123456789abc"},{"name","XR-SPIKE-run-0"},{"index",0},{"width",1920},{"height",1080},
-        {"refresh_millihz",120000},{"scale",1.0},{"x",0},{"y",0},{"workspace",1},{"workspace_name","XR-SPIKE-run-workspace-0"}};
+    valid["payload"]={{"id","12345678-1234-4234-8234-123456789abc"},{"name","XR-1"},{"index",0},{"width",1920},{"height",1080},
+        {"refresh_millihz",120000},{"scale",1.0},{"x",0},{"y",0}};
     CHECK(parse_request("xrspike "+valid.dump())==valid);
+    // Stable Omarchy-monitor names; workspaces are never planned by the broker.
+    for(int fault=0;fault<4;++fault) {
+        auto bad=valid;
+        if(fault==0) bad["payload"]["name"]="XR-SPIKE-run-0";
+        if(fault==1) bad["payload"]["name"]="XR-2";
+        if(fault==2) bad["payload"]["workspace"]=1;
+        if(fault==3) bad["payload"]["name"]="XR-01";
+        bool rejected=false; try { parse_request("xrspike "+bad.dump()); } catch(...) {rejected=true;} CHECK(rejected);
+    }
     valid["payload"]["x"]=18446744073709551615ULL;
     bool overflow=false; try { parse_request("xrspike "+valid.dump()); } catch(...) {overflow=true;} CHECK(overflow);
     std::cout << "ownership lifecycle passed\n";

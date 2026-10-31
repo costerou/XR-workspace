@@ -81,7 +81,6 @@ Layout layout;
 Layout* monitorLayoutController(){return &layout;}
 }
 struct NativeObject: Object {
- W createdDefault,workspace; std::vector<W> beforeCreate;
  std::optional<Config::CMonitorRule> rule; bool ruleLost=false;
 };
 auto native(const Handle& h){return std::static_pointer_cast<NativeObject>(h);}
@@ -94,8 +93,8 @@ struct NativeBackend: Backend {
  bool collision(const Json&) override{return false;}
  bool create(const Json&,const Capture& capture) override {
    auto w=std::make_shared<Workspace>(); w->m_monitor=monitor;
-   monitor->m_activeWorkspace=w; State::ws.workspaces.push_back(w);
-   object->createdDefault=w; capture(object,true); return true;
+   monitor->m_activeWorkspace=w; State::ws.workspaces.push_back(w); // Hyprland/Omarchy's choice
+   capture(object,true); return true;
  }
 #include "ownership_methods.inc"
  bool usable(const Handle&) override{return true;}
@@ -106,8 +105,7 @@ struct NativeBackend: Backend {
  bool destroy(const Handle&) override{return false;}
 };
 Json spec(int x,int y) {
- return {{"id","offset"},{"name","XR-SPIKE-offset-0"},{"workspace",2},
-         {"workspace_name","XR-SPIKE-offset-workspace-0"},{"x",x},{"y",y}};
+ return {{"id","offset"},{"name","XR-1"},{"x",x},{"y",y}};
 }
 int main() {
  try {
@@ -115,12 +113,17 @@ int main() {
      NativeBackend b; Registry r(b); auto p=spec(pos.x,pos.y);
      CHECK(r.create("s","r",p)=="live");
      CHECK(b.monitor->m_position==pos); CHECK(State::layout.calls==1);
-     CHECK(b.object->workspace==b.object->createdDefault);
-     CHECK(b.object->workspace->m_name=="XR-SPIKE-offset-workspace-0");
+     // configure never adopts, renames, creates or switches workspaces.
+     auto original=State::ws.workspaces.at(0);
+     CHECK(State::ws.workspaces.size()==1 && b.monitor->m_activeWorkspace==original && original->m_name=="2");
      // Later deferred reload sees full rule equality, so performs no arrange.
      CHECK(Config::sameRule(Config::rules.rules.at(0),b.monitor->active));
      CHECK(r.inspect("s","r","offset")=="live");
      CHECK(r.create("s","r",p)=="live"); CHECK(State::layout.calls==1);
+     // The user (or Omarchy) switching workspaces on a managed output keeps it live.
+     auto other=std::make_shared<Workspace>(); other->m_id=72; other->m_name="72"; other->m_monitor=b.monitor;
+     b.monitor->m_activeWorkspace=other; State::ws.workspaces.push_back(other);
+     CHECK(r.inspect("s","r","offset")=="live");
      b.monitor->m_position.x+=1;
      CHECK(r.inspect("s","r","offset")=="invalid");
    }

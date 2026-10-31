@@ -127,20 +127,22 @@ class OwnershipBrokerClient:
             raise OwnershipBlocked('creation incomplete')
         o = result['observation']
         if not isinstance(o, dict): raise OwnershipBlocked('missing readback')
-        for key in ('width','height','refresh_millihz','scale','x','y','workspace'):
+        for key in ('width','height','refresh_millihz','scale','x','y'):
             value = o.get(key)
             if type(value) not in (int,float) or not math.isfinite(value) or value != spec[key]:
                 raise OwnershipBlocked('actual geometry/workspace mismatch')
         if o.get('enabled') is not True or o.get('dpms') is not True or o.get('mirrored') is not False or type(o.get('transform')) is not int or o['transform'] != 0:
             raise OwnershipBlocked('unusable output')
+        # Workspaces belong to Omarchy/the user: any regular ones, windows unpinned on them.
         workspaces = o.get('workspaces')
-        if (workspaces != [{'id':spec['workspace'], 'name':spec['workspace_name'], 'special':False}]
-                or type(workspaces[0]['id']) is not int or workspaces[0]['special'] is not False):
-            expected = {'id': spec['workspace'], 'name': spec['workspace_name'], 'special': False}
-            raise OwnershipBlocked(f'workspace placement mismatch: expected {_brief([expected])} observed {_brief(workspaces)}')
+        if (not isinstance(workspaces, list) or not workspaces or any(
+                not isinstance(w, dict) or set(w) != {'id', 'name', 'special'} or type(w['id']) is not int
+                or w['id'] <= 0 or w['special'] is not False or not isinstance(w['name'], str) for w in workspaces)):
+            raise OwnershipBlocked(f'workspace placement mismatch: expected regular workspaces observed {_brief(workspaces)}')
+        ids = {w['id'] for w in workspaces}
         windows = o.get('windows')
-        if not isinstance(windows,list) or any(not isinstance(w,dict) or type(w.get('workspace')) is not int or w.get('workspace') != spec['workspace'] or w.get('pinned') is not False for w in windows):
-            raise OwnershipBlocked(f"unsupported or unreachable mapped window: workspace {spec['workspace']} observed {_brief(windows)}")
+        if not isinstance(windows,list) or any(not isinstance(w,dict) or type(w.get('workspace')) is not int or w.get('workspace') not in ids or w.get('pinned') is not False for w in windows):
+            raise OwnershipBlocked(f"unsupported or unreachable mapped window: workspaces {sorted(ids)} observed {_brief(windows)}")
 
     def evacuate_remove(self, output_id, output_name):
         observed = self.inspect(output_id)
