@@ -16,6 +16,7 @@
 #include <sys/sysmacros.h>
 #include <sys/random.h>
 #include <optional>
+#include <type_traits>
 #include <thread>
 #include "registry.hpp"
 #include "lifecycle.hpp"
@@ -41,6 +42,9 @@ struct NativeObject : Object {
     std::optional<Config::CMonitorRule> rule;
     bool ruleLost=false;
 };
+// Regression guard (phys1 crash): never retain a CMonitor strongly; the boundary test's own
+// NativeObject double cannot detect a revert of this production field.
+static_assert(std::is_same_v<decltype(NativeObject::monitor), PHLMONITORREF>, "broker must hold monitors weakly");
 auto native(const Handle& h) { return std::static_pointer_cast<NativeObject>(h); }
 bool eraseRule(NativeObject& o) {
     if(!o.rule) return true;
