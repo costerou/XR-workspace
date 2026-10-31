@@ -33,6 +33,8 @@ struct Fake : Backend {
     bool reachable(const Handle&,const Handle&) override { return reach; }
     bool destroy(const Handle& o) override { ++destroys; removed.push_back(o); o->live=false; o->live=false; return true; }
     bool cleanup(const Handle&,const Json&) override { return rule; }
+    std::vector<Handle> released;
+    void release(const Handle& o) override { released.push_back(o); }
 };
 Json spec(int index=0) { return {{"id", "uuid"+std::to_string(index)}, {"name","output"+std::to_string(index)}}; }
 int main(int argc,char** argv) {
@@ -47,8 +49,11 @@ int main(int argc,char** argv) {
     CHECK(b.workspace[b.objects[0]]!=b.workspace[b.objects[1]] && b.workspace[b.objects[1]]!=b.workspace[b.objects[2]]);
     CHECK(*b.workspace[b.objects[0]]==1 && *b.workspace[b.objects[1]]==2 && *b.workspace[b.objects[2]]==3);
     CHECK(r.create("session","run",spec())=="live"); CHECK(b.creates==3);
+    CHECK(b.released.empty());
     CHECK(r.remove("session","run","uuid0",b.fallback)=="dead");
-    CHECK(r.remove("session","run","uuid0",b.fallback)=="dead"); CHECK(b.destroys==1);
+    // Workspace/snapshot references are dropped once dead (lingering empty workspaces).
+    CHECK(b.released.size()==1 && b.released[0]==b.objects[0]);
+    CHECK(r.remove("session","run","uuid0",b.fallback)=="dead"); CHECK(b.destroys==1 && b.released.size()==1);
     CHECK(r.create("session","run",spec())=="dead"); CHECK(b.creates==3);
     b.reach=false;
     CHECK(r.remove("session","run","uuid0",b.fallback)=="blocked");
@@ -74,7 +79,7 @@ int main(int argc,char** argv) {
     for(int fault=0;fault<5;++fault) {
         Fake f; Registry registry(f); CHECK(registry.create("s","r",spec())=="live");
         f.reach=fault!=0; f.migration=fault!=1; f.special=fault==2; f.pinned=fault==3; f.dropFallback=fault==4;
-        CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==0);
+        CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==0 && f.released.empty());
     }
     { // A replacement with the same lookup metadata is never a capability.
         Fake f; Registry registry(f); registry.create("s","r",spec()); auto original=f.source;
