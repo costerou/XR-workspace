@@ -57,16 +57,18 @@ def run_managed(client, consent, runtime):
         return _run_owned(client, journal, broker, output, fallback, specs)
 
 
-def _run_owned(client, journal, broker, output, fallback, specs):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None):
     session = journal.session
     with journal.transaction():
         if journal.operations or journal.broker is not None:
             raise OwnershipBlocked('existing run requires explicit recovery; use a fresh run id')
-    journal.bind_broker({'instance': client.instance, 'output': output, 'recovery_output': fallback,
-                         'epoch': broker.epoch, 'fallback': broker.fallback})
+    if context is None:
+        context = {'instance': client.instance, 'output': output, 'recovery_output': fallback,
+                   'epoch': broker.epoch, 'fallback': broker.fallback}
+    journal.bind_broker(context)
     try:
         create_outputs(specs, journal, broker)
-        guard = ManagedGuard(broker, output, specs)
+        if guard is None: guard = ManagedGuard(broker, output, specs)
         guard()
         with client.connect_wayland(session) as wayland:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard)

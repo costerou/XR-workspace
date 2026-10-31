@@ -11,6 +11,9 @@ from .ipc import strict_json, token
 
 
 class OwnershipBrokerClient:
+    SCHEMA = 1
+    HELLO = 'hello'
+
     def __init__(self, transport, run_id, session, approved_physical):
         self.transport = transport
         self.client = transport  # Verified raw peer used only by the existing launcher.
@@ -26,6 +29,7 @@ class OwnershipBrokerClient:
         from .journal import validate_broker
         with journal.transaction():
             context = validate_broker(journal.broker)
+        if 'mode' in context: raise OwnershipBlocked('isolated journal requires isolated recovery')
         if transport.instance != context['instance']:
             raise OwnershipBlocked('saved compositor instance mismatch')
         client = cls(transport, journal.run_id, journal.session, context['recovery_output'])
@@ -42,9 +46,9 @@ class OwnershipBrokerClient:
         self.verified_session()
         self.request_id += 1
         if self.request_id > 2147483647: raise OwnershipBlocked('request capacity')
-        envelope = {'schema': 1, 'session': self.session, 'run_id': self.run_id,
+        envelope = {'schema': self.SCHEMA, 'session': self.session, 'run_id': self.run_id,
                     'request_id': self.request_id, 'epoch': self.epoch or 'unknown',
-                    'op': op, 'payload': payload}
+                    'op': op, 'payload': self._payload(payload)}
         wire = 'j/xrspike ' + json.dumps(envelope, allow_nan=False, separators=(',', ':'), ensure_ascii=True)
         if len(wire) > 8194: raise ValueError('broker request exceeds 8 KiB')
         raw = self.transport._request(wire)
@@ -57,11 +61,14 @@ class OwnershipBrokerClient:
                 raise OwnershipBlocked('broker identity/reply mismatch')
         epoch = token(reply['epoch'])
         if self.epoch is not None and self.epoch != epoch: raise OwnershipBlocked('broker epoch lost; preserve journal')
-        if op != 'hello' and self.epoch is None: raise OwnershipBlocked('handshake required')
+        if op != self.HELLO and self.epoch is None: raise OwnershipBlocked('handshake required')
         if not isinstance(reply['result'], dict): raise OwnershipBlocked('invalid broker result')
         self.verified_session()
-        if op == 'hello': self.epoch = epoch
+        if op == self.HELLO: self.epoch = epoch
         return reply['result']
+
+    def _payload(self, payload):
+        return payload
 
     def require_output_ownership(self):
         if self.epoch is not None: return
@@ -143,3 +150,86 @@ class OwnershipBrokerClient:
 
     def mutate(self, command):
         raise OwnershipBlocked('no raw mutations through broker')
+
+
+MODE = 'isolated-vm'
+_SIDE = {'handle', 'name', 'device_major', 'device_minor', 'connector_id', 'drm_eligible',
+         'classification', 'enabled', 'dpms', 'mirrored'}
+
+
+def parse_pair(result, target_name, fallback_name):
+    """Validate a native schema-2 pair reply. Returns ((target, fallback) handles, proof).
+
+    The proof is a DRM object binding only: never a physical or VM classification.
+    """
+    import re
+    if not isinstance(result, dict) or set(result) != {'mode', 'target', 'fallback'} or result['mode'] != MODE:
+        raise OwnershipBlocked('invalid pair proof')
+    handles, proof = [], {}
+    for key, name in (('target', target_name), ('fallback', fallback_name)):
+        s = result[key]
+        if not isinstance(s, dict) or set(s) != _SIDE or s['name'] != name:
+            raise OwnershipBlocked('pair proof scope mismatch')
+        if not isinstance(s['handle'], str) or not re.fullmatch(r'[0-9a-f]{48}', s['handle']):
+            raise OwnershipBlocked('invalid pair handle')
+        for field, low in (('device_major', 1), ('device_minor', 0), ('connector_id', 1)):
+            if type(s[field]) is not int or not low <= s[field] <= 4294967295:
+                raise OwnershipBlocked('invalid DRM identity')
+        if (s['drm_eligible'] is not True or s['classification'] != 'unclassified' or s['enabled'] is not True
+                or s['dpms'] is not True or s['mirrored'] is not False):
+            raise OwnershipBlocked('pair output not usable or misclassified')
+        handles.append(s['handle'])
+        proof[key] = {'name': name, 'device': f"{s['device_major']}:{s['device_minor']}", 'connector': s['connector_id']}
+    if handles[0] == handles[1] or (proof['target']['device'], proof['target']['connector']) == \
+            (proof['fallback']['device'], proof['fallback']['connector']):
+        raise OwnershipBlocked('pair outputs alias')
+    return tuple(handles), proof
+
+
+class IsolatedBrokerClient(OwnershipBrokerClient):
+    """Explicit isolated-VM schema-2 client. Never sends a schema-1 request."""
+    SCHEMA = 2
+    HELLO = 'pair_hello'
+
+    def __init__(self, transport, run_id, session, target_name, fallback_name):
+        super().__init__(transport, run_id, session, fallback_name)
+        self.target_name = token(target_name)
+        if self.target_name == self.approved_physical: raise ValueError('independent recovery output required')
+        self.target = None
+        self.proof = None
+
+    def _payload(self, payload):
+        return {**payload, 'mode': MODE}
+
+    @classmethod
+    def from_journal(cls, transport, journal):
+        """Restore saved epoch/handles/proof; never pair_hello or select by name."""
+        from .journal import validate_broker
+        with journal.transaction():
+            context = validate_broker(journal.broker)
+        if context.get('mode') != MODE: raise OwnershipBlocked('journal is not isolated-mode authority')
+        if transport.instance != context['instance']:
+            raise OwnershipBlocked('saved compositor instance mismatch')
+        client = cls(transport, journal.run_id, journal.session, context['output'], context['recovery_output'])
+        client.epoch, client.fallback, client.target = context['epoch'], context['fallback'], context['target']
+        client.proof = context['proof']
+        client.verified_session()
+        return client
+
+    def require_output_ownership(self):
+        if self.epoch is not None: return
+        try:
+            result = self._call('pair_hello', {'target_name': self.target_name, 'fallback_name': self.approved_physical})
+            (self.target, self.fallback), self.proof = parse_pair(result, self.target_name, self.approved_physical)
+        except (ValueError, OSError, TypeError, KeyError):
+            self.epoch = self.target = self.fallback = self.proof = None
+            raise
+
+    def observe_pair(self):
+        """Full target+fallback revalidation through saved handles only."""
+        if self.epoch is None or self.target is None: raise OwnershipBlocked('pair authority missing')
+        result = self._call('pair_observe', {'target': self.target, 'fallback': self.fallback})
+        handles, proof = parse_pair(result, self.target_name, self.approved_physical)
+        if handles != (self.target, self.fallback) or proof != self.proof:
+            raise OwnershipBlocked('pair identity changed')
+        return proof
