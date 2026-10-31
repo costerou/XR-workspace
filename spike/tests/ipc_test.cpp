@@ -49,5 +49,20 @@ int main() {
     require(queue.pop()->request_id == 1);
     require(std::holds_alternative<xr::Error>(queue.push(wire(8))));
     require(std::holds_alternative<std::monostate>(queue.push(wire(9))));
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay: PASS\n";
+    // View control (zoom / select / spacing), bounded.
+    auto view = [](const std::string& payload) {
+        return std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"view","payload":)") + payload + "}\n";
+    };
+    auto view_decoded = xr::decode_control(view(R"({"zoomed":true,"selected":2,"spacing":40})"));
+    require(std::holds_alternative<xr::ControlMessage>(view_decoded));
+    auto& message = std::get<xr::ControlMessage>(view_decoded);
+    require(message.op == xr::ControlOp::view);
+    auto& v = std::get<xr::ViewPayload>(message.payload);
+    require(v.zoomed && v.selected == 2 && v.spacing == 40);
+    for (const char* bad : {R"({"zoomed":1,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":3,"spacing":0})",
+                            R"({"zoomed":true,"selected":0,"spacing":401})", R"({"zoomed":true,"selected":-1,"spacing":0})",
+                            R"({"zoomed":true,"selected":0})", R"({"zoomed":true,"selected":0,"spacing":0,"x":1})",
+                            R"({"zoomed":true,"selected":0.5,"spacing":0})"})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view: PASS\n";
 }

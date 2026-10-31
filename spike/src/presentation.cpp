@@ -19,7 +19,7 @@ std::uint32_t animated_pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint
 }
 void apply_presentation_policy(SurfaceRequests& surface) {
     surface.keyboard_interactivity(0); // ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE
-    surface.exclusive_zone(0);
+    surface.exclusive_zone(-1);  // cover the whole output, including other surfaces' reserved zones (bar)
     surface.empty_input_region();
     surface.commit();
 }

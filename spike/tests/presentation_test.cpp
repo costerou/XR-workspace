@@ -42,7 +42,7 @@ int main() {
     Requests requests;
     xr::apply_presentation_policy(requests);
     check(requests.keyboard == std::vector<int>{0}, "test_presentation_never_requests_keyboard");
-    check(requests.exclusive == std::vector<int>{0}, "exclusive zone must be zero");
+    check(requests.exclusive == std::vector<int>{-1}, "exclusive zone must be -1 (cover the bar's reserved area)");
     check(requests.empty_regions == 1 && requests.commits == 1, "empty input region before first commit");
     check(xr::layer_version(9) == 4 && xr::layer_version(2) == 2 && xr::layer_version(0) == 0, "version never exceeds pinned XML v4");
     check(xr::pattern_pixel(0, 0, 300, 100) == 0xffff3030U, "left red desktop");

@@ -1,6 +1,7 @@
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
 #include "xr/capture.hpp"
+#include <cerrno>
 #include <charconv>
 #include <csignal>
 #include <cstdlib>
@@ -80,8 +81,34 @@ int main(int argc, char** argv) {
     int result = 0;
     if (!report(presentation.open(args["--output"], capture))) result = 1;
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
+    // Further supervisor frames (view, stop) on the same private socket; replay-protected queue.
+    xr::ControlQueue queue(args["--run-id"], args["--session"]);
+    (void)queue.push(raw);  // the validated start frame sets the replay floor
+    std::string pending;
+    auto read_control = [&]() -> bool {
+        char buffer[4096];
+        for (;;) {
+            const ssize_t n = recv(control, buffer, sizeof(buffer), MSG_DONTWAIT);
+            if (n == 0) return false;  // supervisor gone
+            if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
+            pending.append(buffer, std::size_t(n));
+            if (pending.size() > 65536) return false;
+            for (std::size_t nl; (nl = pending.find('\n')) != std::string::npos;) {
+                auto frame = pending.substr(0, nl + 1); pending.erase(0, nl + 1);
+                if (!std::holds_alternative<std::monostate>(queue.push(frame))) return false;  // malformed/replayed: stop
+                while (auto m = queue.pop()) {
+                    if (m->op == xr::ControlOp::stop) stopping = 1;
+                    else if (m->op == xr::ControlOp::view) {
+                        const auto& v = std::get<xr::ViewPayload>(m->payload);
+                        presentation.set_view(v.zoomed, v.selected, v.spacing);
+                    }
+                }
+            }
+        }
+    };
     while (!stopping && !result && !presentation.finished()) {
         if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) { result = 1; break; }
+        if (!read_control()) { std::cerr << "control: supervisor channel closed or invalid\n"; result = 1; break; }
         if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) { result = 1; break; }
     }
     presentation.close(); // Pending feedback becomes abandoned, never invented discard.
