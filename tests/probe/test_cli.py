@@ -136,6 +136,24 @@ class CliTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertNotIn('PRIVATE', self.stderr.getvalue())
 
+    def test_huge_refresh_stops_at_discovery_before_selection_or_report(self):
+        from tools.xr_probe.session import discover_sessions
+        def run(argv):
+            rows = ([{'instance': 'synthetic-instance', 'pid': 123}]
+                    if argv == ['hyprctl', 'instances', '-j'] else
+                    [{'name': 'DP-1', 'refreshRate': 120},
+                     {'name': 'DP-2', 'refreshRate': 10**400}])
+            return ProbeResult('ok', json.dumps(rows), '')
+        self.kw['discover'] = lambda: discover_sessions(run)
+        def forbidden(*args):
+            self.fail('failed discovery must not select or collect capabilities')
+        self.kw.update(usb=forbidden, drm=forbidden, host=forbidden)
+        with patch.object(self.cli, 'select_session', side_effect=forbidden):
+            self.assertEqual(self.collect(), 3)
+        self.assertIn('Session discovery failed: error', self.stderr.getvalue())
+        self.assertFalse(self.output.exists())
+        self.assertEqual(self.stdout.getvalue(), '')
+
     def test_inventory_failure_writes_honest_partial_report_exit_three(self):
         self.kw['usb'] = lambda: ProbeResult('permission_denied', None, 'PRIVATE')
         self.assertEqual(self.collect(), 3)

@@ -46,11 +46,20 @@ Both new files are completely staged and fsynced before either destination is re
 - USB discovery matches vendor `35ca` without guessing Beast/Luma Ultra from a product ID. Successful empty USB inventory means no matching USB device was observed, not proof that no glasses/display transport exists.
 - DRM lists connector status and mode names. Mode names without refresh information do not establish 120 Hz support.
 - Hyprland active width/height/refresh is compositor-reported state, **not measured presentation or sustained refresh**. A desktop monitor reporting a refresh rate is not attributed to glasses.
-- Available refresh-bearing modes and USB/DRM/output-to-glasses associations are not collected by the current session probe. They remain unknown.
+- Available refresh-bearing modes and USB/DRM/output-to-glasses associations are not collected automatically by the current session probe; its report fields remain unknown. Separately collected, user-confirmed pair observations below supply supplemental mode tokens and pair attribution, not a general association algorithm.
 - Tracking quality and sustained 120 Hz always remain untested; no SDK or timing measurements occur.
 - Host metadata uses only existing allowlisted `uname -m`, filtered `lspci` GPU lines, selected-instance `hyprctl version -j`, and `pkg-config --modversion libdrm`. Hyprland's value is its runtime version; libdrm's is development metadata, not a package-manager release. Mesa, Linux package, and nvidia-utils versions remain unknown rather than guessed from unrelated sources.
 
-The versioned baseline in `docs/feasibility/host-report.{json,md}` was collected on **2026-10-31 at 15:09:31 UTC**. It observed one physical Samsung Odyssey G93SD output at compositor-reported 5120×1440 / 240 Hz, and no matching VITURE USB device. This is host-only evidence, not a Beast or Luma Ultra acceptance result. Pair-specific collection and all tracking/performance validation remain pending.
+The versioned baseline in `docs/feasibility/host-report.{json,md}` was collected on **2026-10-31 at 15:09:31 UTC**. It observed one physical Samsung Odyssey G93SD output at compositor-reported 5120×1440 / 240 Hz, and no matching VITURE USB device. This is host-only evidence, not a Beast or Luma Ultra acceptance result. At baseline collection time, pair-specific enumeration was still pending; that historical snapshot remains unchanged.
+
+**Current stage: milestone A read-only pair enumeration and backend decision are complete; milestone B is a future, unapproved execution plan.** See:
+
+- [Luma Ultra observations and report](docs/feasibility/luma-ultra/): active compositor-reported **1920×1080 at 60 Hz**; a separate explicit-session observation advertised `1920x1200@120.00Hz`, **not 1080p120**. The CLI did not collect those available-mode tokens.
+- [Connected Beast observations and report](docs/feasibility/beast-connected/): active compositor-reported **1920×1080 at 120 Hz**, not measured XR presentation cadence. Supplemental advertisements distinguish `120.00Hz` from `119.88Hz`.
+- [First, unsuccessful Beast enumeration](docs/feasibility/beast/): retained separately; no matching USB device or second display was observed in that attempt.
+- [Backend decision and outstanding gates](docs/feasibility/backend-decision.md) and [future native-spike plan](docs/superpowers/plans/2026-10-31-viture-native-spike.md).
+
+Tracking, sustained presentation/performance and runtime integration remain **untested and unapproved**. No native spike, SDK initialization, input monitoring or device/mode change is authorized by these documents or by passing the diagnostic tests.
 
 ## Tests
 

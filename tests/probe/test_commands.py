@@ -1,7 +1,10 @@
 """Synthetic fixtures only; never query the host compositor or XR hardware."""
 import os
+from pathlib import Path
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 from unittest.mock import patch
@@ -78,6 +81,79 @@ class CommandTests(unittest.TestCase):
                 self.assertLessEqual(len(result.data.encode()), 128)
                 self.assertLessEqual(len(result.detail.encode()), 128)
 
+    def test_inherited_pipe_descendants_die_on_timeout_and_overflow(self):
+        # Removing group kill must fail even if the direct parent was reaped.
+        real_popen, kill_group = subprocess.Popen, os.killpg
+        for parent_exits in (False, True):
+            for overflow in (False, True):
+                with self.subTest(parent_exits=parent_exits, overflow=overflow), tempfile.TemporaryDirectory() as tmp:
+                    pidfile, gate = Path(tmp) / 'pid', Path(tmp) / 'go'
+                    children = []
+                    code = f"""
+import os, signal, time
+from pathlib import Path
+signal.alarm(5)  # Independent lifetime cap even if the runner regresses.
+pid = os.fork()
+if pid:
+    if {parent_exits!r}:
+        os._exit(0)
+    os.waitpid(pid, 0)
+else:
+    signal.alarm(5)  # alarm is not inherited across fork.
+    Path({str(pidfile)!r}).write_text(str(os.getpid()))
+    while not Path({str(gate)!r}).exists():
+        time.sleep(0.005)
+    if {overflow!r}:
+        os.write(1, b'x' * 4096)
+    time.sleep(10)
+"""
+                    def spawn(argv, **kwargs):
+                        child = real_popen([sys.executable, '-c', code], **kwargs)
+                        children.append(child)
+                        deadline = time.monotonic() + 1
+                        while (not pidfile.exists() or
+                               (parent_exits and child.poll() is None)):
+                            if time.monotonic() >= deadline:
+                                self.fail('synthetic process tree did not become ready')
+                            time.sleep(0.005)
+                        gate.touch()
+                        return child
+
+                    def running(pid):
+                        # Orphans may remain zombies until the host's reaper runs;
+                        # zombies cannot execute or retain inherited pipe FDs.
+                        try:
+                            stat = Path(f'/proc/{pid}/stat').read_text()
+                        except (FileNotFoundError, ProcessLookupError):
+                            return False
+                        return stat.rsplit(')', 1)[1].split()[0] not in ('Z', 'X')
+
+                    try:
+                        started = time.monotonic()
+                        with patch('subprocess.Popen', side_effect=spawn):
+                            result = run_probe(['uname', '-m'], timeout_s=0.5, max_bytes=128)
+                        descendant = int(pidfile.read_text())
+                        self.assertEqual(result.status, 'truncated' if overflow else 'timeout')
+                        self.assertLess(time.monotonic() - started, 3)
+                        deadline = time.monotonic() + 0.5
+                        while running(descendant) and time.monotonic() < deadline:
+                            time.sleep(0.005)
+                        self.assertFalse(running(descendant), 'inherited-pipe descendant still running')
+                        for child in children:
+                            with self.assertRaises(ChildProcessError):
+                                os.waitpid(child.pid, os.WNOHANG)
+                    finally:
+                        # Kill fixture groups even when readiness/result assertions fail.
+                        for child in children:
+                            try:
+                                kill_group(child.pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                pass
+                            child.wait(timeout=6)
+                            for pipe in (child.stdout, child.stderr):
+                                if pipe:
+                                    pipe.close()
+
     def test_mocked_nonzero_exit_is_not_ok(self):
         from unittest.mock import Mock
         real_popen = subprocess.Popen
@@ -120,7 +196,8 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(hasattr(model, 'SessionCandidate'))
         self.assertTrue(hasattr(model, 'HostReport'))
         result = model.ProbeResult('missing', None, 'synthetic')
-        candidate = model.SessionCandidate('synthetic_1_2', 123, None, [], 'unknown')
+        candidate = model.SessionCandidate('synthetic_1_2', 123, None,
+                                           [{'mode': {'width': 1920}}], 'unknown')
         report = model.HostReport(1, '2026-01-01T00:00:00Z', {},
                                   model.to_dict(candidate), result, result, {})
         for obj, field, value in ((result, 'status', 'ok'),
@@ -132,7 +209,9 @@ class CommandTests(unittest.TestCase):
                                             'detail': 'synthetic'})
         self.assertEqual(json.loads(model.to_json(report)), serialized)
         serialized['session']['outputs'].append({'name': 'synthetic'})
-        self.assertEqual(candidate.outputs, [])
+        serialized['session']['outputs'][0]['mode']['width'] = 1
+        self.assertEqual(report.session['outputs'], [{'mode': {'width': 1920}}])
+        self.assertEqual(candidate.outputs, [{'mode': {'width': 1920}}])
 
     def test_mutations_and_unrecognized_argv_never_spawn(self):
         rejected = [

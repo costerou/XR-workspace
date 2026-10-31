@@ -103,7 +103,7 @@ def discover_sessions(run: Callable = run_probe) -> ProbeResult:
             return ProbeResult(result.status, None, f'Output probe for {name} failed: ' + result.detail)
         try:
             outputs, classification = _outputs(json.loads(result.data))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             return ProbeResult('error', None, f'Malformed monitor JSON or fields for {name}')
         candidates.append(SessionCandidate(name, entry['pid'], entry.get('wl_socket'),
                                            outputs, classification))

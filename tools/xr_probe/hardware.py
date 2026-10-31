@@ -101,7 +101,8 @@ def probe_drm(sysfs_root: Path = Path('/sys/class/drm')) -> ProbeResult:
             gpu = {'value': clean_text(str((link.parent / target).resolve())),
                    'status': 'ok', 'source': clean_text(str(link))}
         except OSError as exc:
-            status = 'permission_denied' if isinstance(exc, PermissionError) else 'unknown'
+            status = ('permission_denied' if isinstance(exc, PermissionError) else
+                      'missing' if isinstance(exc, FileNotFoundError) else 'error')
             gpu = {'value': None, 'status': status, 'source': clean_text(str(link))}
         connectors.append({'name': clean_text(node.name),
                            'status': _field(node / 'status'),
