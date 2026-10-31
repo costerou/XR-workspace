@@ -10,6 +10,8 @@ struct TimingSnapshot {
     std::optional<std::uint32_t> clock_id;
     std::uint64_t submitted = 0, presented = 0, discarded = 0, abandoned = 0;
     std::uint64_t pending = 0, invalid_timing = 0;
+    std::uint64_t valid_presented = 0, interval_count = 0, interval_sum_ns = 0;
+    std::optional<std::uint64_t> interval_min_ns, interval_max_ns;
     std::array<std::uint64_t, 8> intervals{};
     std::array<std::uint64_t, 4> flags{};
     std::uint32_t last_refresh_prediction_ns = 0;
@@ -35,7 +37,7 @@ private:
     bool finish(std::uint64_t ticket);
     TimingSnapshot state_;
     std::array<std::uint64_t, capacity> pending_{};
-    std::optional<std::uint64_t> previous_ns_, previous_sequence_;
+    std::optional<std::uint64_t> previous_ns_, previous_sequence_, first_valid_ns_, last_valid_ns_;
     bool clock_conflict_ = false, interval_anchor_ = false;
 };
 }

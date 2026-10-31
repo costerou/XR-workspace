@@ -17,6 +17,29 @@ std::uint32_t layer_version(std::uint32_t advertised);
 bool valid_surface_size(std::uint32_t width, std::uint32_t height);
 std::uint32_t pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
 
+// Pure callback/ownership gate used by the real adapter and offline tests.
+std::optional<std::uint32_t> parse_pattern_duration(const std::string&);
+class PatternCadence {
+public:
+    explicit PatternCadence(std::uint32_t duration_ms = 0, std::uint64_t start_ms = 0)
+        : duration_(duration_ms), start_(start_ms) {}
+    bool finished(std::uint64_t now) const { return stopped_ || (duration_ && now >= start_ && now - start_ >= duration_); }
+    bool ready(std::uint64_t now, bool buffer_available, bool feedback_available) const {
+        return !finished(now) && dirty_ && !waiting_ && buffer_available && feedback_available;
+    }
+    void committed() { dirty_ = false; waiting_ = true; if (duration_) ++phase_; }
+    void frame_done() { if (waiting_) { waiting_ = false; if (duration_) dirty_ = true; } }
+    void invalidate() { dirty_ = true; }
+    void stop() { stopped_ = true; }
+    std::uint64_t phase() const { return phase_; }
+private:
+    std::uint32_t duration_;
+    std::uint64_t start_, phase_ = 0;
+    bool dirty_ = true, waiting_ = false, stopped_ = false;
+};
+std::uint32_t animated_pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint32_t width,
+                                     std::uint32_t height, std::uint64_t phase);
+
 class Presentation {
 public:
     Presentation();
@@ -24,6 +47,8 @@ public:
     Presentation(const Presentation&) = delete;
     Presentation& operator=(const Presentation&) = delete;
     Status open(std::string output_name);
+    Status animate_pattern(std::uint32_t duration_ms);
+    bool finished() const;
     Status draw_test_pattern();
     // Bounded dispatch; suitable for an independently supervised heartbeat loop.
     Status dispatch(int timeout_ms = 50);

@@ -31,13 +31,21 @@ int main(int argc, char** argv) {
                      "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
-                     "Static pattern commits only on configure; frame callbacks are not scanout evidence.\n";
+                     "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
+                     "Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
+    std::uint32_t animation_ms = 0;
+    if (argc == 13) {
+        if (!args.contains("--animate-pattern-ms")) return 2;
+        auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
+        if (!duration) return 2;
+        animation_ms = *duration;
+    }
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
     for (int fd : {control, wayland}) {
@@ -61,7 +69,8 @@ int main(int argc, char** argv) {
     xr::Presentation presentation;
     int result = 0;
     if (!report(presentation.open(args["--output"]))) result = 1;
-    while (!stopping && !result) {
+    if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
+    while (!stopping && !result && !presentation.finished()) {
         if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) { result = 1; break; }
         if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) { result = 1; break; }
     }

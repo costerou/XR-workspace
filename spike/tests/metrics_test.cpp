@@ -6,6 +6,22 @@
 int failures = 0;
 void check(bool ok, const char* name) { if (!ok) { std::cerr << name << '\n'; ++failures; } }
 int main() {
+    xr::Metrics window; window.bind(1); window.clock(CLOCK_MONOTONIC);
+    check(window.report().find("\"observation_duration_ns\":null") != std::string::npos, "empty window has no denominator");
+    window.presented(*window.submit(), 0, 1, 0, 1, 0, 1, 0, true);
+    check(window.snapshot().valid_presented == 1 && window.snapshot().interval_count == 0, "one observation is not an interval");
+    window.discarded(*window.submit());
+    window.presented(*window.submit(), 0, 1, 20000000, 1, 0, 2, 0, true);
+    check(window.snapshot().interval_count == 1 && window.snapshot().interval_sum_ns == 20000000, "discard gap is retained; prediction not denominator");
+    window.presented(*window.submit(), 0, 1, 30000000, 1, 0, 2, 0, true); // invalid repeated sequence
+    window.presented(*window.submit(), 0, 1, 40000000, 1, 0, 3, 0, true);
+    window.presented(*window.submit(), 0, 1, 50000000, 1, 0, 4, 0, true);
+    auto summary = window.snapshot();
+    check(summary.valid_presented == 4 && summary.interval_count == 2 && summary.interval_sum_ns == 30000000,
+          "invalid gap excluded from interval denominator");
+    check(summary.interval_min_ns == 10000000 && summary.interval_max_ns == 20000000, "validated interval extrema");
+    check(window.report().find("\"observation_duration_ns\":50000000") != std::string::npos &&
+          window.report().find("\"interval_mean_ns\":15000000.0") != std::string::npos, "span and interval denominator remain distinct");
     xr::Metrics missing;
     check(!missing.submit(), "missing protocol does not invent feedback");
     check(missing.snapshot().submitted == 1 && missing.snapshot().presented == 0, "submission is not presentation");

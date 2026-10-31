@@ -142,12 +142,18 @@ def validate_physical_pair(client, session, output, recovery_output):
         if len(matches) != 1: raise ValueError('approved usable physical output missing')
 
 
-def run_presentation_only(client, run_id, session, output, recovery_output, wayland_socket, *, popen=None):
+def validate_pattern_duration(value):
+    if value is not None and (type(value) is not int or not 1 <= value <= 60000):
+        raise ValueError('animation duration must be integer 1..60000 ms')
+
+
+def run_presentation_only(client, run_id, session, output, recovery_output, wayland_socket, *, popen=None, animate_pattern_ms=None):
     """Consume socket; caller has checked presentation-only consent. No journal."""
     with wayland_socket:
+        validate_pattern_duration(animate_pattern_ms)
         validate_physical_pair(client, session, output, recovery_output)
         return _launch(client, run_id, session, output, wayland_socket, None, popen=popen,
-                       guard=PhysicalPairGuard(client, session, output, recovery_output))
+                       guard=PhysicalPairGuard(client, session, output, recovery_output), animate_pattern_ms=animate_pattern_ms)
 
 
 def run_presentation(journal, adapter, output, wayland_socket, *, popen=None):
@@ -162,7 +168,7 @@ def run_presentation(journal, adapter, output, wayland_socket, *, popen=None):
         if wayland_socket is not None: wayland_socket.close()
 
 
-def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None):
+def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None):
     """Shared child lifetime only; authorization remains in distinct callers."""
     import json
     import os
@@ -171,6 +177,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     import struct
     import subprocess
     from .ipc import token
+    validate_pattern_duration(animate_pattern_ms)
     token(output); token(run_id); token(session)
     peer = struct.unpack('3i', wayland_socket.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')
@@ -180,6 +187,8 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
         argv = [str(renderer), '--supervised-fd', str(child_socket.fileno()),
                 '--wayland-fd', str(wayland_socket.fileno()), '--output', output,
                 '--run-id', run_id, '--session', session]
+        if animate_pattern_ms is not None:
+            argv += ['--animate-pattern-ms', str(animate_pattern_ms)]
         try:
             child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True,
                         pass_fds=(child_socket.fileno(), wayland_socket.fileno()))

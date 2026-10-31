@@ -1,7 +1,22 @@
 #include "xr/presentation.hpp"
 #include <algorithm>
+#include <charconv>
 
 namespace xr {
+std::optional<std::uint32_t> parse_pattern_duration(const std::string& text) {
+    if (text.empty() || text[0] < '1' || text[0] > '9' || text.size() > 5) return {};
+    std::uint32_t n = 0;
+    auto result = std::from_chars(text.data(), text.data() + text.size(), n);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || n > 60000) return {};
+    return n;
+}
+std::uint32_t animated_pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint32_t w,
+                                     std::uint32_t h, std::uint64_t phase) {
+    auto base = pattern_pixel(x, y, w, h);
+    // A moving bright vertical stripe; no image capture or pose input.
+    if (phase && w && x < w && y < h && ((x + (phase % w) * 8) % w) < 32) return 0xffffffffU;
+    return base;
+}
 void apply_presentation_policy(SurfaceRequests& surface) {
     surface.keyboard_interactivity(0); // ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE
     surface.exclusive_zone(0);
