@@ -10,7 +10,7 @@ from .ipc import strict_json, token
 from .journal import Journal, recover
 
 
-def load_consent(path, instance, output, *, presentation_only=False):
+def load_consent(path, instance, output, *, presentation_only=False, animate_pattern_ms=None):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         st = os.fstat(stream.fileno())
@@ -21,6 +21,12 @@ def load_consent(path, instance, output, *, presentation_only=False):
     data = strict_json(raw)
     keys = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'allow',
             'capture', 'input', 'sdk', 'mode_switch'}
+    if animate_pattern_ms is not None:
+        from .supervisor import validate_pattern_duration
+        validate_pattern_duration(animate_pattern_ms)
+        keys.add('animate_pattern_ms')
+        if not presentation_only or not isinstance(data, dict) or type(data.get('animate_pattern_ms')) is not int or data['animate_pattern_ms'] != animate_pattern_ms:
+            raise ValueError('exact generated animation duration consent required')
     if not isinstance(data, dict) or set(data) != keys: raise ValueError('invalid consent fields')
     gate = 'P2-presentation-only' if presentation_only else 'P2'
     if type(data['schema']) is not int or data['schema'] != 1 or data['gate'] != gate: raise ValueError(f'{gate} consent required')
@@ -50,12 +56,19 @@ def main(argv=None):
     for command in ('run', 'present'):
         p = commands.add_parser(command); p.add_argument('--instance', required=True)
         p.add_argument('--output', required=True); p.add_argument('--consent-file', type=Path, required=True)
+        if command == 'present':
+            p.add_argument('--animate-pattern-ms', help='generated SHM animation, 1..60000 ms; exact consent required (default static)')
     p = commands.add_parser('recover'); p.add_argument('--journal', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
+        animation = getattr(args, 'animate_pattern_ms', None)
+        if animation is not None:
+            import re
+            if not re.fullmatch(r'[1-9][0-9]{0,4}', animation): raise ValueError('invalid animation duration')
+            animation = int(animation)
         # Consent check occurs before runtime lookup, socket connect, or file creation.
         consent = load_consent(args.consent_file, args.instance, args.output,
-                               presentation_only=args.command == 'present') if args.command in ('run', 'present') else None
+                               presentation_only=args.command == 'present', animate_pattern_ms=animation) if args.command in ('run', 'present') else None
         if args.command == 'recover':
             # No saved independent incarnation continuity survives restart. In particular,
             # do not scan sessions or infer an instance/output from a journal filename.
@@ -71,7 +84,7 @@ def main(argv=None):
             validate_physical_pair(client, result['session'], args.output, consent['recovery_output'])
             wayland = client.connect_wayland(result['session'])
             returncode = run_presentation_only(client, consent['run_id'], result['session'],
-                                              args.output, consent['recovery_output'], wayland)
+                                              args.output, consent['recovery_output'], wayland, animate_pattern_ms=animation)
             return 0 if returncode == 0 else 2
         adapter = RecoveryAdapter(client, approved_physical=consent['recovery_output'])
         if not any(o['physical'] for o in adapter.query('outputs')):

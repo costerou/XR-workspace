@@ -17,6 +17,11 @@
 #include <vector>
 
 namespace xr {
+namespace {
+std::uint64_t monotonic_ms() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+}
 struct Presentation::Impl : SurfaceRequests {
     wl_display* display = nullptr;
     wl_registry* registry = nullptr;
@@ -74,7 +79,8 @@ struct Presentation::Impl : SurfaceRequests {
     };
     std::vector<std::unique_ptr<Buffer>> buffers;
     std::uint32_t width = 0, height = 0;
-    bool configured = false, closed = false, dirty = true;
+    bool configured = false, closed = false;
+    PatternCadence cadence;
     std::vector<std::uint32_t> required_globals;
 
     void keyboard_interactivity(std::uint32_t value) override { zwlr_layer_surface_v1_set_keyboard_interactivity(layer, value); }
@@ -126,12 +132,12 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data);
         zwlr_layer_surface_v1_ack_configure(layer, serial);
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
-        s.width = w; s.height = h; s.configured = true; s.dirty = true;
+        s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
     }
     static void layer_closed(void* data, zwlr_layer_surface_v1*) { static_cast<Impl*>(data)->closed = true; }
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
-        auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr;
+        auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -161,6 +167,7 @@ struct Presentation::Impl : SurfaceRequests {
         wl_callback_destroy(callback); return finished;
     }
     ~Impl() {
+        cadence.stop();
         cancel_feedback();
         if (presentation) wp_presentation_destroy(presentation);
         if (frame) wl_callback_destroy(frame);
@@ -218,15 +225,22 @@ Status Presentation::dispatch(int timeout_ms) {
     if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms)) return Error{"dispatch", "closed, removed or disconnected"};
     return {};
 }
+Status Presentation::animate_pattern(std::uint32_t duration_ms) {
+    if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
+        return Error{"pattern", "animation requires configured surface, finite 1..60000 ms, before submission"};
+    impl_->cadence = PatternCadence(duration_ms, monotonic_ms());
+    return {};
+}
+bool Presentation::finished() const { return impl_ && impl_->cadence.finished(monotonic_ms()); }
 Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
     auto& s = *impl_;
-    if (s.frame || !s.dirty || !s.metrics.can_submit()) return {};
+    if (!s.cadence.ready(monotonic_ms(), true, s.metrics.can_submit())) return {};
     std::erase_if(s.buffers, [&](const auto& b) { return !b->busy && (b->width != s.width || b->height != s.height); });
     Impl::Buffer* buffer = nullptr;
     for (auto& b : s.buffers) if (!b->busy) { buffer = b.get(); break; }
     if (!buffer) {
-        if (s.buffers.size() >= 3) return {}; // Wait for release; never reuse busy memory.
+        if (!s.cadence.ready(monotonic_ms(), s.buffers.size() < 3, s.metrics.can_submit())) return {}; // Wait for release; never reuse busy memory.
         auto b = std::make_unique<Impl::Buffer>(); b->width = s.width; b->height = s.height;
         b->bytes = std::size_t(s.width) * s.height * 4;
         int fd = memfd_create("xr-test-pattern", MFD_CLOEXEC);
@@ -243,7 +257,8 @@ Status Presentation::draw_test_pattern() {
     }
     auto* pixels = static_cast<std::uint32_t*>(buffer->memory);
     for (std::uint32_t y = 0; y < s.height; ++y)
-        for (std::uint32_t x = 0; x < s.width; ++x) pixels[std::size_t(y) * s.width + x] = pattern_pixel(x, y, s.width, s.height);
+        for (std::uint32_t x = 0; x < s.width; ++x) pixels[std::size_t(y) * s.width + x] = animated_pattern_pixel(x, y, s.width, s.height, s.cadence.phase());
+    if (s.cadence.finished(monotonic_ms())) return {};
     buffer->busy = true;
     wl_surface_attach(s.surface, buffer->proxy, 0, 0);
     wl_surface_damage_buffer(s.surface, 0, 0, static_cast<int>(s.width), static_cast<int>(s.height));
@@ -258,7 +273,7 @@ Status Presentation::draw_test_pattern() {
         *slot = {&s, proxy, *s.metrics.submit(), false, false};
         wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
     } else s.metrics.submit();
-    wl_surface_commit(s.surface); s.dirty = false;
+    wl_surface_commit(s.surface); s.cadence.committed();
     if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
     return {};
 }

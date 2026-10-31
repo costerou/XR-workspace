@@ -64,7 +64,49 @@ class PresentationOnlyTests(unittest.TestCase):
              patch.object(cli.Journal, 'open', side_effect=AssertionError('journal forbidden')):
             self.assertEqual(cli.main(self.args()), 0)
             self.assertEqual(spawn.call_count, 1)
+            self.assertNotIn('--animate-pattern-ms', spawn.call_args.args[0])
         self.assertEqual(self.raw.commands, [])
+        self.assertEqual(self.wayland.fileno(), -1)
+
+    def test_animation_requires_exact_duration_consent_before_client(self):
+        self.consent()
+        with patch.object(cli, 'HyprlandClient') as client:
+            self.assertEqual(cli.main(self.args() + ['--animate-pattern-ms', '1000']), 2)
+            client.assert_not_called()
+
+    def test_animation_invalid_duration_and_consent_fail_before_client(self):
+        self.consent()
+        for text in ('0', '-1', '+1', '01', '1.0', 'nan', 'inf', '60001', '99999999999999'):
+            with self.subTest(text=text), patch.object(cli, 'HyprlandClient') as client:
+                self.assertEqual(cli.main(self.args() + ['--animate-pattern-ms', text]), 2)
+                client.assert_not_called()
+        for value in (True, 1000.0, '1000', 999):
+            self.data['animate_pattern_ms'] = value; self.consent()
+            with self.subTest(value=value), patch.object(cli, 'HyprlandClient') as client:
+                self.assertEqual(cli.main(self.args() + ['--animate-pattern-ms', '1000']), 2)
+                client.assert_not_called()
+        self.data['animate_pattern_ms'] = 1000; self.consent()
+        with patch.object(cli, 'HyprlandClient') as client:
+            self.assertEqual(cli.main(self.args()), 2)  # No silent activation by consent alone.
+            client.assert_not_called()
+
+    def test_supervisor_rejects_duration_and_closes_fd_before_spawn(self):
+        for value in (True, 1.0, 0, -1, 60001, '1000'):
+            peer, wayland = socket.socketpair()
+            with peer, wayland, patch('subprocess.Popen') as spawn:
+                with self.assertRaises(ValueError):
+                    s.run_presentation_only(self.raw, 'run', 'verified-session', 'DP-2', 'DP-1',
+                                            wayland, animate_pattern_ms=value)
+                spawn.assert_not_called()
+                self.assertEqual(wayland.fileno(), -1)
+
+    def test_animation_consent_reaches_child_arguments(self):
+        self.data['animate_pattern_ms'] = 1000; self.consent()
+        with patch.object(cli, 'HyprlandClient', return_value=self.raw), \
+             patch.object(self.raw, 'connect_wayland', create=True, return_value=self.wayland), \
+             patch('subprocess.Popen', return_value=Exited()) as spawn:
+            self.assertEqual(cli.main(self.args() + ['--animate-pattern-ms', '1000']), 0)
+            self.assertEqual(spawn.call_args.args[0][-2:], ['--animate-pattern-ms', '1000'])
         self.assertEqual(self.wayland.fileno(), -1)
 
     def test_managed_consent_cannot_authorize_present(self):

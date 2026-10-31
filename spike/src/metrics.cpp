@@ -47,11 +47,19 @@ void Metrics::presented(std::uint64_t ticket, std::uint32_t hi, std::uint32_t lo
     valid = valid && (!previous_ns_ || timestamp > *previous_ns_) &&
                     (!previous_sequence_ || sequence > *previous_sequence_);
     if (!valid) { increment(state_.invalid_timing); interval_anchor_ = false; return; }
+    increment(state_.valid_presented);
+    if (!first_valid_ns_) first_valid_ns_ = timestamp;
+    last_valid_ns_ = timestamp;
     if (previous_ns_ && interval_anchor_) {
         constexpr std::array<std::uint64_t, 7> bounds{1000000, 4000000, 8000000, 9000000, 17000000, 34000000, 100000000};
         auto delta = timestamp - *previous_ns_;
         auto index = std::lower_bound(bounds.begin(), bounds.end(), delta) - bounds.begin();
         increment(state_.intervals[index]);
+        increment(state_.interval_count);
+        // Disjoint increasing timestamp intervals sum to at most INT64_MAX.
+        state_.interval_sum_ns += delta;
+        state_.interval_min_ns = std::min(state_.interval_min_ns.value_or(delta), delta);
+        state_.interval_max_ns = std::max(state_.interval_max_ns.value_or(delta), delta);
     }
     previous_ns_ = timestamp; previous_sequence_ = sequence; interval_anchor_ = true;
 }
@@ -70,6 +78,19 @@ std::string Metrics::report() const {
         {"flag_counts_vsync_hw_clock_hw_completion_zero_copy", state_.flags},
         {"last_refresh_prediction_ns", state_.last_refresh_prediction_ns},
         {"sustained_cadence_qualified", false}};
+    j["valid_presented"] = state_.valid_presented;
+    j["interval_count"] = state_.interval_count;
+    j["interval_sum_ns"] = state_.interval_sum_ns;
+    j["interval_min_ns"] = nullptr; j["interval_max_ns"] = nullptr; j["interval_mean_ns"] = nullptr;
+    j["observation_duration_ns"] = nullptr;
+    if (state_.interval_count) {
+        j["interval_min_ns"] = *state_.interval_min_ns;
+        j["interval_max_ns"] = *state_.interval_max_ns;
+        j["interval_mean_ns"] = double(state_.interval_sum_ns) / double(state_.interval_count);
+    }
+    // First-to-last accepted presentation timestamps, not requested run length,
+    // callback arrival time, refresh prediction, or an FPS denominator.
+    if (state_.valid_presented >= 2) j["observation_duration_ns"] = *last_valid_ns_ - *first_valid_ns_;
     if (state_.clock_id) j["clock_id"] = *state_.clock_id;
     return j.dump();
 }
