@@ -147,3 +147,107 @@ compositor. IPC monitor polling does not prove continuous output incarnation;
 only the renderer's retained proxy identifies the selected presentation global.
 Managed three-output lifecycle, atomic ownership-safe deletion, capture,
 tracking, input and performance qualification remain blocked/unqualified.
+
+## Review fix round 1 — mirror evidence and independent watchdog
+
+Base: `93d6739fabf665af6881acdf6bab49c9480d141a`. This section supersedes the
+runtime guard description above; the authorization and managed-ownership
+blocks are unchanged. No live compositor/device/input/capture/SDK operations
+or hardware transitions were performed.
+
+### Contracts and exact ownership/lifecycle
+
+- Monitor normalization requires `mirrorOf`: exactly the string `none`, or a
+  canonical nonnegative decimal monitor-ID string. Missing, null, bool, numeric,
+  malformed or unknown values fail closed. Both selected physical outputs must
+  have `mirrorOf == "none"`, in addition to distinct names, enabled state and
+  DPMS-on. A mirrored monitor cannot be a normalized physical recovery fallback.
+  Monitor IDs are mirror evidence only, never incarnation/ownership proof.
+- Startup pair validation remains synchronous **before renderer spawn**. During
+  presentation, one `multiprocessing` **spawn** worker owns a deserialized copy
+  of the pinned client/session/peer state and performs only read-only checks.
+  It never shares mutable `HyprlandClient` state with the watchdog. Spawn, not
+  fork, prevents inheritance of the parent's renderer-control or Wayland socket.
+  The parent does not query that client while its guard worker runs.
+- The worker validates immediately, then waits 0.5 seconds after each successful
+  check. It reports one-byte validity results through its owned sending end of
+  a one-way pipe; the supervisor owns the receiving end and closes its duplicate
+  sending end after spawn. Guard exception, worker death/EOF or deadline expiry
+  stops the exact renderer. IPC retains two seconds per request; a full guard
+  has a 4.25-second watchdog deadline, with a 0.5-second inter-check allowance
+  after success. A hung guard fails closed even if renderer heartbeats continue.
+- The main loop never waits for guard IPC. The independent heartbeat expiry is
+  still **two seconds**, checked before accepting queued heartbeat bytes, with
+  the existing 0.05-second default polling interval (allowed maximum 0.1).
+  TERM-to-KILL grace remains 0.5 seconds by default. Guard duration does not
+  extend these timers; old queued bytes cannot revive an expired watchdog.
+- `Supervisor.run` owns worker/pipe/process handles, kills the exact worker if
+  still alive, joins/reaps it and closes those handles in `finally`, including
+  selector errors and interrupts. Normal termination first reaps the renderer;
+  on exceptional return the launcher's existing cleanup terminates/escalates/
+  reaps the renderer. No executor threads or abandoned per-check workers exist.
+  A failed worker start also closes allocated handles. Parent Wayland closure
+  at renderer spawn and on every launcher rejection remains intact.
+
+### Actual RED evidence
+
+Before production edits:
+
+```text
+python -m unittest discover -s tests/native_spike -p test_hyprland.py -k mirror -v
+Ran 2 tests; FAILED (failures=12)
+# Missing/invalid evidence accepted; mirrored fallback classified physical.
+python -m unittest discover -s tests/native_spike -p test_presentation_only.py -k mirror -v
+Ran 2 tests; FAILED (failures=18)
+# Both output roles accepted bad/mirrored evidence. Runtime guard stopped only
+# at heartbeat expiry: 2.002853707 / 2.002842166 seconds, exceeding 0.8 seconds.
+python -m unittest discover -s tests/native_spike -p test_supervisor.py -k slow_or_hung -v
+Ran 1 test; FAILED (failures=2)
+# Four-/six-second guards plus a queued H delayed renderer reaping to
+# 8.701411727 / 12.701417859 seconds, exceeding the test's 2.8-second bound.
+```
+
+Final tests additionally exercise launcher rejection/FD closure for both output
+roles, a successful runtime check followed by mirroring on the next check,
+worker exception/crash, continued heartbeats during hung guard, normal EOF,
+selector failure and interrupt after a real worker has started. Harmless Python
+renderer substitutes ignore TERM, requiring actual KILL and `Popen.poll()`
+reaping. Worker PID checks require a separate process and no remaining waitable
+worker or active multiprocessing child. Shutdown tests verify Wayland peer EOF.
+
+### Actual GREEN verification
+
+```text
+python -m unittest discover -s tests/native_spike -v
+Ran 76 tests in 16.133s — OK
+python -m unittest discover -s tests/probe -v
+Ran 62 tests in 1.668s — OK
+cmake -S spike -B build/native-spike -DXR_ENABLE_HARDWARE=OFF -DXR_ENABLE_SDK=OFF
+Configured/generated successfully.
+cmake --build build/native-spike -j4
+[100%] Built target xr-native-spike
+ctest --test-dir build/native-spike --output-on-failure
+100% tests passed out of 4 (layout, ipc, presentation, native_help).
+git diff --check
+Exit 0.
+```
+
+Modified `tools/native_spike/{hyprland,supervisor}.py`,
+`tests/native_spike/test_{hyprland,presentation_only}.py` and this report;
+added `tests/native_spike/test_supervisor.py`. Expected negative-test CLI
+messages remain; editor import/type diagnostics are not runtime failures.
+
+### Limitations / remaining gates
+
+These are scheduler-based deadlines, not hard-real-time guarantees under OS
+suspension or uninterruptible kernel waits. Startup and worker-spawn scheduling
+are not live-qualified. The worker requires a spawn-serializable read-only
+callable; production uses a module-level dataclass and a socket-free client.
+Abrupt supervisor SIGKILL/power loss is not the orderly/interrupt cleanup
+contract. Polling cannot prove uninterrupted independent desktop access between
+snapshots, or output incarnation continuity. Unknown mirror representations
+fail closed rather than infer independence. Parent review and separately
+recorded runtime authorization, visible/non-focusable presentation, independent
+recovery desktop access and live normal/crash teardown all remain pending.
+Managed 3B ownership-safe lifecycle and capture/input/SDK/mode/performance
+qualification remain blocked; no ownership gate was loosened.

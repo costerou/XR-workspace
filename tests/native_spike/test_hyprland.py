@@ -43,7 +43,7 @@ class RawFixture:
         self.commands = []
         self.monitors = [{'id': 0, 'name': 'DP-1', 'width': 1920, 'height': 1080,
             'x': 0, 'y': 0, 'scale': 1.0, 'transform': 0, 'refreshRate': 60.0, 'disabled': False,
-            'dpmsStatus': True, 'description': 'Synthetic physical test monitor'}]
+            'dpmsStatus': True, 'mirrorOf': 'none', 'description': 'Synthetic physical test monitor'}]
     def verified_session(self): return {'id': 'verified-session'}
     def query(self, kind, argument=None):
         return {'monitors': self.monitors, 'workspaces': [{'id': 1, 'name': '1', 'monitor': 'DP-1'}],
@@ -88,6 +88,20 @@ class HyprlandTests(unittest.TestCase):
         raw = RawFixture(); del raw.monitors[0]['dpmsStatus']
         with self.assertRaises((ValueError, KeyError)):
             h.RecoveryAdapter(raw, approved_physical='DP-1').query('outputs')
+    def test_mirror_evidence_is_required_and_validated(self):
+        for value in (None, True, 0, -1, '', 'NONE', '-1', '01', [], {}):
+            with self.subTest(value=value):
+                raw = RawFixture().monitors
+                raw[0]['mirrorOf'] = value
+                with self.assertRaises(ValueError): h.monitors(raw)
+        raw = RawFixture().monitors
+        del raw[0]['mirrorOf']
+        with self.assertRaises(ValueError): h.monitors(raw)
+
+    def test_mirrored_monitor_is_not_physical_recovery(self):
+        raw = RawFixture(); raw.monitors[0]['mirrorOf'] = '1'
+        self.assertFalse(h.RecoveryAdapter(raw, approved_physical='DP-1').query('outputs')[0]['physical'])
+
     def test_duplicate_keys_rejected(self):
         server = SocketFixture(self.root, b'{"x":1,"x":2}')
         with self.assertRaises(ValueError): h.HyprlandClient(INSTANCE, self.root).query('cursorpos')

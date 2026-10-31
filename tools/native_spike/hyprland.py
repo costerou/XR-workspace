@@ -172,6 +172,9 @@ def monitors(raw):
         for key in ('scale', 'refreshRate'):
             if type(m[key]) not in (int, float) or not math.isfinite(m[key]) or m[key] <= 0: raise ValueError('invalid mode')
         if type(m['transform']) is not int or not 0 <= m['transform'] <= 7: raise ValueError('invalid transform')
+        mirror = m.get('mirrorOf')
+        if not isinstance(mirror, str) or not re.fullmatch(r'none|0|[1-9][0-9]*', mirror):
+            raise ValueError('missing or invalid mirror evidence')
         for key in ('disabled', 'dpmsStatus'):
             if type(m[key]) is not bool: raise ValueError('incomplete monitor state')
     return raw
@@ -191,7 +194,7 @@ class RecoveryAdapter:
                     raise OwnershipBlocked('cannot bind observed monitor incarnation to journal UUID')
                 result.append({'id': 'unowned:' + m['name'], 'name': m['name'],
                                'physical': m['name'] == self.approved_physical and not m['disabled']
-                               and m['dpmsStatus'] and bool(re.fullmatch(r'(?:DP|HDMI-A|eDP|DVI-D)-[0-9]+', m['name']))})
+                               and m['dpmsStatus'] and m['mirrorOf'] == 'none' and bool(re.fullmatch(r'(?:DP|HDMI-A|eDP|DVI-D)-[0-9]+', m['name']))})
             return result
         if kind == 'workspaces':
             raw = self.client.query('workspaces')

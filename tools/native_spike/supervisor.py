@@ -1,7 +1,41 @@
 """Independent watchdog. Caller owns its Popen child, heartbeat FD and recovery adapter."""
 import math
+import multiprocessing
+from dataclasses import dataclass
 import selectors
 import time
+
+
+# Two sequential IPC requests, each bounded at two seconds, plus scheduling
+# allowance. This is separate from (and never extends) heartbeat's two seconds.
+GUARD_DEADLINE = 4.25
+GUARD_PERIOD = 0.5
+
+
+def _guard_worker(guard, sender):
+    """Spawn-only worker: private deserialized client, no inherited renderer FDs."""
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    with sender:
+        while True:
+            try:
+                guard()
+            except Exception:
+                sender.send_bytes(b'F')
+                return
+            sender.send_bytes(b'V')
+            time.sleep(GUARD_PERIOD)
+
+
+@dataclass
+class PhysicalPairGuard:
+    client: object
+    session: str
+    output: str
+    recovery_output: str
+
+    def __call__(self):
+        validate_physical_pair(self.client, self.session, self.output, self.recovery_output)
 
 
 class Supervisor:
@@ -15,7 +49,6 @@ class Supervisor:
         self.kill_sent = False
         self.result = None
         self.guard = guard
-        self.next_guard = 0.0
     def heartbeat(self, now):
         if self.stopping_at is None and math.isfinite(now) and now >= self.last_heartbeat:
             self.last_heartbeat = now
@@ -40,23 +73,57 @@ class Supervisor:
     def run(self, heartbeat_socket, *, interval=0.05):
         """Run in supervisor process, not renderer. EOF means disconnect; only b'H' is valid."""
         if not 0 < interval <= 0.1: raise ValueError("invalid poll interval")
-        with selectors.DefaultSelector() as selector:
-            selector.register(heartbeat_socket, selectors.EVENT_READ)
-            while not self.finished:
-                now = time.monotonic()
-                if self.guard is not None and self.stopping_at is None and now >= self.next_guard:
-                    try: self.guard()
-                    except (OSError, ValueError, KeyError, TypeError): self.disconnect(time.monotonic())
-                    self.next_guard = time.monotonic() + 0.5
-                for key, _ in selector.select(interval):
-                    data = heartbeat_socket.recv(256)
+        # Own exactly one spawn worker and one one-way pipe for this run. Spawn
+        # (never fork) excludes renderer/control/Wayland sockets and copies client
+        # identity state; no thread or process concurrently mutates that client.
+        worker = receiver = sender = None
+        deadline = 0.0
+        try:
+            if self.guard is not None and self.child.poll() is None and self.stopping_at is None:
+                context = multiprocessing.get_context('spawn')
+                receiver, sender = context.Pipe(duplex=False)
+                worker = context.Process(target=_guard_worker, args=(self.guard, sender))
+                deadline = time.monotonic() + GUARD_DEADLINE
+                worker.start()
+                sender.close()
+            with selectors.DefaultSelector() as selector:
+                selector.register(heartbeat_socket, selectors.EVENT_READ)
+                while not self.finished:
                     now = time.monotonic()
-                    if data and all(byte == ord("H") for byte in data): self.heartbeat(now)
-                    else:
-                        self.disconnect(now)
-                        selector.unregister(heartbeat_socket)
-                self.tick(time.monotonic())
-        return self.result
+                    # Expiry precedes reading queued heartbeats: delayed bytes
+                    # cannot revive an already expired watchdog.
+                    self.tick(now)
+                    if self.finished: break
+                    if worker is not None and receiver is not None and self.stopping_at is None:
+                        if now >= deadline or not worker.is_alive():
+                            self.disconnect(now)
+                        elif receiver.poll():
+                            try: valid = receiver.recv_bytes(1) == b'V'
+                            except (EOFError, OSError): valid = False
+                            if not valid: self.disconnect(now)
+                            else: deadline = now + GUARD_PERIOD + GUARD_DEADLINE
+                    for key, _ in selector.select(interval):
+                        now = time.monotonic()
+                        self.tick(now)
+                        if self.finished: break
+                        data = heartbeat_socket.recv(256)
+                        if data and all(byte == ord("H") for byte in data): self.heartbeat(now)
+                        else:
+                            self.disconnect(now)
+                            selector.unregister(heartbeat_socket)
+                    self.tick(time.monotonic())
+            return self.result
+        finally:
+            # Reaping the renderer is never delayed by waiting on IPC. Once this
+            # loop exits (including exceptions/interrupt), kill the exact worker,
+            # join/reap it and close all pipe/process handles. No orphan threads.
+            if worker is not None:
+                if worker.pid is not None:
+                    if worker.is_alive(): worker.kill()
+                    worker.join()
+                worker.close()
+            if sender is not None: sender.close()
+            if receiver is not None: receiver.close()
 
 
 def validate_physical_pair(client, session, output, recovery_output):
@@ -71,7 +138,7 @@ def validate_physical_pair(client, session, output, recovery_output):
     for name in (output, recovery_output):
         if not re.fullmatch(r'(?:DP|HDMI-A|eDP|DVI-D)-[0-9]+', name):
             raise ValueError('approved output must be a physical connector')
-        matches = [m for m in snapshot if m['name'] == name and not m['disabled'] and m['dpmsStatus']]
+        matches = [m for m in snapshot if m['name'] == name and not m['disabled'] and m['dpmsStatus'] and m['mirrorOf'] == 'none']
         if len(matches) != 1: raise ValueError('approved usable physical output missing')
 
 
@@ -80,7 +147,7 @@ def run_presentation_only(client, run_id, session, output, recovery_output, wayl
     with wayland_socket:
         validate_physical_pair(client, session, output, recovery_output)
         return _launch(client, run_id, session, output, wayland_socket, None, popen=popen,
-                       guard=lambda: validate_physical_pair(client, session, output, recovery_output))
+                       guard=PhysicalPairGuard(client, session, output, recovery_output))
 
 
 def run_presentation(journal, adapter, output, wayland_socket, *, popen=None):

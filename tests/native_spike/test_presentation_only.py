@@ -115,6 +115,40 @@ class PresentationOnlyTests(unittest.TestCase):
             spawn.assert_not_called()
         self.assertEqual(self.wayland.fileno(), -1)
 
+    def test_startup_rejects_mirrored_missing_or_invalid_evidence(self):
+        for index in (0, 1):
+            for value in ('0', '1', None, True, 0, '', 'unknown', 'missing'):
+                with self.subTest(index=index, value=value):
+                    raw = RawFixture()
+                    raw.monitors.append(dict(raw.monitors[0], id=1, name='DP-2'))
+                    if value == 'missing': del raw.monitors[index]['mirrorOf']
+                    else: raw.monitors[index]['mirrorOf'] = value
+                    peer, wayland = socket.socketpair()
+                    with peer, wayland, patch('subprocess.Popen') as spawn:
+                        with self.assertRaises(ValueError):
+                            s.run_presentation_only(raw, 'run', 'verified-session', 'DP-2', 'DP-1', wayland)
+                        spawn.assert_not_called()
+                        self.assertEqual(wayland.fileno(), -1)
+                        peer.settimeout(0.2)
+                        self.assertEqual(peer.recv(1), b'')
+
+    def test_runtime_mirroring_transition_stops_child(self):
+        import time
+        for index in (0, 1):
+            with self.subTest(index=index):
+                # Worker first validates the independent pair, then sees mirroring.
+                guard = RuntimePair(self.raw, index)
+                child = RunningChild()
+                parent, peer = socket.socketpair()
+                with parent, peer:
+                    started = time.monotonic()
+                    s.Supervisor(child, lambda: None, guard=guard).run(parent)
+                    self.assertGreater(time.monotonic() - started, 0.5)
+                    self.assertLess(time.monotonic() - started, 1.5)
+                self.assertTrue(child.stopped)
+                self.raw.monitors[index]['mirrorOf'] = 'none'
+        self.assertEqual(self.raw.commands, [])
+
     def test_recovery_loss_stops_running_child_without_mutations(self):
         class Child:
             stopped = False
@@ -185,6 +219,20 @@ class PresentationOnlyTests(unittest.TestCase):
             self.assertEqual(self.launch(spawn), -15)
         self.assertTrue(child.stopped)
         self.assertEqual(self.raw.commands, [])
+
+
+class RuntimePair:
+    def __init__(self, raw, index): self.raw, self.index = raw, index
+    def __call__(self):
+        s.validate_physical_pair(self.raw, 'verified-session', 'DP-2', 'DP-1')
+        self.raw.monitors[self.index]['mirrorOf'] = str(1 - self.index)
+
+
+class RunningChild:
+    stopped = False
+    def poll(self): return -15 if self.stopped else None
+    def terminate(self): self.stopped = True
+    def kill(self): self.stopped = True
 
 
 class Exited:
