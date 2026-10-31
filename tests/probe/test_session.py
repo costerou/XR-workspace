@@ -134,6 +134,17 @@ class SessionTests(unittest.TestCase):
                     self.assertIsNone(result.data)
                     self.assertNotIn('PRIVATE', result.detail)
 
+    def test_huge_refresh_returns_error_without_partial_candidates(self):
+        huge = output()
+        huge['refreshRate'] = 10**400
+        try:
+            result, _ = self.discover(outputs=[output(), huge])
+        except OverflowError:
+            self.fail('huge JSON refresh escaped discovery result contract')
+        self.assertEqual(result.status, 'error')
+        self.assertIsNone(result.data)
+        self.assertIn('Malformed monitor', result.detail)
+
     def test_malformed_outputs(self):
         for outputs in ({}, [1], [{}], [dict(name=42)], [dict(name='DP-1', description=4)],
                         [dict(name='DP-1', width=True)], [dict(name='DP-1', refreshRate=float('nan'))],

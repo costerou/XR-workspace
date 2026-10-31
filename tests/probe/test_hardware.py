@@ -26,6 +26,26 @@ class HardwareTests(unittest.TestCase):
                 self.assertIsNone(result.data)
                 self.assertNotIn('PRIVATE', result.detail)
 
+    def test_drm_link_failures_preserve_field_error_category(self):
+        import errno
+        from unittest.mock import patch
+        for operation in ('readlink', 'resolve'):
+            for error, expected in [(OSError(errno.EIO, 'PRIVATE'), 'error'),
+                                    (PermissionError('PRIVATE'), 'permission_denied'),
+                                    (FileNotFoundError('PRIVATE'), 'missing')]:
+                with self.subTest(operation=operation, expected=expected), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    node = root / 'card0-DP-1'
+                    node.mkdir()
+                    (node / 'device').symlink_to(root / 'gpu')
+                    with patch.object(Path, operation, side_effect=error):
+                        result = hardware.probe_drm(root)
+                    self.assertEqual(result.status, 'ok')
+                    self.assertEqual(result.data[0]['gpu_device'],
+                                     {'value': None, 'status': expected,
+                                      'source': str(node / 'device')})
+                    self.assertNotIn('PRIVATE', repr(result))
+
     def test_drm_modes_and_unknown_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -54,6 +74,14 @@ class HardwareTests(unittest.TestCase):
             self.assertIn('idVendor', result.data[0]['vendor_id']['source'])
             self.assertEqual(hardware.probe_usb(root / 'absent').status, 'missing')
 
+    def test_usb_interface_is_skipped_even_with_distinct_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            interface = root / '1-1:1.0'
+            interface.mkdir()
+            (interface / 'idVendor').write_text('35ca')
+            self.assertEqual(hardware.probe_usb(root).data, [])
+
     def test_usb_exact_vendor_and_physical_dedup(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -66,7 +94,8 @@ class HardwareTests(unittest.TestCase):
                 (node / 'product').write_text('Unverified model')
                 (node / 'authorized').write_text('1')
                 (node / 'serial').write_text('NEVER_READ')
-            (root / '1-1:1.0').symlink_to(root / '1-1', target_is_directory=True)
+            for alias in ('alias-a', 'alias-b'):
+                (root / alias).symlink_to(root / '1-1', target_is_directory=True)
             result = hardware.probe_usb(root)
             self.assertEqual(result.status, 'ok')
             self.assertEqual(len(result.data), 1)
