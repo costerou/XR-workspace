@@ -40,13 +40,14 @@ class HyprlandClient:
         self._peer = None
         self._session = None
 
-    def _connect(self, deadline):
+    def _connect(self, deadline, name='.socket.sock'):
         # No symlink traversal for the selected endpoint or its parents.
         for path in (self.runtime_dir, self.runtime_dir / 'hypr', self.directory):
             st = path.lstat()
             if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o022:
                 raise PermissionError('unsafe Hyprland socket directory')
-        path = self.directory / '.socket.sock'
+        if name not in ('.socket.sock', '.socket2.sock'): raise ValueError('unknown Hyprland socket')
+        path = self.directory / name
         st = path.lstat()
         if not stat.S_ISSOCK(st.st_mode) or st.st_uid != os.getuid(): raise PermissionError('unsafe IPC socket')
         conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -54,7 +55,7 @@ class HyprlandClient:
             directory_fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             try:
                 conn.settimeout(max(0.001, deadline - time.monotonic()))
-                conn.connect(f'/proc/self/fd/{directory_fd}/.socket.sock')
+                conn.connect(f'/proc/self/fd/{directory_fd}/{name}')
             finally: os.close(directory_fd)
             peer = struct.unpack('3i', conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
             if peer[1] != os.getuid() or peer[0] <= 0: raise PermissionError('wrong compositor peer')
@@ -82,6 +83,12 @@ class HyprlandClient:
                 if not part: return bytes(result)
                 result.extend(part)
                 if len(result) > LIMIT: raise ValueError('Hyprland response exceeds 1 MiB')
+
+    def event_stream(self):
+        """Read-only Hyprland event stream (socket2), same peer checks; caller reads and closes."""
+        conn = self._connect(time.monotonic() + DEADLINE, '.socket2.sock')
+        conn.setblocking(False)
+        return conn
 
     def query(self, kind, argument=None):
         if kind not in QUERY: raise ValueError('raw query not allowlisted')

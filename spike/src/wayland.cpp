@@ -153,6 +153,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::string pose_why;
     std::uint64_t pose_retry_ms = 0;
     PoseState pose;
+    ModeController modes;  // T2: anchor / locked (0DoF) / follow
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
     void update_fov() {
@@ -477,12 +478,16 @@ std::string Presentation::capture_report() const {
                (c.path == Impl::Capture::Path::Dmabuf ? ",\"fourcc\":" + std::to_string(c.choice.fourcc) + ",\"modifier\":" + std::to_string(c.choice.modifier) : std::string()) +
                ",\"fallback\":\"" + c.fallback + "\",\"stopped\":" + (c.stopped ? "true" : "false") + "}";
     }
+    const auto mode = impl_->modes.mode();
     out += "],\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
+           ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
            ",\"feed\":" + (impl_->pose_feed ? "true" : "false") + ",\"tracking\":" + (impl_->pose.tracking() ? "true" : "false") +
            ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +
            ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
            (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
+    out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
+           ",\"spacing\":" + std::to_string(impl_->view.spacing()) + "}";
     out += ",\"composition\":";
     out += impl_->gl ? impl_->gl->report() : std::string("{\"path\":\"cpu-blit\",\"fallback\":\"") + impl_->gl_fallback + "\"}";
     return out + "}";
@@ -517,7 +522,8 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             if (!found || found == s->selected) return Error{"capture", "managed output not advertised"};
             auto c = std::make_unique<Impl::Capture>(); c->owner = s.get(); c->index = s->captures.size(); c->name = name; c->output = found;
             c->source = ext_output_image_capture_source_manager_v1_create_source(s->source_manager, found->proxy);
-            c->session = ext_image_copy_capture_manager_v1_create_session(s->copy_manager, c->source, 0);  // no cursor
+            c->session = ext_image_copy_capture_manager_v1_create_session(s->copy_manager, c->source,
+                         EXT_IMAGE_COPY_CAPTURE_MANAGER_V1_OPTIONS_PAINT_CURSORS);  // pointer visible on the managed desktop
             ext_image_copy_capture_session_v1_add_listener(c->session, &Impl::session_listener, c.get());
             s->captures.push_back(std::move(c));
         }
@@ -564,9 +570,10 @@ void Presentation::enable_tracking(std::string prefix) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
-void Presentation::recenter() { if (impl_) impl_->pose.recenter(); }
-void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing) {
+void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
+void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode) {
     if (!impl_) return;
+    impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
                            spacing, double(monotonic_ms()));
     impl_->cadence.invalidate();
@@ -598,7 +605,8 @@ Status Presentation::draw_test_pattern() {
                 if (s.pose_feed) s.half_w = 0;  // pick up the driver's FOV
             }
             s.pose.update(s.pose_feed ? s.pose_feed->read() : std::nullopt, double(now));
-            head = s.pose.view();
+            const Quat relative = s.pose.relative();
+            head = view_from(relative, s.modes.update(relative, double(now)));
         }
         if (!s.half_w) s.update_fov();
         auto tiles = blended_layout(s.captures.size(), float(s.width), float(s.height), float(first ? first->width : 1920),

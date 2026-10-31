@@ -59,7 +59,7 @@ class RecenterTests(unittest.TestCase):
         control = view.ViewControl(state, 'run', 'session', lambda name: None, Path(tempfile.mkdtemp()) / 'l.json', None)
         frame = control.on_message({'op': 'recenter'})
         self.assertEqual(json.loads(frame)['op'], 'recenter')
-        self.assertEqual(state.view(), {'zoomed': False, 'selected': 0, 'spacing': view.DEFAULT_SPACING})
+        self.assertEqual(state.view(), {'zoomed': False, 'selected': 0, 'spacing': view.DEFAULT_SPACING, 'mode': 'anchor'})
         self.assertIn(('CTRL + ALT + space', 'recenter'), view.BINDS)
 
 

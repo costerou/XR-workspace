@@ -7,7 +7,8 @@ namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
-struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; };
+// `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
+struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload>;
 struct ControlMessage {
     std::uint32_t schema;

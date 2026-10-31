@@ -46,6 +46,7 @@ public:
     void recenter() { recenter_pending_ = true; }
     bool tracking() const { return tracking_; }
     Mat3 view() const { return view_; }  // identity until the first valid sample
+    Quat relative() const { return relative_; }  // head vs recentre reference, driver frame
     std::uint64_t samples() const { return samples_; }
     std::uint64_t lost_events() const { return lost_events_; }
 private:
@@ -56,6 +57,38 @@ private:
     double last_change_ms_ = 0;
     bool tracking_ = false, recenter_pending_ = true;
     Mat3 view_{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    Quat relative_{};
     std::uint64_t samples_ = 0, lost_events_ = 0;
+};
+
+Quat quat_slerp(Quat a, Quat b, float t);  // shortest arc
+float quat_angle(Quat a, Quat b);          // radians between orientations
+Quat level(Quat q);                        // same yaw/pitch of the forward axis, zero roll (driver frame)
+Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canvas anchored at `anchor`
+
+// T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
+//   anchor: fixed in space (3DoF world-locked)
+//   locked: 0DoF, rigidly attached to the display (head-locked, includes roll)
+//   follow: world-locked inside a dead zone; outside it eases back in front, level (no roll)
+// Mode changes blend smoothly from wherever the canvas currently is; steady states are exact.
+enum class ViewMode : std::uint8_t { anchor = 0, locked = 1, follow = 2 };
+class ModeController {
+public:
+    struct Tuning { float transition_ms = 300, deadzone_deg = 12, settle_deg = 1.5f, follow_tau_ms = 220; };
+    ModeController() = default;
+    explicit ModeController(Tuning t) : tuning_(t) {}
+    void set_mode(ViewMode mode, double now_ms);
+    void recenter();  // the reference moved to the current head: anchors return to straight ahead
+    ViewMode mode() const { return mode_; }
+    // Advance with the head's relative orientation; returns the canvas anchor for this frame.
+    Quat update(Quat head, double now_ms);
+    bool settled() const;  // nothing animating (locked/anchor steady, follow inside dead zone)
+private:
+    Quat target(Quat head) const;
+    Tuning tuning_{};
+    ViewMode mode_ = ViewMode::anchor;
+    Quat anchor_{}, from_{}, follow_{};
+    double started_ms_ = -1, last_ms_ = -1;
+    bool chasing_ = false, transitioning_ = false;
 };
 }

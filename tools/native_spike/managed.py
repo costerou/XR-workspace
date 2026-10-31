@@ -73,9 +73,14 @@ def view_controls(client, run_id, session, capture):
     settings = view.settings_path()
     server = PrivateServer(client.runtime_dir, run_id, session)
     installed = False
+    events = None
     try:
-        control = view.ViewControl(view.ViewState(capture, view.load_spacing(settings)), run_id, session,
+        saved = view.load_settings(settings)
+        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow']), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), settings, server)
+        stream = getattr(client, 'event_stream', None)  # cursor follow; optional
+        try: events = control.events = stream() if stream else None
+        except (OSError, ValueError): events = None
         client.install_view_binds(sys.executable, str(Path(view.__file__).with_name('xr_control.py')),
                                   str(server.path), run_id, session)
         installed = True
@@ -85,6 +90,7 @@ def view_controls(client, run_id, session, capture):
             if installed: client.remove_view_binds()
         except (OSError, ValueError):
             pass  # never block recovery on bind removal; binds also vanish on config reload
+        if events is not None: events.close()
         server.close()
 
 

@@ -3,6 +3,11 @@
 Keyboard binds exist only while a run is active (user preference: Ctrl+Alt+arrows stay free for
 text navigation otherwise). They run xr_control.py, which sends one frame to this run's private
 control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
+
+Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
+dead zone, eases back in front) and locked (0DoF, head-locked). Optional cursor follow (Ctrl+Alt+F):
+when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
+Mode, cursor follow and spacing are saved in layout.json.
 """
 import json
 import os
@@ -10,29 +15,51 @@ from pathlib import Path
 import re
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
-USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter')
+USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow')
+MODES = ('anchor', 'follow', 'locked')  # cycle order
 # Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
-         ('CTRL + ALT + space', 'recenter'))
+         ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'))
+FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
 MANAGED = re.compile(r'XR-[1-3]\Z')
 SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING):
+    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False):
         if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
+        if mode not in MODES or type(cursor_follow) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
+        self.mode, self.cursor_follow = mode, cursor_follow
 
     def view(self):
-        return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing}
+        """Renderer payload (cursor follow is supervisor-side only)."""
+        return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode}
+
+    def settings(self):
+        return {'spacing': self.spacing, 'mode': self.mode, 'cursor_follow': self.cursor_follow}
+
+    def cursor_entered(self, name):
+        """Pointer focus moved to `name`; with cursor follow on, select it. True if the view changed."""
+        if not self.cursor_follow or name not in self.names: return False
+        index = self.names.index(name)
+        if index == self.selected: return False
+        self.selected = index
+        return True
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
         if op not in USER_OPS: raise ValueError('unsupported view operation')
         if op == 'recenter': return None  # head-tracking reference only; the view layout is unchanged
+        if op == 'mode_next':
+            self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
+            return None
+        if op == 'cursor_follow':
+            self.cursor_follow = not self.cursor_follow
+            return None
         if op == 'zoom_in':
             self.zoomed = True
             return self.names[self.selected]
@@ -53,24 +80,46 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-def load_spacing(path):
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False}
+
+
+def load_settings(path):
+    """Each field validated on its own; anything invalid or missing falls back to its default."""
+    out = dict(DEFAULT_SETTINGS)
     try:
         data = json.loads(Path(path).read_text())
-        value = data.get('spacing') if isinstance(data, dict) else None
-        if type(value) is int and 0 <= value <= MAX_SPACING: return value
     except (OSError, ValueError):
-        pass
-    return DEFAULT_SPACING
+        return out
+    if not isinstance(data, dict): return out
+    if type(data.get('spacing')) is int and 0 <= data['spacing'] <= MAX_SPACING: out['spacing'] = data['spacing']
+    if data.get('mode') in MODES: out['mode'] = data['mode']
+    if type(data.get('cursor_follow')) is bool: out['cursor_follow'] = data['cursor_follow']
+    return out
 
 
-def save_spacing(path, spacing):
-    if type(spacing) is not int or not 0 <= spacing <= MAX_SPACING: raise ValueError('invalid spacing')
+def save_settings(path, settings):
+    if not isinstance(settings, dict) or set(settings) != set(DEFAULT_SETTINGS) or not _valid(settings):
+        raise ValueError('invalid settings')
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp = path.with_name(path.name + '.tmp')
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'w') as f: json.dump({'spacing': spacing}, f)
+    with os.fdopen(fd, 'w') as f: json.dump(settings, f)
     os.replace(tmp, path)
+
+
+def _valid(settings):
+    return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
+            and type(settings.get('cursor_follow')) is bool)
+
+
+def load_spacing(path):
+    return load_settings(path)['spacing']
+
+
+def save_spacing(path, spacing):
+    if type(spacing) is not int or not 0 <= spacing <= MAX_SPACING: raise ValueError('invalid spacing')
+    save_settings(path, {**load_settings(path), 'spacing': spacing})
 
 
 def view_frame(run_id, session, request_id, state):
@@ -106,6 +155,9 @@ class ViewControl:
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
         self._threads = []
+        self.events = None       # optional Hyprland event socket (cursor follow); owned by the caller
+        self._event_buffer = b''
+        self.cursor_switches = 0
 
     def initial_frame(self):
         return self._frame()
@@ -128,10 +180,22 @@ class ViewControl:
             import threading
             # Never block the watchdog loop on a compositor reply.
             t = threading.Thread(target=self._focus, args=(target,), daemon=True); t.start(); self._threads.append(t)
-        if self.state.view()['spacing'] != before['spacing']:
-            try: save_spacing(self.settings, self.state.view()['spacing'])
-            except OSError: pass
+        if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'cursor_follow'):
+            try: save_settings(self.settings, self.state.settings())
+            except (OSError, ValueError): pass
         return self._frame() if self.state.view() != before else None
+
+    def on_events(self, data):
+        """Hyprland socket2 bytes; returns a renderer frame if cursor follow switched the view."""
+        self._event_buffer += data
+        if len(self._event_buffer) > 65536: self._event_buffer = self._event_buffer[-4096:]  # bounded; resync on newline
+        *lines, self._event_buffer = self._event_buffer.split(b'\n')
+        changed = False
+        for line in lines:
+            m = FOCUSEDMON.match(line.decode('utf-8', errors='replace'))
+            if m and self.state.cursor_entered(m.group(1)):
+                changed = True; self.cursor_switches += 1
+        return self._frame() if changed else None
 
     def _focus(self, target):
         try: self.focus(target)
