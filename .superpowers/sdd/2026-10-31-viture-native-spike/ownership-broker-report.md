@@ -214,3 +214,158 @@ rule replacement, fallback loss, stranded/special/pinned windows, and epoch loss
 Only after that qualification seek physical-session P2 and visual/routing,
 renderer-crash and supervisor-crash recovery acceptance. No capture/input-device/
 SDK permissions, sustained 120 FPS or live three-desktop success are claimed.
+
+## Review fix round 1 — synchronous ownership semantics
+
+Addressed I1/I2/I3 against base `0f17176b88a1555fb813689e8c35ff2ec76743d2`.
+This section supersedes the original artifact hash and the stronger workspace
+claims above. No plugin was loaded; no compositor was started or queried.
+The parent’s untracked live evidence, runtime gates and Python contracts are
+unchanged. No name-addressed deletion or compatibility fallback was added.
+
+### Pinned source evidence read before implementation
+
+Sources fetched from Hyprland commit
+`efb50993780079460b0cbed1363e2166a2de1d9f` (raw GitHub), with installed headers
+used for compilation:
+
+- `src/state/MonitorState.cpp:109–130`: `add` calls `onConnect` synchronously,
+  then schedules monitor-rule reload.
+- `src/output/Monitor.cpp:1276–1331`: lowest-unused default ID selection;
+  `setupDefaultWS` can reuse an existing workspace or create a new object,
+  then assigns `m_activeWorkspace`. Therefore ID equality cannot establish
+  provenance and the planner's free ID can already be occupied on return.
+- `src/state/WorkspacePlacementController.cpp:239–379`, especially 257–290:
+  moving the last active workspace creates a source replacement and activates
+  it **before** moving the original. Clearing an active reference only during
+  terminal disconnect avoids this branch for the proven empty replacement.
+- `src/output/Monitor.cpp:392–505`: `onDisconnect` explicitly tolerates a null
+  active workspace (416, 492), moves remaining source workspaces (465–484),
+  then resets the active reference (494). This is the source-retirement path,
+  not an assumed API for deleting arbitrary workspaces.
+- `src/state/WorkspaceState.cpp:38–50,58–78`: workspace snapshot/reference
+  semantics and creation; a configured binding can override requested monitor.
+- `src/desktop/Workspace.cpp:29–87,399–404,532–545`: workspace lifetime,
+  persistence/creation hooks, inert state and rename semantics. Rename preserves
+  the positive ID, but emits callbacks; final native verification remains required.
+- `src/config/shared/monitor/MonitorRule.cpp:7–33` and installed
+  `MonitorRule.hpp:34–70`: `compare` omits VRR/EOTF (and name); it is a modeset
+  decision, not complete ownership equality.
+
+### Changed contracts and production wiring
+
+`spike/ownership/lifecycle.hpp` now supplies the shared decisions used by the
+actual `NativeBackend`, not just the injected backend:
+
+1. **I1:** snapshot workspace objects before `createOutput`; retain the exact
+   new active default object on the captured output's resolved monitor after
+   synchronous creation. Require absent-before/present-now identity, ordinary
+   positive workspace and exact monitor/active-object placement. If this proven
+   object has the planned ID, rename that object rather than reject its own
+   allocation or adopt by ID. Revalidate after monitor-rule application.
+   Existing or replaced objects still block. Snapshot history uses weak native
+   references so it does not prolong unrelated desktop workspace lifetimes.
+2. **I2:** snapshot evacuation inputs and retain only the fresh last-active gap
+   when it is the sole remaining source workspace, ordinary, nonpersistent,
+   created empty, still numerically named, and has **no window references,
+   mapped or unmapped**. Recheck its exact identity and properties on every
+   reachability pass and again immediately before destruction. A renamed,
+   replaced, occupied, persistent or otherwise unknown gap blocks cleanup.
+   The strict mapped-window checks are unchanged: every mapped window must be
+   registered and on a reachable non-source monitor/workspace pair.
+   Immediately before retained-object `IOutput::destroy`, `disconnectRetiring`
+   clears **only** that proven empty active gap. Native `onDisconnect` can then
+   migrate it as an inactive workspace without creating another source gap.
+   If destruction fails/throws while the source is still live and the original
+   gap is still valid on it, the active reference is restored. There is no
+   yield or arbitrary workspace deletion. Post-destruction checks allow **no**
+   source workspace exception, require monitor absence and recheck all mapped
+   windows. Registry tombstone/retry semantics remain unchanged.
+3. **I3:** `sameRule` explicitly compares every public pinned rule field,
+   including `m_vrr`, `m_sdrEotf`, name and each DRM mode member/name byte (not
+   padding). Both `verified` and `eraseRule` use it; the latter also covers the
+   destruction listener. VRR/EOTF edits invalidate inspection and prevent rule
+   erasure/output deletion. No call to incomplete `compare` remains in production.
+
+### Actual RED/GREEN commands and output
+
+Configured with:
+
+```sh
+cmake -S spike -B build/native-spike -DCMAKE_BUILD_TYPE=Release -DXR_ENABLE_OWNERSHIP_PLUGIN=ON
+cmake --build build/native-spike --target ownership_native_test -j2
+ctest --test-dir build/native-spike -R ownership_native --output-on-failure
+```
+
+Before implementing the shared predicates, the legacy rejection/comparison
+behavior was represented in the extraction scaffold. The first compiled RED run
+returned exit 8, **0/4 passed**:
+
+```text
+ownership_native_default: freshDefault(allocated,before,after,source)
+ownership_native_retirement: retirementGap(gap,before,after,source,true,empty)
+ownership_native_vrr: !sameRule(original,edited)
+ownership_native_eotf: !sameRule(original,edited)
+```
+
+After those predicates were implemented, an additional retirement test required
+that disconnect see a null active source reference. Running the same build/test
+commands with the old direct-destroy behavior returned exit 8, **3/4 passed**;
+retirement failed at `!source->m_activeWorkspace`. The shared terminal-retirement
+helper then made it pass, including failed-destroy and exception restoration.
+
+Additional conservative renamed/nonempty-origin gap assertions were added
+before their guards. These commands returned exit 8, **0/1 passed**, failing at
+`!retirementGap(gap,before,after,source,true,empty)`:
+
+```sh
+cmake --build build/native-spike --target ownership_native_test -j2
+ctest --test-dir build/native-spike -R ownership_native_retirement --output-on-failure
+```
+
+The final tests also exercise production `Registry` with a source-backed API
+model: synchronous lowest-unused allocation, last-active replacement creation,
+terminal disconnect, mapped-window movement, repeated recovery, stranded windows,
+same-ID gap replacement, and user VRR/EOTF changes preserving the rule. This is
+an offline semantic model plus shared production decisions, **not** execution of
+Hyprland's methods. The actual module separately compiles those same decisions
+with installed native pointer/rule types.
+
+Final GREEN commands/output:
+
+```text
+cmake --build build/native-spike -j2
+  [100%] Linking CXX shared module libxr-ownership.so
+  [100%] Built target xr-ownership
+ctest --test-dir build/native-spike -R ownership --output-on-failure
+  100% tests passed out of 5
+ctest --test-dir build/native-spike --output-on-failure
+  100% tests passed out of 10
+python -m unittest discover -s tests/native_spike -v
+  Ran 90 tests in 16.195s — OK
+python -m unittest discover -s tests/probe -v
+  Ran 62 tests in 1.659s — OK
+git diff --check
+  exit 0, no output
+```
+
+Build issues encountered and resolved: the new standalone test initially lacked
+libdrm include paths (added the existing HYPRLAND pkg-config target); the new
+header needed its own `<iterator>` include for DRM name-array comparison. Neither
+compile error was counted as behavioral RED evidence. Final GCC Release build
+with warnings-as-errors passed; editor LSP diagnostics use an incomplete header
+configuration and are not the actual compiler result.
+
+Final artifact: `build/native-spike/libxr-ownership.so`, SHA-256
+`3c315236b3b80aa6789497b64da79cd2536d4a58beb73f463ab8946ec408ee38`.
+
+### Remaining risks / next qualification
+
+Native callback ordering, actual disconnect side effects and external workspace
+rules still require the separately authorized disposable-compositor test. In
+particular, `onDisconnect` chooses its own backup monitor for the **empty** gap;
+all window-bearing workspaces have already moved to the approved fallback.
+Customized/renamed/persistent replacement gaps deliberately leave recovery
+blocked. Failed destruction or callbacks changing state retain conservative
+failure semantics; no forced recovery is attempted. Offline success is not
+runtime approval, ABI qualification or live three-desktop acceptance.

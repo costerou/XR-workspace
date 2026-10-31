@@ -13,6 +13,7 @@
 #include <sys/random.h>
 #include <thread>
 #include "registry.hpp"
+#include "lifecycle.hpp"
 using namespace xr::ownership;
 namespace {
 std::string randomToken() {
@@ -23,7 +24,8 @@ std::string randomToken() {
 struct NativeObject : Object {
     SP<Aquamarine::IOutput> output;
     PHLMONITOR monitor;
-    PHLWORKSPACE workspace;
+    PHLWORKSPACE workspace, createdDefault, retirement;
+    std::vector<PHLWORKSPACEREF> beforeCreate, beforeEvacuation;
     CHyprSignalListener destroyListener;
     std::optional<Config::CMonitorRule> rule;
     bool ruleLost=false;
@@ -34,7 +36,7 @@ bool eraseRule(NativeObject& o) {
     auto& rules=Config::monitorRuleMgr()->allMut();
     auto found=rules.end();
     for(auto it=rules.begin();it!=rules.end();++it) if(it->m_name==o.rule->m_name) {
-        if(found!=rules.end() || it->compare(*o.rule)!=Config::COMPARISON_FULL_MATCH) { o.ruleLost=true; return false; }
+        if(found!=rules.end() || !sameRule(*it,*o.rule)) { o.ruleLost=true; return false; }
         found=it;
     }
     if(found==rules.end()) { o.ruleLost=true; return false; }
@@ -87,17 +89,34 @@ public:
         return false;
     }
     bool create(const Json& p,const Capture& capture) override {
+        const auto before=State::workspaceState()->workspacesCopy();
+        std::shared_ptr<NativeObject> captured;
         auto listener=g_pCompositor->m_aqBackend->events.newOutput.listen([&](const SP<Aquamarine::IOutput>& output) {
             // Bind at emission, before createOutput returns. No name-based adoption.
-            try { capture(wrap(output), output->getBackend()==headless && output->name==p["name"].get<std::string>()); }
+            try {
+                auto object=wrap(output);
+                if(!captured) captured=native(object);
+                capture(object, output->getBackend()==headless && output->name==p["name"].get<std::string>());
+            }
             catch(...) { capture({},false); }
         });
-        return headless->createOutput(p["name"].get<std::string>());
+        const bool result=headless->createOutput(p["name"].get<std::string>());
+        if(captured) {
+            captured->beforeCreate.assign(before.begin(),before.end());
+            auto m=resolve(captured);
+            const auto after=State::workspaceState()->workspacesCopy();
+            if(m && freshDefault(m->m_activeWorkspace,before,after,m)) captured->createdDefault=m->m_activeWorkspace;
+        }
+        return result;
     }
     bool configure(const Handle& h,const Json& p) override {
         auto m=resolve(h); if(!m) return false; auto o=native(h);
         // Recheck workspace/rule collisions after synchronous creation callbacks.
-        for(auto& w:State::workspaceState()->workspacesCopy()) if(w->m_id==p["workspace"] || w->m_name==p["workspace_name"].get<std::string>()) return false;
+        const auto current=State::workspaceState()->workspacesCopy();
+        const auto candidate=o->createdDefault;
+        const bool adopt=freshDefault(candidate,o->beforeCreate,current,m) && candidate->m_id==p["workspace"];
+        for(auto& w:current) if(w->m_id==p["workspace"] || w->m_name==p["workspace_name"].get<std::string>())
+            if(!adopt || w!=candidate) return false;
         for(auto& rule:Config::monitorRuleMgr()->all()) if(rule.m_name==p["name"].get<std::string>()) return false;
         Config::CMonitorRule rule;
         rule.m_name=p["name"]; rule.m_resolution={1920,1080}; rule.m_refreshRate=120;
@@ -105,7 +124,13 @@ public:
         rule.m_transform=WL_OUTPUT_TRANSFORM_NORMAL; rule.m_disabled=false; rule.m_mirrorOf="";
         o->rule=rule; Config::monitorRuleMgr()->add(Config::CMonitorRule(rule));
         if(!h->live || !m->applyMonitorRule(std::move(rule)) || !resolve(h)) return false;
-        o->workspace=State::workspaceState()->create(p["workspace"].get<int64_t>(),m->m_id,p["workspace_name"],true);
+        if(adopt) {
+            // Revalidate the retained object after applyMonitorRule callbacks.
+            if(!freshDefault(candidate,o->beforeCreate,State::workspaceState()->workspacesCopy(),m) ||
+               candidate->m_id!=p["workspace"]) return false;
+            o->workspace=candidate;
+            candidate->rename(p["workspace_name"].get<std::string>());
+        } else o->workspace=State::workspaceState()->create(p["workspace"].get<int64_t>(),m->m_id,p["workspace_name"],true);
         if(!o->workspace || !resolve(h)) return false;
         m->changeWorkspace(o->workspace,true,true,true);
         configured.emplace_back(o,p);
@@ -116,7 +141,7 @@ public:
         if(o->ruleLost || !o->rule) return false;
         unsigned matched=0;
         for(auto& rule:Config::monitorRuleMgr()->all()) if(rule.m_name==o->rule->m_name) {
-            if(rule.compare(*o->rule)!=Config::COMPARISON_FULL_MATCH) { o->ruleLost=true; return false; } ++matched;
+            if(!sameRule(rule,*o->rule)) { o->ruleLost=true; return false; } ++matched;
         }
         if(matched!=1) { o->ruleLost=true; return false; }
         auto w=o->workspace;
@@ -135,6 +160,7 @@ public:
     bool evacuate(const Handle& h,const Handle& fallback) override {
         auto source=resolve(h), target=resolve(fallback); if(!source || !usable(fallback)) return false;
         auto workspaces=State::workspaceState()->workspacesCopy();
+        auto o=native(h); o->retirement.reset(); o->beforeEvacuation.assign(workspaces.begin(),workspaces.end());
         for(auto& w:workspaces) if(w->m_monitor==source && (w->inert() || w->m_isSpecialWorkspace || w->m_id<=0)) return false;
         for(auto& w:Desktop::windowState()->windows()) if(w->m_isMapped && (w->m_monitor==source || (w->m_workspace && w->m_workspace->m_monitor==source)))
             if(w->m_pinned || !w->m_workspace || w->m_workspace->m_isSpecialWorkspace) return false;
@@ -143,7 +169,15 @@ public:
             State::workspacePlacementController()->moveWorkspaceToMonitor(w,target,true);
             if(!resolve(h) || !usable(fallback) || w->inert() || w->m_monitor!=target) return false;
         }
+        const auto after=State::workspaceState()->workspacesCopy();
+        auto gap=source->m_activeWorkspace;
+        if(retirementGap(gap,workspaces,after,source,h->live,[&](const auto& w){return empty(w);})) o->retirement=gap;
         return true;
+    }
+    bool empty(const PHLWORKSPACE& workspace) {
+        // Include unmapped windows: a later map must not revive a retired dependency.
+        return std::none_of(Desktop::windowState()->windows().begin(),Desktop::windowState()->windows().end(),
+            [&](const auto& window){return window->m_workspace==workspace;});
     }
     bool reachable(const Handle& h,const Handle& fallback) override {
         if(!usable(fallback)) return false;
@@ -152,7 +186,11 @@ public:
             if(m->m_output==native(h)->output) return false;
         const auto workspaces=State::workspaceState()->workspacesCopy();
         const auto& monitors=State::monitorState()->monitors();
-        for(auto& w:workspaces) if(w->m_monitor==source) return false;
+        auto o=native(h);
+        for(auto& w:workspaces) if(w->m_monitor==source) {
+            if(w!=o->retirement || !retirementGap(w,o->beforeEvacuation,workspaces,source,h->live,
+                [&](const auto& gap){return empty(gap);})) return false;
+        }
         for(auto& w:Desktop::windowState()->windows()) if(w->m_isMapped) {
             if(std::find(workspaces.begin(),workspaces.end(),w->m_workspace)==workspaces.end() ||
                std::none_of(monitors.begin(),monitors.end(),[&](const auto& m){return w->m_monitor==m;})) return false;
@@ -162,7 +200,14 @@ public:
         return true;
     }
     bool cleanup(const Handle& h,const Json&) override { return resolve(h) && eraseRule(*native(h)); }
-    bool destroy(const Handle& h) override { return resolve(h) && native(h)->output->destroy(); }
+    bool destroy(const Handle& h) override {
+        auto m=resolve(h); if(!m) return false;
+        auto o=native(h);
+        if(!o->retirement) return o->output->destroy();
+        if(!retirementGap(o->retirement,o->beforeEvacuation,State::workspaceState()->workspacesCopy(),m,h->live,
+            [&](const auto& gap){return empty(gap);})) return false;
+        return disconnectRetiring(m,o->retirement,[&]{return h->live;},[&]{return o->output->destroy();});
+    }
     Json observation(const Handle& h) {
         auto m=resolve(h); if(!m) return nullptr;
         Json workspaces=Json::array(), windows=Json::array();
