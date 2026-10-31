@@ -1,5 +1,6 @@
 #include "xr/presentation.hpp"
 #include <wayland-client.h>
+#include "presentation-time-client-protocol.h"
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
 // byte-identical; scope the C++ spelling adaptation to the generated C header.
 #define namespace layer_namespace
@@ -25,6 +26,41 @@ struct Presentation::Impl : SurfaceRequests {
     wl_surface* surface = nullptr;
     zwlr_layer_surface_v1* layer = nullptr;
     wl_callback* frame = nullptr;
+    wp_presentation* presentation = nullptr;
+    Metrics metrics;
+    struct Feedback {
+        Impl* owner = nullptr;
+        struct wp_presentation_feedback* proxy = nullptr;
+        std::uint64_t ticket = 0;
+        bool selected_output = false, other_output = false;
+    };
+    std::array<Feedback, Metrics::capacity> feedbacks{};
+    static void clock_id(void* data, wp_presentation*, uint32_t id) {
+        static_cast<Impl*>(data)->metrics.clock(id);
+    }
+    inline static const wp_presentation_listener presentation_listener{clock_id};
+    static void sync_output(void* data, struct wp_presentation_feedback*, wl_output* output) {
+        auto& f = *static_cast<Feedback*>(data);
+        if (f.owner->selected && output == f.owner->selected->proxy) f.selected_output = true;
+        else f.other_output = true;
+    }
+    static void presented(void* data, struct wp_presentation_feedback* proxy, uint32_t hi, uint32_t lo,
+                          uint32_t ns, uint32_t refresh, uint32_t seq_hi, uint32_t seq_lo, uint32_t flags) {
+        auto& f = *static_cast<Feedback*>(data);
+        f.owner->metrics.presented(f.ticket, hi, lo, ns, refresh, seq_hi, seq_lo, flags,
+                                   f.selected_output && !f.other_output);
+        wp_presentation_feedback_destroy(proxy); f = {};
+    }
+    static void discarded(void* data, struct wp_presentation_feedback* proxy) {
+        auto& f = *static_cast<Feedback*>(data);
+        f.owner->metrics.discarded(f.ticket);
+        wp_presentation_feedback_destroy(proxy); f = {};
+    }
+    inline static const wp_presentation_feedback_listener feedback_listener{sync_output, presented, discarded};
+    void cancel_feedback() {
+        for (auto& f : feedbacks) if (f.proxy) { wp_presentation_feedback_destroy(f.proxy); f = {}; }
+        metrics.abandon();
+    }
     struct Output { wl_output* proxy = nullptr; std::uint32_t global = 0; std::string name; };
     std::vector<std::unique_ptr<Output>> outputs;
     Output* selected = nullptr;
@@ -65,6 +101,12 @@ struct Presentation::Impl : SurfaceRequests {
         } else if (std::strcmp(interface, "zwlr_layer_shell_v1") == 0 && version > 0 && !s.shell) {
             s.shell = static_cast<zwlr_layer_shell_v1*>(wl_registry_bind(registry, id, &zwlr_layer_shell_v1_interface, layer_version(version)));
             s.required_globals.push_back(id);
+        } else if (std::strcmp(interface, "wp_presentation") == 0 && version > 0 && !s.presentation) {
+            s.metrics.bind(version); // v1 semantics, even when installed XML advertises v2.
+            s.presentation = static_cast<wp_presentation*>(wl_registry_bind(registry, id,
+                             &wp_presentation_interface, s.metrics.snapshot().protocol_version));
+            wp_presentation_add_listener(s.presentation, &presentation_listener, &s);
+            s.required_globals.push_back(id); // Removal stops this run, never silently changes timing capability.
         } else if (std::strcmp(interface, "wl_output") == 0 && version >= 4) {
             auto output = std::make_unique<Output>(); output->global = id;
             output->proxy = static_cast<wl_output*>(wl_registry_bind(registry, id, &wl_output_interface, 4));
@@ -119,6 +161,8 @@ struct Presentation::Impl : SurfaceRequests {
         wl_callback_destroy(callback); return finished;
     }
     ~Impl() {
+        cancel_feedback();
+        if (presentation) wp_presentation_destroy(presentation);
         if (frame) wl_callback_destroy(frame);
         if (layer) zwlr_layer_surface_v1_destroy(layer);
         if (surface) wl_surface_destroy(surface);
@@ -136,7 +180,12 @@ struct Presentation::Impl : SurfaceRequests {
 };
 Presentation::Presentation() = default;
 Presentation::~Presentation() = default;
-void Presentation::close() { impl_.reset(); }
+void Presentation::close() {
+    if (impl_) { impl_->cancel_feedback(); final_metrics_ = impl_->metrics; impl_.reset(); }
+}
+std::string Presentation::timing_report() const {
+    return (impl_ ? impl_->metrics : final_metrics_).report();
+}
 Status Presentation::open(std::string output_name) {
     if (!std::regex_match(output_name, std::regex("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}"))) return Error{"output", "invalid output name"};
     if (impl_) return Error{"state", "already open"};
@@ -172,7 +221,7 @@ Status Presentation::dispatch(int timeout_ms) {
 Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
     auto& s = *impl_;
-    if (s.frame || !s.dirty) return {};
+    if (s.frame || !s.dirty || !s.metrics.can_submit()) return {};
     std::erase_if(s.buffers, [&](const auto& b) { return !b->busy && (b->width != s.width || b->height != s.height); });
     Impl::Buffer* buffer = nullptr;
     for (auto& b : s.buffers) if (!b->busy) { buffer = b.get(); break; }
@@ -199,6 +248,16 @@ Status Presentation::draw_test_pattern() {
     wl_surface_attach(s.surface, buffer->proxy, 0, 0);
     wl_surface_damage_buffer(s.surface, 0, 0, static_cast<int>(s.width), static_cast<int>(s.height));
     s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
+    // Empty configure/policy commit is not content; only this commit is counted.
+    // A full feedback queue backpressures above rather than dropping requests.
+    if (s.presentation) {
+        auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });
+        if (slot == s.feedbacks.end()) return Error{"feedback", "feedback capacity invariant failed"};
+        auto* proxy = wp_presentation_feedback(s.presentation, s.surface);
+        if (!proxy) return Error{"feedback", "feedback allocation failed"};
+        *slot = {&s, proxy, *s.metrics.submit(), false, false};
+        wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
+    } else s.metrics.submit();
     wl_surface_commit(s.surface); s.dirty = false;
     if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
     return {};

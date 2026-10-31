@@ -29,7 +29,9 @@ int main(int argc, char** argv) {
                      "Launched only by the permission-gated Python supervisor with inherited capability sockets.\n"
                      "Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n"
                      "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
-                     "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n";
+                     "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
+                     "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
+                     "Static pattern commits only on configure; frame callbacks are not scanout evidence.\n";
         return 0;
     }
     std::map<std::string, std::string> args;
@@ -57,10 +59,13 @@ int main(int argc, char** argv) {
     setenv("WAYLAND_SOCKET", args["--wayland-fd"].c_str(), 1);
     std::signal(SIGTERM, stop); std::signal(SIGINT, stop);
     xr::Presentation presentation;
-    if (!report(presentation.open(args["--output"]))) return 1;
-    while (!stopping) {
-        if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) return 1;
-        if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) return 1;
+    int result = 0;
+    if (!report(presentation.open(args["--output"]))) result = 1;
+    while (!stopping && !result) {
+        if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) { result = 1; break; }
+        if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) { result = 1; break; }
     }
-    presentation.close(); ::close(control); return 0;
+    presentation.close(); // Pending feedback becomes abandoned, never invented discard.
+    std::cerr << presentation.timing_report() << '\n';
+    ::close(control); return result;
 }
