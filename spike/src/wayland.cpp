@@ -96,8 +96,7 @@ struct Presentation::Impl : SurfaceRequests {
         ext_image_capture_source_v1* source = nullptr;
         ext_image_copy_capture_session_v1* session = nullptr;
         ext_image_copy_capture_frame_v1* frame = nullptr;
-        std::uint32_t pending_width = 0, pending_height = 0;
-        std::vector<std::uint32_t> pending_formats;
+        SessionConstraints constraints;
         std::optional<ShmPlan> plan;
         std::array<std::unique_ptr<Buffer>, 2> slots{};
         int capturing = -1, ready = -1;
@@ -111,16 +110,16 @@ struct Presentation::Impl : SurfaceRequests {
     };
     std::vector<std::unique_ptr<Capture>> captures;
     static void cap_buffer_size(void* data, ext_image_copy_capture_session_v1*, uint32_t w, uint32_t h) {
-        auto& c = *static_cast<Capture*>(data); c.pending_width = w; c.pending_height = h; c.pending_formats.clear();
+        static_cast<Capture*>(data)->constraints.size(w, h);
     }
     static void cap_shm_format(void* data, ext_image_copy_capture_session_v1*, uint32_t format) {
-        static_cast<Capture*>(data)->pending_formats.push_back(format);
+        static_cast<Capture*>(data)->constraints.format(format);
     }
     static void cap_dmabuf_device(void*, ext_image_copy_capture_session_v1*, wl_array*) {}
     static void cap_dmabuf_format(void*, ext_image_copy_capture_session_v1*, uint32_t, wl_array*) {}
     static void cap_done(void* data, ext_image_copy_capture_session_v1*) {
         auto& c = *static_cast<Capture*>(data);
-        auto plan = plan_capture_buffer(c.pending_width, c.pending_height, c.pending_formats);
+        auto plan = c.constraints.done();
         if (!plan) { c.stopped = true; c.owner->closed = true; return; }  // unsupported constraints: fail closed
         if (!c.plan || c.plan->width != plan->width || c.plan->height != plan->height || c.plan->format != plan->format) {
             if (c.capturing >= 0) return;  // reallocate after the in-flight frame fails with buffer_constraints

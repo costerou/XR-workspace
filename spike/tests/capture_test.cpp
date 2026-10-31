@@ -19,6 +19,15 @@ int main() {
     CHECK(!plan_capture_buffer(1920, 1080, {0x34325258}));  // other formats (e.g. XBGR) refused
     CHECK(!plan_capture_buffer(0, 1080, {kShmXrgb8888}) && !plan_capture_buffer(8193, 1080, {kShmXrgb8888}));
 
+    for (int order = 0; order < 2; ++order) {  // formats before size (Hyprland) and after
+        SessionConstraints c;
+        if (order == 0) { c.format(kShmArgb8888); c.format(kShmXrgb8888); c.size(1920, 1080); }
+        else { c.size(1920, 1080); c.format(kShmXrgb8888); }
+        auto p = c.done();
+        CHECK(p && p->width == 1920 && p->format == kShmXrgb8888);
+        CHECK(!c.done());  // a new batch starts empty
+    }
+
     auto tiles = side_by_side(3, 1920, 1200, 1920, 1080);
     CHECK(tiles.size() == 3 && tiles[0].width == 640 && tiles[0].height == 360);
     CHECK(tiles[0].x == 0 && tiles[1].x == 640 && tiles[2].x == 1280 && tiles[0].y == 420);
