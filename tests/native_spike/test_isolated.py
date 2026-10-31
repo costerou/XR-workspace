@@ -211,7 +211,7 @@ class IsolatedTests(unittest.TestCase):
         p2.chmod(0o600)
         with self.assertRaises(ValueError): isolated.load_isolated_consent(p2, INSTANCE, 'Virtual-1')
         for changes in ({'capture': True}, {'mode': 'normal'}, {'gate': 'P2'}, {'output': 'DP-1'},
-                        {'recovery_output': 'Virtual-1'}, {'boot_id': 'not-a-uuid'}, {'runtime': 'relative'},
+                        {'recovery_output': 'Virtual-1'}, {'boot_id': 'not-a-uuid'}, {'runtime': 'relative'}, {'runtime': str(self.runtime) + '/'},
                         {'allow': ['test-pattern']}, {'schema': True}):
             with self.subTest(changes), self.assertRaises(ValueError):
                 isolated.load_isolated_consent(self.consent(**changes), INSTANCE, 'Virtual-1')
@@ -245,7 +245,8 @@ class IsolatedTests(unittest.TestCase):
         broker.require_output_ownership()
         journal.bind_broker(isolated.broker_context(self.transport, broker, BOOT, self.runtime))
         from tools.native_spike.hyprland import create_outputs, plan_outputs
-        create_outputs(plan_outputs([], [], 'run'), journal, broker)
+        self.specs = plan_outputs([], [], 'run')
+        create_outputs(self.specs, journal, broker)
         return journal
 
     def test_journal_authority_cannot_cross_modes(self):
@@ -281,8 +282,13 @@ class IsolatedTests(unittest.TestCase):
     def test_guard_revalidates_pair_and_guest_evidence(self):
         self.bound_journal()
         broker = IsolatedBrokerClient.from_journal(self.transport, Journal.open(self.path, 'run', 'session'))
-        specs = [{'id': r['operation']['id']} for r in Journal.open(self.path, 'run', 'session').operations]
-        guard = isolated.IsolatedGuard(broker, 'Virtual-1', [], BOOT, self.sysroot)
+        guard = isolated.IsolatedGuard(broker, 'Virtual-1', self.specs, BOOT, self.sysroot)
+        guard()
+        # Owned output readback is part of every guard period.
+        observation = self.transport.registry[self.specs[1]['id']]['observation']
+        observation['x'] += 1
+        with self.assertRaises(ValueError): guard()
+        observation['x'] -= 1
         guard()
         (self.sysroot / 'sys/class/drm/card0-Virtual-2/connector_id').write_text('99\n')
         with self.assertRaises(ValueError): guard()
@@ -292,11 +298,41 @@ class IsolatedTests(unittest.TestCase):
         with self.assertRaises(ValueError): guard()
         self.transport.pair_valid = True
         with self.assertRaises(ValueError):
-            isolated.IsolatedGuard(broker, 'Virtual-1', [], 'ffffffff-0000-4000-8000-000000000000', self.sysroot)()
-        self.assertTrue(specs)
-        # Spawned guard pickles to a fresh process: dataclass must serialize.
-        import pickle
-        self.assertEqual(pickle.loads(pickle.dumps(guard)).boot_id, BOOT)
+            isolated.IsolatedGuard(broker, 'Virtual-1', self.specs, 'ffffffff-0000-4000-8000-000000000000', self.sysroot)()
+
+    def test_guard_runs_in_real_spawn_worker(self):
+        # Production worker in a real spawned process with a pickled guard (no inherited state).
+        import multiprocessing
+        from tools.native_spike.supervisor import _guard_worker
+        self.bound_journal()
+        broker = IsolatedBrokerClient.from_journal(self.transport, Journal.open(self.path, 'run', 'session'))
+        guard = isolated.IsolatedGuard(broker, 'Virtual-1', self.specs, BOOT, self.sysroot)
+        context = multiprocessing.get_context('spawn')
+        for corrupt in (False, True):
+            if corrupt: (self.sysroot / 'sys/class/drm/card0-Virtual-1/connector_id').write_text('77\n')
+            receiver, sender = context.Pipe(duplex=False)
+            worker = context.Process(target=_guard_worker, args=(guard, sender))
+            worker.start(); sender.close()
+            try:
+                self.assertTrue(receiver.poll(20))
+                self.assertEqual(receiver.recv_bytes(1), b'F' if corrupt else b'V')
+            finally:
+                worker.kill(); worker.join(); worker.close(); receiver.close()
+
+    def test_connector_skips_and_ambiguity(self):
+        root = guest_tree(self.base / 'skips', connectors={'Virtual-1': 35, 'Virtual-2': 36, 'Virtual-3': 37, 'Writeback-1': 38})
+        drm = root / 'sys/class/drm'
+        (drm / 'card0-Virtual-2/status').write_text('disconnected\n')
+        (drm / 'card0-Virtual-3/enabled').write_text('disabled\n')
+        self.assertEqual(set(isolated.collect_guest_evidence(root)['connectors']), {'Virtual-1'})
+        os.symlink(drm / 'card0-Virtual-1', drm / 'card9-Virtual-1')
+        with self.assertRaisesRegex(ValueError, 'verified card'): isolated.collect_guest_evidence(root)
+        (drm / 'card9-Virtual-1').unlink()
+        dup = guest_tree(self.base / 'dup', extra_card=('card1', '226:1', 'virtio_gpu', '0x1af4', {'Virtual-1': 35}))
+        with self.assertRaisesRegex(ValueError, 'ambiguous'): isolated.collect_guest_evidence(dup)
+        malformed = guest_tree(self.base / 'nocolon')
+        (malformed / 'proc/cpuinfo').write_text('flags hypervisor\n')
+        with self.assertRaises(ValueError): isolated.collect_guest_evidence(malformed)
 
     # --- CLI ---------------------------------------------------------------
     def run_cli(self, argv):
