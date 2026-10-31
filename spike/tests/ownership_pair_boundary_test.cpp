@@ -26,12 +26,19 @@ struct Monitor {
     bool enabled(){return on;}
 };
 using PHLMONITOR=SP<Monitor>;
+// Mirrors Hyprutils CWeakPointer semantics used by production (expired != live).
+struct PHLMONITORREF {
+    std::weak_ptr<Monitor> w;
+    PHLMONITORREF& operator=(const PHLMONITOR& s) { w=s; return *this; }
+    bool operator!=(const PHLMONITOR& s) const { return w.lock()!=s; }
+};
 struct NativeObject : Object {
     SP<Aquamarine::IOutput> output;
     SP<Aquamarine::IBackendImplementation> pairBackend;
     std::optional<PairObservation> pairProof;
     bool legacyDrmEligible=false;
-    PHLMONITOR monitor;
+    PHLMONITORREF monitor;
+    bool monitorBound=false;
 };
 auto native(const Handle& h){return std::static_pointer_cast<NativeObject>(h);}
 namespace State {
@@ -154,7 +161,24 @@ void isolatedLifecycle() {
     CHECK(send(legacy,envelope(2,r["epoch"],"inspect",{{"id",uuid},{"mode","isolated-vm"}})).contains("error"));
     CHECK(legacy.backend.mutations==0);
 }
+// Regression (physical phys1 + VM xr-isolated-bindrace): a strong broker reference kept a
+// destroyed CMonitor alive, so Hyprland's late wl_output bind dereferenced its torn-down
+// output instead of seeing an expired monitor. The broker must hold monitors weakly.
+void monitorNotRetained() {
+    twoOutputs(); Boundary b;
+    auto handle=b.selectPairOutput("Virtual-1");
+    CHECK(b.resolve(handle));
+    std::weak_ptr<Monitor> probe=State::monitors.ms[0];
+    State::monitors.ms.erase(State::monitors.ms.begin());
+    CHECK(probe.expired());
+    CHECK(!b.resolve(handle));
+    // A new monitor for the same retained output is a replacement, never re-adopted.
+    auto replacement=std::make_shared<Monitor>(); replacement->m_name="Virtual-1";
+    replacement->m_output=native(handle)->output; State::monitors.ms.push_back(replacement);
+    CHECK(!b.resolve(handle));
+}
 int main() {
+    monitorNotRetained();
     isolatedLifecycle();
     for(int side=0;side<2;++side) for(int fault=0;fault<20;++fault) {
         State::monitors.ms.clear(); statFail=false; character=true;
