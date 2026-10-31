@@ -21,6 +21,40 @@ class JournalTests(unittest.TestCase):
         self.assertEqual(Journal.open(self.path, "run", "session").operations[0]["state"], "confirmed")
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
+    def test_planned_output_names_bind_run_and_index_not_uuid(self):
+        journal = Journal.open(self.path, "run", "session")
+        for index, name, identity in (
+            (0, "XR-SPIKE-run-0", "12345678-1234-4234-8234-123456789abc"),
+            (1, "XR-SPIKE-run-1", "87654321-1234-4234-8234-123456789abc"),
+        ):
+            op = {"kind": "output", "id": identity, "name": name,
+                  "index": index, "before": None}
+            oid = journal.prepare(op)
+            journal.confirm(oid, {"id": identity, "name": name, "physical": False})
+        reopened = Journal.open(self.path, "run", "session")
+        self.assertEqual([r["operation"]["name"] for r in reopened.operations],
+                         ["XR-SPIKE-run-0", "XR-SPIKE-run-1"])
+        self.assertTrue(all(r["state"] == "confirmed" for r in reopened.operations))
+
+    def test_output_rejects_wrong_run_index_and_name_at_prepare_and_load(self):
+        journal = Journal.open(self.path, "run", "session")
+        valid = {"kind": "output", "id": "12345678-1234-4234-8234-123456789abc",
+                 "name": "XR-SPIKE-run-0", "index": 0, "before": None}
+        journal.prepare(valid)
+        original = self.path.read_text()
+        for changes in ({"name": "XR-SPIKE-other-0"}, {"name": "XR-SPIKE-run-1"},
+                        {"index": True}, {"index": -1}, {"index": 0.0},
+                        {"name": "XR-SPIKE-run-00"}, {"id": "not-a-uuid"},
+                        {"name": "XR-12345678-1234-4234-8234-123456789abc"}):
+            with self.subTest(changes=changes):
+                op = dict(valid, **changes)
+                with self.assertRaises(ValueError): journal.prepare(op)
+                data = json.loads(original)
+                data["operations"][0]["operation"] = op
+                self.path.write_text(json.dumps(data))
+                with self.assertRaises(ValueError): Journal.open(self.path, "run", "session")
+                self.path.write_text(original)
+
     def test_reject_unsafe_operations_and_identity(self):
         journal = Journal.open(self.path, "run", "session")
         for op in ({"kind": "command", "command": "exec evil"},
