@@ -4,6 +4,7 @@
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "xr/capture.hpp"
+#include "gl.hpp"
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
 // byte-identical; scope the C++ spelling adaptation to the generated C header.
 #define namespace layer_namespace
@@ -109,6 +110,9 @@ struct Presentation::Impl : SurfaceRequests {
         }
     };
     std::vector<std::unique_ptr<Capture>> captures;
+    std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
+    std::string gl_fallback;              // non-empty: why the CPU blit is in use
+    std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     static void cap_buffer_size(void* data, ext_image_copy_capture_session_v1*, uint32_t w, uint32_t h) {
         static_cast<Capture*>(data)->constraints.size(w, h);
     }
@@ -237,6 +241,7 @@ struct Presentation::Impl : SurfaceRequests {
         zwlr_layer_surface_v1_ack_configure(layer, serial);
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
+        if (s.gl) s.gl->resize(w, h);
     }
     static void layer_closed(void* data, zwlr_layer_surface_v1*) { static_cast<Impl*>(data)->closed = true; }
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
@@ -273,6 +278,7 @@ struct Presentation::Impl : SurfaceRequests {
     ~Impl() {
         cadence.stop();
         cancel_feedback();
+        gl.reset();  // before the wl_surface it wraps
         captures.clear();
         if (copy_manager) ext_image_copy_capture_manager_v1_destroy(copy_manager);
         if (source_manager) ext_output_image_capture_source_manager_v1_destroy(source_manager);
@@ -310,7 +316,9 @@ std::string Presentation::capture_report() const {
                ",\"height\":" + std::to_string(c.plan ? c.plan->height : 0) + ",\"format\":" + std::to_string(c.plan ? c.plan->format : 0) +
                ",\"stopped\":" + (c.stopped ? "true" : "false") + "}";
     }
-    return out + "]}";
+    out += "],\"composition\":";
+    out += impl_->gl ? impl_->gl->report() : std::string("{\"path\":\"cpu-blit\",\"fallback\":\"") + impl_->gl_fallback + "\"}";
+    return out + "}";
 }
 Status Presentation::open(std::string output_name, std::vector<std::string> capture) {
     if (!std::regex_match(output_name, std::regex("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}"))) return Error{"output", "invalid output name"};
@@ -365,6 +373,11 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     while (!s->configured && std::chrono::steady_clock::now() < deadline) if (!s->pump(50)) break;
     if (!s->configured || s->closed) return Error{"configure", "configure failed or timed out"};
+    if (s->capture_requested) {
+        s->gl = GlCompositor::create(s->display, s->surface, s->width, s->height, s->captures.size(), s->gl_fallback);
+        if (!s->gl && s->gl_fallback.empty()) s->gl_fallback = "unknown";
+        s->uploaded.assign(s->captures.size(), 0);
+    }
     impl_ = std::move(s); return {};
 }
 Status Presentation::dispatch(int timeout_ms) {
@@ -382,6 +395,30 @@ Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
     auto& s = *impl_;
     if (!s.cadence.ready(monotonic_ms(), true, s.metrics.can_submit())) return {};
+    if (s.gl) {
+        for (std::size_t i = 0; i < s.captures.size(); ++i) {
+            auto& c = *s.captures[i];
+            if (c.ready < 0 || !c.slots[c.ready] || c.frames == s.uploaded[i]) continue;
+            if (!s.gl->upload(i, c.slots[c.ready]->memory, c.plan->width, c.plan->height, c.plan->stride))
+                return Error{"gl", "texture upload failed"};
+            s.uploaded[i] = c.frames;
+        }
+        const auto& first = s.captures.front()->plan;
+        auto tiles = side_by_side(s.captures.size(), s.width, s.height, first ? first->width : 1920, first ? first->height : 1080);
+        s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
+        if (s.presentation) {
+            auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });
+            if (slot == s.feedbacks.end()) return Error{"feedback", "feedback capacity invariant failed"};
+            auto* proxy = wp_presentation_feedback(s.presentation, s.surface);
+            if (!proxy) return Error{"feedback", "feedback allocation failed"};
+            *slot = {&s, proxy, *s.metrics.submit(), false, false};
+            wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
+        } else s.metrics.submit();
+        if (!s.gl->draw_and_swap(tiles)) return Error{"gl", "draw or swap failed"};  // swap attaches and commits
+        s.cadence.committed();
+        if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
+        return {};
+    }
     std::erase_if(s.buffers, [&](const auto& b) { return !b->busy && (b->width != s.width || b->height != s.height); });
     Impl::Buffer* buffer = nullptr;
     for (auto& b : s.buffers) if (!b->busy) { buffer = b.get(); break; }

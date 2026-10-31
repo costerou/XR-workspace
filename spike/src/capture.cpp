@@ -55,3 +55,12 @@ void blit_nearest(const std::uint32_t* src, std::uint32_t src_width, std::uint32
     }
 }
 }
+
+namespace xr {
+ClipQuad clip_quad(Rect r, std::uint32_t width, std::uint32_t height) {
+    if (!width || !height) return {};
+    auto x = [&](std::uint64_t px) { return static_cast<float>(2.0 * double(px) / width - 1.0); };
+    auto y = [&](std::uint64_t px) { return static_cast<float>(1.0 - 2.0 * double(px) / height); };
+    return {x(r.x), y(r.y), x(std::uint64_t(r.x) + r.width), y(std::uint64_t(r.y) + r.height)};
+}
+}

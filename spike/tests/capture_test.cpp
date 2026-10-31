@@ -34,6 +34,12 @@ int main() {
     CHECK(side_by_side(1, 1920, 1200, 1920, 1080)[0].width == 1920);
     CHECK(side_by_side(0, 1920, 1200, 1920, 1080).empty() && side_by_side(2, 0, 10, 1, 1).empty());
 
+    auto q = clip_quad({0, 0, 1920, 1200}, 1920, 1200);
+    CHECK(q.x0 == -1.f && q.x1 == 1.f && q.y0 == 1.f && q.y1 == -1.f);
+    auto half = clip_quad({960, 600, 960, 600}, 1920, 1200);
+    CHECK(half.x0 == 0.f && half.x1 == 1.f && half.y0 == 0.f && half.y1 == -1.f);
+    CHECK(clip_quad({0, 0, 1, 1}, 0, 0).x0 == 0.f);  // degenerate viewport stays finite
+
     std::vector<std::uint32_t> src = {0x11000001, 0x22000002, 0x33000003, 0x44000004};  // 2x2
     std::vector<std::uint32_t> dst(16, 0);                                                // 4x4
     blit_nearest(src.data(), 2, 2, 2, dst.data(), 4, 4, 4, {0, 0, 4, 4});
