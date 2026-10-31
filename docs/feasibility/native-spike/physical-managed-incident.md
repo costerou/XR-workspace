@@ -60,5 +60,8 @@ The cause of phys1's placement mismatch is still unknown.
 
 1. ~~Reproduce in the VM~~ done. ~~Fix~~ done: weak monitor references.
 2. ~~Diagnosable mismatch~~ done.
-3. Independent review of the weak-monitor change (`754da0e`) before loading `973942be…` on a live desktop.
+3. ~~Independent review of the weak-monitor change~~ done: no blocking findings.
+   - The reviewer confirmed the root cause against the pinned `Monitor.cpp`: on destroy Hyprland nulls `m_output` and removes the monitor, so only an outside strong reference lets the late bind's `lock()` succeed.
+   - The reviewer's should-fix: the boundary test was circular, since it defines its own `NativeObject`. It is now closed by a `static_assert` on the production field (checked: a revert fails to compile). The module binary is unchanged (`973942be…`).
+   - Follow-up from the review, not a crash: the broker's strong `PHLWORKSPACE` members (for example the retirement gap) can keep an empty workspace listed on the fallback while the run's broker object lives. Hyprland's workspace list holds weak references. Investigate before relying on a clean bar/workspace view.
 4. Get explicit new user consent. A retry would report the actual placement mismatch; the physical managed run is **not** qualified.
