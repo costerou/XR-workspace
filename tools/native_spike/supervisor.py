@@ -132,7 +132,8 @@ class Supervisor:
                         if self.control is not None and key.fileobj is self.control.server.socket:
                             self._control_ready(heartbeat_socket)
                             continue
-                        data = heartbeat_socket.recv(256)
+                        try: data = heartbeat_socket.recv(256)
+                        except OSError: data = b''  # reset (renderer gone with unread frames) == disconnect
                         if data and all(byte == ord("H") for byte in data): self.heartbeat(now)
                         else:
                             self.disconnect(now)
