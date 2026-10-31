@@ -107,6 +107,8 @@ struct NativeModel : Backend {
      source->m_activeWorkspace.reset(); h->live=false; return true;
    });
  }
+ int released=0;
+ void release(const Handle&) override { ++released; owned.reset(); allocated.reset(); gap.reset(); beforeCreate.clear(); beforeEvacuation.clear(); }
 };
 void transaction(const std::string& test) {
  NativeModel b; Registry registry(b);
@@ -119,8 +121,11 @@ void transaction(const std::string& test) {
    CHECK(registry.inspect("s","r","id")=="invalid");
    CHECK(registry.remove("s","r","id",b.fallback)=="blocked"); CHECK(!b.erased && b.destroyed==0);
  } else {
+   auto owned=b.owned;
    CHECK(registry.remove("s","r","id",b.fallback)=="dead");
-   CHECK(b.owned->windows==2 && b.owned->m_monitor==b.target);
+   CHECK(owned->windows==2 && owned->m_monitor==b.target);
+   // Production release drops the gap/owned refs; the repeat dead check must not need them.
+   CHECK(b.released==1 && !b.owned && !b.gap && b.beforeEvacuation.empty());
    CHECK(registry.remove("s","r","id",b.fallback)=="dead"); CHECK(b.destroyed==1);
    for(int fault=0;fault<2;++fault) {
      NativeModel bad; Registry r(bad); CHECK(r.create("s","r",spec)=="live");

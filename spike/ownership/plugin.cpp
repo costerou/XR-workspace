@@ -268,6 +268,8 @@ public:
     void release(const Handle& h) override {
         // Strong PHLWORKSPACE members kept evacuated managed workspaces and retirement
         // gaps listed (empty) for the compositor lifetime after a complete recovery.
+        // Deliberately keep `output`: reachable() uses it to prove no monitor still holds that
+        // output, and retaining it prevents address reuse from faking that identity.
         auto o=native(h);
         o->workspace.reset(); o->createdDefault.reset(); o->retirement.reset();
         o->beforeCreate.clear(); o->beforeEvacuation.clear();

@@ -70,6 +70,7 @@ struct Boundary : PairBackend, Backend {
     bool reachable(const Handle&,const Handle& fallback) override {return usable(fallback);}
     bool destroy(const Handle& h) override {++mutations; h->live=false; return true;}
     bool cleanup(const Handle&,const Json&) override {++mutations; return true;}
+    void release(const Handle&) override {} // pair doubles hold no compositor workspaces
     Json observation(const Handle&) {return nullptr;}
 #include "ownership_pair_methods.inc"
 };
