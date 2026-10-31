@@ -49,3 +49,11 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Composition draw+swap mean is 62 µs; SHM upload mean is 0.44 ms. About 1 GB/s of CPU copies remains, which C2b removes.
 - Found and fixed: Mesa wrote a shader cache to disk. The renderer now runs with `MESA_SHADER_CACHE_DISABLE=true`.
 - Next: T1 (pose-driven redraw every vsync) and C2b (dmabuf zero-copy).
+
+**View controls done (2026-10-31, user-requested).**
+- Smooth zoom between the overview and a single desktop.
+- Ctrl+Alt+Left/Right switching, with focus and cursor following.
+- Spacing via Ctrl+Alt+[ / ], saved in `~/.config/viture-workspace/layout.json`.
+- Binds exist only during a run (Ctrl+Alt+arrows stay free for text navigation otherwise).
+- The view covers the whole output, so the Luma's own bar no longer shows above the tiles.
+- Evidence: VM `isolated-vm-zoom-controls-live.json`, live `physical-zoom-controls-live.json`. The user confirmed zoom, switching and focus work and feel smooth. Spacing keys are not yet pressed live.

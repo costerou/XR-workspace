@@ -1,0 +1,146 @@
+{
+  "run": "zoom1",
+  "scope": "live capture run with runtime-only Ctrl+Alt view controls (zoom in/out, switch, spacing)",
+  "renderer_sha256": "5729a5597fa94e8f6d86205baa8a782bca1cb784bbcc0ae83e4dc98cb893a216",
+  "module_sha256": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930",
+  "user_confirmed": [
+    "clean 1200p120 image",
+    "zoom in/out, switching and focus work and feel smooth"
+  ],
+  "not_exercised_live": [
+    "Ctrl+Alt+[ / ] spacing keys (user did not press them; no spacing file written, as expected)"
+  ],
+  "binds": {
+    "before": [
+      [
+        "DELETE",
+        "Close all windows"
+      ],
+      [
+        "TAB",
+        "Focus on next monitor"
+      ]
+    ],
+    "during": [
+      "DELETE",
+      "TAB",
+      "bracketleft",
+      "bracketright",
+      "down",
+      "left",
+      "right",
+      "up"
+    ],
+    "after": "DELETE (Close all windows), TAB (Focus on next monitor) only"
+  },
+  "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/zoom1/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\nexit=0\n",
+  "capture_report": {
+    "kind": "managed_output_capture",
+    "outputs": [
+      {
+        "name": "XR-1",
+        "frames": 1131,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "stopped": false
+      },
+      {
+        "name": "XR-2",
+        "frames": 1088,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "stopped": false
+      },
+      {
+        "name": "XR-3",
+        "frames": 1094,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "stopped": false
+      }
+    ],
+    "composition": {
+      "path": "gles2-shm-upload",
+      "vendor": "AMD",
+      "renderer": "AMD Radeon RX 7800 XT (radeonsi, navi32, ACO, DRM 3.64, 7.2.8-9-omarchy)",
+      "version": "OpenGL ES 3.2 Mesa 26.2.5-arch1.1",
+      "upload": {
+        "count": 3267,
+        "mean_us": 487,
+        "max_us": 8573
+      },
+      "draw_swap": {
+        "count": 1536,
+        "mean_us": 86,
+        "max_us": 7658
+      },
+      "uploaded_mib": 25842
+    }
+  },
+  "presentation_timing": {
+    "abandoned": 0,
+    "clock_conflict": false,
+    "clock_id": 1,
+    "discarded": 0,
+    "flag_counts_vsync_hw_clock_hw_completion_zero_copy": [
+      1536,
+      1536,
+      1536,
+      0
+    ],
+    "interval_count": 1535,
+    "interval_histogram": [
+      0,
+      0,
+      0,
+      1468,
+      29,
+      6,
+      3,
+      29
+    ],
+    "interval_max_ns": 2900068000,
+    "interval_mean_ns": 17915719.218241043,
+    "interval_min_ns": 8325000,
+    "interval_sum_ns": 27500629000,
+    "interval_upper_bounds_ns": [
+      1000000,
+      4000000,
+      8000000,
+      9000000,
+      17000000,
+      34000000,
+      100000000,
+      null
+    ],
+    "invalid_timing": 0,
+    "kind": "generated_pattern_presentation_timing",
+    "last_refresh_prediction_ns": 8333402,
+    "observation_duration_ns": 27500629000,
+    "pending": 0,
+    "presented": 1536,
+    "protocol_version": 1,
+    "schema": 1,
+    "submitted": 1536,
+    "sustained_cadence_qualified": false,
+    "valid_presented": 1536
+  },
+  "after_vs_baseline": {
+    "monitors": false,
+    "workspaces": true,
+    "clients": true,
+    "layers": true,
+    "instance": true,
+    "omarchy_state": true,
+    "omarchy_merged": true,
+    "renderers_left": [],
+    "configerrors": ""
+  },
+  "note": "monitors differ only by DP-2 session mode (baseline before the mode change). 1468/1535 intervals at ~8.33 ms."
+}
