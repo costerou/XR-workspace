@@ -57,10 +57,13 @@ class CaptureConsentTests(unittest.TestCase):
         seen = []
         class Child:
             def poll(self): return 0
+        envs = []
         def spawn(argv, **kwargs):
-            seen.append(argv); return Child()
+            seen.append(argv); envs.append(kwargs.get('env')); return Child()
         _launch(Client, 'run', 'session', 'DP-2', wayland, None, popen=spawn, capture=['XR-1', 'XR-2', 'XR-3'])
         self.assertEqual(seen[0][-2:], ['--capture', 'XR-1,XR-2,XR-3'])
+        # The renderer writes nothing to disk, including GPU driver shader caches.
+        self.assertEqual(envs[0].get('MESA_SHADER_CACHE_DISABLE'), 'true')
         _, wayland2 = socket.socketpair()
         with self.assertRaises(ValueError):
             _launch(Client, 'run', 'session', 'DP-2', wayland2, None, popen=spawn, capture=['XR-1'], animate_pattern_ms=10)
