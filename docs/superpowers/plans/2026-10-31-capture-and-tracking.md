@@ -31,3 +31,14 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Never capture non-managed outputs, and never write frames anywhere.
 - Never claim 120 FPS from mode readback: report measured presentation cadence only.
 - Normal managed safeguards and isolated-mode separation are unchanged.
+
+## Progress
+
+**C1 done (2026-10-31).**
+- VM: `isolated-vm-capture-live.json`.
+- Live: `physical-capture-cap1-live.json`. The user saw XR-1..3 as three tiles in the Luma, updating live. There were 0 capture failures, 0 discarded presentations, and no files or writable file mappings in the renderer.
+- Bugs found on the way:
+  - Constraints arrive asynchronously, so setup now waits for them (bounded).
+  - Hyprland sends `shm_format` before `buffer_size`; constraints now accumulate in any order.
+  - The renderer inherited stdin; it now gets `/dev/null`.
+- Measured CPU/SHM path: 1,215 presented over 33.8 s (mean interval 27.9 ms, about 36 fps), with ~30 capture frames/s per source. This is far below 120 Hz and motivates C2. Not a latency measurement.
