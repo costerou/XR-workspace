@@ -64,3 +64,17 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Measured: a sustained ~119.8 Hz presentation over 3.5 min (mean 8.346 ms, 0 discarded, 0 tracking losses) with the driver network-blocked.
 - Not yet: motion-to-photon latency, prediction, the Beast, long-session comfort, Anchor/0DoF/smooth-follow modes.
 - Next: C2b (dmabuf zero-copy), then T2 modes.
+
+**C2b implemented (2026-10-31), VM fallback verified; live zero-copy pending.**
+- Each capture session that advertises a dmabuf device gets three GBM buffers on that device's render node. They are imported once into GL as EGLImages and wrapped as `wl_buffer`s via `zwp_linux_dmabuf_v1`. The compositor renders into the slot that is neither the latest frame nor the one GL is sampling, so there is no CPU copy.
+- Format choice: XRGB8888, then ARGB8888. Among offered modifiers EGL can import, LINEAR comes first. An implicit modifier stays implicit end to end.
+- Every missing piece falls back to SHM upload and records a fixed reason in `outputs[].fallback`:
+  - no GPU composition;
+  - no linux-dmabuf;
+  - no render node;
+  - GBM allocation failure;
+  - no importable format;
+  - EGL import failure;
+  - the compositor rejecting the buffer or the capture.
+- Fixed while here: constraints that changed during an in-flight frame could stall capture. They are now applied once that frame completes or fails.
+- VM: `isolated-vm-dmabuf-live.json`. The guest cannot allocate GBM buffers, so all three outputs report `shm` with "gbm allocation failed"; capture, tracking and teardown are unchanged. Zero-copy itself needs the live RX 7800 XT run (`path: "dmabuf"`, `composition.path: "gles2-dmabuf-import"`, no upload counts).
