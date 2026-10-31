@@ -1,5 +1,6 @@
 #pragma once
 #include "xr/types.hpp"
+#include "xr/metrics.hpp"
 #include <memory>
 
 namespace xr {
@@ -27,8 +28,10 @@ public:
     // Bounded dispatch; suitable for an independently supervised heartbeat loop.
     Status dispatch(int timeout_ms = 50);
     void close();
+    std::string timing_report() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
+    Metrics final_metrics_;
 };
 }
