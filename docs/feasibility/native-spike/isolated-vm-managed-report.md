@@ -48,11 +48,36 @@ While each run was live:
 
 All three runs shared one broker epoch, and each got a distinct fallback handle. At the end, the compositor had no config errors, the plugin was still loaded, and outputs were identical to the pre-load baseline.
 
+## Trial C: windows, display loss and authority loss
+
+Same envelope and module. Host QEMU FD audits (25 and 9 samples) were clean.
+
+**Setup corrections:**
+- `xr-isolated-coverage` and `-2`: the preserved scratch window client exits 92 unless it sees exactly 4 `wl_output`s, which suited the old single-head guest. I rebuilt it from `xr-window-migration-final/window.c` with only `outputs!=5` changed (SHA256 `755e6bc6…b4e4`).
+- The client counts frames on the first output it binds, so its `success=1` line is recorded, not used as a pass criterion.
+- The DPMS Lua action spelling was found by readback: `hl.dsp.dpms({action="disable"|"enable",monitor=...})`.
+
+**`xr-isolated-coverage-3`** (`isolated-vm-coverage-live.json`):
+
+| Run | Action | Result |
+|---|---|---|
+| iso4 | 3 real Wayland windows (own guest sockets, not pinned) moved onto the 3 managed workspaces; guard accepted them; normal teardown | CLI exit 0, `complete`. Every window was on `Virtual-2` with the same address and PID, its client still alive, then exited 0 (each presented 1 frame, `success=1`) |
+| iso5 | DPMS off on target `Virtual-1` mid-run | The spawned guard stopped the run unaided; recovery with only the fallback proof completed (`complete`, 0 remaining) |
+| iso6 | DPMS off on fallback `Virtual-2` mid-run | Native recovery blocked: exit 2, 3 remaining, outputs and 3x `confirmed` journal preserved. After DPMS on, `isolated-recover` completed and outputs were back to baseline |
+| iso7 | controller SIGKILL, then plugin unload/reload | The fixture's assertion was too strict (see the next trial) |
+
+**`xr-isolated-unload`** (`isolated-vm-unload-live.json`), iso7 alone with readback:
+- Plugin unload left the compositor alive and did not delete the three unresolved outputs. However, the unload's config reload dropped the broker-added monitor rules. The outputs fell back to 1920x1080@60 and were repacked to x = 2560/3520/4480, keeping their workspaces.
+- After reload, `isolated-recover` refused the new broker epoch: exit 2, 3 remaining, journal byte-identical, outputs preserved.
+- This fail-closed behaviour is intended. It leaves orphaned headless outputs that need manual cleanup.
+- Consequence for the product: never unload or reload the broker while a journal is unfinished. Surface orphans to the user rather than deleting by name.
+
 ## Not established
 
 - **Glasses:** physical Beast/Luma managed operation.
-- **Compositor-level gates:** compositor restart, plugin unload/reload, authority loss, same-name replacement and fallback loss at runtime (native unit tests only).
-- **Desktop state:** populated windows during isolated runs, and special/pinned windows.
+- **Same-name output replacement at runtime:** native unit tests only.
+- **Desktop state:** special and pinned windows, which native evacuation refuses by design (untested in VM).
+- **Compositor restart** with a live journal.
 - **Performance and comfort:** sustained 120 FPS, capture, tracking, focus and controls.
 - **Host side of the VM boundary:** the isolated-mode evidence is guest-local. The no-network/no-share/no-passthrough envelope is verified host-side only for these trials.
 - **Rendering at 120 Hz:** the 120 Hz figure here is the headless outputs' mode readback, not rendering.

@@ -1,0 +1,378 @@
+{
+  "trial": "xr-isolated-unload",
+  "scope": "disposable non-GL virtio KVM guest; virtual lifecycle evidence only, no physical/performance claim",
+  "manifest": {
+    "commit": "f6b4d2125c4605bb076492c5a8d1288309462372",
+    "baseline": {
+      "/home/cody/.hermes/cache/scratch/xr-presentation/guest.raw": "9ac7441319451a8acc7ff02c817447eebea2ee5d20ff6dbd5761b40cfd66abde",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike/xr-native-spike": "8a3826c2d3c465db17fd760543c6294d8c4d15da4096987ae3010a6f726f38f9",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-offset-fix/libxr-ownership.so": "2be43536ebd358f94851ec927857a7305bbef20a880427fcfef4b19afc168e31",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-pair-proof/libxr-ownership.so": "4d4fc81cb056d5cb8762a784d8a3ed816637d55f81c3758edd6a7fcda595a63f"
+    },
+    "image_files": {
+      "/opt/xr/session.sh": "ee386eb881cc03615db93a3352202aeb5a42270544710cbed9548d11eccd36bb",
+      "/opt/xr/hyprland.lua": "1c385bb66d39c55df98028cf1af550af1e8c31c9bafad1c7de9c753360ea9c63",
+      "/opt/xr/coverage-fixture.py": "54fbcea1e39086847fdc6329948271502cad8a3152aa27c2435cf51556d884b7",
+      "/opt/xr/child_connect.py": "d03f23834ccb45896c5b4410e4bfe5361848ccf91e280f8c2c7b5bb861b215ef",
+      "/opt/xr/window": "755e6bc61e738d317c5d163650b42a798ec7ecd381f2c7790b5ac23b9847b4e4",
+      "/opt/xr/plugin.sha256": "144ec3fd01eb6ab61d52d5ad7b8ea89b8939447dc36e8035b03d87614aa35f89",
+      "/opt/xr/libxr-ownership.so": "4d4fc81cb056d5cb8762a784d8a3ed816637d55f81c3758edd6a7fcda595a63f",
+      "/opt/xr/repo/build/native-spike/xr-native-spike": "8a3826c2d3c465db17fd760543c6294d8c4d15da4096987ae3010a6f726f38f9",
+      "/opt/xr/repo/tools/native_spike/__init__.py": "f8b0282cfd2c84ca456bedcf6d5a95366a88f3af97138a76504067fca07f9cff",
+      "/opt/xr/repo/tools/native_spike/__main__.py": "ca580655d5d18bd1400a6295d4d616927fd2fb100c8ed08cec41f6cdd1f1303a",
+      "/opt/xr/repo/tools/native_spike/hyprland.py": "25c2ac605c3d7c6200e5f503fcb6ec77d073547d2db5fa93bcd06a14ff4f7c48",
+      "/opt/xr/repo/tools/native_spike/ipc.py": "fe76e6b14e96cfd635f09c2703906b8508e1aa0c39f99d62f634b740b74dfd25",
+      "/opt/xr/repo/tools/native_spike/isolated.py": "0ce4abee86cfb09e41abd41abf8ff8abfac4dc7942c255582ab8051398947021",
+      "/opt/xr/repo/tools/native_spike/journal.py": "a31bb9258c762d97156073274e335a30e9e77abc9b83a866986a35ee551b066a",
+      "/opt/xr/repo/tools/native_spike/managed.py": "f3d70dbc68d03411eaa01eb195f711de9db9e964424328863e12c54ccf67c3b0",
+      "/opt/xr/repo/tools/native_spike/ownership.py": "be7177f34c9bb53e18a539645026994bf2a5219bd99900ef7b929460f8c72311",
+      "/opt/xr/repo/tools/native_spike/supervisor.py": "ea22519f49a6616813d6ff702cd75c9422075ee105333c0629ca41a36a4713db"
+    }
+  },
+  "exit": {
+    "exit_code": 0,
+    "supervisor_pid": 1325913,
+    "qemu_survivors": []
+  },
+  "fixture_complete": true,
+  "fixture_assertion_failures": [],
+  "events": [
+    {
+      "kind": "identity",
+      "value": {
+        "boot_id": "7f8658d1-51f3-4170-8980-4ca80a097651",
+        "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479025_2093635709",
+        "peer": [
+          166,
+          1000,
+          1000,
+          "328"
+        ],
+        "session": "33bf473707dd51b11c2d32dccf3992b950b35b688fec3ccd6a41777018eff1ea"
+      }
+    },
+    {
+      "kind": "baseline_outputs",
+      "value": [
+        [
+          "Virtual-1",
+          1280,
+          800,
+          74.994,
+          0,
+          0
+        ],
+        [
+          "Virtual-2",
+          1280,
+          800,
+          74.994,
+          1280,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "guest_evidence",
+      "value": {
+        "boot_id": "7f8658d1-51f3-4170-8980-4ca80a097651",
+        "connectors": {
+          "Virtual-1": {
+            "connector": 40,
+            "device": "226:0"
+          },
+          "Virtual-2": {
+            "connector": 47,
+            "device": "226:0"
+          }
+        }
+      }
+    },
+    {
+      "kind": "plugin_sha256",
+      "value": "4d4fc81cb056d5cb8762a784d8a3ed816637d55f81c3758edd6a7fcda595a63f"
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "7f8658d1-51f3-4170-8980-4ca80a097651",
+          "epoch": "308f1b15028b7b62e8fa39cefed42fc9835272c2dcfa701b",
+          "fallback": "cf58fa9f67e19491ac69a22c83d0b5676234a6c4abd586d0",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479025_2093635709",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "85a2f072b421971a2fc78848a807030389114be31dd5cdb4"
+        },
+        "owned": [
+          [
+            "XR-SPIKE-iso7-0",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-1",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-2",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          204
+        ],
+        "run": "iso7"
+      }
+    },
+    {
+      "kind": "plugin_unload",
+      "value": "ok"
+    },
+    {
+      "kind": "after_unload",
+      "value": {
+        "all": [
+          [
+            "Virtual-1",
+            1280,
+            800,
+            74.994,
+            0,
+            0
+          ],
+          [
+            "Virtual-2",
+            1280,
+            800,
+            74.994,
+            1280,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-0",
+            1920,
+            1080,
+            60.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-1",
+            1920,
+            1080,
+            60.0,
+            3520,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-2",
+            1920,
+            1080,
+            60.0,
+            4480,
+            0
+          ]
+        ],
+        "configerrors": "\n\n",
+        "held": [
+          [
+            "XR-SPIKE-iso7-0",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-1",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-2",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "owned": [
+          [
+            "XR-SPIKE-iso7-0",
+            1920,
+            1080,
+            60.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-1",
+            1920,
+            1080,
+            60.0,
+            3520,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-2",
+            1920,
+            1080,
+            60.0,
+            4480,
+            0
+          ]
+        ],
+        "workspaces": {
+          "1": "Virtual-1",
+          "2": "Virtual-2",
+          "3": "XR-SPIKE-iso7-0",
+          "4": "XR-SPIKE-iso7-1",
+          "5": "XR-SPIKE-iso7-2"
+        }
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 2,
+        "stderr": "",
+        "stdout": "{\"complete\": false, \"journal\": \"/run/user/1000/xr-workspace-spike/iso7/journal.json\", \"remaining\": [\"487d871e-adfc-410c-b605-91afa74777cd\", \"dbcd3331-3a46-44c6-b015-0b5230317ae3\", \"2a051398-e056-4ee0-9019-e0e47dd16ed1\"]}\n",
+        "what": "iso7 recover after epoch loss"
+      }
+    },
+    {
+      "kind": "authority_loss_preserved",
+      "value": {
+        "owned": [
+          [
+            "XR-SPIKE-iso7-0",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-1",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-SPIKE-iso7-2",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "result": {
+          "complete": false,
+          "journal": "/run/user/1000/xr-workspace-spike/iso7/journal.json",
+          "remaining": [
+            "487d871e-adfc-410c-b605-91afa74777cd",
+            "dbcd3331-3a46-44c6-b015-0b5230317ae3",
+            "2a051398-e056-4ee0-9019-e0e47dd16ed1"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "final_outputs",
+      "value": [
+        [
+          "Virtual-1",
+          1280,
+          800,
+          74.994,
+          0,
+          0
+        ],
+        [
+          "Virtual-2",
+          1280,
+          800,
+          74.994,
+          1280,
+          0
+        ],
+        [
+          "XR-SPIKE-iso7-0",
+          1920,
+          1080,
+          60.0,
+          2560,
+          0
+        ],
+        [
+          "XR-SPIKE-iso7-1",
+          1920,
+          1080,
+          60.0,
+          3520,
+          0
+        ],
+        [
+          "XR-SPIKE-iso7-2",
+          1920,
+          1080,
+          60.0,
+          4480,
+          0
+        ]
+      ]
+    }
+  ],
+  "host_qemu_samples": 9,
+  "host_qemu_fd_targets": [
+    "/dev/kvm",
+    "/dev/null",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-unload/guest.raw",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-unload/serial.log",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-unload/vl.L2V3X3 (deleted)",
+    "/memfd:displaysurface (deleted)",
+    "/memfd:virtio-gpu res (deleted)",
+    "anon_inode:[eventfd]",
+    "anon_inode:[io_uring]",
+    "anon_inode:[signalfd]",
+    "anon_inode:kvm-vcpu-stats:0",
+    "anon_inode:kvm-vcpu-stats:1",
+    "anon_inode:kvm-vcpu:0",
+    "anon_inode:kvm-vcpu:1",
+    "anon_inode:kvm-vm"
+  ],
+  "host_suspicious_fds": []
+}
