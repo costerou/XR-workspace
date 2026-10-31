@@ -3,6 +3,7 @@
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/debug/HyprCtl.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
+#include <hyprland/src/state/MonitorLayoutController.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
 #include <hyprland/src/state/WorkspacePlacementController.hpp>
 #include <hyprland/src/output/Monitor.hpp>
@@ -124,6 +125,11 @@ public:
         rule.m_transform=WL_OUTPUT_TRANSFORM_NORMAL; rule.m_disabled=false; rule.m_mirrorOf="";
         o->rule=rule; Config::monitorRuleMgr()->add(Config::CMonitorRule(rule));
         if(!h->live || !m->applyMonitorRule(std::move(rule)) || !resolve(h)) return false;
+        // Pinned applyMonitorRule stores m_offset but does not move the monitor.
+        // Complete the compositor's synchronous layout phase before verification;
+        // a deferred reload may skip arrange when the active rule already matches.
+        State::monitorLayoutController()->arrange();
+        if(!resolve(h)) return false; // layout notifications may destroy the output
         if(adopt) {
             // Revalidate the retained object after applyMonitorRule callbacks.
             if(!freshDefault(candidate,o->beforeCreate,State::workspaceState()->workspacesCopy(),m) ||

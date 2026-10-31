@@ -31,6 +31,16 @@ if(XR_ENABLE_OWNERSHIP_PLUGIN)
   target_include_directories(ownership_native_test PRIVATE ownership)
   target_link_libraries(ownership_native_test PRIVATE xr_ownership PkgConfig::HYPRLAND PkgConfig::AQUAMARINE)
   target_compile_options(ownership_native_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_ownership_methods.py"
+      "${CMAKE_CURRENT_SOURCE_DIR}/ownership/plugin.cpp" "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc"
+    DEPENDS ownership/plugin.cpp tests/extract_ownership_methods.py VERBATIM)
+  add_executable(ownership_offset_test tests/ownership_offset_test.cpp "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc")
+  target_include_directories(ownership_offset_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+  target_link_libraries(ownership_offset_test PRIVATE xr_ownership)
+  target_compile_options(ownership_offset_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME ownership_offset COMMAND ownership_offset_test)
   foreach(CASE default retirement vrr eotf)
     add_test(NAME ownership_native_${CASE} COMMAND ownership_native_test ${CASE})
   endforeach()
