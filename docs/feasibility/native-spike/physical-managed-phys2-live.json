@@ -1,0 +1,189 @@
+{
+  "run": "phys2",
+  "module_sha256": "e031543a700024aa5c93a1a340d4a08ed190e00c00a219e9e5c38b5b9a4f648f",
+  "cli_stdout": "exit=2\n",
+  "cli_stderr": "blocked: workspace placement mismatch: expected [{\"id\": 2, \"name\": \"XR-SPIKE-phys2-workspace-0\", \"special\": false}] observed [{\"id\": 71, \"name\": \"71\", \"special\": false}, {\"id\": 2, \"name\": \"XR-SPIKE-phys2-workspace-0\", \"special\": false}]\n",
+  "journal": {
+    "schema": 1,
+    "run_id": "phys2",
+    "session": "9c6ad54ed582219ba0211b9007c535cf44c7739e0aa71ff03b3347a9520e19b1",
+    "operations": [
+      {
+        "id": "58df5f70-b503-4c64-a661-1ac8d88f1374",
+        "operation": {
+          "kind": "output",
+          "id": "2b725f3b-0064-4b84-9a7b-2757a6e1f48e",
+          "name": "XR-SPIKE-phys2-0",
+          "index": 0,
+          "before": null
+        },
+        "state": "done"
+      }
+    ],
+    "broker": {
+      "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+      "output": "DP-2",
+      "recovery_output": "DP-1",
+      "epoch": "92e6c9a088988cf628d78e7af05824d5e7a3732e2e2389b2",
+      "fallback": "8b5f0473e436019eae86f66701b0d5d37871ad95188beda4"
+    }
+  },
+  "baseline": {
+    "monitors": [
+      {
+        "name": "DP-1",
+        "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+        "width": 5120,
+        "height": 1440,
+        "refreshRate": 240.0,
+        "x": 0,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      },
+      {
+        "name": "DP-2",
+        "description": "CVT VITURE 0x88888800",
+        "width": 1920,
+        "height": 1080,
+        "refreshRate": 60.0,
+        "x": 4096,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      }
+    ],
+    "workspaces": [
+      [
+        1,
+        "1",
+        "DP-1"
+      ],
+      [
+        21,
+        "21",
+        "DP-2"
+      ]
+    ],
+    "clients": [
+      [
+        "0x561aa77fc5c0",
+        "com.t3tools.T3Code",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa78f9080",
+        "chromium",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa79d8230",
+        "grok-bot",
+        1,
+        0,
+        false,
+        false
+      ]
+    ],
+    "layers": {
+      "DP-1": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      },
+      "DP-2": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      }
+    },
+    "plugins": "no plugins loaded\n"
+  },
+  "after": {
+    "monitors": [
+      {
+        "name": "DP-1",
+        "width": 5120,
+        "height": 1440,
+        "refreshRate": 240.0,
+        "x": 0,
+        "y": 0,
+        "scale": 1.25,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      },
+      {
+        "name": "DP-2",
+        "width": 1920,
+        "height": 1200,
+        "refreshRate": 119.999,
+        "x": 4096,
+        "y": 0,
+        "scale": 1.25,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      }
+    ],
+    "workspaces": [
+      [
+        1,
+        "1",
+        "DP-1"
+      ],
+      [
+        21,
+        "21",
+        "DP-2"
+      ]
+    ],
+    "clients": [
+      [
+        "0x561aa77fc5c0",
+        "com.t3tools.T3Code",
+        1
+      ],
+      [
+        "0x561aa78f9080",
+        "chromium",
+        1
+      ],
+      [
+        "0x561aa79d8230",
+        "grok-bot",
+        1
+      ]
+    ],
+    "plugins": "\nPlugin xr-ownership by Hermes Agent:\n\tHandle: 561aa7980fa0\n\tVersion: 1\n\tDescription: Explicit opt-in output lifecycle broker\n\n"
+  },
+  "workspaces_equal_baseline": true,
+  "clients_equal_baseline": true,
+  "omarchy_monitor_workspaces_state": "0\tDP-1\tSamsung Electric Company Odyssey G93SD HCSY900228\n1\t\tFALLBACK\n2\tDP-2\tCVT VITURE 0x88888800\n3\t\tVisitech AS VITURE Beast\n4\t\tSUNSHINE-PROBE\n5\t\tSUNSHINE-LAPTOP\n6\t\tXR-SPIKE-phys1-0\n7\t\tXR-SPIKE-phys2-0\n"
+}
