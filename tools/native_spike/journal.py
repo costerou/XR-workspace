@@ -61,6 +61,33 @@ def _safe_file(fd):
         raise PermissionError("journal/lock must be owned regular mode 0600 single-link file")
 
 
+@contextmanager
+def managed_owner(path):
+    """Separate nonblocking lifetime lock; journal transactions remain short."""
+    path = Path(path)
+    directory = private_dir(path.parent)
+    lock = None
+    try:
+        lock = os.open(path.name + '.owner', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
+                       0o600, dir_fd=directory)
+        _safe_file(lock)
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        if lock is not None: os.close(lock)
+        os.close(directory)
+
+
+def validate_broker(context):
+    from .hyprland import INSTANCE
+    if not isinstance(context, dict) or set(context) != {'instance', 'output', 'recovery_output', 'epoch', 'fallback'}:
+        raise ValueError('invalid broker context')
+    for value in context.values(): token(value)
+    if not INSTANCE.fullmatch(context['instance']) or context['output'] == context['recovery_output']:
+        raise ValueError('invalid broker scope')
+    return dict(context)
+
+
 class Journal:
     path: Path
     run_id: str
@@ -68,12 +95,15 @@ class Journal:
     _dir: int | None
 
     @classmethod
-    def open(cls, path: Path, run_id: str, session: str):
+    def open(cls, path: Path, run_id: str, session: str, *, existing_only=False):
         self = cls()
         self.path, self.run_id, self.session = Path(path), token(run_id), token(session)
         self.operations = []
+        self.broker = None
         with self.transaction():
-            if not self._exists: self._save()
+            if not self._exists:
+                if existing_only: raise FileNotFoundError('recovery journal missing')
+                self._save()
         return self
 
     @contextmanager
@@ -95,14 +125,15 @@ class Journal:
         try:
             fd = os.open(self.path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=self._dir)
         except FileNotFoundError:
-            self._exists = False; self.operations = []; return
+            self._exists = False; self.operations = []; self.broker = None; return
         self._exists = True
         with os.fdopen(fd, "rb") as stream:
             _safe_file(stream.fileno())
             raw = stream.read(1048577)
         if len(raw) > 1048576: raise ValueError("journal too large")
         data = strict_json(raw)
-        if not isinstance(data, dict) or set(data) != {"schema", "run_id", "session", "operations"}:
+        fields = {"schema", "run_id", "session", "operations"}
+        if not isinstance(data, dict) or set(data) not in (fields, fields | {'broker'}):
             raise ValueError("invalid journal")
         if type(data["schema"]) is not int or data["schema"] != 1 or data["run_id"] != self.run_id or data["session"] != self.session:
             raise ValueError("wrong journal identity")
@@ -114,11 +145,13 @@ class Journal:
             ids.add(record["id"])
             if record["state"] not in ("pending", "confirmed", "done"): raise ValueError("invalid state")
             validate_operation(record["operation"], self.run_id)
+        self.broker = validate_broker(data['broker']) if 'broker' in data else None
         self.operations = data["operations"]
 
     def _save(self):
         assert self._dir is not None
         data = {"schema": 1, "run_id": self.run_id, "session": self.session, "operations": self.operations}
+        if self.broker is not None: data['broker'] = validate_broker(self.broker)
         raw = json.dumps(data, allow_nan=False).encode()
         if len(raw) > 1048576: raise ValueError("journal too large")
         name = ".journal-" + str(uuid.uuid4())
@@ -131,6 +164,15 @@ class Journal:
         finally:
             try: os.unlink(name, dir_fd=self._dir)
             except FileNotFoundError: pass
+
+    def bind_broker(self, context):
+        context = validate_broker(context)
+        with self.transaction():
+            if self.broker == context: return
+            if self.broker is not None or self.operations:
+                raise ValueError('cannot rebind existing journal authority')
+            self.broker = context
+            self._save()
 
     def prepare(self, operation: dict) -> str:
         op = json.loads(json.dumps(validate_operation(operation, self.run_id), allow_nan=False))
