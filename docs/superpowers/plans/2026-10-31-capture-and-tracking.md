@@ -90,3 +90,12 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Mode, cursor follow and spacing are saved together in `layout.json`; each field falls back to its default on its own.
 - Capture now paints the cursor on managed outputs, so the pointer is visible in the glasses.
 - VM: `isolated-vm-modes-live.json`. A focus change stands in for the pointer crossing outputs.
+
+**C2b, T2 modes and cursor follow verified live (2026-10-31, run mod1).** Evidence: `physical-modes-mod1-live.json`.
+- Zero-copy: all three outputs ran on the dmabuf path (XRGB8888, LINEAR) with 0 CPU uploads. Draw+swap mean was 56 µs; ~119.9 Hz sustained over 168 s with 1 discard and 0 tracking losses.
+- The user confirmed:
+  - anchor, follow and locked all work well, and switching between them is smooth;
+  - cursor follow moves the view to the desktop the pointer enters, and the pointer is visible;
+  - the spacing keys work and the desktops update smoothly.
+- After teardown the desktop matches the baseline exactly.
+- Next: head-direction focus, then motion-to-photon latency and prediction, the Beast, and a settings UI.
