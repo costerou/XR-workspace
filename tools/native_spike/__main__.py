@@ -10,7 +10,7 @@ from .ipc import strict_json, token
 from .journal import Journal, recover
 
 
-def load_consent(path, instance, output):
+def load_consent(path, instance, output, *, presentation_only=False):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         st = os.fstat(stream.fileno())
@@ -22,12 +22,14 @@ def load_consent(path, instance, output):
     keys = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'allow',
             'capture', 'input', 'sdk', 'mode_switch'}
     if not isinstance(data, dict) or set(data) != keys: raise ValueError('invalid consent fields')
-    if type(data['schema']) is not int or data['schema'] != 1 or data['gate'] != 'P2': raise ValueError('P2 consent required')
+    gate = 'P2-presentation-only' if presentation_only else 'P2'
+    if type(data['schema']) is not int or data['schema'] != 1 or data['gate'] != gate: raise ValueError(f'{gate} consent required')
     if data['instance'] != instance or data['output'] != output: raise ValueError('consent scope mismatch')
     token(data['run_id']); token(output); token(data['recovery_output'])
     if len(data['run_id']) > 80: raise ValueError('run id too long')
     if data['recovery_output'] == output: raise ValueError('independent physical recovery output required')
-    if data['allow'] != ['headless-outputs', 'test-pattern']: raise ValueError('exact test-pattern scope required')
+    allowed = ['test-pattern'] if presentation_only else ['headless-outputs', 'test-pattern']
+    if data['allow'] != allowed: raise ValueError('exact test-pattern scope required')
     if any(data[k] is not False for k in ('capture', 'input', 'sdk', 'mode_switch')):
         raise ValueError('capture/input/SDK/mode transitions not authorized by this CLI')
     return data
@@ -45,13 +47,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Native XR spike: fail-closed P2 test-pattern qualification')
     commands = parser.add_subparsers(dest='command', required=True)
     p = commands.add_parser('preflight'); p.add_argument('--instance', required=True)
-    p = commands.add_parser('run'); p.add_argument('--instance', required=True)
-    p.add_argument('--output', required=True); p.add_argument('--consent-file', type=Path, required=True)
+    for command in ('run', 'present'):
+        p = commands.add_parser(command); p.add_argument('--instance', required=True)
+        p.add_argument('--output', required=True); p.add_argument('--consent-file', type=Path, required=True)
     p = commands.add_parser('recover'); p.add_argument('--journal', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         # Consent check occurs before runtime lookup, socket connect, or file creation.
-        consent = load_consent(args.consent_file, args.instance, args.output) if args.command == 'run' else None
+        consent = load_consent(args.consent_file, args.instance, args.output,
+                               presentation_only=args.command == 'present') if args.command in ('run', 'present') else None
         if args.command == 'recover':
             # No saved independent incarnation continuity survives restart. In particular,
             # do not scan sessions or infer an instance/output from a journal filename.
@@ -62,6 +66,13 @@ def main(argv=None):
         result = preflight(client)
         if args.command == 'preflight':
             print(json.dumps(result, sort_keys=True)); return 0
+        if args.command == 'present':
+            from .supervisor import run_presentation_only, validate_physical_pair
+            validate_physical_pair(client, result['session'], args.output, consent['recovery_output'])
+            wayland = client.connect_wayland(result['session'])
+            returncode = run_presentation_only(client, consent['run_id'], result['session'],
+                                              args.output, consent['recovery_output'], wayland)
+            return 0 if returncode == 0 else 2
         adapter = RecoveryAdapter(client, approved_physical=consent['recovery_output'])
         if not any(o['physical'] for o in adapter.query('outputs')):
             raise ValueError('approved usable independent physical recovery output missing')

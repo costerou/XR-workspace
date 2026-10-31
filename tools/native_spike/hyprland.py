@@ -124,7 +124,31 @@ class HyprlandClient:
         identity = hashlib.sha256(f'{boot}:{self.instance}:{self._peer}'.encode()).hexdigest()
         if self._session is not None and self._session != identity: raise ValueError('session changed')
         self._session = identity
+        self._wayland_name = fields[1]
         return {'id': identity}
+
+    def connect_wayland(self, session):
+        """Owned connection to the verified lock's endpoint, never ambient display."""
+        if self.verified_session() != {'id': session}: raise ValueError('Wayland session mismatch')
+        path = self.runtime_dir / self._wayland_name
+        st = path.lstat()
+        if not stat.S_ISSOCK(st.st_mode) or st.st_uid != os.getuid():
+            raise PermissionError('unsafe Wayland socket')
+        conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            directory = os.open(self.runtime_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                conn.settimeout(DEADLINE)
+                conn.connect(f'/proc/self/fd/{directory}/{self._wayland_name}')
+            finally: os.close(directory)
+            peer = struct.unpack('3i', conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+            if peer[1] != os.getuid() or peer != self._peer[:3]:
+                raise PermissionError('Wayland/IPC peer mismatch')
+            conn.settimeout(None)
+            return conn
+        except BaseException:
+            conn.close()
+            raise
 
     def require_output_ownership(self):
         raise OwnershipBlocked('Hyprland socket2 has no creation UUID, transaction acknowledgement, '
