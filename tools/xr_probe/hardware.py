@@ -63,7 +63,14 @@ def probe_usb(sysfs_root: Path = Path('/sys/bus/usb/devices')) -> ProbeResult:
     for node in entries:
         if ':' in node.name:
             continue  # USB interfaces are not physical devices.
-        physical = node.resolve()
+        try:
+            physical = node.resolve()
+        except PermissionError:
+            return ProbeResult('permission_denied', None, 'USB device path resolution denied')
+        except FileNotFoundError:
+            return ProbeResult('missing', None, 'USB device path disappeared')
+        except OSError:
+            return ProbeResult('error', None, 'USB device path resolution failed')
         if physical in seen:
             continue
         seen.add(physical)

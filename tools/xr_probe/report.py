@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import html
 import math
 from .hardware import clean_text
+from .session import classify_output
 from .model import HostReport, ProbeResult, SessionCandidate, to_json as model_json
 
 
@@ -72,7 +73,11 @@ def _host(raw):
 
 def _output(raw, index):
     source = f'session.data.outputs[{index}]'
-    return {'name': _field(clean_text(raw.get('name')), source + '.name'),
+    classification = raw.get('classification', classify_output(raw))
+    if classification not in ('physical', 'headless_only', 'unknown'):
+        classification = 'unknown'
+    return {'classification': classification,
+            'name': _field(clean_text(raw.get('name')), source + '.name'),
             'make': _field(clean_text(raw.get('make')), source + '.make'),
             'model': _field(clean_text(raw.get('model')), source + '.model'),
             'disabled': _field(raw.get('disabled') if type(raw.get('disabled')) is bool else None,
@@ -99,9 +104,11 @@ def build_report(session: ProbeResult, usb: ProbeResult, drm: ProbeResult,
                   'classification': selected.classification if selected else 'unknown',
                   'outputs': outputs}
     active = [output['active_mode']['refresh_hz']['source'] for output in outputs
-              if output['active_mode']['refresh_hz']['value'] == 120
+              if output['classification'] == 'physical'
+              and output['active_mode']['refresh_hz']['value'] == 120
               and output['disabled']['value'] is False]
     advertised = [mode['refresh_hz']['source'] for output in outputs
+                  if output['classification'] == 'physical'
                   for mode in (output['available_modes']['value'] or [])
                   if mode['refresh_hz']['value'] == 120]
     capabilities = {
