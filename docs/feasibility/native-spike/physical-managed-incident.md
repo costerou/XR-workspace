@@ -32,9 +32,33 @@ The user's desktop session was lost and restarted. The new session has no plugin
 - Candidates include Omarchy shell reacting to the new output and the user's `~/.config/hypr/xr-controls.lua` event hooks (`workspace.active`, `monitor.focused`).
 - None is proven, and I made no config changes.
 
+## Root cause and fix (VM, 2026-10-31)
+
+**Reproduction** (`isolated-vm-bindrace-crash-live.json`):
+- Setup: the pair-proof module `4d4fc81c…`, plus four diagnostic clients in the guest. Two bind every new `wl_output` as it is announced, like a bar. Two repeatedly connect, bind all outputs and disconnect.
+- Workload: production create-then-immediately-recover iterations.
+- Result: Hyprland segfaulted on iteration 1 with the identical stack and offsets as the physical crash (`bindManager+0x12d` → `CWLOutputResource` constructor `+0x2ad` → `+0x984ff0`).
+
+**Cause:** in pinned Hyprland `src/protocols/core/Output.cpp`, `bindManager` constructs `CWLOutputResource` with `m_monitor.lock()`.
+- Normally a removed monitor has expired, so the constructor returns early and the late bind is harmless.
+- The broker's `NativeObject` held a **strong** `PHLMONITOR` to every managed output, which kept the destroyed monitor alive.
+- The late bind then ran `updateState()` against a torn-down monitor and output.
+- The same retention made one iteration's recovery report incomplete.
+
+**Fix** (`754da0e`): hold monitors as `PHLMONITORREF`, with an explicit bound flag so replacement detection is unchanged. Hyprutils weak equality compares control blocks, so identity comparisons after expiry stay correct. A boundary test asserts the broker no longer keeps a removed monitor alive (RED before the fix).
+
+**Verification** (`isolated-vm-bindrace-fixed-live.json`, module `973942be…`):
+- Same load: 25/25 iterations completed with the compositor alive.
+- Each persistent binder logged 53 output binds, covering all 50 managed outputs as they appeared.
+- Host QEMU FD audits were clean.
+
+**Diagnostics** (`c7a283e`): creation mismatches now report the expected and observed workspaces and windows, bounded and ASCII-escaped.
+
+The cause of phys1's placement mismatch is still unknown.
+
 ## Required before any further live attempt
 
-1. Reproduce the crash in the VM with an output-binding client: a bar-like client that binds every new `wl_output`.
-2. Find a removal sequence that does not crash, such as letting clients settle and disabling the output before destroying it. Verify it in the VM.
-3. Make creation failures report the observed workspaces and windows (bounded), so a mismatch is diagnosable.
-4. Get explicit new user consent. The physical managed run is **not** qualified.
+1. ~~Reproduce in the VM~~ done. ~~Fix~~ done: weak monitor references.
+2. ~~Diagnosable mismatch~~ done.
+3. Independent review of the weak-monitor change (`754da0e`) before loading `973942be…` on a live desktop.
+4. Get explicit new user consent. A retry would report the actual placement mismatch; the physical managed run is **not** qualified.
