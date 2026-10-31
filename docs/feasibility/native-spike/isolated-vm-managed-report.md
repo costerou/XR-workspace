@@ -72,12 +72,22 @@ Same envelope and module. Host QEMU FD audits (25 and 9 samples) were clean.
 - This fail-closed behaviour is intended. It leaves orphaned headless outputs that need manual cleanup.
 - Consequence for the product: never unload or reload the broker while a journal is unfinished. Surface orphans to the user rather than deleting by name.
 
+## Trial D: unsupported windows and compositor restart (`xr-isolated-restart-2`, `isolated-vm-restart-live.json`)
+
+The host QEMU FD audit (22 samples) was clean. The first attempt (`xr-isolated-restart`) failed only on my wrong expectation that all 3 outputs would remain. Recovery is per output: outputs without the unsupported window are evacuated and removed, and only the hosting output remains.
+
+| Run | Setup | Result |
+|---|---|---|
+| iso8a | Window floated and pinned on managed workspace 0 | The guard stopped the run. Recovery left 1 output remaining (journal: 2 `done`, 1 `confirmed`) and the window alive. After unpinning, `isolated-recover` completed and the window was on `Virtual-2`, same address and PID |
+| iso8b | Window moved to `special:xr` opened on `XR-SPIKE-iso8b-0` | Same result: 1 remaining, window alive. After moving it to workspace 1, `isolated-recover` completed and the window was on `Virtual-1` |
+| iso9 | Controller SIGKILL with a 3x `confirmed` journal, then Hyprland SIGTERM and a fresh Hyprland | The headless outputs died with the old compositor. Recovery with the old scope was blocked (old socket absent). Recovery with a new consent bound to the new instance and session was blocked (`wrong journal identity`). Journal byte-identical; the new compositor had no plugin, no XR outputs and no config errors |
+
+A journal from a dead compositor is never adopted by a new one. It stays as a stale record, and the product must present it for explicit user discard.
+
 ## Not established
 
 - **Glasses:** physical Beast/Luma managed operation.
 - **Same-name output replacement at runtime:** native unit tests only.
-- **Desktop state:** special and pinned windows, which native evacuation refuses by design (untested in VM).
-- **Compositor restart** with a live journal.
 - **Performance and comfort:** sustained 120 FPS, capture, tracking, focus and controls.
 - **Host side of the VM boundary:** the isolated-mode evidence is guest-local. The no-network/no-share/no-passthrough envelope is verified host-side only for these trials.
 - **Rendering at 120 Hz:** the 120 Hz figure here is the headless outputs' mode readback, not rendering.
