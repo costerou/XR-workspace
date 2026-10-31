@@ -3,22 +3,14 @@ import argparse
 import json
 import os
 from pathlib import Path
-import stat
 import sys
 from .hyprland import HyprlandClient, monitors
-from .ipc import strict_json, token
+from .ipc import read_private_json, token
 
 
 
 def load_consent(path, instance, output, *, presentation_only=False, animate_pattern_ms=None):
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd, 'rb') as stream:
-        st = os.fstat(stream.fileno())
-        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o600 or st.st_nlink != 1:
-            raise PermissionError('consent must be owned regular single-link mode 0600')
-        raw = stream.read(16385)
-    if len(raw) > 16384: raise ValueError('consent too large')
-    data = strict_json(raw)
+    data = read_private_json(path)
     keys = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'allow',
             'capture', 'input', 'sdk', 'mode_switch'}
     if animate_pattern_ms is not None:
@@ -61,7 +53,15 @@ def main(argv=None):
     p = commands.add_parser('recover'); p.add_argument('--journal', type=Path, required=True)
     p.add_argument('--instance', required=True); p.add_argument('--output', required=True)
     p.add_argument('--consent-file', type=Path, required=True)
+    # Explicit isolated-VM mode: separate commands and consent gate, never a fallback.
+    for command in ('isolated-run', 'isolated-recover'):
+        p = commands.add_parser(command, help='disposable isolated VM only; separate VM-isolated consent')
+        p.add_argument('--instance', required=True); p.add_argument('--output', required=True)
+        p.add_argument('--consent-file', type=Path, required=True)
+        if command == 'isolated-recover': p.add_argument('--journal', type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command in ('isolated-run', 'isolated-recover'):
+        return _isolated(args)
     try:
         animation = getattr(args, 'animate_pattern_ms', None)
         if animation is not None:
@@ -90,6 +90,23 @@ def main(argv=None):
             return 0 if returncode == 0 else 2
         from .managed import run_managed
         result = run_managed(client, consent, runtime)
+        print(json.dumps(result, sort_keys=True))
+        return 0 if result['complete'] and result['renderer_returncode'] == 0 else 2
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f'blocked: {exc}', file=sys.stderr); return 2
+
+def _isolated(args):
+    from . import isolated
+    try:
+        # Forbidden instance and consent are checked before runtime lookup or connect.
+        consent = isolated.load_isolated_consent(args.consent_file, args.instance, args.output)
+        runtime = Path(os.environ['XDG_RUNTIME_DIR'])
+        client = HyprlandClient(args.instance, runtime)
+        if args.command == 'isolated-recover':
+            result = isolated.recover_isolated(client, consent, args.journal)
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result['complete'] else 2
+        result = isolated.run_isolated(client, consent, runtime)
         print(json.dumps(result, sort_keys=True))
         return 0 if result['complete'] and result['renderer_returncode'] == 0 else 2
     except (OSError, ValueError, KeyError, TypeError) as exc:

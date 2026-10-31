@@ -138,3 +138,15 @@ class PrivateServer:
             os.close(self.directory_fd); self.directory_fd = None
     def __enter__(self): return self
     def __exit__(self, *args): self.close()
+
+
+def read_private_json(path, limit=16384):
+    """Owned regular single-link 0600 file, no-follow, bounded strict JSON."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        st = os.fstat(stream.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o600 or st.st_nlink != 1:
+            raise PermissionError('consent must be owned regular single-link mode 0600')
+        raw = stream.read(limit + 1)
+    if len(raw) > limit: raise ValueError('consent too large')
+    return strict_json(raw)

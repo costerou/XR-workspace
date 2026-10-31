@@ -78,14 +78,46 @@ def managed_owner(path):
         os.close(directory)
 
 
+ISOLATED_BROKER = {'mode', 'instance', 'output', 'recovery_output', 'epoch', 'fallback', 'target',
+                   'boot_id', 'runtime', 'proof'}
+
+
+def _validate_isolated(context):
+    import re
+    if context['mode'] != 'isolated-vm': raise ValueError('invalid broker mode')
+    for key in ('instance', 'output', 'recovery_output', 'epoch'): token(context[key])
+    for key in ('fallback', 'target'):
+        if not isinstance(context[key], str) or not re.fullmatch(r'[0-9a-f]{48}', context[key]):
+            raise ValueError('invalid pair handle')
+    if context['target'] == context['fallback']: raise ValueError('pair handles alias')
+    if not isinstance(context['boot_id'], str) or not re.fullmatch(
+            r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', context['boot_id']):
+        raise ValueError('invalid boot identity')
+    if not isinstance(context['runtime'], str) or not Path(context['runtime']).is_absolute():
+        raise ValueError('invalid runtime')
+    proof = context['proof']
+    if not isinstance(proof, dict) or set(proof) != {'target', 'fallback'}: raise ValueError('invalid proof')
+    for key, name in (('target', context['output']), ('fallback', context['recovery_output'])):
+        side = proof[key]
+        if (not isinstance(side, dict) or set(side) != {'name', 'device', 'connector'} or side['name'] != name
+                or not isinstance(side['device'], str) or not re.fullmatch(r'[1-9][0-9]{0,9}:[0-9]{1,10}', side['device'])
+                or type(side['connector']) is not int or not 0 < side['connector'] <= 4294967295):
+            raise ValueError('invalid proof')
+    if (proof['target']['device'], proof['target']['connector']) == (proof['fallback']['device'], proof['fallback']['connector']):
+        raise ValueError('proof outputs alias')
+
+
 def validate_broker(context):
     from .hyprland import INSTANCE
-    if not isinstance(context, dict) or set(context) != {'instance', 'output', 'recovery_output', 'epoch', 'fallback'}:
+    if isinstance(context, dict) and set(context) == ISOLATED_BROKER:
+        _validate_isolated(context)
+    elif not isinstance(context, dict) or set(context) != {'instance', 'output', 'recovery_output', 'epoch', 'fallback'}:
         raise ValueError('invalid broker context')
-    for value in context.values(): token(value)
+    else:
+        for value in context.values(): token(value)
     if not INSTANCE.fullmatch(context['instance']) or context['output'] == context['recovery_output']:
         raise ValueError('invalid broker scope')
-    return dict(context)
+    return json.loads(json.dumps(context))
 
 
 class Journal:
