@@ -1,0 +1,339 @@
+{
+  "capabilities": {
+    "active_120_hz": {
+      "evidence": [],
+      "reason": "Selected compositor output only; not attributed to VITURE and not measured presentation.",
+      "state": "untested"
+    },
+    "advertised_120_hz": {
+      "evidence": [],
+      "reason": "Refresh-bearing available modes missing or inconclusive; support unknown.",
+      "state": "untested"
+    },
+    "sustained_120_hz": {
+      "evidence": [],
+      "reason": "No presentation timing measurements in milestone A.",
+      "state": "untested"
+    },
+    "tracking_quality": {
+      "evidence": [],
+      "reason": "No SDK execution or tracking measurements in milestone A.",
+      "state": "untested"
+    }
+  },
+  "collected_at": "2026-10-31T15:14:30.622621+00:00",
+  "drm": {
+    "data": [
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card0-DP-3/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:08.1/0000:12:00.0/drm/card0"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card0-DP-3/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card0-DP-3",
+        "status": {
+          "source": "/sys/class/drm/card0-DP-3/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card0-DP-4/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:08.1/0000:12:00.0/drm/card0"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card0-DP-4/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card0-DP-4",
+        "status": {
+          "source": "/sys/class/drm/card0-DP-4/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card0-DP-5/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:08.1/0000:12:00.0/drm/card0"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card0-DP-5/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card0-DP-5",
+        "status": {
+          "source": "/sys/class/drm/card0-DP-5/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card0-HDMI-A-3/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:08.1/0000:12:00.0/drm/card0"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card0-HDMI-A-3/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card0-HDMI-A-3",
+        "status": {
+          "source": "/sys/class/drm/card0-HDMI-A-3/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card0-Writeback-2/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:08.1/0000:12:00.0/drm/card0"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card0-Writeback-2/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card0-Writeback-2",
+        "status": {
+          "source": "/sys/class/drm/card0-Writeback-2/status",
+          "status": "ok",
+          "value": "unknown"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card1-DP-1/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/0000:02:00.0/0000:03:00.0/drm/card1"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card1-DP-1/modes",
+          "status": "ok",
+          "value": [
+            "5120x1440",
+            "3840x1080",
+            "3840x2160",
+            "3840x2160",
+            "3840x2160",
+            "5120x1440",
+            "5120x1440",
+            "3840x1080",
+            "3840x1080",
+            "2560x1440",
+            "2560x1440",
+            "2560x1440",
+            "1920x1080",
+            "1920x1080",
+            "1920x1080",
+            "1920x1080",
+            "1920x1080",
+            "1680x1050",
+            "1600x900",
+            "1280x1024",
+            "1440x900",
+            "1280x800",
+            "1280x720",
+            "1280x720",
+            "1280x720",
+            "1024x768",
+            "800x600",
+            "720x480",
+            "720x480",
+            "640x480",
+            "640x480"
+          ]
+        },
+        "name": "card1-DP-1",
+        "status": {
+          "source": "/sys/class/drm/card1-DP-1/status",
+          "status": "ok",
+          "value": "connected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card1-DP-2/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/0000:02:00.0/0000:03:00.0/drm/card1"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card1-DP-2/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card1-DP-2",
+        "status": {
+          "source": "/sys/class/drm/card1-DP-2/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card1-HDMI-A-1/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/0000:02:00.0/0000:03:00.0/drm/card1"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card1-HDMI-A-1/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card1-HDMI-A-1",
+        "status": {
+          "source": "/sys/class/drm/card1-HDMI-A-1/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card1-HDMI-A-2/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/0000:02:00.0/0000:03:00.0/drm/card1"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card1-HDMI-A-2/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card1-HDMI-A-2",
+        "status": {
+          "source": "/sys/class/drm/card1-HDMI-A-2/status",
+          "status": "ok",
+          "value": "disconnected"
+        }
+      },
+      {
+        "gpu_device": {
+          "source": "/sys/class/drm/card1-Writeback-1/device",
+          "status": "ok",
+          "value": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/0000:02:00.0/0000:03:00.0/drm/card1"
+        },
+        "modes": {
+          "source": "/sys/class/drm/card1-Writeback-1/modes",
+          "status": "unknown",
+          "value": null
+        },
+        "name": "card1-Writeback-1",
+        "status": {
+          "source": "/sys/class/drm/card1-Writeback-1/status",
+          "status": "ok",
+          "value": "unknown"
+        }
+      }
+    ],
+    "detail": "",
+    "status": "ok"
+  },
+  "host": {
+    "architecture": {
+      "source": "host.architecture",
+      "status": "ok",
+      "value": "x86_64"
+    },
+    "gpu": {
+      "source": "host.gpu",
+      "status": "ok",
+      "value": "03:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 32 [Radeon RX 7700 XT / 7800 XT] (rev c8); 12:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Granite Ridge [Radeon 610M] (rev c5)"
+    },
+    "packages": {
+      "hyprland": {
+        "source": "host.packages.hyprland",
+        "status": "ok",
+        "value": "0.56.2"
+      },
+      "libdrm": {
+        "source": "host.packages.libdrm",
+        "status": "ok",
+        "value": "2.4.134"
+      },
+      "linux": {
+        "source": "host.packages.linux",
+        "status": "unknown",
+        "value": null
+      },
+      "mesa": {
+        "source": "host.packages.mesa",
+        "status": "unknown",
+        "value": null
+      },
+      "nvidia-utils": {
+        "source": "host.packages.nvidia-utils",
+        "status": "unknown",
+        "value": null
+      }
+    }
+  },
+  "schema_version": 1,
+  "session": {
+    "classification": "physical",
+    "outputs": [
+      {
+        "active_mode": {
+          "height": {
+            "source": "session.data.outputs[0].height",
+            "status": "ok",
+            "value": 1440
+          },
+          "refresh_hz": {
+            "source": "session.data.outputs[0].refreshRate",
+            "status": "ok",
+            "value": 240.0
+          },
+          "width": {
+            "source": "session.data.outputs[0].width",
+            "status": "ok",
+            "value": 5120
+          }
+        },
+        "available_modes": {
+          "source": "session.data.outputs[0].available_modes",
+          "status": "unknown",
+          "value": null
+        },
+        "classification": "physical",
+        "disabled": {
+          "source": "session.data.outputs[0].disabled",
+          "status": "ok",
+          "value": false
+        },
+        "make": {
+          "source": "session.data.outputs[0].make",
+          "status": "ok",
+          "value": "Samsung Electric Company"
+        },
+        "model": {
+          "source": "session.data.outputs[0].model",
+          "status": "ok",
+          "value": "Odyssey G93SD"
+        },
+        "name": {
+          "source": "session.data.outputs[0].name",
+          "status": "ok",
+          "value": "DP-1"
+        }
+      }
+    ],
+    "status": "ok"
+  },
+  "usb": {
+    "data": [],
+    "detail": "",
+    "status": "ok"
+  }
+}
