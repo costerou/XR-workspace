@@ -67,7 +67,7 @@ class HyprlandTests(unittest.TestCase):
             with self.assertRaises(ValueError): h.HyprlandClient(value, self.root)
     def test_mutation_validation_before_socket(self):
         c = h.HyprlandClient(INSTANCE, self.root)
-        for command in ('dispatch exec evil', 'output remove DP-1', 'output create headless X\nexec evil',
+        for command in ('dispatch exec evil', 'output remove DP-1', 'output remove XR-SPIKE-run-0', 'output create headless X\nexec evil',
                         'keyword input:follow_mouse 4', 'dispatch moveworkspacetomonitor 0 DP-1'):
             with self.assertRaises(ValueError): c.mutate(command)
     def test_response_cap(self):

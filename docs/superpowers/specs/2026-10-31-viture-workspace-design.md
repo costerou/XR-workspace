@@ -29,6 +29,8 @@ The user delegated the architecture choice to the builder after alternatives wer
 2. **Selected direction: native out-of-process XR engine plus Omarchy control plugin**, reusing a suitable tracking backend behind an adapter. Own the focus/follow state machine and Hyprland integration. Better failure isolation and control over timing, at the cost of native rendering and virtual-output integration work.
 3. Hyprland in-process rendering plugin: possible efficient compositor access but ABI coupling and desktop crash exposure. Not the default; reconsider only with evidence that the out-of-process path cannot meet requirements and with user approval.
 
+**Approved narrow lifecycle amendment:** Cody approved a small compositor-resident, version-pinned Hyprland ownership broker after accepting ABI coupling and compositor-crash exposure. It only creates/configures headless output objects, assigns workspaces and performs handle-addressed checked evacuation/removal. Rendering, capture, tracking and supervision remain out of process. Offline implementation/build/tests are authorized; plugin loading, isolated compositor execution and physical-session managed-output tests require separate fresh permission. Epoch loss makes old journal UUIDs unproven, not absent. Stock name-addressed deletion and legacy `keyword monitor` are not compatibility fallbacks.
+
 The Omarchy shell plugin is the control/status surface, not the frame renderer. Version one is local-only, no telemetry or sign-in. Use local authenticated IPC with user-only filesystem permissions between controls and engine. Keep configuration and diagnostic events outside the render-critical path.
 
 ## Verified host and compatibility boundary

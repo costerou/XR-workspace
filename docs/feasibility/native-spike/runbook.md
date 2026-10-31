@@ -1,9 +1,9 @@
 # Native test-pattern qualification runbook
 
 **Status: partial offline implementation; Task 3 live acceptance pending and
-managed-output ownership blocked. Do not execute a live run from this document.**
+managed-output runtime qualification pending. Do not execute a live run from this document.**
 The parent must obtain selected-session/run-scoped P2 consent first. Consent
-alone does not remove the ownership blocker.
+alone does not qualify the new native ownership broker.
 
 ## Offline build
 
@@ -31,6 +31,42 @@ requirement). Missing globals, missing/ambiguous target, closed layer, output
 removal, invalid configure size or disconnect stops presentation. Buffer memory
 is bounded and busy buffers are not reused before release. Configure is acked
 before buffer attach, and resize uses fresh/released storage.
+
+## Opt-in offline ownership broker
+
+The compositor-resident lifecycle-only architecture is approved; loading is not.
+Build without connecting to any compositor:
+
+```sh
+cmake -S spike -B build/native-spike -DCMAKE_BUILD_TYPE=Release -DXR_ENABLE_OWNERSHIP_PLUGIN=ON
+cmake --build build/native-spike
+ctest --test-dir build/native-spike --output-on-failure
+```
+
+Artifact: `build/native-spike/libxr-ownership.so`. No autoloader/config edits are
+provided. Rebuild after Hyprland/Aquamarine changes; initialization checks the
+exact server/client API hash and pinned Hyprland commit. Do not unload/reload an
+active managed run. Unload detaches listeners and leaves unresolved resources.
+
+The internal Python API now supports an explicitly constructed
+`OwnershipBrokerClient` and real schema-1 journals. `create_outputs(specs, journal,
+broker)` requires hello before prepare, then pending fsync → create → inspect →
+confirm. `recover(journal, broker)` invokes the UUID/fallback-handle transaction,
+then registry readback before marking done. It never emits name-based output
+removal. Missing plugin, unknown UUID, epoch loss, unreachable windows, changed
+rules or unusable fallback preserve unresolved journal records. A fresh client
+may recover only UUIDs retained in the surviving registry; it may not replay
+creation from an existing journal. The public `run`/`recover` CLI remains gated
+until the isolated-runtime workflow and consent surface are qualified.
+
+Next test requires **new explicit isolated-compositor authorization**: load the
+built module into a disposable matching compositor, use a qualified physical/DRM
+fallback (the broker deliberately rejects a headless fallback), create three
+outputs and verify deferred rule reload, exact active 120000 mHz and workspace
+objects. Test normal evacuation, partial creation, lost reply/supervisor restart,
+stranded/special/pinned windows, same-name/ID replacement and plugin epoch loss.
+Only afterward seek physical-session P2 and three-window routing/visual recovery
+checks. No capture, SDK, device transition or live three-desktop success is implied.
 
 ## Exact consent record
 
@@ -77,10 +113,12 @@ It verifies actual IPC peer/process/lock identity and prints the snapshot and
 explicit blocked ownership status. It never discovers an arbitrary default
 instance. `run` rejects missing/invalid consent before any connection or write;
 with valid consent it snapshots/checks the selected outputs and then stops before
-journal/output creation or renderer launch. `recover` currently returns exit 2
-and preserves the journal/resources: no independent incarnation continuity
-survives process restart. It does not infer an instance from filenames or scan
-sessions. Do not bypass this gate by manually removing names.
+journal/output creation or renderer launch. The public `recover` command still
+returns exit 2: its filename-only CLI has not been extended to carry the explicit
+verified instance and approved fallback needed for a broker handshake. The
+internal broker client can reconcile a surviving registry after supervisor
+restart. No path infers an instance from filenames or scans sessions, and epoch
+loss remains unproven. Do not bypass this gate by manually removing names.
 
 ## Ownership blocker and stop behavior
 
@@ -109,18 +147,20 @@ the ownership contract is needed, not just a new consent file.
 
 ## Remaining acceptance work
 
-Managed creation/configuration, named workspace allocation/migration readbacks,
-window reachability checks, last-output exit and partial-creation rollback are
-**not implemented/qualified beyond offline planning and refusal**. The requested
-`test_partial_creation_rolls_back` is not claimed as passing; the test proves
-creation is blocked before a partial mutation instead.
+Managed creation/configuration and evacuation now have a compiled native backend,
+injected lifecycle tests, and Python real-journal integration tests. These are
+**offline evidence only**, not native API runtime qualification. Deferred reload,
+headless custom-mode behavior, workspace/window migration and visual recovery
+must still be exercised in the separately approved isolated/physical sessions.
+See the ownership broker report for concrete coverage and limitations.
 
 The internal `run_presentation` helper wires a fixed native executable to the
 Task 2 watchdog with private inherited startup/heartbeat and preconnected Wayland
 sockets, validates identical IPC/Wayland peer credentials, and recovers with
-`RecoveryAdapter` only after child exit. Production ownership checks currently
-block it before spawn; it is not reached by CLI run. Its offline test uses a
-synthetic child boundary, not the renderer. Public control dispatch is not wired
+the supplied recovery backend only after child exit. Its gate now accepts the
+broker adapter; the raw adapter still refuses. It is not reached by CLI run.
+An offline broker/journal/synthetic-child test verifies the integration, not the
+renderer or a compositor. Public control dispatch is not wired
 to a live lifecycle; no arbitrary public command is accepted.
 
 After the ownership boundary is resolved, finish the lifecycle and CLI wiring,

@@ -17,6 +17,21 @@ class FakeHypr:
         self.commands = []
         self.fail_migration = False
         self.session = "session"
+        self.owned = self.outputs[1]
+        self.removed = False
+        self.fail_remove = False
+    def evacuate_remove(self, output_id, output_name):
+        if self.fail_remove: return False
+        if self.removed: return True
+        if self.owned not in self.outputs or self.owned != {'id':output_id, 'name':output_name, 'physical':False}: return False
+        fallback = next((o for o in self.outputs if o['physical']), None)
+        if fallback is None or self.fail_migration: return False
+        for ws in self.workspaces:
+            if ws['output'] == output_name: ws['output'] = fallback['name']
+        self.outputs.remove(self.owned)
+        self.commands.append('broker evacuate_remove ' + output_id)
+        self.removed = True
+        return True
     def query(self, kind):
         return copy.deepcopy({"session": {"id": self.session}, "outputs": self.outputs,
                               "workspaces": self.workspaces, "settings": self.settings}[kind])
@@ -29,7 +44,7 @@ class FakeHypr:
                 for ws in self.workspaces:
                     if ws["id"] == int(fields[2]): ws["output"] = fields[3]
         elif fields[:2] == ["output", "remove"]:
-            self.outputs = [o for o in self.outputs if o["name"] != fields[2]]
+            raise AssertionError("name-addressed removal forbidden")
         return "ok"
 
 class RecoveryTests(unittest.TestCase):
@@ -98,15 +113,9 @@ class RecoveryTests(unittest.TestCase):
 
     def test_user_move_during_migration_is_preserved(self):
         self.output()
-        original = self.hypr.query
-        count = 0
-        def query(kind):
-            nonlocal count
-            if kind == "workspaces":
-                count += 1
-                if count == 2: self.hypr.workspaces[0]["output"] = "USER"
-            return original(kind)
-        self.hypr.query = query
+        # User moves before the indivisible broker handler; there is no longer a
+        # Python snapshot/mutation interleaving inside output recovery.
+        self.hypr.workspaces[0]["output"] = "USER"
         self.assertTrue(recover(self.j, self.hypr).complete)
         self.assertEqual(self.hypr.workspaces[0]["output"], "USER")
         self.assertFalse(any("moveworkspace" in c for c in self.hypr.commands))
@@ -121,7 +130,7 @@ class RecoveryTests(unittest.TestCase):
 
     def test_mutation_error_keeps_durable_pending(self):
         self.output()
-        self.hypr.mutate = lambda command: "error"
+        self.hypr.fail_remove = True
         self.assertFalse(recover(self.j, self.hypr).complete)
         self.assertEqual(Journal.open(self.j.path, "run", "session").operations[0]["state"], "pending")
 

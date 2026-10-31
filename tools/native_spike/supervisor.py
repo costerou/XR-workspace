@@ -160,7 +160,7 @@ def run_presentation(journal, adapter, output, wayland_socket, *, popen=None):
     """Managed path remains ownership-gated; consumes socket even on rejection."""
     from .journal import recover
     try:
-        adapter.client.require_output_ownership()
+        adapter.require_output_ownership()
         if adapter.query('session') != {'id': journal.session}: raise ValueError('launcher session mismatch')
         return _launch(adapter.client, journal.run_id, journal.session, output, wayland_socket,
                        lambda: recover(journal, adapter), popen=popen)

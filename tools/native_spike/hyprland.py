@@ -2,7 +2,8 @@
 
 Socket2 in the qualified compositor has no transaction/creation token or replay
 cursor. It cannot prove a journal UUID belongs to the currently queried monitor.
-Until that boundary is resolved, creation and recovery mutation are blocked.
+Stock transport cannot create/recover owned outputs. An explicitly constructed
+OwnershipBrokerClient supplies the separate compositor-resident boundary.
 """
 import hashlib
 import math
@@ -91,10 +92,10 @@ class HyprlandClient:
 
     def mutate(self, command):
         # Internal API only. Never expose this string through the public control wire.
-        patterns = [rf'output create headless ({OWNED})', rf'output remove ({OWNED})',
-                    r'keyword input:follow_mouse [0-3]',
-                    rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})',
-                    rf'keyword monitor ({OWNED}),1920x1080@120,(-?[0-9]+)x(-?[0-9]+),1']
+        # Managed output lifecycle is exclusively broker/handle addressed.
+        # This host uses Lua config; legacy keyword monitor is not a fallback.
+        patterns = [r'keyword input:follow_mouse [0-3]',
+                    rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})']
         if not isinstance(command, str) or len(command) > 512: raise ValueError('invalid mutation')
         if not any(re.fullmatch(p, command) for p in patterns): raise ValueError('mutation not allowlisted')
         for word in re.split(r'[ ,]', command):
@@ -212,6 +213,10 @@ class RecoveryAdapter:
                 raise ValueError('invalid follow_mouse response')
             return {'input:follow_mouse': raw['int']}
         raise ValueError('unsupported normalized query')
+    def require_output_ownership(self):
+        self.client.require_output_ownership()
+    def evacuate_remove(self, output_id, output_name):
+        raise OwnershipBlocked('ownership broker required; no name-addressed fallback')
     def mutate(self, command):
         self.client.require_output_ownership()
         raise OwnershipBlocked('recovery mutations require independent continuity proof')
@@ -255,8 +260,11 @@ def verify_output(raw, spec):
     return m
 
 
-def create_outputs(specs: list[dict], journal, hypr: HyprlandClient) -> list[str]:
+def create_outputs(specs: list[dict], journal, hypr) -> list[str]:
     # Deliberately before prepare/mutate: a partial create could be unrecoverable.
     # Do not implement an unsafe optimistic create followed by name-based rollback.
     hypr.require_output_ownership()
-    raise OwnershipBlocked('no qualified ownership backend; managed lifecycle blocked')
+    from .ownership import OwnershipBrokerClient
+    if not isinstance(hypr, OwnershipBrokerClient):
+        raise OwnershipBlocked('no qualified ownership backend; managed lifecycle blocked')
+    return hypr.create_journaled(specs, journal)
