@@ -30,7 +30,8 @@ struct Fake : Backend {
     bool verified(const Handle& o,const Json&) override { return o->live && rule && workspace[o]==expectedWorkspace[o]; }
     bool usable(const Handle& o) override { return o && o->live && o->physical; }
     bool evacuate(const Handle&,const Handle&) override { if(dropFallback) fallback->live=false; return migration && !special && !pinned; }
-    bool reachable(const Handle&,const Handle&) override { return reach; }
+    bool reachAfterDestroy=true;
+    bool reachable(const Handle&,const Handle&) override { return reach && (reachAfterDestroy || destroys==0); }
     bool destroy(const Handle& o) override { ++destroys; removed.push_back(o); o->live=false; o->live=false; return true; }
     bool cleanup(const Handle&,const Json&) override { return rule; }
     std::vector<Handle> released;
@@ -80,6 +81,11 @@ int main(int argc,char** argv) {
         Fake f; Registry registry(f); CHECK(registry.create("s","r",spec())=="live");
         f.reach=fault!=0; f.migration=fault!=1; f.special=fault==2; f.pinned=fault==3; f.dropFallback=fault==4;
         CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==0 && f.released.empty());
+    }
+    { // Destroyed but not proven reachable: stays blocked, yet compositor references are released.
+        Fake f; Registry registry(f); CHECK(registry.create("s","r",spec())=="live"); f.reachAfterDestroy=false;
+        CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==1 && f.released.size()==1);
+        CHECK(registry.remove("s","r","uuid0",f.fallback)=="blocked"); CHECK(f.destroys==1);
     }
     { // A replacement with the same lookup metadata is never a capability.
         Fake f; Registry registry(f); registry.create("s","r",spec()); auto original=f.source;

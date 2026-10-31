@@ -162,7 +162,10 @@ std::string Registry::remove(const std::string& s,const std::string& r,const std
     if(!backend.cleanup(e.object,e.spec) || !e.object->live || !backend.usable(fallback) ||
        !backend.reachable(e.object,fallback)) return "blocked";
     backend.destroy(e.object);
+    // Once the output is gone, workspace references are never needed (the not-live
+    // reachable() check only fails on workspaces still bound to the dead source).
+    if(!e.object->live) backend.release(e.object);
     if(e.object->live || !backend.usable(fallback) || !backend.reachable(e.object,fallback)) return "blocked";
-    e.state="dead"; backend.release(e.object); return e.state;
+    e.state="dead"; return e.state;
 }
 }

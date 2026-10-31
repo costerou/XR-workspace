@@ -23,7 +23,7 @@ struct Backend {
     virtual bool cleanup(const Handle&,const Json&)=0;
     // Called once an entry is proven dead: drop compositor references (workspaces,
     // snapshots) so recovered runs leave nothing listed. Identity/readback data stays.
-    virtual void release(const Handle&) {}
+    virtual void release(const Handle&)=0;
 };
 // A DRM binding is not a physical/virtual classification or VM attestation.
 struct PairObservation {

@@ -102,6 +102,7 @@ struct NativeBackend: Backend {
  bool evacuate(const Handle&,const Handle&) override{return false;}
  bool reachable(const Handle&,const Handle&) override{return false;}
  bool cleanup(const Handle&,const Json&) override{return false;}
+ void release(const Handle&) override {} // destroy never succeeds in this double
  bool destroy(const Handle&) override{return false;}
 };
 Json spec(int x,int y) {
