@@ -51,9 +51,13 @@ def load_isolated_consent(path, instance, output):
     if (not isinstance(data['runtime'], str) or not Path(data['runtime']).is_absolute()
             or str(Path(data['runtime'])) != data['runtime']):
         raise ValueError('absolute normalized runtime required')
-    if data['allow'] != ['headless-outputs', 'test-pattern']: raise ValueError('exact test-pattern scope required')
-    if any(data[k] is not False for k in ('capture', 'input', 'sdk', 'mode_switch')):
-        raise ValueError('capture/input/SDK/mode transitions not authorized by this CLI')
+    from .supervisor import CAPTURE_SCOPE, CAPTURE_ALLOW
+    if type(data['capture']) is str and data['capture'] == CAPTURE_SCOPE:
+        if data['allow'] != CAPTURE_ALLOW: raise ValueError('exact managed-output capture scope required')
+    elif data['allow'] != ['headless-outputs', 'test-pattern'] or data['capture'] is not False:
+        raise ValueError('exact test-pattern scope required')
+    if any(data[k] is not False for k in ('input', 'sdk', 'mode_switch')):
+        raise ValueError('input/SDK/mode transitions not authorized by this CLI')
     return data
 
 
@@ -166,7 +170,7 @@ class IsolatedGuard:
 
 def run_isolated(client, consent, runtime):
     from .journal import Journal, managed_owner
-    from .managed import _run_owned
+    from .managed import _run_owned, capture_names
     from .ipc import private_dir
     sysroot = SYSROOT
     evidence = check_scope(client, consent, sysroot)
@@ -185,7 +189,8 @@ def run_isolated(client, consent, runtime):
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs,
                           context=broker_context(client, broker, consent['boot_id'], runtime),
-                          guard=IsolatedGuard(broker, output, specs, consent['boot_id'], sysroot))
+                          guard=IsolatedGuard(broker, output, specs, consent['boot_id'], sysroot),
+                          capture=capture_names(consent, specs))
 
 
 def recover_isolated(client, consent, path):
