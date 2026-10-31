@@ -94,4 +94,15 @@ The user approved it, confirmed a clean 1920x1200@120 image and saved work. Evid
 - **Afterwards:** the same compositor instance, with no config errors. Workspaces (1, 21), all 5 clients, layers and monitors matched the baseline, except DP-2's session-only 1200p120. Omarchy's merged record was unchanged and no renderer process remained.
 - **Kept on purpose:** Omarchy's registry now permanently holds `XR-1`–`XR-3` as blocks 6–8, as designed.
 
-This is the first successful physical managed lifecycle. It is lifecycle evidence only: no capture, tracking, focus or controls, and no sustained-120 FPS, motion-to-photon or comfort claim. The renderer-crash and controller-crash paths have not yet been run live.
+This is the first successful physical managed lifecycle. It is lifecycle evidence only: no capture, tracking, focus or controls, and no sustained-120 FPS, motion-to-photon or comfort claim. Live crash paths: see the next section.
+
+## Live crash paths `phys4` and `phys5` (same module): PASSED
+
+Evidence: `physical-managed-crash-live.json`. Both runs reused Omarchy blocks 6–8 (workspaces 61, 71, 81); no new registry entries were added.
+
+- **`phys4`:** SIGKILL to the exact renderer child mid-run. Supervisor recovery reported `complete` with renderer return code −9 (CLI exit 2, by design).
+- **`phys5`:** SIGKILL to the managed CLI itself mid-run.
+  - The renderer exited when its supervisor channel closed, and no guard worker remained.
+  - `XR-1`–`XR-3` and the 3x `confirmed` journal survived.
+  - A fresh `python -m tools.native_spike recover` with the run's consent completed using the saved epoch and handles.
+- **After each:** the compositor instance, monitors, workspaces, all clients, layers and Omarchy's state and merged files matched the pre-run snapshot. There were no config errors and no renderer process. The user confirmed the desktop was normal in the glasses and on DP-1 both times.

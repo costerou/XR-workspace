@@ -1,0 +1,251 @@
+{
+  "runs": {
+    "phys4": {
+      "action": "SIGKILL exact renderer child mid-run",
+      "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/phys4/journal.json\", \"remaining\": [], \"renderer_returncode\": -9}\nexit=2\n",
+      "journal": {
+        "schema": 1,
+        "run_id": "phys4",
+        "session": "9c6ad54ed582219ba0211b9007c535cf44c7739e0aa71ff03b3347a9520e19b1",
+        "operations": [
+          {
+            "id": "f0ec96ab-6f1a-46fa-b481-303424323f48",
+            "operation": {
+              "kind": "output",
+              "id": "df79c97f-4ee0-462c-94b0-d16a988eef67",
+              "name": "XR-1",
+              "index": 0,
+              "before": null
+            },
+            "state": "done"
+          },
+          {
+            "id": "6797c5dd-e75b-4973-a6ed-98279a720cd4",
+            "operation": {
+              "kind": "output",
+              "id": "12df864d-f729-4ef9-bcf5-b6e53b51ef66",
+              "name": "XR-2",
+              "index": 1,
+              "before": null
+            },
+            "state": "done"
+          },
+          {
+            "id": "bf3a4f96-2441-4867-adbc-126773ed7fc0",
+            "operation": {
+              "kind": "output",
+              "id": "f45f9d50-60b8-448c-b645-63cbda21bdbc",
+              "name": "XR-3",
+              "index": 2,
+              "before": null
+            },
+            "state": "done"
+          }
+        ],
+        "broker": {
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+          "output": "DP-2",
+          "recovery_output": "DP-1",
+          "epoch": "1a8ecc7decbe56d79f113fd22e633af414bcd0e9a49c6721",
+          "fallback": "eb8f341a8dff9d678d50fc0b9f0f3ef6f60e264d46b0d773"
+        }
+      },
+      "after": {
+        "monitors": true,
+        "workspaces": true,
+        "clients": true,
+        "layers": true,
+        "instance": true,
+        "omarchy_state": true,
+        "omarchy_merged": true,
+        "renderers_left": [],
+        "configerrors": ""
+      },
+      "user_confirmed": "desktop normal in glasses and on DP-1"
+    },
+    "phys5": {
+      "action": "SIGKILL the managed CLI (controller) mid-run; outputs and 3x confirmed journal preserved; renderer exited on supervisor loss; fresh `recover` CLI",
+      "journal_sha256_before_recover": "0b2052a1f5d8962d2b71bf1d3fb2d1fcd60972834e518aca454bf7bb43d4a15d",
+      "recover_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/phys5/journal.json\", \"remaining\": []}\n",
+      "recover_stderr": "",
+      "journal": {
+        "schema": 1,
+        "run_id": "phys5",
+        "session": "9c6ad54ed582219ba0211b9007c535cf44c7739e0aa71ff03b3347a9520e19b1",
+        "operations": [
+          {
+            "id": "9ef63dde-6808-4bc8-91b1-a23d247a064f",
+            "operation": {
+              "kind": "output",
+              "id": "b8ea670f-a4b1-4b5c-a7e3-3dc7a7ab2ee2",
+              "name": "XR-1",
+              "index": 0,
+              "before": null
+            },
+            "state": "done"
+          },
+          {
+            "id": "fd8b159d-2668-46b4-8980-a2be0ec0de4d",
+            "operation": {
+              "kind": "output",
+              "id": "f8ffa4d7-a1d1-4025-85df-adb6c85462c6",
+              "name": "XR-2",
+              "index": 1,
+              "before": null
+            },
+            "state": "done"
+          },
+          {
+            "id": "3ca77402-d180-42aa-8480-f99737c1f9b3",
+            "operation": {
+              "kind": "output",
+              "id": "b9f50941-2a55-418f-87ad-d23f4ba692fe",
+              "name": "XR-3",
+              "index": 2,
+              "before": null
+            },
+            "state": "done"
+          }
+        ],
+        "broker": {
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+          "output": "DP-2",
+          "recovery_output": "DP-1",
+          "epoch": "1a8ecc7decbe56d79f113fd22e633af414bcd0e9a49c6721",
+          "fallback": "96171034239d30dccec85fbe50743fac60a3a85b991b2aa5"
+        }
+      },
+      "after": {
+        "monitors": true,
+        "workspaces": true,
+        "clients": true,
+        "layers": true,
+        "instance": true,
+        "omarchy_state": true,
+        "omarchy_merged": true,
+        "renderers_left": [],
+        "configerrors": ""
+      },
+      "user_confirmed": "desktop normal in glasses and on DP-1"
+    }
+  },
+  "module_sha256": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930",
+  "baseline": {
+    "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+    "monitors": [
+      {
+        "name": "DP-1",
+        "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+        "width": 5120,
+        "height": 1440,
+        "refreshRate": 240.0,
+        "x": 0,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      },
+      {
+        "name": "DP-2",
+        "description": "CVT VITURE 0x88888800",
+        "width": 1920,
+        "height": 1200,
+        "refreshRate": 119.999,
+        "x": 4096,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      }
+    ],
+    "workspaces": [
+      [
+        1,
+        "1",
+        "DP-1"
+      ],
+      [
+        21,
+        "21",
+        "DP-2"
+      ]
+    ],
+    "clients": [
+      [
+        "0x561aa5b24fe0",
+        "ai.storyteller.gridcraft",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa77fc5c0",
+        "com.t3tools.T3Code",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa78f9080",
+        "chromium",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa79d8230",
+        "grok-bot",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa7ac69e0",
+        "ai.storyteller.gridcraft",
+        1,
+        0,
+        false,
+        false
+      ]
+    ],
+    "layers": {
+      "DP-1": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      },
+      "DP-2": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      }
+    },
+    "plugins": "\nPlugin xr-ownership by Hermes Agent:\n\tHandle: 561aa7b8a0f0\n\tVersion: 1\n\tDescription: Explicit opt-in output lifecycle broker\n\n",
+    "omarchy_state": "0\tDP-1\tSamsung Electric Company Odyssey G93SD HCSY900228\n1\t\tFALLBACK\n2\tDP-2\tCVT VITURE 0x88888800\n3\t\tVisitech AS VITURE Beast\n4\t\tSUNSHINE-PROBE\n5\t\tSUNSHINE-LAPTOP\n6\t\tXR-1\n7\t\tXR-2\n8\t\tXR-3\n",
+    "omarchy_merged": ""
+  }
+}
