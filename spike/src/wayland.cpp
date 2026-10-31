@@ -347,8 +347,13 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             ext_image_copy_capture_session_v1_add_listener(c->session, &Impl::session_listener, c.get());
             s->captures.push_back(std::move(c));
         }
-        if (!s->roundtrip()) return Error{"capture", "capture session setup failed"};
-        for (auto& c : s->captures) if (c->stopped || !c->plan) return Error{"capture", "capture constraints unavailable"};
+        // Constraints arrive asynchronously (after the output renders); bounded wait for every session.
+        auto ready = [&] { return std::all_of(s->captures.begin(), s->captures.end(), [](const auto& c) { return c->plan || c->stopped; }); };
+        auto capture_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (!ready() && std::chrono::steady_clock::now() < capture_deadline) if (!s->pump(50)) break;
+        std::string missing;
+        for (auto& c : s->captures) if (c->stopped || !c->plan) missing += (missing.empty() ? "" : ",") + c->name;
+        if (!missing.empty()) return Error{"capture", "capture constraints unavailable for " + missing};
     }
     s->surface = wl_compositor_create_surface(s->compositor);
     s->layer = zwlr_layer_shell_v1_get_layer_surface(s->shell, s->surface, s->selected->proxy,
