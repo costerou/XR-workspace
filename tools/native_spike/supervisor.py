@@ -83,7 +83,19 @@ class Supervisor:
                 self.control.server.queue.pop()
             except (ValueError, OSError, PermissionError):
                 return
-        frame = self.control.on_message(message)
+        self._send(self.control.on_message(message), renderer_socket)
+
+    def _events_ready(self, renderer_socket, selector):
+        """Hyprland event bytes (cursor follow). EOF/error just disables it; never fatal."""
+        try: data = self.control.events.recv(65536)
+        except BlockingIOError: return
+        except OSError: data = b''
+        if not data:
+            selector.unregister(self.control.events)
+            return
+        self._send(self.control.on_events(data), renderer_socket)
+
+    def _send(self, frame, renderer_socket):
         if frame is None or self.stopping_at is not None: return
         try:
             renderer_socket.settimeout(0.25); renderer_socket.sendall(frame)
@@ -111,6 +123,8 @@ class Supervisor:
             with selectors.DefaultSelector() as selector:
                 selector.register(heartbeat_socket, selectors.EVENT_READ)
                 if self.control is not None: selector.register(self.control.server.socket, selectors.EVENT_READ)
+                if self.control is not None and getattr(self.control, 'events', None) is not None:
+                    selector.register(self.control.events, selectors.EVENT_READ)
                 while not self.finished:
                     now = time.monotonic()
                     # Expiry precedes reading queued heartbeats: delayed bytes
@@ -131,6 +145,9 @@ class Supervisor:
                         if self.finished: break
                         if self.control is not None and key.fileobj is self.control.server.socket:
                             self._control_ready(heartbeat_socket)
+                            continue
+                        if self.control is not None and key.fileobj is getattr(self.control, 'events', None):
+                            self._events_ready(heartbeat_socket, selector)
                             continue
                         try: data = heartbeat_socket.recv(256)
                         except OSError: data = b''  # reset (renderer gone with unread frames) == disconnect

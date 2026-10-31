@@ -53,13 +53,14 @@ int main() {
     auto view = [](const std::string& payload) {
         return std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"view","payload":)") + payload + "}\n";
     };
-    auto view_decoded = xr::decode_control(view(R"({"zoomed":true,"selected":2,"spacing":40})"));
+    auto view_decoded = xr::decode_control(view(R"({"zoomed":true,"selected":2,"spacing":40,"mode":"follow"})"));
     require(std::holds_alternative<xr::ControlMessage>(view_decoded));
     auto& message = std::get<xr::ControlMessage>(view_decoded);
     require(message.op == xr::ControlOp::view);
     auto& v = std::get<xr::ViewPayload>(message.payload);
-    require(v.zoomed && v.selected == 2 && v.spacing == 40);
-    for (const char* bad : {R"({"zoomed":1,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":3,"spacing":0})",
+    require(v.zoomed && v.selected == 2 && v.spacing == 40 && v.mode == 2);
+    for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":0,"spacing":0,"mode":"orbit"})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":3,"spacing":0})",
                             R"({"zoomed":true,"selected":0,"spacing":401})", R"({"zoomed":true,"selected":-1,"spacing":0})",
                             R"({"zoomed":true,"selected":0})", R"({"zoomed":true,"selected":0,"spacing":0,"x":1})",
                             R"({"zoomed":true,"selected":0.5,"spacing":0})"})

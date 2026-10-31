@@ -22,10 +22,10 @@ class ViewStateTests(unittest.TestCase):
 
     def test_transitions_focus_and_view(self):
         v = view.ViewState(NAMES, spacing=40)
-        self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40})
+        self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor'})
         self.assertEqual(v.apply('next'), 'XR-2')            # overview: highlight + focus
         self.assertEqual(v.apply('zoom_in'), 'XR-2')         # zoom into the highlighted desktop
-        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40})
+        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor'})
         self.assertEqual(v.apply('next'), 'XR-3')            # zoomed: slide + focus
         self.assertIsNone(v.apply('next'))                   # clamped at the last desktop: no change
         self.assertEqual(v.apply('prev'), 'XR-2')
@@ -49,7 +49,7 @@ class ViewStateTests(unittest.TestCase):
             self.assertEqual(view.load_spacing(self.settings), view.DEFAULT_SPACING, bad)
 
     def test_renderer_frame_is_valid_control(self):
-        frame = view.view_frame('run', 'session', 7, {'zoomed': True, 'selected': 2, 'spacing': 40})
+        frame = view.view_frame('run', 'session', 7, {'zoomed': True, 'selected': 2, 'spacing': 40, 'mode': 'follow'})
         self.assertTrue(frame.endswith(b'\n'))
         self.assertEqual(json.loads(frame)['op'], 'view')
 
@@ -137,8 +137,9 @@ class SupervisorControlTests(unittest.TestCase):
         t.join(5)
         frames = [json.loads(l) for l in renderer.recv(65536).decode().splitlines()]
         self.assertEqual([f['payload'] for f in frames],
-                         [{'zoomed': False, 'selected': 1, 'spacing': 40}, {'zoomed': True, 'selected': 1, 'spacing': 40},
-                          {'zoomed': True, 'selected': 1, 'spacing': 60}])
+                         [{'zoomed': False, 'selected': 1, 'spacing': 40, 'mode': 'anchor'},
+                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor'},
+                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'anchor'}])
         ids = [f['request_id'] for f in frames]
         self.assertEqual(ids, sorted(ids)); self.assertGreater(ids[0], 1)  # start frame used 1
         control.join_focus(timeout=2)
@@ -178,3 +179,103 @@ class SupervisorResetTests(unittest.TestCase):
         parent.sendall(b'{"op":"view"}\n')     # queued, never read
         renderer.close()                       # renderer gone with unread data; child alive until terminated
         self.assertEqual(Supervisor(child, lambda: 'recovered').run(parent), 'recovered')
+
+
+class ViewModeAndCursorFollowTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.settings = Path(self.tmp.name) / 'cfg' / 'layout.json'
+
+    def control(self, state=None, focused=None):
+        return view.ViewControl(state or view.ViewState(NAMES), 'run', 'session',
+                                (focused if focused is not None else []).append, self.settings, None)
+
+    def test_mode_cycles_and_is_saved_with_spacing(self):
+        c = self.control()
+        modes = [json.loads(c.on_message({'op': 'mode_next'}))['payload']['mode'] for _ in range(3)]
+        self.assertEqual(modes, ['follow', 'locked', 'anchor'])
+        c.on_message({'op': 'mode_next'}); c.on_message({'op': 'spacing_up'})
+        self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'follow', 'cursor_follow': False})
+        self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
+        self.assertIn(('CTRL + ALT + V', 'mode_next'), view.BINDS)
+        self.assertIn(('CTRL + ALT + F', 'cursor_follow'), view.BINDS)
+
+    def test_settings_fields_fall_back_independently(self):
+        self.settings.parent.mkdir(parents=True)
+        self.settings.write_text('{"spacing": 80}')  # file written before modes existed
+        self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'cursor_follow': False})
+        self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1}')
+        self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)
+        for bad in ({'spacing': 40, 'mode': 'orbit', 'cursor_follow': False}, {'spacing': 40, 'mode': 'anchor'},
+                    {'spacing': 40, 'mode': 'anchor', 'cursor_follow': 'yes'}):
+            with self.subTest(bad), self.assertRaises(ValueError): view.save_settings(self.settings, bad)
+        with self.assertRaises(ValueError): view.ViewState(NAMES, mode='orbit')
+
+    def test_cursor_follow_switches_only_when_enabled_and_only_managed(self):
+        focused = []
+        c = self.control(focused=focused)
+        self.assertIsNone(c.on_events(b'focusedmon>>XR-2,7\n'))          # off by default: ignored
+        self.assertIsNone(c.on_message({'op': 'cursor_follow'}))          # toggling sends no renderer frame
+        self.assertTrue(view.load_settings(self.settings)['cursor_follow'])
+        frame = c.on_events(b'workspace>>3\nfocusedmon>>XR-')            # split across reads
+        self.assertIsNone(frame)
+        frame = c.on_events(b'3,8\nfocusedmonv2>>XR-3,8\n')
+        self.assertEqual(json.loads(frame)['payload']['selected'], 2)
+        self.assertIsNone(c.on_events(b'focusedmon>>XR-3,8\n'))           # already selected
+        for other in (b'focusedmon>>DP-1,1\n', b'focusedmon>>XR-9,1\n', b'focusedmon>>XR-1\n', b'\xff\xfe\n'):
+            self.assertIsNone(c.on_events(other), other)
+        self.assertIsNone(c.on_events(b'x' * 70000))                      # bounded buffer
+        self.assertEqual(json.loads(c.on_events(b'\nfocusedmon>>XR-1,1\n'))['payload']['selected'], 0)
+        self.assertEqual(focused, [])                                     # pointer already there: no focus dispatch
+        self.assertEqual(c.cursor_switches, 2)
+
+
+class SupervisorCursorFollowTests(unittest.TestCase):
+    def test_event_socket_drives_renderer_and_eof_is_not_fatal(self):
+        import time
+        from tools.native_spike.supervisor import Supervisor
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        control = view.ViewControl(view.ViewState(NAMES, cursor_follow=True), 'run', 'session', lambda n: None,
+                                   Path(tmp.name) / 'l.json', type('S', (), {'socket': socket.socketpair()[0]})())
+        hypr, events = socket.socketpair(); events.setblocking(False)
+        control.events = events
+        self.addCleanup(hypr.close); self.addCleanup(events.close)
+        parent, renderer = socket.socketpair()
+        self.addCleanup(parent.close); self.addCleanup(renderer.close)
+        class Child:
+            done = False
+            def poll(self): return 0 if self.done else None
+            def terminate(self): self.done = True
+            def kill(self): self.done = True
+        child = Child()
+        sup = Supervisor(child, lambda: 'recovered', control=control)
+        def drive():
+            time.sleep(0.15); hypr.sendall(b'focusedmon>>XR-2,7\n')
+            time.sleep(0.15); hypr.close()                          # compositor stream ends: follow just stops
+            time.sleep(0.15); renderer.sendall(b'H'); time.sleep(0.15); child.done = True
+        t = threading.Thread(target=drive); t.start()
+        renderer.sendall(b'H')
+        self.assertEqual(sup.run(parent), 'recovered')
+        t.join(5)
+        frames = [json.loads(l) for l in renderer.recv(65536).decode().splitlines()]
+        self.assertEqual([f['payload']['selected'] for f in frames], [1])
+
+
+class EventStreamTests(unittest.TestCase):
+    def test_event_stream_uses_socket2_with_peer_checks(self):
+        from tools.native_spike import hyprland as h
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name); root.chmod(0o700)
+        instance = 'a' * 40 + '_123_456'
+        d = root / 'hypr' / instance; d.mkdir(parents=True, mode=0o700); (root / 'hypr').chmod(0o700)
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); server.bind(str(d / '.socket2.sock')); server.listen(1)
+        self.addCleanup(server.close)
+        conn = h.HyprlandClient(instance, root).event_stream()
+        self.addCleanup(conn.close)
+        peer, _ = server.accept(); self.addCleanup(peer.close)
+        peer.sendall(b'focusedmon>>XR-1,1\n')
+        import select
+        select.select([conn], [], [], 2)
+        self.assertEqual(conn.recv(100), b'focusedmon>>XR-1,1\n')
+        self.assertFalse(conn.getblocking())
+        with self.assertRaises(ValueError): h.HyprlandClient(instance, root)._connect(0, '../x')

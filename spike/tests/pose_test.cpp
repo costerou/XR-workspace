@@ -109,5 +109,41 @@ int main() {
         *fake.disabled = true; CHECK(!feed->read());
         *fake.disabled = false; fake.write({NAN, 0, 0, 1}, 1235); CHECK(!feed->read());
     }
-    std::cout << "pose math and feed passed\n";
+    // T2 viewing modes. deg(a, b): angle between orientations in degrees.
+    auto deg = [](Quat a, Quat b) { return quat_angle(a, b) * 180.f / 3.14159265f; };
+    {
+        const Quat head = quat_mul(axis_angle(0, 0, 1, 30), axis_angle(1, 0, 0, 20));  // yaw 30, roll 20
+        // level() drops roll, keeps where the forward axis points.
+        const auto f1 = apply(quat_to_mat3(level(head)), {1, 0, 0}), f2 = apply(quat_to_mat3(head), {1, 0, 0});
+        CHECK(near(f1[0], f2[0], 1e-4f) && near(f1[1], f2[1], 1e-4f) && near(f1[2], f2[2], 1e-4f));
+        CHECK(near(apply(quat_to_mat3(level(head)), {0, 1, 0})[2], 0, 1e-4f));  // no roll: left axis stays horizontal
+        // view_from(head, head) is identity (0DoF); view_from(head, identity) is the 3DoF view.
+        const Mat3 id = view_from(head, head);
+        for (int i = 0; i < 9; ++i) CHECK(near(id[i], (i % 4 == 0) ? 1.f : 0.f, 1e-5f));
+        ModeController m;
+        double t = 0;
+        CHECK(deg(m.update(head, t), Quat{}) < 1e-3f);                 // anchor: world-locked
+        m.set_mode(ViewMode::locked, t);
+        const Quat mid = m.update(head, t += 150);                      // halfway: between, no jump
+        CHECK(deg(mid, Quat{}) > 5 && deg(mid, head) > 5);
+        CHECK(deg(m.update(head, t += 200), head) < 1e-3f && m.settled());  // 0DoF steady state is exact
+        const Quat moved = axis_angle(0, 0, 1, -40);
+        CHECK(deg(m.update(moved, t += 8), moved) < 1e-3f);           // rigidly locked, no lag
+        m.set_mode(ViewMode::follow, t);                                 // starts where the canvas is
+        CHECK(deg(m.update(moved, t += 1), moved) < 2.f);
+        for (int i = 0; i < 100; ++i) m.update(moved, t += 8);
+        const Quat small = quat_mul(axis_angle(0, 0, 1, -40 + 8), axis_angle(1, 0, 0, 15));  // inside dead zone, with roll
+        const Quat before = m.update(small, t += 8);
+        for (int i = 0; i < 100; ++i) CHECK(deg(m.update(small, t += 8), before) < 1e-3f);  // dead zone: world-locked
+        const Quat far = axis_angle(0, 0, 1, 20);                       // 60 degrees away: eases back in front
+        const Quat step = m.update(far, t += 8);
+        CHECK(deg(step, before) < 10.f);                                // smooth, not a snap
+        for (int i = 0; i < 400; ++i) m.update(far, t += 8);
+        CHECK(deg(m.update(far, t += 8), level(far)) < 1.6f && m.settled());
+        m.recenter();
+        m.set_mode(ViewMode::anchor, t);
+        for (int i = 0; i < 60; ++i) m.update(far, t += 8);
+        CHECK(deg(m.update(far, t += 8), Quat{}) < 1e-3f);
+    }
+    std::cout << "pose math, feed and view modes passed\n";
 }

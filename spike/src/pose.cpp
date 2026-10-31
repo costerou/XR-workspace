@@ -1,4 +1,5 @@
 #include "xr/pose.hpp"
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <ctime>
@@ -111,6 +112,7 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
                 if (recenter_pending_ || !center_) { center_ = *q; recenter_pending_ = false; }
                 last_ = *q;
                 const Quat relative = quat_mul(quat_conj(*center_), *q);
+                relative_ = relative;
                 view_ = transpose(driver_to_gl(quat_to_mat3(relative)));
                 tracking_ = true;
             }
@@ -118,4 +120,67 @@ void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {
     }
     if (tracking_ && now_ms - last_change_ms_ > stale_ms_) { tracking_ = false; ++lost_events_; }  // hold last pose
 }
+
+Quat quat_slerp(Quat a, Quat b, float t) {
+    float d = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    if (d < 0) { b = {-b.x, -b.y, -b.z, -b.w}; d = -d; }
+    float wa = 1 - t, wb = t;
+    if (d < 0.9995f) {
+        const float th = std::acos(std::min(d, 1.f)), s = std::sin(th);
+        wa = std::sin((1 - t) * th) / s; wb = std::sin(t * th) / s;
+    }
+    return quat_normalized({wa * a.x + wb * b.x, wa * a.y + wb * b.y, wa * a.z + wb * b.z, wa * a.w + wb * b.w}).value_or(b);
+}
+float quat_angle(Quat a, Quat b) {
+    const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+    return 2 * std::acos(std::min(d, 1.f));
+}
+Quat level(Quat q) {
+    const auto f = apply(quat_to_mat3(q), {1, 0, 0});  // forward (x) in the reference frame; z up
+    const float yaw = std::atan2(f[1], f[0]), pitch = std::asin(std::clamp(f[2], -1.f, 1.f));
+    const Quat qy{0, 0, std::sin(yaw / 2), std::cos(yaw / 2)};
+    const Quat qp{0, std::sin(-pitch / 2), 0, std::cos(-pitch / 2)};  // +pitch tips forward toward +z
+    return quat_mul(qy, qp);
+}
+Mat3 view_from(Quat head, Quat anchor) {
+    return transpose(driver_to_gl(quat_to_mat3(quat_mul(quat_conj(anchor), head))));
+}
+
+void ModeController::set_mode(ViewMode mode, double now_ms) {
+    if (mode == mode_) return;
+    from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;
+    if (mode == ViewMode::follow) { follow_ = level(anchor_); chasing_ = false; }
+    mode_ = mode;
+}
+void ModeController::recenter() { anchor_ = from_ = follow_ = Quat{}; transitioning_ = chasing_ = false; }
+Quat ModeController::target(Quat head) const {
+    switch (mode_) {
+    case ViewMode::locked: return head;
+    case ViewMode::follow: return follow_;
+    case ViewMode::anchor: break;
+    }
+    return Quat{};
+}
+Quat ModeController::update(Quat head, double now_ms) {
+    const double dt = last_ms_ < 0 ? 0 : std::clamp(now_ms - last_ms_, 0.0, 100.0);
+    last_ms_ = now_ms;
+    if (mode_ == ViewMode::follow) {
+        const Quat want = level(head);
+        const float off = quat_angle(follow_, want) * 180.f / float(M_PI);
+        if (!chasing_ && off > tuning_.deadzone_deg) chasing_ = true;
+        if (chasing_) {
+            follow_ = quat_slerp(follow_, want, float(1 - std::exp(-dt / tuning_.follow_tau_ms)));
+            if (quat_angle(follow_, want) * 180.f / float(M_PI) < tuning_.settle_deg) chasing_ = false;
+        }
+    }
+    const Quat goal = target(head);
+    if (transitioning_) {
+        const float t = float(std::clamp((now_ms - started_ms_) / tuning_.transition_ms, 0.0, 1.0));
+        const float s = t * t * (3 - 2 * t);
+        anchor_ = quat_slerp(from_, goal, s);
+        if (t >= 1) transitioning_ = false;
+    } else anchor_ = goal;
+    return anchor_;
+}
+bool ModeController::settled() const { return !transitioning_ && !chasing_; }
 }
