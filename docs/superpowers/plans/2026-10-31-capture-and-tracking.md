@@ -78,3 +78,15 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
   - the compositor rejecting the buffer or the capture.
 - Fixed while here: constraints that changed during an in-flight frame could stall capture. They are now applied once that frame completes or fails.
 - VM: `isolated-vm-dmabuf-live.json`. The guest cannot allocate GBM buffers, so all three outputs report `shm` with "gbm allocation failed"; capture, tracking and teardown are unchanged. Zero-copy itself needs the live RX 7800 XT run (`path: "dmabuf"`, `composition.path: "gles2-dmabuf-import"`, no upload counts).
+
+**T2 viewing modes and cursor follow implemented (2026-10-31), VM verified; live pending.**
+- Ctrl+Alt+V cycles through three modes:
+  - **anchor**: world-locked 3DoF, as before.
+  - **follow**: world-locked inside a 12° dead zone. Beyond it the desktops ease back in front (τ 220 ms, settling within 1.5°) and stay level, with no roll.
+  - **locked**: 0DoF, rigidly head-locked.
+- Mode changes blend over 300 ms from wherever the canvas is, and steady states are exact. Recenter returns every mode's anchor to straight ahead.
+- Ctrl+Alt+F (user-requested, optional, off by default) toggles cursor follow. The supervisor reads Hyprland socket2 with the same peer checks as requests. When `focusedmon` names another managed output, the view switches to it: the highlight moves in overview, or the view slides when zoomed. No extra focus dispatch is needed because the pointer is already there.
+- Both binds are free in the user's Hyprland and Omarchy config and, like the others, exist only during a run.
+- Mode, cursor follow and spacing are saved together in `layout.json`; each field falls back to its default on its own.
+- Capture now paints the cursor on managed outputs, so the pointer is visible in the glasses.
+- VM: `isolated-vm-modes-live.json`. A focus change stands in for the pointer crossing outputs.
