@@ -265,6 +265,13 @@ public:
         return true;
     }
     bool cleanup(const Handle& h,const Json&) override { return resolve(h) && eraseRule(*native(h)); }
+    void release(const Handle& h) override {
+        // Strong PHLWORKSPACE members kept evacuated managed workspaces and retirement
+        // gaps listed (empty) for the compositor lifetime after a complete recovery.
+        auto o=native(h);
+        o->workspace.reset(); o->createdDefault.reset(); o->retirement.reset();
+        o->beforeCreate.clear(); o->beforeEvacuation.clear();
+    }
     bool destroy(const Handle& h) override {
         auto m=resolve(h); if(!m) return false;
         auto o=native(h);

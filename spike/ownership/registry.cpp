@@ -163,6 +163,6 @@ std::string Registry::remove(const std::string& s,const std::string& r,const std
        !backend.reachable(e.object,fallback)) return "blocked";
     backend.destroy(e.object);
     if(e.object->live || !backend.usable(fallback) || !backend.reachable(e.object,fallback)) return "blocked";
-    e.state="dead"; return e.state;
+    e.state="dead"; backend.release(e.object); return e.state;
 }
 }
