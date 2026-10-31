@@ -1,0 +1,260 @@
+{
+  "trial": "xr-isolated-capture-4",
+  "scope": "C1 managed-output capture in disposable guest with Omarchy active; virtual evidence only",
+  "manifest": {
+    "commit": "b93c575d1f05877a0fa97f11746006a4a7a4cce2",
+    "baseline": {
+      "/home/cody/.hermes/cache/scratch/xr-presentation/guest.raw": "9ac7441319451a8acc7ff02c817447eebea2ee5d20ff6dbd5761b40cfd66abde",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike/xr-native-spike": "7bd0fc7abb0dbb7aa60b51f945770cba1d6023f3211ed4236b11a39fb983de3d",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-offset-fix/libxr-ownership.so": "2be43536ebd358f94851ec927857a7305bbef20a880427fcfef4b19afc168e31",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-omarchy-2/libxr-ownership.so": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930"
+    },
+    "image_files": {
+      "/opt/xr/session.sh": "ee386eb881cc03615db93a3352202aeb5a42270544710cbed9548d11eccd36bb",
+      "/opt/xr/hyprland.lua": "e5dd4f12eb0ac634dc12e33fd08d3a08e5c14a8c9e2d5436879dcedb57a309cd",
+      "/opt/xr/coverage-fixture.py": "0a49b3a13d09a26e632c81dce39049073521036f068e02654f2e68c57a0eb12b",
+      "/opt/xr/child_connect.py": "aba974561005bc80cd74f0444b15921f427c7e9708d136da1f258d948a4e699c",
+      "/opt/xr/window": "755e6bc61e738d317c5d163650b42a798ec7ecd381f2c7790b5ac23b9847b4e4",
+      "/opt/xr/binder": "24eca05c786f0649f673dda74ce2c772eee74e2345f33a8b8ecbb023bc2ec6e0",
+      "/opt/xr/plugin.sha256": "b3e32b903f16dd7107ac2673b38318fbce8a145c47c959cceb46d3813c000be9",
+      "/opt/xr/omarchy/default/hypr/monitor-workspaces.lua": "311584994b26fca5fb6a2bb471b8b60e6b433da493b1c3aa8fb0f2fa2fb91ff7",
+      "/opt/xr/omarchy/default/hypr/paths.lua": "9862b85c515511c55d2430777c7453b781ef0f088380e53bb89684c906445a5d",
+      "/opt/xr/libxr-ownership.so": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930",
+      "/opt/xr/repo/build/native-spike/xr-native-spike": "7bd0fc7abb0dbb7aa60b51f945770cba1d6023f3211ed4236b11a39fb983de3d",
+      "/opt/xr/repo/tools/native_spike/__init__.py": "f8b0282cfd2c84ca456bedcf6d5a95366a88f3af97138a76504067fca07f9cff",
+      "/opt/xr/repo/tools/native_spike/__main__.py": "bb7c864d0bb643a8bfa693fc1b5850847337c1e0008c944308db5694e0548a4b",
+      "/opt/xr/repo/tools/native_spike/hyprland.py": "97cda9cf11b11c7fa0cfada76a98ad16e5be897c39c2bf8d37345313de065449",
+      "/opt/xr/repo/tools/native_spike/ipc.py": "fe76e6b14e96cfd635f09c2703906b8508e1aa0c39f99d62f634b740b74dfd25",
+      "/opt/xr/repo/tools/native_spike/isolated.py": "ecdbe76c7f35bf4b8ad281c1abeec54aa49f8930dc6a67b523d2cc9dea98b677",
+      "/opt/xr/repo/tools/native_spike/journal.py": "ab1dd710fdb052275cebe04970314a08b62260e8768b2064254e3776ac027b07",
+      "/opt/xr/repo/tools/native_spike/managed.py": "3333325da7ee9a385a11f1d143fdd55592d8d9062fd129f6c9e8b757e1110122",
+      "/opt/xr/repo/tools/native_spike/ownership.py": "b509f1a59053ab20fa212aeefbf292fb47d12e353c725512e008f2b6898bf344",
+      "/opt/xr/repo/tools/native_spike/supervisor.py": "66ae7145513b51bcb15af3ca27d3f006fa27e4591185415f6c49ef68b283eea2"
+    }
+  },
+  "exit": {
+    "exit_code": 0,
+    "supervisor_pid": 1499307,
+    "qemu_survivors": []
+  },
+  "fixture_complete": true,
+  "events": [
+    {
+      "kind": "identity",
+      "value": {
+        "boot_id": "3466f0d1-c62e-406a-8cc2-8f1a3d8d0e46",
+        "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793486255_2085766892",
+        "peer": [
+          168,
+          1000,
+          1000,
+          "334"
+        ],
+        "session": "fdccb273565a1531253f5d97e357517e9d82d380bbd2646006f9480fea772c6c"
+      }
+    },
+    {
+      "kind": "baseline_outputs",
+      "value": [
+        [
+          "Virtual-1",
+          1280,
+          800,
+          74.994,
+          0,
+          0
+        ],
+        [
+          "Virtual-2",
+          1280,
+          800,
+          74.994,
+          1280,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "guest_evidence",
+      "value": {
+        "boot_id": "3466f0d1-c62e-406a-8cc2-8f1a3d8d0e46",
+        "connectors": {
+          "Virtual-1": {
+            "connector": 40,
+            "device": "226:0"
+          },
+          "Virtual-2": {
+            "connector": 47,
+            "device": "226:0"
+          }
+        }
+      }
+    },
+    {
+      "kind": "plugin_sha256",
+      "value": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930"
+    },
+    {
+      "kind": "renderer_argv_capture",
+      "value": "XR-1,XR-2,XR-3"
+    },
+    {
+      "kind": "renderer_fds",
+      "value": {
+        "fds": [
+          "/dev/null",
+          "pipe:[767]",
+          "pipe:[768]",
+          "socket:[1905]",
+          "socket:[1907]"
+        ],
+        "memfd_mappings": [
+          "/memfd:xr-managed-capture",
+          "/memfd:xr-test-pattern"
+        ],
+        "writable_file_mappings": []
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 0,
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/cap1/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\n",
+        "what": "cap1 teardown"
+      }
+    },
+    {
+      "kind": "renderer_reports",
+      "value": [
+        {
+          "abandoned": 0,
+          "clock_conflict": false,
+          "clock_id": 1,
+          "discarded": 0,
+          "flag_counts_vsync_hw_clock_hw_completion_zero_copy": [
+            14,
+            14,
+            14,
+            0
+          ],
+          "interval_count": 13,
+          "interval_histogram": [
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            7,
+            4
+          ],
+          "interval_max_ns": 626719000,
+          "interval_mean_ns": 122061230.76923077,
+          "interval_min_ns": 13334000,
+          "interval_sum_ns": 1586796000,
+          "interval_upper_bounds_ns": [
+            1000000,
+            4000000,
+            8000000,
+            9000000,
+            17000000,
+            34000000,
+            100000000,
+            null
+          ],
+          "invalid_timing": 0,
+          "kind": "generated_pattern_presentation_timing",
+          "last_refresh_prediction_ns": 13334400,
+          "observation_duration_ns": 1586796000,
+          "pending": 0,
+          "presented": 14,
+          "protocol_version": 1,
+          "schema": 1,
+          "submitted": 14,
+          "sustained_cadence_qualified": false,
+          "valid_presented": 14
+        },
+        {
+          "kind": "managed_output_capture",
+          "outputs": [
+            {
+              "failures": 0,
+              "format": 1,
+              "frames": 13,
+              "height": 1080,
+              "name": "XR-1",
+              "stopped": false,
+              "width": 1920
+            },
+            {
+              "failures": 0,
+              "format": 1,
+              "frames": 2,
+              "height": 1080,
+              "name": "XR-2",
+              "stopped": false,
+              "width": 1920
+            },
+            {
+              "failures": 0,
+              "format": 1,
+              "frames": 2,
+              "height": 1080,
+              "name": "XR-3",
+              "stopped": false,
+              "width": 1920
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "clean",
+      "value": {
+        "outputs": [
+          [
+            "Virtual-1",
+            1280,
+            800,
+            74.994,
+            0,
+            0
+          ],
+          [
+            "Virtual-2",
+            1280,
+            800,
+            74.994,
+            1280,
+            0
+          ]
+        ],
+        "run": "cap1"
+      }
+    }
+  ],
+  "host_qemu_samples": 11,
+  "host_qemu_fd_targets": [
+    "/dev/kvm",
+    "/dev/null",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-capture-4/guest.raw",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-capture-4/serial.log",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-capture-4/vl.RO54X3 (deleted)",
+    "/memfd:displaysurface (deleted)",
+    "/memfd:virtio-gpu res (deleted)",
+    "anon_inode:[eventfd]",
+    "anon_inode:[io_uring]",
+    "anon_inode:[signalfd]",
+    "anon_inode:kvm-vcpu-stats:0",
+    "anon_inode:kvm-vcpu-stats:1",
+    "anon_inode:kvm-vcpu:0",
+    "anon_inode:kvm-vcpu:1",
+    "anon_inode:kvm-vm"
+  ],
+  "host_suspicious_fds": [],
+  "earlier_attempts": {
+    "xr-isolated-capture": "failed closed: constraints after one roundtrip",
+    "xr-isolated-capture-2": "failed closed: format list cleared by buffer_size (event-order bug)",
+    "xr-isolated-capture-3": "capture ran; fixture stopped on inherited /dev/ttyS0 stdin (renderer now gets /dev/null)"
+  }
+}
