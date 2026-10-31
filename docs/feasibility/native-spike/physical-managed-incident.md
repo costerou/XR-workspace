@@ -72,3 +72,14 @@ The cause of phys1's placement mismatch is still unknown.
      - `NativeModel` really clears its gap and owned references and snapshots, and its repeat-dead check runs against the released state. A mutation that drops the not-live release is caught.
    - Re-verified in the VM (`isolated-vm-wsretain-final-live.json`, module `e031543a…`): identical clean result, with binders active and the compositor alive.
 4. Get explicit new user consent. A retry would use module `e031543a…` (`build/native-spike-ws-release-2`) and would report the actual placement mismatch. The physical managed run is **not** qualified.
+
+## Second live attempt `phys2` (fixed module `e031543a…`)
+
+The user approved it and confirmed a clean 1200p120 image and saved work. Evidence: `physical-managed-phys2-live.json`.
+
+- **Result:** creation was again refused by readback, with the new diagnostics: `expected [{"id": 2, "name": "XR-SPIKE-phys2-workspace-0"}] observed [{"id": 71, "name": "71"}, {"id": 2, …}]`.
+- **Recovery:** removed the single created output (journal `done`).
+- **No crash.** Same compositor instance. Monitors, workspaces (1, 21) and clients were identical to the baseline; no leftover layer, renderer or output.
+- **Root cause of the mismatch:** Omarchy's `/usr/share/omarchy/default/hypr/monitor-workspaces.lua` gives every monitor its own block of ten workspaces (reconciled on `monitor.added`/`removed`/`config.reloaded`). It persists block assignments by monitor identity in `~/.local/state/omarchy/monitor-workspaces`. Each per-run headless name (`XR-SPIKE-phys1-0`, `XR-SPIKE-phys2-0`) was registered as a new monitor (blocks 6 and 7), and Omarchy showed workspace 71 on it. The broker's pre-planned workspace id therefore always conflicts on Omarchy.
+- **Side effect:** those two block entries now persist in the user's Omarchy state file. Left untouched pending the user's decision.
+- **Status:** the managed lifecycle is now safe on the live desktop in this failure path (create, refuse, recover, no crash, no residue in compositor state). Managed operation is still blocked by the design conflict with Omarchy's per-monitor workspaces.
