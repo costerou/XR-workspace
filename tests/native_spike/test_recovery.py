@@ -6,7 +6,7 @@ from tools.native_spike.journal import Journal, recover
 from tools.native_spike.supervisor import Supervisor
 
 ID = "12345678-1234-4234-8234-123456789abc"
-NAME = "XR-" + ID
+NAME = "XR-SPIKE-run-0"
 
 class FakeHypr:
     def __init__(self):
@@ -38,7 +38,7 @@ class RecoveryTests(unittest.TestCase):
         self.j = Journal.open(Path(self.tmp.name) / "journal.json", "run", "session")
         self.hypr = FakeHypr()
     def output(self):
-        return self.j.prepare({"kind": "output", "id": ID, "name": NAME, "before": None})
+        return self.j.prepare({"kind": "output", "id": ID, "name": NAME, "index": 0, "before": None})
     def test_crash_after_prepare_before_confirm(self):
         self.output()
         result = recover(self.j, self.hypr)
@@ -61,6 +61,22 @@ class RecoveryTests(unittest.TestCase):
         oid = self.output(); self.hypr.outputs[1]["id"] = "other"
         self.assertEqual(recover(self.j, self.hypr).remaining, [oid])
         self.assertEqual(self.hypr.commands, [])
+    def test_wrong_run_live_output_with_same_uuid_is_not_removed(self):
+        oid = self.output()
+        self.hypr.outputs[1]["name"] = "XR-SPIKE-other-0"
+        self.assertEqual(recover(self.j, self.hypr).remaining, [oid])
+        self.assertEqual(self.hypr.commands, [])
+
+    def test_raw_transport_is_not_a_recovery_backend(self):
+        self.output()
+        def raw_query(kind):
+            if kind not in {"monitors", "workspaces", "clients", "activewindow", "getoption", "cursorpos"}:
+                raise ValueError("unsupported raw request")
+            return []
+        self.hypr.query = raw_query
+        self.assertFalse(recover(self.j, self.hypr).complete)
+        self.assertEqual(self.hypr.commands, [])
+
     def test_no_physical_fallback_preserves_resources(self):
         self.output(); self.hypr.outputs.pop(0)
         self.assertFalse(recover(self.j, self.hypr).complete)

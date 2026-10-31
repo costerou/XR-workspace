@@ -11,7 +11,14 @@ import uuid
 from .ipc import private_dir, strict_json, token
 
 
-class HyprlandClient(Protocol):
+class RecoveryBackend(Protocol):
+    """Normalized recovery view, NOT the raw HyprlandClient transport.
+
+    query kinds: session, outputs, workspaces, settings (Task 2 report schemas).
+    Session must be independently verified against the connected instance;
+    output UUIDs require proven incarnation bindings, never name-derived IDs.
+    Task 3's RecoveryAdapter translates through the unchanged raw allowlist.
+    """
     def query(self, kind: str) -> dict | list: ...
     def mutate(self, command: str) -> str: ...
 
@@ -22,12 +29,12 @@ class RecoveryResult:
     remaining: list[str]
 
 
-def validate_operation(op):
+def validate_operation(op, run_id):
     if not isinstance(op, dict): raise ValueError("invalid operation")
     kind = op.get("kind")
     fields = {"setting": {"kind", "key", "before", "applied"},
               "workspace": {"kind", "workspace", "before", "applied"},
-              "output": {"kind", "id", "name", "before"}}
+              "output": {"kind", "id", "name", "index", "before"}}
     if not isinstance(kind, str) or kind not in fields or set(op) != fields[kind]: raise ValueError("unsupported operation")
     if kind == "setting":
         if op["key"] != "input:follow_mouse": raise ValueError("unsupported setting")
@@ -37,8 +44,13 @@ def validate_operation(op):
         if type(op["workspace"]) is not int or not 0 < op["workspace"] <= 2147483647: raise ValueError("invalid workspace")
         token(op["before"]); token(op["applied"])
     else:
-        if not isinstance(op["id"], str) or str(uuid.UUID(op["id"])) != op["id"] or op["name"] != "XR-" + op["id"] or op["before"] is not None:
+        if not isinstance(op["id"], str) or str(uuid.UUID(op["id"])) != op["id"] or op["before"] is not None:
             raise ValueError("invalid output ownership")
+        if type(op["index"]) is not int or not 0 <= op["index"] <= 2147483647:
+            raise ValueError("invalid output index")
+        token(op["name"])
+        if op["name"] != f"XR-SPIKE-{run_id}-{op['index']}":
+            raise ValueError("output name does not match journal run and index")
     return op
 
 
@@ -100,7 +112,7 @@ class Journal:
             if not isinstance(record["id"], str) or str(uuid.UUID(record["id"])) != record["id"] or record["id"] in ids: raise ValueError("invalid record id")
             ids.add(record["id"])
             if record["state"] not in ("pending", "confirmed", "done"): raise ValueError("invalid state")
-            validate_operation(record["operation"])
+            validate_operation(record["operation"], self.run_id)
         self.operations = data["operations"]
 
     def _save(self):
@@ -120,7 +132,7 @@ class Journal:
             except FileNotFoundError: pass
 
     def prepare(self, operation: dict) -> str:
-        op = json.loads(json.dumps(validate_operation(operation), allow_nan=False))
+        op = json.loads(json.dumps(validate_operation(operation, self.run_id), allow_nan=False))
         oid = str(uuid.uuid4())
         with self.transaction():
             self.operations.append({"id": oid, "operation": op, "state": "pending"})
@@ -191,7 +203,7 @@ def _undo(journal, hypr, op):
     return not any(o["name"] == op["name"] or o["id"] == op["id"] for o in hypr.query("outputs"))
 
 
-def recover(journal: Journal, hypr: HyprlandClient) -> RecoveryResult:
+def recover(journal: Journal, hypr: RecoveryBackend) -> RecoveryResult:
     with journal.transaction():
         # Reverse mutation order; outputs last even if caller prepared out of order.
         records = list(reversed(journal.operations))

@@ -80,7 +80,7 @@ or renderer event loop is implemented in this task.
 `Journal.open(Path, run_id, session) -> Journal`,
 `prepare(operation: dict) -> operation_id`,
 `confirm(operation_id, observed: dict) -> None`,
-`recover(journal, hypr) -> RecoveryResult(complete: bool, remaining: list[str])`.
+`recover(journal, hypr: RecoveryBackend) -> RecoveryResult(complete: bool, remaining: list[str])`.
 Remaining entries are operation UUIDs, not output names.
 
 The journal's parent must already be private mode 0700. Journal and lock are
@@ -98,7 +98,7 @@ Only these operation dictionaries are supported (no extra keys):
 |---|---|---|
 | setting | `key="input:follow_mouse"`, integer `before`, `applied` in 0..3 | `{"value": applied}` |
 | workspace | positive int32 `workspace`, token output names `before`, `applied` | `{"output": applied}` |
-| output | canonical UUID string `id`, `name="XR-" + id`, `before=null` | `{"id": id,"name": name,"physical":false}` |
+| output | canonical UUID string `id`, integer `index` in 0..2147483647 (not bool), `name="XR-SPIKE-<journal-run-id>-<index>"`, `before=null` | `{"id": id,"name": name,"physical":false}` |
 
 Task 3 must query pre-state, verify output-name absence before preparing creation,
 then `prepare`, mutate using its selected-session adapter, read back, and `confirm`.
@@ -106,7 +106,7 @@ Do not confirm merely from a command's success response. An unconfirmed operatio
 may have happened: recovery reconciles live state rather than skipping it.
 Prepare only owned-resource mutations, not arbitrary user outputs/workspaces.
 
-`HyprlandClient` protocol lives in journal.py:
+`RecoveryBackend` protocol lives in journal.py (renamed in review fix; not raw `HyprlandClient`):
 `query(kind: str) -> dict | list`, `mutate(command: str) -> str`.
 It uses **normalized adapter responses**, not raw Hyprland JSON:
 
@@ -115,7 +115,7 @@ It uses **normalized adapter responses**, not raw Hyprland JSON:
 - `query("outputs") -> [{"id": stable_identity, "name": output_name,
   "physical": bool}, ...]`. For owned outputs identity must independently establish
   the journal UUID's binding to the actual output incarnation in this session.
-  Never assign ownership from an `XR-` name/prefix alone. If identity cannot be
+  Never assign ownership from an `XR-SPIKE-` name/prefix alone. If identity cannot be
   proved after a crash, expose ambiguity or raise and preserve the resource.
 - `query("workspaces") -> [{"id": positive_int32, "output": output_name}, ...]`.
 - `query("settings") -> {"input:follow_mouse": integer}`.
@@ -129,7 +129,7 @@ on success and must itself validate/translate commands without a shell:
 
 - `keyword input:follow_mouse <0..3>`
 - `dispatch moveworkspacetomonitor <positive-int32> <validated-output-name>`
-- `output remove XR-<canonical-UUID>`
+- `output remove XR-SPIKE-<journal-run-id>-<index>`
 
 Task 3 may implement other internal creation/configuration operations, but they
 must not become public wire commands. No changes to tools/xr_probe/commands.py.
@@ -142,6 +142,33 @@ output, and repeated identity/fallback/session checks. Failed migration retains 
 output; wrong-session recovery performs no mutation. Missing output with stranded
 workspace is incomplete rather than fabricated success. Repeated recovery is
 idempotent. Outputs are processed after setting/workspace rollback.
+
+## Task 2 → Task 3 reconciled boundary
+
+- Output intent is exactly `{kind: "output", id: <canonical UUID>, name:
+  "XR-SPIKE-<journal-run-id>-<index>", index: <integer 0..2147483647>, before: null}`.
+  Index is canonical decimal in the name; bool/float/negative indices are rejected.
+  The complete name must satisfy the existing 128-character ASCII token bound.
+  Prepare and reload both bind name to the journal run and explicit index. UUID is
+  separate ownership identity, not encoded in or inferred from the name. Task 3
+  must choose a run ID short enough for all generated names before mutations.
+- `RecoveryBackend` (journal.py) is normalized `query(kind)` / `mutate(command)`.
+  Task 3 supplies `RecoveryAdapter`; raw `HyprlandClient` is a separate transport.
+  Raw query allowlist remains exactly `monitors`, `workspaces`, `clients`,
+  `activewindow`, `getoption`, `cursorpos`, with 2-second deadline / 1 MiB cap.
+- Adapter mapping: `outputs` ← raw `monitors` plus proven incarnation bindings;
+  `workspaces` ← normalized raw workspace records; `settings` ← validated
+  `getoption input:follow_mouse`; `session` ← independent connected-instance
+  verification, not constructor echo or an invented raw request. Normalized
+  `session`/`outputs`/`settings` must never be forwarded as raw requests.
+- Keep the report's normalized schemas, mutation strings, repeated session checks,
+  migration readback and approved usable physical fallback requirements. UUID
+  binding must independently prove the actual output incarnation in that verified
+  session. Matching names/prefixes or reusable monitor IDs do not suffice. Lost
+  continuity after crash/restart, malformed/incomplete queries, or unavailable
+  proof means preserve resources/journal and report blocked recovery; do not
+  broaden the raw allowlist to invent proof. Adapter implementation and its fake
+  raw-transport integration tests remain Task 3 work, not a live-success claim.
 
 ## Independent supervisor integration
 
@@ -172,7 +199,7 @@ service: later startup must explicitly reopen the retained journal for recovery.
   identity/user-change ambiguity and document this limitation; do not claim an
   atomic compositor transaction or physical recovery proof from these fake tests.
 - Adapter output-incarnation ownership proof is a Task 3 obligation. Never derive
-  an owned UUID solely by stripping `XR-` from a live output name.
+  an owned UUID from a live output name or reusable numeric monitor ID.
 - A same-UID process is inside the IPC trust boundary; permission checks do not
   defend against malicious peers already able to rewrite the user's private files.
 - No pose-worker protocol implementation, runtime launcher, or live adapter here;
@@ -187,3 +214,78 @@ Created `tools/native_spike/{__init__,ipc,journal,supervisor}.py`,
 `spike/src/ipc.cpp`, `spike/tests/ipc_test.cpp`, and this report.
 Modified `spike/CMakeLists.txt`, `spike/README.md`, `spike/dependencies.md`.
 Shared types and existing diagnostic implementation/tests are unchanged.
+
+## Review fix round 1 — I1 / I2 (base c573bc3)
+
+Resolved I1 by separating UUID ownership from planned run/index names. Added
+explicit `index` and run-aware validation at prepare **and reload**. Existing
+recovery tests now use `XR-SPIKE-run-0`; new tests cover durable planned names,
+wrong run/index, malformed indices, legacy UUID names, and same-UUID/wrong-run live
+outputs. Same-name/wrong-UUID recovery still fails closed. Old pre-integration
+`XR-UUID` output records are rejected, not migrated or treated as owned by name.
+
+Resolved I2 as a narrow interface reconciliation: renamed the normalized protocol
+`RecoveryBackend`, reserved `HyprlandClient` for raw transport, and specified Task
+3 `RecoveryAdapter` mapping in the plan/shared context/brief and this report.
+No raw transport implementation or new raw requests were introduced. The raw-only
+fake rejection test documents existing fail-closed behavior; the protocol rename
+itself is a type/documentation clarification, not a claimed new runtime safeguard.
+Concrete verified session/incarnation proof remains a Task 3 blocking obligation.
+
+Actual RED command, before production changes:
+
+```text
+$ python -m unittest discover -s tests/native_spike -v
+ValueError: unsupported operation
+Ran 33 tests in 2.157s
+FAILED (errors=14)
+```
+
+The 14 errors were the two new journal tests plus twelve output recovery tests:
+valid planned output intents with explicit index were rejected at prepare by the
+old operation schema. This is the expected integration rejection (unittest reports
+uncaught ValueError as ERROR), not an import/setup failure. Existing non-output
+cases passed. No claim that the raw-adapter boundary test independently went RED.
+
+Actual GREEN after implementation, same command:
+
+```text
+Ran 33 tests in 2.182s
+OK
+```
+
+Additional actual verification:
+
+```text
+$ python -m unittest discover -s tests/probe -v
+Ran 62 tests in 1.659s
+OK
+$ python -m unittest discover -v
+Ran 0 tests in 0.000s
+NO TESTS RAN
+```
+
+Bare discovery exited 5 and stopped the chained build command; it is not a pass.
+Both explicit repository test directories passed. Ran native verification separately:
+
+```text
+$ cmake -S spike -B build/native-spike -DXR_ENABLE_HARDWARE=OFF -DXR_ENABLE_SDK=OFF
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+$ cmake --build build/native-spike
+[ 33%] Built target layout_test
+[ 66%] Built target xr_ipc
+[100%] Built target ipc_test
+$ ctest --test-dir build/native-spike --output-on-failure
+1/2 Test #1: layout ...........................   Passed    0.00 sec
+2/2 Test #2: ipc ..............................   Passed    0.00 sec
+100% tests passed out of 2
+$ git diff --check
+(no output; exit 0)
+```
+
+Modified tracked files: journal.py, test_journal.py, test_recovery.py, accepted
+native-spike plan and this report. Also reconciled existing ignored local SDD
+shared-context.md, task-2-brief.md and progress.md without changing their tracking
+policy. No live desktop/device/SDK actions, installs, or subagents. Deferred M1
+whole-frame IPC deadline and M2 actual two-frame receive test remain unchanged.
