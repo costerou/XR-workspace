@@ -46,3 +46,18 @@ The broker owns **outputs**, not workspaces. Workspaces on managed outputs belon
 - A window left on `XR-1` at teardown lands on the fallback in Omarchy's block. On the next run it returns to `XR-1`, creation accepts it, and the following teardown evacuates it again.
 - A second run reuses the same blocks; the state file gains no new entries.
 - Output-binding clients stay active throughout; no crash.
+
+## VM acceptance result (`isolated-vm-omarchy-live.json`, module `a7fd2d69…`, commit `0725797`)
+
+The guest ran Omarchy's real `monitor-workspaces.lua` (package copy, SHA256 `31158499…`), with output-binding clients active throughout. All acceptance items passed:
+
+- **Blocks:** XR-1, XR-2 and XR-3 received their own Omarchy blocks (shown 21, 31, 41), recorded in the guest state file, and creation readback accepted them.
+- **Window persistence:** a window moved onto XR-1 stayed accepted by the guard. Normal teardown completed; Omarchy renumbered its workspace into the fallback's block (12) and the window stayed alive.
+- **Return:** on the next run, Omarchy returned that workspace to XR-1 as 21, creation accepted the returning window, and teardown evacuated it again.
+- **Registry:** the second and later runs added no state-file entries.
+- **Crash paths:** the renderer SIGKILL run completed through supervisor recovery. The controller SIGKILL run completed through `isolated-recover`.
+- **Final state:** Virtual-1 still showed 1. Virtual-2 showed one workspace of its own block (12, the one that had received the window, as with an unplugged Omarchy monitor). Nothing remained on an XR output or outside a block. The compositor stayed alive with no config errors, and host QEMU FD audits were clean.
+
+Two consequences:
+- After teardown, the fallback may show the evacuated window's workspace rather than the one it showed before. This is Omarchy's normal unplug behaviour, not residue.
+- The first attempt (`isolated-vm-omarchy-first-live.json`) passed every behaviour and failed only my over-strict final check, which expected workspace 11.
