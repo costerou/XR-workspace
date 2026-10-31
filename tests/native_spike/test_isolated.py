@@ -31,21 +31,28 @@ def guest_tree(root, *, hypervisor=True, driver='virtio_gpu', vendor='0x1af4', c
     (root / 'proc/cpuinfo').write_text(''.join(f'processor\t: {i}\nflags\t\t: {flags}\n\n' for i in range(2)))
     cards = [('card0', '226:0', driver, vendor, connectors or {'Virtual-1': 35, 'Virtual-2': 36})]
     if extra_card: cards.append(extra_card)
+    # Mirrors the layout observed in a real virtio-gpu guest (xr-isolated-twohead
+    # serial.log): drm/cardN sits under the virtio-pci PCI function; the PCI
+    # function has one virtioN child bound to virtio_gpu.
     for index, (card, dev, drv, ven, conns) in enumerate(cards):
         pci = root / f'sys/devices/pci0000:00/0000:00:0{index + 2}.0'
         virtio = pci / f'virtio{index}'
-        (virtio / 'drm' / card).mkdir(parents=True)
+        (pci / 'drm' / card).mkdir(parents=True)
+        virtio.mkdir()
         (pci / 'vendor').write_text(ven + '\n')
-        for bus, driver_name in (('virtio', drv), ('pci', 'virtio-pci')):
+        pci_driver = 'virtio-pci' if drv == 'virtio_gpu' else drv
+        for bus, driver_name in (('virtio', drv), ('pci', pci_driver)):
             (root / f'sys/bus/{bus}/drivers/{driver_name}').mkdir(parents=True, exist_ok=True)
+        os.symlink(root / f'sys/bus/pci/drivers/{pci_driver}', pci / 'driver')
+        os.symlink(root / 'sys/bus/pci', pci / 'subsystem')
         os.symlink(root / f'sys/bus/virtio/drivers/{drv}', virtio / 'driver')
         os.symlink(root / 'sys/bus/virtio', virtio / 'subsystem')
-        (virtio / 'drm' / card / 'dev').write_text(dev + '\n')
-        os.symlink(virtio, virtio / 'drm' / card / 'device')
+        (pci / 'drm' / card / 'dev').write_text(dev + '\n')
+        os.symlink(pci, pci / 'drm' / card / 'device')
         (root / 'sys/class/drm').mkdir(parents=True, exist_ok=True)
-        os.symlink(virtio / 'drm' / card, root / 'sys/class/drm' / card)
+        os.symlink(pci / 'drm' / card, root / 'sys/class/drm' / card)
         for name, connector in conns.items():
-            path = virtio / 'drm' / card / f'{card}-{name}'
+            path = pci / 'drm' / card / f'{card}-{name}'
             path.mkdir()
             (path / 'connector_id').write_text(f'{connector}\n')
             (path / 'status').write_text('connected\n')
@@ -149,6 +156,14 @@ class IsolatedTests(unittest.TestCase):
                 root = guest_tree(self.base / name, **kwargs)
                 with self.assertRaises((ValueError, OSError)):
                     isolated.collect_guest_evidence(root)
+        pci = 'sys/devices/pci0000:00/0000:00:02.0'
+        no_child = guest_tree(self.base / 'no-child')
+        import shutil; shutil.rmtree(no_child / pci / 'virtio0')
+        two_children = guest_tree(self.base / 'two-children')
+        shutil.copytree(two_children / pci / 'virtio0', two_children / pci / 'virtio9', symlinks=True)
+        for name, root in (('no-virtio-child', no_child), ('two-virtio-children', two_children)):
+            with self.subTest(name), self.assertRaises((ValueError, OSError)):
+                isolated.collect_guest_evidence(root)
         for missing in ('proc/sys/kernel/random/boot_id', 'proc/cpuinfo',
                         'sys/class/drm/card0-Virtual-1/connector_id', 'sys/class/drm/card0/dev'):
             with self.subTest(missing):

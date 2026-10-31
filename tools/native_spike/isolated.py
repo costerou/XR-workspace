@@ -78,11 +78,16 @@ def collect_guest_evidence(sysroot):
     cards, connectors = {}, {}
     for entry in sorted(os.listdir(drm)):
         if re.fullmatch(r'card[0-9]+', entry):
-            device = Path(os.path.realpath(drm / entry / 'device'))
             # Every DRM card must be virtio-gpu: no host GPU passthrough in the guest.
-            if (Path(os.readlink(device / 'driver')).name != 'virtio_gpu'
-                    or Path(os.readlink(device / 'subsystem')).name != 'virtio'
-                    or _read(device.parent / 'vendor') != VIRTIO_PCI_VENDOR):
+            # Real layout (verified in guest): cardN/device is the virtio-pci PCI
+            # function; its single virtioN child is bound to virtio_gpu.
+            device = Path(os.path.realpath(drm / entry / 'device'))
+            children = [c for c in os.listdir(device) if re.fullmatch(r'virtio[0-9]+', c)]
+            if (Path(os.readlink(device / 'driver')).name != 'virtio-pci'
+                    or Path(os.readlink(device / 'subsystem')).name != 'pci'
+                    or _read(device / 'vendor') != VIRTIO_PCI_VENDOR or len(children) != 1
+                    or Path(os.readlink(device / children[0] / 'driver')).name != 'virtio_gpu'
+                    or Path(os.readlink(device / children[0] / 'subsystem')).name != 'virtio'):
                 raise ValueError('non-virtio DRM device present')
             dev = _read(drm / entry / 'dev')
             if not re.fullmatch(r'[1-9][0-9]{0,9}:[0-9]{1,10}', dev): raise ValueError('invalid DRM device number')
