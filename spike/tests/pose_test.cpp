@@ -132,14 +132,25 @@ int main() {
         m.set_mode(ViewMode::follow, t);                                 // starts where the canvas is
         CHECK(deg(m.update(moved, t += 1), moved) < 2.f);
         for (int i = 0; i < 100; ++i) m.update(moved, t += 8);
-        const Quat small = quat_mul(axis_angle(0, 0, 1, -40 + 8), axis_angle(1, 0, 0, 15));  // inside dead zone, with roll
+        const Quat small = axis_angle(0, 0, 1, -40 + 3);               // inside the 4 degree dead zone
         const Quat before = m.update(small, t += 8);
         for (int i = 0; i < 100; ++i) CHECK(deg(m.update(small, t += 8), before) < 1e-3f);  // dead zone: world-locked
-        const Quat far = axis_angle(0, 0, 1, 20);                       // 60 degrees away: eases back in front
-        const Quat step = m.update(far, t += 8);
-        CHECK(deg(step, before) < 10.f);                                // smooth, not a snap
-        for (int i = 0; i < 400; ++i) m.update(far, t += 8);
-        CHECK(deg(m.update(far, t += 8), level(far)) < 1.6f && m.settled());
+        // Leaving the dead zone: accelerates from rest (first frame moves very little), then
+        // catches up quickly and never overshoots.
+        const Quat far = quat_mul(axis_angle(0, 0, 1, -10), axis_angle(1, 0, 0, 15));  // 30 deg yaw + 15 deg roll
+        const float start = deg(before, far);
+        const Quat first = m.update(far, t += 8);
+        CHECK(deg(first, before) < 0.2f);                               // 1800 deg/s^2 * 8 ms * 8 ms ~ 0.1 deg
+        float last = start, gain_100ms = 0;
+        for (int i = 0; i < 60; ++i) {
+            const float now = deg(m.update(far, t += 8), far);
+            CHECK(now <= last + 1e-3f);                                 // monotonic: no overshoot or bounce
+            if (i == 11) gain_100ms = start - now;
+            last = now;
+        }
+        CHECK(gain_100ms > 6.f);                                        // responsive: well underway within ~100 ms
+        CHECK(last < 0.6f && m.settled());                              // settled within 0.5 s, roll included
+        CHECK(deg(m.update(far, t += 8), far) < 0.6f);
         m.recenter();
         m.set_mode(ViewMode::anchor, t);
         for (int i = 0; i < 60; ++i) m.update(far, t += 8);
