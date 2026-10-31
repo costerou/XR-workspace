@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import json
 import unittest
 from tools.xr_probe.model import ProbeResult, SessionCandidate
-from tools.xr_probe import report
+from tools.xr_probe import report, session
 
 
 class ReportTests(unittest.TestCase):
@@ -12,6 +12,28 @@ class ReportTests(unittest.TestCase):
             session or ProbeResult('ok', SessionCandidate('fixture', 1, None, outputs or [], 'physical'), ''),
             usb or ProbeResult('ok', [], ''), drm or ProbeResult('ok', [], ''), host or {},
             collected_at=datetime.now(timezone.utc).isoformat())
+
+    def test_mixed_session_nonphysical_outputs_are_inventory_not_evidence(self):
+        for other in ({'name': 'HEADLESS-1'}, {'name': 'WL-1'},
+                      {'name': 'DP-2', 'description': 'Headless PRIVATE_DESCRIPTION'}):
+            with self.subTest(other=other):
+                outputs = [{'name': 'DP-1', 'refreshRate': 60, 'disabled': False},
+                           {**other, 'refreshRate': 120, 'disabled': False}]
+                def run(argv):
+                    data = ([{'instance': 'fixture', 'pid': 1}] if 'instances' in argv else outputs)
+                    return ProbeResult('ok', json.dumps(data), '')
+                discovered = session.discover_sessions(run)
+                selected = session.select_session(discovered.data, None)
+                # Structured future advertisement must obey the same output boundary.
+                selected.data.outputs[1]['available_modes'] = [{'refreshRate': 120}]
+                result = self.build(session=selected)
+                self.assertEqual(result.session['status'], 'ok')
+                self.assertEqual(len(result.session['outputs']), 2)
+                for capability in ('active_120_hz', 'advertised_120_hz'):
+                    with self.subTest(capability=capability):
+                        self.assertEqual(result.capabilities[capability]['state'], 'untested')
+                        self.assertEqual(result.capabilities[capability]['evidence'], [])
+                self.assertNotIn('PRIVATE_DESCRIPTION', report.to_json(result))
 
     def test_unicode_line_separators_are_single_line(self):
         result = self.build([{'name': 'one\u2028# heading\u2029two'}])
@@ -25,7 +47,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(result.capabilities['active_120_hz']['state'], 'untested')
 
     def test_advertisement_never_proves_active_or_sustained(self):
-        result = self.build([{'available_modes': [{'width': 1920, 'height': 1080, 'refreshRate': 120}]}])
+        result = self.build([{'name': 'DP-1', 'available_modes': [{'width': 1920, 'height': 1080, 'refreshRate': 120}]}])
         self.assertEqual(result.capabilities['advertised_120_hz']['state'], 'advertised')
         self.assertEqual(result.capabilities['active_120_hz']['state'], 'untested')
         self.assertEqual(result.capabilities['sustained_120_hz']['state'], 'untested')

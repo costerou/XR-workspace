@@ -6,6 +6,26 @@ from tools.xr_probe import hardware
 
 
 class HardwareTests(unittest.TestCase):
+    def test_usb_resolution_failure_is_explicit_failed_inventory(self):
+        import errno
+        from unittest.mock import patch
+        for failure, status in [(OSError(errno.EIO, 'PRIVATE'), 'error'),
+                                (PermissionError('PRIVATE'), 'permission_denied'),
+                                (FileNotFoundError('PRIVATE'), 'missing')]:
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                node = root / '1-1'
+                node.mkdir()
+                (node / 'idVendor').write_text('35ca')
+                with patch.object(Path, 'resolve', side_effect=failure):
+                    try:
+                        result = hardware.probe_usb(root)
+                    except OSError as exc:
+                        self.fail(f'resolution error escaped probe contract: {type(exc).__name__}')
+                self.assertEqual(result.status, status)
+                self.assertIsNone(result.data)
+                self.assertNotIn('PRIVATE', result.detail)
+
     def test_drm_modes_and_unknown_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

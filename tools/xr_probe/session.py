@@ -38,6 +38,18 @@ def _instances(raw: object) -> list[dict]:
     return raw
 
 
+def classify_output(entry: dict) -> Literal['physical', 'headless_only', 'unknown']:
+    """Classify before discarding descriptions, which can contradict a name."""
+    name = entry.get('name')
+    description = entry.get('description', '')
+    if not isinstance(name, str) or not isinstance(description, str):
+        return 'unknown'
+    physical = bool(_PHYSICAL.fullmatch(name))
+    headless = bool(_HEADLESS.search(name) or _HEADLESS.search(description))
+    return ('physical' if physical and not headless else
+            'headless_only' if headless and not physical else 'unknown')
+
+
 def _outputs(raw: object) -> tuple[list[dict], Literal['physical', 'headless_only', 'unknown']]:
     if not isinstance(raw, list):
         raise ValueError('Monitors must be a JSON list')
@@ -58,14 +70,11 @@ def _outputs(raw: object) -> tuple[list[dict], Literal['physical', 'headless_onl
                 raise ValueError('Invalid monitor refresh rate')
         if 'disabled' in entry and type(entry['disabled']) is not bool:
             raise ValueError('Invalid monitor disabled flag')
-        physical = bool(_PHYSICAL.fullmatch(entry['name']))
-        headless = bool(_HEADLESS.search(entry['name']) or
-                        _HEADLESS.search(entry.get('description', '')))
-        kinds.append('physical' if physical and not headless else
-                     'headless_only' if headless and not physical else 'unknown')
+        kinds.append(classify_output(entry))
         outputs.append({key: entry[key] for key in
                         ('name', 'make', 'model', 'width', 'height', 'refreshRate', 'disabled')
                         if key in entry})
+        outputs[-1]['classification'] = kinds[-1]
     classification: Literal['physical', 'headless_only', 'unknown'] = ('physical' if 'physical' in kinds else
                       'headless_only' if kinds and all(k == 'headless_only' for k in kinds)
                       else 'unknown')

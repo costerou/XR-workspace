@@ -76,7 +76,7 @@ class SessionTests(unittest.TestCase):
         self.assertIsInstance(result.data[0], SessionCandidate)
         self.assertEqual(result.data[0].classification, 'physical')
         self.assertEqual(result.data[0].outputs, [dict(name='DP-1', make='Synthetic', model='Panel',
-                           width=1920, height=1080, refreshRate=120.0, disabled=False)])
+                           width=1920, height=1080, refreshRate=120.0, disabled=False, classification='physical')])
         self.assertEqual(result.data[0].wayland_socket, 'wayland-1')
 
     def test_malformed_instances_json(self):
@@ -142,6 +142,15 @@ class SessionTests(unittest.TestCase):
                 result, _ = self.discover(outputs=outputs)
                 self.assertEqual(result.status, 'error')
                 self.assertIsNone(result.data)
+
+    def test_mixed_output_classification_survives_privacy_filter(self):
+        result, _ = self.discover(outputs=[output(), output('HEADLESS-1'),
+                                          output('DP-2', 'Headless PRIVATE')])
+        self.assertEqual(result.data[0].classification, 'physical')
+        self.assertEqual([o.get('classification') for o in result.data[0].outputs],
+                         ['physical', 'headless_only', 'unknown'])
+        self.assertNotIn('PRIVATE', repr(result.data[0].outputs))
+        self.assertNotIn('description', repr(result.data[0].outputs))
 
     def test_conservative_classification(self):
         cases = [([], 'unknown'), ([output('mystery')], 'unknown'),
