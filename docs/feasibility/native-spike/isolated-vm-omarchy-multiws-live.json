@@ -1,0 +1,699 @@
+{
+  "trial": "xr-isolated-omarchy-3",
+  "scope": "Omarchy monitor-workspaces active; two windows on two XR-1 workspaces; virtual evidence only",
+  "manifest": {
+    "commit": "547502f363bc925ff0657f34f54d3cd1499e85ed",
+    "baseline": {
+      "/home/cody/.hermes/cache/scratch/xr-presentation/guest.raw": "9ac7441319451a8acc7ff02c817447eebea2ee5d20ff6dbd5761b40cfd66abde",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike/xr-native-spike": "8a3826c2d3c465db17fd760543c6294d8c4d15da4096987ae3010a6f726f38f9",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-offset-fix/libxr-ownership.so": "2be43536ebd358f94851ec927857a7305bbef20a880427fcfef4b19afc168e31",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-omarchy-2/libxr-ownership.so": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930"
+    },
+    "image_files": {
+      "/opt/xr/session.sh": "ee386eb881cc03615db93a3352202aeb5a42270544710cbed9548d11eccd36bb",
+      "/opt/xr/hyprland.lua": "e5dd4f12eb0ac634dc12e33fd08d3a08e5c14a8c9e2d5436879dcedb57a309cd",
+      "/opt/xr/coverage-fixture.py": "3e888750e4d2a9ced888c66a4601288a7beea95453e9516b561566e9332d1df8",
+      "/opt/xr/child_connect.py": "aba974561005bc80cd74f0444b15921f427c7e9708d136da1f258d948a4e699c",
+      "/opt/xr/window": "755e6bc61e738d317c5d163650b42a798ec7ecd381f2c7790b5ac23b9847b4e4",
+      "/opt/xr/binder": "24eca05c786f0649f673dda74ce2c772eee74e2345f33a8b8ecbb023bc2ec6e0",
+      "/opt/xr/plugin.sha256": "b3e32b903f16dd7107ac2673b38318fbce8a145c47c959cceb46d3813c000be9",
+      "/opt/xr/omarchy/default/hypr/monitor-workspaces.lua": "311584994b26fca5fb6a2bb471b8b60e6b433da493b1c3aa8fb0f2fa2fb91ff7",
+      "/opt/xr/omarchy/default/hypr/paths.lua": "9862b85c515511c55d2430777c7453b781ef0f088380e53bb89684c906445a5d",
+      "/opt/xr/libxr-ownership.so": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930",
+      "/opt/xr/repo/build/native-spike/xr-native-spike": "8a3826c2d3c465db17fd760543c6294d8c4d15da4096987ae3010a6f726f38f9",
+      "/opt/xr/repo/tools/native_spike/__init__.py": "f8b0282cfd2c84ca456bedcf6d5a95366a88f3af97138a76504067fca07f9cff",
+      "/opt/xr/repo/tools/native_spike/__main__.py": "ca580655d5d18bd1400a6295d4d616927fd2fb100c8ed08cec41f6cdd1f1303a",
+      "/opt/xr/repo/tools/native_spike/hyprland.py": "97cda9cf11b11c7fa0cfada76a98ad16e5be897c39c2bf8d37345313de065449",
+      "/opt/xr/repo/tools/native_spike/ipc.py": "fe76e6b14e96cfd635f09c2703906b8508e1aa0c39f99d62f634b740b74dfd25",
+      "/opt/xr/repo/tools/native_spike/isolated.py": "0ce4abee86cfb09e41abd41abf8ff8abfac4dc7942c255582ab8051398947021",
+      "/opt/xr/repo/tools/native_spike/journal.py": "ab1dd710fdb052275cebe04970314a08b62260e8768b2064254e3776ac027b07",
+      "/opt/xr/repo/tools/native_spike/managed.py": "f3d70dbc68d03411eaa01eb195f711de9db9e964424328863e12c54ccf67c3b0",
+      "/opt/xr/repo/tools/native_spike/ownership.py": "b509f1a59053ab20fa212aeefbf292fb47d12e353c725512e008f2b6898bf344",
+      "/opt/xr/repo/tools/native_spike/supervisor.py": "ea22519f49a6616813d6ff702cd75c9422075ee105333c0629ca41a36a4713db"
+    }
+  },
+  "exit": {
+    "exit_code": 0,
+    "supervisor_pid": 1430113,
+    "qemu_survivors": []
+  },
+  "fixture_complete": true,
+  "events": [
+    {
+      "kind": "identity",
+      "value": {
+        "boot_id": "2a2b062b-8b74-4467-a2a3-16623dc30b94",
+        "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793483937_195470421",
+        "peer": [
+          165,
+          1000,
+          1000,
+          "333"
+        ],
+        "session": "c4d5f12e0a31902e4eb0909a156d7aa7e8a8efd64f0877c60e1ce7e93a8a0825"
+      }
+    },
+    {
+      "kind": "baseline_outputs",
+      "value": [
+        [
+          "Virtual-1",
+          1280,
+          800,
+          74.994,
+          0,
+          0
+        ],
+        [
+          "Virtual-2",
+          1280,
+          800,
+          74.994,
+          1280,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "guest_evidence",
+      "value": {
+        "boot_id": "2a2b062b-8b74-4467-a2a3-16623dc30b94",
+        "connectors": {
+          "Virtual-1": {
+            "connector": 40,
+            "device": "226:0"
+          },
+          "Virtual-2": {
+            "connector": 47,
+            "device": "226:0"
+          }
+        }
+      }
+    },
+    {
+      "kind": "plugin_sha256",
+      "value": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930"
+    },
+    {
+      "kind": "omarchy_baseline",
+      "value": {
+        "state": "0\tVirtual-1\tRed Hat Inc. VM-present\n1\tVirtual-2\tRed Hat Inc. VM-recovery\n",
+        "workspaces": [
+          [
+            1,
+            "1",
+            "Virtual-1",
+            0
+          ],
+          [
+            11,
+            "11",
+            "Virtual-2",
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "2a2b062b-8b74-4467-a2a3-16623dc30b94",
+          "epoch": "0d1f6b2894fd9b4e66ae5fce209036f47947713267543921",
+          "fallback": "826a1f436dd842b921d90c1b507429540307e6ff3a106c11",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793483937_195470421",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "0cff912c8972409a072e7e903e363383d3e4ba7397b684ca"
+        },
+        "owned": [
+          [
+            "XR-1",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-2",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-3",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          205
+        ],
+        "run": "om1"
+      }
+    },
+    {
+      "kind": "om1_live",
+      "value": {
+        "state": "0\tVirtual-1\tRed Hat Inc. VM-present\n1\tVirtual-2\tRed Hat Inc. VM-recovery\n2\tXR-1\tXR-1\n3\tXR-2\tXR-2\n4\tXR-3\tXR-3\n",
+        "workspaces": [
+          [
+            1,
+            "1",
+            "Virtual-1",
+            0
+          ],
+          [
+            11,
+            "11",
+            "Virtual-2",
+            0
+          ],
+          [
+            21,
+            "21",
+            "XR-1",
+            0
+          ],
+          [
+            31,
+            "31",
+            "XR-2",
+            0
+          ],
+          [
+            41,
+            "41",
+            "XR-3",
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "om1_two_workspaces_on_xr1",
+      "value": [
+        [
+          21,
+          "21",
+          "XR-1",
+          1
+        ],
+        [
+          22,
+          "22",
+          "XR-1",
+          1
+        ]
+      ]
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 0,
+        "stderr": "{\"abandoned\":0,\"clock_conflict\":false,\"clock_id\":1,\"discarded\":0,\"flag_counts_vsync_hw_clock_hw_completion_zero_copy\":[1,1,1,0],\"interval_count\":0,\"interval_histogram\":[0,0,0,0,0,0,0,0],\"interval_max_ns\":null,\"interval_mean_ns\":null,\"interval_min_ns\":null,\"interval_sum_ns\":0,\"interval_upper_bounds_ns\":[1000000,4000000,8000000,9000000,17000000,34000000,100000000,null],\"invalid_timing\":0,\"kind\":\"generated_pattern_presentation_timing\",\"last_refresh_prediction_ns\":13334400,\"observation_duration_ns\":null,\"pending\":0,\"presented\":1,\"protocol_version\":1,\"schema\":1,\"submitted\":1,\"sustained_cadence_qualified\":false,\"valid_presented\":1}\n",
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/om1/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\n",
+        "what": "om1 teardown"
+      }
+    },
+    {
+      "kind": "clean",
+      "value": {
+        "outputs": [
+          [
+            "Virtual-1",
+            1280,
+            800,
+            74.994,
+            0,
+            0
+          ],
+          [
+            "Virtual-2",
+            1280,
+            800,
+            74.994,
+            1280,
+            0
+          ]
+        ],
+        "run": "om1"
+      }
+    },
+    {
+      "kind": "om1_window_after",
+      "value": {
+        "monitor": "Virtual-2",
+        "state": "0\tVirtual-1\tRed Hat Inc. VM-present\n1\tVirtual-2\tRed Hat Inc. VM-recovery\n2\t\tXR-1\n3\t\tXR-2\n4\t\tXR-3\n",
+        "workspace": {
+          "id": 12,
+          "name": "12"
+        },
+        "workspaces": [
+          [
+            1,
+            "1",
+            "Virtual-1",
+            0
+          ],
+          [
+            12,
+            "12",
+            "Virtual-2",
+            1
+          ],
+          [
+            13,
+            "13",
+            "Virtual-2",
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "om1_window2_after",
+      "value": {
+        "monitor": "Virtual-2",
+        "workspace": {
+          "id": 13,
+          "name": "13"
+        }
+      }
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "2a2b062b-8b74-4467-a2a3-16623dc30b94",
+          "epoch": "0d1f6b2894fd9b4e66ae5fce209036f47947713267543921",
+          "fallback": "6b464a113742e7c6894aac4871e33a8219c43424e8038048",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793483937_195470421",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "1164be8b66239cd4c76061477ca2c43040d252cbb6b16a3b"
+        },
+        "owned": [
+          [
+            "XR-1",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-2",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-3",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          218
+        ],
+        "run": "om2"
+      }
+    },
+    {
+      "kind": "om2_window_live",
+      "value": {
+        "monitor": "XR-1",
+        "workspace": {
+          "id": 21,
+          "name": "21"
+        },
+        "workspaces": [
+          [
+            1,
+            "1",
+            "Virtual-1",
+            0
+          ],
+          [
+            11,
+            "11",
+            "Virtual-2",
+            0
+          ],
+          [
+            21,
+            "21",
+            "XR-1",
+            1
+          ],
+          [
+            22,
+            "22",
+            "XR-1",
+            1
+          ],
+          [
+            31,
+            "31",
+            "XR-2",
+            0
+          ],
+          [
+            41,
+            "41",
+            "XR-3",
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "om2_window2_live",
+      "value": {
+        "monitor": "XR-1",
+        "workspace": {
+          "id": 22,
+          "name": "22"
+        }
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 0,
+        "stderr": "{\"abandoned\":0,\"clock_conflict\":false,\"clock_id\":1,\"discarded\":0,\"flag_counts_vsync_hw_clock_hw_completion_zero_copy\":[1,1,1,0],\"interval_count\":0,\"interval_histogram\":[0,0,0,0,0,0,0,0],\"interval_max_ns\":null,\"interval_mean_ns\":null,\"interval_min_ns\":null,\"interval_sum_ns\":0,\"interval_upper_bounds_ns\":[1000000,4000000,8000000,9000000,17000000,34000000,100000000,null],\"invalid_timing\":0,\"kind\":\"generated_pattern_presentation_timing\",\"last_refresh_prediction_ns\":13334400,\"observation_duration_ns\":null,\"pending\":0,\"presented\":1,\"protocol_version\":1,\"schema\":1,\"submitted\":1,\"sustained_cadence_qualified\":false,\"valid_presented\":1}\n",
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/om2/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\n",
+        "what": "om2 teardown"
+      }
+    },
+    {
+      "kind": "clean",
+      "value": {
+        "outputs": [
+          [
+            "Virtual-1",
+            1280,
+            800,
+            74.994,
+            0,
+            0
+          ],
+          [
+            "Virtual-2",
+            1280,
+            800,
+            74.994,
+            1280,
+            0
+          ]
+        ],
+        "run": "om2"
+      }
+    },
+    {
+      "kind": "om2_state",
+      "value": {
+        "state": "0\tVirtual-1\tRed Hat Inc. VM-present\n1\tVirtual-2\tRed Hat Inc. VM-recovery\n2\t\tXR-1\n3\t\tXR-2\n4\t\tXR-3\n",
+        "unchanged": true
+      }
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "2a2b062b-8b74-4467-a2a3-16623dc30b94",
+          "epoch": "0d1f6b2894fd9b4e66ae5fce209036f47947713267543921",
+          "fallback": "59ce46858456327b328f706bf61dc1746873db4d14eed8ad",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793483937_195470421",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "f1e0e7c3e7c5a1d87c137a1c9f61b7fea134ae42c7d0fa8b"
+        },
+        "owned": [
+          [
+            "XR-1",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-2",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-3",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          225
+        ],
+        "run": "om3"
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 2,
+        "stderr": "",
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/om3/journal.json\", \"remaining\": [], \"renderer_returncode\": -9}\n",
+        "what": "om3 renderer SIGKILL"
+      }
+    },
+    {
+      "kind": "clean",
+      "value": {
+        "outputs": [
+          [
+            "Virtual-1",
+            1280,
+            800,
+            74.994,
+            0,
+            0
+          ],
+          [
+            "Virtual-2",
+            1280,
+            800,
+            74.994,
+            1280,
+            0
+          ]
+        ],
+        "run": "om3"
+      }
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "2a2b062b-8b74-4467-a2a3-16623dc30b94",
+          "epoch": "0d1f6b2894fd9b4e66ae5fce209036f47947713267543921",
+          "fallback": "a921c628e52108fef912044863e4a5f6651d11424b4f010c",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793483937_195470421",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "6b2c8ba2e47b7e5545e8f03c0bcebba1bc632432d185a88a"
+        },
+        "owned": [
+          [
+            "XR-1",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-2",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-3",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          231
+        ],
+        "run": "om4"
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 0,
+        "stderr": "",
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/om4/journal.json\", \"remaining\": []}\n",
+        "what": "om4 isolated-recover"
+      }
+    },
+    {
+      "kind": "clean",
+      "value": {
+        "outputs": [
+          [
+            "Virtual-1",
+            1280,
+            800,
+            74.994,
+            0,
+            0
+          ],
+          [
+            "Virtual-2",
+            1280,
+            800,
+            74.994,
+            1280,
+            0
+          ]
+        ],
+        "run": "om4"
+      }
+    },
+    {
+      "kind": "final",
+      "value": {
+        "baseline": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            11,
+            "11",
+            "Virtual-2"
+          ]
+        ],
+        "state": "0\tVirtual-1\tRed Hat Inc. VM-present\n1\tVirtual-2\tRed Hat Inc. VM-recovery\n2\t\tXR-1\n3\t\tXR-2\n4\t\tXR-3\n",
+        "workspaces": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            12,
+            "12",
+            "Virtual-2"
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "binder_bind_lines",
+      "value": [
+        14,
+        397562
+      ]
+    }
+  ],
+  "host_qemu_samples": 27,
+  "host_qemu_fd_targets": [
+    "/dev/kvm",
+    "/dev/null",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-omarchy-3/guest.raw",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-omarchy-3/serial.log",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-omarchy-3/vl.JC9DY3 (deleted)",
+    "/memfd:displaysurface (deleted)",
+    "/memfd:virtio-gpu res (deleted)",
+    "anon_inode:[eventfd]",
+    "anon_inode:[io_uring]",
+    "anon_inode:[signalfd]",
+    "anon_inode:kvm-vcpu-stats:0",
+    "anon_inode:kvm-vcpu-stats:1",
+    "anon_inode:kvm-vcpu:0",
+    "anon_inode:kvm-vcpu:1",
+    "anon_inode:kvm-vm"
+  ],
+  "host_suspicious_fds": []
+}
