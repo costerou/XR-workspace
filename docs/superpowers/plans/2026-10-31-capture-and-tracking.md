@@ -42,3 +42,10 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
   - Hyprland sends `shm_format` before `buffer_size`; constraints now accumulate in any order.
   - The renderer inherited stdin; it now gets `/dev/null`.
 - Measured CPU/SHM path: 1,215 presented over 33.8 s (mean interval 27.9 ms, about 36 fps), with ~30 capture frames/s per source. This is far below 120 Hz and motivates C2. Not a latency measurement.
+
+**C2a done (2026-10-31).**
+- VM (llvmpipe): `isolated-vm-capture-gl-live.json`. Live (RX 7800 XT): `physical-capture-cap2-live.json`. The user found it smoother than C1.
+- While content changes, 1,894/1,943 presentation intervals sit at ~8.33 ms (the 120 Hz mode). The renderer is damage-driven, so idle gaps raise the mean.
+- Composition draw+swap mean is 62 µs; SHM upload mean is 0.44 ms. About 1 GB/s of CPU copies remains, which C2b removes.
+- Found and fixed: Mesa wrote a shader cache to disk. The renderer now runs with `MESA_SHADER_CACHE_DISABLE=true`.
+- Next: T1 (pose-driven redraw every vsync) and C2b (dmabuf zero-copy).
