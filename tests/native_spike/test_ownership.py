@@ -143,3 +143,33 @@ class OwnershipTests(unittest.TestCase):
         self.transport._request = lambda wire: b'unknown request'
         with self.assertRaises(ValueError): create_outputs(self.specs,self.j,self.client)
         self.assertEqual(self.j.operations, [])
+
+
+class VerifyDiagnosticsTests(unittest.TestCase):
+    """phys1: a bare 'workspace placement mismatch' was not diagnosable."""
+    def setUp(self):
+        self.spec = plan_outputs([], [], 'run')[0]
+        self.result = {'id': self.spec['id'], 'name': self.spec['name'], 'state': 'live', 'physical': False, 'fallback_usable': True,
+                       'observation': {**{k: self.spec[k] for k in ('width', 'height', 'refresh_millihz', 'scale', 'x', 'y', 'workspace')},
+                                       'enabled': True, 'dpms': True, 'mirrored': False, 'transform': 0,
+                                       'workspaces': [{'id': self.spec['workspace'], 'name': self.spec['workspace_name'], 'special': False}],
+                                       'windows': []}}
+
+    def test_mismatch_reports_bounded_expected_and_observed(self):
+        bad = copy.deepcopy(self.result)
+        bad['observation']['workspaces'] += [{'id': 21 + i, 'name': 'x\n‮' * 200, 'special': False} for i in range(40)]
+        with self.assertRaises(OwnershipBlocked) as raised:
+            OwnershipBrokerClient.verify(bad, self.spec)
+        message = str(raised.exception)
+        self.assertIn('workspace placement mismatch', message)
+        self.assertIn(f"'id': {self.spec['workspace']}", message.replace('"', "'").replace(': ', ': '))
+        self.assertIn('21', message)
+        self.assertLessEqual(len(message), 700)
+        self.assertTrue(message.isascii() and '\n' not in message)
+
+    def test_window_mismatch_reports_observed(self):
+        bad = copy.deepcopy(self.result)
+        bad['observation']['windows'] = [{'workspace': -98, 'pinned': False}]
+        with self.assertRaisesRegex(OwnershipBlocked, 'unsupported or unreachable mapped window.*-98'):
+            OwnershipBrokerClient.verify(bad, self.spec)
+        OwnershipBrokerClient.verify(self.result, self.spec)

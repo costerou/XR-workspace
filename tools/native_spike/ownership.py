@@ -10,6 +10,13 @@ from .hyprland import OwnershipBlocked, LIMIT
 from .ipc import strict_json, token
 
 
+def _brief(value, items=8, limit=300):
+    """Bounded, single-line ASCII rendering of compositor-supplied readback for diagnostics."""
+    if isinstance(value, list) and len(value) > items: value = value[:items] + [f'... {len(value) - items} more']
+    text = json.dumps(value, ensure_ascii=True, sort_keys=True, default=str)
+    return text if len(text) <= limit else text[:limit - 3] + '...'
+
+
 class OwnershipBrokerClient:
     SCHEMA = 1
     HELLO = 'hello'
@@ -129,10 +136,11 @@ class OwnershipBrokerClient:
         workspaces = o.get('workspaces')
         if (workspaces != [{'id':spec['workspace'], 'name':spec['workspace_name'], 'special':False}]
                 or type(workspaces[0]['id']) is not int or workspaces[0]['special'] is not False):
-            raise OwnershipBlocked('workspace placement mismatch')
+            expected = {'id': spec['workspace'], 'name': spec['workspace_name'], 'special': False}
+            raise OwnershipBlocked(f'workspace placement mismatch: expected {_brief([expected])} observed {_brief(workspaces)}')
         windows = o.get('windows')
         if not isinstance(windows,list) or any(not isinstance(w,dict) or type(w.get('workspace')) is not int or w.get('workspace') != spec['workspace'] or w.get('pinned') is not False for w in windows):
-            raise OwnershipBlocked('unsupported or unreachable mapped window')
+            raise OwnershipBlocked(f"unsupported or unreachable mapped window: workspace {spec['workspace']} observed {_brief(windows)}")
 
     def evacuate_remove(self, output_id, output_name):
         observed = self.inspect(output_id)
