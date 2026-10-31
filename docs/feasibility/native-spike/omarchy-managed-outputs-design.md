@@ -61,3 +61,16 @@ The guest ran Omarchy's real `monitor-workspaces.lua` (package copy, SHA256 `311
 Two consequences:
 - After teardown, the fallback may show the evacuated window's workspace rather than the one it showed before. This is Omarchy's normal unplug behaviour, not residue.
 - The first attempt (`isolated-vm-omarchy-first-live.json`) passed every behaviour and failed only my over-strict final check, which expected workspace 11.
+
+## Review of `0725797` (no blocking findings) and follow-ups
+
+The review confirmed that identity stays UUID/run/session/output-object bound. One run cannot address another run's `XR-1`; this is now pinned by a registry test. Changes made:
+
+- **Readback strictness:** reject duplicate or out-of-range workspace ids, require the active workspace to be among the output's workspaces, and require exact window records.
+- **Legacy names:** recovery still treats legacy `XR-SPIKE-*` names as unprovable orphans.
+- **Tests:** the stale `NativeModel` adopt path was updated, and stale test names were fixed.
+
+Known design limits:
+- **Omarchy scratchpad (Super+S)** left on an `XR-n` is a special workspace. The guard stops the run and evacuation refuses it, so teardown stays blocked (fail-closed) until the user closes it. Later, the app should close or relocate special workspaces before teardown.
+- **Existing workspaces in a new block:** at creation, Omarchy moves workspaces with windows that already sit in an `XR-n` block onto that output. Blocks are fresh (first free), so this only affects workspaces deliberately placed in those numbers.
+- **Multiple returning workspaces** on one output are handled by production `evacuate`, traced by review, but covered only in the VM, not offline.

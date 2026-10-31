@@ -191,3 +191,21 @@ class VerifyDiagnosticsTests(unittest.TestCase):
         specs = plan_outputs([], [{'id': 1, 'name': '1'}], 'any-run')
         self.assertEqual([s['name'] for s in specs], ['XR-1', 'XR-2', 'XR-3'])
         self.assertTrue(all('workspace' not in s and 'workspace_name' not in s for s in specs))
+
+    def test_readback_rejects_malformed_workspace_and_window_records(self):
+        base = copy.deepcopy(self.result)
+        base['observation']['workspaces'] = [{'id': 61, 'name': '61', 'special': False}, {'id': 62, 'name': '62', 'special': False}]
+        OwnershipBrokerClient.verify(base, self.spec)
+        mutations = [
+            lambda o: o['workspaces'].append({'id': 61, 'name': 'dup', 'special': False}),
+            lambda o: o['workspaces'].append({'id': 2 ** 31, 'name': 'big', 'special': False}),
+            lambda o: o.update(windows=[{'workspace': 61, 'pinned': False, 'extra': 1}]),
+            lambda o: o.update(windows=[{'workspace': True, 'pinned': False}]),
+            lambda o: o.pop('workspace'),
+            lambda o: o.update(workspace=-1),
+            lambda o: o.update(workspace=99),  # active workspace not on this output
+        ]
+        for i, mutate in enumerate(mutations):
+            bad = copy.deepcopy(base); mutate(bad['observation'])
+            with self.subTest(i), self.assertRaises(OwnershipBlocked):
+                OwnershipBrokerClient.verify(bad, self.spec)

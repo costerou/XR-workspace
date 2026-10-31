@@ -118,6 +118,9 @@ class HyprlandTests(unittest.TestCase):
         self.assertEqual(a.query('workspaces'), [{'id': 1, 'output': 'DP-1'}])
         self.assertEqual(a.query('settings'), {'input:follow_mouse': 1})
         self.assertTrue(a.query('outputs')[0]['physical'])
+    def test_legacy_managed_names_are_still_unprovable_orphans(self):
+        raw = RawFixture(); raw.monitors[0]['name'] = 'XR-SPIKE-run-0'
+        with self.assertRaises(h.OwnershipBlocked): h.RecoveryAdapter(raw, approved_physical='DP-1').query('outputs')
     def test_name_and_numeric_id_never_become_uuid_ownership(self):
         raw = RawFixture(); raw.monitors[0]['name'] = 'XR-1'
         a = h.RecoveryAdapter(raw, approved_physical='DP-1')

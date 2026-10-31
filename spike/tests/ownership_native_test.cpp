@@ -67,11 +67,10 @@ struct NativeModel : Backend {
    allocated=allocate(); // MonitorState::add -> onConnect -> setupDefaultWS
    capture(output,true); return true;
  }
- bool configure(const Handle&,const Json& spec) override {
-   if(!freshDefault(allocated,beforeCreate,workspaces,source) || allocated->m_id!=spec["workspace"]) return false;
-   owned=allocated; return true;
- }
- bool verified(const Handle&,const Json&) override {return owned && sameRule(expected,current);}
+ // Omarchy model (design 0725797): the broker never adopts/pins workspaces; `owned` is simply
+ // the workspace Hyprland/Omarchy showed on the new output, tracked here for assertions only.
+ bool configure(const Handle&,const Json&) override { owned=allocated; return true; }
+ bool verified(const Handle&,const Json&) override {return sameRule(expected,current);}
  bool usable(const Handle& h) override {return h==fallback && h->live;}
  bool evacuate(const Handle&,const Handle&) override {
    beforeEvacuation=workspaces;
@@ -112,7 +111,7 @@ struct NativeModel : Backend {
 };
 void transaction(const std::string& test) {
  NativeModel b; Registry registry(b);
- Json spec={{"id","id"},{"name","output"},{"workspace",1}};
+ Json spec={{"id","id"},{"name","XR-1"}};
  CHECK(registry.create("s","r",spec)=="live"); CHECK(b.owned==b.allocated);
  b.owned->windows=2;
  if(test=="vrr") b.current.m_vrr=1;
