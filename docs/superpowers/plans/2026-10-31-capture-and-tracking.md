@@ -99,3 +99,8 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
   - the spacing keys work and the desktops update smoothly.
 - After teardown the desktop matches the baseline exactly.
 - Next: head-direction focus, then motion-to-photon latency and prediction, the Beast, and a settings UI.
+
+**Follow retuned (2026-10-31, user request): more responsive, roll included, accelerated.** Not yet tried live.
+- Follow now tracks the full head orientation, including roll. The dead zone is 4° (was 12°), and it settles within 0.5°.
+- Catch-up speed is proportional to the remaining error (τ 90 ms) and ramps in at up to 1800°/s². That is about 0.1° of movement in the first frame and more than 6° after 100 ms for a 30° turn. It eases in without overshoot.
+- All constants are in `ModeController::Tuning` (`spike/include/xr/pose.hpp`) for later tweaking.
