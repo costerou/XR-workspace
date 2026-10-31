@@ -208,7 +208,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
             argv += ['--animate-pattern-ms', str(animate_pattern_ms)]
         argv += capture_argv
         try:
-            child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True,
+            child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True, stdin=subprocess.DEVNULL,
                         pass_fds=(child_socket.fileno(), wayland_socket.fileno()))
         finally:
             # No parent reference may retain compositor surfaces after child exit.
