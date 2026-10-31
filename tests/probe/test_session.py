@@ -30,6 +30,29 @@ class SessionTests(unittest.TestCase):
             return ProbeResult('ok', json.dumps(outputs if outputs is not None else [output()]), '')
         return session.discover_sessions(run), calls
 
+    def test_real_available_modes_survive_allowlist(self):
+        # Synthetic copies of the historical observations, not a new device probe.
+        for tokens in ([ '1920x1080@60.00Hz', '1920x1200@120.00Hz',
+                         '1920x1200@90.00Hz', '1920x1200@60.00Hz', '1920x1080@90.00Hz'],
+                       ['1920x1080@120.00Hz', '1920x1080@119.88Hz']):
+            result, _ = self.discover(outputs=[output(availableModes=tokens)])
+            self.assertEqual(result.data[0].outputs[0].get('availableModes'), tokens)
+            self.assertEqual(result.data[0].outputs[0].get('availableModes_status'), 'ok')
+
+    def test_available_modes_bounds_and_unknown(self):
+        cases = [(None, [], 'unknown'), ({}, [], 'unknown'), ([], [], 'unknown'),
+                 ([42, 'bad', '1920x1080@119.88Hz'], [None, 'bad', '1920x1080@119.88Hz'], 'unknown'),
+                 (['x' * 65, '1920x1080@120.00Hz'], [None, '1920x1080@120.00Hz'], 'truncated'),
+                 (['1920x1080@60.00Hz'] * 257, ['1920x1080@60.00Hz'] * 256, 'truncated')]
+        for raw, expected, status in cases:
+            with self.subTest(status=status, raw=str(raw)[:80]):
+                result, _ = self.discover(outputs=[output(availableModes=raw)])
+                row = result.data[0].outputs[0]
+                self.assertEqual(row.get('availableModes'), expected)
+                self.assertEqual(row.get('availableModes_status'), status)
+        result, _ = self.discover()
+        self.assertNotIn('availableModes', result.data[0].outputs[0])
+
     def test_ambiguous_physical_sessions_require_selection(self):
         result = session.select_session([candidate(), candidate('synthetic_b')], None)
         self.assertEqual(result.status, 'error')
