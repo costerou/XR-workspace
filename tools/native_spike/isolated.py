@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import re
 
-from .hyprland import INSTANCE, OwnershipBlocked, monitors, plan_outputs
+from .hyprland import OwnershipBlocked, monitors, plan_outputs
 from .ipc import read_private_json, token
 from .ownership import MODE, IsolatedBrokerClient
 
@@ -47,8 +47,10 @@ def load_isolated_consent(path, instance, output):
             raise ValueError('isolated mode targets only Virtual-N connectors')
     if data['output'] == data['recovery_output']: raise ValueError('independent recovery output required')
     if not isinstance(data['boot_id'], str) or not UUID.fullmatch(data['boot_id']): raise ValueError('invalid boot id')
-    if not isinstance(data['runtime'], str) or not Path(data['runtime']).is_absolute():
-        raise ValueError('absolute runtime required')
+    # Exact normalized form: the same string is journaled and compared on recovery.
+    if (not isinstance(data['runtime'], str) or not Path(data['runtime']).is_absolute()
+            or str(Path(data['runtime'])) != data['runtime']):
+        raise ValueError('absolute normalized runtime required')
     if data['allow'] != ['headless-outputs', 'test-pattern']: raise ValueError('exact test-pattern scope required')
     if any(data[k] is not False for k in ('capture', 'input', 'sdk', 'mode_switch')):
         raise ValueError('capture/input/SDK/mode transitions not authorized by this CLI')
@@ -68,7 +70,7 @@ def collect_guest_evidence(sysroot):
     sysroot = Path(sysroot)
     boot = _read(sysroot / 'proc/sys/kernel/random/boot_id')
     if not UUID.fullmatch(boot): raise ValueError('invalid boot id')
-    flags = [line.split(':', 1)[1].split() for line in _read(sysroot / 'proc/cpuinfo', 1048576).splitlines()
+    flags = [line.partition(':')[2].split() for line in _read(sysroot / 'proc/cpuinfo', 1048576).splitlines()
              if line.startswith('flags')]
     if not flags or not all('hypervisor' in f for f in flags):
         raise ValueError('no positive CPU hypervisor evidence')
@@ -195,7 +197,8 @@ def recover_isolated(client, consent, path):
         broker = IsolatedBrokerClient.from_journal(client, journal)
         saved = journal.broker
         for key in ('instance', 'output', 'recovery_output', 'boot_id', 'runtime'):
-            if saved[key] != consent[key]: raise OwnershipBlocked('consent does not match saved broker scope')
+            same = Path(saved[key]) == Path(consent[key]) if key == 'runtime' else saved[key] == consent[key]
+            if not same: raise OwnershipBlocked('consent does not match saved broker scope')
         join_proof(evidence, saved['proof'], sides=('fallback',))
         result = recover(journal, broker)
     return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining}
