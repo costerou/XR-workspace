@@ -11,7 +11,11 @@
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/config/shared/monitor/MonitorRuleManager.hpp>
 #include <aquamarine/backend/Headless.hpp>
+#include <aquamarine/backend/DRM.hpp>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/random.h>
+#include <optional>
 #include <thread>
 #include "registry.hpp"
 #include "lifecycle.hpp"
@@ -25,6 +29,9 @@ std::string randomToken() {
 struct NativeObject : Object {
     SP<Aquamarine::IOutput> output;
     PHLMONITOR monitor;
+    SP<Aquamarine::IBackendImplementation> pairBackend;
+    std::optional<PairObservation> pairProof; // First DRM identity of a pair-selected object.
+    bool legacyDrmEligible=false;
     PHLWORKSPACE workspace, createdDefault, retirement;
     std::vector<PHLWORKSPACEREF> beforeCreate, beforeEvacuation;
     CHyprSignalListener destroyListener;
@@ -43,7 +50,7 @@ bool eraseRule(NativeObject& o) {
     if(found==rules.end()) { o.ruleLost=true; return false; }
     rules.erase(found); o.rule.reset(); return true;
 }
-class NativeBackend final : public Backend {
+class NativeBackend final : public Backend, public PairBackend {
 public:
     SP<Aquamarine::IBackendImplementation> headless;
     std::vector<std::pair<std::weak_ptr<NativeObject>,Json>> configured;
@@ -62,8 +69,8 @@ public:
             }
         });
     }
-    Handle wrap(SP<Aquamarine::IOutput> output,bool physical=false) {
-        auto o=std::make_shared<NativeObject>(); o->output=output; o->physical=physical;
+    Handle wrap(SP<Aquamarine::IOutput> output,bool legacyDrmEligible=false) {
+        auto o=std::make_shared<NativeObject>(); o->output=output; o->legacyDrmEligible=legacyDrmEligible;
         std::weak_ptr<NativeObject> weak=o;
         o->destroyListener=output->events.destroy.listen([weak] {
             if(auto o=weak.lock()) {
@@ -82,6 +89,44 @@ public:
             o->monitor=m; return m;
         }
         return nullptr;
+    }
+    Handle selectPairOutput(const std::string& name) override {
+        Handle selected;
+        for(auto& m:State::monitorState()->allMonitors()) if(m->m_name==name) {
+            if(selected || !m->m_output) throw std::runtime_error("ambiguous/missing pair output");
+            selected=wrap(m->m_output);
+            native(selected)->monitor=m;
+            native(selected)->pairBackend=m->m_output->getBackend();
+        }
+        if(!selected) throw std::runtime_error("pair output absent");
+        return selected;
+    }
+    PairObservation observePairOutput(const Handle& h) override {
+        auto m=resolve(h);
+        if(!m || !m->enabled() || !m->m_dpmsStatus || m->m_mirrorOf || !m->m_mirrors.empty())
+            throw std::runtime_error("pair display state");
+        auto o=native(h);
+        unsigned names=0, outputs=0;
+        for(auto& current:State::monitorState()->allMonitors()) {
+            names+=current->m_name==m->m_name;
+            outputs+=current->m_output==o->output;
+        }
+        if(names!=1 || outputs!=1) throw std::runtime_error("ambiguous pair identity");
+        auto backend=o->output->getBackend();
+        if(!backend || backend!=o->pairBackend || backend->type()!=Aquamarine::AQ_BACKEND_DRM)
+            throw std::runtime_error("pair DRM backend changed");
+        auto* drm=dynamic_cast<Aquamarine::CDRMOutput*>(o->output.get());
+        if(!drm) throw std::runtime_error("pair not CDRMOutput");
+        const int connector=drm->getConnectorID(), fd=backend->drmFD();
+        struct stat st{};
+        if(connector<=0 || fd<0 || fstat(fd,&st)!=0 || !S_ISCHR(st.st_mode) || !major(st.st_rdev) ||
+           m->m_name!=o->output->name)
+            throw std::runtime_error("pair DRM identity unavailable");
+        const PairObservation observed{m->m_name,static_cast<uint32_t>(major(st.st_rdev)),
+            static_cast<uint32_t>(minor(st.st_rdev)),static_cast<uint32_t>(connector)};
+        if(!o->pairProof) o->pairProof=observed;
+        else if(*o->pairProof!=observed) throw std::runtime_error("pair DRM identity changed");
+        return observed;
     }
     bool collision(const Json& p) override {
         for(auto& m:State::monitorState()->allMonitors()) if(m->m_name==p["name"].get<std::string>()) return true;
@@ -161,7 +206,13 @@ public:
     }
     bool usable(const Handle& h) override {
         auto m=resolve(h);
-        return m && h->physical && m->m_output->getBackend()->type()==Aquamarine::AQ_BACKEND_DRM && m->enabled() && m->m_dpmsStatus && !m->m_mirrorOf;
+        if(!m || !m->m_output->getBackend() || m->m_output->getBackend()->type()!=Aquamarine::AQ_BACKEND_DRM ||
+           !m->enabled() || !m->m_dpmsStatus || m->m_mirrorOf) return false;
+        auto o=native(h);
+        // Legacy schema-1 eligibility and isolated pair proof are never combined.
+        if(o->legacyDrmEligible) return !o->pairBackend;
+        if(!o->pairBackend || !o->pairProof) return false;
+        try { return observePairOutput(h)==*o->pairProof; } catch(...) { return false; }
     }
     bool evacuate(const Handle& h,const Handle& fallback) override {
         auto source=resolve(h), target=resolve(fallback); if(!source || !usable(fallback)) return false;
@@ -226,11 +277,12 @@ public:
             {"workspace",m->m_activeWorkspace ? m->m_activeWorkspace->m_id : -1},{"workspaces",workspaces},{"windows",windows}};
     }
 };
-struct Run { std::string session,name,token; Handle fallback; };
+struct Run { std::string session,name,token; Handle fallback; bool isolated=false; };
 struct Broker {
     NativeBackend backend; Registry registry{backend}; std::string epoch=randomToken();
     std::thread::id thread=std::this_thread::get_id(); bool busy=false;
     std::map<std::string,Run> runs;
+    PairRegistry pairs{backend,randomToken};
     std::string handle(std::string wire) {
         if(busy || std::this_thread::get_id()!=thread) return "{\"error\":\"thread/reentrancy\"}";
         busy=true; struct Reset { bool& b; ~Reset(){b=false;} } reset{busy};
@@ -240,10 +292,21 @@ struct Broker {
             auto j=parse_request(wire); auto op=j["op"].get<std::string>(); auto& p=j["payload"];
             auto run=j["run_id"].get<std::string>(), session=j["session"].get<std::string>();
             Json result;
+            const bool isolated=j["schema"]==2;
+            if(op=="pair_hello" || op=="pair_observe") {
+                if(runs.contains(run) && !runs.at(run).isolated) throw std::runtime_error("cross-mode run");
+                result=pairs.handle(j,epoch);
+                if(op=="pair_hello" && !runs.contains(run))
+                    runs.emplace(run,Run{session,p["fallback_name"],result["fallback"]["handle"],pairs.fallback(run),true});
+            } else {
+            // Pair runs never accept a name-based schema-1 hello (no fallback adoption).
+            if(op=="hello" && pairs.contains(run)) throw std::runtime_error("cross-mode run");
             if(op=="hello") {
                 if(j["epoch"]!="unknown" && j["epoch"]!=epoch) throw std::runtime_error("epoch lost");
                 if(!runs.contains(run)) {
-                    if(runs.size()>=32) throw std::runtime_error("run capacity");
+                    // Isolated pair runs have their own capacity in PairRegistry.
+                    if(std::count_if(runs.begin(),runs.end(),[](const auto& r){return !r.second.isolated;})>=32)
+                        throw std::runtime_error("run capacity");
                     Handle fallback;
                     for(auto& m:State::monitorState()->allMonitors()) if(m->m_name==p["fallback_name"].get<std::string>()) {
                         if(fallback) throw std::runtime_error("ambiguous fallback");
@@ -258,7 +321,9 @@ struct Broker {
             } else {
                 if(j["epoch"]!=epoch || !runs.contains(run) || runs.at(run).session!=session) throw std::runtime_error("epoch/run/session lost");
                 auto& r=runs.at(run); auto id=p["id"].get<std::string>(); std::string state;
+                if(r.isolated!=isolated) throw std::runtime_error("cross-mode run");
                 if(op=="create") {
+                    if(isolated) pairs.revalidate(run,session); // full target+fallback proof before mutation
                     if(!backend.usable(r.fallback)) throw std::runtime_error("fallback unavailable before creation");
                     state=registry.create(session,run,p);
                 }
@@ -272,7 +337,8 @@ struct Broker {
                     {"observation",e.object ? backend.observation(e.object):Json(nullptr)},
                     {"fallback_usable",backend.usable(r.fallback)}};
             }
-            auto reply=Json{{"schema",1},{"session",session},{"run_id",run},{"request_id",j["request_id"]},{"epoch",epoch},{"result",result}}.dump();
+            }
+            auto reply=Json{{"schema",j["schema"]},{"session",session},{"run_id",run},{"request_id",j["request_id"]},{"epoch",epoch},{"result",result}}.dump();
             if(reply.size()>1048576) throw std::runtime_error("response limit");
             return reply;
         } catch(const std::exception&) { return "{\"error\":\"ownership blocked\"}"; }

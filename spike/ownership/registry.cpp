@@ -16,22 +16,31 @@ Json parse_request(const std::string& wire) {
     const std::set<std::string> fields={"schema","session","run_id","request_id","epoch","op","payload"};
     if(!j.is_object() || j.size()!=fields.size()) throw std::runtime_error("envelope");
     for(auto& key:fields) if(!j.contains(key)) throw std::runtime_error("missing field");
-    if(!j["schema"].is_number_integer() || j["schema"]!=1 || !j["request_id"].is_number_unsigned() ||
+    if(!j["schema"].is_number_integer() || (j["schema"]!=1 && j["schema"]!=2) || !j["request_id"].is_number_unsigned() ||
        j["request_id"].get<uint64_t>()>2147483647 || !j["payload"].is_object()) throw std::runtime_error("types");
     for(auto key:{"session","run_id","epoch"})
         if(!j[key].is_string() || !std::regex_match(j[key].get<std::string>(),std::regex("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}"))) throw std::runtime_error("token");
     auto op=j.at("op").get<std::string>(); auto& p=j["payload"];
     std::set<std::string> wanted;
-    if(op=="hello") wanted={"fallback_name"};
+    if(op=="hello" && j["schema"]==1) wanted={"fallback_name"};
+    else if(op=="pair_hello" && j["schema"]==2) wanted={"target_name","fallback_name"};
+    else if(op=="pair_observe" && j["schema"]==2) wanted={"target","fallback"};
     else if(op=="inspect") wanted={"id"};
     else if(op=="evacuate_remove") wanted={"id","name","fallback"};
     else if(op=="create") wanted={"id","name","index","width","height","refresh_millihz","scale","x","y","workspace","workspace_name"};
     else throw std::runtime_error("operation");
+    // Schema 2 is the explicit isolated-VM scope: every request carries the mode.
+    if(j["schema"]==2) {
+        if(!p.contains("mode") || p["mode"]!="isolated-vm") throw std::runtime_error("pair mode");
+        wanted.insert("mode");
+    }
     if(p.size()!=wanted.size()) throw std::runtime_error("payload shape");
     for(auto& key:wanted) if(!p.contains(key)) throw std::runtime_error("payload field");
-    for(auto key:{"id","name","fallback","fallback_name","workspace_name"}) if(p.contains(key)) {
+    for(auto key:{"id","name","fallback","fallback_name","workspace_name","target","target_name"}) if(p.contains(key)) {
         if(!p[key].is_string() || !std::regex_match(p[key].get<std::string>(),std::regex("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}"))) throw std::runtime_error("payload token");
     }
+    if(j["schema"]==2) for(auto key:{"target","fallback"}) if(p.contains(key))
+        if(!std::regex_match(p[key].get<std::string>(),std::regex("[0-9a-f]{48}"))) throw std::runtime_error("pair handle");
     if(p.contains("id") && !std::regex_match(p["id"].get<std::string>(),std::regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))) throw std::runtime_error("UUID");
     if(op=="create") {
         for(auto key:{"index","width","height","refresh_millihz","x","y","workspace"})
@@ -46,6 +55,66 @@ Json parse_request(const std::string& wire) {
 }
 namespace {
 struct Guard { bool& busy; explicit Guard(bool& b):busy(b) { if(b) throw std::runtime_error("reentrancy"); b=true; } ~Guard(){busy=false;} };
+}
+Json PairRegistry::observe(Pair& p) {
+    if(!p.valid) throw std::runtime_error("pair invalidated");
+    try {
+    if(!p.target || !p.fallback || !p.target->live || !p.fallback->live || p.target==p.fallback)
+        throw std::runtime_error("pair lifetime");
+    const auto t=backend.observePairOutput(p.target), f=backend.observePairOutput(p.fallback);
+    if(t!=p.targetProof || f!=p.fallbackProof || !t.connector || !f.connector || !t.deviceMajor || !f.deviceMajor ||
+       (t.deviceMajor==f.deviceMajor && t.deviceMinor==f.deviceMinor && t.connector==f.connector))
+        throw std::runtime_error("pair identity changed/aliased");
+    auto encode=[](const PairObservation& o,const std::string& token) -> Json {
+        return {{"handle",token},{"name",o.name},{"device_major",o.deviceMajor},{"device_minor",o.deviceMinor},
+            {"connector_id",o.connector},{"drm_eligible",true},{"classification","unclassified"},
+            {"enabled",true},{"dpms",true},{"mirrored",false}};
+    };
+    return {{"mode","isolated-vm"},{"target",encode(t,p.targetToken)},{"fallback",encode(f,p.fallbackToken)}};
+    } catch(...) {p.valid=false; throw;}
+}
+Json PairRegistry::handle(const Json& j,const std::string& epoch) {
+    Guard guard(busy);
+    const auto run=j.at("run_id").get<std::string>(), session=j.at("session").get<std::string>();
+    const auto& p=j.at("payload");
+    if(j.at("schema")!=2 || p.at("mode")!="isolated-vm") throw std::runtime_error("pair scope");
+    if(j.at("op")=="pair_hello") {
+        if(j.at("epoch")!="unknown" && j.at("epoch")!=epoch) throw std::runtime_error("pair epoch");
+        if(!pairs.contains(run)) {
+            if(pairs.size()>=32 || p.at("target_name")==p.at("fallback_name")) throw std::runtime_error("pair capacity/names");
+            Pair pair;
+            pair.session=session;
+            pair.target=backend.selectPairOutput(p.at("target_name"));
+            pair.fallback=backend.selectPairOutput(p.at("fallback_name"));
+            pair.targetProof=backend.observePairOutput(pair.target);
+            pair.fallbackProof=backend.observePairOutput(pair.fallback);
+            pair.targetToken=token(); pair.fallbackToken=token();
+            if(pair.targetToken==pair.fallbackToken) throw std::runtime_error("pair token collision");
+            observe(pair);
+            pairs.emplace(run,std::move(pair));
+        }
+        auto& pair=pairs.at(run);
+        if(pair.session!=session || pair.targetProof.name!=p.at("target_name").get<std::string>() || pair.fallbackProof.name!=p.at("fallback_name").get<std::string>())
+            throw std::runtime_error("pair scope changed");
+        return observe(pair);
+    }
+    // Restoring saved authority is observe-only: no name lookup, token minting or hello fallback.
+    if(j.at("op")!="pair_observe" || j.at("epoch")!=epoch || !pairs.contains(run)) throw std::runtime_error("pair authority lost");
+    auto& pair=pairs.at(run);
+    if(pair.session!=session || pair.targetToken!=p.at("target").get<std::string>() || pair.fallbackToken!=p.at("fallback").get<std::string>())
+        throw std::runtime_error("pair handles lost");
+    return observe(pair);
+}
+Handle PairRegistry::fallback(const std::string& run) const {
+    auto it=pairs.find(run);
+    if(it==pairs.end() || !it->second.valid) throw std::runtime_error("pair authority lost");
+    return it->second.fallback;
+}
+void PairRegistry::revalidate(const std::string& run,const std::string& session) {
+    Guard guard(busy);
+    auto it=pairs.find(run);
+    if(it==pairs.end() || it->second.session!=session) throw std::runtime_error("pair authority lost");
+    observe(it->second);
 }
 Entry& Registry::lookup(const std::string& session,const std::string& run,const std::string& id) {
     auto it=entries.find(id);
