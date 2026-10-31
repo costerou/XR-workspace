@@ -415,7 +415,7 @@ class IsolatedTests(unittest.TestCase):
                 argv = seen[0]
                 if granted:
                     self.assertEqual(argv[argv.index('--capture') + 1], 'XR-1,XR-2,XR-3')
-                    self.assertIn('CTRL ALT + up', binds_during[0])   # runtime binds exist while running
+                    self.assertIn('CTRL + ALT + up', binds_during[0])   # runtime binds exist while running
                     self.assertEqual(self.transport.binds, 'removed')  # and are removed at stop
                 else:
                     self.assertNotIn('--capture', argv); self.assertIsNone(self.transport.binds)

@@ -11,8 +11,9 @@ import re
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
 USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down')
-BINDS = (('CTRL ALT + up', 'zoom_in'), ('CTRL ALT + down', 'zoom_out'), ('CTRL ALT + left', 'prev'),
-         ('CTRL ALT + right', 'next'), ('CTRL ALT + bracketleft', 'spacing_down'), ('CTRL ALT + bracketright', 'spacing_up'))
+# Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
+BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
+         ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'))
 MANAGED = re.compile(r'XR-[1-3]\Z')
 SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')

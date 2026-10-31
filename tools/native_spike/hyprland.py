@@ -120,7 +120,9 @@ class HyprlandClient:
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()
-        if reply != 'ok': raise ValueError('compositor rejected bind change')
+        if reply != 'ok':
+            detail = ''.join(c for c in reply[:160] if c.isprintable())
+            raise ValueError(f'compositor rejected bind change: {detail}')
 
     def verified_session(self):
         # A request establishes the actual SO_PEERCRED process, not a configured echo.
