@@ -10,10 +10,11 @@ from pathlib import Path
 import re
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
-USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down')
+USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter')
 # Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
-         ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'))
+         ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
+         ('CTRL + ALT + space', 'recenter'))
 MANAGED = re.compile(r'XR-[1-3]\Z')
 SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
@@ -31,6 +32,7 @@ class ViewState:
     def apply(self, op):
         """Update state; return the output to focus, or None."""
         if op not in USER_OPS: raise ValueError('unsupported view operation')
+        if op == 'recenter': return None  # head-tracking reference only; the view layout is unchanged
         if op == 'zoom_in':
             self.zoomed = True
             return self.names[self.selected]
@@ -115,6 +117,11 @@ class ViewControl:
 
     def on_message(self, message):
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
+        if message['op'] == 'recenter':
+            frame = (json.dumps({'schema': 1, 'request_id': self.next_id, 'run_id': self.run_id, 'session': self.session,
+                                 'op': 'recenter', 'payload': {}}, separators=(',', ':')) + '\n').encode()
+            self.next_id += 1
+            return frame
         before = self.state.view()
         target = self.state.apply(message['op'])
         if target is not None:

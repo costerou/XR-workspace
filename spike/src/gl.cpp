@@ -12,14 +12,20 @@ namespace {
 std::uint64_t now_us() {
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
+// Canvas NDC -> world plane at z=-1 spanning the FOV -> head rotation -> perspective.
+// Identity rotation reproduces the head-locked NDC exactly.
+#define XR_PROJECT \
+    "uniform mat3 view; uniform vec2 half_fov;\n" \
+    "vec4 project(vec2 p) { vec3 q = view * vec3(p.x * half_fov.x, p.y * half_fov.y, -1.0);\n" \
+    "  return vec4(q.x / half_fov.x, q.y / half_fov.y, 0.0, -q.z); }\n"
 const char* kVertex =
-    "attribute vec2 pos; attribute vec2 uv; varying vec2 v;\n"
-    "void main() { v = uv; gl_Position = vec4(pos, 0.0, 1.0); }\n";
+    "attribute vec2 pos; attribute vec2 uv; varying vec2 v;\n" XR_PROJECT
+    "void main() { v = uv; gl_Position = project(pos); }\n";
 // wl_shm XRGB8888 is little-endian B,G,R,X; uploaded as RGBA bytes, so swizzle back.
 const char* kFragment =
     "precision mediump float; varying vec2 v; uniform sampler2D tex;\n"
     "void main() { vec4 c = texture2D(tex, v); gl_FragColor = vec4(c.b, c.g, c.r, 1.0); }\n";
-const char* kColorVertex = "attribute vec2 pos; void main() { gl_Position = vec4(pos, 0.0, 1.0); }\n";
+const char* kColorVertex = "attribute vec2 pos;\n" XR_PROJECT "void main() { gl_Position = project(pos); }\n";
 const char* kColorFragment = "precision mediump float; uniform vec4 color; void main() { gl_FragColor = color; }\n";
 GLuint compile(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
@@ -46,6 +52,7 @@ struct GlCompositor::Impl {
     wl_egl_window* window = nullptr;
     GLuint program = 0, color_program = 0;
     GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
+    GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
     std::uint32_t width = 0, height = 0;
@@ -104,6 +111,8 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     glGetProgramiv(s.color_program, GL_LINK_STATUS, &linked);
     if (!linked) { why = "shader link"; return nullptr; }
     s.color_pos = glGetAttribLocation(s.color_program, "pos"); s.color = glGetUniformLocation(s.color_program, "color");
+    s.color_view = glGetUniformLocation(s.color_program, "view"); s.color_half_fov = glGetUniformLocation(s.color_program, "half_fov");
+    s.view = glGetUniformLocation(s.program, "view"); s.half_fov = glGetUniformLocation(s.program, "half_fov");
     s.pos = glGetAttribLocation(s.program, "pos"); s.uv = glGetAttribLocation(s.program, "uv");
     s.sampler = glGetUniformLocation(s.program, "tex");
     s.textures.resize(sources);
@@ -146,9 +155,14 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
     return t.valid;
 }
 
-bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha) {
+bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha,
+                                 const Mat3& view, float half_w, float half_h) {
     auto& s = *impl_;
     const auto start = now_us();
+    const Mat3 column_major = transpose(view);  // GLES2 has no transpose flag
+    auto uniforms = [&](GLint view_loc, GLint fov_loc) {
+        glUniformMatrix3fv(view_loc, 1, GL_FALSE, column_major.data()); glUniform2f(fov_loc, half_w, half_h);
+    };
     const float vw = float(s.width), vh = float(s.height);
     auto quad = [&](const FRect& r, GLfloat* out) {
         const float x0 = 2 * r.x / vw - 1, x1 = 2 * (r.x + r.width) / vw - 1, y0 = 1 - 2 * r.y / vh, y1 = 1 - 2 * (r.y + r.height) / vh;
@@ -161,15 +175,15 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight,
         const float border = 6.f;
         const auto& t = tiles[std::size_t(highlight)];
         GLfloat positions[8]; quad({t.x - border, t.y - border, t.width + 2 * border, t.height + 2 * border}, positions);
-        glUseProgram(s.color_program);
+        glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
         glUniform4f(s.color, 0.48f * highlight_alpha, 0.64f * highlight_alpha, 0.97f * highlight_alpha, 1.f);  // accent over black
         glVertexAttribPointer(static_cast<GLuint>(s.color_pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
         glEnableVertexAttribArray(static_cast<GLuint>(s.color_pos));
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
-    glUseProgram(s.program); glUniform1i(s.sampler, 0); glActiveTexture(GL_TEXTURE0);
+    glUseProgram(s.program); uniforms(s.view, s.half_fov); glUniform1i(s.sampler, 0); glActiveTexture(GL_TEXTURE0);
     for (std::size_t i = 0; i < tiles.size() && i < s.textures.size(); ++i) {
-        if (!s.textures[i].valid || tiles[i].x + tiles[i].width < 0 || tiles[i].x > vw) continue;  // fully off-screen
+        if (!s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
         GLfloat positions[8]; quad(tiles[i], positions);
         const GLfloat uvs[] = {0, 0, 1, 0, 0, 1, 1, 1};
         glBindTexture(GL_TEXTURE_2D, s.textures[i].id);

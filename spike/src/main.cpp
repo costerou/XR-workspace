@@ -35,27 +35,33 @@ int main(int argc, char** argv) {
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
                      "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
-                     "Or --capture XR-1[,XR-2[,XR-3]]: show only the app's own managed outputs (managed-output capture consent).\n"
+                     "Or --capture XR-1[,XR-2[,XR-3]]: show only the app's own managed outputs (managed-output capture consent),\n"
+                     "  optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n"
                      "Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
     std::vector<std::string> capture;
-    if (argc == 13) {
-        // Exactly one optional mode: generated animation, or capture of allowlisted managed outputs.
-        if (args.contains("--animate-pattern-ms")) {
-            auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
-            if (!duration) return 2;
-            animation_ms = *duration;
-        } else if (args.contains("--capture")) {
-            auto names = xr::parse_capture_list(args["--capture"], args["--output"]);
-            if (!names) return 2;
-            capture = *names;
-        } else return 2;
+    bool pose_feed = false;
+    // Optional modes: generated animation alone; or capture, optionally with the XRLinuxDriver pose feed.
+    const std::size_t optional = std::size_t(argc - 11) / 2;
+    if (optional == 1 && args.contains("--animate-pattern-ms")) {
+        auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
+        if (!duration) return 2;
+        animation_ms = *duration;
+    } else if (optional >= 1) {
+        if (!args.contains("--capture")) return 2;
+        auto names = xr::parse_capture_list(args["--capture"], args["--output"]);
+        if (!names) return 2;
+        capture = *names;
+        if (optional == 2) {
+            if (!args.contains("--pose-feed") || args["--pose-feed"] != "xrld") return 2;
+            pose_feed = true;
+        }
     }
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
@@ -80,6 +86,7 @@ int main(int argc, char** argv) {
     xr::Presentation presentation;
     int result = 0;
     if (!report(presentation.open(args["--output"], capture))) result = 1;
+    if (!result && pose_feed) presentation.enable_tracking("/tmp/shader_runtime_");  // XRLinuxDriver IPC (fixed path)
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     // Further supervisor frames (view, stop) on the same private socket; replay-protected queue.
     xr::ControlQueue queue(args["--run-id"], args["--session"]);
@@ -98,6 +105,7 @@ int main(int argc, char** argv) {
                 if (!std::holds_alternative<std::monostate>(queue.push(frame))) return false;  // malformed/replayed: stop
                 while (auto m = queue.pop()) {
                     if (m->op == xr::ControlOp::stop) stopping = 1;
+                    else if (m->op == xr::ControlOp::recenter) presentation.recenter();
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
                         presentation.set_view(v.zoomed, v.selected, v.spacing);

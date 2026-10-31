@@ -35,6 +35,7 @@ def load_isolated_consent(path, instance, output):
     data = read_private_json(path)
     keys = {'schema', 'gate', 'mode', 'run_id', 'instance', 'boot_id', 'session', 'runtime',
             'output', 'recovery_output', 'allow', 'capture', 'input', 'sdk', 'mode_switch'}
+    if isinstance(data, dict) and 'tracking' in data: keys.add('tracking')
     if not isinstance(data, dict) or set(data) != keys: raise ValueError('invalid isolated consent fields')
     if type(data['schema']) is not int or data['schema'] != 1 or data['gate'] != GATE or data['mode'] != MODE:
         raise ValueError(f'{GATE} consent required')
@@ -54,6 +55,9 @@ def load_isolated_consent(path, instance, output):
     from .supervisor import CAPTURE_SCOPE, CAPTURE_ALLOW
     if type(data['capture']) is str and data['capture'] == CAPTURE_SCOPE:
         if data['allow'] != CAPTURE_ALLOW: raise ValueError('exact managed-output capture scope required')
+        if 'tracking' in data and (type(data['tracking']) is not str or data['tracking'] != 'xrlinuxdriver'):
+            raise ValueError('tracking scope must be "xrlinuxdriver"')
+    elif 'tracking' in data: raise ValueError('head tracking requires managed-output capture')
     elif data['allow'] != ['headless-outputs', 'test-pattern'] or data['capture'] is not False:
         raise ValueError('exact test-pattern scope required')
     if any(data[k] is not False for k in ('input', 'sdk', 'mode_switch')):
@@ -190,7 +194,7 @@ def run_isolated(client, consent, runtime):
         return _run_owned(client, journal, broker, output, fallback, specs,
                           context=broker_context(client, broker, consent['boot_id'], runtime),
                           guard=IsolatedGuard(broker, output, specs, consent['boot_id'], sysroot),
-                          capture=capture_names(consent, specs))
+                          capture=capture_names(consent, specs), pose_feed=consent.get('tracking') == 'xrlinuxdriver')
 
 
 def recover_isolated(client, consent, path):

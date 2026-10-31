@@ -46,7 +46,7 @@ def decode_control(raw):
     token(message["run_id"]); token(message["session"])
     op, payload = message["op"], message["payload"]
     if op not in ("status", "start", "stop", "select", "recover", "zoom_in", "zoom_out", "next", "prev",
-                  "spacing_up", "spacing_down"): raise ValueError("invalid operation")
+                  "spacing_up", "spacing_down", "recenter"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")

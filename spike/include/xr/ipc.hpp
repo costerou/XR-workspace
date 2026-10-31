@@ -4,7 +4,7 @@
 #include <string_view>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view };
+enum class ControlOp { status, start, stop, select, recover, view, recenter };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; };

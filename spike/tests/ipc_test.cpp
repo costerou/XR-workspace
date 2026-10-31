@@ -64,5 +64,10 @@ int main() {
                             R"({"zoomed":true,"selected":0})", R"({"zoomed":true,"selected":0,"spacing":0,"x":1})",
                             R"({"zoomed":true,"selected":0.5,"spacing":0})"})
         require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view: PASS\n";
+    auto recenter = std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"recenter","payload":{}})") + "\n";
+    auto rc = xr::decode_control(recenter);
+    require(std::holds_alternative<xr::ControlMessage>(rc) && std::get<xr::ControlMessage>(rc).op == xr::ControlOp::recenter);
+    auto rc_bad = recenter; rc_bad.replace(rc_bad.find("{}"), 2, "{\"x\":1}");
+    require(std::holds_alternative<xr::Error>(xr::decode_control(rc_bad)));
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter: PASS\n";
 }
