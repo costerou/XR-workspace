@@ -381,6 +381,30 @@ class IsolatedTests(unittest.TestCase):
         self.assertNotIn('hello', self.transport.events)
         self.assertEqual(wayland.fileno(), -1)
 
+    def test_cli_capture_scope_reaches_renderer_only_when_granted(self):
+        for granted in (True, False):
+            with self.subTest(granted=granted):
+                self.setUp()
+                peer, wayland = socket.socketpair()
+                self.addCleanup(peer.close); self.addCleanup(wayland.close)
+                self.transport.connect_wayland = lambda session: wayland
+                class Child:
+                    def poll(self): return 0
+                seen = []
+                def spawn(argv, **kwargs):
+                    seen.append(argv)
+                    endpoint = socket.fromfd(int(argv[argv.index('--supervised-fd') + 1]), socket.AF_UNIX, socket.SOCK_STREAM)
+                    self.addCleanup(endpoint.close)
+                    return Child()
+                changes = {'capture': 'managed-outputs', 'allow': ['headless-outputs', 'capture-managed-outputs']} if granted else {}
+                with patch('subprocess.Popen', side_effect=spawn):
+                    code = self.run_cli(['isolated-run', '--instance', INSTANCE, '--output', 'Virtual-1',
+                                         '--consent-file', str(self.consent(**changes))])
+                self.assertEqual(code, 0)
+                argv = seen[0]
+                if granted: self.assertEqual(argv[argv.index('--capture') + 1], 'XR-1,XR-2,XR-3')
+                else: self.assertNotIn('--capture', argv)
+
     def test_cli_rejects_before_broker_on_scope_or_evidence_mismatch(self):
         cases = {'boot': dict(consent={'boot_id': 'ffffffff-0000-4000-8000-000000000000'}),
                  'session': dict(consent={'session': 'other'}),

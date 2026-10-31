@@ -2,6 +2,8 @@
 #include "xr/types.hpp"
 #include "xr/metrics.hpp"
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace xr {
 // Narrow request boundary: intentionally no seat, focus, keyboard or injection API.
@@ -46,7 +48,8 @@ public:
     ~Presentation();
     Presentation(const Presentation&) = delete;
     Presentation& operator=(const Presentation&) = delete;
-    Status open(std::string output_name);
+    // `capture` is an already-validated XR-1..XR-3 allowlist (parse_capture_list); empty = no capture.
+    Status open(std::string output_name, std::vector<std::string> capture = {});
     Status animate_pattern(std::uint32_t duration_ms);
     bool finished() const;
     Status draw_test_pattern();
@@ -54,9 +57,11 @@ public:
     Status dispatch(int timeout_ms = 50);
     void close();
     std::string timing_report() const;
+    std::string capture_report() const;  // bounded JSON; never contains pixel data
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
     Metrics final_metrics_;
+    std::string final_capture_ = "{\"kind\":\"managed_output_capture\",\"outputs\":[]}";
 };
 }

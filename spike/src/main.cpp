@@ -1,5 +1,6 @@
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
+#include "xr/capture.hpp"
 #include <charconv>
 #include <csignal>
 #include <cstdlib>
@@ -7,6 +8,7 @@
 #include <map>
 #include <poll.h>
 #include <string>
+#include <vector>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -25,13 +27,14 @@ int number(const std::string& value) {
 }
 int main(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "--help") {
-        std::cout << "xr-native-spike: native output-bound layer-shell test pattern (no capture/SDK/input).\n"
+        std::cout << "xr-native-spike: native output-bound layer-shell renderer (no SDK/input; capture only of managed outputs).\n"
                      "Launched only by the permission-gated Python supervisor with inherited capability sockets.\n"
                      "Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n"
                      "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
                      "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
+                     "Or --capture XR-1[,XR-2[,XR-3]]: show only the app's own managed outputs (managed-output capture consent).\n"
                      "Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
         return 0;
     }
@@ -40,11 +43,18 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
+    std::vector<std::string> capture;
     if (argc == 13) {
-        if (!args.contains("--animate-pattern-ms")) return 2;
-        auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
-        if (!duration) return 2;
-        animation_ms = *duration;
+        // Exactly one optional mode: generated animation, or capture of allowlisted managed outputs.
+        if (args.contains("--animate-pattern-ms")) {
+            auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
+            if (!duration) return 2;
+            animation_ms = *duration;
+        } else if (args.contains("--capture")) {
+            auto names = xr::parse_capture_list(args["--capture"], args["--output"]);
+            if (!names) return 2;
+            capture = *names;
+        } else return 2;
     }
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
@@ -68,7 +78,7 @@ int main(int argc, char** argv) {
     std::signal(SIGTERM, stop); std::signal(SIGINT, stop);
     xr::Presentation presentation;
     int result = 0;
-    if (!report(presentation.open(args["--output"]))) result = 1;
+    if (!report(presentation.open(args["--output"], capture))) result = 1;
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     while (!stopping && !result && !presentation.finished()) {
         if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) { result = 1; break; }
@@ -76,5 +86,6 @@ int main(int argc, char** argv) {
     }
     presentation.close(); // Pending feedback becomes abandoned, never invented discard.
     std::cerr << presentation.timing_report() << '\n';
+    if (!capture.empty()) std::cerr << presentation.capture_report() << '\n';
     ::close(control); return result;
 }

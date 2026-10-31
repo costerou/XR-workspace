@@ -168,7 +168,22 @@ def run_presentation(journal, adapter, output, wayland_socket, *, popen=None):
         if wayland_socket is not None: wayland_socket.close()
 
 
-def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None):
+CAPTURE_SCOPE = 'managed-outputs'
+CAPTURE_ALLOW = ['headless-outputs', 'capture-managed-outputs']
+
+
+def capture_arguments(names, output):
+    """Renderer argv for capture of the run's own managed outputs only (XR-1..XR-3), never `output`."""
+    import re
+    if names is None: return []
+    if (not isinstance(names, (list, tuple)) or not 1 <= len(names) <= 3 or len(set(names)) != len(names)
+            or any(not isinstance(n, str) or not re.fullmatch(r'XR-[1-3]', n) or n == output for n in names)):
+        raise ValueError("capture is limited to the run's own managed outputs")
+    return ['--capture', ','.join(sorted(names))]
+
+
+def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
+            capture=None):
     """Shared child lifetime only; authorization remains in distinct callers."""
     import json
     import os
@@ -178,6 +193,8 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     import subprocess
     from .ipc import token
     validate_pattern_duration(animate_pattern_ms)
+    if capture is not None and animate_pattern_ms is not None: raise ValueError('capture and generated animation are exclusive')
+    capture_argv = capture_arguments(capture, output)
     token(output); token(run_id); token(session)
     peer = struct.unpack('3i', wayland_socket.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')
@@ -189,6 +206,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
                 '--run-id', run_id, '--session', session]
         if animate_pattern_ms is not None:
             argv += ['--animate-pattern-ms', str(animate_pattern_ms)]
+        argv += capture_argv
         try:
             child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True,
                         pass_fds=(child_socket.fileno(), wayland_socket.fileno()))

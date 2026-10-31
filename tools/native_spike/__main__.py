@@ -26,10 +26,15 @@ def load_consent(path, instance, output, *, presentation_only=False, animate_pat
     token(data['run_id']); token(output); token(data['recovery_output'])
     if len(data['run_id']) > 80: raise ValueError('run id too long')
     if data['recovery_output'] == output: raise ValueError('independent physical recovery output required')
-    allowed = ['test-pattern'] if presentation_only else ['headless-outputs', 'test-pattern']
-    if data['allow'] != allowed: raise ValueError('exact test-pattern scope required')
-    if any(data[k] is not False for k in ('capture', 'input', 'sdk', 'mode_switch')):
-        raise ValueError('capture/input/SDK/mode transitions not authorized by this CLI')
+    from .supervisor import CAPTURE_SCOPE, CAPTURE_ALLOW
+    if not presentation_only and type(data['capture']) is str and data['capture'] == CAPTURE_SCOPE:
+        # Explicit managed-output capture grant: only the run's own XR-n outputs, in memory.
+        if data['allow'] != CAPTURE_ALLOW: raise ValueError('exact managed-output capture scope required')
+    else:
+        allowed = ['test-pattern'] if presentation_only else ['headless-outputs', 'test-pattern']
+        if data['allow'] != allowed or data['capture'] is not False: raise ValueError('exact test-pattern scope required')
+    if any(data[k] is not False for k in ('input', 'sdk', 'mode_switch')):
+        raise ValueError('input/SDK/mode transitions not authorized by this CLI')
     return data
 
 
