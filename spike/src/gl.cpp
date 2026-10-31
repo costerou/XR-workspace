@@ -4,6 +4,8 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include "dmabuf.hpp"
 #include <chrono>
 #include <cstring>
 
@@ -21,10 +23,10 @@ std::uint64_t now_us() {
 const char* kVertex =
     "attribute vec2 pos; attribute vec2 uv; varying vec2 v;\n" XR_PROJECT
     "void main() { v = uv; gl_Position = project(pos); }\n";
-// wl_shm XRGB8888 is little-endian B,G,R,X; uploaded as RGBA bytes, so swizzle back.
+// SHM XRGB bytes upload as RGBA and need a B/R swap; imported dmabufs are sampled natively.
 const char* kFragment =
-    "precision mediump float; varying vec2 v; uniform sampler2D tex;\n"
-    "void main() { vec4 c = texture2D(tex, v); gl_FragColor = vec4(c.b, c.g, c.r, 1.0); }\n";
+    "precision mediump float; varying vec2 v; uniform sampler2D tex; uniform float swizzle;\n"
+    "void main() { vec4 c = texture2D(tex, v); gl_FragColor = vec4(mix(c.rgb, c.bgr, swizzle), 1.0); }\n";
 const char* kColorVertex = "attribute vec2 pos;\n" XR_PROJECT "void main() { gl_Position = project(pos); }\n";
 const char* kColorFragment = "precision mediump float; uniform vec4 color; void main() { gl_FragColor = color; }\n";
 GLuint compile(GLenum type, const char* source) {
@@ -55,6 +57,20 @@ struct GlCompositor::Impl {
     GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
+    // Zero-copy: per source, per capture slot, an EGLImage-backed texture; `current` = slot to draw (-1 = SHM).
+    struct Imported { std::array<GLuint, 3> tex{}; std::array<EGLImageKHR, 3> image{EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR}; int current = -1; };
+    std::vector<Imported> imported;
+    GLint swizzle = -1;
+    PFNEGLCREATEIMAGEKHRPROC create_image = nullptr;
+    PFNEGLDESTROYIMAGEKHRPROC destroy_image = nullptr;
+    PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target = nullptr;
+    PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_modifiers = nullptr;
+    std::uint64_t imported_frames = 0;
+    void drop(Imported& i) {
+        for (auto& t : i.tex) if (t) { glDeleteTextures(1, &t); t = 0; }
+        for (auto& im : i.image) if (im != EGL_NO_IMAGE_KHR && destroy_image) { destroy_image(display, im); im = EGL_NO_IMAGE_KHR; }
+        i.current = -1;
+    }
     std::uint32_t width = 0, height = 0;
     std::string vendor, renderer, version;
     Stat upload_stat, draw_stat;
@@ -63,6 +79,7 @@ struct GlCompositor::Impl {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
+            for (auto& i : imported) drop(i);
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
             eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -115,7 +132,16 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     s.view = glGetUniformLocation(s.program, "view"); s.half_fov = glGetUniformLocation(s.program, "half_fov");
     s.pos = glGetAttribLocation(s.program, "pos"); s.uv = glGetAttribLocation(s.program, "uv");
     s.sampler = glGetUniformLocation(s.program, "tex");
+    s.swizzle = glGetUniformLocation(s.program, "swizzle");
     s.textures.resize(sources);
+    s.imported.resize(sources);
+    const char* extensions = eglQueryString(s.display, EGL_EXTENSIONS);
+    if (extensions && std::strstr(extensions, "EGL_EXT_image_dma_buf_import_modifiers")) {
+        s.create_image = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
+        s.destroy_image = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImageKHR"));
+        s.image_target = reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
+        s.query_modifiers = reinterpret_cast<PFNEGLQUERYDMABUFMODIFIERSEXTPROC>(eglGetProcAddress("eglQueryDmaBufModifiersEXT"));
+    }
     for (auto& t : s.textures) {
         glGenTextures(1, &t.id); glBindTexture(GL_TEXTURE_2D, t.id);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -128,6 +154,57 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
 }
 
 GlCompositor::~GlCompositor() = default;
+
+bool GlCompositor::dmabuf_importable(std::uint32_t fourcc, std::uint64_t modifier) const {
+    const auto& s = *impl_;
+    if (!s.create_image || !s.image_target || !s.query_modifiers) return false;
+    EGLint count = 0;
+    if (!s.query_modifiers(s.display, static_cast<EGLint>(fourcc), 0, nullptr, nullptr, &count) || count <= 0) return false;
+    if (modifier == kModInvalid) return true;  // format supported; implicit modifier
+    std::vector<EGLuint64KHR> mods(static_cast<std::size_t>(count)); std::vector<EGLBoolean> external(static_cast<std::size_t>(count));
+    if (!s.query_modifiers(s.display, static_cast<EGLint>(fourcc), count, mods.data(), external.data(), &count)) return false;
+    for (EGLint i = 0; i < count; ++i) if (mods[std::size_t(i)] == modifier && !external[std::size_t(i)]) return true;
+    return false;
+}
+
+bool GlCompositor::import_dmabuf(std::size_t source, std::size_t slot, const DmabufBuffer& b) {
+    auto& s = *impl_;
+    if (source >= s.imported.size() || slot >= 3 || !s.create_image) return false;
+    auto& im = s.imported[source];
+    std::vector<EGLAttrib> a = {EGL_WIDTH, EGLAttrib(b.width), EGL_HEIGHT, EGLAttrib(b.height), EGL_LINUX_DRM_FOURCC_EXT, EGLAttrib(b.fourcc)};
+    static const EGLint fd_k[] = {EGL_DMA_BUF_PLANE0_FD_EXT, EGL_DMA_BUF_PLANE1_FD_EXT, EGL_DMA_BUF_PLANE2_FD_EXT, EGL_DMA_BUF_PLANE3_FD_EXT};
+    static const EGLint off_k[] = {EGL_DMA_BUF_PLANE0_OFFSET_EXT, EGL_DMA_BUF_PLANE1_OFFSET_EXT, EGL_DMA_BUF_PLANE2_OFFSET_EXT, EGL_DMA_BUF_PLANE3_OFFSET_EXT};
+    static const EGLint pitch_k[] = {EGL_DMA_BUF_PLANE0_PITCH_EXT, EGL_DMA_BUF_PLANE1_PITCH_EXT, EGL_DMA_BUF_PLANE2_PITCH_EXT, EGL_DMA_BUF_PLANE3_PITCH_EXT};
+    static const EGLint lo_k[] = {EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT};
+    static const EGLint hi_k[] = {EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT};
+    for (int p = 0; p < b.planes; ++p) {
+        a.insert(a.end(), {fd_k[p], EGLAttrib(b.fds[std::size_t(p)]), off_k[p], EGLAttrib(b.offsets[std::size_t(p)]),
+                           pitch_k[p], EGLAttrib(b.strides[std::size_t(p)])});
+        if (b.modifier != kModInvalid)
+            a.insert(a.end(), {lo_k[p], EGLAttrib(b.modifier & 0xffffffffu), hi_k[p], EGLAttrib(b.modifier >> 32)});
+    }
+    std::vector<EGLint> attribs(a.begin(), a.end()); attribs.push_back(EGL_NONE);
+    EGLImageKHR image = s.create_image(s.display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attribs.data());
+    if (image == EGL_NO_IMAGE_KHR) return false;
+    GLuint tex = 0; glGenTextures(1, &tex); glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    s.image_target(GL_TEXTURE_2D, image);
+    if (glGetError() != GL_NO_ERROR) { glDeleteTextures(1, &tex); s.destroy_image(s.display, image); return false; }
+    if (im.tex[slot]) glDeleteTextures(1, &im.tex[slot]);
+    if (im.image[slot] != EGL_NO_IMAGE_KHR) s.destroy_image(s.display, im.image[slot]);
+    im.tex[slot] = tex; im.image[slot] = image;
+    return true;
+}
+
+void GlCompositor::present_dmabuf(std::size_t source, int slot) {
+    auto& s = *impl_;
+    if (source < s.imported.size() && slot >= 0 && slot < 3 && s.imported[source].tex[std::size_t(slot)]) {
+        s.imported[source].current = slot; ++s.imported_frames;
+    }
+}
+
+void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
 
 void GlCompositor::resize(std::uint32_t width, std::uint32_t height) {
     auto& s = *impl_;
@@ -183,10 +260,13 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight,
     }
     glUseProgram(s.program); uniforms(s.view, s.half_fov); glUniform1i(s.sampler, 0); glActiveTexture(GL_TEXTURE0);
     for (std::size_t i = 0; i < tiles.size() && i < s.textures.size(); ++i) {
-        if (!s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
+        const auto& im = s.imported[i];
+        const bool zero_copy = im.current >= 0;
+        if (!zero_copy && !s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
+        glUniform1f(s.swizzle, zero_copy ? 0.f : 1.f);
         GLfloat positions[8]; quad(tiles[i], positions);
         const GLfloat uvs[] = {0, 0, 1, 0, 0, 1, 1, 1};
-        glBindTexture(GL_TEXTURE_2D, s.textures[i].id);
+        glBindTexture(GL_TEXTURE_2D, zero_copy ? im.tex[std::size_t(im.current)] : s.textures[i].id);
         glVertexAttribPointer(static_cast<GLuint>(s.pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
         glVertexAttribPointer(static_cast<GLuint>(s.uv), 2, GL_FLOAT, GL_FALSE, 0, uvs);
         glEnableVertexAttribArray(static_cast<GLuint>(s.pos)); glEnableVertexAttribArray(static_cast<GLuint>(s.uv));
@@ -199,7 +279,9 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight,
 
 std::string GlCompositor::report() const {
     const auto& s = *impl_;
-    return "{\"path\":\"gles2-shm-upload\",\"vendor\":\"" + s.vendor + "\",\"renderer\":\"" + s.renderer + "\",\"version\":\"" + s.version +
+    bool any = false; for (const auto& i : s.imported) any |= i.current >= 0;
+    return std::string("{\"path\":\"") + (any ? "gles2-dmabuf-import" : "gles2-shm-upload") + "\",\"imported_frames\":" +
+           std::to_string(s.imported_frames) + ",\"vendor\":\"" + s.vendor + "\",\"renderer\":\"" + s.renderer + "\",\"version\":\"" + s.version +
            "\",\"upload\":" + s.upload_stat.json() + ",\"draw_swap\":" + s.draw_stat.json() +
            ",\"uploaded_mib\":" + std::to_string(s.uploaded_bytes >> 20) + "}";
 }

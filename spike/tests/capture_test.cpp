@@ -28,6 +28,22 @@ int main() {
         CHECK(!c.done());  // a new batch starts empty
     }
 
+    // Zero-copy choice: XRGB before ARGB, LINEAR preferred, only what EGL can import.
+    auto all = [](std::uint32_t, std::uint64_t) { return true; };
+    const std::uint64_t tiled = 0x0200000020867b04ULL;
+    CHECK(choose_dmabuf({{kDrmXrgb8888, {tiled, kModLinear}}}, all)->modifier == kModLinear);
+    CHECK(choose_dmabuf({{kDrmXrgb8888, {tiled}}}, all)->modifier == tiled);
+    CHECK(choose_dmabuf({{kDrmArgb8888, {kModLinear}}, {kDrmXrgb8888, {tiled}}}, all)->fourcc == kDrmXrgb8888);
+    auto linear_only = [](std::uint32_t, std::uint64_t m) { return m == kModLinear; };
+    CHECK(!choose_dmabuf({{kDrmXrgb8888, {tiled}}}, linear_only));
+    CHECK(!choose_dmabuf({{0x30334241, {kModLinear}}}, all));  // other formats refused
+    SessionConstraints z;
+    z.format(kShmXrgb8888); z.dmabuf_device(0xe280); z.dmabuf_format(kDrmXrgb8888, {kModLinear}); z.dmabuf_format(kDrmXrgb8888, {tiled});
+    z.size(1920, 1080);
+    auto batch = z.done_all();
+    CHECK(batch.shm && batch.device == 0xe280u && batch.dmabuf.size() == 1 && batch.dmabuf[0].modifiers.size() == 2);
+    CHECK(!z.done_all().device);  // reset after a complete batch
+
     auto tiles = side_by_side(3, 1920, 1200, 1920, 1080);
     CHECK(tiles.size() == 3 && tiles[0].width == 640 && tiles[0].height == 360);
     CHECK(tiles[0].x == 0 && tiles[1].x == 640 && tiles[2].x == 1280 && tiles[0].y == 420);

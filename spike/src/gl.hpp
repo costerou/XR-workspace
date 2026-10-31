@@ -14,6 +14,7 @@ struct wl_display;
 struct wl_surface;
 
 namespace xr {
+struct DmabufBuffer;
 class GlCompositor {
 public:
     // Returns nullptr (with `why`) if EGL/GLES are unavailable; the caller reports the fallback.
@@ -28,6 +29,12 @@ public:
     // `view` rotates the world-anchored canvas (identity = head-locked); half_w/h = tan(half FOV).
     bool draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha,
                        const Mat3& view, float half_w, float half_h);
+    // Zero-copy (C2b): can EGL import this fourcc/modifier; import a capture slot's buffer once;
+    // mark slot as the source's current frame (sampled without B/R swap); drop on reallocation.
+    bool dmabuf_importable(std::uint32_t fourcc, std::uint64_t modifier) const;
+    bool import_dmabuf(std::size_t source, std::size_t slot, const DmabufBuffer&);
+    void present_dmabuf(std::size_t source, int slot);
+    void drop_dmabuf(std::size_t source);
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;
