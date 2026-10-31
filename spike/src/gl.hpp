@@ -4,6 +4,7 @@
 // only renders and swaps. No readback: pixels never return to the CPU.
 #include "xr/capture.hpp"
 #include "xr/view.hpp"
+#include "xr/pose.hpp"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -24,7 +25,9 @@ public:
     bool upload(std::size_t source, const void* pixels, std::uint32_t width, std::uint32_t height, std::uint32_t stride);
     // Draw each uploaded source into its (possibly off-screen) rect, an optional highlight frame
     // behind `highlight` with `highlight_alpha`, then eglSwapBuffers (which attaches and commits).
-    bool draw_and_swap(const std::vector<FRect>& tiles, int highlight = -1, float highlight_alpha = 0.f);
+    // `view` rotates the world-anchored canvas (identity = head-locked); half_w/h = tan(half FOV).
+    bool draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha,
+                       const Mat3& view, float half_w, float half_h);
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;

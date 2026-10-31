@@ -6,6 +6,8 @@
 #include "xr/capture.hpp"
 #include "gl.hpp"
 #include "xr/view.hpp"
+#include "xr/pose.hpp"
+#include <cmath>
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
 // byte-identical; scope the C++ spelling adaptation to the generated C header.
 #define namespace layer_namespace
@@ -115,6 +117,24 @@ struct Presentation::Impl : SurfaceRequests {
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     ViewAnimator view{220.f};
+    // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
+    bool tracking_requested = false;
+    std::string pose_prefix;
+    std::unique_ptr<PoseFeed> pose_feed;
+    std::string pose_why;
+    std::uint64_t pose_retry_ms = 0;
+    PoseState pose;
+    float half_w = 0, half_h = 0, fov_deg = 0;
+    bool fov_from_driver = false;
+    void update_fov() {
+        // Fill the glasses' FOV at the centre pose; diagonal FOV from the driver when published.
+        const auto published = pose_feed ? pose_feed->display_fov() : std::nullopt;
+        fov_from_driver = published.has_value();
+        const float diag = published.value_or(46.f);  // fallback is reported, never silent
+        fov_deg = diag;
+        const double d = std::tan(diag * M_PI / 360.0), a = height ? double(width) / height : 16.0 / 10.0;
+        half_w = float(d * a / std::sqrt(1 + a * a)); half_h = float(d / std::sqrt(1 + a * a));
+    }
     static void cap_buffer_size(void* data, ext_image_copy_capture_session_v1*, uint32_t w, uint32_t h) {
         static_cast<Capture*>(data)->constraints.size(w, h);
     }
@@ -244,12 +264,13 @@ struct Presentation::Impl : SurfaceRequests {
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
         if (s.gl) s.gl->resize(w, h);
+        s.half_w = 0;  // recompute FOV split for the new aspect
     }
     static void layer_closed(void* data, zwlr_layer_surface_v1*) { static_cast<Impl*>(data)->closed = true; }
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
-        if (s.view.animating()) s.cadence.invalidate();  // smooth zoom/slide: redraw every frame while animating
+        if (s.view.animating() || s.tracking_requested) s.cadence.invalidate();  // animate / follow the head every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -319,7 +340,13 @@ std::string Presentation::capture_report() const {
                ",\"height\":" + std::to_string(c.plan ? c.plan->height : 0) + ",\"format\":" + std::to_string(c.plan ? c.plan->format : 0) +
                ",\"stopped\":" + (c.stopped ? "true" : "false") + "}";
     }
-    out += "],\"composition\":";
+    out += "],\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
+           ",\"feed\":" + (impl_->pose_feed ? "true" : "false") + ",\"tracking\":" + (impl_->pose.tracking() ? "true" : "false") +
+           ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +
+           ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
+           (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
+           std::to_string(impl_->half_h) + "]}";
+    out += ",\"composition\":";
     out += impl_->gl ? impl_->gl->report() : std::string("{\"path\":\"cpu-blit\",\"fallback\":\"") + impl_->gl_fallback + "\"}";
     return out + "}";
 }
@@ -393,6 +420,11 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     impl_->cadence = PatternCadence(duration_ms, monotonic_ms());
     return {};
 }
+void Presentation::enable_tracking(std::string prefix) {
+    if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
+    impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
+}
+void Presentation::recenter() { if (impl_) impl_->pose.recenter(); }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing) {
     if (!impl_) return;
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
@@ -414,6 +446,17 @@ Status Presentation::draw_test_pattern() {
         }
         const auto& first = s.captures.front()->plan;
         s.view.advance(double(monotonic_ms()));
+        Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        if (s.tracking_requested) {  // late sample: just before drawing
+            const auto now = monotonic_ms();
+            if (!s.pose_feed && now >= s.pose_retry_ms) {
+                s.pose_feed = PoseFeed::open(s.pose_prefix, s.pose_why); s.pose_retry_ms = now + 1000;
+                if (s.pose_feed) s.half_w = 0;  // pick up the driver's FOV
+            }
+            s.pose.update(s.pose_feed ? s.pose_feed->read() : std::nullopt, double(now));
+            head = s.pose.view();
+        }
+        if (!s.half_w) s.update_fov();
         auto tiles = blended_layout(s.captures.size(), float(s.width), float(s.height), float(first ? first->width : 1920),
                                     float(first ? first->height : 1080), s.view.spacing(), s.view.zoom(), s.view.position());
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
@@ -425,7 +468,7 @@ Status Presentation::draw_test_pattern() {
             *slot = {&s, proxy, *s.metrics.submit(), false, false};
             wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
         } else s.metrics.submit();
-        if (!s.gl->draw_and_swap(tiles, int(s.view.selected()), 1.f - s.view.zoom()))
+        if (!s.gl->draw_and_swap(tiles, int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};

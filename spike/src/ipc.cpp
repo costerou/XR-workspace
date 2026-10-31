@@ -43,6 +43,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "select") op = ControlOp::select;
         else if (name == "recover") op = ControlOp::recover;
         else if (name == "view") op = ControlOp::view;
+        else if (name == "recenter") op = ControlOp::recenter;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {

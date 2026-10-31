@@ -13,6 +13,8 @@ def load_consent(path, instance, output, *, presentation_only=False, animate_pat
     data = read_private_json(path)
     keys = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'allow',
             'capture', 'input', 'sdk', 'mode_switch'}
+    if isinstance(data, dict) and 'tracking' in data and not presentation_only:
+        keys.add('tracking')  # optional head-tracking scope; validated below
     if animate_pattern_ms is not None:
         from .supervisor import validate_pattern_duration
         validate_pattern_duration(animate_pattern_ms)
@@ -30,7 +32,10 @@ def load_consent(path, instance, output, *, presentation_only=False, animate_pat
     if not presentation_only and type(data['capture']) is str and data['capture'] == CAPTURE_SCOPE:
         # Explicit managed-output capture grant: only the run's own XR-n outputs, in memory.
         if data['allow'] != CAPTURE_ALLOW: raise ValueError('exact managed-output capture scope required')
+        if 'tracking' in data and (type(data['tracking']) is not str or data['tracking'] != 'xrlinuxdriver'):
+            raise ValueError('tracking scope must be "xrlinuxdriver"')
     else:
+        if 'tracking' in data: raise ValueError('head tracking requires managed-output capture')
         allowed = ['test-pattern'] if presentation_only else ['headless-outputs', 'test-pattern']
         if data['allow'] != allowed or data['capture'] is not False: raise ValueError('exact test-pattern scope required')
     if any(data[k] is not False for k in ('input', 'sdk', 'mode_switch')):
@@ -64,7 +69,17 @@ def main(argv=None):
         p.add_argument('--instance', required=True); p.add_argument('--output', required=True)
         p.add_argument('--consent-file', type=Path, required=True)
         if command == 'isolated-recover': p.add_argument('--journal', type=Path, required=True)
+    p = commands.add_parser('tracking', help='network-blocked XRLinuxDriver head-tracking driver')
+    p.add_argument('action', choices=('start', 'stop', 'status'))
     args = parser.parse_args(argv)
+    if args.command == 'tracking':
+        from . import tracking
+        try:
+            runtime = Path(os.environ['XDG_RUNTIME_DIR'])
+            result = getattr(tracking, args.action)(runtime)
+            print(json.dumps(result, sort_keys=True)); return 0
+        except (OSError, ValueError, KeyError) as exc:
+            print(f'blocked: {exc}', file=sys.stderr); return 2
     if args.command in ('isolated-run', 'isolated-recover'):
         return _isolated(args)
     try:
