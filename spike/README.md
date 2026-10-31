@@ -43,7 +43,8 @@ tracking quality; those remain untested. Historical reports are not rewritten.
 - `XR_ENABLE_HARDWARE` and `XR_ENABLE_SDK` default OFF and fail closed if enabled:
   those components are not implemented in Task 1.
 - Later dependencies and the component-scoped dependency ruling are documented in
-  [dependencies.md](dependencies.md). Missing native JSON remains a Task 2 blocker.
+  [dependencies.md](dependencies.md). Native JSON is locally available; IPC
+  implementation remains Task 2.
 - Later desktop/capture work needs explicit selected physical session and recovery
   output approval. Input activity needs nominated-device permission. SDK work needs
   vendor-terms approval, approved absolute `XR_SDK_ROOT`, package hash and named-pair
