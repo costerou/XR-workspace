@@ -26,16 +26,32 @@ if(XR_ENABLE_OWNERSHIP_PLUGIN)
   target_compile_options(ownership_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   target_link_libraries(ownership_test PRIVATE xr_ownership)
   add_test(NAME ownership COMMAND ownership_test)
+  add_executable(ownership_pair_test tests/ownership_pair_test.cpp)
+  target_link_libraries(ownership_pair_test PRIVATE xr_ownership)
+  target_compile_options(ownership_pair_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME ownership_pair COMMAND ownership_pair_test)
   add_executable(ownership_native_test tests/ownership_native_test.cpp)
   target_compile_features(ownership_native_test PRIVATE cxx_std_23)
   target_include_directories(ownership_native_test PRIVATE ownership)
   target_link_libraries(ownership_native_test PRIVATE xr_ownership PkgConfig::HYPRLAND PkgConfig::AQUAMARINE)
   target_compile_options(ownership_native_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME ownership_pair_wire COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/ownership_pair_wire_test.py" "$<TARGET_FILE:ownership_test>")
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_ownership_methods.py"
       "${CMAKE_CURRENT_SOURCE_DIR}/ownership/plugin.cpp" "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc"
     DEPENDS ownership/plugin.cpp tests/extract_ownership_methods.py VERBATIM)
+  add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_methods.inc" "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_broker.inc"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_pair_methods.py"
+      "${CMAKE_CURRENT_SOURCE_DIR}/ownership/plugin.cpp" "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_methods.inc"
+    DEPENDS ownership/plugin.cpp tests/extract_pair_methods.py VERBATIM)
+  add_executable(ownership_pair_boundary_test tests/ownership_pair_boundary_test.cpp
+    "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_methods.inc" "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_broker.inc")
+  target_include_directories(ownership_pair_boundary_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+  target_link_libraries(ownership_pair_boundary_test PRIVATE xr_ownership)
+  target_compile_options(ownership_pair_boundary_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME ownership_pair_boundary COMMAND ownership_pair_boundary_test)
   add_executable(ownership_offset_test tests/ownership_offset_test.cpp "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc")
   target_include_directories(ownership_offset_test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
   target_link_libraries(ownership_offset_test PRIVATE xr_ownership)
