@@ -38,5 +38,20 @@ host lacking JSON, the actionable missing package error remains; an approved ins
 `CMAKE_PREFIX_PATH` or `nlohmann_json_DIR`. Hardware/SDK ON also fail closed as
 unimplemented; they do not inspect or load devices/binaries.
 
+## Task 3 offline presentation build
+
+The default `XR_ENABLE_PRESENTATION=ON` target now requires local
+`wayland-client >=1.22`, `wayland-protocols`, `wayland-scanner`, and a C compiler
+for the scanner-generated descriptors, in addition to the IPC dependencies.
+Verified here: wayland-client 1.26.0, wayland-protocols 1.49, GNU C/C++ 16.2.1.
+The exact wlr XML pin/hash and notices are in `protocols/PROVENANCE.md`.
+No packages were missing or installed. Hardware/SDK remain OFF; compiling a
+renderer does not authorize connecting it to a compositor. For layout-only
+use `-DXR_ENABLE_IPC=OFF -DXR_ENABLE_PRESENTATION=OFF`.
+
+The first pattern uses generated SHM pixels, not desktop capture or an EGL
+fallback. EGL/GLES/GBM/libdrm remain the intended later GPU capture prerequisites;
+this pattern does not qualify those paths or sustained cadence.
+
 No configuration path installs packages, fetches network content or changes the
-desktop. No real frame-rate or tracking measurements have been made in Task 1.
+desktop. No real frame-rate or tracking measurements have been made.
