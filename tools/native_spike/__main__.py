@@ -5,9 +5,9 @@ import os
 from pathlib import Path
 import stat
 import sys
-from .hyprland import HyprlandClient, RecoveryAdapter, OwnershipBlocked, monitors, plan_outputs
+from .hyprland import HyprlandClient, monitors
 from .ipc import strict_json, token
-from .journal import Journal, recover
+
 
 
 def load_consent(path, instance, output, *, presentation_only=False, animate_pattern_ms=None):
@@ -59,6 +59,8 @@ def main(argv=None):
         if command == 'present':
             p.add_argument('--animate-pattern-ms', help='generated SHM animation, 1..60000 ms; exact consent required (default static)')
     p = commands.add_parser('recover'); p.add_argument('--journal', type=Path, required=True)
+    p.add_argument('--instance', required=True); p.add_argument('--output', required=True)
+    p.add_argument('--consent-file', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         animation = getattr(args, 'animate_pattern_ms', None)
@@ -68,14 +70,14 @@ def main(argv=None):
             animation = int(animation)
         # Consent check occurs before runtime lookup, socket connect, or file creation.
         consent = load_consent(args.consent_file, args.instance, args.output,
-                               presentation_only=args.command == 'present', animate_pattern_ms=animation) if args.command in ('run', 'present') else None
-        if args.command == 'recover':
-            # No saved independent incarnation continuity survives restart. In particular,
-            # do not scan sessions or infer an instance/output from a journal filename.
-            raise OwnershipBlocked('restart recovery blocked: no independent persisted incarnation proof; '
-                                   'journal preserved. Do not remove outputs by name.')
+                               presentation_only=args.command == 'present', animate_pattern_ms=animation) if args.command in ('run', 'present', 'recover') else None
         runtime = Path(os.environ['XDG_RUNTIME_DIR'])
         client = HyprlandClient(args.instance, runtime)
+        if args.command == 'recover':
+            from .managed import recover_managed
+            result = recover_managed(client, consent, args.journal)
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result['complete'] else 2
         result = preflight(client)
         if args.command == 'preflight':
             print(json.dumps(result, sort_keys=True)); return 0
@@ -86,14 +88,10 @@ def main(argv=None):
             returncode = run_presentation_only(client, consent['run_id'], result['session'],
                                               args.output, consent['recovery_output'], wayland, animate_pattern_ms=animation)
             return 0 if returncode == 0 else 2
-        adapter = RecoveryAdapter(client, approved_physical=consent['recovery_output'])
-        if not any(o['physical'] for o in adapter.query('outputs')):
-            raise ValueError('approved usable independent physical recovery output missing')
-        target = [m for m in result['monitors'] if m['name'] == consent['output'] and not m['disabled'] and m['dpmsStatus']]
-        if len(target) != 1: raise ValueError('approved presentation output missing')
-        plan_outputs(result['monitors'], client.query('workspaces'), consent['run_id'])
-        client.require_output_ownership()  # stop BEFORE journaling, output creation or renderer launch
-        raise OwnershipBlocked('managed lifecycle not qualified; no renderer launched')
+        from .managed import run_managed
+        result = run_managed(client, consent, runtime)
+        print(json.dumps(result, sort_keys=True))
+        return 0 if result['complete'] and result['renderer_returncode'] == 0 else 2
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f'blocked: {exc}', file=sys.stderr); return 2
 

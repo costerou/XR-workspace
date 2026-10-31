@@ -61,7 +61,7 @@ class PresentationOnlyTests(unittest.TestCase):
         with patch.object(cli, 'HyprlandClient', return_value=self.raw), \
              patch.object(self.raw, 'connect_wayland', create=True, return_value=self.wayland), \
              patch('subprocess.Popen', return_value=Exited()) as spawn, \
-             patch.object(cli.Journal, 'open', side_effect=AssertionError('journal forbidden')):
+             patch('tools.native_spike.journal.Journal.open', side_effect=AssertionError('journal forbidden')):
             self.assertEqual(cli.main(self.args()), 0)
             self.assertEqual(spawn.call_count, 1)
             self.assertNotIn('--animate-pattern-ms', spawn.call_args.args[0])

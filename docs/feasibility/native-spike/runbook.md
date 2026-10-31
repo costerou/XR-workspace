@@ -56,8 +56,11 @@ then registry readback before marking done. It never emits name-based output
 removal. Missing plugin, unknown UUID, epoch loss, unreachable windows, changed
 rules or unusable fallback preserve unresolved journal records. A fresh client
 may recover only UUIDs retained in the surviving registry; it may not replay
-creation from an existing journal. The public `run`/`recover` CLI remains gated
-until the isolated-runtime workflow and consent surface are qualified.
+creation from an existing journal. The public `run`/`recover` plumbing now exists
+behind explicit P2 consent and the unchanged two-physical-output checks. This is
+offline-tested code, **not permission to run on the host or runtime acceptance**.
+See [managed-integration-report.md](managed-integration-report.md) for the exact
+restart contract, evidence and remaining qualification gates.
 
 Next test requires **new explicit isolated-compositor authorization**: load the
 built module into a disposable matching compositor, use a qualified physical/DRM
@@ -104,21 +107,38 @@ hardware, previous runs, or a file it fabricated itself.
 ```sh
 python -m tools.native_spike preflight --instance INSTANCE
 python -m tools.native_spike run --instance INSTANCE --output DP-2 --consent-file /absolute/private/consent.json
-python -m tools.native_spike recover --journal /absolute/private/journal.json
+python -m tools.native_spike recover --journal /absolute/private/journal.json --instance INSTANCE --output DP-2 --consent-file /absolute/private/consent.json
 ```
 
 `XDG_RUNTIME_DIR` must identify the approved user's runtime directory.
 `preflight` is read-only but is **a live compositor query**, not an offline test.
 It verifies actual IPC peer/process/lock identity and prints the snapshot and
 explicit blocked ownership status. It never discovers an arbitrary default
-instance. `run` rejects missing/invalid consent before any connection or write;
-with valid consent it snapshots/checks the selected outputs and then stops before
-journal/output creation or renderer launch. The public `recover` command still
-returns exit 2: its filename-only CLI has not been extended to carry the explicit
-verified instance and approved fallback needed for a broker handshake. The
-internal broker client can reconcile a surviving registry after supervisor
-restart. No path infers an instance from filenames or scans sessions, and epoch
-loss remains unproven. Do not bypass this gate by manually removing names.
+instance. `run` rejects missing/invalid consent before any connection or write.
+It validates the independent physical pair and broker, then creates a private
+`$XDG_RUNTIME_DIR/xr-workspace-spike/RUN/journal.json`. Before output mutation it
+fsyncs the exact instance, presentation/fallback names, broker epoch and fallback
+handle. Each output still has its own pending intent before create and separate
+inspect before confirmation. A nonblocking lifetime owner lock excludes another
+managed run/recovery for that journal. Existing bound runs require recovery, not
+creation replay, even when all operations are done.
+
+The supervisor launches the generated static pattern, not captured desktops.
+Its spawn-only validation worker checks the pair and all owned outputs without
+blocking heartbeat expiry/reaping. Guard failure or deadline expiry stops the
+renderer; cleanup follows renderer and worker teardown. Partial create,
+connection and spawn failures also attempt handle-addressed recovery. Incomplete
+recovery retains the journal; storage errors are fatal, not silently retried.
+
+`recover` requires explicit instance/output and a private P2 consent file for the
+same run and saved output pair; it never launches a renderer or creates outputs.
+It requires an existing journal and the same verified compositor session, and
+uses the **saved epoch/fallback token without a new hello**. Missing legacy
+context cannot be reconstructed from names or a fresh broker handshake. A lost
+epoch, unknown UUID or failed evacuation preserves pending records. The manual
+CLI conservatively retains the two-output prerequisite; automatic teardown can
+still use the exact surviving fallback if the presentation output disappears.
+No path infers an instance from filenames, scans sessions or loads a plugin.
 
 ## Ownership blocker and stop behavior
 
@@ -154,17 +174,17 @@ headless custom-mode behavior, workspace/window migration and visual recovery
 must still be exercised in the separately approved isolated/physical sessions.
 See the ownership broker report for concrete coverage and limitations.
 
-The internal `run_presentation` helper wires a fixed native executable to the
-Task 2 watchdog with private inherited startup/heartbeat and preconnected Wayland
-sockets, validates identical IPC/Wayland peer credentials, and recovers with
-the supplied recovery backend only after child exit. Its gate now accepts the
-broker adapter; the raw adapter still refuses. It is not reached by CLI run.
-An offline broker/journal/synthetic-child test verifies the integration, not the
-renderer or a compositor. Public control dispatch is not wired
-to a live lifecycle; no arbitrary public command is accepted.
+The managed CLI uses the shared fixed-executable launcher and Task 2 watchdog
+with private inherited startup/heartbeat and preconnected Wayland sockets. It
+validates identical IPC/Wayland peer credentials and recovers only after launcher
+teardown. The older low-level `run_presentation` helper remains available but is
+not the CLI orchestration entry point. Offline synthetic transports/socketpairs
+and harmless subprocess tests do not qualify the native renderer/compositor.
+Public control dispatch is not wired to a live lifecycle; no arbitrary public
+command is accepted.
 
-After the ownership boundary is resolved, finish the lifecycle and CLI wiring,
-then obtain P2 and separately verify three distinguishable local windows, one per
+After isolated managed-CLI/supervisor qualification and the remaining adversarial
+gates, obtain P2 and separately verify three distinguishable local windows, one per
 managed workspace; keyboard/mouse reachability without presentation focus;
 normal exit and renderer-crash restoration against the journal. No capture,
 input-device access, tracking, SDK, mode change or sustained 120 Hz claim follows

@@ -20,6 +20,19 @@ class OwnershipBrokerClient:
         self.fallback = None
         self.request_id = 0
 
+    @classmethod
+    def from_journal(cls, transport, journal):
+        """Restore authority, never discover/adopt a replacement epoch or fallback."""
+        from .journal import validate_broker
+        with journal.transaction():
+            context = validate_broker(journal.broker)
+        if transport.instance != context['instance']:
+            raise OwnershipBlocked('saved compositor instance mismatch')
+        client = cls(transport, journal.run_id, journal.session, context['recovery_output'])
+        client.epoch, client.fallback = context['epoch'], context['fallback']
+        client.verified_session()
+        return client
+
     def verified_session(self):
         observed = self.transport.verified_session()
         if observed != {'id': self.session}: raise OwnershipBlocked('compositor session changed')
