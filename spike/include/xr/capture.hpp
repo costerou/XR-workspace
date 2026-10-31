@@ -18,6 +18,22 @@ struct ShmPlan { std::uint32_t width = 0, height = 0, stride = 0, format = 0; st
 // Choose a 32-bit SHM layout from the session's constraints; nothing else is accepted.
 std::optional<ShmPlan> plan_capture_buffer(std::uint32_t width, std::uint32_t height, const std::vector<std::uint32_t>& formats);
 
+// Session constraints arrive as any order of shm_format/buffer_size events, then done
+// (Hyprland efb5099 sends formats first). Accumulate; reset only once a batch is complete.
+class SessionConstraints {
+public:
+    void size(std::uint32_t width, std::uint32_t height) { width_ = width; height_ = height; }
+    void format(std::uint32_t format) { formats_.push_back(format); }
+    std::optional<ShmPlan> done() {
+        auto plan = plan_capture_buffer(width_, height_, formats_);
+        width_ = height_ = 0; formats_.clear();
+        return plan;
+    }
+private:
+    std::uint32_t width_ = 0, height_ = 0;
+    std::vector<std::uint32_t> formats_;
+};
+
 struct Rect { std::uint32_t x = 0, y = 0, width = 0, height = 0; };
 // n equal tiles side by side, aspect-preserving, centred vertically, inside dst.
 std::vector<Rect> side_by_side(std::size_t count, std::uint32_t dst_width, std::uint32_t dst_height,
