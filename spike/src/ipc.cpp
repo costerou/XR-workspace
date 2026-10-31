@@ -42,11 +42,18 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "stop") op = ControlOp::stop;
         else if (name == "select") op = ControlOp::select;
         else if (name == "recover") op = ControlOp::recover;
+        else if (name == "view") op = ControlOp::view;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
             if (j["payload"].size() != 1 || !j["payload"].contains("output_id") || !token(j["payload"]["output_id"])) return invalid();
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
+        } else if (op == ControlOp::view) {
+            const auto& p = j["payload"];
+            if (p.size() != 3 || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p["zoomed"].is_boolean() ||
+                !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() ||
+                p["selected"].get<std::uint64_t>() > 2 || p["spacing"].get<std::uint64_t>() > 400) return invalid();
+            payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>()};
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

@@ -5,6 +5,7 @@
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "xr/capture.hpp"
 #include "gl.hpp"
+#include "xr/view.hpp"
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
 // byte-identical; scope the C++ spelling adaptation to the generated C header.
 #define namespace layer_namespace
@@ -113,6 +114,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
+    ViewAnimator view{220.f};
     static void cap_buffer_size(void* data, ext_image_copy_capture_session_v1*, uint32_t w, uint32_t h) {
         static_cast<Capture*>(data)->constraints.size(w, h);
     }
@@ -247,6 +249,7 @@ struct Presentation::Impl : SurfaceRequests {
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
+        if (s.view.animating()) s.cadence.invalidate();  // smooth zoom/slide: redraw every frame while animating
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -390,6 +393,12 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     impl_->cadence = PatternCadence(duration_ms, monotonic_ms());
     return {};
 }
+void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing) {
+    if (!impl_) return;
+    impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
+                           spacing, double(monotonic_ms()));
+    impl_->cadence.invalidate();
+}
 bool Presentation::finished() const { return impl_ && impl_->cadence.finished(monotonic_ms()); }
 Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
@@ -404,7 +413,9 @@ Status Presentation::draw_test_pattern() {
             s.uploaded[i] = c.frames;
         }
         const auto& first = s.captures.front()->plan;
-        auto tiles = side_by_side(s.captures.size(), s.width, s.height, first ? first->width : 1920, first ? first->height : 1080);
+        s.view.advance(double(monotonic_ms()));
+        auto tiles = blended_layout(s.captures.size(), float(s.width), float(s.height), float(first ? first->width : 1920),
+                                    float(first ? first->height : 1080), s.view.spacing(), s.view.zoom(), s.view.position());
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
         if (s.presentation) {
             auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });
@@ -414,7 +425,8 @@ Status Presentation::draw_test_pattern() {
             *slot = {&s, proxy, *s.metrics.submit(), false, false};
             wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
         } else s.metrics.submit();
-        if (!s.gl->draw_and_swap(tiles)) return Error{"gl", "draw or swap failed"};  // swap attaches and commits
+        if (!s.gl->draw_and_swap(tiles, int(s.view.selected()), 1.f - s.view.zoom()))
+            return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
         return {};

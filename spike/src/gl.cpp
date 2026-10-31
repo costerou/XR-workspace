@@ -19,6 +19,8 @@ const char* kVertex =
 const char* kFragment =
     "precision mediump float; varying vec2 v; uniform sampler2D tex;\n"
     "void main() { vec4 c = texture2D(tex, v); gl_FragColor = vec4(c.b, c.g, c.r, 1.0); }\n";
+const char* kColorVertex = "attribute vec2 pos; void main() { gl_Position = vec4(pos, 0.0, 1.0); }\n";
+const char* kColorFragment = "precision mediump float; uniform vec4 color; void main() { gl_FragColor = color; }\n";
 GLuint compile(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, nullptr); glCompileShader(shader);
@@ -42,8 +44,8 @@ struct GlCompositor::Impl {
     EGLContext context = EGL_NO_CONTEXT;
     EGLSurface surface = EGL_NO_SURFACE;
     wl_egl_window* window = nullptr;
-    GLuint program = 0;
-    GLint pos = -1, uv = -1, sampler = -1;
+    GLuint program = 0, color_program = 0;
+    GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
     std::uint32_t width = 0, height = 0;
@@ -55,6 +57,7 @@ struct GlCompositor::Impl {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             if (program) glDeleteProgram(program);
+            if (color_program) glDeleteProgram(color_program);
             eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
             if (surface != EGL_NO_SURFACE) eglDestroySurface(display, surface);
             if (context != EGL_NO_CONTEXT) eglDestroyContext(display, context);
@@ -94,6 +97,13 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     glDeleteShader(vs); glDeleteShader(fs);
     GLint linked = 0; glGetProgramiv(s.program, GL_LINK_STATUS, &linked);
     if (!linked) { why = "shader link"; return nullptr; }
+    GLuint cvs = compile(GL_VERTEX_SHADER, kColorVertex), cfs = compile(GL_FRAGMENT_SHADER, kColorFragment);
+    if (!cvs || !cfs) { why = "shader compile"; return nullptr; }
+    s.color_program = glCreateProgram(); glAttachShader(s.color_program, cvs); glAttachShader(s.color_program, cfs); glLinkProgram(s.color_program);
+    glDeleteShader(cvs); glDeleteShader(cfs);
+    glGetProgramiv(s.color_program, GL_LINK_STATUS, &linked);
+    if (!linked) { why = "shader link"; return nullptr; }
+    s.color_pos = glGetAttribLocation(s.color_program, "pos"); s.color = glGetUniformLocation(s.color_program, "color");
     s.pos = glGetAttribLocation(s.program, "pos"); s.uv = glGetAttribLocation(s.program, "uv");
     s.sampler = glGetUniformLocation(s.program, "tex");
     s.textures.resize(sources);
@@ -136,16 +146,31 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
     return t.valid;
 }
 
-bool GlCompositor::draw_and_swap(const std::vector<Rect>& tiles) {
+bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha) {
     auto& s = *impl_;
     const auto start = now_us();
+    const float vw = float(s.width), vh = float(s.height);
+    auto quad = [&](const FRect& r, GLfloat* out) {
+        const float x0 = 2 * r.x / vw - 1, x1 = 2 * (r.x + r.width) / vw - 1, y0 = 1 - 2 * r.y / vh, y1 = 1 - 2 * (r.y + r.height) / vh;
+        const GLfloat v[] = {x0, y0, x1, y0, x0, y1, x1, y1};
+        std::memcpy(out, v, sizeof(v));
+    };
     glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
     glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
+    if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
+        const float border = 6.f;
+        const auto& t = tiles[std::size_t(highlight)];
+        GLfloat positions[8]; quad({t.x - border, t.y - border, t.width + 2 * border, t.height + 2 * border}, positions);
+        glUseProgram(s.color_program);
+        glUniform4f(s.color, 0.48f * highlight_alpha, 0.64f * highlight_alpha, 0.97f * highlight_alpha, 1.f);  // accent over black
+        glVertexAttribPointer(static_cast<GLuint>(s.color_pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
+        glEnableVertexAttribArray(static_cast<GLuint>(s.color_pos));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
     glUseProgram(s.program); glUniform1i(s.sampler, 0); glActiveTexture(GL_TEXTURE0);
     for (std::size_t i = 0; i < tiles.size() && i < s.textures.size(); ++i) {
-        if (!s.textures[i].valid) continue;
-        const auto q = clip_quad(tiles[i], s.width, s.height);
-        const GLfloat positions[] = {q.x0, q.y0, q.x1, q.y0, q.x0, q.y1, q.x1, q.y1};
+        if (!s.textures[i].valid || tiles[i].x + tiles[i].width < 0 || tiles[i].x > vw) continue;  // fully off-screen
+        GLfloat positions[8]; quad(tiles[i], positions);
         const GLfloat uvs[] = {0, 0, 1, 0, 0, 1, 1, 1};
         glBindTexture(GL_TEXTURE_2D, s.textures[i].id);
         glVertexAttribPointer(static_cast<GLuint>(s.pos), 2, GL_FLOAT, GL_FALSE, 0, positions);

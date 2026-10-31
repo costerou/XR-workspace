@@ -58,6 +58,8 @@ public:
     void close();
     std::string timing_report() const;
     std::string capture_report() const;  // bounded JSON; never contains pixel data
+    // Animate the glasses view (overview / zoom into `selected`, gap `spacing`); capture mode only.
+    void set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing);
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

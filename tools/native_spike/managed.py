@@ -57,6 +57,36 @@ def run_managed(client, consent, runtime):
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs))
 
 
+from contextlib import contextmanager
+
+
+@contextmanager
+def view_controls(client, run_id, session, capture):
+    """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds."""
+    if not capture:
+        yield None
+        return
+    import sys
+    from . import view
+    from .ipc import PrivateServer
+    settings = view.settings_path()
+    server = PrivateServer(client.runtime_dir, run_id, session)
+    installed = False
+    try:
+        control = view.ViewControl(view.ViewState(capture, view.load_spacing(settings)), run_id, session,
+                                   lambda name: client.mutate(view.focus_command(name)), settings, server)
+        client.install_view_binds(sys.executable, str(Path(view.__file__).with_name('xr_control.py')),
+                                  str(server.path), run_id, session)
+        installed = True
+        yield control
+    finally:
+        try:
+            if installed: client.remove_view_binds()
+        except (OSError, ValueError):
+            pass  # never block recovery on bind removal; binds also vanish on config reload
+        server.close()
+
+
 def capture_names(consent, specs):
     from .supervisor import CAPTURE_SCOPE
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
@@ -75,8 +105,9 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         create_outputs(specs, journal, broker)
         if guard is None: guard = ManagedGuard(broker, output, specs)
         guard()
-        with client.connect_wayland(session) as wayland:
-            returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture)
+        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture) as control:
+            returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
+                                 control=control)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.

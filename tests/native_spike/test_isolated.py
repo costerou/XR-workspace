@@ -83,6 +83,13 @@ class PairTransport:
 
     def verified_session(self): return {'id': 'session'}
 
+    binds = None
+    def install_view_binds(self, python, client, sock, run_id, session):
+        from tools.native_spike.view import install_binds_lua
+        self.binds = install_binds_lua(python, client, sock, run_id, session)  # validates like the real client
+    def remove_view_binds(self): self.binds = 'removed'
+    def mutate(self, command): return 'ok'
+
     def query(self, kind):
         monitor = {'id': 0, 'name': 'Virtual-1', 'width': 1280, 'height': 800, 'x': 0, 'y': 0,
                    'scale': 1.0, 'transform': 0, 'refreshRate': 74.994, 'disabled': False,
@@ -397,13 +404,21 @@ class IsolatedTests(unittest.TestCase):
                     self.addCleanup(endpoint.close)
                     return Child()
                 changes = {'capture': 'managed-outputs', 'allow': ['headless-outputs', 'capture-managed-outputs']} if granted else {}
-                with patch('subprocess.Popen', side_effect=spawn):
+                binds_during = []
+                original = spawn
+                def spawn(argv, _original=original, **kwargs):
+                    binds_during.append(self.transport.binds); return _original(argv, **kwargs)
+                with patch('subprocess.Popen', side_effect=spawn), patch.dict(os.environ, XDG_CONFIG_HOME=str(self.base / 'cfg')):
                     code = self.run_cli(['isolated-run', '--instance', INSTANCE, '--output', 'Virtual-1',
                                          '--consent-file', str(self.consent(**changes))])
                 self.assertEqual(code, 0)
                 argv = seen[0]
-                if granted: self.assertEqual(argv[argv.index('--capture') + 1], 'XR-1,XR-2,XR-3')
-                else: self.assertNotIn('--capture', argv)
+                if granted:
+                    self.assertEqual(argv[argv.index('--capture') + 1], 'XR-1,XR-2,XR-3')
+                    self.assertIn('CTRL ALT + up', binds_during[0])   # runtime binds exist while running
+                    self.assertEqual(self.transport.binds, 'removed')  # and are removed at stop
+                else:
+                    self.assertNotIn('--capture', argv); self.assertIsNone(self.transport.binds)
 
     def test_cli_rejects_before_broker_on_scope_or_evidence_mismatch(self):
         cases = {'boot': dict(consent={'boot_id': 'ffffffff-0000-4000-8000-000000000000'}),

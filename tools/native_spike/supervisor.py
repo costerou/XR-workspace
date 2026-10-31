@@ -39,7 +39,7 @@ class PhysicalPairGuard:
 
 
 class Supervisor:
-    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None):
+    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None):
         if not math.isfinite(grace) or grace < 0: raise ValueError("invalid grace")
         self.child, self.recovery = child, recovery
         self.last_heartbeat = time.monotonic() if now is None else now
@@ -49,6 +49,7 @@ class Supervisor:
         self.kill_sent = False
         self.result = None
         self.guard = guard
+        self.control = control  # optional ViewControl: user ops on the run's private control socket
     def heartbeat(self, now):
         if self.stopping_at is None and math.isfinite(now) and now >= self.last_heartbeat:
             self.last_heartbeat = now
@@ -70,6 +71,27 @@ class Supervisor:
             if self.child.poll() is None: return
         self.result = self.recovery()
         self.finished = True
+    def _control_ready(self, renderer_socket):
+        """One bounded user op (peer UID, framing, replay checked by PrivateServer); never fatal."""
+        try:
+            conn, _ = self.control.server.socket.accept()
+        except OSError:
+            return
+        with conn:
+            try:
+                message = self.control.server.receive(conn)
+                self.control.server.queue.pop()
+            except (ValueError, OSError, PermissionError):
+                return
+        frame = self.control.on_message(message)
+        if frame is None or self.stopping_at is not None: return
+        try:
+            renderer_socket.settimeout(0.25); renderer_socket.sendall(frame)
+        except OSError:
+            self.disconnect(time.monotonic())
+        finally:
+            renderer_socket.settimeout(None)
+
     def run(self, heartbeat_socket, *, interval=0.05):
         """Run in supervisor process, not renderer. EOF means disconnect; only b'H' is valid."""
         if not 0 < interval <= 0.1: raise ValueError("invalid poll interval")
@@ -88,6 +110,7 @@ class Supervisor:
                 sender.close()
             with selectors.DefaultSelector() as selector:
                 selector.register(heartbeat_socket, selectors.EVENT_READ)
+                if self.control is not None: selector.register(self.control.server.socket, selectors.EVENT_READ)
                 while not self.finished:
                     now = time.monotonic()
                     # Expiry precedes reading queued heartbeats: delayed bytes
@@ -106,6 +129,9 @@ class Supervisor:
                         now = time.monotonic()
                         self.tick(now)
                         if self.finished: break
+                        if self.control is not None and key.fileobj is self.control.server.socket:
+                            self._control_ready(heartbeat_socket)
+                            continue
                         data = heartbeat_socket.recv(256)
                         if data and all(byte == ord("H") for byte in data): self.heartbeat(now)
                         else:
@@ -183,7 +209,7 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None):
+            capture=None, control=None):
     """Shared child lifetime only; authorization remains in distinct callers."""
     import json
     import os
@@ -216,12 +242,13 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
             # No parent reference may retain compositor surfaces after child exit.
             wayland_socket.close()
         child_socket.close()
-        watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard)
+        watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard, control=control)
         try:
             try:
                 parent.settimeout(0.25)
                 parent.sendall((json.dumps({'schema': 1, 'request_id': 1, 'run_id': run_id,
                     'session': session, 'op': 'start', 'payload': {}}) + '\n').encode())
+                if control is not None: parent.sendall(control.initial_frame())  # saved spacing, overview
                 parent.settimeout(None)
             except OSError:
                 watchdog.disconnect(time.monotonic())

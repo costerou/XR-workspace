@@ -98,14 +98,29 @@ class HyprlandClient:
         # Managed output lifecycle is exclusively broker/handle addressed.
         # This host uses Lua config; legacy keyword monitor is not a fallback.
         patterns = [r'keyword input:follow_mouse [0-3]',
-                    rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})']
+                    rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})',
+                    r'dispatch hl\.dsp\.focus\(\{monitor="XR-[1-3]"\}\)']  # glasses view focus, managed outputs only
         if not isinstance(command, str) or len(command) > 512: raise ValueError('invalid mutation')
         if not any(re.fullmatch(p, command) for p in patterns): raise ValueError('mutation not allowlisted')
         for word in re.split(r'[ ,]', command):
             if word.startswith('XR-') and not re.fullmatch(OWNED, word): raise ValueError('invalid managed output name')
-        if command.startswith('dispatch') and int(command.split()[2]) > 2147483647:
+        if command.startswith('dispatch moveworkspacetomonitor') and int(command.split()[2]) > 2147483647:
             raise ValueError('invalid workspace')
         return self._request('/' + command).decode('utf-8', errors='strict').strip()
+
+    def install_view_binds(self, python, client, control_socket, run_id, session):
+        """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
+        from .view import install_binds_lua
+        self._eval(install_binds_lua(python, client, control_socket, run_id, session))
+
+    def remove_view_binds(self):
+        from .view import remove_binds_lua
+        self._eval(remove_binds_lua())
+
+    def _eval(self, code):
+        if len(code) > 4096: raise ValueError('bind code too large')
+        reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()
+        if reply != 'ok': raise ValueError('compositor rejected bind change')
 
     def verified_session(self):
         # A request establishes the actual SO_PEERCRED process, not a configured echo.
