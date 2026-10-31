@@ -1,12 +1,14 @@
-# Native spike: offline Task 1
+# Native spike: offline Tasks 1–2
 
-This is a compiled C++20 contract/layout test, not an XR renderer or a product.
-It uses only the standard library and never opens a display or a device.
+C++20 layout/control parsing plus Python private IPC, ownership journal and
+independent watchdog/recovery. This is not an XR renderer or a product.
+Offline tests never open a display or a device; native IPC uses local nlohmann_json.
 
 Run from the repository root:
 
 ```sh
 python -m unittest discover -s tests/probe -v
+python -m unittest discover -s tests/native_spike -v
 cmake -S spike -B build/native-spike -DXR_ENABLE_HARDWARE=OFF -DXR_ENABLE_SDK=OFF
 cmake --build build/native-spike
 ctest --test-dir build/native-spike --output-on-failure
@@ -20,7 +22,7 @@ and `validate_layout(std::span<const OutputSpec>) -> Status`. Validation rejects
 empty/duplicate IDs, zero unsigned dimensions/refresh and nonpositive/nonfinite
 scale. It does not assign IDs or mutate layouts. The owner supplies stable UUIDs;
 removing the middle element must not renumber the others. Placement relative to
-existing physical rectangles, overlap handling, IPC and rendering are later tasks;
+existing physical rectangles, overlap handling and rendering are later tasks;
 test coordinates are synthetic, not instructions to place real outputs.
 
 The Python diagnostics retain up to 256 original `availableModes` entries, each
@@ -43,8 +45,11 @@ tracking quality; those remain untested. Historical reports are not rewritten.
 - `XR_ENABLE_HARDWARE` and `XR_ENABLE_SDK` default OFF and fail closed if enabled:
   those components are not implemented in Task 1.
 - Later dependencies and the component-scoped dependency ruling are documented in
-  [dependencies.md](dependencies.md). Native JSON is locally available; IPC
-  implementation remains Task 2.
+  [dependencies.md](dependencies.md). Native JSON is locally available; IPC is
+  built by default (`XR_ENABLE_IPC=ON`; set OFF only for layout-only builds).
+- Exact Task 3 adapter/control contracts and offline evidence are in
+  `../.superpowers/sdd/2026-10-31-viture-native-spike/task-2-report.md`.
+  There is no live Hyprland adapter or automatic desktop startup here.
 - Later desktop/capture work needs explicit selected physical session and recovery
   output approval. Input activity needs nominated-device permission. SDK work needs
   vendor-terms approval, approved absolute `XR_SDK_ROOT`, package hash and named-pair

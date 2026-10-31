@@ -1,0 +1,53 @@
+#include "xr/ipc.hpp"
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <variant>
+
+void require(bool value) { if (!value) throw std::runtime_error("IPC assertion failed"); }
+std::string wire(unsigned id = 1) {
+    return "{\"schema\":1,\"request_id\":" + std::to_string(id) +
+        ",\"run_id\":\"run\",\"session\":\"session\",\"op\":\"status\",\"payload\":{}}\n";
+}
+int main() {
+    const auto good = xr::decode_control(wire());
+    require(std::holds_alternative<xr::ControlMessage>(good));
+    require(std::get<xr::ControlMessage>(good).schema == 1);
+    for (const auto& bad : {
+        std::string("{\"schema\":1,\"schema\":1}\n"),
+        std::string("{\"schema\":NaN}\n"),
+        std::string("{\"schema\":2}\n"),
+        std::string(16384, ' ') + "\n", wire().substr(0, wire().size()-1),
+        std::string("{\"schema\":1,\"request_id\":1,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"status\",\"payload\":{\"x\":1,\"x\":2}}\n"),
+        std::string("{\"schema\":1,\"request_id\":1,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"exec\",\"payload\":{}}\n")}) {
+        require(std::holds_alternative<xr::Error>(xr::decode_control(bad)));
+    }
+    for (const auto& [from, to] : {
+        std::pair<std::string, std::string>{"\"schema\":1", "\"schema\":2"},
+        {"\"schema\":1", "\"schema\":true"},
+        {"\"request_id\":1", "\"request_id\":0"},
+        {"\"request_id\":1", "\"request_id\":1.0"},
+        {"\"request_id\":1", "\"request_id\":18446744073709551616"},
+        {"\"payload\":{}", "\"payload\":{\"x\":NaN}"},
+        {"\"payload\":{}", "\"payload\":{\"x\":1e999}"},
+        {"\"payload\":{}", "\"payload\":{},\"command\":\"evil\""}}) {
+        auto bad = wire();
+        bad.replace(bad.find(from), from.size(), to);
+        require(std::holds_alternative<xr::Error>(xr::decode_control(bad)));
+    }
+    auto select = wire();
+    select.replace(select.find("status"), 6, "select");
+    select.replace(select.find("{}"), 2, "{\"output_id\":\"out\"}");
+    auto selected = xr::decode_control(select);
+    require(std::holds_alternative<xr::ControlMessage>(selected));
+    require(std::get<xr::SelectPayload>(std::get<xr::ControlMessage>(selected).payload).output_id == "out");
+    xr::ControlQueue wrong_session("run", "other");
+    require(std::holds_alternative<xr::Error>(wrong_session.push(wire())));
+    xr::ControlQueue queue("run", "session");
+    for (unsigned i = 1; i <= 8; ++i) require(std::holds_alternative<std::monostate>(queue.push(wire(i))));
+    require(std::holds_alternative<xr::Error>(queue.push(wire(9))));
+    require(queue.pop()->request_id == 1);
+    require(std::holds_alternative<xr::Error>(queue.push(wire(8))));
+    require(std::holds_alternative<std::monostate>(queue.push(wire(9))));
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay: PASS\n";
+}
