@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
         std::cout << "xr-native-spike: native output-bound layer-shell test pattern (no capture/SDK/input).\n"
                      "Launched only by the permission-gated Python supervisor with inherited capability sockets.\n"
                      "Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n"
-                     "Use python -m tools.native_spike run --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
+                     "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n";
         return 0;
     }
