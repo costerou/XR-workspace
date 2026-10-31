@@ -107,7 +107,7 @@ hardware, previous runs, or a file it fabricated itself.
 ```sh
 python -m tools.native_spike preflight --instance INSTANCE
 python -m tools.native_spike run --instance INSTANCE --output DP-2 --consent-file /absolute/private/consent.json
-python -m tools.native_spike recover --journal /absolute/private/journal.json --instance INSTANCE --output DP-2 --consent-file /absolute/private/consent.json
+python -m tools.native_spike recover --journal "$XDG_RUNTIME_DIR/xr-workspace-spike/RUN/journal.json" --instance INSTANCE --output DP-2 --consent-file /absolute/private/consent.json
 ```
 
 `XDG_RUNTIME_DIR` must identify the approved user's runtime directory.
@@ -132,6 +132,11 @@ recovery retains the journal; storage errors are fatal, not silently retried.
 
 `recover` requires explicit instance/output and a private P2 consent file for the
 same run and saved output pair; it never launches a renderer or creates outputs.
+`--journal` must name the canonical runtime path above, with `RUN` matching the
+consented run ID. Copied/renamed journals and symlink aliases are refused, even
+after the controller exits: they must not select a different owner lock or leave
+the canonical records stale. Recovery writes only the canonical journal. The
+existing no-follow and single-link checks still apply at that location.
 It requires an existing journal and the same verified compositor session, and
 uses the **saved epoch/fallback token without a new hello**. Missing legacy
 context cannot be reconstructed from names or a fresh broker handshake. A lost

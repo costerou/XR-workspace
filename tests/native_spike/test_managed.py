@@ -17,6 +17,10 @@ INSTANCE = 'a' * 40 + '_123_456'
 class ManagedTransport(Transport):
     instance = INSTANCE
 
+    def __init__(self, path):
+        super().__init__(path)
+        self.runtime_dir = path.parents[2]
+
     def query(self, kind):
         from test_hyprland import RawFixture
         snapshot = RawFixture().monitors
@@ -28,9 +32,12 @@ class ManagedTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.path = Path(self.tmp.name) / 'journal.json'
+        self.path = Path(self.tmp.name) / 'xr-workspace-spike' / 'run' / 'journal.json'
+        self.path.parent.mkdir(parents=True, mode=0o700)
+        self.path.parent.parent.chmod(0o700)
         self.journal = Journal.open(self.path, 'run', 'session')
         self.transport = Transport(self.path)
+        self.transport.runtime_dir = Path(self.tmp.name)
         self.broker = OwnershipBrokerClient(self.transport, 'run', 'session', 'DP-1')
 
     def test_restart_context_is_durable_before_first_create(self):
@@ -149,6 +156,112 @@ class ManagedTests(unittest.TestCase):
         snapshot[0]['mirrorOf'] = '1'
         with self.assertRaises(ValueError): guard()
 
+    def test_copied_journal_cannot_bypass_active_canonical_owner(self):
+        from tools.native_spike.journal import managed_owner
+        from tools.native_spike.managed import recover_managed
+        runtime = Path(self.tmp.name)
+        canonical = runtime / 'xr-workspace-spike' / 'run' / 'journal.json'
+        self.path = canonical
+        self.journal = Journal.open(canonical, 'run', 'session')
+        self.transport = ManagedTransport(canonical)
+        self.transport.runtime_dir = runtime
+        self.broker = OwnershipBrokerClient(self.transport, 'run', 'session', 'DP-1')
+        self.test_restart_context_is_durable_before_first_create()
+        copied = canonical.with_name('copied.json')
+        copied.write_bytes(canonical.read_bytes()); copied.chmod(0o600)
+        before = canonical.read_bytes()
+        consent = dict(instance=INSTANCE, run_id='run', output='DP-2', recovery_output='DP-1')
+        self.transport.events.clear()
+        with managed_owner(canonical):
+            with self.assertRaises(BlockingIOError):
+                with managed_owner(canonical):
+                    self.fail('canonical lifetime owner was not held')
+            with self.assertRaises((ValueError, OSError)):
+                recover_managed(self.transport, consent, copied)
+            self.assertEqual(self.transport.events, [], 'refusal must precede broker requests')
+            self.assertTrue(all(r['state'] == 'live' for r in self.transport.registry.values()))
+            self.assertEqual(canonical.read_bytes(), before)
+            self.assertEqual(copied.read_bytes(), before)
+        # Copies are never authoritative, even after the original owner exits.
+        with self.assertRaises((ValueError, OSError)):
+            recover_managed(self.transport, consent, copied)
+        self.assertEqual(self.transport.events, [])
+        self.assertTrue(recover_managed(self.transport, consent, canonical)['complete'])
+        self.assertEqual([r['state'] for r in Journal.open(canonical, 'run', 'session').operations], ['done'] * 3)
+        removed = self.transport.events.count('evacuate_remove')
+        self.assertEqual(removed, 3)
+        self.assertTrue(recover_managed(self.transport, consent, canonical)['complete'])
+        self.assertEqual(self.transport.events.count('evacuate_remove'), removed)
+
+    def test_recovery_rejects_copy_and_alias_paths_before_broker_requests(self):
+        from tools.native_spike.journal import managed_owner
+        from tools.native_spike.managed import recover_managed
+        self.test_restart_context_is_durable_before_first_create()
+        transport = ManagedTransport(self.path)
+        transport.registry = self.transport.registry
+        consent = dict(instance=INSTANCE, run_id='run', output='DP-2', recovery_output='DP-1')
+        before = self.path.read_bytes()
+        elsewhere = Path(self.tmp.name) / 'copied-run'
+        elsewhere.mkdir(mode=0o700)
+        copied = elsewhere / 'journal.json'
+        copied.write_bytes(before); copied.chmod(0o600)
+        symlink = self.path.with_name('alias.json')
+        symlink.symlink_to(self.path)
+        directory_alias = Path(self.tmp.name) / 'alias-dir'
+        directory_alias.symlink_to(self.path.parent, target_is_directory=True)
+        aliases = (copied, symlink, directory_alias / 'journal.json',
+                   self.path.parent / '..' / 'run' / 'journal.json')
+        for alias in aliases:
+            with self.subTest(alias=alias):
+                with managed_owner(self.path):
+                    with self.assertRaises((ValueError, OSError)):
+                        recover_managed(transport, consent, alias)
+                with self.assertRaises((ValueError, OSError)):
+                    recover_managed(transport, consent, alias)
+                self.assertEqual(transport.events, [])
+                self.assertEqual(self.path.read_bytes(), before)
+                if alias in (copied, symlink):
+                    self.assertFalse(alias.with_name(alias.name + '.owner').exists())
+        # Harmless lexical spelling still reaches the same canonical flock.
+        spelling = str(self.path.parent) + '/./journal.json'
+        with managed_owner(self.path):
+            with self.assertRaises(BlockingIOError): recover_managed(transport, consent, spelling)
+        self.assertTrue(recover_managed(transport, consent, spelling)['complete'])
+        self.assertEqual([r['state'] for r in Journal.open(self.path, 'run', 'session').operations], ['done'] * 3)
+
+    def test_canonical_location_keeps_no_follow_and_single_link_guards(self):
+        from tools.native_spike.managed import recover_managed
+        self.test_restart_context_is_durable_before_first_create()
+        transport = ManagedTransport(self.path)
+        transport.registry = self.transport.registry
+        consent = dict(instance=INSTANCE, run_id='run', output='DP-2', recovery_output='DP-1')
+        before = self.path.read_bytes()
+        saved = self.path.with_name('saved.json')
+        self.path.rename(saved)
+        for alias_kind in ('symlink', 'hardlink'):
+            with self.subTest(alias_kind=alias_kind):
+                if alias_kind == 'symlink': self.path.symlink_to(saved)
+                else: os.link(saved, self.path)
+                try:
+                    with self.assertRaises(OSError): recover_managed(transport, consent, self.path)
+                    self.assertEqual(transport.events, [])
+                    self.assertEqual(saved.read_bytes(), before)
+                finally:
+                    self.path.unlink()
+        saved.rename(self.path)
+        original_dir = self.path.parent
+        renamed_dir = original_dir.with_name('saved-run')
+        original_dir.rename(renamed_dir)
+        original_dir.symlink_to(renamed_dir, target_is_directory=True)
+        try:
+            with self.assertRaises(OSError): recover_managed(transport, consent, self.path)
+            self.assertEqual(transport.events, [])
+            self.assertEqual(self.path.read_bytes(), before)
+        finally:
+            original_dir.unlink()
+            renamed_dir.rename(original_dir)
+        self.assertTrue(recover_managed(transport, consent, self.path)['complete'])
+
     def test_run_and_recovery_have_one_lifetime_owner(self):
         from tools.native_spike import journal
         self.assertTrue(hasattr(journal, 'managed_owner'), 'no lifetime exclusion')
@@ -220,9 +333,10 @@ class ManagedTests(unittest.TestCase):
         consent = dict(instance=INSTANCE, run_id='run', output='DP-2', recovery_output='DP-1')
         transport = ManagedTransport(self.path)
         with self.assertRaises(ValueError): recover_managed(transport, consent, self.path)
-        missing = self.path.with_name('missing.json')
-        with self.assertRaises(FileNotFoundError): recover_managed(transport, consent, missing)
-        self.assertFalse(missing.exists())
+        self.path.unlink()
+        with self.assertRaises(FileNotFoundError): recover_managed(transport, consent, self.path)
+        self.assertFalse(self.path.exists())
+        self.journal = Journal.open(self.path, 'run', 'session')
         self.test_restart_context_is_durable_before_first_create()
         transport.registry = self.transport.registry
         original = self.path.read_bytes()
@@ -259,10 +373,10 @@ class ManagedTests(unittest.TestCase):
         transport = ManagedTransport(self.path)
         transport._request = lambda wire: b'no broker'
         with self.assertRaises(ValueError): run_managed(transport, consent, Path(self.tmp.name))
-        self.assertFalse((Path(self.tmp.name) / 'xr-workspace-spike').exists())
+        self.assertFalse((Path(self.tmp.name) / 'xr-workspace-spike' / 'new-run').exists())
         transport = ManagedTransport(self.path)
         snapshot = transport.query('monitors')[:1]
         transport.query = lambda kind: snapshot
         with self.assertRaises(ValueError): run_managed(transport, consent, Path(self.tmp.name))
         self.assertEqual(transport.events, [])
-        self.assertFalse((Path(self.tmp.name) / 'xr-workspace-spike').exists())
+        self.assertFalse((Path(self.tmp.name) / 'xr-workspace-spike' / 'new-run').exists())

@@ -1,8 +1,9 @@
 """Explicit managed test-pattern orchestration; never loads a plugin or captures."""
 import os
+from pathlib import Path
 from dataclasses import dataclass
 from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
-from .ipc import private_dir
+from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
 from .ownership import OwnershipBrokerClient
 from .supervisor import validate_physical_pair, _launch
@@ -22,6 +23,13 @@ class ManagedGuard:
 
 
 def recover_managed(client, consent, path):
+    # Copies must never select a different owner lock or receive recovery writes
+    # while leaving the canonical journal stale. Do not resolve symlink aliases:
+    # the existing no-follow directory/file opens must continue to reject them.
+    canonical = client.runtime_dir / 'xr-workspace-spike' / token(consent['run_id']) / 'journal.json'
+    if Path(path).absolute() != canonical:
+        raise OwnershipBlocked('managed recovery requires the canonical runtime journal')
+    path = canonical
     session = client.verified_session()['id']
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
