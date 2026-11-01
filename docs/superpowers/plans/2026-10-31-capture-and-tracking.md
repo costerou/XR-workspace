@@ -104,3 +104,12 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Follow now tracks the full head orientation, including roll. The dead zone is 4° (was 12°), and it settles within 0.5°.
 - Catch-up speed is proportional to the remaining error (τ 90 ms) and ramps in at up to 1800°/s². That is about 0.1° of movement in the first frame and more than 6° after 100 ms for a 30° turn. It eases in without overshoot.
 - All constants are in `ModeController::Tuning` (`spike/include/xr/pose.hpp`) for later tweaking.
+
+**Latency measurement and prediction implemented (2026-10-31), VM verified; live pending.** Commit `1e79e87`.
+- Per frame, the renderer timestamps the pose read (CLOCK_MONOTONIC) and pairs it with the compositor's `wp_presentation` presented time. The report gains a `latency` block with read→present count, dropped, mean, p50, p95 and max. It is only valid when the presentation clock is monotonic, which is checked. It also reports pose age relative to the best observed driver transport, since the device clock's offset is unknown. This is software timing only: the glasses' panel and scanout delay is invisible to software, so none of it is motion-to-photon latency.
+- The XRLinuxDriver feed already carries three timestamped quaternions (now, −16 ms, −32 ms) and a per-glasses `look_ahead_cfg`, which reads {10 ms, ×0.6 frametime, 10 ms scanline, 40 ms cap} on the Luma. Prediction extrapolates the newest orientation by the angular velocity between the two newest samples.
+  - Horizon: pose age + measured read→present (EMA) + the driver constant, capped at the driver cap, plus half the scanline adjustment, because one pose is used per frame. Before 8 frames have been measured, the upstream Breezy formula stands in.
+  - Rotation is clamped to 15°. Prediction is never applied to a stale (held) pose, to unusable sample spacing, or without the driver's bounds.
+- Ctrl+Alt+P (free in the user's config) toggles prediction mid-run with a pop-up. It is off by default and saved in `layout.json`.
+- VM: `isolated-vm-predict-live.json`. The bind installed, the toggle reached the renderer and was saved, 450 frames were predicted, the horizon was 36.7 ms, the clock was monotonic, and there were no tracking losses. Guest llvmpipe read→present (~21 ms) says nothing about the glasses.
+- Next, live on the Luma: measure read→present at 120 Hz, then an A/B comfort check with Ctrl+Alt+P during quick head turns.
