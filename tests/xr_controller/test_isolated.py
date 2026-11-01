@@ -66,6 +66,23 @@ class IsolationTests(unittest.TestCase):
                 isolated.execute('start',self.path,panelpath,self.root)
         self.assertEqual(self.client.mock_calls,[])
 
+    def test_renderer_crash_is_not_a_successful_unit_exit(self):
+        pins={k:self.panel[k] for k in ('plugin','renderer')}
+        result=dict(complete=True,remaining=[],renderer_returncode=-9)
+        self.client.plugins_loaded.side_effect=[[],['xr-ownership'],[]]
+        with patch.dict(os.environ,XDG_DATA_HOME=str(self.root)), \
+             patch.object(isolated,'load_vm',return_value=self.vm), \
+             patch.object(isolated,'load_panel_consent',return_value=self.panel), \
+             patch.object(isolated,'HyprlandClient',return_value=self.client), \
+             patch.object(isolated,'authorize'), \
+             patch.object(isolated,'load_installed',return_value=pins), \
+             patch.object(isolated,'verify_pinned'), \
+             patch.object(isolated.vm,'run_isolated',return_value=result), \
+             patch.object(isolated,'_write_result') as write:
+            self.assertEqual(isolated.execute('start',self.path,self.path,self.root),2)
+        self.client.plugin_unload.assert_called_once()
+        self.assertEqual(write.call_args.args[-1]['renderer_returncode'],-9)
+
     def test_isolated_controller_keeps_one_run_authority(self):
         # begin_start must use the pre-authorized one-run id; status does not invent another.
         from tests.xr_controller.test_state import StateTests

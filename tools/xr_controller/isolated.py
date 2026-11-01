@@ -102,7 +102,7 @@ def execute(action,path,panel_path,state,journal=None):
             client.plugin_unload(plugin)
             if client.plugins_loaded(): raise ValueError('plugin unload not confirmed')
         _write_result(state,consent['run_id']+'.result.json',dict(result,run_id=consent['run_id']))
-        return 0 if result['complete'] else 2
+        return 0 if result['complete'] and (action=='recover' or result['renderer_returncode']==0) else 2
     except BaseException:
         # No journal means no saved authority to preserve. A crashed runner otherwise
         # deliberately leaves the broker loaded for explicit isolated recovery.
