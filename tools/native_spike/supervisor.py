@@ -227,7 +227,7 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None, control=None, pose_feed=False):
+            capture=None, control=None, pose_feed=False, renderer=None):
     """Shared child lifetime only; authorization remains in distinct callers."""
     import json
     import os
@@ -245,7 +245,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     token(output); token(run_id); token(session)
     peer = struct.unpack('3i', wayland_socket.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')
-    renderer = Path(__file__).resolve().parents[2] / 'build/native-spike/xr-native-spike'
+    if renderer is None: renderer = Path(__file__).resolve().parents[2] / 'build/native-spike/xr-native-spike'
     parent, child_socket = socket.socketpair()
     with parent, child_socket:
         argv = [str(renderer), '--supervised-fd', str(child_socket.fileno()),

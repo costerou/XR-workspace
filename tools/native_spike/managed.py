@@ -41,7 +41,7 @@ def recover_managed(client, consent, path):
     return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining}
 
 
-def run_managed(client, consent, runtime):
+def run_managed(client, consent, runtime, *, renderer=None):
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
@@ -55,7 +55,7 @@ def run_managed(client, consent, runtime):
     with managed_owner(directory / 'journal.json'):
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
-                          pose_feed=consent.get('tracking') == 'xrlinuxdriver')
+                          pose_feed=consent.get('tracking') == 'xrlinuxdriver', renderer=renderer)
 
 
 from contextlib import contextmanager
@@ -116,7 +116,7 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, renderer=None):
     session = journal.session
     with journal.transaction():
         if journal.operations or journal.broker is not None:
@@ -131,7 +131,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         guard()
         with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
-                                 control=control, pose_feed=pose_feed)
+                                 control=control, pose_feed=pose_feed, renderer=renderer)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.
