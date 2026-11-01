@@ -109,6 +109,7 @@ int main() {
     HelpOverlay h;
     CHECK(h.alpha(0) == 0 && !h.animating(0) && h.generation() == 0 && !h.set(false, rows, 0));
     CHECK(h.set(true, rows, 1000) && h.visible() && h.generation() == 1 && h.animating(1000) && h.alpha(1000) == 0);
+    CHECK(h.shown_count() == 1 && h.hidden_count() == 0);
     CHECK(h.offset_px(1000) == kHelpRisePx);
     for (double t = 1000; t < 1000 + kHelpFadeInMs; t += 10) CHECK(h.alpha(t + 10) >= h.alpha(t));
     CHECK(h.alpha(1000 + kHelpFadeInMs) == 1 && h.offset_px(1000 + kHelpFadeInMs) == 0 && !h.animating(1000 + kHelpFadeInMs));
@@ -117,11 +118,13 @@ int main() {
     CHECK(h.set(false, rows, 3000) && h.animating(3000) && h.alpha(3000) == 1);
     for (double t = 3000; t < 3000 + kHelpFadeOutMs; t += 10) CHECK(h.alpha(t + 10) <= h.alpha(t));
     CHECK(h.alpha(3000 + kHelpFadeOutMs) == 0 && !h.animating(3000 + kHelpFadeOutMs));
+    CHECK(h.shown_count() == 1 && h.hidden_count() == 1);
     CHECK(h.set(true, rows, 5000));
     const float mid = h.alpha(5000 + kHelpFadeInMs / 2);
     CHECK(mid > 0.2f && mid < 0.8f);
     CHECK(h.set(false, rows, 5000 + kHelpFadeInMs / 2) && h.alpha(5000 + kHelpFadeInMs / 2) == mid);  // reverses, no jump
     CHECK(h.alpha(5000 + kHelpFadeInMs / 2 + kHelpFadeOutMs) == 0);
+    CHECK(h.shown_count() == 2 && h.hidden_count() == 2 && !h.visible());
     CHECK(h.set(true, {rows[0]}, 7000) && h.generation() == 2);  // new rows: new card
     std::cout << "hud ok\n";
 }
