@@ -65,6 +65,16 @@ int main() {
                             R"({"zoomed":true,"selected":0})", R"({"zoomed":true,"selected":0,"spacing":0,"x":1})",
                             R"({"zoomed":true,"selected":0.5,"spacing":0})"})
         require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
+    auto style = [](const std::string& payload) {
+        return std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"style","payload":)") + payload + "}\n";
+    };
+    auto st = xr::decode_control(style(R"({"border":[141,20,255]})"));
+    require(std::holds_alternative<xr::ControlMessage>(st));
+    auto& sp = std::get<xr::StylePayload>(std::get<xr::ControlMessage>(st).payload);
+    require(sp.r == 141 && sp.g == 20 && sp.b == 255);
+    for (const char* bad : {R"({"border":[1,2]})", R"({"border":[1,2,256]})", R"({"border":[1,2,-1]})", R"({"border":"8d8d8d"})",
+                            R"({"border":[1,2,3],"x":1})", R"({})", R"({"border":[1,2,3.5]})"})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(style(bad))));
     auto recenter = std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"recenter","payload":{}})") + "\n";
     auto rc = xr::decode_control(recenter);
     require(std::holds_alternative<xr::ControlMessage>(rc) && std::get<xr::ControlMessage>(rc).op == xr::ControlOp::recenter);

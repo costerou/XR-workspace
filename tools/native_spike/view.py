@@ -22,6 +22,33 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'))
 FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
+CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
+COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
+
+
+def parse_border(reply):
+    """Hyprland getoption general:col.active_border -> (r, g, b), or None if unrecognised.
+
+    0.56 replies {"gradient": "AARRGGBB[ AARRGGBB...] <angle>deg"}; older ones {"int": ARGB}. A
+    gradient uses its first colour.
+    """
+    if not isinstance(reply, dict): return None
+    if isinstance(reply.get('gradient'), str):
+        first = reply['gradient'].split()[:1]
+        m = COLOR.match(first[0]) if first else None
+        if not m: return None
+        value = int(m.group(1), 16)
+    elif type(reply.get('int')) is int and 0 <= reply['int'] <= 0xffffffff:
+        value = reply['int']
+    else:
+        return None
+    return ((value >> 16) & 255, (value >> 8) & 255, value & 255)
+
+
+def style_frame(run_id, session, request_id, rgb):
+    if len(rgb) != 3 or any(type(c) is not int or not 0 <= c <= 255 for c in rgb): raise ValueError('invalid colour')
+    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'style',
+                        'payload': {'border': list(rgb)}}, separators=(',', ':')) + '\n').encode()
 MANAGED = re.compile(r'XR-[1-3]\Z')
 SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
@@ -150,7 +177,7 @@ def remove_binds_lua():
 
 class ViewControl:
     """Supervisor-side handler: user op -> state, async focus, saved spacing, renderer view frame."""
-    def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2):
+    def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None):
         self.state, self.run_id, self.session = state, run_id, session
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
@@ -158,9 +185,22 @@ class ViewControl:
         self.events = None       # optional Hyprland event socket (cursor follow); owned by the caller
         self._event_buffer = b''
         self.cursor_switches = 0
+        self.border = border     # optional () -> Hyprland getoption reply for general:col.active_border
+        self.accent = None       # last theme colour sent to the renderer
 
     def initial_frame(self):
-        return self._frame()
+        return self._frame() + self._style_frame()
+
+    def _style_frame(self):
+        """Theme border colour for the highlight; empty if unknown or unchanged. Never fatal."""
+        if self.border is None: return b''
+        try: rgb = parse_border(self.border())
+        except (OSError, ValueError, TypeError, KeyError): rgb = None  # incl. clients without the option
+        if rgb is None or rgb == self.accent: return b''
+        self.accent = rgb
+        frame = style_frame(self.run_id, self.session, self.next_id, rgb)
+        self.next_id += 1
+        return frame
 
     def _frame(self):
         frame = view_frame(self.run_id, self.session, self.next_id, self.state.view())
@@ -190,12 +230,15 @@ class ViewControl:
         self._event_buffer += data
         if len(self._event_buffer) > 65536: self._event_buffer = self._event_buffer[-4096:]  # bounded; resync on newline
         *lines, self._event_buffer = self._event_buffer.split(b'\n')
-        changed = False
+        changed = reloaded = False
         for line in lines:
-            m = FOCUSEDMON.match(line.decode('utf-8', errors='replace'))
+            text = line.decode('utf-8', errors='replace')
+            m = FOCUSEDMON.match(text)
             if m and self.state.cursor_entered(m.group(1)):
                 changed = True; self.cursor_switches += 1
-        return self._frame() if changed else None
+            if CONFIGRELOADED.match(text): reloaded = True
+        out = (self._frame() if changed else b'') + (self._style_frame() if reloaded else b'')
+        return out or None
 
     def _focus(self, target):
         try: self.focus(target)

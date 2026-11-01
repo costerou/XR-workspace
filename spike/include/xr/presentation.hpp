@@ -63,6 +63,7 @@ public:
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);
     void recenter();
+    void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

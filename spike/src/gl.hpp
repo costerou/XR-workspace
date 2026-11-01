@@ -35,6 +35,7 @@ public:
     bool import_dmabuf(std::size_t source, std::size_t slot, const DmabufBuffer&);
     void present_dmabuf(std::size_t source, int slot);
     void drop_dmabuf(std::size_t source);
+    void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;

@@ -77,7 +77,8 @@ def view_controls(client, run_id, session, capture):
     try:
         saved = view.load_settings(settings)
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow']), run_id, session,
-                                   lambda name: client.mutate(view.focus_command(name)), settings, server)
+                                   lambda name: client.mutate(view.focus_command(name)), settings, server,
+                                   border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5))
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
