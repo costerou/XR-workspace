@@ -65,6 +65,11 @@ def execute(consent_path, data_home):
         result['phase'] = 'plugin'
         if not os.environ.get('XDG_RUNTIME_DIR'): raise ValueError('XDG_RUNTIME_DIR not set')
         runtime = Path(os.environ['XDG_RUNTIME_DIR'])
+        if consent['tracking'] == 'xrlinuxdriver':
+            from tools.native_spike import tracking
+            result['phase'] = 'tracking'
+            tracking.ensure_ready(runtime)
+        result['phase'] = 'plugin'
         client = HyprlandClient(consent['instance'], runtime)
         if client.plugins_loaded(): raise ValueError('ownership plugin already loaded')
         verify_pinned(installed['plugin'])

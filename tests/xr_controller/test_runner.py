@@ -86,6 +86,20 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(set(data), RESULT_KEYS)
         return data
 
+    def test_tracking_is_ready_before_plugin_or_renderer(self):
+        self.consent(tracking='xrlinuxdriver')
+        with mock.patch('tools.native_spike.tracking.ensure_ready') as ready:
+            ready.side_effect = lambda runtime: self.assertEqual(self.log, [])
+            self.assertEqual(self.main(), 0)
+            ready.assert_called_once_with(self.runtime)
+
+    def test_tracking_failure_blocks_before_plugin_load(self):
+        self.consent(tracking='xrlinuxdriver')
+        with mock.patch('tools.native_spike.tracking.ensure_ready', side_effect=ValueError('tracking unavailable')):
+            self.assertEqual(self.main(), 2)
+        self.assertEqual(self.log, [])
+        self.assertEqual(self.result()['phase'], 'tracking')
+
     def test_order_load_mode_run_unload(self):
         self.consent()
         self.assertEqual(self.main(), 0)
