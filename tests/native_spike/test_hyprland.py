@@ -264,4 +264,74 @@ class HyprlandTests(unittest.TestCase):
         path.write_text(json.dumps(data)); path.chmod(0o644)
         with self.assertRaises(PermissionError): load_consent(path, INSTANCE, 'DP-1')
 
+class PluginLifecycleTests(unittest.TestCase):
+    """Plugin/mode lifecycle over a fake transport; the wire strings are confirmed in the VM (Task 12)."""
+    def setUp(self):
+        from tools.xr_controller.install import install
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        (root / 'build').mkdir()
+        (root / 'build' / 'xr-native-spike').write_bytes(b'renderer')
+        (root / 'build' / 'libxr-ownership.so').write_bytes(b'plugin')
+        self.data = root / 'data'; self.data.mkdir()
+        self.installed = install(root / 'build', self.data)
+        self.plugin = self.installed['plugin']['path']
+        self.client = h.HyprlandClient(INSTANCE, root)
+        self.requests, self.replies = [], {}
+        def fake(request, timeout=h.DEADLINE):
+            self.requests.append(request)
+            reply = self.replies[request.split(' ')[0] if request.startswith('/eval') else request]
+            return reply.pop(0) if isinstance(reply, list) else reply
+        self.client._request = fake
+
+    def test_plugin_path_must_be_installed(self):
+        bad = [self.installed['renderer']['path'], self.plugin + ' ', self.plugin + '\n', ' ' + self.plugin,
+               self.plugin.replace('/bin/', '/bin/../bin/'), 'libxr-ownership.so', str(Path(self.plugin).parent) + '/x/libxr-ownership.so',
+               '/tmp/libxr-ownership.so', None, b'/x', '']
+        for path in bad:
+            for method in (self.client.plugin_load, self.client.plugin_unload):
+                with self.subTest(path=path, method=method.__name__), self.assertRaises(ValueError):
+                    method(path, data_home=self.data)
+        with self.assertRaises(ValueError): self.client.plugin_load(self.plugin, data_home=Path(self.tmp.name) / 'nodata')
+        self.assertEqual(self.requests, [])
+
+    def test_plugin_load_unload_wire(self):
+        self.replies = {'/plugin load ' + self.plugin: b'ok', '/plugin unload ' + self.plugin: b'ok\n'}
+        self.client.plugin_load(self.plugin, data_home=self.data)
+        self.client.plugin_unload(self.plugin, data_home=self.data)
+        self.assertEqual(self.requests, ['/plugin load ' + self.plugin, '/plugin unload ' + self.plugin])
+        self.replies = {'/plugin load ' + self.plugin: b'error: could not load'}
+        with self.assertRaises(ValueError): self.client.plugin_load(self.plugin, data_home=self.data)
+
+    def test_plugins_loaded(self):
+        entry = {'name': 'xr-ownership', 'author': 'a', 'handle': '0x1', 'version': '1', 'description': 'd'}
+        self.replies = {'j/plugin list': [b'[]', json.dumps([entry]).encode(), b'{}', b'[{"name": 3}]', b'no plugins loaded']}
+        self.assertEqual(self.client.plugins_loaded(), [])
+        self.assertEqual(self.client.plugins_loaded(), ['xr-ownership'])
+        for _ in range(3):
+            with self.assertRaises(ValueError): self.client.plugins_loaded()
+
+    def monitor(self, **changes):
+        m = dict(RawFixture().monitors[0], name='DP-2', x=1920, y=0, scale=1.0, width=1920, height=1080, refreshRate=60.0)
+        m.update(changes); return m
+
+    def test_apply_session_mode(self):
+        before, after = [self.monitor()], [self.monitor(height=1200, refreshRate=119.909)]
+        self.replies = {'j/monitors all': [json.dumps(before).encode(), json.dumps(after).encode()], '/eval': b'ok'}
+        mode = self.client.apply_session_mode('DP-2')
+        self.assertEqual(mode, {'name': 'DP-2', 'x': 1920, 'y': 0, 'scale': 1.0})
+        self.assertEqual(self.requests[1], '/eval hl.monitor({ output = "DP-2", mode = "1920x1200@120", position = "1920x0", scale = 1 })')
+
+    def test_apply_session_mode_requires_readback(self):
+        for after in ([self.monitor()], [self.monitor(height=1200, refreshRate=60.0)], []):
+            with self.subTest(after=after):
+                self.requests.clear()
+                self.replies = {'j/monitors all': [json.dumps([self.monitor()]).encode(), json.dumps(after).encode()], '/eval': b'ok'}
+                with self.assertRaises(ValueError): self.client.apply_session_mode('DP-2')
+        self.requests.clear()
+        self.replies = {'j/monitors all': [json.dumps([self.monitor(name='XR-1')]).encode()], '/eval': b'ok'}
+        with self.assertRaises(ValueError): self.client.apply_session_mode('XR-1')
+        self.assertEqual(self.requests, ['j/monitors all'])
+
+
 if __name__ == '__main__': unittest.main()
