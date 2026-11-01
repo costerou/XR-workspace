@@ -7,7 +7,7 @@ control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
 dead zone, eases back in front) and locked (0DoF, head-locked). Optional cursor follow (Ctrl+Alt+F):
 when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
-Optional head-pose prediction (Ctrl+Alt+P, off by default): the renderer extrapolates the pose by a
+Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
 Mode, cursor follow, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
 in the glasses whenever the viewing mode, cursor follow or prediction changes (and the viewing mode at start).
@@ -60,7 +60,7 @@ SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=False):
+    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=True):
         if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if mode not in MODES or type(cursor_follow) is not bool or type(prediction) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
@@ -116,7 +116,7 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': False}
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True}
 
 
 def load_settings(path):
