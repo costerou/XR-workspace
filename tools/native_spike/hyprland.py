@@ -16,6 +16,7 @@ import struct
 import time
 import uuid
 from .ipc import strict_json, token
+from .geometry import DEFAULT_DESKTOP, logical_width, validate_desktop
 
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 NAME = r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}'
@@ -257,7 +258,7 @@ class RecoveryAdapter:
         raise OwnershipBlocked('recovery mutations require independent continuity proof')
 
 
-def plan_outputs(existing, workspaces, run_id):
+def plan_outputs(existing, workspaces, run_id, desktops=None):
     token(run_id); existing = monitors(existing)
     if not isinstance(workspaces, list): raise ValueError('invalid workspace snapshot')
     used = set()
@@ -267,15 +268,19 @@ def plan_outputs(existing, workspaces, run_id):
         used.add(w['id'])
     right = max((math.ceil(m['x'] + (m['height'] if m['transform'] % 2 else m['width']) / m['scale']) for m in existing), default=0)
     y = min((m['y'] for m in existing), default=0)
-    specs = []
-    for index in range(3):
+    desktops = [dict(DEFAULT_DESKTOP)] * 3 if desktops is None else desktops
+    if not isinstance(desktops, list) or len(desktops) != 3: raise ValueError('exactly three desktops required')
+    desktops = [validate_desktop(d) for d in desktops]
+    specs, x = [], right
+    for index, d in enumerate(desktops):
         name = token(f'XR-{index + 1}')
         if any(m['name'] == name for m in existing): raise ValueError('output name already exists')
-        x = right + index * 1920
-        if x + 1920 > 2147483647: raise ValueError('layout overflow')
-        specs.append({'id': str(uuid.uuid4()), 'name': name, 'index': index, 'width': 1920,
-                      'height': 1080, 'refresh_millihz': 120000, 'scale': 1.0,
+        lw = logical_width(d)
+        if x + lw > 2147483647: raise ValueError('layout overflow')
+        specs.append({'id': str(uuid.uuid4()), 'name': name, 'index': index, 'width': d['width'],
+                      'height': d['height'], 'refresh_millihz': 120000, 'scale': d['scale'],
                       'x': x, 'y': y})
+        x += lw
     return specs
 
 
