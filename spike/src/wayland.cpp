@@ -527,8 +527,10 @@ std::string Presentation::capture_report() const {
                (c.path == Impl::Capture::Path::Dmabuf ? ",\"fourcc\":" + std::to_string(c.choice.fourcc) + ",\"modifier\":" + std::to_string(c.choice.modifier) : std::string()) +
                ",\"fallback\":\"" + c.fallback + "\",\"stopped\":" + (c.stopped ? "true" : "false") + "}";
     }
+    out += "],\"help\":{\"visible\":" + std::string(impl_->help.visible() ? "true" : "false") +
+           ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) + "}";
     const auto mode = impl_->modes.mode();
-    out += "],\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
+    out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
            ",\"feed\":" + (impl_->pose_feed ? "true" : "false") + ",\"tracking\":" + (impl_->pose.tracking() ? "true" : "false") +
            ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +

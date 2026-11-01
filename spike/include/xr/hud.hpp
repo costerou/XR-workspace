@@ -92,6 +92,8 @@ public:
     bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms);
     void set_font(std::unique_ptr<HudFont> font);
     bool visible() const { return visible_; }
+    std::uint64_t shown_count() const { return shown_; }
+    std::uint64_t hidden_count() const { return hidden_; }
     float alpha(double now_ms) const;        // eased 0..1
     float offset_px(double now_ms) const;    // downward offset in output pixels, 0 when fully shown
     bool animating(double now_ms) const;     // mid-fade: redraw every frame
@@ -99,6 +101,7 @@ public:
     std::uint64_t generation() const { return generation_; }
 private:
     float level(double now_ms) const;        // linear 0..1
+    std::uint64_t shown_ = 0, hidden_ = 0;  // actual visibility changes, diagnostic only
     bool visible_ = false;
     float from_ = 0;                         // level when the last toggle happened
     double changed_ms_ = 0;

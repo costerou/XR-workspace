@@ -244,6 +244,7 @@ bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now
     if (visible == visible_) return false;
     from_ = level(now_ms);  // reverse from wherever the fade is
     visible_ = visible; changed_ms_ = now_ms;
+    if (visible) ++shown_; else ++hidden_;
     return true;
 }
 void HelpOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }
