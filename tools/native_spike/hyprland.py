@@ -5,6 +5,7 @@ cursor. It cannot prove a journal UUID belongs to the currently queried monitor.
 Stock transport cannot create/recover owned outputs. An explicitly constructed
 OwnershipBrokerClient supplies the separate compositor-resident boundary.
 """
+import errno
 import hashlib
 import math
 import os
@@ -56,8 +57,22 @@ class HyprlandClient:
         try:
             directory_fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             try:
-                conn.settimeout(max(0.001, deadline - time.monotonic()))
-                conn.connect(f'/proc/self/fd/{directory_fd}/{name}')
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0: raise TimeoutError('Hyprland connect deadline exceeded')
+                    conn.settimeout(remaining)
+                    try:
+                        conn.connect(f'/proc/self/fd/{directory_fd}/{name}')
+                    except BlockingIOError as exc:
+                        # AF_UNIX returns EAGAIN when the accept queue is full.
+                        # Nothing has been sent: retry only connection establishment.
+                        if exc.errno != errno.EAGAIN: raise
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0: raise TimeoutError('Hyprland connect deadline exceeded') from exc
+                        time.sleep(min(0.01, remaining))
+                        continue
+                    if time.monotonic() >= deadline: raise TimeoutError('Hyprland connect deadline exceeded')
+                    break
             finally: os.close(directory_fd)
             peer = struct.unpack('3i', conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
             if peer[1] != os.getuid() or peer[0] <= 0: raise PermissionError('wrong compositor peer')
