@@ -156,16 +156,17 @@ void ModeController::set_mode(ViewMode mode, double now_ms) {
     if (mode == mode_) return;
     from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;
     if (mode == ViewMode::follow) { follow_ = anchor_; velocity_ = {}; }
+    if (mode == ViewMode::anchor) pinned_ = anchor_;  // anchor where the canvas is right now
     mode_ = mode;
 }
-void ModeController::recenter() { anchor_ = from_ = follow_ = Quat{}; transitioning_ = false; velocity_ = {}; }
+void ModeController::recenter() { anchor_ = from_ = follow_ = pinned_ = Quat{}; transitioning_ = false; velocity_ = {}; }
 Quat ModeController::target(Quat head) const {
     switch (mode_) {
     case ViewMode::locked: return head;
     case ViewMode::follow: return follow_;
     case ViewMode::anchor: break;
     }
-    return Quat{};
+    return pinned_;
 }
 Quat ModeController::update(Quat head, double now_ms) {
     const double dt = last_ms_ < 0 ? 0 : std::clamp(now_ms - last_ms_, 0.0, 100.0);
