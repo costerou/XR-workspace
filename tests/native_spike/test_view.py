@@ -376,3 +376,29 @@ class ConfigReloadTests(unittest.TestCase):
         self.assertEqual(sent[0].count('hl.bind('), len(view.BINDS))
         client.restore_session_mode(view.session_mode(self.MON))
         self.assertIn('1920x1200@120', sent[1])
+
+class StatusReplyTests(unittest.TestCase):
+    def test_status_op_reply_shape(self):
+        c = view.ViewControl(view.ViewState(['XR-1']), 'run', 'session', None, None, None)
+        self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=list(view.USER_OPS), view=c.state.view(), status={'missed':2}))
+        self.assertIsNone(c.on_message({'op':'status'}))
+
+    def test_status_reply_over_real_private_socket(self):
+        from tools.xr_controller.__main__ import Units
+        from tools.native_spike.ipc import PrivateServer
+        from tools.native_spike.supervisor import Supervisor
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime=Path(tmp)/'rt'; runtime.mkdir(mode=0o700)
+            with PrivateServer(runtime,'run','session') as server:
+                c=view.ViewControl(view.ViewState(['XR-1']),'run','session',None,None,server)
+                sup=Supervisor(None,None,control=c); sup.status={'missed':7}
+                parent,renderer=socket.socketpair()
+                try:
+                    result=[]
+                    thread=threading.Thread(target=lambda:result.append(Units(runtime).control('run','session','status')))
+                    thread.start(); sup._control_ready(parent); thread.join(2)
+                    self.assertIsInstance(result[0],dict)
+                    self.assertEqual(result[0]['status'],{'missed':7})
+                    renderer.setblocking(False)
+                    with self.assertRaises(BlockingIOError): renderer.recv(1024)
+                finally: parent.close(); renderer.close()

@@ -39,7 +39,7 @@ class PhysicalPairGuard:
 
 
 class Supervisor:
-    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None):
+    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None, status_socket=None):
         if not math.isfinite(grace) or grace < 0: raise ValueError("invalid grace")
         self.child, self.recovery = child, recovery
         self.last_heartbeat = time.monotonic() if now is None else now
@@ -49,6 +49,10 @@ class Supervisor:
         self.kill_sent = False
         self.result = None
         self.guard = guard
+        self.status_socket = status_socket
+        self.status = {}
+        self._status_buffer = b''
+        self._status_discard = False
         self.control = control  # optional ViewControl: user ops on the run's private control socket
     def heartbeat(self, now):
         if self.stopping_at is None and math.isfinite(now) and now >= self.last_heartbeat:
@@ -71,6 +75,28 @@ class Supervisor:
             if self.child.poll() is None: return
         self.result = self.recovery()
         self.finished = True
+    def status_bytes(self, data):
+        from .ipc import strict_json
+        # Bounded streaming parser, also used for the atomic datagrams from the renderer.
+        for chunk in data.splitlines(keepends=True):
+            if not self._status_discard: self._status_buffer += chunk
+            if len(self._status_buffer) > 16384:
+                self._status_buffer = b''; self._status_discard = True
+            if not chunk.endswith(b'\n'): continue
+            if not self._status_discard:
+                try:
+                    value = strict_json(self._status_buffer)
+                    if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms'}:
+                        raise ValueError('invalid status')
+                    for k,v in value.items():
+                        if k == 'capture_path': valid = v in ('dmabuf','shm')
+                        elif k == 'missed': valid = type(v) is int and v >= 0
+                        else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
+                        if not valid: raise ValueError('invalid measured value')
+                    self.status = value
+                except (ValueError, TypeError): pass
+            self._status_buffer = b''; self._status_discard = False
+
     def _control_ready(self, renderer_socket):
         """One bounded user op (peer UID, framing, replay checked by PrivateServer); never fatal."""
         try:
@@ -82,6 +108,13 @@ class Supervisor:
                 message = self.control.server.receive(conn)
                 self.control.server.queue.pop()
             except (ValueError, OSError, PermissionError):
+                return
+            if message['op'] == 'status':
+                import json
+                reply = dict(schema=1, request_id=message['request_id'], run_id=message['run_id'], session=message['session'],
+                             **self.control.status_reply(self.status))
+                try: conn.sendall((json.dumps(reply, allow_nan=False)+'\n').encode())
+                except OSError: pass
                 return
         self._send(self.control.on_message(message), renderer_socket)
 
@@ -104,8 +137,9 @@ class Supervisor:
         finally:
             renderer_socket.settimeout(None)
 
-    def run(self, heartbeat_socket, *, interval=0.05):
+    def run(self, heartbeat_socket, *, interval=0.05, status_socket=None):
         """Run in supervisor process, not renderer. EOF means disconnect; only b'H' is valid."""
+        if status_socket is None: status_socket = self.status_socket
         if not 0 < interval <= 0.1: raise ValueError("invalid poll interval")
         # Own exactly one spawn worker and one one-way pipe for this run. Spawn
         # (never fork) excludes renderer/control/Wayland sockets and copies client
@@ -122,6 +156,9 @@ class Supervisor:
                 sender.close()
             with selectors.DefaultSelector() as selector:
                 selector.register(heartbeat_socket, selectors.EVENT_READ)
+                if status_socket is not None:
+                    status_socket.setblocking(False)
+                    selector.register(status_socket, selectors.EVENT_READ)
                 if self.control is not None: selector.register(self.control.server.socket, selectors.EVENT_READ)
                 if self.control is not None and getattr(self.control, 'events', None) is not None:
                     selector.register(self.control.events, selectors.EVENT_READ)
@@ -148,6 +185,13 @@ class Supervisor:
                             continue
                         if self.control is not None and key.fileobj is getattr(self.control, 'events', None):
                             self._events_ready(heartbeat_socket, selector)
+                            continue
+                        if key.fileobj is status_socket:
+                            try: data = status_socket.recv(16385)
+                            except BlockingIOError: continue
+                            except OSError: data = b''
+                            if data: self.status_bytes(data)
+                            else: selector.unregister(status_socket)
                             continue
                         try: data = heartbeat_socket.recv(256)
                         except OSError: data = b''  # reset (renderer gone with unread frames) == disconnect
@@ -247,10 +291,12 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')
     if renderer is None: renderer = Path(__file__).resolve().parents[2] / 'build/native-spike/xr-native-spike'
     parent, child_socket = socket.socketpair()
-    with parent, child_socket:
+    status_parent, status_child = socket.socketpair(type=socket.SOCK_DGRAM)
+    with parent, child_socket, status_parent, status_child:
         argv = [str(renderer), '--supervised-fd', str(child_socket.fileno()),
                 '--wayland-fd', str(wayland_socket.fileno()), '--output', output,
                 '--run-id', run_id, '--session', session]
+        argv += ['--status-fd', str(status_child.fileno())]
         if animate_pattern_ms is not None:
             argv += ['--animate-pattern-ms', str(animate_pattern_ms)]
         argv += capture_argv
@@ -258,12 +304,13 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
             # No renderer disk writes: GPU drivers would otherwise persist a shader cache.
             env = dict(os.environ, MESA_SHADER_CACHE_DISABLE='true')
             child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True, stdin=subprocess.DEVNULL, env=env,
-                        pass_fds=(child_socket.fileno(), wayland_socket.fileno()))
+                        pass_fds=(child_socket.fileno(), wayland_socket.fileno(), status_child.fileno()))
         finally:
             # No parent reference may retain compositor surfaces after child exit.
             wayland_socket.close()
         child_socket.close()
-        watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard, control=control)
+        status_child.close()
+        watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard, control=control, status_socket=status_parent)
         try:
             try:
                 parent.settimeout(0.25)

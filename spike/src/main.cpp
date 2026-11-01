@@ -2,6 +2,8 @@
 #include "xr/presentation.hpp"
 #include "xr/capture.hpp"
 #include <cerrno>
+#include <chrono>
+#include <time.h>
 #include <charconv>
 #include <csignal>
 #include <cstdlib>
@@ -31,6 +33,7 @@ int main(int argc, char** argv) {
         std::cout << "xr-native-spike: native output-bound layer-shell renderer (no SDK/input; capture only of managed outputs).\n"
                      "Launched only by the permission-gated Python supervisor with inherited capability sockets.\n"
                      "Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n"
+                     "Optional --status-fd FD: nonblocking measured status JSON, at most once per second.\n"
                      "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
@@ -41,14 +44,17 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15 && argc != 17) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
     std::vector<std::string> capture;
     bool pose_feed = false;
     // Optional modes: generated animation alone; or capture, optionally with the XRLinuxDriver pose feed.
-    const std::size_t optional = std::size_t(argc - 11) / 2;
+    const int status_fd = args.contains("--status-fd") ? number(args["--status-fd"]) : -1;
+    if (args.contains("--status-fd") && status_fd < 0) return 2;
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd");
+    if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
         if (!duration) return 2;
@@ -65,7 +71,9 @@ int main(int argc, char** argv) {
     }
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
-    for (int fd : {control, wayland}) {
+    if (status_fd >= 0 && (status_fd == control || status_fd == wayland)) return 2;
+    for (int fd : {control, wayland, status_fd}) {
+        if (fd < 0) continue;
         ucred peer{}; socklen_t size = sizeof(peer);
         if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &peer, &size) != 0 || peer.uid != getuid()) return 2;
     }
@@ -118,13 +126,23 @@ int main(int argc, char** argv) {
             }
         }
     };
+    auto next_status = std::chrono::steady_clock::now();
     while (!stopping && !result && !presentation.finished()) {
         if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) { result = 1; break; }
         if (!read_control()) { std::cerr << "control: supervisor channel closed or invalid\n"; result = 1; break; }
+        const auto now = std::chrono::steady_clock::now();
+        if (status_fd >= 0 && now >= next_status) {
+            next_status = now + std::chrono::seconds(1);
+            timespec ts{}; clock_gettime(CLOCK_MONOTONIC, &ts);
+            const auto line = presentation.status_json(double(ts.tv_sec)*1000 + double(ts.tv_nsec)/1e6) + "\n";
+            // Datagram socketpair: EAGAIN drops a whole sample, never a partial JSON line.
+            (void)send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
+        }
         if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) { result = 1; break; }
     }
     presentation.close(); // Pending feedback becomes abandoned, never invented discard.
     std::cerr << presentation.timing_report() << '\n';
     if (!capture.empty()) std::cerr << presentation.capture_report() << '\n';
+    if (status_fd >= 0) ::close(status_fd);
     ::close(control); return result;
 }
