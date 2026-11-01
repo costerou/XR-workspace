@@ -6,7 +6,9 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <span>
 #include <vector>
+#include "xr/view.hpp"
 
 namespace xr {
 // "XR-1,XR-2,XR-3" -> ordered unique names. Rejects anything not exactly XR-[1-3], duplicates,
@@ -64,9 +66,10 @@ private:
 };
 
 struct Rect { std::uint32_t x = 0, y = 0, width = 0, height = 0; };
-// n equal tiles side by side, aspect-preserving, centred vertically, inside dst.
-std::vector<Rect> side_by_side(std::size_t count, std::uint32_t dst_width, std::uint32_t dst_height,
-                               std::uint32_t src_width, std::uint32_t src_height);
+// Tiles side by side at one shared height (the largest that fits), each keeping its source aspect
+// (floored to whole pixels); leftover width is split into equal per-tile gaps. Centred vertically
+// inside dst. Empty if there are no sources, dst is empty, or any source size is non-positive.
+std::vector<Rect> side_by_side(std::span<const Size> sources, std::uint32_t dst_width, std::uint32_t dst_height);
 // Clip-space quad (x0,y0,x1,y1 in [-1,1], y up) for a pixel rect in a w x h viewport (y down).
 struct ClipQuad { float x0 = 0, y0 = 0, x1 = 0, y1 = 0; };
 ClipQuad clip_quad(Rect rect, std::uint32_t width, std::uint32_t height);

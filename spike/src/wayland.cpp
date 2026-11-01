@@ -148,6 +148,13 @@ struct Presentation::Impl : SurfaceRequests {
         }
     };
     std::vector<std::unique_ptr<Capture>> captures;
+    // Each capture's own size for layout; one without a frame size yet holds a 1920x1080 tile.
+    std::vector<Size> capture_sizes() const {
+        std::vector<Size> out;
+        for (const auto& c : captures)
+            out.push_back(c->plan && c->plan->width && c->plan->height ? Size{float(c->plan->width), float(c->plan->height)} : Size{1920, 1080});
+        return out;
+    }
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
@@ -649,7 +656,6 @@ Status Presentation::draw_test_pattern() {
                 return Error{"gl", "texture upload failed"};
             s.uploaded[i] = c.frames;
         }
-        const auto& first = s.captures.front()->plan;
         s.view.advance(double(monotonic_ms()));
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
         timespec read_ts{};
@@ -681,8 +687,7 @@ Status Presentation::draw_test_pattern() {
             head = view_from(relative, s.modes.update(relative, double(now)));
         }
         if (!s.half_w) s.update_fov();
-        auto tiles = blended_layout(s.captures.size(), float(s.width), float(s.height), float(first ? first->width : 1920),
-                                    float(first ? first->height : 1080), s.view.spacing(), s.view.zoom(), s.view.position());
+        auto tiles = blended_layout(s.capture_sizes(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position());
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
         if (s.presentation) {
             auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });
@@ -724,8 +729,7 @@ Status Presentation::draw_test_pattern() {
     auto* pixels = static_cast<std::uint32_t*>(buffer->memory);
     if (!s.captures.empty()) {
         std::fill(pixels, pixels + std::size_t(s.width) * s.height, 0xff000000u);
-        const auto& first = s.captures.front()->plan;
-        auto tiles = side_by_side(s.captures.size(), s.width, s.height, first ? first->width : 1920, first ? first->height : 1080);
+        auto tiles = side_by_side(s.capture_sizes(), s.width, s.height);
         for (std::size_t i = 0; i < s.captures.size() && i < tiles.size(); ++i) {
             auto& c = *s.captures[i];
             if (c.ready < 0 || !c.slots[c.ready]) continue;  // not yet captured: stays black

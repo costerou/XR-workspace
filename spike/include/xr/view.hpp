@@ -2,19 +2,26 @@
 // Overview / zoom layout of the managed desktops in the glasses view. Pure and offline-testable.
 // zoom 0 = overview (all desktops side by side with `spacing` gaps and margins);
 // zoom 1 = the desktop at `position` fills the view, neighbours continue to either side.
+// Sources may differ in size: all tiles share one height and keep their own aspect, so resolution
+// affects sharpness, not apparent size.
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace xr {
 struct FRect { float x = 0, y = 0, width = 0, height = 0; };
+struct Size { float w, h; };  // a source desktop's pixel size
 constexpr std::uint32_t kMaxSpacing = 400;
 
-std::vector<FRect> overview_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing);
-std::vector<FRect> zoomed_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing, float position);
+// Empty if there are no sources, the view is empty, or any source has a non-positive size.
+// Overview: the largest shared height whose widths plus spacing gaps and margins fit view_w, <= view_h.
+std::vector<FRect> overview_layout(std::span<const Size> sources, float view_w, float view_h, float spacing);
+// Zoomed: the tile at `position` fits the view; neighbours share its height, `spacing` apart. A fractional
+// position blends the height and puts lerp(center[floor p], center[ceil p], frac p) at the view centre.
+std::vector<FRect> zoomed_layout(std::span<const Size> sources, float view_w, float view_h, float spacing, float position);
 // Linear blend between the two (ViewAnimator supplies eased values); `zoom` clamped to [0,1].
-std::vector<FRect> blended_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing,
-                                  float zoom, float position);
+std::vector<FRect> blended_layout(std::span<const Size> sources, float view_w, float view_h, float spacing, float zoom, float position);
 float smoothstep(float t);
 float smootherstep(float t);  // quintic: zero velocity and acceleration at both ends
 

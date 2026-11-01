@@ -29,15 +29,19 @@ std::optional<ShmPlan> plan_capture_buffer(std::uint32_t width, std::uint32_t he
     return std::nullopt;
 }
 
-std::vector<Rect> side_by_side(std::size_t count, std::uint32_t dst_width, std::uint32_t dst_height,
-                               std::uint32_t src_width, std::uint32_t src_height) {
-    if (!count || !dst_width || !dst_height || !src_width || !src_height) return {};
-    const std::uint32_t slot = dst_width / static_cast<std::uint32_t>(count);
-    std::uint32_t w = slot, h = static_cast<std::uint32_t>(std::uint64_t(slot) * src_height / src_width);
-    if (h > dst_height) { h = dst_height; w = static_cast<std::uint32_t>(std::uint64_t(dst_height) * src_width / src_height); }
+std::vector<Rect> side_by_side(std::span<const Size> sources, std::uint32_t dst_width, std::uint32_t dst_height) {
+    if (sources.empty() || !dst_width || !dst_height ||
+        std::any_of(sources.begin(), sources.end(), [](Size z) { return !(z.w > 0 && z.h > 0); })) return {};
+    auto width = [](Size z, std::uint32_t h) { return static_cast<std::uint32_t>(double(h) * z.w / z.h); };
+    auto total = [&](std::uint32_t h) { std::uint64_t t = 0; for (auto z : sources) t += width(z, h); return t; };
+    double aspects = 0; for (auto z : sources) aspects += double(z.w) / z.h;
+    // Start just above the exact fit and step down until the floored widths fit dst.
+    std::uint32_t h = static_cast<std::uint32_t>(std::min<double>(dst_height, double(dst_width) / aspects + 1));
+    while (h && total(h) > dst_width) --h;
+    const std::uint32_t n = static_cast<std::uint32_t>(sources.size()), gap = static_cast<std::uint32_t>((dst_width - total(h)) / n);
     std::vector<Rect> tiles;
-    for (std::size_t i = 0; i < count; ++i)
-        tiles.push_back({static_cast<std::uint32_t>(i) * slot + (slot - w) / 2, (dst_height - h) / 2, w, h});
+    std::uint32_t x = gap / 2;
+    for (auto z : sources) { const auto w = width(z, h); tiles.push_back({x, (dst_height - h) / 2, w, h}); x += w + gap; }
     return tiles;
 }
 
