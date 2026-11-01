@@ -256,7 +256,7 @@ class ViewControl:
             # Never block the watchdog loop on a compositor reply.
             t = threading.Thread(target=self._focus, args=(target,), daemon=True); t.start(); self._threads.append(t)
         if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'cursor_follow', 'prediction'):
-            try: save_settings(self.settings, self.state.settings())
+            try: self.settings.save(self.state.settings())  # a settings store (profiles.LayoutStore/ProfileStore)
             except (OSError, ValueError): pass
         return self._frame() if self.state.view() != before else None
 

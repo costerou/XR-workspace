@@ -11,6 +11,7 @@ import time
 import unittest
 from unittest.mock import patch
 
+from tools.native_spike.profiles import LayoutStore
 from tools.native_spike import tracking, view
 from tools.native_spike.__main__ import load_consent
 from tools.native_spike.supervisor import _launch
@@ -56,7 +57,7 @@ class TrackingConsentTests(unittest.TestCase):
 class RecenterTests(unittest.TestCase):
     def test_recenter_op_sends_recenter_frame_without_view_change(self):
         state = view.ViewState(['XR-1', 'XR-2'])
-        control = view.ViewControl(state, 'run', 'session', lambda name: None, Path(tempfile.mkdtemp()) / 'l.json', None)
+        control = view.ViewControl(state, 'run', 'session', lambda name: None, LayoutStore(Path(tempfile.mkdtemp()) / 'l.json'), None)
         frame = control.on_message({'op': 'recenter'})
         self.assertEqual(json.loads(frame)['op'], 'recenter')
         self.assertEqual(state.view(), {'zoomed': False, 'selected': 0, 'spacing': view.DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True})

@@ -62,7 +62,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def view_controls(client, run_id, session, capture, output=None):
+def view_controls(client, run_id, session, capture, output=None, store=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds."""
     if not capture:
         yield None
@@ -70,12 +70,13 @@ def view_controls(client, run_id, session, capture, output=None):
     import sys
     from . import view
     from .ipc import PrivateServer
-    settings = view.settings_path()
+    from .profiles import LayoutStore
+    store = store or LayoutStore(view.settings_path())
     server = PrivateServer(client.runtime_dir, run_id, session)
     installed = False
     events = None
     try:
-        saved = view.load_settings(settings)
+        saved = store.load()
         bind_args = (sys.executable, str(Path(view.__file__).with_name('xr_control.py')), str(server.path), run_id, session)
         mode = None
         if output is not None:
@@ -92,7 +93,7 @@ def view_controls(client, run_id, session, capture, output=None):
 
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
                                                    saved['prediction']), run_id, session,
-                                   lambda name: client.mutate(view.focus_command(name)), settings, server,
+                                   lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload)
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
