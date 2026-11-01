@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Controls
+import Quickshell
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui as Ui
@@ -13,6 +15,14 @@ Ui.BarWidget {
     readonly property var host:bar
     readonly property var themeFont:Style.font
     ControllerClient { id:client }
+    Menu {
+        id: contextMenu
+        popupType: Popup.Window
+        MenuItem {
+            text: "Restart plugin"
+            onTriggered: Quickshell.execDetached(["bash", Qt.resolvedUrl("restart.sh").toString().replace(/^file:\/\//, "")])
+        }
+    }
     Ui.WidgetButton {
         id:button
         bar:root.bar
@@ -22,7 +32,10 @@ Ui.BarWidget {
         hasVisualContent:true
         fixedWidth:Style.space(56)
         tooltipText:client.connected ? "VITURE Workspace · " + (client.snapshot.state || "waiting") : "controller not running"
-        onPressed: { if(root.host) root.host.run("omarchy-shell shell toggle cody.viture-workspace") }
+        onPressed: function(mouseButton) {
+            if (mouseButton === Qt.RightButton) contextMenu.popup(button, 0, button.height)
+            else if (mouseButton === Qt.LeftButton && root.host) root.host.run("omarchy-shell shell toggle cody.viture-workspace")
+        }
         Text {
             anchors.centerIn:parent
             text:Model.barColorRole(client.snapshot.state)==="warning" ? "XR !" : "XR"

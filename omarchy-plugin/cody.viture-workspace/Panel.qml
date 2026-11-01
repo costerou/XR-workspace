@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import qs.Commons as Commons
 
 Item {
@@ -33,6 +34,20 @@ Item {
         if (!messages.length) return;
         queue=messages.slice(1);
         commandId=client.send(messages[0]);
+    }
+    Process {
+        id: controllerService
+        command: ["systemctl", "--user", "restart", "viture-workspace-controller.service"]
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.trim()) root.error = text.trim().slice(0, 2048)
+            }
+        }
+        onExited: function(exitCode, exitStatus) {
+            if (exitCode !== 0 || exitStatus !== 0) {
+                if (!root.error) root.error = "Could not start controller. Check the user service logs."
+            }
+        }
     }
     ControllerClient {
         id:client
@@ -90,7 +105,16 @@ Item {
                     Label { text:"VITURE Workspace"; font.pixelSize:22; font.bold:true; color:Commons.Color.foreground; Layout.fillWidth:true }
                     Button { text:"Close"; onClicked:root.dismiss() }
                 }
-                Label { text:client.connected ? root.error || root.snapshot.reason || "" : "controller not running"; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
+                Label { text:root.error || (client.connected ? root.snapshot.reason || "" : "controller not running"); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
+                Button {
+                    visible:!client.connected || controllerService.running
+                    text:controllerService.running ? "Starting controller…" : "Start / restart controller"
+                    enabled:!controllerService.running
+                    onClicked: {
+                        root.error = ""
+                        controllerService.running = true
+                    }
+                }
                 Loader {
                     Layout.fillWidth:true
                     Layout.preferredHeight:item ? (item as Item).implicitHeight : 0
