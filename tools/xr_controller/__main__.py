@@ -12,7 +12,7 @@ import subprocess
 import sys
 import time
 from tools.native_spike.hyprland import HyprlandClient
-from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token
+from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
 from tools.native_spike.profiles import load_profile, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
 from .detect import identify
@@ -47,9 +47,25 @@ class Units:
             with socket.socket(socket.AF_UNIX) as conn:
                 conn.settimeout(.25); conn.connect(f'/proc/self/fd/{fd}/control.sock'); check_peer(conn,os.getuid())
                 if op is not None:
-                    conn.sendall((json.dumps(dict(schema=1,request_id=time.time_ns(),run_id=run_id,session=token(session),op=op,payload={}))+'\n').encode())
+                    request_id=time.time_ns()
+                    conn.sendall((json.dumps(dict(schema=1,request_id=request_id,run_id=run_id,session=token(session),op=op,payload={}))+'\n').encode())
+                    if op == 'status':
+                        raw=bytearray(); deadline=time.monotonic()+.25
+                        while len(raw)<MAX_FRAME:
+                            remaining=deadline-time.monotonic()
+                            if remaining<=0: return False
+                            conn.settimeout(remaining)
+                            chunk=conn.recv(1)
+                            if not chunk: return False
+                            raw.extend(chunk)
+                            if chunk==b'\n':
+                                reply=strict_json(raw)
+                                if (not isinstance(reply,dict) or reply.get('schema')!=1 or reply.get('request_id')!=request_id
+                                        or reply.get('run_id')!=run_id or reply.get('session')!=session): return False
+                                return reply
+                        return False
             return True
-        except OSError: return False
+        except (OSError,ValueError): return False
         finally: os.close(fd)
 
 

@@ -242,6 +242,9 @@ class ViewControl:
         self.next_id += 1
         return frame
 
+    def status_reply(self, status):
+        return dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status))
+
     def on_message(self, message):
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
         if message['op'] == 'recenter':

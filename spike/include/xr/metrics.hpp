@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <deque>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -16,7 +17,7 @@ struct TimingSnapshot {
     std::array<std::uint64_t, 4> flags{};
     std::uint32_t last_refresh_prediction_ns = 0;
 };
-// No event log, host receipt timestamps, or implicit clock-domain conversion.
+// Bounded presentation window; no host receipt timestamps or implicit clock-domain conversion.
 class Metrics {
 public:
     static constexpr std::size_t capacity = 32;
@@ -33,11 +34,13 @@ public:
     void abandon();
     TimingSnapshot snapshot() const { return state_; }
     std::string report() const;
+    std::string status_json(double now_ms) const;
 private:
     bool finish(std::uint64_t ticket);
     TimingSnapshot state_;
     std::array<std::uint64_t, capacity> pending_{};
     std::optional<std::uint64_t> previous_ns_, previous_sequence_, first_valid_ns_, last_valid_ns_;
+    std::deque<std::uint64_t> recent_presentations_;
     bool clock_conflict_ = false, interval_anchor_ = false;
 };
 }

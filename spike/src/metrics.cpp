@@ -1,5 +1,6 @@
 #include "xr/metrics.hpp"
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <nlohmann/json.hpp>
 #include <time.h>
@@ -50,6 +51,9 @@ void Metrics::presented(std::uint64_t ticket, std::uint32_t hi, std::uint32_t lo
     increment(state_.valid_presented);
     if (!first_valid_ns_) first_valid_ns_ = timestamp;
     last_valid_ns_ = timestamp;
+    recent_presentations_.push_back(timestamp);
+    while (timestamp - recent_presentations_.front() > 1000000000ULL || recent_presentations_.size() > 4096)
+        recent_presentations_.pop_front();
     if (previous_ns_ && interval_anchor_) {
         constexpr std::array<std::uint64_t, 7> bounds{1000000, 4000000, 8000000, 9000000, 17000000, 34000000, 100000000};
         auto delta = timestamp - *previous_ns_;
@@ -67,6 +71,23 @@ void Metrics::discarded(std::uint64_t ticket) { if (finish(ticket)) increment(st
 void Metrics::abandon() {
     for (auto& ticket : pending_) if (ticket) { ticket = 0; increment(state_.abandoned); }
     state_.pending = 0;
+}
+std::string Metrics::status_json(double now_ms) const {
+    auto j = nlohmann::json::object();
+    if (state_.presented || state_.discarded) j["missed"] = state_.discarded;
+    if (!clock_conflict_ && std::isfinite(now_ms) && now_ms >= 0) {
+        std::uint64_t first = 0, last = 0;
+        std::size_t count = 0;
+        for (auto ns : recent_presentations_) {
+            const double ms = double(ns) / 1e6;
+            if (ms <= now_ms && ms >= now_ms - 1000) {
+                if (!count) first = ns;
+                last = ns; ++count;
+            }
+        }
+        if (count >= 2) j["presented_hz"] = double(count - 1) * 1e9 / double(last - first);
+    }
+    return j.dump();
 }
 std::string Metrics::report() const {
     nlohmann::json j{{"schema", 1}, {"kind", "generated_pattern_presentation_timing"},

@@ -45,6 +45,26 @@ class StateTests(unittest.TestCase):
         if not consent: (self.path/(r['scope']['run_id']+'.json')).unlink()
         self.now=10
         self.observation['journals']=[dict(run_id=r['scope']['run_id'],session='session',path='/runtime/journal.json',operations=[dict(state='pending')])]
+    def test_snapshot_includes_only_reported_status(self):
+        self.journal(); self.units.active=True
+        calls=[]
+        def control(r,s,op):
+            if op=='status':
+                calls.append(op)
+                return dict(capabilities=['prediction'],view={'selected':1},status={'missed':2})
+            return True
+        self.units.control=control
+        self.c.tick()
+        self.assertEqual(self.c.snapshot()['status'], {'missed':2})
+        self.assertEqual(self.c.snapshot()['view'], {'selected':1})
+        self.c.tick(); self.assertEqual(len(calls),1)
+        self.now+=1; self.c.tick(); self.assertEqual(len(calls),2)
+        self.units.control=lambda *args: True
+        self.now+=1; self.c.tick()
+        self.assertEqual(self.c.snapshot()['status'], {})  # unavailable reply clears old measurements
+        self.units.active=False; self.c.tick()
+        self.assertEqual(self.c.snapshot()['status'], {})
+
     def test_rediscovers_live_run(self):
         self.journal(); self.units.active=True; self.c.tick(); self.assertEqual(self.c.snapshot()['state'],'running')
     def test_journal_without_unit_is_recovery_needed(self):

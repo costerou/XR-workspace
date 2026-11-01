@@ -1,11 +1,25 @@
 #include "xr/metrics.hpp"
 #include <iostream>
+#include <nlohmann/json.hpp>
+#include <cmath>
 #include <limits>
 #include <time.h>
 
 int failures = 0;
 void check(bool ok, const char* name) { if (!ok) { std::cerr << name << '\n'; ++failures; } }
 int main() {
+    xr::Metrics live;
+    check(nlohmann::json::parse(live.status_json(2000)).empty(), "status omits unmeasured");
+    live.bind(1); live.clock(CLOCK_MONOTONIC);
+    for (unsigned i=0; i<120; ++i) {
+        auto ns = 1000000000ULL + i * 8333333ULL;
+        live.presented(*live.submit(), 0, ns/1000000000, ns%1000000000, 0, 0, i+1, 0, true);
+    }
+    auto status = nlohmann::json::parse(live.status_json(2000));
+    check(std::abs(status["presented_hz"].get<double>()-120)<0.5, "status rate from timestamps");
+    check(!nlohmann::json::parse(live.status_json(4000)).contains("presented_hz"), "stale timestamps omitted");
+    live.discarded(*live.submit());
+    check(nlohmann::json::parse(live.status_json(4000))["missed"]==1, "missed is cumulative feedback");
     xr::Metrics window; window.bind(1); window.clock(CLOCK_MONOTONIC);
     check(window.report().find("\"observation_duration_ns\":null") != std::string::npos, "empty window has no denominator");
     window.presented(*window.submit(), 0, 1, 0, 1, 0, 1, 0, true);

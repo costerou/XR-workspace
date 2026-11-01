@@ -123,7 +123,13 @@ class SupervisorGuardTests(unittest.TestCase):
         raw._peer = (os.getpid(), os.getuid(), os.getgid(), 'synthetic')
         seen = []
         def spawn(argv, **kwargs):
-            seen.append(argv[0]); raise OSError('stop before running')
+            seen.append(argv[0])
+            status_fd=int(argv[argv.index('--status-fd')+1])
+            self.assertIn(status_fd,kwargs['pass_fds'])
+            self.assertNotEqual(status_fd,int(argv[argv.index('--supervised-fd')+1]))
+            with socket.socket(fileno=os.dup(status_fd)) as status:
+                self.assertEqual(status.type,socket.SOCK_DGRAM)
+            raise OSError('stop before running')
         for renderer, expected in ((Path('/pinned/xr-native-spike'), '/pinned/xr-native-spike'), (None, None)):
             parent, wayland = socket.socketpair()
             with parent, wayland, self.assertRaises(OSError):
@@ -165,3 +171,56 @@ class SupervisorGuardTests(unittest.TestCase):
             finally:
                 stop.set(); thread.join(1)
         self.assert_clean()
+
+class StatusTests(unittest.TestCase):
+    def test_status_lines_kept_latest(self):
+        from tools.native_spike.supervisor import Supervisor
+        w = Supervisor(None, None, now=0)
+        w.status_bytes(b'{"presented_hz":119.8}\n{"miss')
+        self.assertEqual(w.status, {'presented_hz':119.8})
+        w.status_bytes(b'ed":3}\n')
+        self.assertEqual(w.status, {'missed':3})
+        w.status_bytes(b'{"presented_hz":NaN}\n{"fake":120}\n')
+        self.assertEqual(w.status, {'missed':3})
+        w.status_bytes(b'x'*17000+b'\n{"missed":4}\n')
+        self.assertEqual(w.status, {'missed':4})
+
+    def test_heartbeat_channel_still_H_only(self):
+        class Child:
+            done=False
+            def poll(self): return 0 if self.done else None
+            def terminate(self): self.done=True
+            def kill(self): self.done=True
+        for data in (b'H', b'{"missed":1}\n', b'HHX'):
+            with self.subTest(data=data):
+                parent,peer=socket.socketpair()
+                child=Child(); w=Supervisor(child,lambda:'done')
+                # A valid heartbeat updates its clock; invalid bytes disconnect immediately.
+                peer.sendall(data); peer.shutdown(socket.SHUT_WR)
+                try:
+                    before=w.last_heartbeat
+                    self.assertEqual(w.run(parent),'done')
+                    if data==b'H': self.assertGreater(w.last_heartbeat,before)
+                    else: self.assertEqual(w.last_heartbeat,before)
+                finally: parent.close(); peer.close()
+
+    def test_status_socket_is_separate_and_does_not_refresh_heartbeat(self):
+        class Child:
+            done=False
+            def poll(self): return 0 if self.done else None
+            def terminate(self): self.done=True
+            def kill(self): self.done=True
+        parent,peer=socket.socketpair()
+        status,writer=socket.socketpair(type=socket.SOCK_DGRAM)
+        child=Child(); w=Supervisor(child,lambda:'done')
+        before=w.last_heartbeat
+        writer.send(b'{"missed":3}\n')
+        def finish():
+            time.sleep(.1); child.done=True
+        thread=threading.Thread(target=finish); thread.start()
+        try:
+            self.assertEqual(w.run(parent,status_socket=status),'done')
+            self.assertEqual(w.status,{'missed':3})
+            self.assertEqual(w.last_heartbeat,before)
+        finally:
+            thread.join(); parent.close(); peer.close(); status.close(); writer.close()

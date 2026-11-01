@@ -57,6 +57,7 @@ public:
     Status dispatch(int timeout_ms = 50);
     void close();
     std::string timing_report() const;
+    std::string status_json(double now_ms) const;
     std::string capture_report() const;  // bounded JSON; never contains pixel data
     // Animate the glasses view (overview / zoom into `selected`, gap `spacing`); capture mode only.
     // Shows a short pop-up for the viewing mode (first call, and on change) and cursor follow (on change).

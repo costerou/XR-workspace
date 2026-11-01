@@ -487,6 +487,26 @@ Presentation::~Presentation() = default;
 void Presentation::close() {
     if (impl_) { impl_->cancel_feedback(); final_metrics_ = impl_->metrics; final_capture_ = capture_report(); impl_.reset(); }
 }
+std::string Presentation::status_json(double now_ms) const {
+    if (!impl_) return "{}";
+    auto raw = impl_->metrics.status_json(now_ms);
+    // PoseAge is relative to an unknown transport floor/device clock offset;
+    // it cannot substantiate an absolute pose_age_ms measurement.
+    std::string path;
+    for (const auto& ptr : impl_->captures) {
+        const auto& c = *ptr;
+        if (!c.frames) return raw;
+        const std::string current = c.path == Impl::Capture::Path::Dmabuf ? "dmabuf" : c.path == Impl::Capture::Path::Shm ? "shm" : "";
+        if (current.empty() || (!path.empty() && current != path)) return raw;
+        path = current;
+    }
+    if (!path.empty()) {
+        raw.pop_back();
+        if (raw.size() > 1) raw += ",";
+        raw += "\"capture_path\":\"" + path + "\"}";
+    }
+    return raw;
+}
 std::string Presentation::timing_report() const {
     return (impl_ ? impl_->metrics : final_metrics_).report();
 }

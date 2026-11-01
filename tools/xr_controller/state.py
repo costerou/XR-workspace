@@ -21,17 +21,32 @@ class Controller:
         self.consent_fd,self.state_dir = consent_dir_fd,Path(state_dir)
         self.state='no-glasses'; self.pending=None; self.run=None; self.error=None
         self.observed={}; self.started=None
+        self.live={}; self.last_status=None; self.status_run=None
         self.tick()
 
     def snapshot(self):
         o=self.observed
         return copy.deepcopy(dict(state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or o.get('reason'),
             run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
-            capabilities=list(USER_OPS) if self.state=='running' else [], status={}))
+            capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
+            view=self.live.get('view',{}) if self.state=='running' else {},
+            status=self.live.get('status',{}) if self.state=='running' else {}))
 
     def _state(self, state):
         if self.state != state: self.pending=None
         self.state=state
+        if state != 'running':
+            self.live={}; self.last_status=None; self.status_run=None
+
+    def _poll_status(self, journal):
+        now=self.clock()
+        if self.status_run != journal['run_id']:
+            self.live={}; self.last_status=None; self.status_run=journal['run_id']
+        if self.last_status is not None and now-self.last_status<1: return
+        self.last_status=now
+        try: reply=self.units.control(journal['run_id'],journal['session'],'status')
+        except (OSError,ValueError): reply=None
+        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status') if k in reply} if isinstance(reply,dict) else {}
 
     def tick(self):
         try: self._tick()
@@ -53,9 +68,10 @@ class Controller:
             try: self._consent(j)
             except (OSError,ValueError): self._state('cli-recovery'); return
             if self.units.alive(j['run_id']):
-                # Current view protocol is send-only; a successful scoped control connection proves a listener.
+                # A scoped connection proves a listener; status replies additionally carry live measurements.
                 if j.get('session') and self.units.control(j['run_id'],j['session'],None):
-                    if self.state != 'stopping': self._state('running')
+                    if self.state != 'stopping':
+                        self._state('running'); self._poll_status(j)
                     return
                 self.error='run unit alive but control socket unavailable'; self._state('starting'); return
             if self.state=='starting' and self.started is not None and self.clock()-self.started<5: return
