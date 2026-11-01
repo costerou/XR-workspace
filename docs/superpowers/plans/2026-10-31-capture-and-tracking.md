@@ -113,3 +113,10 @@ Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibi
 - Ctrl+Alt+P (free in the user's config) toggles prediction mid-run with a pop-up. It is off by default and saved in `layout.json`.
 - VM: `isolated-vm-predict-live.json`. The bind installed, the toggle reached the renderer and was saved, 450 frames were predicted, the horizon was 36.7 ms, the clock was monotonic, and there were no tracking losses. Guest llvmpipe read→present (~21 ms) says nothing about the glasses.
 - Next, live on the Luma: measure read→present at 120 Hz, then an A/B comfort check with Ctrl+Alt+P during quick head turns.
+
+**Latency and prediction verified live on the Luma (2026-10-31, runs prd1 and prd2).** Evidence: `physical-predict-prd-live.json`.
+- Software read→present at 120 Hz: p50 16.9 ms (about two frames), p95 16.9 ms and max 24.5 ms over 43,911 frames in prd2. prd1 gave the same p50 over 37,271 frames. Relative pose age: p50 1.4 ms, p95 2.1 ms. Presentation averaged 8.334 ms with 0 discarded in prd2. Draw+swap mean was 52 µs.
+- With prediction on: 18,744 frames predicted, a horizon of ~33 ms, and 0 tracking losses.
+- The user A/B'd prediction with Ctrl+Alt+P and found it "much better" with prediction on, then asked for it always on. **Prediction is now on by default**; Ctrl+Alt+P still turns it off, and an explicit off is saved.
+- prd1 ended when the glasses dropped off USB and re-enumerated. The renderer stopped on the DP-2 hotplug and teardown was complete. The network-namespaced driver does not pick up the reconnect and had to be restarted, which is a known limit of the namespace.
+- Still not measured: photon latency (needs external measurement), the Beast (its driver look-ahead config differs), and long-session comfort.

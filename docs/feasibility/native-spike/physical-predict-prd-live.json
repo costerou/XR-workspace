@@ -1,0 +1,151 @@
+{
+ "runs": [
+  "prd1",
+  "prd2"
+ ],
+ "commit": "1e79e87 (clean detached checkout .worktrees/predict-verify)",
+ "renderer_sha256": "4e00321dec90e16096801224e092bab29e1f7e5ba78c52bdc1698a58e3e10631",
+ "module_sha256": "a2185300a7943a905482f15873b001a26b9edcb6da626782768974329daf4b24 (same module as VM xr-isolated-reload-merged and live thm1)",
+ "scope": "Luma Ultra on DP-2 (1920x1200@119.999 session mode), DP-1 fallback, network-blocked XRLinuxDriver. Software read->present latency; prediction A/B by the user with Ctrl+Alt+P. Not motion-to-photon latency; no external measurement.",
+ "prd1": {
+  "presentation": {
+   "presented": 37271,
+   "discarded": 1,
+   "interval_mean_ns": 8344486.18191575,
+   "observation_duration_ns": 310999000000,
+   "clock_id": 1
+  },
+  "latency": {
+   "kind": "software_read_to_present",
+   "clock_monotonic": true,
+   "read_to_present": {
+    "count": 37271,
+    "dropped": 2,
+    "mean_ms": 16.764482,
+    "p50_ms": 16.875,
+    "p95_ms": 16.875,
+    "max_ms": 53.54599
+   },
+   "pose_age_relative": {
+    "count": 37273,
+    "dropped": 0,
+    "mean_ms": 1.34356,
+    "p50_ms": 1.375,
+    "p95_ms": 2.125,
+    "max_ms": 142.370913
+   },
+   "prediction": {
+    "enabled": false,
+    "predicted_frames": 0,
+    "unpredicted_frames": 0,
+    "last_horizon_ms": 0.0,
+    "last_predicted_deg": 0.0,
+    "max_deg": 15.0,
+    "look_ahead_cfg": [
+     10.0,
+     0.6,
+     10.0,
+     40.0
+    ]
+   }
+  },
+  "tracking": {
+   "requested": true,
+   "mode": "anchor",
+   "feed": true,
+   "tracking": false,
+   "samples": 37258,
+   "lost_events": 1,
+   "diagonal_fov_deg": 52.0,
+   "fov_source": "driver",
+   "half_fov_tan": [
+    0.413596,
+    0.258498
+   ]
+  },
+  "draw_swap": {
+   "count": 37273,
+   "mean_us": 55,
+   "max_us": 6833
+  },
+  "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/prd1/journal.json\", \"remaining\": [], \"renderer_returncode\": 1}\nexit=2\n",
+  "ended": "Glasses dropped off USB and re-enumerated at 21:01:16 (device 29->33/34); DP-2 hotplug closed the renderer surface (\"dispatch: closed, removed or disconnected\", renderer exit 1). Teardown complete (remaining []). The driver lost the device and was restarted and recalibrated. Prediction was never enabled in this run."
+ },
+ "prd2": {
+  "presentation": {
+   "presented": 43911,
+   "discarded": 0,
+   "interval_mean_ns": 8334118.059667502,
+   "observation_duration_ns": 365951124000,
+   "clock_id": 1
+  },
+  "latency": {
+   "kind": "software_read_to_present",
+   "clock_monotonic": true,
+   "read_to_present": {
+    "count": 43911,
+    "dropped": 2,
+    "mean_ms": 16.76173,
+    "p50_ms": 16.875,
+    "p95_ms": 16.875,
+    "max_ms": 24.548222
+   },
+   "pose_age_relative": {
+    "count": 43913,
+    "dropped": 0,
+    "mean_ms": 1.439588,
+    "p50_ms": 1.375,
+    "p95_ms": 2.125,
+    "max_ms": 5.942594
+   },
+   "prediction": {
+    "enabled": true,
+    "predicted_frames": 18744,
+    "unpredicted_frames": 0,
+    "last_horizon_ms": 32.965767,
+    "last_predicted_deg": 0.390265,
+    "max_deg": 15.0,
+    "look_ahead_cfg": [
+     10.0,
+     0.6,
+     10.0,
+     40.0
+    ]
+   }
+  },
+  "tracking": {
+   "requested": true,
+   "mode": "anchor",
+   "feed": true,
+   "tracking": true,
+   "samples": 43912,
+   "lost_events": 0,
+   "diagonal_fov_deg": 52.0,
+   "fov_source": "driver",
+   "half_fov_tan": [
+    0.413596,
+    0.258498
+   ]
+  },
+  "draw_swap": {
+   "count": 43913,
+   "mean_us": 52,
+   "max_us": 2746
+  },
+  "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/prd2/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\nexit=0\n",
+  "ended": "SIGTERM to the renderer after user feedback; complete, renderer exit 0"
+ },
+ "user_confirmed": "prediction on is \"much better\"; user asked to make it always on (now default on, Ctrl+Alt+P still toggles)",
+ "after_teardown_vs_baseline": {
+  "instance": true,
+  "monitors": true,
+  "workspaces": true,
+  "clients": true,
+  "layers": false,
+  "plugins": true,
+  "omarchy_state": true,
+  "ctrl_alt_binds": true,
+  "configerrors": true
+ },
+ "after_teardown_note": "layers differ only by the transient omarchy-keyboard-panel layers, which were open when the baseline was taken; plugin unloaded, DP-2 back to 1920x1080@60, driver stopped"
+}
