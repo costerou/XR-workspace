@@ -59,10 +59,12 @@ public:
     std::string timing_report() const;
     std::string capture_report() const;  // bounded JSON; never contains pixel data
     // Animate the glasses view (overview / zoom into `selected`, gap `spacing`); capture mode only.
-    void set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode = 0);
+    // Shows a short pop-up for the viewing mode (first call, and on change) and cursor follow (on change).
+    void set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode = 0, bool cursor_follow = false);
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);
     void recenter();
+    void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

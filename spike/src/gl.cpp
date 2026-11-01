@@ -6,6 +6,7 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include "dmabuf.hpp"
+#include "hud_gl.hpp"
 #include <chrono>
 #include <cstring>
 
@@ -29,6 +30,17 @@ const char* kFragment =
     "void main() { vec4 c = texture2D(tex, v); gl_FragColor = vec4(mix(c.rgb, c.bgr, swizzle), 1.0); }\n";
 const char* kColorVertex = "attribute vec2 pos;\n" XR_PROJECT "void main() { gl_Position = project(pos); }\n";
 const char* kColorFragment = "precision mediump float; uniform vec4 color; void main() { gl_FragColor = color; }\n";
+// Ambient glow: canvas-pixel coordinates are interpolated perspective-correctly, so the falloff
+// stays even when the head rotation tilts the plane. Gaussian falloff outside the framed rect.
+const char* kGlowVertex =
+    "attribute vec2 pos; attribute vec2 px; varying vec2 p;\n" XR_PROJECT "void main() { p = px; gl_Position = project(pos); }\n";
+const char* kGlowFragment =
+    "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n"
+    "varying vec2 p; uniform vec4 rect; uniform vec3 color; uniform vec2 falloff;\n"
+    "void main() { vec2 d2 = max(abs(p - rect.xy) - rect.zw, 0.0); float d = length(d2);\n"
+    "  float a = falloff.x * exp(-d * d / (2.0 * falloff.y * falloff.y));\n"
+    "  gl_FragColor = vec4(color * a, 1.0); }\n";
+constexpr float kBorderPx = 6.f, kGlowRadiusPx = 40.f, kGlowSigmaPx = 12.f, kGlowIntensity = 0.18f;
 GLuint compile(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, nullptr); glCompileShader(shader);
@@ -52,8 +64,12 @@ struct GlCompositor::Impl {
     EGLContext context = EGL_NO_CONTEXT;
     EGLSurface surface = EGL_NO_SURFACE;
     wl_egl_window* window = nullptr;
-    GLuint program = 0, color_program = 0;
+    GLuint program = 0, color_program = 0, glow_program = 0;
+    // Highlight border + glow colour: Hyprland general:col.active_border (Omarchy theme), set by
+    // the supervisor at start and on every config reload; this default is used until then.
+    float accent[3] = {0x8d / 255.f, 0x8d / 255.f, 0x8d / 255.f};
     GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
+    GLint glow_pos = -1, glow_px = -1, glow_rect = -1, glow_color = -1, glow_falloff = -1, glow_view = -1, glow_half_fov = -1;
     GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
@@ -75,13 +91,17 @@ struct GlCompositor::Impl {
     std::string vendor, renderer, version;
     Stat upload_stat, draw_stat;
     std::uint64_t uploaded_bytes = 0;
+    std::unique_ptr<GlHud> hud;           // status pop-ups; absent if its shaders failed
+    const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
+            hud.reset();
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
+            if (glow_program) glDeleteProgram(glow_program);
             eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
             if (surface != EGL_NO_SURFACE) eglDestroySurface(display, surface);
             if (context != EGL_NO_CONTEXT) eglDestroyContext(display, context);
@@ -129,10 +149,21 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     if (!linked) { why = "shader link"; return nullptr; }
     s.color_pos = glGetAttribLocation(s.color_program, "pos"); s.color = glGetUniformLocation(s.color_program, "color");
     s.color_view = glGetUniformLocation(s.color_program, "view"); s.color_half_fov = glGetUniformLocation(s.color_program, "half_fov");
+    GLuint gvs = compile(GL_VERTEX_SHADER, kGlowVertex), gfs = compile(GL_FRAGMENT_SHADER, kGlowFragment);
+    if (!gvs || !gfs) { why = "shader compile"; return nullptr; }
+    s.glow_program = glCreateProgram(); glAttachShader(s.glow_program, gvs); glAttachShader(s.glow_program, gfs); glLinkProgram(s.glow_program);
+    glDeleteShader(gvs); glDeleteShader(gfs);
+    glGetProgramiv(s.glow_program, GL_LINK_STATUS, &linked);
+    if (!linked) { why = "shader link"; return nullptr; }
+    s.glow_pos = glGetAttribLocation(s.glow_program, "pos"); s.glow_px = glGetAttribLocation(s.glow_program, "px");
+    s.glow_rect = glGetUniformLocation(s.glow_program, "rect"); s.glow_color = glGetUniformLocation(s.glow_program, "color");
+    s.glow_falloff = glGetUniformLocation(s.glow_program, "falloff");
+    s.glow_view = glGetUniformLocation(s.glow_program, "view"); s.glow_half_fov = glGetUniformLocation(s.glow_program, "half_fov");
     s.view = glGetUniformLocation(s.program, "view"); s.half_fov = glGetUniformLocation(s.program, "half_fov");
     s.pos = glGetAttribLocation(s.program, "pos"); s.uv = glGetAttribLocation(s.program, "uv");
     s.sampler = glGetUniformLocation(s.program, "tex");
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
+    s.hud = GlHud::create();  // optional: composition works without pop-ups
     s.textures.resize(sources);
     s.imported.resize(sources);
     const char* extensions = eglQueryString(s.display, EGL_EXTENSIONS);
@@ -204,7 +235,15 @@ void GlCompositor::present_dmabuf(std::size_t source, int slot) {
     }
 }
 
+void GlCompositor::set_popup(const HudImage* image, std::uint64_t generation, float alpha) {
+    impl_->popup = image; impl_->popup_generation = generation; impl_->popup_alpha = alpha;
+}
+
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
+
+void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+    impl_->accent[0] = r / 255.f; impl_->accent[1] = g / 255.f; impl_->accent[2] = b / 255.f;
+}
 
 void GlCompositor::resize(std::uint32_t width, std::uint32_t height) {
     auto& s = *impl_;
@@ -249,11 +288,24 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight,
     glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
     glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
     if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
-        const float border = 6.f;
+        // Drawn back to front over black, so no blending is needed: glow, then border, then tiles cover the interior.
         const auto& t = tiles[std::size_t(highlight)];
-        GLfloat positions[8]; quad({t.x - border, t.y - border, t.width + 2 * border, t.height + 2 * border}, positions);
+        const FRect framed{t.x - kBorderPx, t.y - kBorderPx, t.width + 2 * kBorderPx, t.height + 2 * kBorderPx};
+        const FRect halo{framed.x - kGlowRadiusPx, framed.y - kGlowRadiusPx, framed.width + 2 * kGlowRadiusPx, framed.height + 2 * kGlowRadiusPx};
+        GLfloat positions[8]; quad(halo, positions);
+        const GLfloat pixels[] = {halo.x, halo.y, halo.x + halo.width, halo.y, halo.x, halo.y + halo.height, halo.x + halo.width, halo.y + halo.height};
+        glUseProgram(s.glow_program); uniforms(s.glow_view, s.glow_half_fov);
+        glUniform4f(s.glow_rect, framed.x + framed.width / 2, framed.y + framed.height / 2, framed.width / 2, framed.height / 2);
+        glUniform3f(s.glow_color, s.accent[0], s.accent[1], s.accent[2]);
+        glUniform2f(s.glow_falloff, kGlowIntensity * highlight_alpha, kGlowSigmaPx);
+        glVertexAttribPointer(static_cast<GLuint>(s.glow_pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
+        glVertexAttribPointer(static_cast<GLuint>(s.glow_px), 2, GL_FLOAT, GL_FALSE, 0, pixels);
+        glEnableVertexAttribArray(static_cast<GLuint>(s.glow_pos)); glEnableVertexAttribArray(static_cast<GLuint>(s.glow_px));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glDisableVertexAttribArray(static_cast<GLuint>(s.glow_px));
+        quad(framed, positions);
         glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
-        glUniform4f(s.color, 0.48f * highlight_alpha, 0.64f * highlight_alpha, 0.97f * highlight_alpha, 1.f);  // accent over black
+        glUniform4f(s.color, s.accent[0] * highlight_alpha, s.accent[1] * highlight_alpha, s.accent[2] * highlight_alpha, 1.f);  // over black
         glVertexAttribPointer(static_cast<GLuint>(s.color_pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
         glEnableVertexAttribArray(static_cast<GLuint>(s.color_pos));
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -272,6 +324,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight,
         glEnableVertexAttribArray(static_cast<GLuint>(s.pos)); glEnableVertexAttribArray(static_cast<GLuint>(s.uv));
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
+    if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);
     return ok;

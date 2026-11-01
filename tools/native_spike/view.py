@@ -7,7 +7,8 @@ control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
 dead zone, eases back in front) and locked (0DoF, head-locked). Optional cursor follow (Ctrl+Alt+F):
 when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
-Mode, cursor follow and spacing are saved in layout.json.
+Mode, cursor follow and spacing are saved in layout.json. The renderer shows a short pop-up in the
+glasses whenever the viewing mode or cursor follow changes (and the viewing mode at start).
 """
 import json
 import os
@@ -36,8 +37,9 @@ class ViewState:
         self.mode, self.cursor_follow = mode, cursor_follow
 
     def view(self):
-        """Renderer payload (cursor follow is supervisor-side only)."""
-        return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode}
+        """Renderer payload. Cursor follow is acted on supervisor-side; the renderer only displays it."""
+        return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode,
+                'cursor_follow': self.cursor_follow}
 
     def settings(self):
         return {'spacing': self.spacing, 'mode': self.mode, 'cursor_follow': self.cursor_follow}

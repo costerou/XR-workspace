@@ -106,9 +106,13 @@ int main(int argc, char** argv) {
                 while (auto m = queue.pop()) {
                     if (m->op == xr::ControlOp::stop) stopping = 1;
                     else if (m->op == xr::ControlOp::recenter) presentation.recenter();
+                    else if (m->op == xr::ControlOp::style) {
+                        const auto& c = std::get<xr::StylePayload>(m->payload);
+                        presentation.set_accent(c.r, c.g, c.b);
+                    }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
-                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode);
+                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow);
                     }
                 }
             }
