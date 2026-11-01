@@ -110,6 +110,11 @@ class PanelConsentTests(unittest.TestCase):
         with self.assertRaises(ValueError): build_consent(scope(run_id='../x'))
         with self.assertRaises(ValueError): build_consent(scope(recovery_output='DP-2'))
 
+    def test_load_requires_scope_arguments(self):
+        path, _ = self.written()
+        for args in ((None, None), (INSTANCE, None), (None, 'DP-2')):
+            with self.assertRaises(ValueError): load_panel_consent(path, *args)
+
     def test_rejects_bad_desktops_tracking_schema(self):
         with self.assertRaises(ValueError): build_consent(scope(desktops=scope()['desktops'][:2]))
         with self.assertRaises(ValueError):
