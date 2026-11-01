@@ -7,9 +7,14 @@ namespace {
 constexpr std::uint32_t kMaxIndex = 2;  // XR-1..XR-3
 float clampf(float v, float lo, float hi) { return std::max(lo, std::min(hi, v)); }
 float lerp(float a, float b, float t) { return a + (b - a) * t; }
-void fit(float view_h, float src_w, float src_h, float max_w, float& w, float& h) {
-    w = std::max(0.f, max_w); h = src_w > 0 ? w * src_h / src_w : 0;
-    if (h > view_h && src_h > 0) { h = view_h; w = h * src_w / src_h; }
+bool valid(std::span<const Size> src, float view_w, float view_h) {
+    return !src.empty() && view_w > 0 && view_h > 0 && std::all_of(src.begin(), src.end(), [](Size z) { return z.w > 0 && z.h > 0; });
+}
+// One row at a shared height h, `s` apart, first tile's left edge at x0, centred vertically.
+std::vector<FRect> row(std::span<const Size> src, float view_h, float h, float s, float x0) {
+    std::vector<FRect> out;
+    for (auto z : src) { const float w = h * z.w / z.h; out.push_back({x0, (view_h - h) / 2, w, h}); x0 += w + s; }
+    return out;
 }
 }
 float smoothstep(float t) { t = clampf(t, 0, 1); return t * t * (3 - 2 * t); }
@@ -22,29 +27,34 @@ float carry(float t) { t = clampf(t, 0, 1); const float u = 1 - t; return t * u 
 float carry_d(float t) { t = clampf(t, 0, 1); const float u = 1 - t; return u * u * (1 - 3 * t) * (1 + 5 * t); }
 }
 
-std::vector<FRect> overview_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing) {
-    std::vector<FRect> out;
-    if (!count || view_w <= 0 || view_h <= 0 || src_w <= 0 || src_h <= 0) return out;
-    const float s = clampf(spacing, 0, float(kMaxSpacing)), n = float(count);
-    float w, h; fit(view_h, src_w, src_h, (view_w - (n + 1) * s) / n, w, h);
-    const float x0 = (view_w - (n * w + (n - 1) * s)) / 2;  // centred; equals s when width-limited
-    for (std::size_t i = 0; i < count; ++i) out.push_back({x0 + float(i) * (w + s), (view_h - h) / 2, w, h});
-    return out;
+std::vector<FRect> overview_layout(std::span<const Size> src, float view_w, float view_h, float spacing) {
+    if (!valid(src, view_w, view_h)) return {};
+    const float s = clampf(spacing, 0, float(kMaxSpacing)), n = float(src.size());
+    float aspects = 0; for (auto z : src) aspects += z.w / z.h;
+    const float h = std::min(view_h, std::max(0.f, view_w - (n + 1) * s) / aspects);
+    const float w = h * aspects;
+    return row(src, view_h, h, s, (view_w - (w + (n - 1) * s)) / 2);  // centred; margin s when width-limited
 }
 
-std::vector<FRect> zoomed_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing, float position) {
-    std::vector<FRect> out;
-    if (!count || view_w <= 0 || view_h <= 0 || src_w <= 0 || src_h <= 0) return out;
+std::vector<FRect> zoomed_layout(std::span<const Size> src, float view_w, float view_h, float spacing, float position) {
+    if (!valid(src, view_w, view_h)) return {};
     const float s = clampf(spacing, 0, float(kMaxSpacing));
-    float w, h; fit(view_h, src_w, src_h, view_w, w, h);
-    for (std::size_t i = 0; i < count; ++i) out.push_back({(view_w - w) / 2 + (float(i) - position) * (w + s), (view_h - h) / 2, w, h});
+    auto fit_h = [&](Size z) { return std::min(view_h, view_w * z.h / z.w); };
+    // Neighbouring pair around position (the end pair when outside the row; then t extrapolates).
+    const std::size_t last = src.size() - 1;
+    const std::size_t lo = std::size_t(clampf(std::floor(position), 0, float(last ? last - 1 : 0)));
+    const std::size_t hi = std::min(lo + 1, last);
+    const float t = position - float(lo);
+    auto out = row(src, view_h, lerp(fit_h(src[lo]), fit_h(src[hi]), clampf(t, 0, 1)), s, 0);
+    auto centre = [&](std::size_t i) { return out[i].x + out[i].width / 2; };
+    const float target = lo == hi ? centre(lo) + t * (out[lo].width + s) : lerp(centre(lo), centre(hi), t);
+    for (auto& r : out) r.x += view_w / 2 - target;
     return out;
 }
 
-std::vector<FRect> blended_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing,
-                                  float zoom, float position) {
-    auto a = overview_layout(count, view_w, view_h, src_w, src_h, spacing);
-    auto b = zoomed_layout(count, view_w, view_h, src_w, src_h, spacing, position);
+std::vector<FRect> blended_layout(std::span<const Size> src, float view_w, float view_h, float spacing, float zoom, float position) {
+    auto a = overview_layout(src, view_w, view_h, spacing);
+    auto b = zoomed_layout(src, view_w, view_h, spacing, position);
     const float t = clampf(zoom, 0, 1);
     for (std::size_t i = 0; i < a.size() && i < b.size(); ++i)
         a[i] = {lerp(a[i].x, b[i].x, t), lerp(a[i].y, b[i].y, t), lerp(a[i].width, b[i].width, t), lerp(a[i].height, b[i].height, t)};

@@ -1,4 +1,5 @@
 #include "xr/capture.hpp"
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(#x); } while (0)
@@ -44,11 +45,22 @@ int main() {
     CHECK(batch.shm && batch.device == 0xe280u && batch.dmabuf.size() == 1 && batch.dmabuf[0].modifiers.size() == 2);
     CHECK(!z.done_all().device);  // reset after a complete batch
 
-    auto tiles = side_by_side(3, 1920, 1200, 1920, 1080);
+    const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
+    auto tiles = side_by_side(eq, 1920, 1200);
     CHECK(tiles.size() == 3 && tiles[0].width == 640 && tiles[0].height == 360);
     CHECK(tiles[0].x == 0 && tiles[1].x == 640 && tiles[2].x == 1280 && tiles[0].y == 420);
-    CHECK(side_by_side(1, 1920, 1200, 1920, 1080)[0].width == 1920);
-    CHECK(side_by_side(0, 1920, 1200, 1920, 1080).empty() && side_by_side(2, 0, 10, 1, 1).empty());
+    CHECK(side_by_side(std::span(eq, 1), 1920, 1200)[0].width == 1920);
+    const Size unit[] = {{1, 1}, {1, 1}}, bad[] = {{1920, 1080}, {1920, 0}};
+    CHECK(side_by_side(std::span<const Size>{}, 1920, 1200).empty() && side_by_side(unit, 0, 10).empty() && side_by_side(bad, 1920, 1200).empty());
+    // side_by_side mixed: one shared height, no overlap, aspect within 1 px, inside dst.
+    const Size mixed[] = {{1920, 1080}, {3840, 1080}, {3440, 1440}};
+    auto m = side_by_side(mixed, 1920, 1200);
+    CHECK(m.size() == 3 && m[0].height > 0);
+    for (int i = 0; i < 3; ++i) {
+        CHECK(m[i].height == m[0].height && m[i].x + m[i].width <= 1920 && m[i].y + m[i].height <= 1200);
+        CHECK(std::fabs(float(m[i].width) - float(m[i].height) * mixed[i].w / mixed[i].h) <= 1.f);
+        if (i) CHECK(m[i - 1].x + m[i - 1].width <= m[i].x);
+    }
 
     auto q = clip_quad({0, 0, 1920, 1200}, 1920, 1200);
     CHECK(q.x0 == -1.f && q.x1 == 1.f && q.y0 == 1.f && q.y1 == -1.f);
