@@ -116,6 +116,21 @@ class SupervisorGuardTests(unittest.TestCase):
                         for endpoint in endpoints: endpoint.close()
                 self.assert_clean()
 
+    def test_launch_uses_given_renderer(self):
+        from tools.native_spike import supervisor as s
+        from test_hyprland import RawFixture
+        raw = RawFixture()
+        raw._peer = (os.getpid(), os.getuid(), os.getgid(), 'synthetic')
+        seen = []
+        def spawn(argv, **kwargs):
+            seen.append(argv[0]); raise OSError('stop before running')
+        for renderer, expected in ((Path('/pinned/xr-native-spike'), '/pinned/xr-native-spike'), (None, None)):
+            parent, wayland = socket.socketpair()
+            with parent, wayland, self.assertRaises(OSError):
+                s._launch(raw, 'run', 'verified-session', 'DP-2', wayland, None, popen=spawn, renderer=renderer)
+            if expected: self.assertEqual(seen[-1], expected)
+            else: self.assertTrue(seen[-1].endswith('build/native-spike/xr-native-spike'))
+
     def test_shutdown_and_selector_error_clean_worker(self):
         for error in (False, True):
             with self.subTest(error=error):
