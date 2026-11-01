@@ -26,7 +26,12 @@ class Controller:
 
     def snapshot(self):
         o=self.observed
-        return copy.deepcopy(dict(state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or o.get('reason'),
+        monitors=o.get('monitors',[])
+        profile=self.store.load(o['model']) if o.get('model') else {}
+        candidates=[m['name'] for m in monitors if pick_fallback([m],o.get('output'),None) is not None]
+        return copy.deepcopy(dict(fallback=pick_fallback(monitors,o.get('output'),profile.get('fallback')),
+            fallback_candidates=candidates, pending=self.pending,
+            state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or o.get('reason'),
             run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
             view=self.live.get('view',{}) if self.state=='running' else {},
