@@ -62,7 +62,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def view_controls(client, run_id, session, capture):
+def view_controls(client, run_id, session, capture, output=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds."""
     if not capture:
         yield None
@@ -76,14 +76,28 @@ def view_controls(client, run_id, session, capture):
     events = None
     try:
         saved = view.load_settings(settings)
+        bind_args = (sys.executable, str(Path(view.__file__).with_name('xr_control.py')), str(server.path), run_id, session)
+        mode = None
+        if output is not None:
+            try: mode = view.session_mode(next((m for m in client.query('monitors') if m.get('name') == output), None))
+            except (OSError, ValueError, TypeError, KeyError): mode = None
+
+        def after_reload():
+            # Config reloads (Omarchy theme switches) drop runtime binds and reset the session mode.
+            reinstall = getattr(client, 'reinstall_view_binds', None)
+            if reinstall: reinstall(*bind_args)
+            if mode is not None and hasattr(client, 'restore_session_mode'):
+                now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
+                if view.session_mode(now) != mode: client.restore_session_mode(mode)
+
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow']), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), settings, server,
-                                   border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5))
+                                   border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
+                                   on_reload=after_reload)
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
-        client.install_view_binds(sys.executable, str(Path(view.__file__).with_name('xr_control.py')),
-                                  str(server.path), run_id, session)
+        client.install_view_binds(*bind_args)
         installed = True
         yield control
     finally:
@@ -113,7 +127,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         create_outputs(specs, journal, broker)
         if guard is None: guard = ManagedGuard(broker, output, specs)
         guard()
-        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture) as control:
+        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
                                  control=control, pose_feed=pose_feed)
     finally:
