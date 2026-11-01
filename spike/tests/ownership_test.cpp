@@ -137,6 +137,20 @@ int main(int argc,char** argv) {
     valid["payload"]={{"id","12345678-1234-4234-8234-123456789abc"},{"name","XR-1"},{"index",0},{"width",1920},{"height",1080},
         {"refresh_millihz",120000},{"scale",1.0},{"x",0},{"y",0}};
     CHECK(parse_request("xrspike "+valid.dump())==valid);
+    // Per-desktop geometry: same rules as tools/native_spike/geometry.validate_desktop.
+    for(auto [w,h,sc]:std::vector<std::tuple<int,int,double>>{{3840,1080,1},{3440,1440,1.25},{2560,1440,2},{640,480,1}}) {
+        auto good=valid; good["payload"]["width"]=w; good["payload"]["height"]=h; good["payload"]["scale"]=sc;
+        CHECK(parse_request("xrspike "+good.dump())==good);
+    }
+    for(int fault=0;fault<5;++fault) {
+        auto bad=valid; auto& q=bad["payload"];
+        if(fault==0) { q["width"]=3840; q["height"]=1080; q["scale"]=1.75; }
+        if(fault==1) q["width"]=1921;
+        if(fault==2) q["width"]=7682;
+        if(fault==3) q["scale"]=1.1;
+        if(fault==4) q["refresh_millihz"]=60000;
+        bool rejected=false; try { parse_request("xrspike "+bad.dump()); } catch(const std::exception& e) { rejected=std::string(e.what())=="geometry"; } CHECK(rejected);
+    }
     // Stable Omarchy-monitor names; workspaces are never planned by the broker.
     for(int fault=0;fault<4;++fault) {
         auto bad=valid;
