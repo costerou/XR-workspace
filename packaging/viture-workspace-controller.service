@@ -1,0 +1,14 @@
+[Unit]
+Description=VITURE Workspace controller (never starts XR automatically)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+ExecStart=@EXEC@
+Restart=on-failure
+# Each run is a separate transient unit, outside this service's cgroup.
+
+[Install]
+WantedBy=graphical-session.target

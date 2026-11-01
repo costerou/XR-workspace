@@ -75,6 +75,26 @@ def _outputs(raw: object) -> tuple[list[dict], Literal['physical', 'headless_onl
                         ('name', 'make', 'model', 'width', 'height', 'refreshRate', 'disabled')
                         if key in entry})
         outputs[-1]['classification'] = kinds[-1]
+        if 'availableModes' in entry:
+            raw = entry['availableModes']
+            tokens = []
+            status = 'ok' if isinstance(raw, list) and raw else 'unknown'
+            if isinstance(raw, list):
+                if len(raw) > 256:
+                    status = 'truncated'
+                for token in raw[:256]:
+                    if isinstance(token, str) and len(token) <= 64:
+                        tokens.append(token)
+                    else:
+                        # Null holes retain original indexes; never shorten a token
+                        # into a different (potentially valid) advertisement.
+                        tokens.append(None)
+                        if isinstance(token, str):
+                            status = 'truncated'
+                        elif status != 'truncated':
+                            status = 'unknown'
+            outputs[-1]['availableModes'] = tokens
+            outputs[-1]['availableModes_status'] = status
     classification: Literal['physical', 'headless_only', 'unknown'] = ('physical' if 'physical' in kinds else
                       'headless_only' if kinds and all(k == 'headless_only' for k in kinds)
                       else 'unknown')

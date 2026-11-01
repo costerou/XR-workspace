@@ -1,0 +1,122 @@
+# Plan: capture-to-glasses and head tracking
+
+Follows the qualified managed lifecycle (`phys3`–`phys5`) and tracking feasibility (`docs/feasibility/tracking`). User grants on 2026-10-31:
+- **Capture:** only the app's own `XR-1..3` outputs, in memory, never to disk or network, never DP-1/DP-2.
+- **Tracking:** via network-blocked XRLinuxDriver.
+
+## Milestones
+
+**C1. Capture to glasses (SHM, CPU blit).**
+- Renderer binds `ext_output_image_capture_source_manager_v1` and `ext_image_copy_capture_manager_v1` on its existing connection. It captures each allowlisted output into SHM buffers and nearest-neighbour blits all three, side by side, into its layer surface on the target.
+- Allowlist: the supervisor passes `--capture XR-1,XR-2,XR-3`. The renderer accepts only exact names `XR-[1-3]`, never its own `--output`, and fails closed if a name is absent or duplicated.
+- No frame IO besides SHM and memfd.
+- Metrics: capture frames, failures, ready-to-present age, blit time.
+- Consent: a new capture scope, `capture: "managed-outputs"`, with `allow` including `capture-managed-outputs`, for both P2 managed and VM-isolated consents. `false` keeps today's behaviour exactly.
+- Acceptance: offline tests, then a VM run (headless outputs plus pattern windows captured and presented), then a live run with the user's visual confirmation.
+
+**C2. GPU presentation.**
+- EGL/GLES on the layer surface (`wl_egl_window`). Captured SHM frames are uploaded as textures; then dmabuf capture with `EGL_EXT_image_dma_buf_import` for zero-copy, with explicit sync where offered.
+- Reports copies, fallbacks and per-frame GPU/CPU time. Presentation cadence is measured with presentation-time, separately from capture cadence.
+
+**T1. Tracking adapter.**
+- In the renderer: a reader for XRLinuxDriver's SysV pose feed (see the feasibility doc). Stale timestamps or `disabled` mean tracking loss and fall back to a head-locked layout.
+- Recenter.
+- Late pose sampling per presented frame: world-anchored flat desktops rotated by yaw/pitch/roll.
+- Supervisor: network-blocked driver start, readiness on calibration, clean stop.
+
+**T2.** Smooth follow, Anchor and 0DoF modes, per-display transforms and curvature, and head-direction focus. Each will be specified before implementation, and focus/input control needs a separate grant.
+
+## Constraints carried forward
+
+- Never capture non-managed outputs, and never write frames anywhere.
+- Never claim 120 FPS from mode readback: report measured presentation cadence only.
+- Normal managed safeguards and isolated-mode separation are unchanged.
+
+## Progress
+
+**C1 done (2026-10-31).**
+- VM: `isolated-vm-capture-live.json`.
+- Live: `physical-capture-cap1-live.json`. The user saw XR-1..3 as three tiles in the Luma, updating live. There were 0 capture failures, 0 discarded presentations, and no files or writable file mappings in the renderer.
+- Bugs found on the way:
+  - Constraints arrive asynchronously, so setup now waits for them (bounded).
+  - Hyprland sends `shm_format` before `buffer_size`; constraints now accumulate in any order.
+  - The renderer inherited stdin; it now gets `/dev/null`.
+- Measured CPU/SHM path: 1,215 presented over 33.8 s (mean interval 27.9 ms, about 36 fps), with ~30 capture frames/s per source. This is far below 120 Hz and motivates C2. Not a latency measurement.
+
+**C2a done (2026-10-31).**
+- VM (llvmpipe): `isolated-vm-capture-gl-live.json`. Live (RX 7800 XT): `physical-capture-cap2-live.json`. The user found it smoother than C1.
+- While content changes, 1,894/1,943 presentation intervals sit at ~8.33 ms (the 120 Hz mode). The renderer is damage-driven, so idle gaps raise the mean.
+- Composition draw+swap mean is 62 µs; SHM upload mean is 0.44 ms. About 1 GB/s of CPU copies remains, which C2b removes.
+- Found and fixed: Mesa wrote a shader cache to disk. The renderer now runs with `MESA_SHADER_CACHE_DISABLE=true`.
+- Next: T1 (pose-driven redraw every vsync) and C2b (dmabuf zero-copy).
+
+**View controls done (2026-10-31, user-requested).**
+- Smooth zoom between the overview and a single desktop.
+- Ctrl+Alt+Left/Right switching, with focus and cursor following.
+- Spacing via Ctrl+Alt+[ / ], saved in `~/.config/viture-workspace/layout.json`.
+- Binds exist only during a run (Ctrl+Alt+arrows stay free for text navigation otherwise).
+- The view covers the whole output, so the Luma's own bar no longer shows above the tiles.
+- Evidence: VM `isolated-vm-zoom-controls-live.json`, live `physical-zoom-controls-live.json`. The user confirmed zoom, switching and focus work and feel smooth. Spacing keys are not yet pressed live.
+
+**T1 done (2026-10-31).**
+- VM: synthetic driver feed, `isolated-vm-tracking-live.json`. Live: `physical-tracking-trk1-live.json`.
+- The user confirmed yaw, pitch and roll keep the desktops fixed in space, and Ctrl+Alt+Space recenter works and feels good.
+- Measured: a sustained ~119.8 Hz presentation over 3.5 min (mean 8.346 ms, 0 discarded, 0 tracking losses) with the driver network-blocked.
+- Not yet: motion-to-photon latency, prediction, the Beast, long-session comfort, Anchor/0DoF/smooth-follow modes.
+- Next: C2b (dmabuf zero-copy), then T2 modes.
+
+**C2b implemented (2026-10-31), VM fallback verified; live zero-copy pending.**
+- Each capture session that advertises a dmabuf device gets three GBM buffers on that device's render node. They are imported once into GL as EGLImages and wrapped as `wl_buffer`s via `zwp_linux_dmabuf_v1`. The compositor renders into the slot that is neither the latest frame nor the one GL is sampling, so there is no CPU copy.
+- Format choice: XRGB8888, then ARGB8888. Among offered modifiers EGL can import, LINEAR comes first. An implicit modifier stays implicit end to end.
+- Every missing piece falls back to SHM upload and records a fixed reason in `outputs[].fallback`:
+  - no GPU composition;
+  - no linux-dmabuf;
+  - no render node;
+  - GBM allocation failure;
+  - no importable format;
+  - EGL import failure;
+  - the compositor rejecting the buffer or the capture.
+- Fixed while here: constraints that changed during an in-flight frame could stall capture. They are now applied once that frame completes or fails.
+- VM: `isolated-vm-dmabuf-live.json`. The guest cannot allocate GBM buffers, so all three outputs report `shm` with "gbm allocation failed"; capture, tracking and teardown are unchanged. Zero-copy itself needs the live RX 7800 XT run (`path: "dmabuf"`, `composition.path: "gles2-dmabuf-import"`, no upload counts).
+
+**T2 viewing modes and cursor follow implemented (2026-10-31), VM verified; live pending.**
+- Ctrl+Alt+V cycles through three modes:
+  - **anchor**: world-locked 3DoF, as before.
+  - **follow**: world-locked inside a 12° dead zone. Beyond it the desktops ease back in front (τ 220 ms, settling within 1.5°) and stay level, with no roll.
+  - **locked**: 0DoF, rigidly head-locked.
+- Mode changes blend over 300 ms from wherever the canvas is, and steady states are exact. Recenter returns every mode's anchor to straight ahead.
+- Ctrl+Alt+F (user-requested, optional, off by default) toggles cursor follow. The supervisor reads Hyprland socket2 with the same peer checks as requests. When `focusedmon` names another managed output, the view switches to it: the highlight moves in overview, or the view slides when zoomed. No extra focus dispatch is needed because the pointer is already there.
+- Both binds are free in the user's Hyprland and Omarchy config and, like the others, exist only during a run.
+- Mode, cursor follow and spacing are saved together in `layout.json`; each field falls back to its default on its own.
+- Capture now paints the cursor on managed outputs, so the pointer is visible in the glasses.
+- VM: `isolated-vm-modes-live.json`. A focus change stands in for the pointer crossing outputs.
+
+**C2b, T2 modes and cursor follow verified live (2026-10-31, run mod1).** Evidence: `physical-modes-mod1-live.json`.
+- Zero-copy: all three outputs ran on the dmabuf path (XRGB8888, LINEAR) with 0 CPU uploads. Draw+swap mean was 56 µs; ~119.9 Hz sustained over 168 s with 1 discard and 0 tracking losses.
+- The user confirmed:
+  - anchor, follow and locked all work well, and switching between them is smooth;
+  - cursor follow moves the view to the desktop the pointer enters, and the pointer is visible;
+  - the spacing keys work and the desktops update smoothly.
+- After teardown the desktop matches the baseline exactly.
+- Next: head-direction focus, then motion-to-photon latency and prediction, the Beast, and a settings UI.
+
+**Follow retuned (2026-10-31, user request): more responsive, roll included, accelerated.** Not yet tried live.
+- Follow now tracks the full head orientation, including roll. The dead zone is 4° (was 12°), and it settles within 0.5°.
+- Catch-up speed is proportional to the remaining error (τ 90 ms) and ramps in at up to 1800°/s². That is about 0.1° of movement in the first frame and more than 6° after 100 ms for a 30° turn. It eases in without overshoot.
+- All constants are in `ModeController::Tuning` (`spike/include/xr/pose.hpp`) for later tweaking.
+
+**Latency measurement and prediction implemented (2026-10-31), VM verified; live pending.** Commit `1e79e87`.
+- Per frame, the renderer timestamps the pose read (CLOCK_MONOTONIC) and pairs it with the compositor's `wp_presentation` presented time. The report gains a `latency` block with read→present count, dropped, mean, p50, p95 and max. It is only valid when the presentation clock is monotonic, which is checked. It also reports pose age relative to the best observed driver transport, since the device clock's offset is unknown. This is software timing only: the glasses' panel and scanout delay is invisible to software, so none of it is motion-to-photon latency.
+- The XRLinuxDriver feed already carries three timestamped quaternions (now, −16 ms, −32 ms) and a per-glasses `look_ahead_cfg`, which reads {10 ms, ×0.6 frametime, 10 ms scanline, 40 ms cap} on the Luma. Prediction extrapolates the newest orientation by the angular velocity between the two newest samples.
+  - Horizon: pose age + measured read→present (EMA) + the driver constant, capped at the driver cap, plus half the scanline adjustment, because one pose is used per frame. Before 8 frames have been measured, the upstream Breezy formula stands in.
+  - Rotation is clamped to 15°. Prediction is never applied to a stale (held) pose, to unusable sample spacing, or without the driver's bounds.
+- Ctrl+Alt+P (free in the user's config) toggles prediction mid-run with a pop-up. It is off by default and saved in `layout.json`.
+- VM: `isolated-vm-predict-live.json`. The bind installed, the toggle reached the renderer and was saved, 450 frames were predicted, the horizon was 36.7 ms, the clock was monotonic, and there were no tracking losses. Guest llvmpipe read→present (~21 ms) says nothing about the glasses.
+- Next, live on the Luma: measure read→present at 120 Hz, then an A/B comfort check with Ctrl+Alt+P during quick head turns.
+
+**Latency and prediction verified live on the Luma (2026-10-31, runs prd1 and prd2).** Evidence: `physical-predict-prd-live.json`.
+- Software read→present at 120 Hz: p50 16.9 ms (about two frames), p95 16.9 ms and max 24.5 ms over 43,911 frames in prd2. prd1 gave the same p50 over 37,271 frames. Relative pose age: p50 1.4 ms, p95 2.1 ms. Presentation averaged 8.334 ms with 0 discarded in prd2. Draw+swap mean was 52 µs.
+- With prediction on: 18,744 frames predicted, a horizon of ~33 ms, and 0 tracking losses.
+- The user A/B'd prediction with Ctrl+Alt+P and found it "much better" with prediction on, then asked for it always on. **Prediction is now on by default**; Ctrl+Alt+P still turns it off, and an explicit off is saved.
+- prd1 ended when the glasses dropped off USB and re-enumerated. The renderer stopped on the DP-2 hotplug and teardown was complete. The network-namespaced driver does not pick up the reconnect and had to be restarted, which is a known limit of the namespace.
+- Still not measured: photon latency (needs external measurement), the Beast (its driver look-ahead config differs), and long-session comfort.

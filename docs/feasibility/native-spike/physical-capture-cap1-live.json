@@ -1,0 +1,104 @@
+{
+  "run": "cap1",
+  "scope": "live managed run with capture of XR-1..XR-3 only (consent capture=managed-outputs), CPU/SHM composite on DP-2",
+  "renderer_sha256": "7bd0fc7abb0dbb7aa60b51f945770cba1d6023f3211ed4236b11a39fb983de3d",
+  "module_sha256": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930",
+  "user_confirmed": [
+    "clean 1200p120 image",
+    "three XR desktops visible as tiles and updating live with mouse/window movement"
+  ],
+  "renderer_fd_audit_live": "fds: /dev/null, 2 sockets, CLI stdout/stderr log files (JSON reports only); no writable file mappings",
+  "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/cap1/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\nexit=0\n",
+  "capture_report": {
+    "kind": "managed_output_capture",
+    "outputs": [
+      {
+        "name": "XR-1",
+        "frames": 956,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "stopped": false
+      },
+      {
+        "name": "XR-2",
+        "frames": 1123,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "stopped": false
+      },
+      {
+        "name": "XR-3",
+        "frames": 989,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "stopped": false
+      }
+    ]
+  },
+  "presentation_timing": {
+    "abandoned": 0,
+    "clock_conflict": false,
+    "clock_id": 1,
+    "discarded": 0,
+    "flag_counts_vsync_hw_clock_hw_completion_zero_copy": [
+      1215,
+      1215,
+      1215,
+      0
+    ],
+    "interval_count": 1214,
+    "interval_histogram": [
+      0,
+      0,
+      0,
+      1166,
+      22,
+      6,
+      7,
+      13
+    ],
+    "interval_max_ns": 17708760000,
+    "interval_mean_ns": 27863106.260296542,
+    "interval_min_ns": 8328000,
+    "interval_sum_ns": 33825811000,
+    "interval_upper_bounds_ns": [
+      1000000,
+      4000000,
+      8000000,
+      9000000,
+      17000000,
+      34000000,
+      100000000,
+      null
+    ],
+    "invalid_timing": 0,
+    "kind": "generated_pattern_presentation_timing",
+    "last_refresh_prediction_ns": 8333402,
+    "observation_duration_ns": 33825811000,
+    "pending": 0,
+    "presented": 1215,
+    "protocol_version": 1,
+    "schema": 1,
+    "submitted": 1215,
+    "sustained_cadence_qualified": false,
+    "valid_presented": 1215
+  },
+  "after_vs_baseline": {
+    "monitors": false,
+    "workspaces": true,
+    "clients": true,
+    "layers": true,
+    "instance": true,
+    "omarchy_state": true,
+    "omarchy_merged": true,
+    "renderers_left": [],
+    "configerrors": ""
+  },
+  "note": "monitors differ only by DP-2 session mode 1080@60 -> 1200@120 (baseline taken before the mode change)"
+}
