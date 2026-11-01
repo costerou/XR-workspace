@@ -151,16 +151,27 @@ std::vector<HudLine> cursor_follow_lines(bool on) {
             {"Ctrl+Alt+F to change", 1, kDim}};
 }
 
-bool StatusPopups::update(std::uint8_t mode, bool cursor_follow, double now_ms) {
+std::vector<HudLine> prediction_lines(bool on) {
+    return {{"Prediction", 2, kDim}, {on ? "On" : "Off", 4, kWhite, true},
+            {on ? "Screens lead your head motion slightly" : "Screens use the latest sensor pose", 2, kDim},
+            {"Ctrl+Alt+P to change", 1, kDim}};
+}
+
+bool StatusPopups::update(std::uint8_t mode, bool cursor_follow, bool prediction, double now_ms) {
     if (mode > 2) mode = 0;
     const bool first = !seen_, mode_changed = first || mode != mode_, cursor_changed = !first && cursor_follow != cursor_follow_;
-    seen_ = true; mode_ = mode; cursor_follow_ = cursor_follow;
-    if (!mode_changed && !cursor_changed) return false;
+    const bool prediction_changed = !first && prediction != prediction_;
+    seen_ = true; mode_ = mode; cursor_follow_ = cursor_follow; prediction_ = prediction;
+    if (!mode_changed && !cursor_changed && !prediction_changed) return false;
     std::vector<HudLine> lines;
     if (mode_changed) lines = view_mode_lines(mode);
     if (cursor_changed) {
         if (!lines.empty()) lines.push_back({"", 1, kDim});
         for (auto& l : cursor_follow_lines(cursor_follow)) lines.push_back(std::move(l));
+    }
+    if (prediction_changed) {
+        if (!lines.empty()) lines.push_back({"", 1, kDim});
+        for (auto& l : prediction_lines(prediction)) lines.push_back(std::move(l));
     }
     image_ = render_hud_card(lines, {0.48f, 0.64f, 0.97f}, font_.get());  // same accent as the selection highlight
     shown_ms_ = now_ms; ++generation_;

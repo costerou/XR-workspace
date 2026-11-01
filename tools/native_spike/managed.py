@@ -90,7 +90,8 @@ def view_controls(client, run_id, session, capture, output=None):
                 now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
                 if view.session_mode(now) != mode: client.restore_session_mode(mode)
 
-        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow']), run_id, session,
+        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
+                                                   saved['prediction']), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), settings, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload)

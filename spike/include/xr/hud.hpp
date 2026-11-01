@@ -53,12 +53,15 @@ float popup_alpha(double elapsed_ms);
 // mode: 0 anchor, 1 locked, 2 follow (the ViewPayload encoding).
 std::vector<HudLine> view_mode_lines(std::uint8_t mode);
 std::vector<HudLine> cursor_follow_lines(bool on);
+std::vector<HudLine> prediction_lines(bool on);
 
 class StatusPopups {
 public:
     // Feed every view update. The first shows the viewing mode; afterwards a pop-up appears only
     // for what changed (both sections if both changed). Returns true if a pop-up (re)started.
-    bool update(std::uint8_t mode, bool cursor_follow, double now_ms);
+    bool update(std::uint8_t mode, bool cursor_follow, double now_ms) { return update(mode, cursor_follow, prediction_, now_ms); }
+    // Prediction toggles get their own section; the initial prediction state is not announced.
+    bool update(std::uint8_t mode, bool cursor_follow, bool prediction, double now_ms);
     void set_font(std::unique_ptr<HudFont> font);  // applies to the next card; nullptr: pixel font
     const HudFont* font() const { return font_.get(); }
     float alpha(double now_ms) const;
@@ -66,7 +69,7 @@ public:
     const HudImage& image() const { return image_; }
     std::uint64_t generation() const { return generation_; }  // bumps when the card changes
 private:
-    bool seen_ = false, cursor_follow_ = false;
+    bool seen_ = false, cursor_follow_ = false, prediction_ = false;
     std::uint8_t mode_ = 0;
     double shown_ms_ = 0;
     std::uint64_t generation_ = 0;

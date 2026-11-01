@@ -9,7 +9,8 @@ struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
 // `cursor_follow` is display-only for the renderer (mode/cursor pop-ups); the supervisor acts on it.
-struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; };
+// `prediction`: renderer-side bounded head-pose prediction (predict.hpp), toggled at run time.
+struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; bool prediction = false; };
 // Theme accent for the highlight border/glow: {"border":[r,g,b]}, each 0..255.
 struct StylePayload { std::uint8_t r = 0, g = 0, b = 0; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload>;
