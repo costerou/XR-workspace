@@ -13,6 +13,58 @@ class ReportTests(unittest.TestCase):
             usb or ProbeResult('ok', [], ''), drm or ProbeResult('ok', [], ''), host or {},
             collected_at=datetime.now(timezone.utc).isoformat())
 
+    def test_exact_mode_tokens_not_rounded(self):
+        luma = ['1920x1080@60.00Hz', '1920x1200@120.00Hz', '1920x1200@90.00Hz',
+                '1920x1200@60.00Hz', '1920x1080@90.00Hz']
+        beast = ['1920x1080@120.00Hz', '1920x1080@119.88Hz']
+        for tokens in (luma, beast):
+            result = self.build([{'name': 'DP-2', 'availableModes': tokens}])
+            modes = result.session['outputs'][0]['available_modes']['value']
+            self.assertIsNotNone(modes, 'availableModes tokens were dropped/unparsed')
+            self.assertEqual([m['raw']['value'] for m in modes], tokens)
+            for i, mode in enumerate(modes):
+                self.assertEqual(mode['raw']['source'], f'session.data.outputs[0].availableModes[{i}]')
+                self.assertEqual(mode['refresh_hz']['source'], mode['raw']['source'])
+            self.assertEqual(result.capabilities['sustained_120_hz']['state'], 'untested')
+            self.assertEqual(result.capabilities['tracking_quality']['state'], 'untested')
+        self.assertEqual(modes[1]['refresh_hz']['value'], 119.88)
+        self.assertEqual(result.capabilities['advertised_120_hz']['evidence'],
+                         ['session.data.outputs[0].availableModes[0]'])
+        modes = self.build([{'name': 'DP-2', 'availableModes': luma}]).session['outputs'][0]['available_modes']['value']
+        self.assertFalse(any(m['height']['value'] == 1080 and m['refresh_hz']['value'] == 120 for m in modes))
+
+    def test_near_120_decimal_cannot_round_into_advertisement(self):
+        result = self.build([{'name': 'DP-1', 'availableModes': ['1920x1080@119.999999999999999999Hz']}])
+        self.assertEqual(result.capabilities['advertised_120_hz']['state'], 'untested')
+
+    def test_mode_parser_full_grammar_and_positive_finite_values(self):
+        parser = report.parse_available_mode
+        self.assertEqual(parser('1920x1080@119.88Hz'),
+                         dict(width=1920, height=1080, refreshRate=119.88, raw='1920x1080@119.88Hz'))
+        self.assertEqual(parser('001x002@060.00Hz'),
+                         dict(width=1, height=2, refreshRate=60.0, raw='001x002@060.00Hz'))
+        for token in (None, 42, {}, '', '1920x1080', '1920x1080@nanHz', '1920x1080@infHz',
+                      '1920x1080@1e2Hz', '0x1080@120Hz', '1920x0@120Hz', '1920x1080@0Hz',
+                      '-1x1080@120Hz', '1920x1080@-1Hz', '1920x1080@120Hz\n',
+                      ' 1920x1080@120Hz', '1920x1080@120Hzjunk', '１９２０x1080@120Hz',
+                      '1x1@' + '9' * 65 + 'Hz'):
+            with self.subTest(token=token):
+                self.assertIsNone(parser(token))
+
+    def test_raw_mode_unknown_truncated_and_original_indexes(self):
+        for raw in (None, [], {}, [42], ['bad']):
+            field = self.build([{'availableModes': raw}]).session['outputs'][0]['available_modes']
+            self.assertEqual(field['status'], 'unknown')
+        for raw in ([None, '1920x1080@120Hz'], ['x' * 65, '1920x1080@120Hz']):
+            result = self.build([{'name': 'DP-1', 'availableModes': raw}])
+            self.assertEqual(result.capabilities['advertised_120_hz']['evidence'],
+                             ['session.data.outputs[0].availableModes[1]'])
+        field = self.build([{'availableModes': ['1920x1080@60Hz'] * 257}]).session['outputs'][0]['available_modes']
+        self.assertEqual(field['status'], 'truncated')
+        self.assertEqual(len(field['value']), 256)
+        field = self.build([{'availableModes': ['1920x1080@60Hz'], 'availableModes_status': 'truncated'}]).session['outputs'][0]['available_modes']
+        self.assertEqual(field['status'], 'truncated')
+
     def test_mixed_session_nonphysical_outputs_are_inventory_not_evidence(self):
         for other in ({'name': 'HEADLESS-1'}, {'name': 'WL-1'},
                       {'name': 'DP-2', 'description': 'Headless PRIVATE_DESCRIPTION'}):

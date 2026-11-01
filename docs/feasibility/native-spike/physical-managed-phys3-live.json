@@ -1,0 +1,313 @@
+{
+  "run": "phys3",
+  "module_sha256": "1d6bbd1cec1038097e105fd10952dc044cea9fb5618c4dcf6a95217c1c200930",
+  "user_confirmed": [
+    "clean 1200p120 image before run",
+    "test pattern clear in glasses, DP-1 normal"
+  ],
+  "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/phys3/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\nexit=0\n",
+  "cli_stderr": "{\"abandoned\":0,\"clock_conflict\":false,\"clock_id\":1,\"discarded\":0,\"flag_counts_vsync_hw_clock_hw_completion_zero_copy\":[1,1,1,0],\"interval_count\":0,\"interval_histogram\":[0,0,0,0,0,0,0,0],\"interval_max_ns\":null,\"interval_mean_ns\":null,\"interval_min_ns\":null,\"interval_sum_ns\":0,\"interval_upper_bounds_ns\":[1000000,4000000,8000000,9000000,17000000,34000000,100000000,null],\"invalid_timing\":0,\"kind\":\"generated_pattern_presentation_timing\",\"last_refresh_prediction_ns\":8333402,\"observation_duration_ns\":null,\"pending\":0,\"presented\":1,\"protocol_version\":1,\"schema\":1,\"submitted\":1,\"sustained_cadence_qualified\":false,\"valid_presented\":1}\n",
+  "journal": {
+    "schema": 1,
+    "run_id": "phys3",
+    "session": "9c6ad54ed582219ba0211b9007c535cf44c7739e0aa71ff03b3347a9520e19b1",
+    "operations": [
+      {
+        "id": "4bc1b8d4-261e-40b2-aa1a-bd225ff878ce",
+        "operation": {
+          "kind": "output",
+          "id": "170755bf-f5fd-4be4-960e-0bf38b8c9316",
+          "name": "XR-1",
+          "index": 0,
+          "before": null
+        },
+        "state": "done"
+      },
+      {
+        "id": "056caf6b-a2c1-44e9-9271-1748a0638499",
+        "operation": {
+          "kind": "output",
+          "id": "9dd0f168-106e-4c8e-a50b-a03cb7fbedb3",
+          "name": "XR-2",
+          "index": 1,
+          "before": null
+        },
+        "state": "done"
+      },
+      {
+        "id": "60518654-7011-4a25-bd55-0052b47d8325",
+        "operation": {
+          "kind": "output",
+          "id": "ab842d79-6be6-41bc-9e70-b85c2782d0dc",
+          "name": "XR-3",
+          "index": 2,
+          "before": null
+        },
+        "state": "done"
+      }
+    ],
+    "broker": {
+      "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+      "output": "DP-2",
+      "recovery_output": "DP-1",
+      "epoch": "1a8ecc7decbe56d79f113fd22e633af414bcd0e9a49c6721",
+      "fallback": "a1189b56ae719fbf236b545e5a645cf4aca1214861fe5615"
+    }
+  },
+  "live_observation": {
+    "outputs": [
+      "XR-1 1920x1080@120 x5632 ws61",
+      "XR-2 x7552 ws71",
+      "XR-3 x9472 ws81"
+    ],
+    "omarchy_blocks_added": [
+      "6 XR-1",
+      "7 XR-2",
+      "8 XR-3"
+    ],
+    "pattern_layer_only_on": "DP-2"
+  },
+  "baseline": {
+    "monitors": [
+      {
+        "name": "DP-1",
+        "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+        "width": 5120,
+        "height": 1440,
+        "refreshRate": 240.0,
+        "x": 0,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      },
+      {
+        "name": "DP-2",
+        "description": "CVT VITURE 0x88888800",
+        "width": 1920,
+        "height": 1080,
+        "refreshRate": 60.0,
+        "x": 4096,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      }
+    ],
+    "workspaces": [
+      [
+        1,
+        "1",
+        "DP-1"
+      ],
+      [
+        21,
+        "21",
+        "DP-2"
+      ]
+    ],
+    "clients": [
+      [
+        "0x561aa5b24fe0",
+        "ai.storyteller.gridcraft",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa77fc5c0",
+        "com.t3tools.T3Code",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa78f9080",
+        "chromium",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa79d8230",
+        "grok-bot",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa7ac69e0",
+        "ai.storyteller.gridcraft",
+        1,
+        0,
+        false,
+        false
+      ]
+    ],
+    "layers": {
+      "DP-1": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      },
+      "DP-2": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      }
+    },
+    "plugins": "no plugins loaded\n",
+    "omarchy_state": "0\tDP-1\tSamsung Electric Company Odyssey G93SD HCSY900228\n1\t\tFALLBACK\n2\tDP-2\tCVT VITURE 0x88888800\n3\t\tVisitech AS VITURE Beast\n4\t\tSUNSHINE-PROBE\n5\t\tSUNSHINE-LAPTOP\n",
+    "omarchy_merged": ""
+  },
+  "after": {
+    "monitors": [
+      {
+        "name": "DP-1",
+        "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+        "width": 5120,
+        "height": 1440,
+        "refreshRate": 240.0,
+        "x": 0,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      },
+      {
+        "name": "DP-2",
+        "description": "CVT VITURE 0x88888800",
+        "width": 1920,
+        "height": 1200,
+        "refreshRate": 119.999,
+        "x": 4096,
+        "y": 0,
+        "scale": 1.25,
+        "transform": 0,
+        "disabled": false,
+        "dpmsStatus": true,
+        "mirrorOf": "none"
+      }
+    ],
+    "workspaces": [
+      [
+        1,
+        "1",
+        "DP-1"
+      ],
+      [
+        21,
+        "21",
+        "DP-2"
+      ]
+    ],
+    "clients": [
+      [
+        "0x561aa5b24fe0",
+        "ai.storyteller.gridcraft",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa77fc5c0",
+        "com.t3tools.T3Code",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa78f9080",
+        "chromium",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa79d8230",
+        "grok-bot",
+        1,
+        0,
+        false,
+        false
+      ],
+      [
+        "0x561aa7ac69e0",
+        "ai.storyteller.gridcraft",
+        1,
+        0,
+        false,
+        false
+      ]
+    ],
+    "layers": {
+      "DP-1": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      },
+      "DP-2": {
+        "0": [
+          "omarchy-background"
+        ],
+        "1": [],
+        "2": [
+          "omarchy-bar",
+          "omarchy-dock"
+        ],
+        "3": [
+          "omarchy-notifications"
+        ]
+      }
+    },
+    "omarchy_state": "0\tDP-1\tSamsung Electric Company Odyssey G93SD HCSY900228\n1\t\tFALLBACK\n2\tDP-2\tCVT VITURE 0x88888800\n3\t\tVisitech AS VITURE Beast\n4\t\tSUNSHINE-PROBE\n5\t\tSUNSHINE-LAPTOP\n6\t\tXR-1\n7\t\tXR-2\n8\t\tXR-3\n",
+    "omarchy_merged": ""
+  },
+  "comparison": {
+    "workspaces": true,
+    "clients": true,
+    "layers": true,
+    "monitors_except_dp2_session_mode": true,
+    "merged_unchanged": true,
+    "renderers_left": [],
+    "instance_unchanged": true,
+    "renderers_note": "pgrep -f matched the checking shell itself; an exact /proc/*/exe scan found no xr-native-spike process"
+  }
+}

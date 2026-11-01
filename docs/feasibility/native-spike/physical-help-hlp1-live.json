@@ -1,0 +1,168 @@
+{
+ "run": "hlp1",
+ "commit": "174d85d + uncommitted feat/help-overlay working tree",
+ "renderer_sha256": "9e0f1349f4619cbcfd6adc18cd58fad2ab988d2cf1d0e3a5447d0a5a5ba49c78",
+ "module_sha256": "a2185300a7943a905482f15873b001a26b9edcb6da626782768974329daf4b24 (same module as thm1; pinned private copy)",
+ "scope": "live: Ctrl+Alt+H keyboard help card (fade in/out, reverse mid-fade) during a managed capture run on the Luma Ultra (DP-2 1920x1200@120 session mode, DP-1 recovery), XRLinuxDriver tracking network-isolated",
+ "observed_during_run": {
+  "XR-1..3": "1920x1080@120",
+  "ctrl_alt_binds": [
+   "up",
+   "down",
+   "left",
+   "right",
+   "bracketleft",
+   "bracketright",
+   "space",
+   "V",
+   "F",
+   "H"
+  ]
+ },
+ "user_confirmed": "looks good (help card shown and toggled in the glasses)",
+ "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/hlp1/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}",
+ "capture_report": {
+  "kind": "managed_output_capture",
+  "outputs": [
+   {
+    "name": "XR-1",
+    "frames": 1131,
+    "failures": 0,
+    "width": 1920,
+    "height": 1080,
+    "format": 1,
+    "path": "dmabuf",
+    "dmabuf_frames": 1131,
+    "fourcc": 875713112,
+    "modifier": 0,
+    "fallback": "",
+    "stopped": false
+   },
+   {
+    "name": "XR-2",
+    "frames": 1417,
+    "failures": 0,
+    "width": 1920,
+    "height": 1080,
+    "format": 1,
+    "path": "dmabuf",
+    "dmabuf_frames": 1417,
+    "fourcc": 875713112,
+    "modifier": 0,
+    "fallback": "",
+    "stopped": false
+   },
+   {
+    "name": "XR-3",
+    "frames": 1085,
+    "failures": 0,
+    "width": 1920,
+    "height": 1080,
+    "format": 1,
+    "path": "dmabuf",
+    "dmabuf_frames": 1085,
+    "fourcc": 875713112,
+    "modifier": 0,
+    "fallback": "",
+    "stopped": false
+   }
+  ],
+  "tracking": {
+   "requested": true,
+   "mode": "follow",
+   "feed": true,
+   "tracking": true,
+   "samples": 26598,
+   "lost_events": 0,
+   "diagonal_fov_deg": 52.0,
+   "fov_source": "driver",
+   "half_fov_tan": [
+    0.413596,
+    0.258498
+   ]
+  },
+  "view": {
+   "selected": 1,
+   "zoom": 1.0,
+   "spacing": 20.0
+  },
+  "popup_font": "JetBrainsMono Nerd Font (regular + bold)",
+  "composition": {
+   "path": "gles2-dmabuf-import",
+   "imported_frames": 3614,
+   "vendor": "AMD",
+   "renderer": "AMD Radeon RX 7800 XT (radeonsi, navi32, ACO, DRM 3.64, 7.2.8-9-omarchy)",
+   "version": "OpenGL ES 3.2 Mesa 26.2.5-arch1.1",
+   "upload": {
+    "count": 0,
+    "mean_us": 0,
+    "max_us": 0
+   },
+   "draw_swap": {
+    "count": 26598,
+    "mean_us": 51,
+    "max_us": 2859
+   },
+   "uploaded_mib": 0
+  }
+ },
+ "presentation_timing": {
+  "abandoned": 2,
+  "clock_conflict": false,
+  "clock_id": 1,
+  "discarded": 0,
+  "flag_counts_vsync_hw_clock_hw_completion_zero_copy": [
+   26596,
+   26596,
+   26596,
+   0
+  ],
+  "interval_count": 26595,
+  "interval_histogram": [
+   0,
+   0,
+   0,
+   26583,
+   10,
+   2,
+   0,
+   0
+  ],
+  "interval_max_ns": 25002000,
+  "interval_mean_ns": 8337930.62605753,
+  "interval_min_ns": 8325000,
+  "interval_sum_ns": 221747265000,
+  "interval_upper_bounds_ns": [
+   1000000,
+   4000000,
+   8000000,
+   9000000,
+   17000000,
+   34000000,
+   100000000,
+   null
+  ],
+  "invalid_timing": 0,
+  "kind": "generated_pattern_presentation_timing",
+  "last_refresh_prediction_ns": 8333402,
+  "observation_duration_ns": 221747265000,
+  "pending": 0,
+  "presented": 26596,
+  "protocol_version": 1,
+  "schema": 1,
+  "submitted": 26598,
+  "sustained_cadence_qualified": false,
+  "valid_presented": 26596
+ },
+ "after_teardown_vs_baseline": {
+  "monitors": true,
+  "workspaces": true,
+  "clients": true,
+  "layers": true,
+  "plugins": "none loaded",
+  "xr_binds_left": [],
+  "tracking_driver": "stopped",
+  "configerrors": ""
+ },
+ "notes": "Baseline snapshot was taken before module load (DP-2 at saved 1080@60). layout.json: the run rewrote it without the peer branch's \"prediction\" key; restored by merging the pre-run copy. Interval mean ~8.338 ms (~119.9 Hz) over 221.7 s, 0 discarded. Not latency, long-session comfort or Beast evidence."
+}

@@ -1,0 +1,432 @@
+{
+  "trial": "xr-isolated-wsretain-2",
+  "scope": "disposable non-GL virtio KVM guest; virtual evidence only",
+  "manifest": {
+    "commit": "fa7a3cac052ad68454c41098837db4fc2113d64f",
+    "baseline": {
+      "/home/cody/.hermes/cache/scratch/xr-presentation/guest.raw": "9ac7441319451a8acc7ff02c817447eebea2ee5d20ff6dbd5761b40cfd66abde",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike/xr-native-spike": "8a3826c2d3c465db17fd760543c6294d8c4d15da4096987ae3010a6f726f38f9",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-offset-fix/libxr-ownership.so": "2be43536ebd358f94851ec927857a7305bbef20a880427fcfef4b19afc168e31",
+      "/home/cody/Projects/viture-workspace/.worktrees/native-spike/build/native-spike-ws-release/libxr-ownership.so": "7643f4114785eba15971da2c615203f56040c9d6d3ee25b2b1027ec2fcc0284f"
+    },
+    "image_files": {
+      "/opt/xr/session.sh": "ee386eb881cc03615db93a3352202aeb5a42270544710cbed9548d11eccd36bb",
+      "/opt/xr/hyprland.lua": "1c385bb66d39c55df98028cf1af550af1e8c31c9bafad1c7de9c753360ea9c63",
+      "/opt/xr/coverage-fixture.py": "6d397e44230925d63fd4c3ce8cf5f10f4cb9c9e2ecf14c0156efdffeeffd326e",
+      "/opt/xr/child_connect.py": "d03f23834ccb45896c5b4410e4bfe5361848ccf91e280f8c2c7b5bb861b215ef",
+      "/opt/xr/window": "755e6bc61e738d317c5d163650b42a798ec7ecd381f2c7790b5ac23b9847b4e4",
+      "/opt/xr/binder": "24eca05c786f0649f673dda74ce2c772eee74e2345f33a8b8ecbb023bc2ec6e0",
+      "/opt/xr/plugin.sha256": "9ab691469c9d19eb3f340535cb3dff85a204cc95f0a525016f93aeb4e2f275f9",
+      "/opt/xr/libxr-ownership.so": "7643f4114785eba15971da2c615203f56040c9d6d3ee25b2b1027ec2fcc0284f",
+      "/opt/xr/repo/build/native-spike/xr-native-spike": "8a3826c2d3c465db17fd760543c6294d8c4d15da4096987ae3010a6f726f38f9",
+      "/opt/xr/repo/tools/native_spike/__init__.py": "f8b0282cfd2c84ca456bedcf6d5a95366a88f3af97138a76504067fca07f9cff",
+      "/opt/xr/repo/tools/native_spike/__main__.py": "ca580655d5d18bd1400a6295d4d616927fd2fb100c8ed08cec41f6cdd1f1303a",
+      "/opt/xr/repo/tools/native_spike/hyprland.py": "25c2ac605c3d7c6200e5f503fcb6ec77d073547d2db5fa93bcd06a14ff4f7c48",
+      "/opt/xr/repo/tools/native_spike/ipc.py": "fe76e6b14e96cfd635f09c2703906b8508e1aa0c39f99d62f634b740b74dfd25",
+      "/opt/xr/repo/tools/native_spike/isolated.py": "0ce4abee86cfb09e41abd41abf8ff8abfac4dc7942c255582ab8051398947021",
+      "/opt/xr/repo/tools/native_spike/journal.py": "a31bb9258c762d97156073274e335a30e9e77abc9b83a866986a35ee551b066a",
+      "/opt/xr/repo/tools/native_spike/managed.py": "f3d70dbc68d03411eaa01eb195f711de9db9e964424328863e12c54ccf67c3b0",
+      "/opt/xr/repo/tools/native_spike/ownership.py": "12d1adc441c084743b53f89c85b68839b4124ff276d1bc94229bbe25592d3850",
+      "/opt/xr/repo/tools/native_spike/supervisor.py": "ea22519f49a6616813d6ff702cd75c9422075ee105333c0629ca41a36a4713db"
+    }
+  },
+  "exit": {
+    "exit_code": 0,
+    "supervisor_pid": 1393554,
+    "qemu_survivors": []
+  },
+  "fixture_complete": true,
+  "events": [
+    {
+      "kind": "identity",
+      "value": {
+        "boot_id": "f031502e-4c0d-487e-9285-4f3f9376053b",
+        "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793481873_360290689",
+        "peer": [
+          166,
+          1000,
+          1000,
+          "333"
+        ],
+        "session": "ab9ceba5454b1b61dba0477af1b380a7a197c01f9b9bbf5c0d198fa19ec06313"
+      }
+    },
+    {
+      "kind": "baseline_outputs",
+      "value": [
+        [
+          "Virtual-1",
+          1280,
+          800,
+          74.994,
+          0,
+          0
+        ],
+        [
+          "Virtual-2",
+          1280,
+          800,
+          74.994,
+          1280,
+          0
+        ]
+      ]
+    },
+    {
+      "kind": "guest_evidence",
+      "value": {
+        "boot_id": "f031502e-4c0d-487e-9285-4f3f9376053b",
+        "connectors": {
+          "Virtual-1": {
+            "connector": 40,
+            "device": "226:0"
+          },
+          "Virtual-2": {
+            "connector": 47,
+            "device": "226:0"
+          }
+        }
+      }
+    },
+    {
+      "kind": "plugin_sha256",
+      "value": "7643f4114785eba15971da2c615203f56040c9d6d3ee25b2b1027ec2fcc0284f"
+    },
+    {
+      "kind": "workspaces_before",
+      "value": [
+        [
+          1,
+          "1",
+          "Virtual-1"
+        ],
+        [
+          2,
+          "2",
+          "Virtual-2"
+        ]
+      ]
+    },
+    {
+      "kind": "iteration",
+      "value": {
+        "complete": true,
+        "managed_workspaces_now": [],
+        "outputs": [
+          "Virtual-1",
+          "Virtual-2"
+        ],
+        "run": "ws0"
+      }
+    },
+    {
+      "kind": "iteration",
+      "value": {
+        "complete": true,
+        "managed_workspaces_now": [],
+        "outputs": [
+          "Virtual-1",
+          "Virtual-2"
+        ],
+        "run": "ws1"
+      }
+    },
+    {
+      "kind": "iteration",
+      "value": {
+        "complete": true,
+        "managed_workspaces_now": [],
+        "outputs": [
+          "Virtual-1",
+          "Virtual-2"
+        ],
+        "run": "ws2"
+      }
+    },
+    {
+      "kind": "iteration",
+      "value": {
+        "complete": true,
+        "managed_workspaces_now": [],
+        "outputs": [
+          "Virtual-1",
+          "Virtual-2"
+        ],
+        "run": "ws3"
+      }
+    },
+    {
+      "kind": "after_settle",
+      "value": {
+        "all": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            2,
+            "2",
+            "Virtual-2"
+          ]
+        ],
+        "managed_workspaces": []
+      }
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "f031502e-4c0d-487e-9285-4f3f9376053b",
+          "epoch": "1be4014849600cfd0c3d2b41b3be66ebc93c35074b587440",
+          "fallback": "8fe6bda0906047758de9b6a956dd04daf6735df55c538998",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793481873_360290689",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "654d0f7775e6bfdfebe62c5dab9ef62f2b885e46485bcded"
+        },
+        "owned": [
+          [
+            "XR-SPIKE-wscli-0",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-wscli-1",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-SPIKE-wscli-2",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          205
+        ],
+        "run": "wscli"
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 0,
+        "stderr": "{\"abandoned\":0,\"clock_conflict\":false,\"clock_id\":1,\"discarded\":0,\"flag_counts_vsync_hw_clock_hw_completion_zero_copy\":[1,1,1,0],\"interval_count\":0,\"interval_histogram\":[0,0,0,0,0,0,0,0],\"interval_max_ns\":null,\"interval_mean_ns\":null,\"interval_min_ns\":null,\"interval_sum_ns\":0,\"interval_upper_bounds_ns\":[1000000,4000000,8000000,9000000,17000000,34000000,100000000,null],\"invalid_timing\":0,\"kind\":\"generated_pattern_presentation_timing\",\"last_refresh_prediction_ns\":13334400,\"observation_duration_ns\":null,\"pending\":0,\"presented\":1,\"protocol_version\":1,\"schema\":1,\"submitted\":1,\"sustained_cadence_qualified\":false,\"valid_presented\":1}\n",
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/wscli/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\n",
+        "what": "wscli teardown"
+      }
+    },
+    {
+      "kind": "after_cli",
+      "value": {
+        "all": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            2,
+            "2",
+            "Virtual-2"
+          ]
+        ],
+        "managed_workspaces": []
+      }
+    },
+    {
+      "kind": "workspaces_vs_baseline",
+      "value": {
+        "baseline": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            2,
+            "2",
+            "Virtual-2"
+          ]
+        ],
+        "compositor_alive": true,
+        "equal": true,
+        "now": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            2,
+            "2",
+            "Virtual-2"
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "live",
+      "value": {
+        "broker": {
+          "boot_id": "f031502e-4c0d-487e-9285-4f3f9376053b",
+          "epoch": "1be4014849600cfd0c3d2b41b3be66ebc93c35074b587440",
+          "fallback": "701ba1bc6bd7a35837d406330ffb03663cd8d3bab0df068c",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793481873_360290689",
+          "mode": "isolated-vm",
+          "output": "Virtual-1",
+          "proof": {
+            "fallback": {
+              "connector": 47,
+              "device": "226:0",
+              "name": "Virtual-2"
+            },
+            "target": {
+              "connector": 40,
+              "device": "226:0",
+              "name": "Virtual-1"
+            }
+          },
+          "recovery_output": "Virtual-2",
+          "runtime": "/run/user/1000",
+          "target": "331315435eef41c18d2996a6efde76413a9d2f46a7906f5c"
+        },
+        "owned": [
+          [
+            "XR-SPIKE-wswin-0",
+            1920,
+            1080,
+            120.0,
+            2560,
+            0
+          ],
+          [
+            "XR-SPIKE-wswin-1",
+            1920,
+            1080,
+            120.0,
+            4480,
+            0
+          ],
+          [
+            "XR-SPIKE-wswin-2",
+            1920,
+            1080,
+            120.0,
+            6400,
+            0
+          ]
+        ],
+        "renderers": [
+          211
+        ],
+        "run": "wswin"
+      }
+    },
+    {
+      "kind": "cli_exit",
+      "value": {
+        "code": 0,
+        "stderr": "{\"abandoned\":0,\"clock_conflict\":false,\"clock_id\":1,\"discarded\":0,\"flag_counts_vsync_hw_clock_hw_completion_zero_copy\":[1,1,1,0],\"interval_count\":0,\"interval_histogram\":[0,0,0,0,0,0,0,0],\"interval_max_ns\":null,\"interval_mean_ns\":null,\"interval_min_ns\":null,\"interval_sum_ns\":0,\"interval_upper_bounds_ns\":[1000000,4000000,8000000,9000000,17000000,34000000,100000000,null],\"invalid_timing\":0,\"kind\":\"generated_pattern_presentation_timing\",\"last_refresh_prediction_ns\":13334400,\"observation_duration_ns\":null,\"pending\":0,\"presented\":1,\"protocol_version\":1,\"schema\":1,\"submitted\":1,\"sustained_cadence_qualified\":false,\"valid_presented\":1}\n",
+        "stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/wswin/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\n",
+        "what": "wswin teardown"
+      }
+    },
+    {
+      "kind": "window_workspace_after_release",
+      "value": [
+        {
+          "hasfullscreen": false,
+          "id": 3,
+          "ispersistent": false,
+          "lastwindow": "0x5645a2f96ae0",
+          "lastwindowtitle": "xr-wswin-window",
+          "monitor": "Virtual-2",
+          "monitorID": 1,
+          "name": "XR-SPIKE-wswin-workspace-0",
+          "tiledLayout": "dwindle",
+          "windows": 1
+        }
+      ]
+    },
+    {
+      "kind": "workspaces_after_window_closed",
+      "value": {
+        "baseline": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            2,
+            "2",
+            "Virtual-2"
+          ]
+        ],
+        "now": [
+          [
+            1,
+            "1",
+            "Virtual-1"
+          ],
+          [
+            2,
+            "2",
+            "Virtual-2"
+          ]
+        ]
+      }
+    },
+    {
+      "kind": "binder_bind_lines",
+      "value": [
+        16,
+        490823
+      ]
+    }
+  ],
+  "host_qemu_samples": 27,
+  "host_qemu_fd_targets": [
+    "/dev/kvm",
+    "/dev/null",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-wsretain-2/guest.raw",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-wsretain-2/serial.log",
+    "/home/cody/.hermes/cache/scratch/xr-isolated-wsretain-2/vl.E5G5X3 (deleted)",
+    "/memfd:displaysurface (deleted)",
+    "/memfd:virtio-gpu res (deleted)",
+    "anon_inode:[eventfd]",
+    "anon_inode:[io_uring]",
+    "anon_inode:[signalfd]",
+    "anon_inode:kvm-vcpu-stats:0",
+    "anon_inode:kvm-vcpu-stats:1",
+    "anon_inode:kvm-vcpu:0",
+    "anon_inode:kvm-vcpu:1",
+    "anon_inode:kvm-vm"
+  ],
+  "host_suspicious_fds": []
+}

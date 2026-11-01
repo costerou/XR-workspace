@@ -1,0 +1,23 @@
+2026-10-31 18:22:52.497 Project version: 2.11.9
+2026-10-31 18:22:52.498 Driver has been re-enabled
+2026-10-31 18:22:52.498 Output mode has been changed to 'external_only'
+2026-10-31 18:22:52.498 Metrics have been disabled
+2026-10-31 18:22:52.498 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-10-31 18:22:57.498 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-10-31 18:23:02.498 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-10-31 18:23:07.498 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-10-31 18:23:12.498 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-10-31 18:23:17.498 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-10-31 18:23:22.498 [ERROR] No hardwareId found, not retrieving license
+2026-10-31 18:23:22.498 [ERROR] No hardwareId found, not retrieving license
+2026-10-31 18:23:22.498 Starting up XR driver
+2026-10-31 18:23:22.499 Waiting for glasses
+2026-10-31 18:23:22.503 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:174292646383	[PID:1469490][TID:1469675]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:174292854676	[PID:1469490][TID:1469675]	remain sync data transfer :15872 15872
+[CARINA][TIME]:174292860628	[PID:1469490][TID:1469675]	init open_vst_str: off
+2026-10-31 18:23:23.951 Device connected, redirecting input to external_only...
+2026-10-31 18:23:23.951 Waiting on device calibration
+2026-10-31 18:23:23.951 [ERROR] No hardwareId found, not retrieving license
+2026-10-31 18:23:35.000 Device calibration complete
+2026-10-31 18:23:35.001 Centering screen
