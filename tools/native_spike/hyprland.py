@@ -69,8 +69,8 @@ class HyprlandClient:
         except BaseException:
             conn.close(); raise
 
-    def _request(self, request):
-        deadline = time.monotonic() + DEADLINE
+    def _request(self, request, timeout=DEADLINE):
+        deadline = time.monotonic() + timeout
         with self._connect(deadline) as conn:
             conn.settimeout(max(0.001, deadline - time.monotonic()))
             conn.sendall(request.encode('ascii'))
@@ -90,15 +90,16 @@ class HyprlandClient:
         conn.setblocking(False)
         return conn
 
-    def query(self, kind, argument=None):
+    def query(self, kind, argument=None, timeout=DEADLINE):
         if kind not in QUERY: raise ValueError('raw query not allowlisted')
+        if not 0 < timeout <= DEADLINE: raise ValueError('invalid timeout')
         if kind == 'getoption':
-            if argument != 'input:follow_mouse': raise ValueError('option not allowlisted')
-            suffix = ' input:follow_mouse'
+            if argument not in ('input:follow_mouse', 'general:col.active_border'): raise ValueError('option not allowlisted')
+            suffix = ' ' + argument
         else:
             if argument is not None: raise ValueError('unexpected query argument')
             suffix = ' all' if kind == 'monitors' else ''
-        return strict_json(self._request('j/' + kind + suffix))
+        return strict_json(self._request('j/' + kind + suffix, timeout))
 
     def mutate(self, command):
         # Internal API only. Never expose this string through the public control wire.
@@ -119,6 +120,15 @@ class HyprlandClient:
         """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
         from .view import install_binds_lua
         self._eval(install_binds_lua(python, client, control_socket, run_id, session))
+
+    def reinstall_view_binds(self, python, client, control_socket, run_id, session):
+        """After a config reload: drop any surviving handles, then bind again (never doubled)."""
+        from .view import install_binds_lua, remove_binds_lua
+        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session))
+
+    def restore_session_mode(self, mode):
+        from .view import restore_mode_lua
+        self._eval(restore_mode_lua(mode))
 
     def remove_view_binds(self):
         from .view import remove_binds_lua

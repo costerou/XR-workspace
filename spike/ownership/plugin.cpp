@@ -55,25 +55,52 @@ bool eraseRule(NativeObject& o) {
         if(found!=rules.end() || !sameRule(*it,*o.rule)) { o.ruleLost=true; return false; }
         found=it;
     }
-    if(found==rules.end()) { o.ruleLost=true; return false; }
+    // Already gone (e.g. a config reload dropped it): nothing of ours left to erase.
+    if(found==rules.end()) { o.rule.reset(); return true; }
     rules.erase(found); o.rule.reset(); return true;
+}
+// A config reload (`hyprctl reload`, Omarchy theme switches) clears every monitor rule and
+// re-parses the user's config, which never names XR-n. Put back exactly our rule if, and only
+// if, no rule of that name exists now; a same-name rule from the user's config wins (latched).
+bool restoreRule(NativeObject& o) {
+    if(!o.rule || o.ruleLost) return false;
+    for(const auto& rule:Config::monitorRuleMgr()->all()) if(rule.m_name==o.rule->m_name) return false;
+    Config::monitorRuleMgr()->add(Config::CMonitorRule(*o.rule));
+    return true;
 }
 class NativeBackend final : public Backend, public PairBackend {
 public:
     SP<Aquamarine::IBackendImplementation> headless;
     std::vector<std::pair<std::weak_ptr<NativeObject>,Json>> configured;
     CHyprSignalListener reloadListener;
+    bool reapplying=false;
+    unsigned restored=0;  // rules put back after config reloads (diagnostic)
     NativeBackend() {
         for(auto& impl:g_pCompositor->m_aqBackend->getImplementations()) if(impl->type()==Aquamarine::AQ_BACKEND_HEADLESS) {
             if(headless) throw std::runtime_error("ambiguous headless backend");
             headless=impl;
         }
         if(!headless) throw std::runtime_error("headless backend unavailable");
+        // Pinned efb5099 reload(): clear rules -> parse config -> ensureMonitorStatus() (applies
+        // rules, then emits stateReloaded) -> config.reloaded. So this is the first point where a
+        // dropped rule can be seen; re-applying here happens inside the same synchronous reload,
+        // before any frame. Anything else that does not verify is latched as before.
         reloadListener=Config::monitorRuleMgr()->m_events.stateReloaded.listen([this] {
-            // Deferred reload is not permission to reapply. Latch any mismatch.
+            if(reapplying) return;
             for(auto& [weak,spec]:configured) if(auto o=weak.lock(); o && o->live) {
-                try { if(!verified(o,spec)) o->ruleLost=true; }
-                catch(...) { o->ruleLost=true; }
+                try {
+                    if(restoreRule(*o)) {
+                        auto m=resolve(o);
+                        reapplying=true;
+                        const bool applied=m && m->applyMonitorRule(Config::CMonitorRule(*o->rule));
+                        if(applied && resolve(o)) State::monitorLayoutController()->arrange();
+                        reapplying=false;
+                        ++restored;
+                        if(!applied || !resolve(o)) { o->ruleLost=true; continue; }
+                    }
+                    if(!verified(o,spec)) o->ruleLost=true;
+                }
+                catch(...) { reapplying=false; o->ruleLost=true; }
             }
         });
     }
