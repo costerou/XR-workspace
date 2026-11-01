@@ -40,3 +40,9 @@
 - **Previous plugin:** fails with "run ended after reload 1", reproducing the incident.
 
 **Not yet covered:** the session-mode restore and the on-screen colour change need the live run.
+
+## Live verification (run thm1, merge 91d7892)
+
+- The user switched Omarchy themes mid-run. The session kept running and the border and glow changed to the new theme colour (`#8d8d8d` → `#e68e0d`).
+- DP-2 was back at 1200p120, XR-1..3 stayed at 120 Hz, and the Ctrl+Alt binds were present exactly once.
+- Teardown was complete and matches the baseline. Evidence: `physical-theme-thm1-live.json`.

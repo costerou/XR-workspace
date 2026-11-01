@@ -1,0 +1,166 @@
+{
+  "run": "thm1",
+  "commit": "91d7892 (clean detached checkout; excludes later uncommitted anchor edits)",
+  "renderer_sha256": "30c85fde076109bf200ced4ade78a1820bc17a55afc4705393f09e8955733805",
+  "module_sha256": "a2185300a7943a905482f15873b001a26b9edcb6da626782768974329daf4b24 (same module as VM xr-isolated-reload-merged)",
+  "scope": "live: Omarchy theme switch (hyprctl reload) during a managed run; theme-coloured highlight; HUD pop-ups; spring follow",
+  "active_border_before": {
+    "option": "general:col.active_border",
+    "gradient": "ff8d8d8d 0deg",
+    "set": true
+  },
+  "active_border_after": {
+    "gradient": "ffe68e0d 0deg"
+  },
+  "observed_after_theme_switch": {
+    "DP-2": "1920x1200@119.999 (session mode restored)",
+    "XR-1..3": "1920x1080@120",
+    "ctrl_alt_binds": "present once each"
+  },
+  "user_confirmed": "all worked: session survived the theme switch, border and glow changed to the new theme colour, still smooth, keys work, pop-ups shown",
+  "cli_stdout": "{\"complete\": true, \"journal\": \"/run/user/1000/xr-workspace-spike/thm1/journal.json\", \"remaining\": [], \"renderer_returncode\": 0}\nexit=0\n",
+  "capture_report": {
+    "kind": "managed_output_capture",
+    "outputs": [
+      {
+        "name": "XR-1",
+        "frames": 2599,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "path": "dmabuf",
+        "dmabuf_frames": 2599,
+        "fourcc": 875713112,
+        "modifier": 0,
+        "fallback": "",
+        "stopped": false
+      },
+      {
+        "name": "XR-2",
+        "frames": 3212,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "path": "dmabuf",
+        "dmabuf_frames": 3212,
+        "fourcc": 875713112,
+        "modifier": 0,
+        "fallback": "",
+        "stopped": false
+      },
+      {
+        "name": "XR-3",
+        "frames": 2505,
+        "failures": 0,
+        "width": 1920,
+        "height": 1080,
+        "format": 1,
+        "path": "dmabuf",
+        "dmabuf_frames": 2505,
+        "fourcc": 875713112,
+        "modifier": 0,
+        "fallback": "",
+        "stopped": false
+      }
+    ],
+    "tracking": {
+      "requested": true,
+      "mode": "anchor",
+      "feed": true,
+      "tracking": true,
+      "samples": 20317,
+      "lost_events": 0,
+      "diagonal_fov_deg": 52.0,
+      "fov_source": "driver",
+      "half_fov_tan": [
+        0.413596,
+        0.258498
+      ]
+    },
+    "view": {
+      "selected": 1,
+      "zoom": 1.0,
+      "spacing": 20.0
+    },
+    "popup_font": "JetBrainsMono Nerd Font (regular + bold)",
+    "composition": {
+      "path": "gles2-dmabuf-import",
+      "imported_frames": 8279,
+      "vendor": "AMD",
+      "renderer": "AMD Radeon RX 7800 XT (radeonsi, navi32, ACO, DRM 3.64, 7.2.8-9-omarchy)",
+      "version": "OpenGL ES 3.2 Mesa 26.2.5-arch1.1",
+      "upload": {
+        "count": 0,
+        "mean_us": 0,
+        "max_us": 0
+      },
+      "draw_swap": {
+        "count": 20318,
+        "mean_us": 75,
+        "max_us": 9409
+      },
+      "uploaded_mib": 0
+    }
+  },
+  "presentation_timing": {
+    "abandoned": 2,
+    "clock_conflict": false,
+    "clock_id": 1,
+    "discarded": 0,
+    "flag_counts_vsync_hw_clock_hw_completion_zero_copy": [
+      20316,
+      20316,
+      20316,
+      0
+    ],
+    "interval_count": 20310,
+    "interval_histogram": [
+      0,
+      0,
+      0,
+      20282,
+      14,
+      8,
+      4,
+      2
+    ],
+    "interval_max_ns": 433633000,
+    "interval_mean_ns": 8387747.808961103,
+    "interval_min_ns": 8323000,
+    "interval_sum_ns": 170355158000,
+    "interval_upper_bounds_ns": [
+      1000000,
+      4000000,
+      8000000,
+      9000000,
+      17000000,
+      34000000,
+      100000000,
+      null
+    ],
+    "invalid_timing": 3,
+    "kind": "generated_pattern_presentation_timing",
+    "last_refresh_prediction_ns": 8333402,
+    "observation_duration_ns": 170738271000,
+    "pending": 0,
+    "presented": 20316,
+    "protocol_version": 1,
+    "schema": 1,
+    "submitted": 20318,
+    "sustained_cadence_qualified": false,
+    "valid_presented": 20313
+  },
+  "after_teardown_vs_baseline": {
+    "monitors": true,
+    "workspaces": true,
+    "clients": true,
+    "layers": true,
+    "instance": true,
+    "omarchy_state": true,
+    "omarchy_merged": true,
+    "renderers_left": [],
+    "configerrors": ""
+  }
+}
