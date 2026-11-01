@@ -72,6 +72,8 @@ class GuestHost(Host):
         if journal: args+=['--journal',journal]
         subprocess.run(['systemd-run','--user','--unit=viture-xr-'+self.vm['run_id'],'--collect',
             '--property=WorkingDirectory='+str(Path(__file__).resolve().parents[2]),
+            '--property=StandardOutput=append:'+str(self.state_dir/(self.vm['run_id']+'.log')),
+            '--property=StandardError=inherit',
             *['--setenv='+k+'='+os.environ[k] for k in ('XDG_RUNTIME_DIR','XDG_DATA_HOME','XDG_CONFIG_HOME','XDG_STATE_HOME','HYPRLAND_INSTANCE_SIGNATURE') if k in os.environ],*args],check=True,timeout=5)
 
 
