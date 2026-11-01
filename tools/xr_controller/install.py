@@ -94,3 +94,21 @@ def verify_pinned(entry):
     except (OSError, ValueError, KeyError, TypeError):
         ok = False
     if not ok: raise ValueError('pinned binary changed')
+
+
+def install_plugin(repo, config_home):
+    """Explicit install only. Callers/tests choose the config root; never start a shell."""
+    source = Path(repo).resolve() / 'omarchy-plugin' / 'cody.viture-workspace'
+    if not (source / 'manifest.json').is_file():
+        raise ValueError('plugin source missing')
+    parent = Path(config_home) / 'omarchy' / 'plugins'
+    parent.mkdir(parents=True, exist_ok=True)
+    link = parent / source.name
+    if link.is_symlink():
+        if link.resolve() == source:
+            return link
+        link.unlink()
+    elif link.exists():
+        raise ValueError('refusing to replace existing non-symlink plugin')
+    link.symlink_to(source, target_is_directory=True)
+    return link

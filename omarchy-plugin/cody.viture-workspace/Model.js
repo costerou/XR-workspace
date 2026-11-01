@@ -61,3 +61,45 @@ function barColorRole(state) {
     if (["recovery-needed", "cli-recovery", "failed"].indexOf(state) >= 0) return "warning";
     return "muted";
 }
+
+function desktopEdit(width, height, scale) {
+    if (!Number.isInteger(width) || !Number.isInteger(height)
+            || width < 640 || width > 7680 || height < 480 || height > 4320
+            || width % 2 || height % 2 || validScales(width, height).indexOf(scale) < 0)
+        return null;
+    return {width:width, height:height, scale:scale};
+}
+
+function scopeLines(scope, action) {
+    if (!scope) return [];
+    const lines = [];
+    function required(text) { lines.push({text:text, optional:false, key:""}); }
+    if (action === "recover") {
+        required("Move windows back to " + scope.recovery_output + ".");
+        required("Remove this run's XR outputs: " + (scope.desktops || []).map((d,i) => "XR-" + (i+1)).join(", ") + ".");
+        required("Unload this run's ownership plugin.");
+        return lines;
+    }
+    required("Show on " + scope.model + " (" + scope.output + "). Windows return to " + scope.recovery_output + " on stop or failure.");
+    required("Create XR desktops and capture only those, in memory.");
+    (scope.desktops || []).forEach((d,i) => required("XR-" + (i+1) + ": " + d.width + " × " + d.height + " · " + d.scale*100 + "%"));
+    required("Load the pinned ownership plugin for this session.");
+    lines.push({text:scope.tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).", optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
+    if (scope.mode_switch) {
+        const m = scope.mode_switch;
+        lines.push({text:"Switch " + scope.output + " to " + m.width + "×" + m.height + "@" + m.refresh_hz + " for this session only.", optional:true, key:"mode_switch"});
+    } else {
+        required(scope.model === "beast" ? "Beast: native 120 Hz mode; no mode switch. This is not measured presentation cadence." : "No display mode switch requested.");
+    }
+    return lines;
+}
+
+// Translate a preview click into the existing relative operations. The caller
+// serializes replies, stops on refusal/disconnect, and never changes view locally.
+function selectOperations(selected, target, capabilities) {
+    if (!Number.isInteger(selected) || !Number.isInteger(target)
+            || selected < 0 || selected > 2 || target < 0 || target > 2) return [];
+    const operation = target > selected ? "next" : "prev";
+    if (capabilities.indexOf(operation) < 0) return [];
+    return Array(Math.abs(target-selected)).fill(operation);
+}
