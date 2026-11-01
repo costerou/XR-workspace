@@ -1,10 +1,12 @@
 """Offline boundary tests: temporary sockets only, never the user's compositor."""
+import errno
 import json
 import os
 from pathlib import Path
 import socket
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -60,6 +62,79 @@ class HyprlandTests(unittest.TestCase):
         server = SocketFixture(self.root, b'[{"id":0}]')
         self.assertEqual(h.HyprlandClient(INSTANCE, self.root).query('monitors'), [{'id': 0}])
         server.join(); self.assertEqual(server.requests, [b'j/monitors all'])
+    def backlogged_socket(self):
+        directory = self.root / 'hypr' / INSTANCE
+        directory.mkdir(parents=True)
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(server.close)
+        server.bind(str(directory / '.socket.sock')); server.listen(0)
+        filler = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(filler.close)
+        filler.connect(str(directory / '.socket.sock'))
+        return server
+
+    def test_connect_waits_for_full_unix_backlog_before_sending_once(self):
+        server = self.backlogged_socket()
+        attempted = threading.Event()
+        requests = []
+        connect = socket.socket.connect
+        def observed_connect(conn, address):
+            try: return connect(conn, address)
+            except BlockingIOError:
+                attempted.set(); raise
+        def drain():
+            if not attempted.wait(1): return
+            server.settimeout(0.5)
+            try:
+                filler, _ = server.accept(); filler.close()
+                conn, _ = server.accept()
+                with conn:
+                    conn.settimeout(0.5)
+                    requests.append(conn.recv(4096))
+                    conn.sendall(b'ok')
+            except OSError: return
+        worker = threading.Thread(target=drain, daemon=True); worker.start()
+        try:
+            with patch.object(socket.socket, 'connect', observed_connect):
+                self.assertEqual(h.HyprlandClient(INSTANCE, self.root)._request('/eval test', timeout=0.4), b'ok')
+        finally:
+            worker.join(2)
+        self.assertFalse(worker.is_alive())
+        self.assertTrue(attempted.is_set())
+        self.assertEqual(requests, [b'/eval test'])
+
+    def test_full_unix_backlog_uses_original_deadline(self):
+        self.backlogged_socket()
+        start = time.monotonic()
+        with self.assertRaisesRegex(TimeoutError, 'connect.*deadline'):
+            h.HyprlandClient(INSTANCE, self.root)._request('/eval test', timeout=0.05)
+        self.assertGreaterEqual(time.monotonic() - start, 0.04)
+        self.assertLess(time.monotonic() - start, 0.4)
+
+    def test_expired_connect_deadline_does_not_connect(self):
+        self.backlogged_socket()
+        with patch.object(socket.socket, 'connect') as connect:
+            with self.assertRaises(TimeoutError):
+                h.HyprlandClient(INSTANCE, self.root)._connect(time.monotonic() - 1)
+        connect.assert_not_called()
+
+    def test_request_does_not_retry_eagain_after_send(self):
+        client = h.HyprlandClient(INSTANCE, self.root)
+        with patch.object(client, '_connect') as connect:
+            conn = connect.return_value.__enter__.return_value
+            conn.recv.side_effect = BlockingIOError(errno.EAGAIN, 'synthetic response failure')
+            with self.assertRaises(BlockingIOError): client._request('/eval test')
+        connect.assert_called_once()
+        conn.sendall.assert_called_once_with(b'/eval test')
+
+    def test_connected_peer_still_checked_before_sending(self):
+        server = SocketFixture(self.root, b'ok')
+        client = h.HyprlandClient(INSTANCE, self.root)
+        client._peer = ('different-peer',)
+        with self.assertRaisesRegex(ValueError, 'peer changed'): client._request('/eval test')
+        server.join()
+        self.assertEqual(server.requests, [b''])
+
     def test_allowlist_rejects_normalized_queries_without_connect(self):
         c = h.HyprlandClient(INSTANCE, self.root)
         for kind in ('session', 'outputs', 'settings', 'version', 'monitors;exec'):
