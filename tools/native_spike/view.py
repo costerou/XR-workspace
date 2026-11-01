@@ -159,6 +159,29 @@ def focus_command(name):
     return f'dispatch hl.dsp.focus({{monitor="{name}"}})'
 
 
+SESSION_MODE = (1920, 1200, 120)  # user grant: session-only Luma/Beast mode on the approved output
+PHYSICAL = re.compile(r'(?:DP|HDMI-A|eDP)-[0-9]+\Z')
+
+
+def session_mode(monitor):
+    """The approved output's placement if it is in the granted session mode, else None."""
+    if not isinstance(monitor, dict) or not PHYSICAL.match(str(monitor.get('name', ''))): return None
+    if (monitor.get('width'), monitor.get('height')) != SESSION_MODE[:2]: return None
+    if not isinstance(monitor.get('refreshRate'), (int, float)) or abs(monitor['refreshRate'] - SESSION_MODE[2]) > 0.5: return None
+    x, y, scale = monitor.get('x'), monitor.get('y'), monitor.get('scale')
+    if type(x) is not int or type(y) is not int or not isinstance(scale, (int, float)) or not 0.25 <= scale <= 4: return None
+    return {'name': monitor['name'], 'x': x, 'y': y, 'scale': float(scale)}
+
+
+def restore_mode_lua(mode):
+    """Re-apply the granted session mode after a config reload reset it (fixed shape, validated)."""
+    if session_mode({**mode, 'width': SESSION_MODE[0], 'height': SESSION_MODE[1], 'refreshRate': SESSION_MODE[2]}) != mode:
+        raise ValueError('invalid session mode')
+    w, h, r = SESSION_MODE
+    return (f'hl.monitor({{ output = "{mode["name"]}", mode = "{w}x{h}@{r}", position = "{mode["x"]}x{mode["y"]}", '
+            f'scale = {mode["scale"]:g} }})')
+
+
 def install_binds_lua(python, client, control_socket, run_id, session):
     for p in (python, client, control_socket):
         if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
@@ -177,7 +200,7 @@ def remove_binds_lua():
 
 class ViewControl:
     """Supervisor-side handler: user op -> state, async focus, saved spacing, renderer view frame."""
-    def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None):
+    def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None, on_reload=None):
         self.state, self.run_id, self.session = state, run_id, session
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
@@ -187,6 +210,8 @@ class ViewControl:
         self.cursor_switches = 0
         self.border = border     # optional () -> Hyprland getoption reply for general:col.active_border
         self.accent = None       # last theme colour sent to the renderer
+        self.on_reload = on_reload  # optional () -> None, run off-loop after Hyprland config reloads
+        self.reloads = 0
 
     def initial_frame(self):
         return self._frame() + self._style_frame()
@@ -237,8 +262,17 @@ class ViewControl:
             if m and self.state.cursor_entered(m.group(1)):
                 changed = True; self.cursor_switches += 1
             if CONFIGRELOADED.match(text): reloaded = True
+        if reloaded:
+            self.reloads += 1
+            if self.on_reload is not None:  # binds and session mode: compositor calls, never on the watchdog loop
+                import threading
+                t = threading.Thread(target=self._reload_work, daemon=True); t.start(); self._threads.append(t)
         out = (self._frame() if changed else b'') + (self._style_frame() if reloaded else b'')
         return out or None
+
+    def _reload_work(self):
+        try: self.on_reload()
+        except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; the run itself is unaffected
 
     def _focus(self, target):
         try: self.focus(target)

@@ -316,3 +316,44 @@ class ThemeAccentTests(unittest.TestCase):
 
 def decode_control_renderer_shape(test, frame):
     test.assertEqual(set(frame), {'schema', 'request_id', 'run_id', 'session', 'op', 'payload'})
+
+
+class ConfigReloadTests(unittest.TestCase):
+    MON = {'name': 'DP-2', 'width': 1920, 'height': 1200, 'refreshRate': 119.999, 'x': 4096, 'y': 0, 'scale': 1.25}
+
+    def test_session_mode_only_for_the_granted_mode(self):
+        self.assertEqual(view.session_mode(self.MON), {'name': 'DP-2', 'x': 4096, 'y': 0, 'scale': 1.25})
+        for change in ({'width': 1920, 'height': 1080}, {'refreshRate': 60.0}, {'name': 'XR-1'}, {'name': 'DP-2"})'},
+                       {'x': 1.5}, {'scale': 9}):
+            self.assertIsNone(view.session_mode({**self.MON, **change}), change)
+        self.assertIsNone(view.session_mode(None))
+
+    def test_restore_lua_is_fixed_shape(self):
+        lua = view.restore_mode_lua(view.session_mode(self.MON))
+        self.assertEqual(lua, 'hl.monitor({ output = "DP-2", mode = "1920x1200@120", position = "4096x0", scale = 1.25 })')
+        for bad in ({'name': 'DP-2"}) os.exit()--', 'x': 0, 'y': 0, 'scale': 1.0}, {'name': 'DP-2', 'x': '0', 'y': 0, 'scale': 1.0}):
+            with self.assertRaises(ValueError): view.restore_mode_lua(bad)
+
+    def test_reload_event_runs_reload_work_off_loop_and_refreshes_style(self):
+        done = threading.Event()
+        c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None, Path(tempfile.mkdtemp()) / 'l.json', None,
+                             border=lambda: {'gradient': 'ff112233 0deg'}, on_reload=done.set)
+        frame = c.on_events(b'configreloaded>>\n')
+        self.assertEqual(json.loads(frame)['op'], 'style')
+        self.assertTrue(done.wait(2)); self.assertEqual(c.reloads, 1)
+        def boom(): raise OSError('busy')
+        c.on_reload = boom
+        c.on_events(b'configreloaded>>\n'); c.join_focus(2)                   # failure is swallowed
+
+    def test_reinstall_removes_then_binds_in_one_eval(self):
+        from tools.native_spike import hyprland as h
+        sent = []
+        client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
+        client._eval = sent.append
+        client.reinstall_view_binds('/usr/bin/python3', '/opt/x/xr_control.py', '/run/user/1000/x/control.sock', 'run', 'session')
+        self.assertEqual(len(sent), 1)
+        self.assertLess(sent[0].index('HL.Keybind(expired)'), sent[0].index('hl.bind('))
+        self.assertLessEqual(len(sent[0]), 4096)
+        self.assertEqual(sent[0].count('hl.bind('), len(view.BINDS))
+        client.restore_session_mode(view.session_mode(self.MON))
+        self.assertIn('1920x1200@120', sent[1])

@@ -121,6 +121,15 @@ class HyprlandClient:
         from .view import install_binds_lua
         self._eval(install_binds_lua(python, client, control_socket, run_id, session))
 
+    def reinstall_view_binds(self, python, client, control_socket, run_id, session):
+        """After a config reload: drop any surviving handles, then bind again (never doubled)."""
+        from .view import install_binds_lua, remove_binds_lua
+        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session))
+
+    def restore_session_mode(self, mode):
+        from .view import restore_mode_lua
+        self._eval(restore_mode_lua(mode))
+
     def remove_view_binds(self):
         from .view import remove_binds_lua
         self._eval(remove_binds_lua())
