@@ -32,6 +32,8 @@ class ProfileTests(unittest.TestCase):
         p = {**profiles.DEFAULT_PROFILE, 'desktops': [good, bad, good]}
         self.path.write_text(json.dumps({'schema': 2, 'profiles': {'beast': p, 'mystery': p}}))
         self.assertEqual(profiles.load_profile(self.path, 'beast')['desktops'], [good, DEFAULT_DESKTOP, good])
+        profiles.save_profile(self.path, 'luma-ultra', profiles.DEFAULT_PROFILE)
+        self.assertNotIn('mystery', json.loads(self.path.read_text())['profiles'])  # a rewrite drops unknown models
 
     def test_invalid_fields_fall_back(self):
         self.dir.mkdir()
@@ -82,10 +84,33 @@ class ProfileTests(unittest.TestCase):
         s.save({**view.DEFAULT_SETTINGS, 'spacing': 10})
         self.assertEqual(s.load()['spacing'], 10)
 
+    def test_stale_tmp_does_not_affect_mode(self):
+        self.dir.mkdir()
+        stale = self.dir / 'profiles.json.tmp'
+        stale.write_text('stale'); stale.chmod(0o644)
+        profiles.save_profile(self.path, 'beast', profiles.DEFAULT_PROFILE)
+        self.assertEqual(oct(self.path.stat().st_mode & 0o777), '0o600')
+        self.assertEqual(sorted(os.listdir(self.dir)), ['profiles.json', 'profiles.json.tmp'])
+
+    def test_failed_save_removes_temp(self):
+        from unittest import mock
+        with mock.patch('os.replace', side_effect=OSError('boom')), self.assertRaises(OSError):
+            profiles.save_profile(self.path, 'beast', profiles.DEFAULT_PROFILE)
+        self.assertEqual(os.listdir(self.dir), [])
+
     def test_view_controls_default_store_unchanged(self):
+        from unittest import mock
         from tools.native_spike import managed
-        import inspect
-        self.assertIsNone(inspect.signature(managed.view_controls).parameters['store'].default)
+        runtime = Path(self.tmp.name) / 'run'; runtime.mkdir(mode=0o700)
+        client = mock.Mock(runtime_dir=runtime, event_stream=None)
+        client.query.return_value = []
+        with mock.patch.dict(os.environ, {'XDG_CONFIG_HOME': self.tmp.name}):
+            (Path(self.tmp.name) / 'viture-workspace').mkdir()
+            (Path(self.tmp.name) / 'viture-workspace' / 'layout.json').write_text('{"spacing": 70}')
+            with managed.view_controls(client, 'run', 'session', ['XR-1', 'XR-2', 'XR-3']) as control:
+                self.assertEqual(control.state.spacing, 70)
+                control.settings.save({**view.DEFAULT_SETTINGS, 'spacing': 30})
+        self.assertEqual(json.loads((Path(self.tmp.name) / 'viture-workspace' / 'layout.json').read_text())['spacing'], 30)
 
 
 if __name__ == '__main__':

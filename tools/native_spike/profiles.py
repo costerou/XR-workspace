@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import tempfile
 
 from . import view
 from .geometry import DEFAULT_DESKTOP, validate_desktop
@@ -88,13 +89,18 @@ def save_profile(path, model, profile):
     profiles = {k: v for k, v in _read_profiles(path).items() if k in MODELS and k != model}
     profiles[model] = profile
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp = path.with_name(path.name + '.tmp')
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'w') as f:
-        json.dump({'schema': SCHEMA, 'profiles': profiles}, f)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix='.profiles.', suffix='.tmp')
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, 'w') as f:
+            json.dump({'schema': SCHEMA, 'profiles': profiles}, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try: os.unlink(tmp)
+        except OSError: pass
+        raise
 
 
 class ProfileStore:
