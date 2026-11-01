@@ -570,6 +570,9 @@ void Presentation::enable_tracking(std::string prefix) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
+void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+    if (impl_ && impl_->gl) { impl_->gl->set_accent(r, g, b); impl_->cadence.invalidate(); }
+}
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode) {
     if (!impl_) return;

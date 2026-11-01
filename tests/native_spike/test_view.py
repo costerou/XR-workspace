@@ -279,3 +279,40 @@ class EventStreamTests(unittest.TestCase):
         self.assertEqual(conn.recv(100), b'focusedmon>>XR-1,1\n')
         self.assertFalse(conn.getblocking())
         with self.assertRaises(ValueError): h.HyprlandClient(instance, root)._connect(0, '../x')
+
+
+class ThemeAccentTests(unittest.TestCase):
+    def test_parse_border(self):
+        self.assertEqual(view.parse_border({'option': 'general:col.active_border', 'gradient': 'ff8d8d8d 0deg', 'set': True}), (0x8d, 0x8d, 0x8d))
+        self.assertEqual(view.parse_border({'gradient': 'ee33ccff ee00ff99 45deg'}), (0x33, 0xcc, 0xff))  # first colour
+        self.assertEqual(view.parse_border({'int': 0xff112233}), (0x11, 0x22, 0x33))
+        for bad in (None, [], {}, {'gradient': ''}, {'gradient': 'zz 0deg'}, {'gradient': 'ff8d8d 0deg'}, {'int': -1}, {'int': True}):
+            self.assertIsNone(view.parse_border(bad), bad)
+
+    def test_initial_and_reload_send_style_only_on_change(self):
+        replies = [{'gradient': 'ff8d8d8d 0deg'}]
+        c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None,
+                             Path(tempfile.mkdtemp()) / 'l.json', None, border=lambda: replies[-1])
+        frames = [json.loads(l) for l in c.initial_frame().decode().splitlines()]
+        self.assertEqual([f['op'] for f in frames], ['view', 'style'])
+        self.assertEqual(frames[1]['payload'], {'border': [0x8d, 0x8d, 0x8d]})
+        self.assertGreater(frames[1]['request_id'], frames[0]['request_id'])
+        for f in frames: decode_control_renderer_shape(self, f)
+        self.assertIsNone(c.on_events(b'configreloaded>>\n'))                 # same theme: nothing sent
+        replies.append({'gradient': 'ffc4a7e7 0deg'})                       # theme switched
+        frame = json.loads(c.on_events(b'configreloaded>>\n'))
+        self.assertEqual((frame['op'], frame['payload']), ('style', {'border': [0xc4, 0xa7, 0xe7]}))
+        def broken(): raise OSError('compositor busy')
+        c.border = broken
+        self.assertIsNone(c.on_events(b'configreloaded>>\n'))                 # lookup failure is never fatal
+
+    def test_query_allowlist_and_timeout(self):
+        from tools.native_spike import hyprland as h
+        client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
+        for args in (('getoption', 'general:col.inactive_border'), ('getoption', 'decoration:rounding')):
+            with self.assertRaises(ValueError): client.query(*args)
+        with self.assertRaises(ValueError): client.query('getoption', 'general:col.active_border', timeout=5)
+
+
+def decode_control_renderer_shape(test, frame):
+    test.assertEqual(set(frame), {'schema', 'request_id', 'run_id', 'session', 'op', 'payload'})
