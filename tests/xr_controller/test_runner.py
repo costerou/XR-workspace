@@ -122,6 +122,24 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(self.client.loaded, ['someone-else'])
         self.assertEqual(self.result()['error'], 'ownership plugin already loaded')
 
+    def test_incomplete_recovery_preserves_plugin(self):
+        self.consent()
+        self.run_result = dict(self.run_result, complete=False, remaining=['XR-1'])
+        self.assertEqual(self.main(), 2)
+        self.assertEqual(self.client.loaded, ['xr-ownership'])
+        self.assertFalse(any(isinstance(e,tuple) and e[0]=='plugin_unload' for e in self.log))
+        self.assertIn('recovery',self.result()['error'])
+
+    def test_run_exception_with_journal_preserves_plugin(self):
+        self.consent()
+        directory=self.runtime/'xr-workspace-spike'/'run1'
+        directory.mkdir(parents=True)
+        (directory/'journal.json').write_text('{}')
+        self.run_error=ValueError('recovery blocked')
+        self.assertEqual(self.main(),2)
+        self.assertEqual(self.client.loaded,['xr-ownership'])
+        self.assertIn('recovery blocked',self.result()['error'])
+
     def test_unload_readback_failure_is_reported(self):
         self.consent(); self.client.unload_sticks = True
         self.assertEqual(self.main(), 2)
