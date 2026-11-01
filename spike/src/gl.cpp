@@ -93,12 +93,14 @@ struct GlCompositor::Impl {
     std::uint64_t uploaded_bytes = 0;
     std::unique_ptr<GlHud> hud;           // status pop-ups; absent if its shaders failed
     const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
+    std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
+    const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
-            hud.reset();
+            hud.reset(); help_hud.reset();
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
             if (glow_program) glDeleteProgram(glow_program);
@@ -164,6 +166,7 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     s.sampler = glGetUniformLocation(s.program, "tex");
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
     s.hud = GlHud::create();  // optional: composition works without pop-ups
+    s.help_hud = GlHud::create();
     s.textures.resize(sources);
     s.imported.resize(sources);
     const char* extensions = eglQueryString(s.display, EGL_EXTENSIONS);
@@ -237,6 +240,10 @@ void GlCompositor::present_dmabuf(std::size_t source, int slot) {
 
 void GlCompositor::set_popup(const HudImage* image, std::uint64_t generation, float alpha) {
     impl_->popup = image; impl_->popup_generation = generation; impl_->popup_alpha = alpha;
+}
+
+void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
+    impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px;
 }
 
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
@@ -324,6 +331,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight,
         glEnableVertexAttribArray(static_cast<GLuint>(s.pos)); glEnableVertexAttribArray(static_cast<GLuint>(s.uv));
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
+    if (s.help_hud && s.help) s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);

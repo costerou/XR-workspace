@@ -110,6 +110,10 @@ int main(int argc, char** argv) {
                         const auto& c = std::get<xr::StylePayload>(m->payload);
                         presentation.set_accent(c.r, c.g, c.b);
                     }
+                    else if (m->op == xr::ControlOp::help) {
+                        const auto& h = std::get<xr::HelpPayload>(m->payload);
+                        presentation.set_help(h.visible, h.rows);
+                    }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
                         presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow);

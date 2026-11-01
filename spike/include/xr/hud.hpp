@@ -73,4 +73,35 @@ private:
     HudImage image_;
     std::unique_ptr<HudFont> font_;
 };
+
+// Keyboard help (Ctrl+Alt+H): a centred card listing every bind, toggled by the supervisor.
+// Fades in/out with an eased curve and a small rise; toggling mid-fade reverses from the
+// current opacity instead of jumping.
+struct HelpRow { std::string keys, action; };
+HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font = nullptr);
+constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
+constexpr float kHelpRisePx = 18;  // the card rises this far while fading in (and sinks fading out)
+
+class HelpOverlay {
+public:
+    // Show/hide; rows are rendered when shown with different rows (or the first time).
+    // Returns true if visibility changed.
+    bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms);
+    void set_font(std::unique_ptr<HudFont> font);
+    bool visible() const { return visible_; }
+    float alpha(double now_ms) const;        // eased 0..1
+    float offset_px(double now_ms) const;    // downward offset in output pixels, 0 when fully shown
+    bool animating(double now_ms) const;     // mid-fade: redraw every frame
+    const HudImage& image() const { return image_; }
+    std::uint64_t generation() const { return generation_; }
+private:
+    float level(double now_ms) const;        // linear 0..1
+    bool visible_ = false;
+    float from_ = 0;                         // level when the last toggle happened
+    double changed_ms_ = 0;
+    std::vector<HelpRow> rows_;
+    std::uint64_t generation_ = 0;
+    HudImage image_;
+    std::unique_ptr<HudFont> font_;
+};
 }

@@ -157,6 +157,8 @@ struct Presentation::Impl : SurfaceRequests {
     ModeController modes;  // T2: anchor / locked (0DoF) / follow
     StatusPopups popups;   // viewing mode / cursor follow pop-ups (GPU composition only)
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
+    HelpOverlay help;          // keyboard help card (Ctrl+Alt+H)
+    bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -407,8 +409,10 @@ struct Presentation::Impl : SurfaceRequests {
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
-        if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(double(monotonic_ms())))
-            s.cadence.invalidate();  // animate / follow the head / fade a pop-up every frame
+        const double now = double(monotonic_ms());
+        if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
+            (s.help_drawn && !s.help.visible()))
+            s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -564,6 +568,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             std::string why; auto font = HudFont::load(kHudFontFamily, why);
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
             s->popups.set_font(std::move(font));
+            std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
         }
         s->uploaded.assign(s->captures.size(), 0);
         s->allocation_enabled = true;
@@ -588,6 +593,12 @@ void Presentation::enable_tracking(std::string prefix) {
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (impl_ && impl_->gl) { impl_->gl->set_accent(r, g, b); impl_->cadence.invalidate(); }
+}
+void Presentation::set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows) {
+    if (!impl_) return;
+    std::vector<HelpRow> help;
+    for (const auto& [keys, action] : rows) help.push_back({keys, action});
+    if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow) {
@@ -643,6 +654,10 @@ Status Presentation::draw_test_pattern() {
         const float popup = s.popups.alpha(double(monotonic_ms()));
         s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
         s.popup_drawn = popup > 0.f;
+        const double help_now = double(monotonic_ms());
+        const float help = s.help.alpha(help_now);
+        s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
+        s.help_drawn = help > 0.f;
         if (!s.gl->draw_and_swap(tiles, int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
