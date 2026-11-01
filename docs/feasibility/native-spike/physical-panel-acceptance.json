@@ -1,0 +1,595 @@
+{
+  "schema": 1,
+  "task": 13,
+  "result": "blocked-physical-acceptance-not-passed",
+  "source": "f17f4c0f1fab1c1203178bc3e562aa6309675af0",
+  "vm_evidence_commit": "1480e9f",
+  "recorded_at": "2026-11-01T02:31:58.707691+00:00",
+  "approval": {
+    "message": "Okay I approve",
+    "scope": "First Luma normal session only; no crash injection",
+    "additional_confirmation": "Two P2-panel consent records were created by panel confirmation; agent did not request either run"
+  },
+  "sessions": [
+    {
+      "name": "first-luma-normal",
+      "preflight": {
+        "session": "luma-normal-1",
+        "approval": "Okay I approve",
+        "approved_scope": "First Luma normal session only; no crash injection",
+        "prepared_at": "2026-11-01T02:28:38.158410+00:00",
+        "source": "f17f4c0f1fab1c1203178bc3e562aa6309675af0",
+        "before": {
+          "model": "luma-ultra",
+          "output": "DP-2",
+          "reason": "installed.json unreadable: [Errno 2] No such file or directory: '/home/cody/.local/share/viture-workspace/installed.json'",
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+          "monitors": [
+            {
+              "id": 0,
+              "name": "DP-1",
+              "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+              "make": "Samsung Electric Company",
+              "model": "Odyssey G93SD",
+              "serial": "HCSY900228",
+              "width": 5120,
+              "height": 1440,
+              "physicalWidth": 1190,
+              "physicalHeight": 340,
+              "refreshRate": 240.0,
+              "x": 0,
+              "y": 0,
+              "activeWorkspace": {
+                "id": 1,
+                "name": "1"
+              },
+              "specialWorkspace": {
+                "id": 0,
+                "name": ""
+              },
+              "reserved": [
+                0,
+                26,
+                0,
+                0
+              ],
+              "scale": 1.25,
+              "transform": 0,
+              "focused": true,
+              "dpmsStatus": true,
+              "vrr": false,
+              "solitary": "0",
+              "solitaryBlockedBy": [
+                "WINDOWED",
+                "CANDIDATE"
+              ],
+              "activelyTearing": false,
+              "tearingBlockedBy": [
+                "NOT_TORN",
+                "USER",
+                "CANDIDATE",
+                "HW_CURSOR"
+              ],
+              "directScanoutTo": "0",
+              "directScanoutBlockedBy": [
+                "USER",
+                "CANDIDATE"
+              ],
+              "disabled": false,
+              "currentFormat": "XRGB8888",
+              "mirrorOf": "none",
+              "availableModes": [
+                "5120x1440@120.00Hz",
+                "3840x1080@119.97Hz",
+                "3840x2160@60.00Hz",
+                "3840x2160@59.94Hz",
+                "3840x2160@50.00Hz",
+                "5120x1440@240.00Hz",
+                "5120x1440@60.00Hz",
+                "3840x1080@239.96Hz",
+                "3840x1080@59.96Hz",
+                "2560x1440@239.98Hz",
+                "2560x1440@119.99Hz",
+                "2560x1440@59.95Hz",
+                "1920x1080@239.99Hz",
+                "1920x1080@120.00Hz",
+                "1920x1080@119.88Hz",
+                "1920x1080@60.00Hz",
+                "1920x1080@59.94Hz",
+                "1680x1050@59.95Hz",
+                "1600x900@60.00Hz",
+                "1280x1024@60.02Hz",
+                "1440x900@59.89Hz",
+                "1280x800@59.81Hz",
+                "1280x720@60.00Hz",
+                "1280x720@60.00Hz",
+                "1280x720@59.94Hz",
+                "1024x768@60.00Hz",
+                "800x600@60.32Hz",
+                "720x480@60.00Hz",
+                "720x480@59.94Hz",
+                "640x480@60.00Hz",
+                "640x480@59.94Hz"
+              ],
+              "colorManagementPreset": "srgb",
+              "sdrBrightness": 1,
+              "sdrSaturation": 1,
+              "sdrMinLuminance": 0.2,
+              "sdrMaxLuminance": 80,
+              "hardwareCursorsInUse": true
+            },
+            {
+              "id": 1,
+              "name": "DP-2",
+              "description": "CVT VITURE 0x88888800",
+              "make": "CVT",
+              "model": "VITURE",
+              "serial": "0x88888800",
+              "width": 1920,
+              "height": 1080,
+              "physicalWidth": 160,
+              "physicalHeight": 100,
+              "refreshRate": 60.0,
+              "x": 4096,
+              "y": 0,
+              "activeWorkspace": {
+                "id": 21,
+                "name": "21"
+              },
+              "specialWorkspace": {
+                "id": 0,
+                "name": ""
+              },
+              "reserved": [
+                0,
+                26,
+                0,
+                0
+              ],
+              "scale": 1.25,
+              "transform": 0,
+              "focused": false,
+              "dpmsStatus": true,
+              "vrr": false,
+              "solitary": "0",
+              "solitaryBlockedBy": [
+                "WINDOWED",
+                "CANDIDATE"
+              ],
+              "activelyTearing": false,
+              "tearingBlockedBy": [
+                "NOT_TORN",
+                "USER",
+                "CANDIDATE",
+                "HW_CURSOR"
+              ],
+              "directScanoutTo": "0",
+              "directScanoutBlockedBy": [
+                "USER",
+                "CANDIDATE"
+              ],
+              "disabled": false,
+              "currentFormat": "XRGB8888",
+              "mirrorOf": "none",
+              "availableModes": [
+                "1920x1080@60.00Hz",
+                "1920x1200@120.00Hz",
+                "1920x1200@90.00Hz",
+                "1920x1200@60.00Hz",
+                "1920x1080@90.00Hz"
+              ],
+              "colorManagementPreset": "srgb",
+              "sdrBrightness": 1,
+              "sdrSaturation": 1,
+              "sdrMinLuminance": 0.2,
+              "sdrMaxLuminance": 80,
+              "hardwareCursorsInUse": true
+            }
+          ],
+          "installed": {},
+          "plugins": [],
+          "journals": []
+        },
+        "pins_before": {
+          "renderer": {
+            "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+            "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+          },
+          "plugin": {
+            "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+            "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+          }
+        },
+        "panel_link": "/home/cody/.config/omarchy/plugins/cody.viture-workspace",
+        "archive_evidence": {
+          "action": "archive manually recovered historical CLI record without changing contents",
+          "source": "/run/user/1000/xr-workspace-spike/fol2",
+          "archive": "/run/user/1000/xr-workspace-spike-archive/fol2",
+          "sha256": "0fab0b9e2ab3cc8c7bf332e39a114a2fe1601c4906e9c0b9473a93a81a19eb7c",
+          "reason": "physical-theme-reload-incident.md documents completed manual recovery and journal retained as record",
+          "observed_outputs": [
+            "DP-1",
+            "DP-2"
+          ],
+          "plugins": []
+        },
+        "state": "ready-awaiting-user-panel-start-and-visual-feedback",
+        "tracking_status": {
+          "running": true,
+          "pid": 1971336,
+          "network_isolated": true,
+          "calibrated": true
+        },
+        "pins_preconfirm": {
+          "renderer": {
+            "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+            "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+          },
+          "plugin": {
+            "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+            "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+          }
+        },
+        "pins_preconfirm_at": "2026-11-01T02:29:19.034441+00:00",
+        "controller_exec_session": 20670,
+        "driver_start_exec_session": 3531,
+        "shell_plugin_enabled": true,
+        "shell_summon_result": "ok",
+        "ready_at": "2026-11-01T02:29:29.480024+00:00",
+        "controller_ready_snapshot": {
+          "schema": 1,
+          "fallback": "DP-1",
+          "fallback_candidates": [
+            "DP-1"
+          ],
+          "pending": null,
+          "state": "idle",
+          "model": "luma-ultra",
+          "output": "DP-2",
+          "reason": null,
+          "run_id": null,
+          "journal": null,
+          "capabilities": [],
+          "view": {},
+          "status": {},
+          "ok": true,
+          "request_id": 1
+        }
+      },
+      "attempts": [
+        {
+          "run_id": "cf0b020b5f430d892688488a905ca627",
+          "consent": {
+            "allow": [
+              "headless-outputs",
+              "capture-managed-outputs"
+            ],
+            "capture": "managed-outputs",
+            "desktops": [
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              },
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              },
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              }
+            ],
+            "gate": "P2-panel",
+            "input": false,
+            "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+            "mode_switch": {
+              "height": 1200,
+              "refresh_hz": 120,
+              "width": 1920
+            },
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "plugin": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+              "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+            },
+            "recovery_output": "DP-1",
+            "renderer": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+              "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+            },
+            "run_id": "cf0b020b5f430d892688488a905ca627",
+            "schema": 1,
+            "sdk": false,
+            "tracking": "xrlinuxdriver"
+          },
+          "result": {
+            "complete": false,
+            "error": "session mode (1920, 1200, 120) not observed on readback",
+            "phase": "mode",
+            "remaining": null,
+            "renderer_returncode": null,
+            "run_id": "cf0b020b5f430d892688488a905ca627"
+          },
+          "unit_log": "Oct 31 22:30:23 costerou systemd[1278]: Started [systemd-run] /usr/bin/python3 -I -c \"import sys,runpy; sys.path.insert(0,'/home/cody/Projects/viture-workspace/.worktrees/settings-panel'); runpy.run_module('tools.xr_controller.runner',run_name=\\\"__main__\\\")\" --consent /home/cody/.local/state/viture-workspace/cf0b020b5f430d892688488a905ca627.json --state-dir /home/cody/.local/state/viture-workspace.\nOct 31 22:30:23 costerou python3[1972020]: blocked: session mode (1920, 1200, 120) not observed on readback\nOct 31 22:30:23 costerou systemd[1278]: viture-xr-cf0b020b5f430d892688488a905ca627.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\nOct 31 22:30:23 costerou systemd[1278]: viture-xr-cf0b020b5f430d892688488a905ca627.service: Failed with result 'exit-code'.\n",
+          "pins_match_consent": true,
+          "presentation_statistics": null,
+          "unmeasured_reason": "Mode verification failed before renderer launch"
+        },
+        {
+          "run_id": "45a4da524331c896f97b9100ab0e738f",
+          "consent": {
+            "allow": [
+              "headless-outputs",
+              "capture-managed-outputs"
+            ],
+            "capture": "managed-outputs",
+            "desktops": [
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              },
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              },
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              }
+            ],
+            "gate": "P2-panel",
+            "input": false,
+            "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+            "mode_switch": {
+              "height": 1200,
+              "refresh_hz": 120,
+              "width": 1920
+            },
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "plugin": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+              "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+            },
+            "recovery_output": "DP-1",
+            "renderer": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+              "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+            },
+            "run_id": "45a4da524331c896f97b9100ab0e738f",
+            "schema": 1,
+            "sdk": false,
+            "tracking": "xrlinuxdriver"
+          },
+          "result": {
+            "complete": false,
+            "error": "session mode (1920, 1200, 120) not observed on readback",
+            "phase": "mode",
+            "remaining": null,
+            "renderer_returncode": null,
+            "run_id": "45a4da524331c896f97b9100ab0e738f"
+          },
+          "unit_log": "Oct 31 22:30:49 costerou systemd[1278]: Started [systemd-run] /usr/bin/python3 -I -c \"import sys,runpy; sys.path.insert(0,'/home/cody/Projects/viture-workspace/.worktrees/settings-panel'); runpy.run_module('tools.xr_controller.runner',run_name=\\\"__main__\\\")\" --consent /home/cody/.local/state/viture-workspace/45a4da524331c896f97b9100ab0e738f.json --state-dir /home/cody/.local/state/viture-workspace.\nOct 31 22:30:50 costerou python3[1972226]: blocked: session mode (1920, 1200, 120) not observed on readback\nOct 31 22:30:50 costerou systemd[1278]: viture-xr-45a4da524331c896f97b9100ab0e738f.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\nOct 31 22:30:50 costerou systemd[1278]: viture-xr-45a4da524331c896f97b9100ab0e738f.service: Failed with result 'exit-code'.\n",
+          "pins_match_consent": true,
+          "presentation_statistics": null,
+          "unmeasured_reason": "Mode verification failed before renderer launch"
+        }
+      ],
+      "user_feedback": "The XR view did not appear",
+      "pins_after": {
+        "renderer": {
+          "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+          "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21",
+          "actual_sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21",
+          "matches_before": true
+        },
+        "plugin": {
+          "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+          "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5",
+          "actual_sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5",
+          "matches_before": true
+        }
+      },
+      "monitors_after": [
+        {
+          "id": 0,
+          "name": "DP-1",
+          "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+          "make": "Samsung Electric Company",
+          "model": "Odyssey G93SD",
+          "serial": "HCSY900228",
+          "width": 5120,
+          "height": 1440,
+          "physicalWidth": 1190,
+          "physicalHeight": 340,
+          "refreshRate": 240.0,
+          "x": 0,
+          "y": 0,
+          "activeWorkspace": {
+            "id": 1,
+            "name": "1"
+          },
+          "specialWorkspace": {
+            "id": 0,
+            "name": ""
+          },
+          "reserved": [
+            0,
+            26,
+            0,
+            0
+          ],
+          "scale": 1.25,
+          "transform": 0,
+          "focused": true,
+          "dpmsStatus": true,
+          "vrr": false,
+          "solitary": "0",
+          "solitaryBlockedBy": [
+            "WINDOWED",
+            "CANDIDATE"
+          ],
+          "activelyTearing": false,
+          "tearingBlockedBy": [
+            "NOT_TORN",
+            "USER",
+            "CANDIDATE",
+            "HW_CURSOR"
+          ],
+          "directScanoutTo": "0",
+          "directScanoutBlockedBy": [
+            "USER",
+            "CANDIDATE"
+          ],
+          "disabled": false,
+          "currentFormat": "XRGB8888",
+          "mirrorOf": "none",
+          "availableModes": [
+            "5120x1440@120.00Hz",
+            "3840x1080@119.97Hz",
+            "3840x2160@60.00Hz",
+            "3840x2160@59.94Hz",
+            "3840x2160@50.00Hz",
+            "5120x1440@240.00Hz",
+            "5120x1440@60.00Hz",
+            "3840x1080@239.96Hz",
+            "3840x1080@59.96Hz",
+            "2560x1440@239.98Hz",
+            "2560x1440@119.99Hz",
+            "2560x1440@59.95Hz",
+            "1920x1080@239.99Hz",
+            "1920x1080@120.00Hz",
+            "1920x1080@119.88Hz",
+            "1920x1080@60.00Hz",
+            "1920x1080@59.94Hz",
+            "1680x1050@59.95Hz",
+            "1600x900@60.00Hz",
+            "1280x1024@60.02Hz",
+            "1440x900@59.89Hz",
+            "1280x800@59.81Hz",
+            "1280x720@60.00Hz",
+            "1280x720@60.00Hz",
+            "1280x720@59.94Hz",
+            "1024x768@60.00Hz",
+            "800x600@60.32Hz",
+            "720x480@60.00Hz",
+            "720x480@59.94Hz",
+            "640x480@60.00Hz",
+            "640x480@59.94Hz"
+          ],
+          "colorManagementPreset": "srgb",
+          "sdrBrightness": 1,
+          "sdrSaturation": 1,
+          "sdrMinLuminance": 0.2,
+          "sdrMaxLuminance": 80,
+          "hardwareCursorsInUse": true
+        },
+        {
+          "id": 1,
+          "name": "DP-2",
+          "description": "CVT VITURE 0x88888800",
+          "make": "CVT",
+          "model": "VITURE",
+          "serial": "0x88888800",
+          "width": 1920,
+          "height": 1080,
+          "physicalWidth": 160,
+          "physicalHeight": 100,
+          "refreshRate": 60.0,
+          "x": 4096,
+          "y": 0,
+          "activeWorkspace": {
+            "id": 21,
+            "name": "21"
+          },
+          "specialWorkspace": {
+            "id": 0,
+            "name": ""
+          },
+          "reserved": [
+            0,
+            26,
+            0,
+            0
+          ],
+          "scale": 1.25,
+          "transform": 0,
+          "focused": false,
+          "dpmsStatus": true,
+          "vrr": false,
+          "solitary": "0",
+          "solitaryBlockedBy": [
+            "WINDOWED",
+            "CANDIDATE"
+          ],
+          "activelyTearing": false,
+          "tearingBlockedBy": [
+            "NOT_TORN",
+            "USER",
+            "CANDIDATE",
+            "HW_CURSOR"
+          ],
+          "directScanoutTo": "0",
+          "directScanoutBlockedBy": [
+            "USER",
+            "CANDIDATE"
+          ],
+          "disabled": false,
+          "currentFormat": "XRGB8888",
+          "mirrorOf": "none",
+          "availableModes": [
+            "1920x1080@60.00Hz",
+            "1920x1200@120.00Hz",
+            "1920x1200@90.00Hz",
+            "1920x1200@60.00Hz",
+            "1920x1080@90.00Hz"
+          ],
+          "colorManagementPreset": "srgb",
+          "sdrBrightness": 1,
+          "sdrSaturation": 1,
+          "sdrMinLuminance": 0.2,
+          "sdrMaxLuminance": 80,
+          "hardwareCursorsInUse": true
+        }
+      ],
+      "display_baseline_matches": true,
+      "plugins_after": [],
+      "tracking_after": {
+        "running": false
+      },
+      "controller_stopped": true,
+      "existing_historical_journal_paths": [
+        "/run/user/1000/xr-workspace-spike/hlp1/journal.json",
+        "/run/user/1000/xr-workspace-spike/prd2/journal.json",
+        "/run/user/1000/xr-workspace-spike/prd1/journal.json",
+        "/run/user/1000/xr-workspace-spike/thm1/journal.json",
+        "/run/user/1000/xr-workspace-spike/fol1/journal.json",
+        "/run/user/1000/xr-workspace-spike/mod1/journal.json",
+        "/run/user/1000/xr-workspace-spike/trk1/journal.json",
+        "/run/user/1000/xr-workspace-spike/zoom1/journal.json",
+        "/run/user/1000/xr-workspace-spike/cap2/journal.json",
+        "/run/user/1000/xr-workspace-spike/cap1/journal.json",
+        "/run/user/1000/xr-workspace-spike/phys5/journal.json",
+        "/run/user/1000/xr-workspace-spike/phys4/journal.json",
+        "/run/user/1000/xr-workspace-spike/phys3/journal.json",
+        "/run/user/1000/xr-workspace-spike/phys2/journal.json",
+        "/run/user/1000/xr-workspace-spike/phys1/journal.json"
+      ],
+      "session_journals_remaining": []
+    }
+  ],
+  "limitations": [
+    "No renderer launch or measured presentation statistics",
+    "No physical visual/control/comfort acceptance",
+    "Exact reason the requested physical mode was not observed is not established; immediate readback timing is a hypothesis, not proven",
+    "No retries, mode experiments, crash injection or later physical sessions authorized or performed by agent",
+    "Panel plugin and pinned installation remain installed; no persistent service was installed/enabled"
+  ]
+}
