@@ -20,7 +20,7 @@ class Controller:
         self.clock,self.probe,self.spawn,self.units,self.store = clock,probe,spawn,units,store
         self.consent_fd,self.state_dir = consent_dir_fd,Path(state_dir)
         self.state='no-glasses'; self.pending=None; self.run=None; self.error=None
-        self.observed={}; self.started=None
+        self.observed={}; self.started=None; self.last_failure=None
         self.live={}; self.last_status=None; self.status_run=None
         self.tick()
 
@@ -31,7 +31,7 @@ class Controller:
         candidates=[m['name'] for m in monitors if pick_fallback([m],o.get('output'),None) is not None]
         return copy.deepcopy(dict(fallback=pick_fallback(monitors,o.get('output'),profile.get('fallback')),
             fallback_candidates=candidates, pending=self.pending,
-            state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or o.get('reason'),
+            state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or self.last_failure or o.get('reason'),
             run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
             view=self.live.get('view',{}) if self.state=='running' else {},
@@ -84,6 +84,19 @@ class Controller:
             elif self.state=='starting' and (self.started is None or self.clock()-self.started>=5): self._state('recovery-needed')
             return
         if self.run and self.units.alive(self.run['run_id']): return
+        if self.run:
+            from tools.native_spike.ipc import read_private_json
+            try:
+                result=read_private_json(self.state_dir/(self.run['run_id']+'.result.json'))
+            except FileNotFoundError:
+                result=None
+            if result is not None:
+                if result.get('run_id')!=self.run['run_id']: raise ValueError('runner result identity mismatch')
+                if result.get('error') or result.get('renderer_returncode') not in (None,0) or result.get('complete') is not True:
+                    self.last_failure=result.get('error') or 'runner failed during '+str(result.get('phase','run'))
+                self.run=None; self.started=None
+                self._state('idle' if o.get('model') else 'no-glasses')
+                return
         if self.state in ('starting','stopping') and self.started is not None and self.clock()-self.started<5: return
         if self.state=='starting':
             self.error='runner exited before creating a journal'; self._state('failed'); return
@@ -150,6 +163,7 @@ class Controller:
                 desktops=p['desktops'],**o['installed'])
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
+            self.last_failure=None
             self._state('confirming'); self.pending=dict(action='start',scope=scope,scope_id=secrets.token_hex(16))
             return copy.deepcopy(self.pending)
         if op=='begin_recover':

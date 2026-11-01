@@ -45,6 +45,21 @@ class StateTests(unittest.TestCase):
         self.c.request(dict(op='cancel'))
         self.assertIsNone(self.c.snapshot()['pending'])
 
+    def test_runner_failure_stays_visible_until_next_start(self):
+        import json
+        self.confirm(); run_id=self.c.run['run_id']
+        result=self.path/(run_id+'.result.json')
+        result.write_text(json.dumps(dict(run_id=run_id,phase='mode',complete=False,
+            renderer_returncode=None,remaining=None,error='session mode not observed')))
+        result.chmod(0o600)
+        self.now=10; self.c.tick()
+        self.assertEqual(self.c.snapshot()['state'],'idle')
+        self.assertIn('session mode not observed',self.c.snapshot()['reason'])
+        self.c.tick()
+        self.assertIn('session mode not observed',self.c.snapshot()['reason'])
+        self.begin()
+        self.assertIsNone(self.c.snapshot()['reason'])
+
     def test_no_start_without_confirm(self): self.begin(); self.assertEqual(self.calls,[])
     def test_confirm_writes_consent_matching_scope(self):
         r=self.begin(); self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))
