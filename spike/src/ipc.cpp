@@ -44,6 +44,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "recover") op = ControlOp::recover;
         else if (name == "view") op = ControlOp::view;
         else if (name == "recenter") op = ControlOp::recenter;
+        else if (name == "style") op = ControlOp::style;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
@@ -51,13 +52,24 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
         } else if (op == ControlOp::view) {
             const auto& p = j["payload"];
-            if (p.size() != 4 || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
-                !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
+            if (p.size() != 5 || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
+                !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
                 p["selected"].get<std::uint64_t>() > 2 || p["spacing"].get<std::uint64_t>() > 400) return invalid();
             const auto mode = p["mode"].get<std::string>();
             std::uint8_t m = 0;
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();
-            payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m};
+            payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m,
+                                  p["cursor_follow"].get<bool>()};
+        } else if (op == ControlOp::style) {
+            const auto& p = j["payload"];
+            if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return invalid();
+            std::uint8_t c[3];
+            for (int i = 0; i < 3; ++i) {
+                const auto& v = p["border"][std::size_t(i)];
+                if (!v.is_number_unsigned() || v.get<std::uint64_t>() > 255) return invalid();
+                c[i] = std::uint8_t(v.get<std::uint64_t>());
+            }
+            payload = StylePayload{c[0], c[1], c[2]};
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

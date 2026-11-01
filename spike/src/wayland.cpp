@@ -9,6 +9,7 @@
 #include "gl.hpp"
 #include "xr/view.hpp"
 #include "xr/pose.hpp"
+#include "xr/hud.hpp"
 #include <cmath>
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
 // byte-identical; scope the C++ spelling adaptation to the generated C header.
@@ -154,6 +155,9 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint64_t pose_retry_ms = 0;
     PoseState pose;
     ModeController modes;  // T2: anchor / locked (0DoF) / follow
+    StatusPopups popups;   // viewing mode / cursor follow pop-ups (GPU composition only)
+    bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
+    std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
     void update_fov() {
@@ -403,7 +407,8 @@ struct Presentation::Impl : SurfaceRequests {
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
-        if (s.view.animating() || s.tracking_requested) s.cadence.invalidate();  // animate / follow the head every frame
+        if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(double(monotonic_ms())))
+            s.cadence.invalidate();  // animate / follow the head / fade a pop-up every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -488,6 +493,12 @@ std::string Presentation::capture_report() const {
            std::to_string(impl_->half_h) + "]}";
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
            ",\"spacing\":" + std::to_string(impl_->view.spacing()) + "}";
+    std::string font;  // bounded, JSON-escaped (font paths come from fontconfig)
+    for (char c : impl_->popup_font.substr(0, 256)) {
+        if (c == '"' || c == '\\') font += '\\';
+        font += static_cast<unsigned char>(c) < 0x20 ? '?' : c;
+    }
+    out += ",\"popup_font\":\"" + font + "\"";
     out += ",\"composition\":";
     out += impl_->gl ? impl_->gl->report() : std::string("{\"path\":\"cpu-blit\",\"fallback\":\"") + impl_->gl_fallback + "\"}";
     return out + "}";
@@ -549,6 +560,11 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
     if (s->capture_requested) {
         s->gl = GlCompositor::create(s->display, s->surface, s->width, s->height, s->captures.size(), s->gl_fallback);
         if (!s->gl && s->gl_fallback.empty()) s->gl_fallback = "unknown";
+        if (s->gl) {  // pop-up text font; the built-in pixel font is the reported fallback
+            std::string why; auto font = HudFont::load(kHudFontFamily, why);
+            s->popup_font = font ? font->description() : "pixel-fallback: " + why;
+            s->popups.set_font(std::move(font));
+        }
         s->uploaded.assign(s->captures.size(), 0);
         s->allocation_enabled = true;
         for (auto& c : s->captures) if (!c->stopped && c->plan && c->capturing < 0) s->allocate(*c);
@@ -570,9 +586,13 @@ void Presentation::enable_tracking(std::string prefix) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
+void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+    if (impl_ && impl_->gl) { impl_->gl->set_accent(r, g, b); impl_->cadence.invalidate(); }
+}
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
-void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode) {
+void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow) {
     if (!impl_) return;
+    impl_->popups.update(mode, cursor_follow, double(monotonic_ms()));
     impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
                            spacing, double(monotonic_ms()));
@@ -620,6 +640,9 @@ Status Presentation::draw_test_pattern() {
             *slot = {&s, proxy, *s.metrics.submit(), false, false};
             wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
         } else s.metrics.submit();
+        const float popup = s.popups.alpha(double(monotonic_ms()));
+        s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
+        s.popup_drawn = popup > 0.f;
         if (!s.gl->draw_and_swap(tiles, int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();

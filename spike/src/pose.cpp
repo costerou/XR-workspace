@@ -131,9 +131,9 @@ Quat quat_slerp(Quat a, Quat b, float t) {
     }
     return quat_normalized({wa * a.x + wb * b.x, wa * a.y + wb * b.y, wa * a.z + wb * b.z, wa * a.w + wb * b.w}).value_or(b);
 }
-float quat_angle(Quat a, Quat b) {
-    const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
-    return 2 * std::acos(std::min(d, 1.f));
+float quat_angle(Quat a, Quat b) {  // atan2 form: accurate near zero, where acos is not
+    const Quat d = quat_mul(quat_conj(a), b);
+    return 2 * std::atan2(std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z), std::fabs(d.w));
 }
 Quat level(Quat q) {
     const auto f = apply(quat_to_mat3(q), {1, 0, 0});  // forward (x) in the reference frame; z up
@@ -149,10 +149,10 @@ Mat3 view_from(Quat head, Quat anchor) {
 void ModeController::set_mode(ViewMode mode, double now_ms) {
     if (mode == mode_) return;
     from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;
-    if (mode == ViewMode::follow) { follow_ = anchor_; chasing_ = false; speed_deg_s_ = 0; }
+    if (mode == ViewMode::follow) { follow_ = anchor_; velocity_ = {}; }
     mode_ = mode;
 }
-void ModeController::recenter() { anchor_ = from_ = follow_ = Quat{}; transitioning_ = chasing_ = false; speed_deg_s_ = 0; }
+void ModeController::recenter() { anchor_ = from_ = follow_ = Quat{}; transitioning_ = false; velocity_ = {}; }
 Quat ModeController::target(Quat head) const {
     switch (mode_) {
     case ViewMode::locked: return head;
@@ -164,19 +164,25 @@ Quat ModeController::target(Quat head) const {
 Quat ModeController::update(Quat head, double now_ms) {
     const double dt = last_ms_ < 0 ? 0 : std::clamp(now_ms - last_ms_, 0.0, 100.0);
     last_ms_ = now_ms;
-    if (mode_ == ViewMode::follow) {
-        const Quat want = head;  // full orientation: yaw, pitch and roll
-        const float off = quat_angle(follow_, want) * 180.f / float(M_PI);
-        if (!chasing_ && off > tuning_.deadzone_deg) { chasing_ = true; speed_deg_s_ = 0; }
-        if (chasing_ && dt > 0) {
-            // Desired speed shrinks with the error (eases in, no overshoot); rising speed is
-            // acceleration-limited so the follow starts with a short, firm ramp rather than a jolt.
-            const float desired = off / (tuning_.follow_tau_ms / 1000.f);
-            const float s = float(dt / 1000.0);
-            speed_deg_s_ = std::min(desired, speed_deg_s_ + tuning_.accel_deg_s2 * s);
-            const float step = std::min(off, speed_deg_s_ * s);
-            if (off > 1e-4f) follow_ = quat_slerp(follow_, want, step / off);
-            if (quat_angle(follow_, want) * 180.f / float(M_PI) < tuning_.settle_deg) { chasing_ = false; speed_deg_s_ = 0; }
+    if (mode_ == ViewMode::follow && dt > 0) {
+        // Critically damped spring on the rotation error (axis-angle in the canvas frame):
+        // a = w^2 e - 2 w v. Semi-implicit Euler in <=4 ms substeps (stable for w*h << 1).
+        const float w = tuning_.follow_omega;
+        double left = dt;
+        while (left > 0) {
+            const float h = float(std::min(left, 4.0) / 1000.0); left -= 4.0;
+            Quat e = quat_mul(quat_conj(follow_), head);
+            if (e.w < 0) e = {-e.x, -e.y, -e.z, -e.w};  // shortest way round
+            const float sn = std::sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
+            const float angle = 2 * std::atan2(sn, e.w), k = sn > 1e-7f ? angle / sn : 2.f;
+            const std::array<float, 3> err{e.x * k, e.y * k, e.z * k};
+            for (int a = 0; a < 3; ++a) velocity_[a] += (w * w * err[a] - 2 * w * velocity_[a]) * h;
+            const float vx = velocity_[0] * h, vy = velocity_[1] * h, vz = velocity_[2] * h;
+            const float th = std::sqrt(vx * vx + vy * vy + vz * vz);
+            if (th > 1e-9f) {
+                const float c = std::sin(th / 2) / th;
+                follow_ = quat_normalized(quat_mul(follow_, Quat{vx * c, vy * c, vz * c, std::cos(th / 2)})).value_or(follow_);
+            }
         }
     }
     const Quat goal = target(head);
@@ -188,5 +194,8 @@ Quat ModeController::update(Quat head, double now_ms) {
     } else anchor_ = goal;
     return anchor_;
 }
-bool ModeController::settled() const { return !transitioning_ && !chasing_; }
+bool ModeController::settled() const {
+    const float v = std::sqrt(velocity_[0] * velocity_[0] + velocity_[1] * velocity_[1] + velocity_[2] * velocity_[2]);
+    return !transitioning_ && (mode_ != ViewMode::follow || v < 0.01f);  // < 0.6 deg/s
+}
 }

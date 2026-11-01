@@ -16,23 +16,28 @@ std::vector<FRect> zoomed_layout(std::size_t count, float view_w, float view_h, 
 std::vector<FRect> blended_layout(std::size_t count, float view_w, float view_h, float src_w, float src_h, float spacing,
                                   float zoom, float position);
 float smoothstep(float t);
+float smootherstep(float t);  // quintic: zero velocity and acceleration at both ends
 
 // Time-based animation toward targets (no frame-rate dependence).
+// Zoom and spacing ease with smoothstep over `duration_ms`. Switching desktops (position) has its
+// own gentle ease-in/ease-out over `move_ms`; pressing again mid-move keeps the current speed
+// (capped so it never overshoots) instead of stopping and restarting.
 class ViewAnimator {
 public:
-    explicit ViewAnimator(float duration_ms = 220.f) : duration_(duration_ms) {}
+    explicit ViewAnimator(float duration_ms = 220.f, float move_ms = 300.f) : duration_(duration_ms), move_(move_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms);
     void advance(double now_ms);
-    bool animating() const { return t_ < 1.f; }
+    bool animating() const { return t_ < 1.f || move_t_ < 1.f; }
     float zoom() const;      // eased current zoom in [0,1]
     float position() const;  // eased current position
+    float velocity() const;  // position units per ms
     float spacing() const;
     std::uint32_t selected() const { return to_selected_; }
 private:
-    float duration_;
-    double start_ms_ = 0;
-    float t_ = 1.f;
-    float from_zoom_ = 0, to_zoom_ = 0, from_pos_ = 0, from_spacing_ = 40, to_spacing_ = 40;
+    float duration_, move_;
+    double start_ms_ = 0, move_start_ms_ = 0;
+    float t_ = 1.f, move_t_ = 1.f;
+    float from_zoom_ = 0, to_zoom_ = 0, from_pos_ = 0, from_vel_ = 0, from_spacing_ = 40, to_spacing_ = 40;
     std::uint32_t to_selected_ = 0;
 };
 }

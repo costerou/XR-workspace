@@ -5,6 +5,7 @@
 #include "xr/capture.hpp"
 #include "xr/view.hpp"
 #include "xr/pose.hpp"
+#include "xr/hud.hpp"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -35,6 +36,10 @@ public:
     bool import_dmabuf(std::size_t source, std::size_t slot, const DmabufBuffer&);
     void present_dmabuf(std::size_t source, int slot);
     void drop_dmabuf(std::size_t source);
+    // Status pop-up drawn head-locked over the next frames (nullptr or alpha 0: none). `image`
+    // must outlive the calls; it is re-uploaded only when `generation` changes.
+    void set_popup(const HudImage* image, std::uint64_t generation, float alpha);
+    void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;

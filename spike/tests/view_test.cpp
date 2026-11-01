@@ -1,4 +1,5 @@
 #include "xr/view.hpp"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -33,7 +34,7 @@ int main() {
     for (float t = 0; t < 1; t += 0.1f) CHECK(smoothstep(t + 0.1f) >= smoothstep(t));
 
     // Animator: time-based, reaches target exactly, retargets from the current state.
-    ViewAnimator a(200);
+    ViewAnimator a(200, 200);
     a.set_target(false, 0, 40, 0); a.advance(1000);
     CHECK(!a.animating() && a.zoom() == 0 && a.position() == 0);
     a.set_target(true, 2, 40, 1000);
@@ -47,5 +48,37 @@ int main() {
     a.advance(2000); CHECK(a.zoom() == 0 && a.position() == 1 && a.spacing() == 120);
     a.set_target(true, 9, 9999, 2000); a.advance(3000);  // selection and spacing are clamped
     CHECK(a.selected() == 2 && a.spacing() == float(kMaxSpacing));
+
+    // Desktop switch: gentle ease-in/out, momentum kept across quick presses, never overshoots.
+    CHECK(smootherstep(0) == 0 && smootherstep(1) == 1 && near(smootherstep(0.5f), 0.5f, 1e-3f));
+    ViewAnimator m;  // defaults: 220 ms zoom, 300 ms switch
+    m.set_target(true, 0, 40, 0); m.advance(1000);
+    m.set_target(true, 1, 40, 1000);
+    m.advance(1030); CHECK(m.position() > 0 && m.position() < 0.02f);       // slow start
+    m.advance(1150); CHECK(near(m.position(), 0.5f, 1e-3f));               // symmetric
+    const float peak = m.velocity();
+    CHECK(peak > 1.f / 300 && peak < 2.f / 300);                           // not exaggerated (1.875x mean)
+    m.advance(1270); CHECK(m.position() > 0.98f && m.position() < 1.f);     // slow finish
+    m.advance(1300); CHECK(!m.animating() && m.position() == 1 && m.velocity() == 0);
+    // Second press mid-move: no velocity jump and monotone, ending exactly with no overshoot.
+    m.set_target(true, 0, 40, 2000); m.advance(3000);
+    m.set_target(true, 1, 40, 3000); m.advance(3150);
+    const float v_before = m.velocity(), p_before = m.position();
+    m.set_target(true, 2, 40, 3150);
+    CHECK(near(m.velocity(), v_before, 1e-6f) && near(m.position(), p_before, 1e-6f));
+    float last = m.position();
+    for (double t = 3150; t <= 3500; t += 5) { m.advance(t); CHECK(m.position() >= last - 1e-5f && m.position() <= 2.f); last = m.position(); }
+    CHECK(!m.animating() && m.position() == 2);
+    // Reversal mid-move: bounded drift past the current position, then settles on the target.
+    m.set_target(true, 1, 40, 4000); m.advance(4150);
+    const float turn = m.position();
+    m.set_target(true, 2, 40, 4150);
+    float lo = turn;
+    for (double t = 4150; t <= 4500; t += 5) { m.advance(t); lo = std::min(lo, m.position()); CHECK(m.position() <= 2.f); }
+    CHECK(turn - lo < 0.1f && m.position() == 2);
+    // Zoom/spacing changes alone do not restart an in-flight switch.
+    m.set_target(true, 1, 40, 5000); m.advance(5100); const float mid_pos = m.position();
+    m.set_target(true, 1, 80, 5100); m.advance(5100); CHECK(near(m.position(), mid_pos, 1e-6f));
+    m.advance(5300); CHECK(m.position() == 1);
     std::cout << "view layout passed\n";
 }
