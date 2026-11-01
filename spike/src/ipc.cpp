@@ -15,6 +15,11 @@ bool token(const Json& value) {
     if (s.empty() || s.size() > 128 || !alnum(static_cast<unsigned char>(s[0]))) return false;
     return std::all_of(s.begin(), s.end(), [&](unsigned char c) { return alnum(c) || c == '_' || c == '.' || c == ':' || c == '-'; });
 }
+bool help_text(const Json& value) {
+    if (!value.is_string()) return false;
+    const auto& s = value.get_ref<const std::string&>();
+    return !s.empty() && s.size() <= kMaxHelpText && std::all_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; });
+}
 Error invalid() { return {"invalid_control", "Rejected malformed or unsupported control message"}; }
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
@@ -45,6 +50,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "view") op = ControlOp::view;
         else if (name == "recenter") op = ControlOp::recenter;
         else if (name == "style") op = ControlOp::style;
+        else if (name == "help") op = ControlOp::help;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
@@ -70,6 +76,16 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 c[i] = std::uint8_t(v.get<std::uint64_t>());
             }
             payload = StylePayload{c[0], c[1], c[2]};
+        } else if (op == ControlOp::help) {
+            const auto& p = j["payload"];
+            if (p.size() != 2 || !p.contains("visible") || !p["visible"].is_boolean() || !p.contains("rows") || !p["rows"].is_array() ||
+                p["rows"].size() > kMaxHelpRows) return invalid();
+            HelpPayload help{p["visible"].get<bool>(), {}};
+            for (const auto& row : p["rows"]) {
+                if (!row.is_array() || row.size() != 2 || !help_text(row[0]) || !help_text(row[1])) return invalid();
+                help.rows.emplace_back(row[0].get<std::string>(), row[1].get<std::string>());
+            }
+            payload = std::move(help);
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

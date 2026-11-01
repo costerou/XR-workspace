@@ -66,6 +66,17 @@ class ViewStateTests(unittest.TestCase):
 
 
 class BindTests(unittest.TestCase):
+    def test_help_bind_and_rows_cover_every_bind(self):
+        self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
+        self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
+        self.assertEqual(set(view.USER_OPS), set(view.HELP_ACTIONS))
+        self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
+        self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
+        for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 24 rows
+            for text in (keys, action): self.assertTrue(0 < len(text) <= 48 and text.isascii() and text.isprintable(), text)
+        self.assertLessEqual(len(view.help_rows()), 24)
+
+
     def test_install_and_guarded_remove_lua(self):
         lua = view.install_binds_lua('/usr/bin/python3', '/opt/app/tools/native_spike/xr_control.py',
                                      '/run/user/1000/xr-workspace-spike/run/control.sock', 'run', 'session')
@@ -228,6 +239,20 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
                     {'spacing': 40, 'mode': 'anchor', 'cursor_follow': 'yes'}):
             with self.subTest(bad), self.assertRaises(ValueError): view.save_settings(self.settings, bad)
         with self.assertRaises(ValueError): view.ViewState(NAMES, mode='orbit')
+
+    def test_help_toggles_card_with_every_bind_and_leaves_view_alone(self):
+        c = self.control(focused=[])
+        before = c.state.view()
+        shown = json.loads(c.on_message({'op': 'help'}))
+        self.assertEqual(shown['op'], 'help')
+        self.assertTrue(shown['payload']['visible'])
+        self.assertEqual([r[0] for r in shown['payload']['rows']], [view.chord_label(ch) for ch, _ in view.BINDS])
+        self.assertIn(['Ctrl+Alt+H', 'Show / hide this help'], shown['payload']['rows'])
+        hidden = json.loads(c.on_message({'op': 'help'}))
+        self.assertFalse(hidden['payload']['visible'])
+        self.assertGreater(hidden['request_id'], shown['request_id'])
+        self.assertEqual(c.state.view(), before)
+        self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)  # never saved
 
     def test_cursor_follow_switches_only_when_enabled_and_only_managed(self):
         focused = []

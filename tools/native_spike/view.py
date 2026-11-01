@@ -5,7 +5,8 @@ text navigation otherwise). They run xr_control.py, which sends one frame to thi
 control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
 
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
-dead zone, eases back in front) and locked (0DoF, head-locked). Optional cursor follow (Ctrl+Alt+F):
+dead zone, eases back in front) and locked (0DoF, head-locked). Ctrl+Alt+H toggles a help card in
+the glasses listing every bind (rows come from BINDS, so it cannot drift). Optional cursor follow (Ctrl+Alt+F):
 when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
@@ -19,13 +20,34 @@ import re
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
 USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
-            'prediction')
+            'prediction', 'help')
 MODES = ('anchor', 'follow', 'locked')  # cycle order
 # Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
-         ('CTRL + ALT + P', 'prediction'))
+         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'))
+# Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
+HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Back to the overview',
+                'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
+                'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
+                'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction', 'help': 'Show / hide this help'}
+KEY_NAMES = {'CTRL': 'Ctrl', 'ALT': 'Alt', 'SHIFT': 'Shift', 'SUPER': 'Super', 'up': 'Up', 'down': 'Down', 'left': 'Left',
+             'right': 'Right', 'bracketleft': '[', 'bracketright': ']', 'space': 'Space'}
+
+
+def chord_label(chord):
+    """'CTRL + ALT + bracketleft' -> 'Ctrl+Alt+['."""
+    return '+'.join(KEY_NAMES.get(part, part.upper() if len(part) == 1 else part) for part in chord.split(' + '))
+
+
+def help_rows():
+    return [[chord_label(chord), HELP_ACTIONS[op]] for chord, op in BINDS]
+
+
+def help_frame(run_id, session, request_id, visible):
+    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'help',
+                        'payload': {'visible': bool(visible), 'rows': help_rows()}}, separators=(',', ':')) + '\n').encode()
 FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
 CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
 COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
@@ -86,7 +108,7 @@ class ViewState:
     def apply(self, op):
         """Update state; return the output to focus, or None."""
         if op not in USER_OPS: raise ValueError('unsupported view operation')
-        if op == 'recenter': return None  # head-tracking reference only; the view layout is unchanged
+        if op in ('recenter', 'help'): return None  # head-tracking reference / overlay only; the view layout is unchanged
         if op == 'mode_next':
             self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
             return None
@@ -222,6 +244,7 @@ class ViewControl:
         self.accent = None       # last theme colour sent to the renderer
         self.on_reload = on_reload  # optional () -> None, run off-loop after Hyprland config reloads
         self.reloads = 0
+        self.help_visible = False  # Ctrl+Alt+H card; never saved, starts hidden each run
 
     def initial_frame(self):
         return self._frame() + self._style_frame()
@@ -247,6 +270,11 @@ class ViewControl:
 
     def on_message(self, message):
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
+        if message['op'] == 'help':
+            self.help_visible = not self.help_visible
+            frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible)
+            self.next_id += 1
+            return frame
         if message['op'] == 'recenter':
             frame = (json.dumps({'schema': 1, 'request_id': self.next_id, 'run_id': self.run_id, 'session': self.session,
                                  'op': 'recenter', 'payload': {}}, separators=(',', ':')) + '\n').encode()
