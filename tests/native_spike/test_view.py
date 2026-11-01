@@ -10,6 +10,7 @@ import threading
 import unittest
 
 from tools.native_spike import view
+from tools.native_spike.profiles import LayoutStore
 from tools.native_spike.ipc import decode_control
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
@@ -118,7 +119,7 @@ class SupervisorControlTests(unittest.TestCase):
         settings = Path(tmp.name) / 'layout.json'
         focused, server = [], PrivateServer(runtime, 'run', 'session')
         self.addCleanup(server.close)
-        control = view.ViewControl(view.ViewState(NAMES), 'run', 'session', focused.append, settings, server)
+        control = view.ViewControl(view.ViewState(NAMES), 'run', 'session', focused.append, LayoutStore(settings), server)
         parent, renderer = socket.socketpair()
         self.addCleanup(parent.close); self.addCleanup(renderer.close)
         class Child:
@@ -191,7 +192,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
 
     def control(self, state=None, focused=None):
         return view.ViewControl(state or view.ViewState(NAMES), 'run', 'session',
-                                (focused if focused is not None else []).append, self.settings, None)
+                                (focused if focused is not None else []).append, LayoutStore(self.settings), None)
 
     def test_mode_cycles_and_is_saved_with_spacing(self):
         c = self.control()
@@ -254,7 +255,7 @@ class SupervisorCursorFollowTests(unittest.TestCase):
         from tools.native_spike.supervisor import Supervisor
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         control = view.ViewControl(view.ViewState(NAMES, cursor_follow=True), 'run', 'session', lambda n: None,
-                                   Path(tmp.name) / 'l.json', type('S', (), {'socket': socket.socketpair()[0]})())
+                                   LayoutStore(Path(tmp.name) / 'l.json'), type('S', (), {'socket': socket.socketpair()[0]})())
         hypr, events = socket.socketpair(); events.setblocking(False)
         control.events = events
         self.addCleanup(hypr.close); self.addCleanup(events.close)
@@ -310,7 +311,7 @@ class ThemeAccentTests(unittest.TestCase):
     def test_initial_and_reload_send_style_only_on_change(self):
         replies = [{'gradient': 'ff8d8d8d 0deg'}]
         c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None,
-                             Path(tempfile.mkdtemp()) / 'l.json', None, border=lambda: replies[-1])
+                             LayoutStore(Path(tempfile.mkdtemp()) / 'l.json'), None, border=lambda: replies[-1])
         frames = [json.loads(l) for l in c.initial_frame().decode().splitlines()]
         self.assertEqual([f['op'] for f in frames], ['view', 'style'])
         self.assertEqual(frames[1]['payload'], {'border': [0x8d, 0x8d, 0x8d]})
@@ -354,7 +355,7 @@ class ConfigReloadTests(unittest.TestCase):
 
     def test_reload_event_runs_reload_work_off_loop_and_refreshes_style(self):
         done = threading.Event()
-        c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None, Path(tempfile.mkdtemp()) / 'l.json', None,
+        c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None, LayoutStore(Path(tempfile.mkdtemp()) / 'l.json'), None,
                              border=lambda: {'gradient': 'ff112233 0deg'}, on_reload=done.set)
         frame = c.on_events(b'configreloaded>>\n')
         self.assertEqual(json.loads(frame)['op'], 'style')
