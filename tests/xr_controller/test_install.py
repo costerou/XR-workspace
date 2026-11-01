@@ -19,6 +19,24 @@ class InstallTests(unittest.TestCase):
         (self.build / 'xr-native-spike').write_bytes(b'renderer-bytes')
         (self.build / 'libxr-ownership.so').write_bytes(b'plugin-bytes')
 
+    def test_install_plugin_symlink_refuses_real_dir(self):
+        from tools.xr_controller.install import install_plugin
+        repo = Path(__file__).resolve().parents[2]
+        config = Path(self.tmp.name) / 'config'
+        link = install_plugin(repo, config)
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(link.resolve(), repo / 'omarchy-plugin/cody.viture-workspace')
+        self.assertEqual(install_plugin(repo, config), link)
+        link.unlink(); link.mkdir()
+        marker = link / 'keep'; marker.write_text('untouched')
+        with self.assertRaisesRegex(ValueError, 'non-symlink'):
+            install_plugin(repo, config)
+        self.assertEqual(marker.read_text(), 'untouched')
+        marker.unlink()
+        link.rmdir(); link.write_text('keep file')
+        with self.assertRaises(ValueError): install_plugin(repo, config)
+        self.assertEqual(link.read_text(), 'keep file')
+
     def test_install_copies_and_hashes(self):
         entry = install(self.build, self.data)
         self.assertEqual(set(entry), {'plugin', 'renderer'})

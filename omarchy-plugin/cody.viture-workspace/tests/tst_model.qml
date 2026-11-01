@@ -1,9 +1,49 @@
 import QtQuick
 import QtTest
 import "../Model.js" as Model
+import ".." as Workspace
 
 TestCase {
+    id: testCase
     name: "WorkspaceModel"
+    when: windowShown
+    visible:true
+    width:700; height:860
+    Component { id:confirmationComponent; Workspace.ConfirmDialog {} }
+    Component { id:desktopComponent; Workspace.DesktopEditor {} }
+    SignalSpy { id:confirmationSpy; signalName:"confirm" }
+    function test_confirmationControls() {
+        const dialog=createTemporaryObject(confirmationComponent,testCase,{width:640,pending:{action:"start",scope_id:"test",scope:{model:"luma-ultra",output:"DP-2",recovery_output:"DP-1",desktops:[{width:1920,height:1080,scale:1}],tracking:"xrlinuxdriver",mode_switch:{width:1920,height:1200,refresh_hz:120}}}});
+        verify(dialog !== null);
+        verify(waitForRendering(dialog));
+        const tracking=findChild(dialog,"tracking");
+        const mode=findChild(dialog,"mode_switch");
+        verify(tracking.enabled && tracking.checked);
+        verify(mode.enabled && mode.checked);
+        verify(!findChild(dialog,"requiredScope").enabled);
+        confirmationSpy.target=dialog;
+        confirmationSpy.clear();
+        mouseClick(tracking);
+        mouseClick(mode);
+        mouseClick(findChild(dialog,"confirmScope"));
+        compare(confirmationSpy.count,1);
+        compare(confirmationSpy.signalArguments[0][0],{tracking:false,mode_switch:false});
+        dialog.busy=true;
+        verify(!tracking.enabled);
+        verify(!findChild(dialog,"confirmScope").enabled);
+        confirmationSpy.target=null;
+    }
+    function test_desktopControls() {
+        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:3840,height:1080,scale:1}});
+        verify(editor !== null);
+        verify(waitForRendering(editor));
+        verify(!findChild(editor,"scale1.75").enabled);
+        mouseClick(findChild(editor,"scale1.25"));
+        compare(editor.draftScale,1.25);
+        editor.desktop={width:1920,height:1080,scale:2};
+        compare(editor.draftWidth,1920);
+        compare(editor.draftScale,2);
+    }
     function test_scales() {
         compare(Model.validScales(1920, 1080), [1, 1.25, 1.5, 2])
         compare(Model.validScales(3440, 1440), [1, 1.25, 2])
@@ -55,5 +95,29 @@ TestCase {
     function test_warning() {
         verify(Model.largeLayoutWarning([{width:1920,height:1080}, {width:5120,height:1440}, {width:1920,height:1080}]))
         verify(!Model.largeLayoutWarning(Array(3).fill({width:1920,height:1080})))
+    }
+    function test_scopeLines() {
+        const scope = {model:"luma-ultra", output:"DP-2", recovery_output:"DP-1",
+            desktops:[{width:3840,height:1080,scale:1.25}], tracking:"xrlinuxdriver",
+            mode_switch:{width:1920,height:1200,refresh_hz:120}};
+        const lines = Model.scopeLines(scope, "start");
+        compare(lines.filter(l => l.optional).map(l => l.key), ["tracking", "mode_switch"]);
+        verify(lines.some(l => l.text.indexOf("3840 × 1080 · 125%") >= 0));
+        verify(lines.some(l => l.text.indexOf("DP-1") >= 0));
+        verify(Model.scopeLines(scope, "recover").every(l => !l.optional));
+        compare(Model.scopeLines(Object.assign({}, scope, {model:"beast", mode_switch:false}), "start").filter(l => l.key === "mode_switch").length, 0);
+    }
+    function test_desktopEdit() {
+        compare(Model.desktopEdit(3840,1080,1.75), null);
+        compare(Model.desktopEdit(641,1080,1), null);
+        compare(Model.desktopEdit(7682,1080,1), null);
+        compare(Model.desktopEdit(3440,1440,1.25), {width:3440,height:1440,scale:1.25});
+    }
+    function test_selectOperations() {
+        compare(Model.selectOperations(0,2,["next","prev"]), ["next","next"]);
+        compare(Model.selectOperations(2,0,["next","prev"]), ["prev","prev"]);
+        compare(Model.selectOperations(undefined,2,["next"]), []);
+        compare(Model.selectOperations(0,2,[]), []);
+        compare(Model.selectOperations(1,1,["next","prev"]), []);
     }
 }

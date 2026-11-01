@@ -1,2 +1,8 @@
 module cody.viture-workspace
 ControllerClient 1.0 ControllerClient.qml
+Panel 1.0 Panel.qml
+BarWidget 1.0 BarWidget.qml
+Launcher 1.0 Launcher.qml
+DesktopEditor 1.0 DesktopEditor.qml
+RunningEditor 1.0 RunningEditor.qml
+ConfirmDialog 1.0 ConfirmDialog.qml
