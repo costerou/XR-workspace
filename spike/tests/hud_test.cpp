@@ -93,5 +93,35 @@ int main() {
     CHECK(p.update(1, false, false, 13000) && p.generation() == 6);
     StatusPopups quiet; CHECK(quiet.update(0, false, true, 0) && quiet.generation() == 1);  // first: mode card only
     StatusPopups bad; CHECK(bad.update(9, false, 0));  // out-of-range mode is treated as anchor
+
+    // Help card: brackets have real pixel glyphs; card grows with rows, is premultiplied and
+    // rounded; with the system font it also renders.
+    CHECK(&hud_glyph('[') != &hud_glyph('?') && &hud_glyph(']') != &hud_glyph('?'));
+    const std::vector<HelpRow> rows{{"Ctrl+Alt+Up", "Zoom in"}, {"Ctrl+Alt+[", "Less space"}, {"Ctrl+Alt+H", "Show / hide this help"}};
+    auto hc = render_help_card(rows, {0.5f, 0.6f, 0.9f});
+    auto hc1 = render_help_card({rows[0]}, {0.5f, 0.6f, 0.9f});
+    CHECK(hc.height > hc1.height && hc.width >= hc1.width && premultiplied(hc) && !lit(hc, 0, 0));
+    CHECK(render_help_card({}, {1, 1, 1}).width > 0);
+    if (font) { auto fh = render_help_card(rows, {0.5f, 0.6f, 0.9f}, font.get()); CHECK(fh.width > fh.height && premultiplied(fh)); }
+
+    // Help fade: hidden until shown; eases in, holds while visible, eases out; monotonic both ways;
+    // toggling mid-fade reverses from the current opacity (no jump); rows re-render only on change.
+    HelpOverlay h;
+    CHECK(h.alpha(0) == 0 && !h.animating(0) && h.generation() == 0 && !h.set(false, rows, 0));
+    CHECK(h.set(true, rows, 1000) && h.visible() && h.generation() == 1 && h.animating(1000) && h.alpha(1000) == 0);
+    CHECK(h.offset_px(1000) == kHelpRisePx);
+    for (double t = 1000; t < 1000 + kHelpFadeInMs; t += 10) CHECK(h.alpha(t + 10) >= h.alpha(t));
+    CHECK(h.alpha(1000 + kHelpFadeInMs) == 1 && h.offset_px(1000 + kHelpFadeInMs) == 0 && !h.animating(1000 + kHelpFadeInMs));
+    CHECK(h.alpha(1e9) == 1);  // stays up while visible
+    CHECK(!h.set(true, rows, 2000) && h.generation() == 1);  // same rows: no re-render
+    CHECK(h.set(false, rows, 3000) && h.animating(3000) && h.alpha(3000) == 1);
+    for (double t = 3000; t < 3000 + kHelpFadeOutMs; t += 10) CHECK(h.alpha(t + 10) <= h.alpha(t));
+    CHECK(h.alpha(3000 + kHelpFadeOutMs) == 0 && !h.animating(3000 + kHelpFadeOutMs));
+    CHECK(h.set(true, rows, 5000));
+    const float mid = h.alpha(5000 + kHelpFadeInMs / 2);
+    CHECK(mid > 0.2f && mid < 0.8f);
+    CHECK(h.set(false, rows, 5000 + kHelpFadeInMs / 2) && h.alpha(5000 + kHelpFadeInMs / 2) == mid);  // reverses, no jump
+    CHECK(h.alpha(5000 + kHelpFadeInMs / 2 + kHelpFadeOutMs) == 0);
+    CHECK(h.set(true, {rows[0]}, 7000) && h.generation() == 2);  // new rows: new card
     std::cout << "hud ok\n";
 }
