@@ -172,7 +172,7 @@ class IsolatedGuard:
             self.broker.verify(self.broker.inspect(spec['id']), spec)
 
 
-def run_isolated(client, consent, runtime):
+def run_isolated(client, consent, runtime, *, desktops=None, store=None, renderer=None):
     from .journal import Journal, managed_owner
     from .managed import _run_owned, capture_names
     from .ipc import private_dir
@@ -181,7 +181,7 @@ def run_isolated(client, consent, runtime):
     session = consent['session']
     output, fallback = consent['output'], consent['recovery_output']
     validate_virtual_outputs(client, session, (output, fallback))
-    specs = plan_outputs(monitors(client.query('monitors')), client.query('workspaces'), consent['run_id'])
+    specs = plan_outputs(monitors(client.query('monitors')), client.query('workspaces'), consent['run_id'], desktops)
     broker = IsolatedBrokerClient(client, consent['run_id'], session, output, fallback)
     broker.require_output_ownership()  # schema-2 pair proof before any journal or mutation
     join_proof(evidence, broker.proof)
@@ -194,7 +194,8 @@ def run_isolated(client, consent, runtime):
         return _run_owned(client, journal, broker, output, fallback, specs,
                           context=broker_context(client, broker, consent['boot_id'], runtime),
                           guard=IsolatedGuard(broker, output, specs, consent['boot_id'], sysroot),
-                          capture=capture_names(consent, specs), pose_feed=consent.get('tracking') == 'xrlinuxdriver')
+                          capture=capture_names(consent, specs), pose_feed=consent.get('tracking') == 'xrlinuxdriver',
+                          store=store, renderer=renderer)
 
 
 def recover_isolated(client, consent, path):

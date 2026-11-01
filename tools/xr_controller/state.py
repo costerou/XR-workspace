@@ -148,6 +148,7 @@ class Controller:
             scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
                 tracking='xrlinuxdriver' if p['tracking'] else False,mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
                 desktops=p['desktops'],**o['installed'])
+            if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
             self._state('confirming'); self.pending=dict(action='start',scope=scope,scope_id=secrets.token_hex(16))
             return copy.deepcopy(self.pending)
