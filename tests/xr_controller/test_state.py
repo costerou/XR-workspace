@@ -28,6 +28,23 @@ class StateTests(unittest.TestCase):
         reply=self.c.request(dict(op='begin_start')); self.assertTrue(reply['ok'],reply); return reply
     def confirm(self):
         r=self.begin(); return self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))
+    def test_snapshot_exposes_fallback_choices_and_pending_scope(self):
+        self.observation['monitors'] += [dict(name='DP-3'), dict(name='XR-1'), dict(name='DP-4',disabled=True)]
+        self.c.tick()
+        snap=self.c.snapshot()
+        self.assertEqual(snap['fallback'], 'choose')
+        self.assertEqual(snap['fallback_candidates'], ['DP-1','DP-3'])
+        self.assertIsNone(snap['pending'])
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'fallback':'DP-3'}))['ok'])
+        reply=self.begin()
+        snap=self.c.snapshot()
+        self.assertEqual(snap['fallback'],'DP-3')
+        self.assertEqual(snap['pending']['scope_id'],reply['scope_id'])
+        snap['pending']['scope']['desktops'].clear()
+        self.assertEqual(len(self.c.snapshot()['pending']['scope']['desktops']),3)
+        self.c.request(dict(op='cancel'))
+        self.assertIsNone(self.c.snapshot()['pending'])
+
     def test_no_start_without_confirm(self): self.begin(); self.assertEqual(self.calls,[])
     def test_confirm_writes_consent_matching_scope(self):
         r=self.begin(); self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))
