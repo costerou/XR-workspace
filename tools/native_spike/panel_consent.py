@@ -80,4 +80,5 @@ def write_consent(directory_fd, consent):
 
 
 def load_panel_consent(path, instance, output):
+    token(instance); token(output)
     return _validate(read_private_json(path), instance, output)
