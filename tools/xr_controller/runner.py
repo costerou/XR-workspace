@@ -48,6 +48,8 @@ def execute(consent_path, data_home):
     result = {'run_id': None, 'phase': 'verify', 'complete': False,
               'renderer_returncode': None, 'remaining': None, 'error': None}
     errors, client, plugin, attempted = [], None, None, False
+    managed_started, run = False, None
+    runtime, consent = None, None
     try:
         # The consent names its own scope; the second read re-checks it against the first.
         raw = read_private_json(consent_path)
@@ -74,14 +76,21 @@ def execute(consent_path, data_home):
             client.apply_session_mode(consent['output'])  # raises unless 1920x1200@~120 is read back
         result['phase'] = 'run'
         verify_pinned(installed['renderer'])
+        managed_started = True
         run = run_managed(client, consent, runtime, desktops=consent['desktops'],
                           store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'])
         result.update(complete=run['complete'], renderer_returncode=run['renderer_returncode'], remaining=run['remaining'])
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)
     finally:
-        # run_managed has already performed its own recovery/teardown when it returns or raises.
-        if attempted:
+        # A saved broker epoch is required for explicit recovery. A return/exception
+        # from run_managed does not by itself prove that recovery completed.
+        preserve = managed_started and (
+            (run is not None and run.get('complete') is not True) or
+            (run is None and (runtime / 'xr-workspace-spike' / consent['run_id'] / 'journal.json').exists()))
+        if preserve:
+            errors.append('ownership plugin retained for explicit recovery')
+        if attempted and not preserve:
             if not errors: result['phase'] = 'teardown'
             try:
                 # Only ever the pinned path this runner asked to load (also after an unconfirmed load).
