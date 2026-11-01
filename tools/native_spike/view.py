@@ -7,8 +7,10 @@ control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
 dead zone, eases back in front) and locked (0DoF, head-locked). Optional cursor follow (Ctrl+Alt+F):
 when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
-Mode, cursor follow and spacing are saved in layout.json. The renderer shows a short pop-up in the
-glasses whenever the viewing mode or cursor follow changes (and the viewing mode at start).
+Optional head-pose prediction (Ctrl+Alt+P, off by default): the renderer extrapolates the pose by a
+bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
+Mode, cursor follow, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
+in the glasses whenever the viewing mode, cursor follow or prediction changes (and the viewing mode at start).
 """
 import json
 import os
@@ -16,12 +18,14 @@ from pathlib import Path
 import re
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
-USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow')
+USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
+            'prediction')
 MODES = ('anchor', 'follow', 'locked')  # cycle order
 # Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
-         ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'))
+         ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
+         ('CTRL + ALT + P', 'prediction'))
 FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
 CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
 COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
@@ -56,20 +60,20 @@ SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False):
+    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=False):
         if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
-        if mode not in MODES or type(cursor_follow) is not bool: raise ValueError('invalid view mode')
+        if mode not in MODES or type(cursor_follow) is not bool or type(prediction) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
-        self.mode, self.cursor_follow = mode, cursor_follow
+        self.mode, self.cursor_follow, self.prediction = mode, cursor_follow, prediction
 
     def view(self):
         """Renderer payload. Cursor follow is acted on supervisor-side; the renderer only displays it."""
         return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode,
-                'cursor_follow': self.cursor_follow}
+                'cursor_follow': self.cursor_follow, 'prediction': self.prediction}
 
     def settings(self):
-        return {'spacing': self.spacing, 'mode': self.mode, 'cursor_follow': self.cursor_follow}
+        return {'spacing': self.spacing, 'mode': self.mode, 'cursor_follow': self.cursor_follow, 'prediction': self.prediction}
 
     def cursor_entered(self, name):
         """Pointer focus moved to `name`; with cursor follow on, select it. True if the view changed."""
@@ -88,6 +92,9 @@ class ViewState:
             return None
         if op == 'cursor_follow':
             self.cursor_follow = not self.cursor_follow
+            return None
+        if op == 'prediction':
+            self.prediction = not self.prediction
             return None
         if op == 'zoom_in':
             self.zoomed = True
@@ -109,7 +116,7 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False}
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': False}
 
 
 def load_settings(path):
@@ -123,6 +130,7 @@ def load_settings(path):
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in MODES: out['mode'] = data['mode']
     if type(data.get('cursor_follow')) is bool: out['cursor_follow'] = data['cursor_follow']
+    if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
     return out
 
 
@@ -139,7 +147,7 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
-            and type(settings.get('cursor_follow')) is bool)
+            and type(settings.get('cursor_follow')) is bool and type(settings.get('prediction')) is bool)
 
 
 def load_spacing(path):
@@ -247,7 +255,7 @@ class ViewControl:
             import threading
             # Never block the watchdog loop on a compositor reply.
             t = threading.Thread(target=self._focus, args=(target,), daemon=True); t.start(); self._threads.append(t)
-        if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'cursor_follow'):
+        if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'cursor_follow', 'prediction'):
             try: save_settings(self.settings, self.state.settings())
             except (OSError, ValueError): pass
         return self._frame() if self.state.view() != before else None

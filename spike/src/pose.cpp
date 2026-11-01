@@ -51,7 +51,8 @@ struct PoseFeed::Impl {
     pthread_mutex_t* mutex = nullptr;
     bool* disabled = nullptr;
     float* fov = nullptr;  // optional
-    ~Impl() { for (void* p : {static_cast<void*>(pose), static_cast<void*>(mutex), static_cast<void*>(disabled), static_cast<void*>(fov)}) if (p) shmdt(p); }
+    float* look_ahead = nullptr;  // optional
+    ~Impl() { for (void* p : {static_cast<void*>(pose), static_cast<void*>(mutex), static_cast<void*>(disabled), static_cast<void*>(fov), static_cast<void*>(look_ahead)}) if (p) shmdt(p); }
 };
 namespace {
 void* attach(const std::string& path, std::size_t min_size, bool writable, std::string& why) {
@@ -79,6 +80,7 @@ std::unique_ptr<PoseFeed> PoseFeed::open(const std::string& prefix, std::string&
     if (!s.disabled) return nullptr;
     std::string ignored;
     s.fov = static_cast<float*>(attach(prefix + "display_fov", sizeof(float), false, ignored));
+    s.look_ahead = static_cast<float*>(attach(prefix + "look_ahead_cfg", sizeof(float) * 4, false, ignored));
     return feed;
 }
 PoseFeed::~PoseFeed() = default;
@@ -87,6 +89,10 @@ std::optional<float> PoseFeed::display_fov() const {
     const float v = *impl_->fov;
     if (!std::isfinite(v) || v < 10.f || v > 120.f) return std::nullopt;
     return v;
+}
+std::optional<std::array<float, 4>> PoseFeed::look_ahead_cfg() const {
+    if (!impl_->look_ahead) return std::nullopt;
+    return std::array<float, 4>{impl_->look_ahead[0], impl_->look_ahead[1], impl_->look_ahead[2], impl_->look_ahead[3]};
 }
 std::optional<FeedSample> PoseFeed::read() {
     auto& s = *impl_;
@@ -101,7 +107,7 @@ std::optional<FeedSample> PoseFeed::read() {
     pthread_mutex_unlock(s.mutex);
     auto q = quat_normalized({v[0], v[1], v[2], v[3]});
     if (!q || !std::isfinite(v[12])) return std::nullopt;
-    return FeedSample{*q, v[12]};
+    return FeedSample{*q, v[12], {Quat{v[4], v[5], v[6], v[7]}, Quat{v[8], v[9], v[10], v[11]}}, {v[13], v[14]}};
 }
 
 void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {

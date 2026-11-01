@@ -9,6 +9,7 @@
 #include "gl.hpp"
 #include "xr/view.hpp"
 #include "xr/pose.hpp"
+#include "xr/predict.hpp"
 #include "xr/hud.hpp"
 #include <cmath>
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
@@ -52,6 +53,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::array<Feedback, Metrics::capacity> feedbacks{};
     static void clock_id(void* data, wp_presentation*, uint32_t id) {
         static_cast<Impl*>(data)->metrics.clock(id);
+        static_cast<Impl*>(data)->latency.clock(id);
     }
     inline static const wp_presentation_listener presentation_listener{clock_id};
     static void sync_output(void* data, struct wp_presentation_feedback*, wl_output* output) {
@@ -64,17 +66,20 @@ struct Presentation::Impl : SurfaceRequests {
         auto& f = *static_cast<Feedback*>(data);
         f.owner->metrics.presented(f.ticket, hi, lo, ns, refresh, seq_hi, seq_lo, flags,
                                    f.selected_output && !f.other_output);
+        f.owner->latency.presented(f.ticket, ((std::uint64_t(hi) << 32) | lo) * 1'000'000'000ull + ns);
         wp_presentation_feedback_destroy(proxy); f = {};
     }
     static void discarded(void* data, struct wp_presentation_feedback* proxy) {
         auto& f = *static_cast<Feedback*>(data);
         f.owner->metrics.discarded(f.ticket);
+        f.owner->latency.discarded(f.ticket);
         wp_presentation_feedback_destroy(proxy); f = {};
     }
     inline static const wp_presentation_feedback_listener feedback_listener{sync_output, presented, discarded};
     void cancel_feedback() {
         for (auto& f : feedbacks) if (f.proxy) { wp_presentation_feedback_destroy(f.proxy); f = {}; }
         metrics.abandon();
+        latency.abandon();
     }
     struct Output { wl_output* proxy = nullptr; std::uint32_t global = 0; std::string name; };
     std::vector<std::unique_ptr<Output>> outputs;
@@ -155,6 +160,14 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint64_t pose_retry_ms = 0;
     PoseState pose;
     ModeController modes;  // T2: anchor / locked (0DoF) / follow
+    // Software latency (pose read -> compositor presented, same CLOCK_MONOTONIC) and bounded
+    // prediction (predict.hpp). Neither is motion-to-photon latency.
+    LatencyTracker latency;
+    PoseAge pose_age;
+    bool prediction = false;
+    std::uint64_t predicted_frames = 0, unpredicted_frames = 0;  // while enabled and tracking
+    float last_horizon_ms = 0, last_predicted_deg = 0;
+    static constexpr float kMaxPredictionDeg = 15.f;
     StatusPopups popups;   // viewing mode / cursor follow pop-ups (GPU composition only)
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
@@ -491,6 +504,25 @@ std::string Presentation::capture_report() const {
            ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
            (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
+    {  // software timing only; see predict.hpp
+        auto stats = [](const LatencySummary& l) {
+            return "{\"count\":" + std::to_string(l.count) + ",\"dropped\":" + std::to_string(l.dropped) + ",\"mean_ms\":" +
+                   std::to_string(l.mean_ms) + ",\"p50_ms\":" + std::to_string(l.p50_ms) + ",\"p95_ms\":" + std::to_string(l.p95_ms) +
+                   ",\"max_ms\":" + std::to_string(l.max_ms) + "}";
+        };
+        const auto& s = *impl_;
+        const auto cfg = s.pose_feed ? s.pose_feed->look_ahead_cfg() : std::nullopt;
+        std::string cfg_json = "null";
+        if (cfg && look_ahead_from(*cfg))
+            cfg_json = "[" + std::to_string((*cfg)[0]) + "," + std::to_string((*cfg)[1]) + "," + std::to_string((*cfg)[2]) + "," +
+                       std::to_string((*cfg)[3]) + "]";
+        out += ",\"latency\":{\"kind\":\"software_read_to_present\",\"clock_monotonic\":" + std::string(s.latency.clock_ok() ? "true" : "false") +
+               ",\"read_to_present\":" + stats(s.latency.summary()) + ",\"pose_age_relative\":" + stats(s.pose_age.summary()) +
+               ",\"prediction\":{\"enabled\":" + (s.prediction ? "true" : "false") + ",\"predicted_frames\":" +
+               std::to_string(s.predicted_frames) + ",\"unpredicted_frames\":" + std::to_string(s.unpredicted_frames) +
+               ",\"last_horizon_ms\":" + std::to_string(s.last_horizon_ms) + ",\"last_predicted_deg\":" + std::to_string(s.last_predicted_deg) +
+               ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json + "}}";
+    }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
            ",\"spacing\":" + std::to_string(impl_->view.spacing()) + "}";
     std::string font;  // bounded, JSON-escaped (font paths come from fontconfig)
@@ -590,9 +622,11 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (impl_ && impl_->gl) { impl_->gl->set_accent(r, g, b); impl_->cadence.invalidate(); }
 }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
-void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow) {
+void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
+                            bool prediction) {
     if (!impl_) return;
-    impl_->popups.update(mode, cursor_follow, double(monotonic_ms()));
+    impl_->popups.update(mode, cursor_follow, prediction, double(monotonic_ms()));
+    impl_->prediction = prediction;
     impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
                            spacing, double(monotonic_ms()));
@@ -618,14 +652,32 @@ Status Presentation::draw_test_pattern() {
         const auto& first = s.captures.front()->plan;
         s.view.advance(double(monotonic_ms()));
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        timespec read_ts{};
+        clock_gettime(CLOCK_MONOTONIC, &read_ts);  // the wp_presentation clock domain (checked in LatencyTracker)
+        const std::uint64_t read_ns = std::uint64_t(read_ts.tv_sec) * 1'000'000'000ull + std::uint64_t(read_ts.tv_nsec);
         if (s.tracking_requested) {  // late sample: just before drawing
             const auto now = monotonic_ms();
             if (!s.pose_feed && now >= s.pose_retry_ms) {
                 s.pose_feed = PoseFeed::open(s.pose_prefix, s.pose_why); s.pose_retry_ms = now + 1000;
                 if (s.pose_feed) s.half_w = 0;  // pick up the driver's FOV
             }
-            s.pose.update(s.pose_feed ? s.pose_feed->read() : std::nullopt, double(now));
-            const Quat relative = s.pose.relative();
+            const auto sample = s.pose_feed ? s.pose_feed->read() : std::nullopt;
+            s.pose.update(sample, double(now));
+            Quat relative = s.pose.relative();
+            const auto age = sample ? s.pose_age.observe(double(read_ns) / 1e6, sample->device_ms) : std::nullopt;
+            if (s.prediction && s.pose.tracking()) {  // never extrapolate a held (stale) pose
+                const auto omega = sample ? angular_velocity(history_of(*sample)) : std::nullopt;
+                const auto refresh = s.metrics.snapshot().last_refresh_prediction_ns;
+                const auto horizon = prediction_horizon(s.pose_feed ? look_ahead_from(s.pose_feed->look_ahead_cfg().value_or(std::array<float, 4>{}))
+                                                                    : std::nullopt,
+                                                        s.latency.expected_ms(), age.value_or(0.0), refresh ? refresh / 1e6 : 1000.0 / 120);
+                if (omega && horizon) {
+                    const Quat delta = prediction_delta(*omega, *horizon, Impl::kMaxPredictionDeg);
+                    relative = quat_mul(relative, delta);  // body frame: newest sample * delta
+                    s.last_horizon_ms = *horizon; s.last_predicted_deg = quat_angle(Quat{}, delta) * float(180 / M_PI);
+                    ++s.predicted_frames;
+                } else ++s.unpredicted_frames;
+            }
             head = view_from(relative, s.modes.update(relative, double(now)));
         }
         if (!s.half_w) s.update_fov();
@@ -638,6 +690,7 @@ Status Presentation::draw_test_pattern() {
             auto* proxy = wp_presentation_feedback(s.presentation, s.surface);
             if (!proxy) return Error{"feedback", "feedback allocation failed"};
             *slot = {&s, proxy, *s.metrics.submit(), false, false};
+            s.latency.read(slot->ticket, read_ns);
             wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
         } else s.metrics.submit();
         const float popup = s.popups.alpha(double(monotonic_ms()));

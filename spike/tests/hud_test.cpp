@@ -69,6 +69,8 @@ int main() {
     CHECK(joined(view_mode_lines(2)).find("|Follow|") != std::string::npos && view_mode_lines(2)[1].bold);
     CHECK(joined(cursor_follow_lines(true)).find("Cursor follow|On|") == 0);
     CHECK(joined(cursor_follow_lines(false)).find("Cursor follow|Off|") == 0);
+    CHECK(joined(prediction_lines(true)).find("Prediction|On|") == 0);
+    CHECK(joined(prediction_lines(false)).find("Prediction|Off|") == 0);
 
     // Pop-up triggers: first update shows the viewing mode; repeats (zoom/select/spacing frames)
     // do not re-show it; a mode change or cursor toggle shows a new card.
@@ -85,6 +87,11 @@ int main() {
     const auto single = p.image().height;
     CHECK(p.update(1, false, 9000) && p.image().height > single);  // both changed: both sections
     CHECK(!p.update(1, false, 9001));
+    // Prediction toggles show their own card; unchanged prediction does not re-show anything.
+    CHECK(p.update(1, false, true, 12000) && p.generation() == 5);
+    CHECK(!p.update(1, false, true, 12001));
+    CHECK(p.update(1, false, false, 13000) && p.generation() == 6);
+    StatusPopups quiet; CHECK(quiet.update(0, false, true, 0) && quiet.generation() == 1);  // first: mode card only
     StatusPopups bad; CHECK(bad.update(9, false, 0));  // out-of-range mode is treated as anchor
     std::cout << "hud ok\n";
 }

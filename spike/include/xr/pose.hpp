@@ -23,7 +23,9 @@ std::array<float, 3> apply(const Mat3& m, std::array<float, 3> v);
 // transpose of the head's relative rotation in GL frame). hw/hh = tan(half FOV). nullopt = behind.
 std::optional<std::array<float, 2>> project(const Mat3& view, float ndc_x, float ndc_y, float hw, float hh);
 
-struct FeedSample { Quat orientation; float device_ms = 0; };
+// orientation/device_ms: newest. older/older_ms: the driver's two previous samples (~16, ~32 ms),
+// unvalidated here; prediction checks them (predict.hpp).
+struct FeedSample { Quat orientation; float device_ms = 0; std::array<Quat, 2> older{}; std::array<float, 2> older_ms{}; };
 
 class PoseFeed {
 public:
@@ -32,6 +34,7 @@ public:
     ~PoseFeed();
     std::optional<FeedSample> read();  // under the driver's process-shared mutex; nullopt if disabled/invalid
     std::optional<float> display_fov() const;  // driver-published diagonal FOV (deg), if sane (10..120)
+    std::optional<std::array<float, 4>> look_ahead_cfg() const;  // driver look-ahead config, raw; absent if not published
 private:
     PoseFeed() = default;
     struct Impl;

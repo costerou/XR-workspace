@@ -52,14 +52,14 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
         } else if (op == ControlOp::view) {
             const auto& p = j["payload"];
-            if (p.size() != 5 || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
+            if (p.size() != 6 || !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
                 p["selected"].get<std::uint64_t>() > 2 || p["spacing"].get<std::uint64_t>() > 400) return invalid();
             const auto mode = p["mode"].get<std::string>();
             std::uint8_t m = 0;
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();
             payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m,
-                                  p["cursor_follow"].get<bool>()};
+                                  p["cursor_follow"].get<bool>(), p["prediction"].get<bool>()};
         } else if (op == ControlOp::style) {
             const auto& p = j["payload"];
             if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return invalid();
