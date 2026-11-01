@@ -70,7 +70,8 @@ Quat level(Quat q);                        // same yaw/pitch of the forward axis
 Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canvas anchored at `anchor`
 
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
-//   anchor: fixed in space (3DoF world-locked)
+//   anchor: fixed in space (3DoF world-locked) where the canvas was when anchor mode was entered;
+//           a recentre moves it straight ahead
 //   locked: 0DoF, rigidly attached to the display (head-locked, includes roll)
 //   follow: always following, no dead zone: a critically damped rotational spring pulls the
 //           canvas toward the full head orientation (roll included). From rest it accelerates,
@@ -93,7 +94,7 @@ private:
     Quat target(Quat head) const;
     Tuning tuning_{};
     ViewMode mode_ = ViewMode::anchor;
-    Quat anchor_{}, from_{}, follow_{};
+    Quat anchor_{}, from_{}, follow_{}, pinned_{};  // pinned_: the world-locked anchor pose
     double started_ms_ = -1, last_ms_ = -1;
     std::array<float, 3> velocity_{};  // follow angular velocity (rad/s, canvas frame)
     bool transitioning_ = false;

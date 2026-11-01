@@ -158,6 +158,22 @@ int main() {
         CHECK(prev_step < speed_peak * 0.05f);                           // decelerates smoothly into centre
         CHECK(at_100 > 0.1f && at_100 < 0.35f && at_500 > 0.85f);         // responsive but smooth
         CHECK(last < 0.05f && m.settled());
+        // Follow -> anchor pins the canvas where it is now, not at the old anchor position.
+        const Quat here = m.update(far, t += 8);
+        m.set_mode(ViewMode::anchor, t);
+        const Quat away = axis_angle(0, 0, 1, 35);
+        for (int i = 0; i < 60; ++i) CHECK(deg(m.update(away, t += 8), here) < 1e-3f);
+        CHECK(m.settled());
+        // 0DoF -> anchor likewise pins at the head pose at the moment of the switch.
+        m.set_mode(ViewMode::locked, t);
+        for (int i = 0; i < 60; ++i) m.update(away, t += 8);
+        m.set_mode(ViewMode::anchor, t);
+        for (int i = 0; i < 60; ++i) CHECK(deg(m.update(far, t += 8), away) < 1e-3f);
+        // A recentre while anchored brings the canvas straight ahead.
+        m.recenter();
+        CHECK(deg(m.update(Quat{}, t += 8), Quat{}) < 1e-3f);
+        m.set_mode(ViewMode::follow, t);
+        for (int i = 0; i < 200; ++i) m.update(far, t += 8);
         m.recenter();
         m.set_mode(ViewMode::anchor, t);
         for (int i = 0; i < 60; ++i) m.update(far, t += 8);

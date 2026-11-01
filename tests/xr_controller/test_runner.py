@@ -31,6 +31,8 @@ class FakeClient:
         self.log.append(('plugin_unload', path))
         if 'xr-ownership' not in self.loaded: raise ValueError('plugin not loaded')
         if not self.unload_sticks: self.loaded.remove('xr-ownership')
+    def park_presentation(self, output):
+        self.log.append(('park_presentation', output))
     def apply_session_mode(self, output):
         self.log.append(('apply_session_mode', output)); return {'name': output, 'x': 0, 'y': 0, 'scale': 1.0}
 
@@ -89,7 +91,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(self.main(), 0)
         plugin = self.installed['plugin']['path']
         self.assertEqual(self.log, ['plugins_loaded', ('plugin_load', plugin), 'plugins_loaded',
-                                    ('apply_session_mode', 'DP-2'), 'run', ('plugin_unload', plugin), 'plugins_loaded'])
+                                    ('apply_session_mode', 'DP-2'), ('park_presentation', 'DP-2'), 'run', ('plugin_unload', plugin), 'plugins_loaded'])
         self.assertEqual(self.clients, [(INSTANCE, self.runtime)])
         self.assertEqual(self.run_args['desktops'], DESKTOPS)
         self.assertEqual(self.run_args['renderer'], self.installed['renderer']['path'])
@@ -165,6 +167,15 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(self.log[-2:], [('plugin_unload', self.installed['plugin']['path']), 'plugins_loaded'])
         self.assertEqual(self.result()['phase'], 'mode')
 
+    def test_layout_failure_blocks_launch_and_unloads(self):
+        self.consent()
+        def bad(output): raise ValueError('presentation placement was not observed')
+        self.client.park_presentation = bad
+        self.assertEqual(self.main(), 2)
+        self.assertNotIn('run', self.log)
+        self.assertEqual(self.log[-2:], [('plugin_unload', self.installed['plugin']['path']), 'plugins_loaded'])
+        self.assertEqual(self.result()['phase'], 'layout')
+
     def test_pin_mismatch_blocks_before_any_client_call(self):
         other = dict(self.installed['plugin'], sha256='0' * 64)
         cases = [('consent sha differs', dict(plugin=other)),
@@ -184,6 +195,7 @@ class RunnerTests(unittest.TestCase):
         self.consent(model='beast', mode_switch=False)
         self.assertEqual(self.main(), 0)
         self.assertFalse(any(isinstance(e, tuple) and e[0] == 'apply_session_mode' for e in self.log))
+        self.assertIn(('park_presentation', 'DP-2'), self.log)
         self.assertIn('run', self.log)
 
     def test_nonzero_renderer_exit_is_failure(self):

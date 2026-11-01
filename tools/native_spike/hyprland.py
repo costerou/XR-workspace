@@ -196,6 +196,28 @@ class HyprlandClient:
                     if last is not None else None)
         raise ValueError(f'session mode {SESSION_MODE} at {mode} not observed within {DEADLINE:g}s; last readback: {observed}')
 
+    def park_presentation(self, output):
+        """Keep the rendering output away from the interactive row; preserve its mode.
+
+        Runtime-only, deliberately retained after stop, like apply_session_mode.
+        No personal monitor config is written. Config reloads reapply this policy.
+        """
+        desired = presentation_placement(self.query('monitors'), output)
+        w, h, hz = desired['width'], desired['height'], desired['refreshRate']
+        self._eval(f'hl.monitor({{ output = "{desired["name"]}", mode = "{w}x{h}@{hz:.6f}", '
+                   f'position = "{desired["x"]}x{desired["y"]}", scale = {desired["scale"]}, '
+                   f'transform = {desired["transform"]} }})')
+        deadline = time.monotonic() + DEADLINE
+        while (remaining := deadline - time.monotonic()) > 0:
+            snapshot = monitors(self.query('monitors', timeout=remaining))
+            found = next((m for m in snapshot if m['name'] == output), None)
+            if (found is not None and all(found[k] == desired[k] for k in
+                    ('id', 'width', 'height', 'x', 'y', 'scale', 'transform', 'disabled', 'dpmsStatus', 'mirrorOf'))
+                    and abs(found['refreshRate'] - hz) < .01 and time.monotonic() <= deadline):
+                return found
+            time.sleep(min(.05, max(0, deadline - time.monotonic())))
+        raise ValueError('presentation placement was not observed before deadline')
+
     def restore_session_mode(self, mode):
         from .view import restore_mode_lua
         self._eval(restore_mode_lua(mode))
@@ -325,6 +347,31 @@ class RecoveryAdapter:
     def mutate(self, command):
         self.client.require_output_ownership()
         raise OwnershipBlocked('recovery mutations require independent continuity proof')
+
+
+def presentation_placement(raw, output):
+    """Place presentation below and left of interactive outputs, outside their row.
+
+    Its right edge cannot extend the virtual desktop origin, even when the
+    glasses are wider than the recovery screen. Ignore existing managed outputs
+    so reloads and repeated starts produce the same placement.
+    """
+    token(output)
+    if not re.fullmatch(r'(?:DP|HDMI-A|eDP|DVI-D)-[0-9]+', output):
+        raise ValueError('presentation must be a physical connector')
+    snapshot = monitors(raw)
+    usable = [m for m in snapshot if not m['disabled'] and m['dpmsStatus'] and m['mirrorOf'] == 'none']
+    matches = [m for m in usable if m['name'] == output]
+    others = [m for m in usable if m['name'] != output and not m['name'].startswith(('XR-', 'HEADLESS-'))]
+    if len(matches) != 1 or not others:
+        raise ValueError('presentation requires an independent usable desktop')
+    target = matches[0]
+    width = math.ceil((target['height'] if target['transform'] % 2 else target['width']) / target['scale'])
+    x = min(m['x'] for m in others) - width
+    y = max(m['y'] + math.ceil((m['width'] if m['transform'] % 2 else m['height']) / m['scale']) for m in others) + 8192
+    if not (-2147483648 <= x <= 2147483647 and -2147483648 <= y <= 2147483647):
+        raise ValueError('presentation layout overflow')
+    return dict(target, x=x, y=y)
 
 
 def plan_outputs(existing, workspaces, run_id, desktops=None):

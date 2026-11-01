@@ -87,9 +87,13 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
             # Config reloads (Omarchy theme switches) drop runtime binds and reset the session mode.
             reinstall = getattr(client, 'reinstall_view_binds', None)
             if reinstall: reinstall(*bind_args)
-            if mode is not None and hasattr(client, 'restore_session_mode'):
+            # Park first: an asynchronous mode restore followed by parking could
+            # read the pre-restore mode and overwrite the requested 120 Hz rule.
+            if output is not None and hasattr(client, 'park_presentation'):
+                client.park_presentation(output)
+            if mode is not None and hasattr(client, 'apply_session_mode'):
                 now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
-                if view.session_mode(now) != mode: client.restore_session_mode(mode)
+                if view.session_mode(now) != mode: client.apply_session_mode(output)
 
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
                                                    saved['prediction']), run_id, session,

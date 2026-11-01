@@ -74,6 +74,8 @@ def execute(consent_path, data_home):
         if consent['mode_switch'] is not False:
             result['phase'] = 'mode'
             client.apply_session_mode(consent['output'])  # raises unless 1920x1200@~120 is read back
+        result['phase'] = 'layout'
+        client.park_presentation(consent['output'])
         result['phase'] = 'run'
         verify_pinned(installed['renderer'])
         managed_started = True
