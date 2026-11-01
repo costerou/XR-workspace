@@ -157,15 +157,29 @@ class HyprlandClient:
     def apply_session_mode(self, output):
         """Session-only 1920x1200@120 on the approved output at its current placement; verified by readback."""
         from .view import SESSION_MODE, restore_mode_lua, session_mode
-        def current():
-            found = [m for m in monitors(self.query('monitors')) if m['name'] == output]
+        def current(timeout=DEADLINE):
+            found = [m for m in monitors(self.query('monitors', timeout=timeout)) if m['name'] == output]
             if len(found) != 1: raise ValueError('session mode output not found')
             return found[0]
         m = current()
         mode = {'name': m['name'], 'x': m['x'], 'y': m['y'], 'scale': float(m['scale'])}
         self._eval(restore_mode_lua(mode))
-        if session_mode(current()) != mode: raise ValueError(f'session mode {SESSION_MODE} not observed on readback')
-        return mode
+        # MonitorRuleManager::add only schedules a reload; render.preChecks applies it.
+        # An eval acknowledgement is not a mode-application barrier.
+        deadline, last = time.monotonic() + DEADLINE, None
+        while (remaining := deadline - time.monotonic()) > 0:
+            try:
+                last = current(timeout=remaining)
+            except TimeoutError:
+                break
+            if session_mode(last) == mode and time.monotonic() <= deadline:
+                return mode
+            remaining = deadline - time.monotonic()
+            if remaining <= 0: break
+            time.sleep(min(0.05, remaining))
+        observed = ({k: last.get(k) for k in ('name', 'width', 'height', 'refreshRate', 'x', 'y', 'scale')}
+                    if last is not None else None)
+        raise ValueError(f'session mode {SESSION_MODE} at {mode} not observed within {DEADLINE:g}s; last readback: {observed}')
 
     def restore_session_mode(self, mode):
         from .view import restore_mode_lua

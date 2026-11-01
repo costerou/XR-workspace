@@ -315,6 +315,78 @@ class PluginLifecycleTests(unittest.TestCase):
         m = dict(RawFixture().monitors[0], name='DP-2', x=1920, y=0, scale=1.0, width=1920, height=1080, refreshRate=60.0)
         m.update(changes); return m
 
+    def mode_clock(self):
+        now = [0.0]
+        clock = patch.object(h.time, 'monotonic', side_effect=lambda: now[0])
+        sleep = patch.object(h.time, 'sleep', side_effect=lambda seconds: now.__setitem__(0, now[0] + seconds))
+        clock.start(); sleeper = sleep.start()
+        self.addCleanup(clock.stop); self.addCleanup(sleep.stop)
+        return now, sleeper
+
+    def test_apply_session_mode_waits_for_deferred_rule_application(self):
+        self.mode_clock()
+        before = self.monitor(x=4096, scale=1.25)
+        after = dict(before, height=1200, refreshRate=119.999)
+        self.replies = {'j/monitors all': [json.dumps([m]).encode() for m in (before, before, before, after)], '/eval': b'ok'}
+        self.assertEqual(self.client.apply_session_mode('DP-2'),
+                         dict(name='DP-2', x=4096, y=0, scale=1.25))
+        self.assertEqual(sum(r.startswith('/eval ') for r in self.requests), 1)
+
+    def test_apply_session_mode_timeout_reports_last_observation(self):
+        now, sleeper = self.mode_clock()
+        before = self.monitor(x=4096, scale=1.25)
+        after = dict(before, height=1200, refreshRate=90.0, x=4100, y=20, scale=1.5)
+        with patch.object(self.client, 'query', side_effect=lambda *a, **k: [before] if not self.requests else [after]), \
+             patch.object(self.client, '_eval', side_effect=lambda code: self.requests.append(code)):
+            with self.assertRaises(ValueError) as caught:
+                self.client.apply_session_mode('DP-2')
+        message = str(caught.exception)
+        for fragment in ('1920', '1200', '90.0', '4100', '20', '1.5', 'DP-2'):
+            self.assertIn(fragment, message)
+        self.assertGreater(now[0], 0)
+        self.assertLessEqual(now[0], 2.0)
+        self.assertTrue(sleeper.called)
+        self.assertEqual(len(self.requests), 1)
+
+    def test_apply_session_mode_caps_each_read_to_remaining_budget(self):
+        now, _ = self.mode_clock()
+        budgets = []
+        before = self.monitor()
+        def query(kind, timeout=h.DEADLINE):
+            if self.requests:
+                budgets.append(timeout)
+                now[0] += min(0.7, timeout)
+            return [before]
+        with patch.object(self.client, 'query', side_effect=query), \
+             patch.object(self.client, '_eval', side_effect=lambda code: self.requests.append(code)):
+            with self.assertRaisesRegex(ValueError, 'last readback:'):
+                self.client.apply_session_mode('DP-2')
+        self.assertEqual(len(budgets), 3)
+        self.assertAlmostEqual(now[0], 2.0)
+        self.assertLess(budgets[-1], 0.7)
+
+    def test_apply_session_mode_transport_timeout_keeps_last_observation(self):
+        self.mode_clock()
+        before = self.monitor()
+        after = self.monitor(height=1200, refreshRate=90.0)
+        with patch.object(self.client, 'query', side_effect=[[before], [after], TimeoutError('late compositor')]), \
+             patch.object(self.client, '_eval') as evaluate:
+            with self.assertRaisesRegex(ValueError, "'refreshRate': 90.0"):
+                self.client.apply_session_mode('DP-2')
+        evaluate.assert_called_once()
+
+    def test_apply_session_mode_never_accepts_changed_placement(self):
+        now, _ = self.mode_clock()
+        for changes in (dict(x=4097), dict(y=1), dict(scale=1.5)):
+            with self.subTest(changes=changes):
+                now[0] = 0.0
+                before = self.monitor(x=4096, scale=1.25)
+                after = dict(before, height=1200, refreshRate=119.999, **changes)
+                with patch.object(self.client, 'query', side_effect=lambda *a, **k: [before] if now[0] == 0 and not self.requests else [after]), \
+                     patch.object(self.client, '_eval', side_effect=lambda code: self.requests.append(code)):
+                    self.requests.clear()
+                    with self.assertRaises(ValueError): self.client.apply_session_mode('DP-2')
+
     def test_apply_session_mode(self):
         before, after = [self.monitor()], [self.monitor(height=1200, refreshRate=119.909)]
         self.replies = {'j/monitors all': [json.dumps(before).encode(), json.dumps(after).encode()], '/eval': b'ok'}
@@ -323,11 +395,14 @@ class PluginLifecycleTests(unittest.TestCase):
         self.assertEqual(self.requests[1], '/eval hl.monitor({ output = "DP-2", mode = "1920x1200@120", position = "1920x0", scale = 1 })')
 
     def test_apply_session_mode_requires_readback(self):
+        now, _ = self.mode_clock()
         for after in ([self.monitor()], [self.monitor(height=1200, refreshRate=60.0)], []):
             with self.subTest(after=after):
+                now[0] = 0.0
                 self.requests.clear()
-                self.replies = {'j/monitors all': [json.dumps([self.monitor()]).encode(), json.dumps(after).encode()], '/eval': b'ok'}
-                with self.assertRaises(ValueError): self.client.apply_session_mode('DP-2')
+                self.replies = {'/eval': b'ok'}
+                with patch.object(self.client, 'query', side_effect=lambda *a, **k: after if self.requests else [self.monitor()]):
+                    with self.assertRaises(ValueError): self.client.apply_session_mode('DP-2')
         self.requests.clear()
         self.replies = {'j/monitors all': [json.dumps([self.monitor(name='XR-1')]).encode()], '/eval': b'ok'}
         with self.assertRaises(ValueError): self.client.apply_session_mode('XR-1')
