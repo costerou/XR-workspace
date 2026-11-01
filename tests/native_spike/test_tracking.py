@@ -87,6 +87,31 @@ class DriverLifecycleTests(unittest.TestCase):
                         patch.object(tracking, 'DRIVER_CONFIG', self.config)]
         for p in self.patches: p.start(); self.addCleanup(p.stop)
 
+    def test_disconnect_invalidates_previous_calibration(self):
+        data = {'pid': os.getpid(), 'start_tick': tracking._start_tick(os.getpid()), 'log_offset': 0}
+        tracking._state(self.runtime).write_text(json.dumps(data))
+        self.log.write_text('Device calibration complete\nRetrying driver connection in 1 second\n')
+        self.assertFalse(tracking.status(self.runtime)['calibrated'])
+        with self.log.open('a') as log:
+            log.write('Device connected, redirecting input to external_only...\nWaiting on device calibration\n')
+        self.assertFalse(tracking.status(self.runtime)['calibrated'])
+        with self.log.open('a') as log: log.write('Device calibration complete\n')
+        self.assertTrue(tracking.status(self.runtime)['calibrated'])
+        with self.log.open('a') as log: log.write('Failed to send USB command\n')
+        self.assertFalse(tracking.status(self.runtime)['calibrated'])
+
+    def test_ensure_ready_reuses_only_calibrated_isolated_driver(self):
+        healthy = dict(running=True, network_isolated=True, calibrated=True)
+        for state in (healthy, dict(healthy, calibrated=False), dict(healthy, network_isolated=False), dict(running=False)):
+            with self.subTest(state=state), patch.object(tracking, 'status', return_value=state), \
+                    patch.object(tracking, 'start', return_value=healthy) as start, patch.object(tracking, 'stop') as stop:
+                self.assertEqual(tracking.ensure_ready(self.runtime), healthy)
+                if state == healthy:
+                    start.assert_not_called(); stop.assert_not_called()
+                else:
+                    start.assert_called_once_with(self.runtime, timeout=120.0)
+                    self.assertEqual(stop.call_count, int(state['running']))
+
     def test_start_status_stop_network_blocked(self):
         status = tracking.start(self.runtime, timeout=10)
         self.addCleanup(lambda: tracking.stop(self.runtime))

@@ -68,8 +68,26 @@ def status(runtime):
     try: isolated = os.readlink(f'/proc/{pid}/ns/net') != os.readlink('/proc/self/ns/net')
     except OSError: isolated = False
     log = DRIVER_LOG.read_text(errors='replace') if DRIVER_LOG.exists() else ''
-    calibrated = READY in log[data.get('log_offset', 0):]
+    current = log[data.get('log_offset', 0):]
+    # Readiness belongs to the latest connection, not any earlier calibration.
+    invalidated = max(current.rfind(marker) for marker in (
+        'Retrying driver connection', 'Waiting on device calibration', 'Failed to send USB command'))
+    calibrated = current.rfind(READY) > invalidated
     return {'running': True, 'pid': pid, 'network_isolated': isolated, 'calibrated': calibrated}
+
+
+def ensure_ready(runtime, timeout=120.0):
+    """Reuse a calibrated isolated driver, or restart our disconnected driver.
+
+    Only the PID/start-tick recorded by this app can be stopped. A separate
+    driver is never killed; start() refuses to compete with it.
+    """
+    now = status(runtime)
+    if now['running'] and now['network_isolated'] and now['calibrated']:
+        return now
+    if now['running']:
+        stop(runtime)
+    return start(runtime, timeout=timeout)
 
 
 def start(runtime, timeout=120.0):
