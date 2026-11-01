@@ -69,14 +69,15 @@ Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canva
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
 //   anchor: fixed in space (3DoF world-locked)
 //   locked: 0DoF, rigidly attached to the display (head-locked, includes roll)
-//   follow: world-locked inside a small dead zone; outside it, the canvas accelerates toward the
-//           full head orientation (roll included) at a speed proportional to the remaining error
-//           (time constant tau), ramped by a bounded acceleration and never overshooting
+//   follow: always following, no dead zone: a critically damped rotational spring pulls the
+//           canvas toward the full head orientation (roll included). From rest it accelerates,
+//           then decelerates smoothly into centre without overshoot (like the Beast's smooth follow)
 // Mode changes blend smoothly from wherever the canvas currently is; steady states are exact.
 enum class ViewMode : std::uint8_t { anchor = 0, locked = 1, follow = 2 };
 class ModeController {
 public:
-    struct Tuning { float transition_ms = 300, deadzone_deg = 4, settle_deg = 0.5f, follow_tau_ms = 90, accel_deg_s2 = 1800; };
+    // follow_omega: spring natural frequency (rad/s); higher = snappier. 8 covers ~90% of a turn in 0.5 s.
+    struct Tuning { float transition_ms = 300, follow_omega = 8.f; };
     ModeController() = default;
     explicit ModeController(Tuning t) : tuning_(t) {}
     void set_mode(ViewMode mode, double now_ms);
@@ -84,14 +85,14 @@ public:
     ViewMode mode() const { return mode_; }
     // Advance with the head's relative orientation; returns the canvas anchor for this frame.
     Quat update(Quat head, double now_ms);
-    bool settled() const;  // nothing animating (locked/anchor steady, follow inside dead zone)
+    bool settled() const;  // nothing animating (no mode blend; follow spring at rest)
 private:
     Quat target(Quat head) const;
     Tuning tuning_{};
     ViewMode mode_ = ViewMode::anchor;
     Quat anchor_{}, from_{}, follow_{};
     double started_ms_ = -1, last_ms_ = -1;
-    float speed_deg_s_ = 0;  // current follow angular speed (accelerates from rest)
-    bool chasing_ = false, transitioning_ = false;
+    std::array<float, 3> velocity_{};  // follow angular velocity (rad/s, canvas frame)
+    bool transitioning_ = false;
 };
 }

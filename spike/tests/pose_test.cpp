@@ -131,26 +131,33 @@ int main() {
         CHECK(deg(m.update(moved, t += 8), moved) < 1e-3f);           // rigidly locked, no lag
         m.set_mode(ViewMode::follow, t);                                 // starts where the canvas is
         CHECK(deg(m.update(moved, t += 1), moved) < 2.f);
-        for (int i = 0; i < 100; ++i) m.update(moved, t += 8);
-        const Quat small = axis_angle(0, 0, 1, -40 + 3);               // inside the 4 degree dead zone
+        for (int i = 0; i < 200; ++i) m.update(moved, t += 8);
+        CHECK(deg(m.update(moved, t += 8), moved) < 0.05f && m.settled());  // converges onto the head
+        // No dead zone: even a 2 degree turn is followed (smoothly, all the way).
+        const Quat small = axis_angle(0, 0, 1, -40 + 2);
+        for (int i = 0; i < 200; ++i) m.update(small, t += 8);
+        CHECK(deg(m.update(small, t += 8), small) < 0.05f);
+        // A 30 degree yaw + 15 degree roll step: accelerates from rest, then decelerates into
+        // centre; monotonic (critically damped: no overshoot or bounce), roll included.
+        const Quat far = quat_mul(axis_angle(0, 0, 1, -10), axis_angle(1, 0, 0, 15));
         const Quat before = m.update(small, t += 8);
-        for (int i = 0; i < 100; ++i) CHECK(deg(m.update(small, t += 8), before) < 1e-3f);  // dead zone: world-locked
-        // Leaving the dead zone: accelerates from rest (first frame moves very little), then
-        // catches up quickly and never overshoots.
-        const Quat far = quat_mul(axis_angle(0, 0, 1, -10), axis_angle(1, 0, 0, 15));  // 30 deg yaw + 15 deg roll
         const float start = deg(before, far);
-        const Quat first = m.update(far, t += 8);
-        CHECK(deg(first, before) < 0.2f);                               // 1800 deg/s^2 * 8 ms * 8 ms ~ 0.1 deg
-        float last = start, gain_100ms = 0;
-        for (int i = 0; i < 60; ++i) {
+        CHECK(deg(m.update(far, t += 8), before) < 0.2f);               // gentle start (accelerating)
+        float last = start, speed_peak = 0, prev_step = 0, at_100 = 0, at_500 = 0;
+        int peak_frame = -1;
+        for (int i = 0; i < 150; ++i) {
             const float now = deg(m.update(far, t += 8), far);
-            CHECK(now <= last + 1e-3f);                                 // monotonic: no overshoot or bounce
-            if (i == 11) gain_100ms = start - now;
-            last = now;
+            CHECK(now <= last + 1e-3f);                                 // never overshoots
+            const float step = last - now;
+            if (step > speed_peak) { speed_peak = step; peak_frame = i; }
+            if (i == 11) at_100 = 1 - now / start;
+            if (i == 61) at_500 = 1 - now / start;
+            prev_step = step; last = now;
         }
-        CHECK(gain_100ms > 6.f);                                        // responsive: well underway within ~100 ms
-        CHECK(last < 0.6f && m.settled());                              // settled within 0.5 s, roll included
-        CHECK(deg(m.update(far, t += 8), far) < 0.6f);
+        CHECK(peak_frame > 3 && peak_frame < 30);                        // speeds up first, then slows down
+        CHECK(prev_step < speed_peak * 0.05f);                           // decelerates smoothly into centre
+        CHECK(at_100 > 0.1f && at_100 < 0.35f && at_500 > 0.85f);         // responsive but smooth
+        CHECK(last < 0.05f && m.settled());
         m.recenter();
         m.set_mode(ViewMode::anchor, t);
         for (int i = 0; i < 60; ++i) m.update(far, t += 8);
