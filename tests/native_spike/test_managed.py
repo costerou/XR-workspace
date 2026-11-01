@@ -367,6 +367,38 @@ class ManagedTests(unittest.TestCase):
         create_outputs(plan_outputs([], [], 'run'), self.journal, self.broker)
         with self.assertRaises(ValueError): self.journal.bind_broker(context)
 
+    def test_run_managed_threads_desktops_and_store(self):
+        from tools.native_spike import managed
+        desktops = [{'width': 2560, 'height': 1440, 'scale': 1.25}, {'width': 1920, 'height': 1080, 'scale': 1.0},
+                    {'width': 3840, 'height': 1080, 'scale': 2.0}]
+        consent = dict(instance=INSTANCE, run_id='new-run', output='DP-2', recovery_output='DP-1')
+        store, seen = object(), {}
+        def owned(client, journal, broker, output, fallback, specs, **kw):
+            seen.update(kw, specs=specs); return 'result'
+        with patch.object(managed, '_run_owned', owned):
+            self.assertEqual(managed.run_managed(ManagedTransport(self.path), consent, Path(self.tmp.name),
+                                                 desktops=desktops, store=store, renderer='/r'), 'result')
+        self.assertEqual([(s['width'], s['height'], s['scale']) for s in seen['specs']],
+                         [(2560, 1440, 1.25), (1920, 1080, 1.0), (3840, 1080, 2.0)])
+        self.assertIs(seen['store'], store); self.assertEqual(seen['renderer'], '/r')
+        with patch.object(managed, '_run_owned', owned):
+            managed.run_managed(ManagedTransport(self.path), dict(consent, run_id='cli-run'), Path(self.tmp.name))
+        self.assertEqual({(s['width'], s['height'], s['scale']) for s in seen['specs']}, {(1920, 1080, 1.0)})
+        self.assertIsNone(seen['store'])
+
+    def test_view_controls_receives_store(self):
+        from tools.native_spike import managed
+        transport = ManagedTransport(self.path)
+        broker = OwnershipBrokerClient(transport, 'run', 'session', 'DP-1'); broker.require_output_ownership()
+        store, seen = object(), {}
+        class Stop(Exception): pass
+        def controls(client, run_id, session, capture, output=None, store=None):
+            seen['store'] = store; raise Stop
+        transport.connect_wayland = lambda session: open(os.devnull, 'rb')
+        with patch.object(managed, 'view_controls', controls), patch.object(managed, 'recover'), self.assertRaises(Stop):
+            managed._run_owned(transport, self.journal, broker, 'DP-2', 'DP-1', plan_outputs([], [], 'run'), store=store)
+        self.assertIs(seen['store'], store)
+
     def test_missing_plugin_or_physical_pair_cannot_create_journal(self):
         from tools.native_spike.managed import run_managed
         consent = dict(instance=INSTANCE, run_id='new-run', output='DP-2', recovery_output='DP-1')

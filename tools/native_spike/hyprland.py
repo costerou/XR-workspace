@@ -24,6 +24,7 @@ NAME = r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}'
 OWNED = r'XR-[1-9][0-9]*'
 # Any managed name, including pre-Omarchy per-run names: never adoptable without a broker.
 MANAGED_ANY = r'XR-(?:[1-9][0-9]*|SPIKE-.*)'
+PLUGIN_PATH = re.compile(r'(?:/[A-Za-z0-9_.-]+)+/viture-workspace/bin/[0-9a-f]{12}/libxr-ownership\.so')
 QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 LIMIT = 1048576
 DEADLINE = 2.0
@@ -126,6 +127,45 @@ class HyprlandClient:
         """After a config reload: drop any surviving handles, then bind again (never doubled)."""
         from .view import install_binds_lua, remove_binds_lua
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session))
+
+    # Ownership plugin lifecycle. Wire strings follow hyprctl's request format ('/plugin load <abs path>',
+    # '/plugin unload <abs path>', 'j/plugin list'); they MUST be confirmed against the VM's Hyprland before
+    # any live use (Task 12). The JSON list has no path field, so readback is by plugin name.
+    # Deliberately not part of the generic mutate allowlist.
+    def plugins_loaded(self):
+        raw = strict_json(self._request('j/plugin list'))
+        if not isinstance(raw, list) or any(not isinstance(p, dict) or not isinstance(p.get('name'), str) for p in raw):
+            raise ValueError('invalid plugin list response')
+        return [p['name'] for p in raw]
+
+    def plugin_load(self, path, *, data_home=None):
+        self._plugin_command('load', path, data_home)
+
+    def plugin_unload(self, path, *, data_home=None):
+        self._plugin_command('unload', path, data_home)
+
+    def _plugin_command(self, verb, path, data_home):
+        from ..xr_controller.install import PLUGIN, load_installed
+        if data_home is None: data_home = Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')
+        if not isinstance(path, str) or not PLUGIN_PATH.fullmatch(path) or Path(path).name != PLUGIN:
+            raise ValueError('plugin path must be the pinned install')
+        if path != load_installed(data_home)['plugin']['path']: raise ValueError('plugin path must be the pinned install')
+        reply = self._request(f'/plugin {verb} {path}').decode('utf-8', errors='replace').strip()
+        if reply != 'ok':
+            raise ValueError(f'plugin {verb} rejected: ' + ''.join(c for c in reply[:160] if c.isprintable()))
+
+    def apply_session_mode(self, output):
+        """Session-only 1920x1200@120 on the approved output at its current placement; verified by readback."""
+        from .view import SESSION_MODE, restore_mode_lua, session_mode
+        def current():
+            found = [m for m in monitors(self.query('monitors')) if m['name'] == output]
+            if len(found) != 1: raise ValueError('session mode output not found')
+            return found[0]
+        m = current()
+        mode = {'name': m['name'], 'x': m['x'], 'y': m['y'], 'scale': float(m['scale'])}
+        self._eval(restore_mode_lua(mode))
+        if session_mode(current()) != mode: raise ValueError(f'session mode {SESSION_MODE} not observed on readback')
+        return mode
 
     def restore_session_mode(self, mode):
         from .view import restore_mode_lua

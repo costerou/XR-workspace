@@ -41,11 +41,11 @@ def recover_managed(client, consent, path):
     return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining}
 
 
-def run_managed(client, consent, runtime, *, renderer=None):
+def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None):
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
-    specs = plan_outputs(monitors(client.query('monitors')), client.query('workspaces'), consent['run_id'])
+    specs = plan_outputs(monitors(client.query('monitors')), client.query('workspaces'), consent['run_id'], desktops)
     broker = OwnershipBrokerClient(client, consent['run_id'], session, fallback)
     broker.require_output_ownership()  # no journal or output mutations without a broker
     directory = runtime / 'xr-workspace-spike'
@@ -55,7 +55,7 @@ def run_managed(client, consent, runtime, *, renderer=None):
     with managed_owner(directory / 'journal.json'):
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
-                          pose_feed=consent.get('tracking') == 'xrlinuxdriver', renderer=renderer)
+                          pose_feed=consent.get('tracking') == 'xrlinuxdriver', store=store, renderer=renderer)
 
 
 from contextlib import contextmanager
@@ -116,7 +116,7 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, renderer=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None):
     session = journal.session
     with journal.transaction():
         if journal.operations or journal.broker is not None:
@@ -129,7 +129,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         create_outputs(specs, journal, broker)
         if guard is None: guard = ManagedGuard(broker, output, specs)
         guard()
-        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output) as control:
+        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
                                  control=control, pose_feed=pose_feed, renderer=renderer)
     finally:
