@@ -53,7 +53,7 @@ struct Monitor {
  bool applyMonitorRule(Config::CMonitorRule rule) {
    if(!applyOK) return false;
    active=rule;
-   m_pixelSize=rule.m_resolution; m_refreshRate=rule.m_refreshRate;
+   m_pixelSize=rule.m_resolution; m_scale=rule.m_scale; m_refreshRate=rule.m_refreshRate;
    m_currentMode=std::make_shared<Mode>(Mode{rule.m_resolution,120000});
    // Deliberately NO position update: pinned production behavior.
    return true;
@@ -104,8 +104,8 @@ struct NativeBackend: Backend {
  void release(const Handle&) override {} // destroy never succeeds in this double
  bool destroy(const Handle&) override{return false;}
 };
-Json spec(int x,int y) {
- return {{"id","offset"},{"name","XR-1"},{"x",x},{"y",y}};
+Json spec(int x,int y,int w=1920,int h=1080,double scale=1.0) {
+ return {{"id","offset"},{"name","XR-1"},{"width",w},{"height",h},{"scale",scale},{"x",x},{"y",y}};
 }
 int main() {
  try {
@@ -126,6 +126,15 @@ int main() {
      CHECK(r.inspect("s","r","offset")=="live");
      b.monitor->m_position.x+=1;
      CHECK(r.inspect("s","r","offset")=="invalid");
+   }
+   { // Per-desktop geometry reaches the stored rule (what a config reload re-applies) and is verified.
+     NativeBackend b; Registry r(b); auto p=spec(0,0,3440,1440,1.25);
+     CHECK(r.create("s","r",p)=="live");
+     const auto& rule=Config::rules.rules.at(0);
+     CHECK(rule.m_resolution==Vector2D(3440,1440) && rule.m_scale==1.25);
+     CHECK(b.object->rule && b.object->rule->m_resolution==Vector2D(3440,1440) && b.object->rule->m_scale==1.25);
+     CHECK(r.inspect("s","r","offset")=="live");
+     b.monitor->m_scale=1; CHECK(r.inspect("s","r","offset")=="invalid");
    }
    for(int fault=0;fault<4;++fault) {
      NativeBackend b; Registry r(b);

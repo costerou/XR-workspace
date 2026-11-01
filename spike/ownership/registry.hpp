@@ -7,6 +7,7 @@
 namespace xr::ownership {
 using Json = nlohmann::json;
 Json parse_request(const std::string&);
+bool validDesktop(int w,int h,double scale);
 struct Object { virtual ~Object() = default; bool live=true, physical=false; };
 using Handle=std::shared_ptr<Object>;
 using Capture=std::function<void(Handle,bool)>;

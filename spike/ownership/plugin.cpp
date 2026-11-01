@@ -188,8 +188,8 @@ public:
         // never created, adopted, renamed or switched: Omarchy gives each monitor its block.
         for(auto& rule:Config::monitorRuleMgr()->all()) if(rule.m_name==p["name"].get<std::string>()) return false;
         Config::CMonitorRule rule;
-        rule.m_name=p["name"]; rule.m_resolution={1920,1080}; rule.m_refreshRate=120;
-        rule.m_scale=1; rule.m_offset={p["x"].get<double>(),p["y"].get<double>()};
+        rule.m_name=p["name"]; rule.m_resolution={p["width"].get<double>(),p["height"].get<double>()}; rule.m_refreshRate=120;
+        rule.m_scale=p["scale"].get<double>(); rule.m_offset={p["x"].get<double>(),p["y"].get<double>()};
         rule.m_transform=WL_OUTPUT_TRANSFORM_NORMAL; rule.m_disabled=false; rule.m_mirrorOf="";
         o->rule=rule; Config::monitorRuleMgr()->add(Config::CMonitorRule(rule));
         if(!h->live || !m->applyMonitorRule(std::move(rule)) || !resolve(h)) return false;
@@ -210,9 +210,9 @@ public:
         }
         if(matched!=1) { o->ruleLost=true; return false; }
         // Output identity/geometry only: which workspace is shown is the user's choice.
-        return m->m_currentMode && m->m_currentMode->pixelSize==Vector2D(1920,1080) && m->m_currentMode->refreshRate==120000 &&
-            m->enabled() && m->m_dpmsStatus && !m->m_mirrorOf && m->m_pixelSize==Vector2D(1920,1080) &&
-            m->m_scale==1 && m->m_refreshRate==120 && m->m_position==Vector2D(p["x"].get<double>(),p["y"].get<double>()) &&
+        return m->m_currentMode && m->m_currentMode->pixelSize==Vector2D(p["width"].get<double>(),p["height"].get<double>()) && m->m_currentMode->refreshRate==120000 &&
+            m->enabled() && m->m_dpmsStatus && !m->m_mirrorOf && m->m_pixelSize==Vector2D(p["width"].get<double>(),p["height"].get<double>()) &&
+            m->m_scale==static_cast<float>(p["scale"].get<double>()) && m->m_refreshRate==120 && m->m_position==Vector2D(p["x"].get<double>(),p["y"].get<double>()) &&
             m->m_transform==WL_OUTPUT_TRANSFORM_NORMAL;
     }
     bool usable(const Handle& h) override {

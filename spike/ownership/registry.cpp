@@ -2,7 +2,15 @@
 #include <stdexcept>
 #include <set>
 #include <regex>
+#include <cmath>
 namespace xr::ownership {
+// Mirror of tools/native_spike/geometry.validate_desktop (presets are within the custom bounds).
+bool validDesktop(int w,int h,double scale) {
+    if(w<640 || w>7680 || h<480 || h>4320 || w%2 || h%2) return false;
+    const long n=std::lround(scale*4);  // allowed scales are multiples of 1/4: 1, 1.25 ... 2
+    if(n<4 || n>8 || n/4.0!=scale) return false;
+    return (long(w)*4)%n==0 && (long(h)*4)%n==0;
+}
 Json parse_request(const std::string& wire) {
     if(wire.size()>8192 || !wire.starts_with("xrspike ")) throw std::runtime_error("request bounds/prefix");
     std::map<int,std::set<std::string>> keys;
@@ -46,7 +54,8 @@ Json parse_request(const std::string& wire) {
         for(auto key:{"index","width","height","refresh_millihz","x","y"})
             if(!p[key].is_number_integer() || (p[key].is_number_unsigned() ? p[key].get<uint64_t>()>2147483647ULL :
                 (p[key].get<int64_t>() < -2147483648LL || p[key].get<int64_t>()>2147483647LL))) throw std::runtime_error("integer");
-        if(p["index"]<0 || p["index"]>2 || p["width"]!=1920 || p["height"]!=1080 || p["refresh_millihz"]!=120000 || !p["scale"].is_number() || p["scale"]!=1) throw std::runtime_error("geometry");
+        if(p["index"]<0 || p["index"]>2 || p["refresh_millihz"]!=120000 ||
+           !p["scale"].is_number() || !validDesktop(p["width"].get<int>(),p["height"].get<int>(),p["scale"].get<double>())) throw std::runtime_error("geometry");
         // Stable names: Omarchy gives each managed output its own persistent workspace block.
         if(p["name"]!="XR-"+std::to_string(p["index"].get<int>()+1)) throw std::runtime_error("output name");
     }
