@@ -37,3 +37,31 @@ No presentation rate, missed count, capture path or visual/control/comfort
 acceptance exists for these attempts. No 120-FPS claim follows. Luma acceptance,
 crash/Recover, Beast and mixed/ultrawide measurements remain incomplete. Further
 physical sessions require Cody's explicit approval; this record grants none.
+
+## Approved normal retry: Errno 11
+
+Cody's “go” directly answered the request to explicitly approve the same Luma
+normal-session retry. Source `8538468` includes bounded mode readback and the
+coordinator's `5580a58` runner-error propagation. Fresh preflight and pins passed;
+tracking calibrated in its network namespace. Existing installed binaries were
+reused unchanged. No persistent service was installed or enabled.
+
+Panel-confirmed run `06422ac48c7cdd7272b533f4d7508559` failed in phase `mode`:
+`[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable`.
+Renderer return code is null: no renderer was launched and no run journal was
+created. Cody reported “Errno 11”. The controller now correctly exposed the runner
+error in its status reason. Read-only observer samples are preserved in the JSON.
+No measured presentation statistics or visual acceptance exists for this run.
+
+Automatic unload failed and the broker remained loaded. With the run's consent
+plugin pin reverified, only `xr-ownership` loaded, no managed journal and physical
+DP-1/DP-2 only, the agent explicitly unloaded that exact pinned plugin once as
+normal session cleanup. Readback confirmed empty. The session-owned driver,
+foreground controller and read-only observer were then stopped. Final display
+readback matches the original baseline and both installed hashes are unchanged.
+No other records were archived or changed.
+
+This is a new IPC/OS error, not evidence that the display mode was unavailable.
+The saved result has no syscall/traceback, so which IPC operation returned EAGAIN
+is not established. No additional live experiment or retry was performed. Further
+offline diagnosis and separately approved physical verification remain necessary.

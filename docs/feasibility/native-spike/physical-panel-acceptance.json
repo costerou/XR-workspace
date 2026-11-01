@@ -4,7 +4,7 @@
   "result": "blocked-physical-acceptance-not-passed",
   "source": "f17f4c0f1fab1c1203178bc3e562aa6309675af0",
   "vm_evidence_commit": "1480e9f",
-  "recorded_at": "2026-11-01T02:31:58.707691+00:00",
+  "recorded_at": "2026-11-01T02:38:45.671854+00:00",
   "approval": {
     "message": "Okay I approve",
     "scope": "First Luma normal session only; no crash injection",
@@ -583,6 +583,3120 @@
         "/run/user/1000/xr-workspace-spike/phys1/journal.json"
       ],
       "session_journals_remaining": []
+    },
+    {
+      "name": "luma-normal-2",
+      "preflight": {
+        "session": "luma-normal-2",
+        "approval": "go",
+        "approval_context": "Direct response to explicit request for Luma normal retry, no crash injection",
+        "prepared_at": "2026-11-01T02:36:43.264681+00:00",
+        "source": "8538468f38cd4037a6f62f18ba4c3e447ea19edb",
+        "before": {
+          "model": "luma-ultra",
+          "output": "DP-2",
+          "reason": null,
+          "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+          "monitors": [
+            {
+              "id": 0,
+              "name": "DP-1",
+              "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+              "make": "Samsung Electric Company",
+              "model": "Odyssey G93SD",
+              "serial": "HCSY900228",
+              "width": 5120,
+              "height": 1440,
+              "physicalWidth": 1190,
+              "physicalHeight": 340,
+              "refreshRate": 240.0,
+              "x": 0,
+              "y": 0,
+              "activeWorkspace": {
+                "id": 1,
+                "name": "1"
+              },
+              "specialWorkspace": {
+                "id": 0,
+                "name": ""
+              },
+              "reserved": [
+                0,
+                26,
+                0,
+                0
+              ],
+              "scale": 1.25,
+              "transform": 0,
+              "focused": true,
+              "dpmsStatus": true,
+              "vrr": false,
+              "solitary": "0",
+              "solitaryBlockedBy": [
+                "WINDOWED",
+                "CANDIDATE"
+              ],
+              "activelyTearing": false,
+              "tearingBlockedBy": [
+                "NOT_TORN",
+                "USER",
+                "CANDIDATE",
+                "HW_CURSOR"
+              ],
+              "directScanoutTo": "0",
+              "directScanoutBlockedBy": [
+                "USER",
+                "CANDIDATE"
+              ],
+              "disabled": false,
+              "currentFormat": "XRGB8888",
+              "mirrorOf": "none",
+              "availableModes": [
+                "5120x1440@120.00Hz",
+                "3840x1080@119.97Hz",
+                "3840x2160@60.00Hz",
+                "3840x2160@59.94Hz",
+                "3840x2160@50.00Hz",
+                "5120x1440@240.00Hz",
+                "5120x1440@60.00Hz",
+                "3840x1080@239.96Hz",
+                "3840x1080@59.96Hz",
+                "2560x1440@239.98Hz",
+                "2560x1440@119.99Hz",
+                "2560x1440@59.95Hz",
+                "1920x1080@239.99Hz",
+                "1920x1080@120.00Hz",
+                "1920x1080@119.88Hz",
+                "1920x1080@60.00Hz",
+                "1920x1080@59.94Hz",
+                "1680x1050@59.95Hz",
+                "1600x900@60.00Hz",
+                "1280x1024@60.02Hz",
+                "1440x900@59.89Hz",
+                "1280x800@59.81Hz",
+                "1280x720@60.00Hz",
+                "1280x720@60.00Hz",
+                "1280x720@59.94Hz",
+                "1024x768@60.00Hz",
+                "800x600@60.32Hz",
+                "720x480@60.00Hz",
+                "720x480@59.94Hz",
+                "640x480@60.00Hz",
+                "640x480@59.94Hz"
+              ],
+              "colorManagementPreset": "srgb",
+              "sdrBrightness": 1,
+              "sdrSaturation": 1,
+              "sdrMinLuminance": 0.2,
+              "sdrMaxLuminance": 80,
+              "hardwareCursorsInUse": true
+            },
+            {
+              "id": 1,
+              "name": "DP-2",
+              "description": "CVT VITURE 0x88888800",
+              "make": "CVT",
+              "model": "VITURE",
+              "serial": "0x88888800",
+              "width": 1920,
+              "height": 1080,
+              "physicalWidth": 160,
+              "physicalHeight": 100,
+              "refreshRate": 60.0,
+              "x": 4096,
+              "y": 0,
+              "activeWorkspace": {
+                "id": 21,
+                "name": "21"
+              },
+              "specialWorkspace": {
+                "id": 0,
+                "name": ""
+              },
+              "reserved": [
+                0,
+                26,
+                0,
+                0
+              ],
+              "scale": 1.25,
+              "transform": 0,
+              "focused": false,
+              "dpmsStatus": true,
+              "vrr": false,
+              "solitary": "0",
+              "solitaryBlockedBy": [
+                "WINDOWED",
+                "CANDIDATE"
+              ],
+              "activelyTearing": false,
+              "tearingBlockedBy": [
+                "NOT_TORN",
+                "USER",
+                "CANDIDATE",
+                "HW_CURSOR"
+              ],
+              "directScanoutTo": "0",
+              "directScanoutBlockedBy": [
+                "USER",
+                "CANDIDATE"
+              ],
+              "disabled": false,
+              "currentFormat": "XRGB8888",
+              "mirrorOf": "none",
+              "availableModes": [
+                "1920x1080@60.00Hz",
+                "1920x1200@120.00Hz",
+                "1920x1200@90.00Hz",
+                "1920x1200@60.00Hz",
+                "1920x1080@90.00Hz"
+              ],
+              "colorManagementPreset": "srgb",
+              "sdrBrightness": 1,
+              "sdrSaturation": 1,
+              "sdrMinLuminance": 0.2,
+              "sdrMaxLuminance": 80,
+              "hardwareCursorsInUse": true
+            }
+          ],
+          "installed": {
+            "renderer": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+              "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+            },
+            "plugin": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+              "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+            }
+          },
+          "plugins": [],
+          "journals": []
+        },
+        "pins_before": {
+          "renderer": {
+            "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+            "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+          },
+          "plugin": {
+            "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+            "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+          }
+        },
+        "state": "ready-awaiting-panel-confirmation",
+        "tracking_ready": {
+          "running": true,
+          "pid": 1983455,
+          "network_isolated": true,
+          "calibrated": true
+        },
+        "ready_at": "2026-11-01T02:37:35.782811+00:00",
+        "controller_exec_session": 75663,
+        "observer_exec_session": 28033
+      },
+      "approval": "go",
+      "user_feedback": "Errno 11",
+      "attempts": [
+        {
+          "run_id": "06422ac48c7cdd7272b533f4d7508559",
+          "consent": {
+            "allow": [
+              "headless-outputs",
+              "capture-managed-outputs"
+            ],
+            "capture": "managed-outputs",
+            "desktops": [
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              },
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              },
+              {
+                "height": 1080,
+                "scale": 1.0,
+                "width": 1920
+              }
+            ],
+            "gate": "P2-panel",
+            "input": false,
+            "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+            "mode_switch": {
+              "height": 1200,
+              "refresh_hz": 120,
+              "width": 1920
+            },
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "plugin": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+              "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+            },
+            "recovery_output": "DP-1",
+            "renderer": {
+              "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+              "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+            },
+            "run_id": "06422ac48c7cdd7272b533f4d7508559",
+            "schema": 1,
+            "sdk": false,
+            "tracking": "xrlinuxdriver"
+          },
+          "result": {
+            "complete": false,
+            "error": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "phase": "mode",
+            "remaining": null,
+            "renderer_returncode": null,
+            "run_id": "06422ac48c7cdd7272b533f4d7508559"
+          },
+          "unit_log": "Oct 31 22:38:01 costerou systemd[1278]: Started [systemd-run] /usr/bin/python3 -I -c \"import sys,runpy; sys.path.insert(0,'/home/cody/Projects/viture-workspace/.worktrees/settings-panel'); runpy.run_module('tools.xr_controller.runner',run_name=\\\"__main__\\\")\" --consent /home/cody/.local/state/viture-workspace/06422ac48c7cdd7272b533f4d7508559.json --state-dir /home/cody/.local/state/viture-workspace.\nOct 31 22:38:01 costerou python3[1983820]: blocked: [Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable\nOct 31 22:38:01 costerou systemd[1278]: viture-xr-06422ac48c7cdd7272b533f4d7508559.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\nOct 31 22:38:01 costerou systemd[1278]: viture-xr-06422ac48c7cdd7272b533f4d7508559.service: Failed with result 'exit-code'.\n",
+          "pins_match_consent": true,
+          "presentation_statistics": null,
+          "unmeasured_reason": "Mode phase failed before renderer launch"
+        }
+      ],
+      "pins_after": {
+        "renderer": {
+          "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+          "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21",
+          "actual_sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21",
+          "matches_before": true
+        },
+        "plugin": {
+          "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+          "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5",
+          "actual_sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5",
+          "matches_before": true
+        }
+      },
+      "monitors_after": [
+        {
+          "id": 0,
+          "name": "DP-1",
+          "description": "Samsung Electric Company Odyssey G93SD HCSY900228",
+          "make": "Samsung Electric Company",
+          "model": "Odyssey G93SD",
+          "serial": "HCSY900228",
+          "width": 5120,
+          "height": 1440,
+          "physicalWidth": 1190,
+          "physicalHeight": 340,
+          "refreshRate": 240.0,
+          "x": 0,
+          "y": 0,
+          "activeWorkspace": {
+            "id": 1,
+            "name": "1"
+          },
+          "specialWorkspace": {
+            "id": 0,
+            "name": ""
+          },
+          "reserved": [
+            0,
+            26,
+            0,
+            0
+          ],
+          "scale": 1.25,
+          "transform": 0,
+          "focused": true,
+          "dpmsStatus": true,
+          "vrr": false,
+          "solitary": "0",
+          "solitaryBlockedBy": [
+            "WINDOWED",
+            "CANDIDATE"
+          ],
+          "activelyTearing": false,
+          "tearingBlockedBy": [
+            "NOT_TORN",
+            "USER",
+            "CANDIDATE",
+            "HW_CURSOR"
+          ],
+          "directScanoutTo": "0",
+          "directScanoutBlockedBy": [
+            "USER",
+            "CANDIDATE"
+          ],
+          "disabled": false,
+          "currentFormat": "XRGB8888",
+          "mirrorOf": "none",
+          "availableModes": [
+            "5120x1440@120.00Hz",
+            "3840x1080@119.97Hz",
+            "3840x2160@60.00Hz",
+            "3840x2160@59.94Hz",
+            "3840x2160@50.00Hz",
+            "5120x1440@240.00Hz",
+            "5120x1440@60.00Hz",
+            "3840x1080@239.96Hz",
+            "3840x1080@59.96Hz",
+            "2560x1440@239.98Hz",
+            "2560x1440@119.99Hz",
+            "2560x1440@59.95Hz",
+            "1920x1080@239.99Hz",
+            "1920x1080@120.00Hz",
+            "1920x1080@119.88Hz",
+            "1920x1080@60.00Hz",
+            "1920x1080@59.94Hz",
+            "1680x1050@59.95Hz",
+            "1600x900@60.00Hz",
+            "1280x1024@60.02Hz",
+            "1440x900@59.89Hz",
+            "1280x800@59.81Hz",
+            "1280x720@60.00Hz",
+            "1280x720@60.00Hz",
+            "1280x720@59.94Hz",
+            "1024x768@60.00Hz",
+            "800x600@60.32Hz",
+            "720x480@60.00Hz",
+            "720x480@59.94Hz",
+            "640x480@60.00Hz",
+            "640x480@59.94Hz"
+          ],
+          "colorManagementPreset": "srgb",
+          "sdrBrightness": 1,
+          "sdrSaturation": 1,
+          "sdrMinLuminance": 0.2,
+          "sdrMaxLuminance": 80,
+          "hardwareCursorsInUse": true
+        },
+        {
+          "id": 1,
+          "name": "DP-2",
+          "description": "CVT VITURE 0x88888800",
+          "make": "CVT",
+          "model": "VITURE",
+          "serial": "0x88888800",
+          "width": 1920,
+          "height": 1080,
+          "physicalWidth": 160,
+          "physicalHeight": 100,
+          "refreshRate": 60.0,
+          "x": 4096,
+          "y": 0,
+          "activeWorkspace": {
+            "id": 21,
+            "name": "21"
+          },
+          "specialWorkspace": {
+            "id": 0,
+            "name": ""
+          },
+          "reserved": [
+            0,
+            26,
+            0,
+            0
+          ],
+          "scale": 1.25,
+          "transform": 0,
+          "focused": false,
+          "dpmsStatus": true,
+          "vrr": false,
+          "solitary": "0",
+          "solitaryBlockedBy": [
+            "WINDOWED",
+            "CANDIDATE"
+          ],
+          "activelyTearing": false,
+          "tearingBlockedBy": [
+            "NOT_TORN",
+            "USER",
+            "CANDIDATE",
+            "HW_CURSOR"
+          ],
+          "directScanoutTo": "0",
+          "directScanoutBlockedBy": [
+            "USER",
+            "CANDIDATE"
+          ],
+          "disabled": false,
+          "currentFormat": "XRGB8888",
+          "mirrorOf": "none",
+          "availableModes": [
+            "1920x1080@60.00Hz",
+            "1920x1200@120.00Hz",
+            "1920x1200@90.00Hz",
+            "1920x1200@60.00Hz",
+            "1920x1080@90.00Hz"
+          ],
+          "colorManagementPreset": "srgb",
+          "sdrBrightness": 1,
+          "sdrSaturation": 1,
+          "sdrMinLuminance": 0.2,
+          "sdrMaxLuminance": 80,
+          "hardwareCursorsInUse": true
+        }
+      ],
+      "display_baseline_matches": true,
+      "plugins_after": [],
+      "tracking_after": {
+        "running": false
+      },
+      "controller_stopped": true,
+      "observer_stopped": true,
+      "session_journals_remaining": [],
+      "cleanup": "Automatic unload failed with Errno 11; after verifying consent pin, exclusive plugin identity and no run journal, explicitly unloaded the exact session plugin once; readback empty",
+      "status_samples": [
+        {
+          "recorded_at": "2026-11-01T02:36:54.944216+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:36:55.944642+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:36:56.954407+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:36:57.964037+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:36:58.973994+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:36:59.983473+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:00.992793+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:02.002121+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:03.011624+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:04.021227+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:05.030528+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:06.040432+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:07.049987+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:08.059472+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:09.068772+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:10.078575+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:11.088220+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:12.097611+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:13.106944+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:14.116421+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:15.125746+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:16.135074+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:17.144595+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:18.153900+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:19.163881+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:20.173109+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:21.182569+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:22.192401+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:23.201705+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:24.211039+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:25.220489+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:26.229932+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:27.239287+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:28.249212+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:29.258543+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:30.267901+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:31.277720+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:32.287018+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:33.296742+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:34.306128+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:35.316219+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:36.325855+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:37.335112+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:38.344993+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:39.354287+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:40.363743+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:41.373375+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:42.382941+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:43.392101+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:44.401176+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:45.410420+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:46.419833+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:47.429405+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:48.438856+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:49.448136+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:50.457588+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:51.467116+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:52.476725+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:53.486430+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:54.495958+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:55.505419+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:56.515120+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:57.524506+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:58.533857+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:37:59.543356+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:00.553023+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:01.562387+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": {
+              "action": "start",
+              "scope": {
+                "run_id": "06422ac48c7cdd7272b533f4d7508559",
+                "instance": "efb50993780079460b0cbed1363e2166a2de1d9f_1793479946_1660900476",
+                "output": "DP-2",
+                "recovery_output": "DP-1",
+                "model": "luma-ultra",
+                "tracking": "xrlinuxdriver",
+                "mode_switch": {
+                  "width": 1920,
+                  "height": 1200,
+                  "refresh_hz": 120
+                },
+                "desktops": [
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  },
+                  {
+                    "width": 1920,
+                    "height": 1080,
+                    "scale": 1.0
+                  }
+                ],
+                "renderer": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/xr-native-spike",
+                  "sha256": "62989b6eb6bc85cb121ef2d87afa120ef68ab7b8683be0dc9547dae8f487ee21"
+                },
+                "plugin": {
+                  "path": "/home/cody/.local/share/viture-workspace/bin/3837be52a0ae/libxr-ownership.so",
+                  "sha256": "a68bd142a95a601e43d9fb3c6a4c68956b401a6a7a0db0c5b196a9785b587ae5"
+                }
+              },
+              "scope_id": "967f168037f475c915a5ab601e4789e4"
+            },
+            "state": "confirming",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": null,
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:02.571983+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:03.588102+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:04.600607+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:05.613274+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:06.626184+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:07.638823+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:08.651644+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:09.664801+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:10.677356+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:11.689935+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:12.702536+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:13.715102+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:14.727726+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:15.740410+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:16.753060+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:17.765911+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:18.778395+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:19.790950+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:20.803427+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:21.816263+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:22.829037+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:23.841820+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:24.854590+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:25.867325+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:26.880040+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:27.892968+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:28.905921+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:29.918861+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:30.931563+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:31.945381+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:32.958301+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:33.971033+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        },
+        {
+          "recorded_at": "2026-11-01T02:38:34.983839+00:00",
+          "reply": {
+            "schema": 1,
+            "fallback": "DP-1",
+            "fallback_candidates": [
+              "DP-1"
+            ],
+            "pending": null,
+            "state": "idle",
+            "model": "luma-ultra",
+            "output": "DP-2",
+            "reason": "[Errno 11] Resource temporarily unavailable; unload: [Errno 11] Resource temporarily unavailable",
+            "run_id": null,
+            "journal": null,
+            "capabilities": [],
+            "view": {},
+            "status": {},
+            "ok": true,
+            "request_id": 1
+          }
+        }
+      ]
     }
   ],
   "limitations": [
