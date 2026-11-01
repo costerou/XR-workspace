@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from tools.native_spike import hyprland as h
+from tools.native_spike.geometry import DEFAULT_DESKTOP
 from tools.native_spike.__main__ import main, load_consent
 from tools.native_spike.journal import Journal, recover
 
@@ -147,6 +148,27 @@ class HyprlandTests(unittest.TestCase):
         raw.monitors.append(dict(raw.monitors[0], id=1, name='XR-2', x=9000))
         with self.assertRaises(ValueError): h.plan_outputs(raw.monitors, [], 'run')  # stale/orphan name
         self.assertEqual(len({s['id'] for s in specs}), 3)
+    def test_plan_default_unchanged(self):
+        raw = RawFixture()
+        specs = h.plan_outputs(raw.monitors, [], 'run')
+        explicit = h.plan_outputs(raw.monitors, [], 'run', [dict(DEFAULT_DESKTOP)] * 3)
+        for s in specs + explicit: s.pop('id')
+        self.assertEqual(specs, explicit)
+        self.assertEqual(specs, [{'name': 'XR-%d' % (i + 1), 'index': i, 'width': 1920, 'height': 1080,
+                                  'refresh_millihz': 120000, 'scale': 1.0, 'x': 1920 * (i + 1), 'y': 0}
+                                 for i in range(3)])
+    def test_plan_mixed_positions(self):
+        raw = RawFixture(); raw.monitors[0].update(x=0, width=2560, scale=1.0)
+        ds = [{'width': 1920, 'height': 1080, 'scale': 1.0}, {'width': 3840, 'height': 1080, 'scale': 1.0},
+              {'width': 3440, 'height': 1440, 'scale': 1.25}]
+        specs = h.plan_outputs(raw.monitors, [], 'run', ds)
+        self.assertEqual([s['x'] for s in specs], [2560, 4480, 8320])
+        self.assertEqual([(s['width'], s['height'], s['scale']) for s in specs],
+                         [(1920, 1080, 1.0), (3840, 1080, 1.0), (3440, 1440, 1.25)])
+    def test_plan_rejects_wrong_count(self):
+        d = {'width': 1920, 'height': 1080, 'scale': 1.0}
+        for n in (2, 4):
+            with self.assertRaises(ValueError): h.plan_outputs(RawFixture().monitors, [], 'run', [d] * n)
     def test_rotated_output_reserves_transformed_logical_rectangle(self):
         raw = RawFixture(); raw.monitors[0].update(width=1080, height=1920, transform=1)
         self.assertEqual(h.plan_outputs(raw.monitors, [], 'run')[0]['x'], 1920)
