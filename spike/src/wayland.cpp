@@ -11,6 +11,7 @@
 #include "xr/pose.hpp"
 #include "xr/predict.hpp"
 #include "xr/hud.hpp"
+#include "video_mode.hpp"
 #include <cmath>
 // Pinned upstream XML names this C parameter `namespace`. Keep the vendored XML
 // byte-identical; scope the C++ spelling adaptation to the generated C header.
@@ -156,6 +157,7 @@ struct Presentation::Impl : SurfaceRequests {
         return out;
     }
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
+    std::unique_ptr<VideoMode> video;     // VR video (video_mode.hpp); created on the first open
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     ViewAnimator view{220.f};
@@ -452,7 +454,8 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()) || s.menu.animating(now) || (s.menu_drawn && !s.menu.visible()))
+            (s.help_drawn && !s.help.visible()) || s.menu.animating(now) || (s.menu_drawn && !s.menu.visible()) ||
+            (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up, the help card or the menu every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
@@ -485,6 +488,7 @@ struct Presentation::Impl : SurfaceRequests {
     ~Impl() {
         cadence.stop();
         cancel_feedback();
+        video.reset();  // mpv and its textures need the GL context, so before it goes
         gl.reset();  // before the wl_surface it wraps and the dmabufs it imported
         captures.clear();
         allocator.reset();  // after every GBM buffer
@@ -515,6 +519,11 @@ void Presentation::close() {
 std::string Presentation::status_json(double now_ms) const {
     if (!impl_) return "{}";
     auto raw = impl_->metrics.status_json(now_ms);
+    if (impl_->video && impl_->video->state() != VideoState::off) {  // VR video state for the supervisor (video.py)
+        raw.pop_back();
+        if (raw.size() > 1) raw += ",";
+        raw += std::string("\"video\":\"") + video_state_name(impl_->video->state()) + "\"}";
+    }
     // PoseAge is relative to an unknown transport floor/device clock offset;
     // it cannot substantiate an absolute pose_age_ms measurement.
     std::string path;
@@ -597,6 +606,7 @@ std::string Presentation::capture_report() const {
         font += static_cast<unsigned char>(c) < 0x20 ? '?' : c;
     }
     out += ",\"popup_font\":\"" + font + "\"";
+    out += ",\"video\":" + (impl_->video ? impl_->video->report() : std::string("null"));
     out += ",\"composition\":";
     out += impl_->gl ? impl_->gl->report() : std::string("{\"path\":\"cpu-blit\",\"fallback\":\"") + impl_->gl_fallback + "\"}";
     return out + "}";
@@ -689,6 +699,25 @@ void Presentation::enable_tracking(std::string prefix) {
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (impl_ && impl_->gl) { impl_->gl->set_accent(r, g, b); impl_->cadence.invalidate(); }
 }
+void Presentation::video_open(int fd, const VideoFormat& format, const std::string& title) {
+    if (!impl_ || !impl_->gl) { if (fd >= 0) ::close(fd); return; }  // needs GPU composition
+    auto& s = *impl_;
+    if (!s.video) {
+        s.video = std::make_unique<VideoMode>();
+        std::string why; s.video->set_font(HudFont::load(kHudFontFamily, why));
+    }
+    s.video->open(fd, format, title, s.display, double(monotonic_ms()));
+    s.cadence.invalidate();
+}
+void Presentation::video_close() { if (impl_ && impl_->video) { impl_->video->close(); impl_->cadence.invalidate(); } }
+void Presentation::video_pause() { if (impl_ && impl_->video) impl_->video->toggle_pause(); }
+void Presentation::video_seek(std::int32_t seconds) { if (impl_ && impl_->video) impl_->video->seek(double(seconds)); }
+void Presentation::video_format(const VideoFormat& format) {
+    if (impl_ && impl_->video) { impl_->video->set_format(format); impl_->cadence.invalidate(); }
+}
+void Presentation::video_controls(bool visible) {
+    if (impl_ && impl_->video) { impl_->video->set_controls(visible, double(monotonic_ms())); impl_->cadence.invalidate(); }
+}
 void Presentation::set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows) {
     if (!impl_) return;
     std::vector<HelpRow> help;
@@ -745,6 +774,7 @@ Status Presentation::draw_test_pattern() {
         }
         s.view.advance(double(monotonic_ms()));
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        Mat3 world = head;  // VR video: world-locked to the recentre reference in every viewing mode
         timespec read_ts{};
         clock_gettime(CLOCK_MONOTONIC, &read_ts);  // the wp_presentation clock domain (checked in LatencyTracker)
         const std::uint64_t read_ns = std::uint64_t(read_ts.tv_sec) * 1'000'000'000ull + std::uint64_t(read_ts.tv_nsec);
@@ -772,6 +802,7 @@ Status Presentation::draw_test_pattern() {
                 } else ++s.unpredicted_frames;
             }
             head = view_from(relative, s.modes.update(relative, double(now)));
+            world = view_from(relative, Quat{});
         }
         if (!s.half_w) s.update_fov();
         auto tiles = blended_layout(s.capture_sizes(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position());
@@ -788,6 +819,20 @@ Status Presentation::draw_test_pattern() {
         const float popup = s.popups.alpha(double(monotonic_ms()));
         s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
         s.popup_drawn = popup > 0.f;
+        if (s.video && s.video->active()) {  // VR video replaces the desktops; help card and menu are closed (video.py)
+            const double video_now = double(monotonic_ms());
+            if (!s.video->prepare(video_now)) return Error{"gl", "video update failed"};
+            float card_alpha = 0; std::uint64_t card_generation = 0;
+            const HudImage* card = s.video->card(video_now, card_alpha, card_generation);
+            const float fov = s.fov_deg > 0 ? s.fov_deg : 46.f;
+            if (!s.gl->draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) { s.video->draw(world, fov, w, h); }, card, card_generation, card_alpha))
+                return Error{"gl", "draw or swap failed"};
+            s.video->after_swap();
+            s.help_drawn = s.menu_drawn = false;
+            s.cadence.committed();
+            if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
+            return {};
+        }
         const double help_now = double(monotonic_ms());
         const float help = s.help.alpha(help_now);
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));

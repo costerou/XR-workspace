@@ -83,6 +83,7 @@ struct GlCompositor::Impl {
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target = nullptr;
     PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_modifiers = nullptr;
     std::uint64_t imported_frames = 0;
+    std::unique_ptr<GlHud> video_hud;    // VR video controls card (own texture), created on first use
     void drop(Imported& i) {
         for (auto& t : i.tex) if (t) { glDeleteTextures(1, &t); t = 0; }
         for (auto& im : i.image) if (im != EGL_NO_IMAGE_KHR && destroy_image) { destroy_image(display, im); im = EGL_NO_IMAGE_KHR; }
@@ -105,6 +106,7 @@ struct GlCompositor::Impl {
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
             hud.reset(); help_hud.reset(); menu_hud.reset();
+            video_hud.reset();
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
             if (glow_program) glDeleteProgram(glow_program);
@@ -368,6 +370,22 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     if (s.help_hud && s.help && help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, help_alpha, s.width, s.height, true, s.help_drop);
     if (menu) s.menu_hud->draw(*s.menu, s.menu_generation, s.menu_alpha, s.width, s.height, true, s.menu_drop);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
+    const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
+    s.draw_stat.add(now_us() - start);
+    return ok;
+}
+
+bool GlCompositor::draw_scene_and_swap(const std::function<void(std::uint32_t, std::uint32_t)>& scene, const HudImage* card,
+                                       std::uint64_t card_generation, float card_alpha) {
+    auto& s = *impl_;
+    const auto start = now_us();
+    scene(s.width, s.height);
+    glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
+    if (card && card_alpha > 0.f) {
+        if (!s.video_hud) s.video_hud = GlHud::create();
+        if (s.video_hud) s.video_hud->draw(*card, card_generation, card_alpha, s.width, s.height);
+    }
+    if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);
     return ok;

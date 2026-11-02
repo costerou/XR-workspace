@@ -144,7 +144,8 @@ class CornerResize:
     def overview(self):
         # Off while the placement menu is open: its mouse mode binds the same left button, and the menu has its own
         # Distance slider. Opening the menu ends a drag (saved) and removes the resize binds; closing it brings them back.
-        return not self.control.state.zoomed and not self.control.state.menu_open
+        # Also off while a VR video plays in place of the desktops (video.py): no handle, no binds, clicks untouched.
+        return not self.control.state.zoomed and not self.control.state.menu_open and not getattr(self.control, 'video_active', False)
 
     def feed(self, pointer, outputs):
         """Poller thread: latest pointer (global logical px, or None) and output rectangles; wakes the loop on change."""

@@ -235,6 +235,15 @@ class HyprlandClient:
         from .view import remove_binds_lua
         self._eval(remove_binds_lua())
 
+    def install_video_binds(self, python, client, control_socket, run_id, session):
+        """A VR video started: its modal bare-key binds (video.VIDEO_BINDS); generated Lua only."""
+        from .video import install_video_binds_lua
+        self._eval(install_video_binds_lua(python, client, control_socket, run_id, session))
+
+    def remove_video_binds(self):
+        from .video import remove_video_binds_lua
+        self._eval(remove_video_binds_lua())
+
     def install_menu_binds(self, python, client, control_socket, run_id, session):
         """Placement menu opened: its modal bare-key binds (replacing any surviving set); generated Lua only."""
         from .view import install_menu_binds_lua

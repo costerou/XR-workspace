@@ -55,6 +55,8 @@ class Supervisor:
         self._status_buffer = b''
         self._status_discard = False
         self.control = control  # optional ViewControl: user ops on the run's private control socket
+        attach = getattr(control, 'attach_supervisor', None)  # video.VideoControl reads the renderer's measured status
+        if callable(attach): attach(self)
     def heartbeat(self, now):
         if self.stopping_at is None and math.isfinite(now) and now >= self.last_heartbeat:
             self.last_heartbeat = now
@@ -87,10 +89,11 @@ class Supervisor:
             if not self._status_discard:
                 try:
                     value = strict_json(self._status_buffer)
-                    if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms'}:
+                    if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video'}:
                         raise ValueError('invalid status')
                     for k,v in value.items():
                         if k == 'capture_path': valid = v in ('dmabuf','shm')
+                        elif k == 'video': valid = v in ('off','loading','playing','paused','ended','error')  # video.VIDEO_STATES
                         elif k == 'missed': valid = type(v) is int and v >= 0
                         else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
                         if not valid: raise ValueError('invalid measured value')
@@ -130,13 +133,17 @@ class Supervisor:
         self._send(self.control.on_events(data), renderer_socket)
 
     def _send(self, frame, renderer_socket):
-        if frame is None or self.stopping_at is not None: return
         try:
-            renderer_socket.settimeout(0.25); renderer_socket.sendall(frame)
-        except OSError:
-            self.disconnect(time.monotonic())
+            if frame is None or self.stopping_at is not None: return
+            try:
+                renderer_socket.settimeout(0.25); _send_frame(renderer_socket, frame)
+            except OSError:
+                self.disconnect(time.monotonic())
+            finally:
+                renderer_socket.settimeout(None)
         finally:
-            renderer_socket.settimeout(None)
+            close_fds = getattr(frame, 'close_fds', None)  # video.FdFrame: our copies of descriptors handed over
+            if close_fds is not None: close_fds()
 
     def run(self, heartbeat_socket, *, interval=0.05, status_socket=None):
         """Run in supervisor process, not renderer. EOF means disconnect; only b'H' is valid."""
@@ -214,7 +221,7 @@ class Supervisor:
                     poll = getattr(self.control, 'poll', None)  # debounced placement-menu save, overlay idle close
                     if poll is not None:
                         out = poll(time.monotonic())
-                        if isinstance(out, (bytes, bytearray)) and out: self._send(bytes(out), heartbeat_socket)
+                        if isinstance(out, (bytes, bytearray)) and out: self._send(out, heartbeat_socket)  # keeps FdFrame descriptors
             return self.result
         finally:
             # Reaping the renderer is never delayed by waiting on IPC. Once this
@@ -227,6 +234,17 @@ class Supervisor:
                 worker.close()
             if sender is not None: sender.close()
             if receiver is not None: receiver.close()
+
+
+def _send_frame(sock, frame):
+    """Frame bytes; a video.FdFrame's descriptors travel with its first byte (SCM_RIGHTS on the stream socketpair)."""
+    import socket
+    fds = getattr(frame, 'fds', None)
+    data = bytes(frame)
+    if not fds:
+        sock.sendall(data); return
+    sent = socket.send_fds(sock, [data], list(fds))
+    if sent < len(data): sock.sendall(data[sent:])
 
 
 def validate_physical_pair(client, session, output, recovery_output):

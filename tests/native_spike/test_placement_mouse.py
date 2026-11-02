@@ -416,7 +416,7 @@ class WireTests(unittest.TestCase):
         row = dict(view.help_rows())['Ctrl+Alt+L']
         self.assertIn('Ctrl+Alt+M', row); self.assertIn('mouse', row)
         self.assertLessEqual(len(row), 48)  # ipc.hpp kMaxHelpText
-        self.assertEqual(len(view.help_rows()), len(view.BINDS))  # no new run bind: Ctrl+Alt+M lives in the menu
+        self.assertEqual(len(view.help_rows()), len(view.BINDS) - len(view.HELP_PAIRS))  # no row for Ctrl+Alt+M: it lives in the menu
         self.assertIn(('CTRL + ALT + M', 'menu_mouse'), view.MENU_BINDS)
         self.assertNotIn('CTRL + ALT + M', [c for c, _ in view.BINDS])
         self.assertIn(row, (ROOT / 'spike/tests/placement_menu_style_test.cpp').read_text())  # the fit test uses the real row

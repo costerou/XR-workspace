@@ -14,6 +14,7 @@ from tools.native_spike.profiles import _check
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MODES, SPACING_STEP
+from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
 
 
@@ -38,7 +39,8 @@ class Controller:
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
             view=self.live.get('view',{}) if self.state=='running' else {},
             status=self.live.get('status',{}) if self.state=='running' else {},
-            placements=self.live.get('placements') if self.state=='running' else None))
+            placements=self.live.get('placements') if self.state=='running' else None,
+            video=self.live.get('video') if self.state=='running' else None))
 
     def _state(self, state):
         if self.state != state: self.pending=None
@@ -54,7 +56,7 @@ class Controller:
         self.last_status=now
         try: reply=self.units.control(journal['run_id'],journal['session'],'status')
         except (OSError,ValueError): reply=None
-        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements') if k in reply} if isinstance(reply,dict) else {}
+        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements','video') if k in reply} if isinstance(reply,dict) else {}
 
     def tick(self):
         try: self._tick()
@@ -209,11 +211,18 @@ class Controller:
             except Exception as exc:
                 self.error=str(exc); self._state('failed'); raise ValueError(self.error) from exc
             return
+        if op=='video_open':
+            # VR video (docs/vr-video.md): a mode of the running session, so no new consent. The run opens and checks the file.
+            if self.state!='running': raise ValueError('start an XR session first')
+            payload=validate_video_request('video_open',{k:msg[k] for k in ('path','format') if k in msg})
+            if not self.units.control(self.run['run_id'],self.run['session'],'video_open',payload): raise ValueError('run control unavailable')
+            self.last_status=None
+            return dict(forwarded=True)
         if op in ('stop','view_op'):
             if self.state!='running' and not (op=='stop' and self.run and self.state in ('starting','failed')): raise ValueError('busy')
             operation='stop' if op=='stop' else msg.get('operation',msg.get('view_op'))
             if isinstance(operation,dict): operation=operation.get('op')
-            if op=='view_op' and operation not in USER_OPS: raise ValueError('invalid view operation')
+            if op=='view_op' and operation not in USER_OPS and operation not in VIDEO_KEY_OPS: raise ValueError('invalid view operation')
             if op=='stop': self.units.stop(self.run['run_id']); self._state('stopping'); self.started=self.clock()
             elif not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')
             return

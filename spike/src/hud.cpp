@@ -1,4 +1,5 @@
 #include "xr/hud.hpp"
+#include "xr/video.hpp"  // render_video_card: built from the help card parts below
 #include <algorithm>
 #include <cmath>
 
@@ -631,4 +632,61 @@ void PlacementMenuOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std
 float PlacementMenuOverlay::alpha(double now_ms) const { return generation_ ? fade_.alpha(now_ms) : 0.f; }
 float PlacementMenuOverlay::offset_px(double now_ms) const { return (1 - alpha(now_ms)) * kHelpRisePx; }
 bool PlacementMenuOverlay::animating(double now_ms) const { return generation_ && fade_.animating(now_ms); }
+
+// VR video controls card (video.hpp): the help card's parts, so the OLED dimming cannot drift from it. Title, state and
+// time, a progress bar, the format, an optional error line, then the key hints and the idle note.
+HudImage render_video_card(const VideoCardState& v, std::array<float, 3> accent, const HudFont* font) {
+    if (accent == std::array<float, 3>{}) accent = kCardAccent;
+    const bool ascii = font == nullptr;
+    const char* state = v.state == VideoState::playing ? "Playing" : v.state == VideoState::paused ? "Paused"
+                      : v.state == VideoState::ended ? "Ended" : v.state == VideoState::error ? "Cannot play this video" : "Loading";
+    const std::string time = format_clock(v.position_s) + " / " + (v.duration_s ? format_clock(v.duration_s) : std::string("--:--"));
+    const Cell title = cell(card_title(v.title.empty() ? std::string("VR video") : v.title), font);
+    const Cell status = cell(card_key(state), font), clock = cell(card_detail(time), font);
+    const Cell format = cell(card_detail(video_format_label(v.format, ascii)), font);
+    const Cell detail = cell(card_detail(v.detail), font);
+    std::vector<Cell> hints;
+    {
+        const auto all = video_card_hints(ascii);
+        std::string line;
+        for (std::size_t i = 0; i < all.size(); ++i) {
+            line += (line.empty() ? "" : kHintGap) + all[i];
+            if (i % 3 == 2 || i + 1 == all.size()) { hints.push_back(cell(card_footer(line), font)); line.clear(); }
+        }
+        hints.push_back(cell(card_footer("Closes after " + std::to_string(kOverlayIdleCloseS) + " s idle. Any video key shows it."), font));
+    }
+    const std::uint32_t bar_h = std::uint32_t(kBorder) * 3, status_w = status.box.width + std::uint32_t(kColumnGap) + clock.box.width;
+    std::uint32_t content_w = std::max({title.box.width, status_w, format.box.width, detail.box.width, 560u});
+    for (const auto& h : hints) content_w = std::max(content_w, h.box.width);
+    const std::uint32_t status_h = row_ascent(status, clock) + row_descent(status, clock);
+    std::uint32_t content_h = height(title.box) + std::uint32_t(kSectionGap) + status_h + std::uint32_t(kRowGap) + bar_h +
+                              std::uint32_t(kRowGap) + height(format.box) + std::uint32_t(kSectionGap);
+    if (!v.detail.empty()) content_h += height(detail.box) + std::uint32_t(kRowGap);
+    for (std::size_t i = 0; i < hints.size(); ++i) content_h += height(hints[i].box) + (i + 1 < hints.size() ? std::uint32_t(kRowGap) / 2 : 0);
+    HudImage im;
+    allocate_card(im, card_size(content_w), card_size(content_h), accent);
+    const int left = int(kHelpPad);
+    std::uint32_t top = std::uint32_t(kHelpPad);
+    draw_centered(im, title, top, font);
+    top += height(title.box) + std::uint32_t(kSectionGap);
+    draw_divider(im, top, accent);
+    const std::uint32_t ascent = row_ascent(status, clock);
+    draw_cell(im, status, left, top, ascent, font);
+    draw_cell(im, clock, left + int(content_w - clock.box.width), top, ascent, font);
+    top += status_h + std::uint32_t(kRowGap);
+    // Progress: a faint accent track, filled up to the position. Accent only (dimmed), never white.
+    const float progress = v.duration_s ? std::clamp(float(v.position_s) / float(v.duration_s), 0.f, 1.f) : 0.f;
+    const auto filled = std::uint32_t(std::lround(progress * float(content_w)));
+    for (std::uint32_t y = 0; y < bar_h; ++y)
+        for (std::uint32_t x = 0; x < content_w; ++x)
+            over(im, left + int(x), int(top + y), accent, x < filled ? 1.f : kHighlightAlpha);
+    top += bar_h + std::uint32_t(kRowGap);
+    draw_cell(im, format, left, top, format.box.ascent, font);
+    top += height(format.box);
+    if (!v.detail.empty()) { top += std::uint32_t(kRowGap); draw_cell(im, detail, left, top, detail.box.ascent, font); top += height(detail.box); }
+    top += std::uint32_t(kSectionGap);
+    draw_divider(im, top, accent);
+    for (const auto& h : hints) { draw_centered(im, h, top, font); top += height(h.box) + std::uint32_t(kRowGap) / 2; }
+    return im;
+}
 }

@@ -92,5 +92,6 @@ ColumnLayout {
         placement:root.placements[root.placing] || Model.defaultPlacement()
         onSave: p => root.request({op:"set_settings",settings:{placements:Model.withPlacement(root.placements,root.placing,p)}})
     }
+    VideoControls { Layout.fillWidth:true; snapshot:root.snapshot; busy:root.busy; onRequest:message => root.request(message) }
     Label { text:"Add / remove desktops — coming"; enabled:false; opacity:0.45 }
 }

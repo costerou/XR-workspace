@@ -7,6 +7,7 @@
 #include "xr/pose.hpp"
 #include "xr/hud.hpp"
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -49,6 +50,11 @@ public:
     // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop`, grey `level` (0..1); desktop < 0: none.
     void set_corner_handle(int desktop, std::uint32_t corner, float level);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
+    // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
+    // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.
+    // The help card and placement menu are not drawn: the supervisor closes them before a video opens.
+    bool draw_scene_and_swap(const std::function<void(std::uint32_t width, std::uint32_t height)>& scene, const HudImage* card,
+                             std::uint64_t card_generation, float card_alpha);
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;

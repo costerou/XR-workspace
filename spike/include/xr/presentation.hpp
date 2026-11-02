@@ -1,6 +1,7 @@
 #pragma once
 #include "xr/types.hpp"
 #include "xr/metrics.hpp"
+#include "xr/video.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -73,6 +74,15 @@ public:
     // units of ipc.hpp WirePlacement; entries beyond the captured outputs are ignored. GPU composition only.
     void set_placements(const std::vector<std::array<std::int32_t, 7>>& placements);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
+    // VR video (docs/vr-video.md; capture runs with GPU composition only). While open the glasses show the head-tracked
+    // video (world-locked to the recentre reference whatever the viewing mode) and its controls card instead of the
+    // desktops. `fd` is the file the supervisor opened; ownership is taken, also when video is unavailable.
+    void video_open(int fd, const VideoFormat& format, const std::string& title);
+    void video_close();
+    void video_pause();
+    void video_seek(std::int32_t seconds);
+    void video_format(const VideoFormat& format);
+    void video_controls(bool visible);
     // Keyboard help card (Ctrl+Alt+H): fades in/out in the middle of the view; rows are (keys, action).
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows);
     // Keyboard placement menu (display only; placements are applied by set_placements): fades in/out in the

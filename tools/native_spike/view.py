@@ -48,13 +48,14 @@ MODES = ('anchor', 'follow', 'locked')  # cycle order
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
-         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'))
+         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'),
+         ('CTRL + ALT + O', 'video_open'))  # video_open: the bind helper shows a file picker first (video.py)
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview; drag a corner there to resize',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction', 'help': 'Show / hide this help',
-                'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)'}
+                'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)', 'video_open': 'Play a 180/360 VR video'}
 # Placement menu: actions (shared contract with the renderer overlay and tests) and the modal binds present only while open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
             'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back')
@@ -94,8 +95,25 @@ def chord_label(chord):
 EXTRA_HELP_ROWS = ()
 
 
+# Bind pairs shown as one help-card row, so the card stays at 12 rows: a 13th row makes it 1008 px tall with
+# JetBrainsMono, past the 960 px glasses surface. first op -> (second op, action).
+HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops')}
+
+
 def help_rows():
-    return [[chord_label(chord), HELP_ACTIONS[op]] for chord, op in BINDS] + [list(row) for row in EXTRA_HELP_ROWS]
+    chords = {op: chord for chord, op in BINDS}
+    seconds = {second for second, _ in HELP_PAIRS.values()}
+    rows = []
+    for chord, op in BINDS:
+        if op in seconds: continue
+        if op in HELP_PAIRS:
+            second, action = HELP_PAIRS[op]
+            a, b = chord_label(chord), chord_label(chords[second])
+            prefix = a[:a.rfind('+') + 1]  # 'Ctrl+Alt+[' and 'Ctrl+Alt+]' -> 'Ctrl+Alt+[ / ]'
+            rows.append([f'{a} / {b[len(prefix):]}' if b.startswith(prefix) else f'{a} / {b}', action])
+        else:
+            rows.append([chord_label(chord), HELP_ACTIONS[op]])
+    return rows + [list(row) for row in EXTRA_HELP_ROWS]
 
 
 def help_frame(run_id, session, request_id, visible):
@@ -496,6 +514,7 @@ class ViewControl:
         self.on_reload = on_reload  # optional () -> None, run off-loop after Hyprland config reloads
         self.reloads = 0
         self.help_visible = False  # Ctrl+Alt+H card; never saved, starts hidden each run
+        self.video_active = False  # a VR video plays in place of the desktops (video.VideoControl sets it)
         self.last_input = clock()  # monotonic time of the last run key / panel change (overlay idle close)
         self.placements = placements  # optional store with save(list of 3); see profiles.PlacementStore
         self.menu_binds = menu_binds  # optional (open: bool) -> None: install/remove the modal menu binds (compositor call)

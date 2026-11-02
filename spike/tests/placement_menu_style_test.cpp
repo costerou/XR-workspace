@@ -98,11 +98,13 @@ void check_fit(const HudImage& im, const std::string& what, bool drop_is_hard = 
 }
 
 std::vector<HelpRow> help_rows() {  // exactly view.help_rows() (12 rows; tests/native_spike/test_resize.py checks)
-    return {{"Ctrl+Alt+Up", "Zoom into the selected desktop"}, {"Ctrl+Alt+Down", "Overview; drag a corner there to resize"},
-            {"Ctrl+Alt+Left", "Previous desktop"}, {"Ctrl+Alt+Right", "Next desktop"}, {"Ctrl+Alt+[", "Less space between desktops"},
-            {"Ctrl+Alt+]", "More space between desktops"}, {"Ctrl+Alt+Space", "Recenter the view"}, {"Ctrl+Alt+V", "Cycle viewing mode"},
-            {"Ctrl+Alt+F", "Toggle cursor follow"}, {"Ctrl+Alt+P", "Toggle pose prediction"}, {"Ctrl+Alt+H", "Show / hide this help"},
-            {"Ctrl+Alt+L", "Placement menu (Ctrl+Alt+M: mouse)"}};
+    return {{"Ctrl+Alt+Up", "Zoom into the selected desktop"},
+            {"Ctrl+Alt+Down", "Overview; drag a corner there to resize"}, {"Ctrl+Alt+Left", "Previous desktop"},
+            {"Ctrl+Alt+Right", "Next desktop"}, {"Ctrl+Alt+[ / ]", "Less / more space between desktops"},
+            {"Ctrl+Alt+Space", "Recenter the view"}, {"Ctrl+Alt+V", "Cycle viewing mode"},
+            {"Ctrl+Alt+F", "Toggle cursor follow"}, {"Ctrl+Alt+P", "Toggle pose prediction"},
+            {"Ctrl+Alt+H", "Show / hide this help"}, {"Ctrl+Alt+L", "Placement menu (Ctrl+Alt+M: mouse)"},
+            {"Ctrl+Alt+O", "Play a 180/360 VR video"}};
 }
 }
 

@@ -71,7 +71,7 @@ class BindTests(unittest.TestCase):
     def test_help_bind_and_rows_cover_every_bind(self):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
-        self.assertEqual(set(view.USER_OPS) | {'menu_toggle'}, set(view.HELP_ACTIONS))
+        self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open'}, set(view.HELP_ACTIONS))  # video_open: video.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 24 rows
@@ -251,8 +251,18 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         shown = json.loads(c.on_message({'op': 'help'}))
         self.assertEqual(shown['op'], 'help')
         self.assertTrue(shown['payload']['visible'])
-        self.assertEqual([r[0] for r in shown['payload']['rows']],
-                         [view.chord_label(ch) for ch, _ in view.BINDS] + [k for k, _ in view.EXTRA_HELP_ROWS])
+        rows = shown['payload']['rows']
+        self.assertEqual(rows, view.help_rows())
+        self.assertEqual(len(rows), len(view.BINDS) - len(view.HELP_PAIRS) + len(view.EXTRA_HELP_ROWS))
+        self.assertLessEqual(len(rows), 12)  # 13 rows overflow the 960 px glasses surface
+        keys = [k for k, _ in rows]
+        def covered(label):  # its own row, or one half of a paired row such as 'Ctrl+Alt+[ / ]'
+            prefix, key = label[:label.rfind('+') + 1], label[label.rfind('+') + 1:]
+            return label in keys or any(k.startswith(prefix) and key in k[len(prefix):].split(' / ') for k in keys)
+        for chord, op in view.BINDS:
+            with self.subTest(op=op): self.assertTrue(covered(view.chord_label(chord)))
+        self.assertIn(['Ctrl+Alt+[ / ]', 'Less / more space between desktops'], rows)
+        self.assertIn(['Ctrl+Alt+O', 'Play a 180/360 VR video'], rows)
         self.assertIn(['Ctrl+Alt+H', 'Show / hide this help'], shown['payload']['rows'])
         hidden = json.loads(c.on_message({'op': 'help'}))
         self.assertFalse(hidden['payload']['visible'])

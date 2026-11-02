@@ -1,5 +1,6 @@
 #pragma once
 #include "xr/types.hpp"
+#include "xr/video.hpp"
 #include <array>
 #include <deque>
 #include <string_view>
@@ -8,7 +9,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -45,8 +46,17 @@ struct PlacementMenuPayload {
 // dropped without stopping the renderer.
 constexpr const char* kInvalidHandleCode = "invalid_resize_handle";
 struct ResizeHandlePayload { bool visible = false; std::uint32_t desktop = 0, corner = 0; bool active = false; };
+// VR video (docs/vr-video.md, tools/native_spike/video.py), display only; the supervisor owns the state:
+//   {"action":"open","projection":"360"|"180"|"fisheye","stereo":"mono"|"sbs"|"tb","fov":180..220,"title":text}
+//     The file arrives with this frame as exactly one SCM_RIGHTS descriptor on the control socket; no path is ever sent.
+//   {"action":"format", projection, stereo, fov}   {"action":"close"}   {"action":"pause"} (toggle)
+//   {"action":"seek","seconds":-3600..3600, nonzero}   {"action":"controls","visible":bool}
+// `title` is 1..kMaxHelpText printable ASCII characters. Anything else is rejected like any malformed frame.
+enum class VideoAction : std::uint8_t { open, close, pause, seek, format, controls };
+constexpr std::int32_t kMaxVideoSeekS = 3600;
+struct VideoPayload { VideoAction action = VideoAction::close; VideoFormat format; std::string title; std::int32_t seconds = 0; bool visible = false; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    ResizeHandlePayload>;
+                                    ResizeHandlePayload, VideoPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;

@@ -1,0 +1,43 @@
+{
+  "comment": "Shared VR video control payloads (op 'video'): spike/tests/video_test.cpp decodes them in the renderer, tests/native_spike/test_video.py checks tools/native_spike/video.py builds and validates the same set.",
+  "valid": [
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180, "title": "beach_360.mp4"},
+    {"action": "open", "projection": "180", "stereo": "sbs", "fov": 180, "title": "concert VR180 LR"},
+    {"action": "open", "projection": "fisheye", "stereo": "sbs", "fov": 190, "title": "x"},
+    {"action": "open", "projection": "360", "stereo": "tb", "fov": 220, "title": "123456789012345678901234567890123456789012345678"},
+    {"action": "format", "projection": "180", "stereo": "tb", "fov": 180},
+    {"action": "close"},
+    {"action": "pause"},
+    {"action": "seek", "seconds": 10},
+    {"action": "seek", "seconds": -60},
+    {"action": "seek", "seconds": 3600},
+    {"action": "controls", "visible": true},
+    {"action": "controls", "visible": false}
+  ],
+  "invalid": [
+    {},
+    {"action": "play"},
+    {"action": 1},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180, "title": ""},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180, "title": "1234567890123456789012345678901234567890123456789"},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180, "title": "café"},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180, "title": "tab\there"},
+    {"action": "open", "projection": "cubemap", "stereo": "mono", "fov": 180, "title": "a"},
+    {"action": "open", "projection": "360", "stereo": "lr", "fov": 180, "title": "a"},
+    {"action": "open", "projection": "fisheye", "stereo": "sbs", "fov": 179, "title": "a"},
+    {"action": "open", "projection": "fisheye", "stereo": "sbs", "fov": 221, "title": "a"},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180.0, "title": "a"},
+    {"action": "open", "projection": "360", "stereo": "mono", "fov": 180, "title": "a", "path": "/tmp/x.mp4"},
+    {"action": "format", "projection": "360", "stereo": "mono"},
+    {"action": "close", "now": true},
+    {"action": "seek", "seconds": 0},
+    {"action": "seek", "seconds": 3601},
+    {"action": "seek", "seconds": -3601},
+    {"action": "seek", "seconds": 1.5},
+    {"action": "seek", "seconds": "10"},
+    {"action": "seek", "seconds": 18446744073709551615},
+    {"action": "controls", "visible": 1},
+    {"action": "controls"}
+  ]
+}
