@@ -1,0 +1,1422 @@
+{
+ "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\".",
+ "valid": [
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": false,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 2,
+   "field": "curvature",
+   "placements": [
+    {
+     "x": -20,
+     "y": 10,
+     "distance": 120,
+     "yaw": 25,
+     "pitch": -5,
+     "roll": 3,
+     "curvature": 40
+    },
+    {
+     "x": 100,
+     "y": 100,
+     "distance": 200,
+     "yaw": 60,
+     "pitch": 45,
+     "roll": 45,
+     "curvature": 120
+    },
+    {
+     "x": -100,
+     "y": -100,
+     "distance": 50,
+     "yaw": -60,
+     "pitch": -45,
+     "roll": -45,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "y",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "yaw",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "pitch",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "roll",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ]
+  }
+ ],
+ "invalid": [
+  {
+   "why": "payload not an object",
+   "payload": []
+  },
+  {
+   "why": "payload is null",
+   "payload": null
+  },
+  {
+   "why": "empty object",
+   "payload": {}
+  },
+  {
+   "why": "missing open",
+   "payload": {
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "missing desktop",
+   "payload": {
+    "open": true,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "missing field",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "missing placements",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x"
+   }
+  },
+  {
+   "why": "extra key",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "visible": true
+   }
+  },
+  {
+   "why": "open is an integer",
+   "payload": {
+    "open": 1,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "open is a string",
+   "payload": {
+    "open": "true",
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "open is null",
+   "payload": {
+    "open": null,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "desktop 3 out of range",
+   "payload": {
+    "open": true,
+    "desktop": 3,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "desktop negative",
+   "payload": {
+    "open": true,
+    "desktop": -1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "desktop is a float",
+   "payload": {
+    "open": true,
+    "desktop": 1.0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "desktop is a bool",
+   "payload": {
+    "open": true,
+    "desktop": true,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "desktop is a string",
+   "payload": {
+    "open": true,
+    "desktop": "XR-1",
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "desktop huge unsigned",
+   "payload": {
+    "open": true,
+    "desktop": 18446744073709551615,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "unknown field",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "z",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "field wrong case",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "Yaw",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "field is an index",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": 3,
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "field empty",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "field is a display label",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "Left/right",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "two placements",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "four placements",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placements empty",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": []
+   }
+  },
+  {
+   "why": "placements an object",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   }
+  },
+  {
+   "why": "placement above bound",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 61,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement below bound",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 49,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "curvature negative",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": -1
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement float value",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 1.5,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement bool value",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": true,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement missing key",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement extra key",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0,
+      "z": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement not an object",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     0
+    ]
+   }
+  },
+  {
+   "why": "placement huge unsigned",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 18446744073709551615,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -86,6 +86,14 @@ Each desktop also has a placement in the glasses: left/right and down/up offset,
 
 Settings, including placements, are saved per glasses model.
 
+### Placement menu
+
+You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings with their current values, and the keys at the bottom. The menu keys are listed in the table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
+
+The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. Values stop at the same limits as the panel's sliders. R puts every setting of the selected desktop back to flat.
+
+Each key press moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's profile shortly after the last key press, and again when the menu closes. The menu changes placement only. It does not change the run's consent, capture or the panel's buttons.
+
 ## Tests
 
 Bare `python -m unittest` from the root finds nothing. Run each suite explicitly:
