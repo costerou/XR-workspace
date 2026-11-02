@@ -166,8 +166,10 @@ int main() {
         for (std::uint32_t y = 4; y + 4 < im.height; ++y)  // inside the accent border
             for (std::uint32_t x = 34; x < im.width / 2; ++x) {
                 const auto* px = &im.rgba[(std::size_t(y) * im.width + x) * 4];
-                const auto* wash = px + 4 * 3;  // the 2 px marker is followed by the translucent wash (an underline is solid)
-                if (px[2] > 200 && px[0] < 150 && wash[2] < 200) { ys.push_back(y); break; }  // accent blue, not white text
+                // The 2 px marker is followed by the translucent wash (an underline or scroll arrow is solid or ends).
+                if (x + 6 >= im.width) break;
+                const auto* wash = px + 4 * 3, * further = px + 4 * 6;
+                if (px[2] > 200 && px[0] < 150 && wash[2] < 200 && wash[2] > 40 && further[2] > 40 && further[2] < 200) { ys.push_back(y); break; }
             }
         return ys;
     };
@@ -208,19 +210,74 @@ int main() {
         const auto big = placement_menu_fit(wide, f, 1536, 960);
         CHECK(big.fits && big.width == roomy.width && big.height == roomy.height && !big.short_hints && !big.tabs_beside_title);
         for (Output o : {Output{1920, 1200, true}, Output{1536, 960, true}, Output{1536, 864, true}, Output{1280, 800, true},
-                         Output{1280, 720, true}, Output{1200, 750, true}, Output{960, 540, false}, Output{640, 400, false}}) {
+                         Output{1280, 720, true}, Output{1200, 750, true}, Output{1200, 675, true}, Output{960, 600, true},
+                         Output{960, 540, true}, Output{640, 400, false}}) {
             const auto fit = placement_menu_fit(wide, f, o.w, o.h);
             const auto im = render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f}, f, o.w, o.h);
             CHECK(im.width == fit.width && im.height == fit.height && premultiplied(im));
             CHECK(band_height(im) == band);  // text and row spacing unchanged
             if (o.must_fit) CHECK(fit.fits);
             if (fit.fits) CHECK(fit.width + 2 * kHudFitMargin <= o.w && fit.height + 2 * kHudFitMargin <= o.h);
-            CHECK(fit.width >= roomy.width || fit.footer_lines < roomy.footer_lines || fit.wide_footer);  // grows, never squeezes the table
+            CHECK(fit.width >= roomy.width || fit.footer_lines < roomy.footer_lines || fit.wide_footer || fit.visible_rows < kPlacementMenuFields);
+            if (o.w >= 1280 && o.h >= 720) CHECK(fit.visible_rows == kPlacementMenuFields && fit.hint_column);  // everything at once
+        }
+        // Scale 2 (960x540): a window of at least three rows; every field, when selected, is in the window and
+        // highlighted; scrolling never resizes the card.
+        for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
+            PlacementMenuState sel = wide; sel.field = field;
+            const auto fit = placement_menu_fit(sel, f, 960, 540);
+            CHECK(fit.fits && fit.visible_rows >= 3 && fit.first_row <= field && field < fit.first_row + fit.visible_rows);
+            const auto first = placement_menu_fit(wide, f, 960, 540);
+            CHECK(fit.width == first.width && fit.height == first.height && fit.visible_rows == first.visible_rows);
+            CHECK(band_height(render_placement_menu_card(sel, {0.5f, 0.6f, 0.9f}, f, 960, 540)) == band);
         }
     }
+    // Scroll arrows: drawn only when rows are hidden (solid accent left of the table, none in the full layout).
+    // An arrow row is a short solid accent run with dark card background on both sides; the selection marker
+    // is followed by the wash and the tab underline is a long run.
+    auto has_cue = [](const HudImage& im) {
+        auto at = [&](std::uint32_t x, std::uint32_t y) { return &im.rgba[(std::size_t(y) * im.width + x) * 4]; };
+        auto solid = [&](std::uint32_t x, std::uint32_t y) { return at(x, y)[2] > 200 && at(x, y)[0] < 150; };
+        auto dark = [&](std::uint32_t x, std::uint32_t y) { return at(x, y)[2] < 40; };
+        for (std::uint32_t y = kHudFitMargin; y + kHudFitMargin < im.height; ++y)
+            for (std::uint32_t x = 8; x + 24 < im.width; ++x) {
+                if (!solid(x, y) || !dark(x - 1, y)) continue;
+                std::uint32_t run = 0;
+                while (solid(x + run, y)) ++run;
+                if (run >= 2 && run <= 18 && dark(x + run, y)) return true;
+                x += run;
+            }
+        return false;
+    };
+    {
+        PlacementMenuState top_sel = wide; top_sel.field = 0;
+        const auto im = render_placement_menu_card(top_sel, {0.5f, 0.6f, 0.9f}, nullptr, 960, 400);
+        const auto fit = placement_menu_fit(top_sel, nullptr, 960, 400);
+        CHECK(fit.fits && fit.visible_rows < kPlacementMenuFields && fit.first_row == 0);
+        CHECK(has_cue(im));  // rows hidden below
+        CHECK(!has_cue(render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f})));  // full layout: no arrows
+        CHECK(!has_cue(render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f}, font.get())));
+    }
+    // placement_menu_hints(): the footer lines as drawn, one per line, covering every hint segment in order.
+    for (const HudFont* f : faces)
+        for (auto [w, h] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {1536, 960}, {1280, 720}, {960, 540}}) {
+            const auto lines = placement_menu_hints(f, w, h);
+            CHECK(lines.size() == placement_menu_fit(wide, f, w, h).footer_lines);
+            const auto fit = placement_menu_fit(wide, f, w, h);
+            std::string joined; for (const auto& l : lines) joined += l + "|";
+            for (const auto& seg : placement_menu_hint_segments(fit.short_hints)) CHECK(joined.find(seg) != std::string::npos);
+        }
+    CHECK(placement_menu_hints().size() == 2);  // pixel font, unbounded: two footer lines
+    // Values never resize the card: flat and extreme placements give the same size at every output.
+    PlacementMenuState flat_menu; flat_menu.open = true;
+    for (const HudFont* f : faces)
+        for (auto [w, h] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {1536, 960}, {1280, 720}, {960, 540}}) {
+            const auto a = placement_menu_fit(flat_menu, f, w, h), b = placement_menu_fit(wide, f, w, h);
+            CHECK(a.width == b.width && a.height == b.height && a.footer_lines == b.footer_lines);
+        }
     // Hints keep every key in both wordings.
     for (bool shortw : {false, true}) {
-        std::string all; for (const auto& h : placement_menu_hints(shortw)) all += h + "|";
+        std::string all; for (const auto& h : placement_menu_hint_segments(shortw)) all += h + "|";
         for (const char* key : {"Up", "Down", "Left", "Right", "Shift", "Tab", "R ", "Esc"}) CHECK(all.find(key) != std::string::npos);
     }
 

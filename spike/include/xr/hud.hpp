@@ -142,19 +142,26 @@ struct PlacementMenuRow { std::string label, hint, value; bool selected = false;
 // Label, plain-English hint and formatted value ("+12%", "100%", "-5°"; " deg" with the pixel font,
 // which is ASCII-only) for each field of the selected desktop.
 std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& state, bool ascii_units);
-// Key hints ("keys  action"), full or short wording; the footer packs them into lines.
-std::vector<std::string> placement_menu_hints(bool short_wording = false);
+// Footer key-hint lines exactly as drawn on the card for this font and output (defaults: pixel font, unbounded),
+// one string per footer line.
+std::vector<std::string> placement_menu_hints(const HudFont* font = nullptr, std::uint32_t max_width = 0, std::uint32_t max_height = 0);
+// The individual key hints ("keys  action"), full or short wording, that the footer packs into lines.
+std::vector<std::string> placement_menu_hint_segments(bool short_wording = false);
 // Fit. The card is built from the help card's parts (font, sizes, padding, spacing, colours) and sized
 // to its content. Given the output surface (`max_width` x `max_height`, 0 = unbounded) it takes the
 // roomiest arrangement whose card leaves kHudFitMargin free on every side: title above the desktop
 // tabs; tabs beside the title; key hints allowed wider than the table (fewer lines); shorter hint
-// wording. Text is never scaled. If nothing fits, the most compact arrangement is used (fits=false).
+// wording; then (small outputs) a window of rows around the selected field with scroll arrows, and
+// finally without the yaw/pitch/roll hint column. Text is never scaled. If even one row cannot fit,
+// the most compact card is used (fits=false).
 constexpr std::uint32_t kHudFitMargin = 34;  // = the card padding
 struct PlacementMenuFit {
     std::uint32_t width = 0, height = 0;
     bool tabs_beside_title = false, wide_footer = false, short_hints = false;
     std::uint32_t footer_lines = 0;
     bool fits = false;
+    std::uint32_t visible_rows = kPlacementMenuFields, first_row = 0;  // small outputs show a window of rows
+    bool hint_column = true;
 };
 PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height);
 HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font = nullptr,

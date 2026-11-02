@@ -221,13 +221,19 @@ constexpr const char* kHintKeyGap = "  ";      // between a key and its action
 constexpr const char* kHintGap = "     ";      // between hints on one footer line
 
 // Arrangements, roomiest first; text sizes and spacing are the same in all of them.
-struct MenuArrangement { bool tabs_beside_title, wide_footer, short_hints; };
+// The last two are for small outputs (e.g. scale 2): only as many rows as fit, around the selected one, with
+// accent arrows beside the table where rows are hidden; the last also drops the yaw/pitch/roll hint column.
+struct MenuArrangement { bool tabs_beside_title, wide_footer, short_hints, windowed = false, hint_column = true; };
 constexpr MenuArrangement kArrangements[] = {
-    {false, false, false},  // title, then desktop tabs; full hints wrapped to the table width
-    {true, false, false},   // tabs beside the title (one header line)
-    {true, true, false},    // ... hints may use the output's width (fewer footer lines)
-    {true, true, true},     // ... shorter hint wording
+    {false, false, false},            // title, then desktop tabs; full hints wrapped to the table width
+    {true, false, false},             // tabs beside the title (one header line)
+    {true, true, false},              // ... hints may use the output's width (fewer footer lines)
+    {true, true, true},               // ... shorter hint wording
+    {true, true, true, true},         // ... a window of rows around the selected one
+    {true, true, true, true, false},  // ... without the hint column
 };
+// Scroll cue: a small accent triangle, sized from the card's gaps.
+constexpr std::uint32_t kCueH = std::uint32_t(kRowGap) * 3 / 4, kCueW = 2 * kCueH;
 
 struct MenuLayout {
     MenuArrangement arrangement{};
@@ -235,7 +241,8 @@ struct MenuLayout {
     std::vector<Cell> tabs;
     std::uint32_t tabs_w = 0, tabs_ascent = 0, tabs_descent = 0;
     struct Row { Cell label, hint, value; bool selected; };
-    std::vector<Row> rows;
+    std::vector<Row> rows;                   // the visible rows
+    std::uint32_t first_row = 0, total_rows = 0;
     std::uint32_t label_w = 0, hint_w = 0, value_w = 0, table_w = 0, rows_h = 0;
     std::vector<Cell> footer;
     std::uint32_t footer_w = 0, footer_h = 0;
@@ -257,7 +264,8 @@ std::vector<Cell> footer_lines(const std::vector<std::pair<std::string, std::str
     return lines;
 }
 
-MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, MenuArrangement a, std::uint32_t avail_content_w) {
+MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, MenuArrangement a, std::uint32_t avail_content_w,
+                       std::uint32_t window = std::uint32_t(kPlacementMenuFields)) {
     MenuLayout L;
     L.arrangement = a;
     L.title = cell(card_title("Placement"), font);
@@ -266,13 +274,25 @@ MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, Men
         L.tabs_w += L.tabs.back().box.width + (d ? std::uint32_t(kColumnGap) : 0);
         L.tabs_ascent = std::max(L.tabs_ascent, L.tabs.back().box.ascent); L.tabs_descent = std::max(L.tabs_descent, L.tabs.back().box.descent);
     }
-    for (auto& r : placement_menu_rows(state, font == nullptr)) {
-        L.rows.push_back({cell(card_key(r.label), font), cell(card_detail(r.hint), font), cell(card_key(r.value), font), r.selected});
-        const auto& row = L.rows.back();
+    const auto all = placement_menu_rows(state, font == nullptr);
+    L.total_rows = std::uint32_t(all.size());
+    window = std::clamp<std::uint32_t>(window, 1, L.total_rows);
+    const std::uint32_t selected = state.field < L.total_rows ? state.field : 0;  // keep the selected row in view
+    L.first_row = std::min(selected > window / 2 ? selected - window / 2 : 0, L.total_rows - window);
+    for (std::uint32_t i = 0; i < L.total_rows; ++i) {  // columns measured over every row: scrolling never resizes the card
+        const auto& r = all[i];
+        MenuLayout::Row row{cell(card_key(r.label), font), cell(card_detail(a.hint_column ? r.hint : ""), font), cell(card_key(r.value), font),
+                            r.selected};
         L.label_w = std::max(L.label_w, row.label.box.width); L.hint_w = std::max(L.hint_w, row.hint.box.width);
         L.value_w = std::max(L.value_w, row.value.box.width);
+        if (i < L.first_row || i >= L.first_row + window) continue;
         L.rows_h += row_ascent(row.label, row.hint, row.value) + row_descent(row.label, row.hint, row.value) + std::uint32_t(kRowGap);
+        L.rows.push_back(std::move(row));
     }
+    // The value column always has room for the widest value (sign, three digits, unit), so changing a value never
+    // resizes the card or re-wraps the footer.
+    for (const char* widest : {"-000%", font ? "-000\xc2\xb0" : "-000 deg"})
+        L.value_w = std::max(L.value_w, box(card_key(widest), font).width);
     // Columns: label, hint, value (right-aligned); the selected-row band reaches kRowGap past the text on each side.
     L.table_w = L.label_w + (L.hint_w ? std::uint32_t(kColumnGap) / 2 + L.hint_w : 0) + std::uint32_t(kColumnGap) + L.value_w + 2 * std::uint32_t(kRowGap);
     std::uint32_t header_w;
@@ -283,7 +303,9 @@ MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, Men
         header_w = std::max(L.title.box.width, L.tabs_w);
         L.header_h = height(L.title.box) + std::uint32_t(kLineGap) + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) + tab_rule();
     }
-    const std::uint32_t body_w = std::max(header_w, L.table_w);
+    // Hidden rows: room for the scroll cues on both sides of the table.
+    const bool clipped = L.rows.size() < L.total_rows;
+    const std::uint32_t body_w = std::max(header_w, L.table_w + (clipped ? 2 * (kCueW + std::uint32_t(kRowGap)) : 0));
     L.footer = footer_lines(a.short_hints ? kMenuHintsShort : kMenuHints, a.wide_footer ? std::max(body_w, avail_content_w) : body_w, font);
     for (std::size_t i = 0; i < L.footer.size(); ++i) {
         L.footer_w = std::max(L.footer_w, L.footer[i].box.width);
@@ -302,9 +324,17 @@ MenuLayout choose_layout(const PlacementMenuState& state, const HudFont* font, s
     const std::uint32_t avail = max_w > 2 * kHudFitMargin + 2 * std::uint32_t(kHelpPad) ? max_w - 2 * kHudFitMargin - 2 * std::uint32_t(kHelpPad) : 0;
     MenuLayout L;
     for (const auto& a : kArrangements) {
+        if (a.windowed) continue;
         L = layout_menu(state, font, a, avail);
-        if (fits(L, max_w, max_h)) break;
+        if (fits(L, max_w, max_h)) return L;
     }
+    // Windowed: the most rows first; at equal rows, keep the hint column if it fits.
+    for (std::uint32_t window = std::uint32_t(kPlacementMenuFields) - 1; window >= 1; --window)
+        for (const auto& a : kArrangements) {
+            if (!a.windowed) continue;
+            L = layout_menu(state, font, a, avail, window);
+            if (fits(L, max_w, max_h)) return L;
+        }
     return L;  // nothing fits: the most compact arrangement, centred (clipped equally on each side)
 }
 
@@ -336,7 +366,14 @@ std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& stat
     return rows;
 }
 
-std::vector<std::string> placement_menu_hints(bool short_wording) {
+std::vector<std::string> placement_menu_hints(const HudFont* font, std::uint32_t max_width, std::uint32_t max_height) {
+    PlacementMenuState state;  // the footer does not depend on the values
+    std::vector<std::string> out;
+    for (const auto& line : choose_layout(state, font, max_width, max_height).footer) out.push_back(line.line.text);
+    return out;
+}
+
+std::vector<std::string> placement_menu_hint_segments(bool short_wording) {
     std::vector<std::string> out;
     for (const auto& [keys, action] : short_wording ? kMenuHintsShort : kMenuHints) out.push_back(keys + kHintKeyGap + action);
     return out;
@@ -345,7 +382,8 @@ std::vector<std::string> placement_menu_hints(bool short_wording) {
 PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height) {
     const auto L = choose_layout(state, font, max_width, max_height);
     return {card_size(L.content_w), card_size(L.content_h), L.arrangement.tabs_beside_title, L.arrangement.wide_footer,
-            L.arrangement.short_hints, std::uint32_t(L.footer.size()), fits(L, max_width, max_height)};
+            L.arrangement.short_hints, std::uint32_t(L.footer.size()), fits(L, max_width, max_height),
+            std::uint32_t(L.rows.size()), L.first_row, L.arrangement.hint_column};
 }
 
 HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font,
@@ -369,7 +407,17 @@ HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<
     top += L.header_h + std::uint32_t(kSectionGap);
     draw_divider(im, top, accent);
     const int left = int((im.width - L.table_w) / 2);
-    for (const auto& r : L.rows) {
+    // Scroll cues beside the table: an up arrow by the first visible row if rows are hidden above, a down arrow
+    // by the last if rows are hidden below.
+    auto cue = [&](std::uint32_t row_top, std::uint32_t row_h, bool up) {
+        const int cx = left - int(kRowGap) - int(kCueW) / 2, cy = int(row_top + row_h / 2) - int(kCueH) / 2;
+        for (std::uint32_t y = 0; y < kCueH; ++y) {
+            const std::uint32_t half = (up ? y + 1 : kCueH - y) * kCueW / (2 * kCueH);  // widens downward for up
+            for (int dx = -int(half); dx < int(half); ++dx) over(im, cx + dx, cy + int(y), accent, 1.f);
+        }
+    };
+    for (std::size_t i = 0; i < L.rows.size(); ++i) {
+        const auto& r = L.rows[i];
         const std::uint32_t ascent = row_ascent(r.label, r.hint, r.value), h = ascent + row_descent(r.label, r.hint, r.value);
         if (r.selected) {  // accent wash behind the row, solid marker (border weight) on its left edge
             const int y0 = int(top) - int(kRowGap) / 2, y1 = int(top + h) + int(kRowGap) / 2;
@@ -380,6 +428,8 @@ HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<
         draw_cell(im, r.label, col, top, ascent, font);
         if (!r.hint.line.text.empty()) draw_cell(im, r.hint, col + int(L.label_w + std::uint32_t(kColumnGap) / 2), top, ascent, font);
         draw_cell(im, r.value, left + int(L.table_w) - int(kRowGap) - int(r.value.box.width), top, ascent, font);  // right-aligned
+        if (i == 0 && L.first_row > 0) cue(top, h, true);
+        if (i + 1 == L.rows.size() && L.first_row + L.rows.size() < L.total_rows) cue(top, h, false);
         top += h + std::uint32_t(kRowGap);
     }
     top += std::uint32_t(kSectionGap);
