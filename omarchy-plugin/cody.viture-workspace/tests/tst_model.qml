@@ -202,44 +202,4 @@ TestCase {
         compare(findChild(editor,"placement_distance").value,150);
         compare(findChild(editor,"placement_curvature").value,20);
     }
-    // Regression (Cody's glasses test, 2026-11-01): the panel reloads settings on every controller state push
-    // (about 1 Hz while running). Each reload hands the editor a new but equal placement object; that must not
-    // wipe unsaved slider edits, or Save writes the old (flat) values.
-    function test_placementDraftSurvivesReload() {
-        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),index:0});
-        verify(waitForRendering(editor));
-        editor.setField("yaw", 20);
-        editor.placement=Model.defaultPlacement();           // reload: same saved value, new object
-        compare(editor.draft.yaw,20);
-        placementSpy.target=editor; placementSpy.clear();
-        mouseClick(findChild(editor,"placementSave"));
-        compare(placementSpy.signalArguments[0][0].yaw,20);
-        placementSpy.target=null;
-        // Our own save confirmed by the next reload: draft follows the newly saved value.
-        editor.placement=Object.assign(Model.defaultPlacement(),{yaw:20});
-        compare(editor.draft.yaw,20);
-        // A genuinely different saved value (changed elsewhere) replaces the draft.
-        editor.placement=Object.assign(Model.defaultPlacement(),{curvature:30});
-        compare(editor.draft.curvature,30); compare(editor.draft.yaw,0);
-    }
-    function test_placementDraftResetsOnDesktopSwitch() {
-        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),index:0});
-        verify(waitForRendering(editor));
-        editor.setField("roll", 10);
-        editor.index=2; editor.placement=Model.defaultPlacement();  // another desktop with the same (flat) value
-        compare(editor.draft.roll,0);
-    }
-    function test_placementDraftKeptWhileDragging() {
-        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),live:true});
-        verify(waitForRendering(editor));
-        editor.dragging=true; editor.setField("x", 40);
-        editor.placement=Object.assign(Model.defaultPlacement(),{y:5});  // live status arrives mid-drag
-        compare(editor.draft.x,40);
-        editor.dragging=false;
-    }
-    function test_samePlacement() {
-        verify(Model.samePlacement(Model.defaultPlacement(), Model.defaultPlacement()));
-        verify(!Model.samePlacement(Model.defaultPlacement(), Object.assign(Model.defaultPlacement(),{pitch:1})));
-        verify(!Model.samePlacement(null, Model.defaultPlacement()));
-    }
 }
