@@ -133,6 +133,26 @@ class StateTests(unittest.TestCase):
         self.c.tick()
         self.assertEqual(self.c.snapshot()['state'],'starting')
         self.assertFalse(self.c.request(dict(op='begin_start'))['ok'])
+    def test_tracking_startup_reports_progress_and_can_be_cancelled(self):
+        self.confirm(); self.units.active=True
+        self.observation['journals']=[dict(run_id=self.c.run['run_id'],session=None,path=None,operations=[],phase='tracking')]
+        self.c.tick()
+        self.assertIn('calibrat', self.c.snapshot()['reason'])
+        stopped=[]; self.units.stop=lambda run: stopped.append(run)
+        self.assertTrue(self.c.request(dict(op='stop'))['ok'])
+        self.c.tick()
+        self.assertEqual(self.c.state, 'stopping')
+        self.assertEqual(stopped, [self.c.run['run_id']])
+
+    def test_lost_control_is_not_reported_as_fresh_startup(self):
+        self.journal(); self.units.active=True; self.c.tick()
+        self.units.control=lambda *args: False
+        self.c.tick()
+        self.assertEqual(self.c.state, 'failed')
+        self.assertIn('Stop', self.c.snapshot()['reason'])
+        self.units.stop=lambda run: None
+        self.assertTrue(self.c.request(dict(op='stop'))['ok'])
+
     def test_probe_failure_is_visible_and_cancels_confirmation(self):
         self.begin()
         def fail(): raise OSError('probe unavailable')

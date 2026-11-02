@@ -73,12 +73,20 @@ class Controller:
             try: self._consent(j)
             except (OSError,ValueError): self._state('cli-recovery'); return
             if self.units.alive(j['run_id']):
+                if self.state == 'stopping': return
                 # A scoped connection proves a listener; status replies additionally carry live measurements.
                 if j.get('session') and self.units.control(j['run_id'],j['session'],None):
                     if self.state != 'stopping':
                         self._state('running'); self._poll_status(j)
                     return
-                self.error='run unit alive but control socket unavailable'; self._state('starting'); return
+                if not j.get('session'):
+                    self.error=('Starting head tracking and waiting for calibration (up to 120 seconds). Keep the glasses still.'
+                                if j.get('phase')=='tracking' else 'Preparing XR session…')
+                    self._state('starting')
+                else:
+                    self.error='XR renderer control unavailable. Stop this session before starting again.'
+                    self._state('failed')
+                return
             if self.state=='starting' and self.started is not None and self.clock()-self.started<5: return
             if self.state not in ('confirming','starting'): self._state('recovery-needed')
             elif self.state=='starting' and (self.started is None or self.clock()-self.started>=5): self._state('recovery-needed')
@@ -192,7 +200,7 @@ class Controller:
                 self.error=str(exc); self._state('failed'); raise ValueError(self.error) from exc
             return
         if op in ('stop','view_op'):
-            if self.state!='running': raise ValueError('busy')
+            if self.state!='running' and not (op=='stop' and self.run and self.state in ('starting','failed')): raise ValueError('busy')
             operation='stop' if op=='stop' else msg.get('operation',msg.get('view_op'))
             if isinstance(operation,dict): operation=operation.get('op')
             if op=='view_op' and operation not in USER_OPS: raise ValueError('invalid view operation')

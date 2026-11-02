@@ -105,18 +105,22 @@ def start(runtime, timeout=120.0):
     path = _state(runtime)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as f: json.dump({'pid': child.pid, 'start_tick': tick, 'log_offset': offset}, f)
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        now = status(runtime)
-        if not now['running']:
-            raise ValueError('tracking driver exited during startup')
-        if not now['network_isolated']:
-            stop(runtime); raise ValueError('tracking driver is not network-isolated; stopped')
-        if now['calibrated']: return now
-        if child.poll() is not None: break
-        time.sleep(0.2)
-    stop(runtime)
-    raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)')
+    try:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            now = status(runtime)
+            if not now['running']:
+                raise ValueError('tracking driver exited during startup')
+            if not now['network_isolated']:
+                raise ValueError('tracking driver is not network-isolated; stopped')
+            if now['calibrated']: return now
+            if child.poll() is not None: break
+            time.sleep(0.2)
+        raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)')
+    except BaseException:
+        # Cancellation must not leave a child keeping the transient unit alive.
+        stop(runtime)
+        raise
 
 
 def stop(runtime, timeout=5.0):

@@ -65,3 +65,11 @@ This is a new IPC/OS error, not evidence that the display mode was unavailable.
 The saved result has no syscall/traceback, so which IPC operation returned EAGAIN
 is not established. No additional live experiment or retry was performed. Further
 offline diagnosis and separately approved physical verification remain necessary.
+
+## Later Luma Ultra cursor-follow retest — 2026-11-01
+
+Cody subsequently reported a successful physical retest after the controller
+startup-state fix: reopen app, start XR, wait for calibration, and play YouTube
+fullscreen with cursor follow, with no blackout. See the
+[separate retest record](luma-cursor-follow-retest.md) for provenance, changes,
+and limits. The earlier failed attempts above remain unchanged.

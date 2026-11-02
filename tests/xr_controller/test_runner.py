@@ -93,6 +93,14 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(self.main(), 0)
             ready.assert_called_once_with(self.runtime)
 
+    def test_progress_is_published_before_tracking_wait(self):
+        self.consent(tracking='xrlinuxdriver')
+        def waiting(runtime):
+            progress=json.loads((self.state/'run1.progress.json').read_text())
+            self.assertEqual(progress, dict(run_id='run1',phase='tracking'))
+        with mock.patch('tools.native_spike.tracking.ensure_ready',side_effect=waiting):
+            self.assertEqual(self.main(),0)
+
     def test_tracking_failure_blocks_before_plugin_load(self):
         self.consent(tracking='xrlinuxdriver')
         with mock.patch('tools.native_spike.tracking.ensure_ready', side_effect=ValueError('tracking unavailable')):
