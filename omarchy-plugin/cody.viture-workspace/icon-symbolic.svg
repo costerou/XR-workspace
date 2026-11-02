@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 32 120 84" width="120" height="84">
+  <!-- One-colour emblem for the bar; the widget tints it. Same arcs, ring and
+       dot as assets/logo.svg (via assets/icon.svg), cropped to the emblem. -->
+  <g fill="#ffffff">
+    <path d="M6.48,69.94 A64,64 0 0 1 37.97,39.53 L46.1,57.8 A44,44 0 0 0 24.45,78.71 Z"/>
+    <path d="M44.22,37.13 A64,64 0 0 1 83.78,37.13 L77.6,56.15 A44,44 0 0 0 50.4,56.15 Z"/>
+    <path d="M90.03,39.53 A64,64 0 0 1 121.52,69.94 L103.55,78.71 A44,44 0 0 0 81.9,57.8 Z"/>
+    <circle cx="64" cy="98" r="8"/>
+  </g>
+  <circle cx="64" cy="98" r="14.5" fill="none" stroke="#ffffff" stroke-width="5" stroke-opacity="0.6"/>
+</svg>

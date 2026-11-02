@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Commons as Commons
@@ -36,11 +37,34 @@ Ui.BarWidget {
             if (mouseButton === Qt.RightButton) contextMenu.popup(button, 0, button.height)
             else if (mouseButton === Qt.LeftButton && root.host) root.host.run("omarchy-shell shell toggle cody.viture-workspace")
         }
-        Text {
+        // The app mark, tinted by state like the old "XR" label: accent while
+        // running, warning when recovery is needed, muted otherwise.
+        readonly property string role:Model.barColorRole(client.snapshot.state)
+        readonly property color tint:role==="accent" ? Commons.Color.accent : role==="warning" ? "#e7c78a" : Commons.Color.muted
+        Image {
+            id:mark
             anchors.centerIn:parent
-            text:Model.barColorRole(client.snapshot.state)==="warning" ? "XR !" : "XR"
-            font.family:root.themeFont.family; font.pixelSize:root.themeFont.body
-            color:Model.barColorRole(client.snapshot.state)==="accent" ? Commons.Color.accent : Model.barColorRole(client.snapshot.state)==="warning" ? "#e7c78a" : Commons.Color.muted
+            height:Style.bar.iconSize+2
+            width:Math.round(height*120/84)
+            sourceSize.width:width*2; sourceSize.height:height*2
+            source:Qt.resolvedUrl("icon-symbolic.svg")
+            fillMode:Image.PreserveAspectFit
+            smooth:true
+            visible:false
+            layer.enabled:true
+        }
+        MultiEffect {
+            anchors.fill:mark
+            source:mark
+            colorization:1.0
+            colorizationColor:button.tint
+        }
+        Rectangle {
+            visible:button.role==="warning"
+            width:5; height:5; radius:2.5
+            color:"#e7c78a"
+            anchors.left:mark.right; anchors.top:mark.top
+            anchors.leftMargin:-1; anchors.topMargin:-2
         }
     }
 }
