@@ -1,3 +1,5 @@
+![VITURE Workspace: three virtual desktops, XR-1 to XR-3, floating in a curved arc in front of a pair of XR glasses](assets/hero.svg)
+
 # VITURE Workspace
 
 A local XR desktop for Omarchy/Hyprland on VITURE Beast and Luma Ultra glasses. It creates independent virtual desktops (three 1080p outputs by default), captures only those outputs, and renders them in the glasses with 3DoF head tracking. You start and control a session from an Omarchy shell panel, or with Ctrl+Alt keybinds while a session runs.
