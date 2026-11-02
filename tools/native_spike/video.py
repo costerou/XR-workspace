@@ -44,8 +44,8 @@ VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 
                ('up', 'video_controls'), ('down', 'video_controls'), ('Escape', 'video_exit'))
 # Desktop view keys that do nothing while a video plays (their effect would be invisible, and the menu's keys would clash):
 # the view keys, the placement menu (incl. its mouse mode's Ctrl+Alt+M and Escape), mouse mode's left-button clicks and
-# the overview corner resize. The video closes the menu (ending mouse mode) when it opens, and corner resize is off while
-# it plays (resize.CornerResize.overview), so these can only arrive from stale or racing binds. Send-window keys
+# the overview free pointer's bar / corner drags. The video closes the menu (ending mouse mode) when it opens, and the free
+# pointer is off while it plays (free_pointer.OverviewPointer.overview), so these can only arrive from stale or racing binds. Send-window keys
 # (Ctrl+Alt+G, 1/2/3, B) are ignored too: the desktops are hidden, so a window (and focus) would move somewhere unseen.
 IGNORED_WHILE_PLAYING = (('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'mode_next', 'cursor_follow')
                          + MENU_OPS + MOUSE_OPS + RESIZE_OPS + SEND_OPS)
@@ -508,7 +508,7 @@ class VideoControl:
         out += self._frame({'action': 'open', **fmt, 'title': self.title})
         now = self.clock()
         self.active, self.format, self.source, self.warnings, self.error = True, fmt, source, list(warnings), None
-        self.view.video_active = True  # corner resize off (its poller stops reading the pointer; binds removed)
+        self.view.video_active = True  # free pointer off (its sampler stops reading the cursor; binds removed, cursor shown)
         self.controls = True  # the renderer shows the card on open
         self.last_input = self.opened_at = now
         self.error_seen_at = None

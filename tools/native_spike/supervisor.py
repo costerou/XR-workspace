@@ -89,7 +89,13 @@ class Supervisor:
             if not self._status_discard:
                 try:
                     value = strict_json(self._status_buffer)
-                    if isinstance(value, dict) and set(value) == {'menu_geometry'}:
+                    if isinstance(value, dict) and set(value) == {'overview_geometry'}:
+                        # The overview's canvas and desktop slots, sent when they change (free pointer hit testing).
+                        from .free_pointer import parse_overview_geometry
+                        geometry = parse_overview_geometry(value['overview_geometry'])
+                        handler = getattr(self.control, 'set_overview_geometry', None)
+                        if handler is not None: handler(geometry)
+                    elif isinstance(value, dict) and set(value) == {'menu_geometry'}:
                         # The menu card's layout, sent when it changes (mouse-mode hit testing); not run status.
                         from .view import parse_menu_geometry
                         geometry = parse_menu_geometry(value['menu_geometry'])
@@ -177,7 +183,7 @@ class Supervisor:
                 if self.control is not None: selector.register(self.control.server.socket, selectors.EVENT_READ)
                 if self.control is not None and getattr(self.control, 'events', None) is not None:
                     selector.register(self.control.events, selectors.EVENT_READ)
-                wake = getattr(self.control, 'wake', None)  # resize pointer poller: run poll() now, not at the next tick
+                wake = getattr(self.control, 'wake', None)  # overview free pointer sampler: run poll() now, not at the next tick
                 if not isinstance(wake, socket.socket): wake = None
                 if wake is not None: selector.register(wake, selectors.EVENT_READ)
                 # Placement-menu mouse mode: the cursor sampler pokes this so poll() moves the pointer at once.
@@ -209,7 +215,7 @@ class Supervisor:
                             self._events_ready(heartbeat_socket, selector)
                             continue
                         if wake is not None and key.fileobj is wake:
-                            self.control.resize.drain()  # poll() below applies the new pointer sample
+                            self.control.overview_pointer.drain()  # poll() below applies the new pointer sample
                             continue
                         if mouse_wake is not None and key.fileobj is mouse_wake:
                             self.control.drain_mouse_wake()  # poll() below moves the menu pointer

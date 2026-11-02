@@ -1,0 +1,681 @@
+"""Overview free pointer: in the overview the mouse moves freely through the glasses' space, not only over the desktops.
+
+Design (feature/overview-free-pointer, 2026-11-02):
+  * Entering the overview hands the mouse to a pointer that can go anywhere in the XR view: between desktops, above
+    them, past their corners. The real cursor is confined to the XR-n monitor layout, so it cannot reach a desktop's
+    drag bar (drawn above it) or go round a corner. The old overview put the bar's grab strip inside the desktop's top
+    edge for that reason.
+  * Two modes, switched by where the pointer is:
+      - desktop: the pointer is inside a desktop. The real cursor is visible there (the capture paints it) and every
+        click, hover, window drag and window-border resize goes to the window under it as usual. The pointer's place
+        in space is the cursor's position mapped onto that desktop's surface.
+      - free: the cursor reached the edge of its desktop, or crossed onto another monitor. The cursor is hidden and
+        parked in the middle of its monitor (put back there whenever it strays RECENTRE_PX), and its motion moves a
+        small dim dot drawn by the renderer on the overview's plane (`overview_pointer`). While free, the left button is
+        bound to the run (`resize_press` / `resize_release`, the existing modal binds): on a drag bar it moves that
+        desktop, on a corner it resizes it, on a desktop it focuses that desktop and hands the cursor back at that spot.
+        Moving ENTER_PX into a desktop does the same without a click.
+    The switch back to desktop mode needs the pointer ENTER_PX inside, while leaving needs the very edge pixel, so
+    the modes never flap at an edge. Moving into a desktop (or clicking it) also selects it, so Ctrl+Alt+Up zooms into
+    the desktop the pointer is on and the highlight shows it.
+  * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
+    status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
+    the same placement maths as spike/src/view.cpp place_point (offset, distance, yaw/pitch/roll, curvature), front
+    desktop first. The overview's slots never move with head pose, so neither does this.
+  * Drags follow the pointer: a bar drag changes the desktop's x / y placement so the bar stays under the pointer
+    (with the overlap guard and slot snap of resize.allowed_move); a corner drag changes `distance` so the corner
+    follows the pointer along its diagonal. Both are saved like a placement-menu change (0.5 s debounce, and at once
+    on release). Corner and bar zones extend outside the desktop, which is where the pointer now can go.
+  * Off while zoomed, while the placement menu is open (its mouse mode owns the left button) and while a VR video plays
+    (resize ops are in video.IGNORED_WHILE_PLAYING). Leaving the overview removes the binds and shows the cursor again.
+  * OLED care: the dot is grey at 170/255 (184 while held; cards cap at 191), drawn only in free mode, never moves on
+    its own, and hides with the bars and bracket after OVERLAY_IDLE_CLOSE_S without pointer movement. A click while
+    hidden only wakes them.
+  * Threads: the sampler reads `cursorpos` every SAMPLE_S (250 Hz) in the overview and does every compositor call
+    (binds, hide/show, warps); the supervisor loop owns all state and frames. A run that dies in free mode leaves
+    the left-button bind; the next click runs xr_control.py, which removes it and shows the cursor again.
+"""
+import json
+import math
+import socket
+import threading
+import time
+
+from . import resize, view
+from .geometry import PLACEMENT_BOUNDS
+
+SAMPLE_S = 1 / 250        # cursor reads per second in the overview (the menu's mouse mode rate)
+IDLE_S = 0.1              # not in the overview: just notice when it is again
+OUTPUTS_REFRESH = 2.0     # seconds between XR-n monitor geometry reads
+EDGE_PX = 0.5             # desktop mode: the cursor this close to its monitor's edge (logical px) has hit it
+ENTER_PX = 4.0            # free mode: this far inside a desktop (canvas px) hands the pointer back to the cursor
+INSET_PX = 2              # a cursor handed back lands at least this far inside its monitor (logical px)
+RECENTRE_PX = 200         # free mode: the hidden cursor goes back to its parking point once it strays this far
+JUMP_PX = 400             # a cursor step this long is a warp or focus change (keyboard), not a hand movement
+SAMPLE_JUMP_PX = 1500     # a single sample's motion beyond this is dropped (warps the sampler did not make)
+# Grab zones, canvas px: corners are squares centred on the corner (half inside, half outside the desktop).
+CORNER_SHARE, CORNER_MIN, CORNER_MAX = 0.06, 10.0, 28.0
+# The drag bar (view.hpp grab_pill: share of the width clamped to px, thickness, gap above the desktop) and the padding
+# around it that still grabs it; the zone also covers the gap down to the desktop's top edge.
+PILL_SHARE, PILL_MIN, PILL_MAX, PILL_THICKNESS, PILL_GAP = 0.3, 24.0, 240.0, 4.0, 7.0
+PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
+MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
+POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
+MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
+
+
+def parse_overview_geometry(value):
+    """The renderer's `overview_geometry` status line (spike/src/view.cpp overview_geometry_json) -> validated dict
+    {'w', 'h', 'half': (tan half-FOV x, y), 'tiles': [(x, y, w, h) canvas px] in managed-output order}. ValueError if bad."""
+    def number(v, lo, hi):
+        if type(v) not in (int, float) or not math.isfinite(v) or not lo <= v <= hi: raise ValueError('invalid overview geometry')
+        return float(v)
+    if not isinstance(value, dict) or set(value) != {'w', 'h', 'half', 'tiles'}: raise ValueError('invalid overview geometry')
+    w, h = value['w'], value['h']
+    if type(w) is not int or type(h) is not int or not 0 < w <= MAX_POINTER_PX or not 0 < h <= MAX_POINTER_PX:
+        raise ValueError('invalid overview geometry')
+    half, tiles = value['half'], value['tiles']
+    if not isinstance(half, list) or len(half) != 2 or not isinstance(tiles, list) or not 1 <= len(tiles) <= 3:
+        raise ValueError('invalid overview geometry')
+    half = tuple(number(v, 1e-3, 100.0) for v in half)
+    out = []
+    for t in tiles:
+        if not isinstance(t, list) or len(t) != 4: raise ValueError('invalid overview geometry')
+        x, y, tw, th = (number(v, -MAX_POINTER_PX, MAX_POINTER_PX) for v in t)
+        if tw <= 0 or th <= 0: raise ValueError('invalid overview geometry')
+        out.append((x, y, tw, th))
+    return {'w': w, 'h': h, 'half': half, 'tiles': out}
+
+
+def place_point(g, tile, p, px, py):
+    """World position of canvas pixel (px, py) on a desktop laid out at `tile` with wire placement `p` (percent and
+    degrees, geometry.PLACEMENT_BOUNDS). Mirrors spike/src/view.cpp place_point exactly."""
+    W, H = g['w'], g['h']
+    hw, hh = g['half']
+    sx, sy = 2 * hw / W, 2 * hh / H
+    tx, ty, tw_px, th_px = tile
+    cx, cy = tx + tw_px / 2, ty + th_px / 2
+    tw, th = tw_px * sx, th_px * sy
+    d = p['distance'] / 100 if p['distance'] > 0 else 1.0
+    centre = (((2 * cx / W - 1) * hw + p['x'] / 100 * tw) * d, ((1 - 2 * cy / H) * hh + p['y'] / 100 * th) * d, -d)
+    u, v = (px - cx) * sx, (cy - py) * sy
+    local = (u, v, 0.0)
+    curvature = math.radians(p['curvature'])
+    if curvature > 1e-4 and tw > 0:
+        r = tw / curvature
+        phi = u / r
+        local = (r * math.sin(phi), v, r * (1 - math.cos(phi)))
+    cr, sr = math.cos(math.radians(p['roll'])), math.sin(math.radians(p['roll']))
+    a = (cr * local[0] - sr * local[1], sr * local[0] + cr * local[1], local[2])
+    cp, sp = math.cos(math.radians(p['pitch'])), math.sin(math.radians(p['pitch']))
+    b = (a[0], cp * a[1] - sp * a[2], sp * a[1] + cp * a[2])
+    cyaw, syaw = math.cos(math.radians(p['yaw'])), math.sin(math.radians(p['yaw']))
+    w = (cyaw * b[0] + syaw * b[2], b[1], -syaw * b[0] + cyaw * b[2])
+    return (centre[0] + w[0], centre[1] + w[1], centre[2] + w[2])
+
+
+def to_canvas(g, point):
+    """A world point seen from the eye, on the canvas plane (z = -1) in canvas px; None if it is not in front."""
+    x, y, z = point
+    if z > -1e-6: return None
+    hw, hh = g['half']
+    return ((x / -z / hw + 1) * g['w'] / 2, (1 - y / -z / hh) * g['h'] / 2)
+
+
+def project(g, tile, p, px, py):
+    """Where tile pixel (px, py) of a placed desktop appears on the overview plane (canvas px), or None."""
+    return to_canvas(g, place_point(g, tile, p, px, py))
+
+
+def unproject(g, tile, p, pointer):
+    """The tile pixel (px, py) that appears under canvas point `pointer` on a placed desktop's surface, or None when the
+    pointer's ray misses that surface. Newton's method on `project`, started from the exact flat answer."""
+    tx, ty, tw, th = tile
+    cx, cy = tx + tw / 2, ty + th / 2
+    d = p['distance'] / 100
+    q = [cx + (pointer[0] - cx - p['x'] / 100 * tw) * d, cy + (pointer[1] - cy + p['y'] / 100 * th) * d]
+    limit = 4 * max(tw, th)
+    for _ in range(16):
+        f = project(g, tile, p, q[0], q[1])
+        if f is None: return None
+        ex, ey = f[0] - pointer[0], f[1] - pointer[1]
+        if abs(ex) < 0.01 and abs(ey) < 0.01: return (q[0], q[1])
+        step = 0.5
+        fx, fy = project(g, tile, p, q[0] + step, q[1]), project(g, tile, p, q[0], q[1] + step)
+        if fx is None or fy is None: return None
+        a, b = (fx[0] - f[0]) / step, (fy[0] - f[0]) / step
+        c, e = (fx[1] - f[1]) / step, (fy[1] - f[1]) / step
+        det = a * e - b * c
+        if abs(det) < 1e-9: return None
+        dx, dy = (e * ex - b * ey) / det, (a * ey - c * ex) / det
+        q = [q[0] - dx, q[1] - dy]
+        if abs(q[0] - cx) > limit or abs(q[1] - cy) > limit: return None
+    f = project(g, tile, p, q[0], q[1])
+    return (q[0], q[1]) if f is not None and math.hypot(f[0] - pointer[0], f[1] - pointer[1]) < 0.5 else None
+
+
+def corner_zone(tile):
+    """Half-size of a corner's grab square, canvas px."""
+    return min(max(CORNER_SHARE * min(tile[2], tile[3]), CORNER_MIN), CORNER_MAX)
+
+
+def pill_rect(tile):
+    """The drawn drag bar (view.cpp grab_pill): (x, y, w, h) canvas px, just above the desktop."""
+    tx, ty, tw, th = tile
+    w = min(min(max(PILL_SHARE * tw, PILL_MIN), PILL_MAX), tw)
+    return (tx + (tw - w) / 2, ty - PILL_GAP - PILL_THICKNESS, w, PILL_THICKNESS)
+
+
+def front_order(g, placements):
+    """Desktop indices nearest first (the reverse of the renderer's back-to-front draw order)."""
+    def depth(i):
+        t = g['tiles'][i]
+        x, y, z = place_point(g, t, placements[i], t[0] + t[2] / 2, t[1] + t[3] / 2)
+        return x * x + y * y + z * z
+    n = min(len(g['tiles']), len(placements))
+    return sorted(range(n), key=depth)
+
+
+def hit(g, placements, pointer):
+    """What is under canvas point `pointer`, front desktop first:
+    ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index), ('desktop', index, (px, py) tile pixel), or None."""
+    if g is None or pointer is None: return None
+    for i in front_order(g, placements):
+        tile = g['tiles'][i]
+        q = unproject(g, tile, placements[i], pointer)
+        if q is None: continue
+        tx, ty, tw, th = tile
+        z = corner_zone(tile)
+        for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
+            if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
+        px, py, pw, ph = pill_rect(tile)
+        if px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and py - PILL_PAD_Y <= q[1] < ty: return ('pill', i)
+        if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
+    return None
+
+
+def inside_by(tile, q):
+    """How far tile pixel q is inside the tile (canvas px; negative outside)."""
+    tx, ty, tw, th = tile
+    return min(q[0] - tx, tx + tw - q[0], q[1] - ty, ty + th - q[1])
+
+
+def move_target(start, dx, dy, tile):
+    """New (x, y) placement for a bar drag of (dx, dy) canvas px from offsets `start`: the bar stays under the pointer
+    (offsets are percent of the desktop's own size, so this holds at any distance). Clamped, each axis snapped."""
+    (xlo, xhi), (ylo, yhi) = PLACEMENT_BOUNDS['x'], PLACEMENT_BOUNDS['y']
+    x = min(max(round(start[0] + dx / tile[2] * 100), xlo), xhi)
+    y = min(max(round(start[1] - dy / tile[3] * 100), ylo), yhi)
+    return resize._snap(x), resize._snap(y)
+
+
+def resize_distance(start, corner, dx, dy, tile):
+    """New `distance` for a corner drag of (dx, dy) canvas px: the corner follows the pointer along its diagonal
+    (apparent size is 100 / distance, about the desktop's centre). Clamped to the distance bounds."""
+    if corner not in resize.CORNERS: raise ValueError('invalid corner')
+    vx = (-1 if corner[1] == 'l' else 1) * tile[2] / 2
+    vy = (-1 if corner[0] == 't' else 1) * tile[3] / 2
+    scale = max(MIN_SCALE, 100 / start + (dx * vx + dy * vy) / (vx * vx + vy * vy))
+    lo, hi = PLACEMENT_BOUNDS['distance']
+    return min(max(round(100 / scale), lo), hi)
+
+
+def overview_pointer_frame(run_id, session, request_id, pointer):
+    """Renderer `overview_pointer` frame: {visible, x, y, held}, x/y canvas px (spike/src/ipc.cpp checks the same)."""
+    if (not isinstance(pointer, dict) or set(pointer) != {'visible', 'x', 'y', 'held'} or type(pointer['visible']) is not bool
+            or type(pointer['held']) is not bool
+            or any(type(pointer[k]) is not int or not -MAX_POINTER_PX <= pointer[k] <= MAX_POINTER_PX for k in 'xy')):
+        raise ValueError('invalid overview pointer')
+    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'overview_pointer',
+                        'payload': dict(pointer)}, separators=(',', ':')) + '\n').encode()
+
+
+# Compositor Lua (generated, fixed shape; every cursor call in pcall so a refused change never breaks the binds).
+# Free mode: remember the cursor's visibility and position once (the same table the bind removal restores, so a run
+# that dies in free mode gives the cursor back on the next click), hide it and park it at (x, y).
+_HIDE_LUA = (f'if {resize.GRAB_TABLE} == nil then '
+             'local ok, hidden = pcall(hl.get_config, "cursor.invisible") local p = hl.get_cursor_pos() '
+             f'{resize.GRAB_TABLE} = {{ invisible = ok and hidden == true, home = p and {{ x = p.x, y = p.y }} }} end '
+             'pcall(hl.config, { cursor = { invisible = true } })')
+# Back to desktop mode: the left button goes back to windows and the cursor's own visibility returns (not its old
+# position: it is then warped to where the pointer is).
+_SHOW_LUA = (f'do local s = {resize.GRAB_TABLE} {resize.GRAB_TABLE} = nil if s then '
+             'pcall(hl.config, { cursor = { invisible = s.invisible } }) end end')
+
+
+def grab_pointer_lua(python, client, control_socket, run_id, session, x, y):
+    """Enter free mode: the left-button binds, the cursor hidden and parked at layout pixel (x, y). One eval."""
+    return resize.install_resize_binds_lua(python, client, control_socket, run_id, session) + ' ' + _HIDE_LUA + ' ' + \
+        view.warp_cursor_lua(x, y)
+
+
+def release_pointer_lua(x=None, y=None):
+    """Leave free mode for desktop mode: binds removed, cursor shown and (if given) put at layout pixel (x, y). One eval."""
+    out = view._remove_lua(resize.BIND_TABLE) + ' ' + _SHOW_LUA
+    return out + (' ' + view.warp_cursor_lua(x, y) if x is not None else '')
+
+
+class OverviewPointer:
+    """Pointer state, hover, drags and renderer frames, on the supervisor loop. The sampler thread hands in cursor samples
+    (feed) and applies `want` (what the cursor and the left button should be doing) with compositor calls."""
+    def __init__(self, control, clock=time.monotonic):
+        self.control, self.clock = control, clock
+        self._lock = threading.Lock()
+        self._abs, self._motion, self._applied, self._outputs, self._fresh = None, [0.0, 0.0], 0, [], False
+        self.geometry = None       # parse_overview_geometry, from the renderer
+        self.outputs = []          # resize.outputs_from_monitors, from the sampler
+        self.mode = 'off'          # off (not in the overview), away (cursor not on a desktop), desktop, free
+        self.desktop = None        # desktop index the cursor is on (desktop mode) or left from (free mode)
+        self.pointer = None        # (x, y) canvas px
+        self.gain = 1.0            # canvas px per cursor px in free mode (the desktop's own scale when it was left)
+        self.hover = None          # hit(): what a click would grab (free mode only)
+        # Corner: {'kind': 'corner', 'index', 'corner', 'start', 'distance', 'tile'}
+        # Bar:    {'kind': 'pill', 'index', 'start', 'xy', 'tile'}
+        self.drag = None
+        self.last_move = clock()
+        self.shown, self.pills, self.sent = dict(resize.HIDDEN), dict(resize.PILLS_HIDDEN), dict(POINTER_HIDDEN)
+        self.want = (0, 'off', None)  # (serial, 'off'|'away'|'desktop'|'free', layout point or None); read by the sampler
+        self._sync = 0                # cursor samples count in desktop mode only once the sampler applied this serial
+        self.summoned = False         # Ctrl+Alt+Down: bring a cursor that is off the desktops into the selected one
+        self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
+        self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
+        reader, writer = socket.socketpair()
+        reader.setblocking(False); writer.setblocking(False)
+        self.wake_reader, self._wake_writer = reader, writer
+
+    def close(self):
+        self.wake_reader.close(); self._wake_writer.close()
+
+    def overview(self):
+        """In the overview with nothing else owning the mouse: not zoomed, no placement menu, no VR video."""
+        s = self.control.state
+        return not s.zoomed and not s.menu_open and not getattr(self.control, 'video_active', False)
+
+    def active(self):
+        return self.overview() and self.geometry is not None and len(self.outputs) > 0
+
+    # --- inputs ---------------------------------------------------------------------------------------------------
+    def set_geometry(self, geometry):
+        self.geometry = geometry
+        self._poke()
+
+    def summon(self):
+        self.summoned = True
+
+    def feed(self, cursor, motion, outputs, applied):
+        """Sampler thread: latest cursor (global logical px or None), motion since the last sample, monitor rectangles and
+        the last `want` serial it applied. Wakes the loop when anything changed."""
+        with self._lock:
+            changed = cursor != self._abs or motion[0] or motion[1] or outputs != self._outputs or applied != self._applied
+            self._abs, self._outputs, self._applied = cursor, outputs, applied
+            self._motion[0] += motion[0]; self._motion[1] += motion[1]
+            if changed: self._fresh = True
+        if changed: self._poke()
+        return changed
+
+    def _poke(self):
+        try: self._wake_writer.send(b'.')
+        except OSError: pass  # full or closed: the loop's own 50 ms tick picks it up
+
+    def drain(self):
+        try:
+            while self.wake_reader.recv(4096): pass
+        except OSError: pass
+
+    def _take(self):
+        with self._lock:
+            fresh, cursor, outputs, applied = self._fresh, self._abs, self._outputs, self._applied
+            motion, self._motion, self._fresh = tuple(self._motion), [0.0, 0.0], False
+        self.outputs = outputs
+        return fresh, cursor, motion, applied
+
+    # --- helpers --------------------------------------------------------------------------------------------------
+    def _set_want(self, kind, point=None, sync=False):
+        serial = self.want[0] + 1
+        self.want = (serial, kind, point)
+        if sync: self._sync = serial
+
+    def _output(self, index):
+        return next((o for o in self.outputs if o['index'] == index), None)
+
+    def _placement(self, i):
+        p = self.control.state.placements
+        return p[i] if i < len(p) else None
+
+    def _tile(self, i):
+        g = self.geometry
+        return g['tiles'][i] if g is not None and i < len(g['tiles']) else None
+
+    def _from_logical(self, i, lx, ly):
+        o, tile, p = self._output(i), self._tile(i), self._placement(i)
+        if o is None or tile is None or p is None: return None
+        return project(self.geometry, tile, p, tile[0] + lx / o['width'] * tile[2], tile[1] + ly / o['height'] * tile[3])
+
+    def _to_layout(self, i, q):
+        """Tile pixel q of desktop i -> integer layout pixel inside its monitor (at least INSET_PX from every edge)."""
+        o, tile = self._output(i), self._tile(i)
+        if o is None or tile is None: return None
+        lx = min(max((q[0] - tile[0]) / tile[2] * o['width'], INSET_PX), o['width'] - 1 - INSET_PX)
+        ly = min(max((q[1] - tile[1]) / tile[3] * o['height'], INSET_PX), o['height'] - 1 - INSET_PX)
+        return (int(o['x'] + lx), int(o['y'] + ly))
+
+    def _gain(self, i):
+        o, tile, p = self._output(i), self._tile(i), self._placement(i)
+        if o is None or tile is None or p is None: return self.gain
+        return tile[2] / o['width'] * 100 / p['distance']
+
+    def _clamp(self, point):
+        g = self.geometry
+        return (min(max(point[0], -g['w'] / 2), g['w'] * 1.5), min(max(point[1], -g['h'] / 2), g['h'] * 1.5))
+
+    def _at(self, cursor):
+        """(index, lx, ly) of the XR monitor holding layout point `cursor`, or None."""
+        for o in self.outputs:
+            lx, ly = cursor[0] - o['x'], cursor[1] - o['y']
+            if 0 <= lx < o['width'] and 0 <= ly < o['height']: return o['index'], lx, ly
+        return None
+
+    def _select(self, i):
+        """The desktop the pointer went into (or clicked) becomes the selected one: Ctrl+Alt+Up zooms into it. Returns a
+        view frame if that changed."""
+        s = self.control.state
+        if i >= len(s.names) or s.selected == i: return b''
+        s.selected = i
+        return self.control._frame()
+
+    def _enter(self, i, q):
+        """Free -> desktop mode on desktop i at tile pixel q: the cursor comes back there, visible."""
+        target = self._to_layout(i, q)
+        if target is None: return b''
+        self.mode, self.desktop, self.hover = 'desktop', i, None
+        self._set_want('desktop', target, sync=True)
+        self.entries += 1
+        return self._select(i)
+
+    # --- the loop -------------------------------------------------------------------------------------------------
+    def poll(self, now):
+        """Supervisor tick: apply the newest cursor sample; returns renderer frames (bytes)."""
+        fresh, cursor, motion, applied = self._take()
+        out = b''
+        if not self.active():
+            if self.mode != 'off':
+                out += self._end_drag()
+                self.mode, self.hover, self.pointer, self.summoned = 'off', None, None, False
+                self._set_want('off')
+        else:
+            if self.mode == 'off':
+                self.mode, self.desktop, self.pointer = 'away', None, None
+                self._set_want('away')
+            if self.mode == 'free':
+                if motion[0] or motion[1]: out += self._move(motion[0] * self.gain, motion[1] * self.gain, now)
+            elif fresh and cursor is not None and applied >= self._sync:
+                out += self._absolute(cursor, now)
+        idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
+        if idle:
+            out += self._end_drag()
+            self.hover = None
+        return out + self._handle() + self._pills(idle) + self._pointer_frame(idle)
+
+    def _absolute(self, cursor, now):
+        """Away / desktop mode: the cursor's own position decides."""
+        out = b''
+        at = self._at(cursor)
+        if self.mode == 'away':
+            if at is None:
+                if self.summoned:  # Ctrl+Alt+Down with the cursor elsewhere: into the middle of the selected desktop
+                    self.summoned = False
+                    i = self.control.state.selected
+                    tile = self._tile(i)
+                    if tile is not None and self._output(i) is not None:
+                        self.mode, self.desktop = 'desktop', i
+                        self._set_want('desktop', self._to_layout(i, (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)), sync=True)
+                return out
+            self.mode, self.desktop = 'desktop', at[0]
+            out += self._select(at[0])
+        self.summoned = False
+        o = self._output(self.desktop)
+        if o is None:
+            self.mode, self.pointer = 'away', None
+            return out
+        lx, ly = cursor[0] - o['x'], cursor[1] - o['y']
+        w, h = o['width'], o['height']
+        if EDGE_PX <= lx <= w - 1 - EDGE_PX and EDGE_PX <= ly <= h - 1 - EDGE_PX:
+            point = self._from_logical(self.desktop, lx, ly)
+            if point is not None and point != self.pointer: self.pointer, self.last_move = point, now
+            return out
+        cx, cy = min(max(lx, 0), w - 1), min(max(ly, 0), h - 1)
+        over = (lx - cx, ly - cy)
+        if math.hypot(*over) > JUMP_PX:  # a keyboard focus change or warp, not the hand: follow the cursor
+            if at is not None:
+                self.desktop = at[0]
+                out += self._select(at[0])
+                self.pointer = self._from_logical(at[0], at[1], at[2])
+            else:
+                self.mode, self.pointer = 'away', None
+            return out
+        start = self._from_logical(self.desktop, cx, cy)
+        if start is None: return out
+        self.gain = self._gain(self.desktop)
+        self.pointer = self._clamp((start[0] + over[0] * self.gain, start[1] + over[1] * self.gain))
+        self.mode, self.last_move = 'free', now
+        self.exits += 1
+        self._set_want('free', (int(o['x'] + w / 2), int(o['y'] + h / 2)))
+        self.hover = hit(self.geometry, self.control.state.placements, self.pointer)
+        return out
+
+    def _move(self, dx, dy, now):
+        """Free mode: the pointer moves by the cursor's motion; a drag follows it, otherwise it may go into a desktop."""
+        self.pointer = self._clamp((self.pointer[0] + dx, self.pointer[1] + dy))
+        self.last_move = now
+        if self.drag is not None: return self._apply_drag()
+        self.hover = hit(self.geometry, self.control.state.placements, self.pointer)
+        if self.hover is not None and self.hover[0] == 'desktop' and inside_by(self._tile(self.hover[1]), self.hover[2]) >= ENTER_PX:
+            return self._enter(self.hover[1], self.hover[2])
+        return b''
+
+    def on_op(self, op):
+        """resize_press / resize_release: the left button, bound only in free mode."""
+        if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
+        now = self.clock()
+        idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
+        self.last_move = now  # a click is input: the pointer, bars and bracket come back
+        out = b''
+        if op == 'resize_release':
+            out += self._apply_drag() + self._end_drag()
+        elif self.active() and self.mode == 'free' and not idle and self.pointer is not None:
+            out += self._end_drag()  # a press during a drag: its release was lost; finish that one first
+            self.hover = hit(self.geometry, self.control.state.placements, self.pointer)
+            h = self.hover
+            if h is not None and h[0] in ('corner', 'pill'):
+                i, tile, p = h[1], self._tile(h[1]), self._placement(h[1])
+                if h[0] == 'corner':
+                    self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile}
+                    self.drags += 1
+                else:
+                    self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile}
+                    self.moves += 1
+            elif h is not None:  # a desktop: focus it and hand the cursor back right there
+                self.focus_clicks += 1
+                out += self._enter(h[1], h[2])
+        return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
+
+    def _aspects(self):
+        return [t[2] / t[3] for t in self.geometry['tiles']][:len(self.control.state.placements)]
+
+    def _apply_drag(self):
+        d = self.drag
+        if d is None or self.pointer is None: return b''
+        c = self.control
+        current = c.state.placements[d['index']]
+        dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
+        if d['kind'] == 'corner':
+            updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], dx, dy, d['tile'])}
+        else:
+            target = move_target(d['xy'], dx, dy, d['tile'])
+            x, y = resize.allowed_move(d['index'], (current['x'], current['y']), target, c.state.placements, self._aspects())
+            updated = {**current, 'x': x, 'y': y}
+        if updated == current: return b''
+        c.state.placements = [updated if i == d['index'] else p for i, p in enumerate(c.state.placements)]
+        c.save_due = c.clock() + view.MENU_SAVE_DELAY
+        return c._placement_frame() + (c._menu_frame() if c.state.menu_open else b'')
+
+    def _end_drag(self):
+        if self.drag is None: return b''
+        self.drag = None
+        self.control.flush()  # saved at once on release (no-op if nothing changed)
+        return b''
+
+    # --- frames ---------------------------------------------------------------------------------------------------
+    def _send(self, make, state):
+        c = self.control
+        frame = make(c.run_id, c.session, c.next_id, state)
+        c.next_id += 1
+        return frame
+
+    def _handle(self):
+        d, h = self.drag, self.hover
+        if d is not None and d['kind'] == 'corner': target, active = (d['index'], d['corner']), True
+        elif d is None and self.mode == 'free' and h is not None and h[0] == 'corner': target, active = h[1:], False
+        else: target, active = None, False
+        want = ({'visible': True, 'desktop': target[0], 'corner': target[1], 'active': active}
+                if target is not None else {**self.shown, 'visible': False, 'active': False})
+        if want == self.shown: return b''
+        self.shown = want
+        return self._send(resize.handle_frame, want)
+
+    def _pills(self, idle):
+        """Bars show above every desktop in the overview while the pointer moved in the last 30 s (OLED idle close)."""
+        visible = self.active() and not idle
+        d, h = self.drag, self.hover
+        if d is not None and d['kind'] == 'pill': target, hover, active = d['index'], True, True
+        elif d is None and self.mode == 'free' and h is not None and h[0] == 'pill': target, hover, active = h[1], True, False
+        else: target, hover, active = self.pills['desktop'], False, False
+        want = {'visible': visible, 'desktop': target, 'hover': hover and visible, 'active': active and visible}
+        if want == self.pills: return b''
+        self.pills = want
+        return self._send(resize.pill_frame, want)
+
+    def _pointer_frame(self, idle):
+        """The dot: only in free mode (in a desktop the real cursor shows), hidden when idle."""
+        p = self.pointer
+        if self.mode == 'free' and p is not None and not idle and self.active():
+            want = {'visible': True, 'x': int(math.floor(p[0] + 0.5)), 'y': int(math.floor(p[1] + 0.5)), 'held': self.drag is not None}
+        else:
+            want = {**self.sent, 'visible': False, 'held': False}
+        if want == self.sent: return b''
+        self.sent = want
+        return self._send(overview_pointer_frame, want)
+
+
+class PointerSampler:
+    """Background cursor reads (250 Hz in the overview) and every compositor call this feature makes: the left-button
+    binds, hiding / showing / parking the cursor and handing it back. stop() undoes them before returning."""
+    def __init__(self, client, names, pointer, bind_args, period=SAMPLE_S):
+        self.client, self.names, self.pointer, self.bind_args, self.period = client, list(names), pointer, bind_args, period
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self.applied = 0          # last want serial applied
+        self.grabbed = False      # binds installed and cursor hidden (free mode); removal shows it again
+        self.ever_grabbed = False
+        self.park = None          # where the hidden cursor is kept
+        self._last = None         # previous cursor sample (motion is measured from it)
+        self._regrabbed_at = None
+        self.errors = self.samples = self.recentres = 0
+
+    def start(self):
+        self._thread.start()
+        return self
+
+    def stop(self, timeout=2.5):
+        self._stop.set()
+        self._thread.join(timeout)
+        if self.ever_grabbed:  # best effort even if the thread is stuck; xr_control drops stale ones on the next click
+            try: self.client.remove_resize_binds()  # also shows the cursor again and puts it back
+            except (OSError, ValueError, TypeError, KeyError): pass
+            self.grabbed = False
+
+    def _run(self):
+        outputs, refreshed = [], None
+        while not self._stop.is_set():
+            if not self.pointer.overview():
+                self._release()
+                self.applied = None  # re-apply the current want when the overview is back
+                self._last = None
+                self._stop.wait(IDLE_S)
+                continue
+            now = time.monotonic()
+            try:
+                if refreshed is None or now - refreshed >= OUTPUTS_REFRESH:
+                    outputs = resize.outputs_from_monitors(self.client.query('monitors', timeout=0.5), self.names)
+                    refreshed = now
+            except (OSError, ValueError, TypeError, KeyError):
+                self.errors += 1
+            self._apply()
+            cursor, motion = self._sample()
+            self.pointer.feed(cursor, motion, outputs, self.applied if self.applied is not None else -1)
+            self._recentre(cursor)
+            self._stop.wait(self.period)
+
+    def _sample(self):
+        try:
+            pos = self.client.query('cursorpos', timeout=0.25)
+            x, y = pos['x'], pos['y']
+            if type(x) not in (int, float) or type(y) not in (int, float) or not math.isfinite(x) or not math.isfinite(y):
+                raise ValueError('cursor position')
+        except (OSError, ValueError, TypeError, KeyError):
+            self.errors += 1
+            return None, (0.0, 0.0)
+        self.samples += 1
+        cursor = (int(x), int(y))
+        last, self._last = self._last, cursor
+        if last is None: return cursor, (0.0, 0.0)
+        dx, dy = cursor[0] - last[0], cursor[1] - last[1]
+        if abs(dx) > SAMPLE_JUMP_PX or abs(dy) > SAMPLE_JUMP_PX: return cursor, (0.0, 0.0)
+        return cursor, (float(dx), float(dy))
+
+    def _recentre(self, cursor):
+        """Free mode: the hidden cursor has strayed from its parking point; put it back (motion is measured from there)."""
+        if not self.grabbed or cursor is None or self.park is None: return
+        if math.hypot(cursor[0] - self.park[0], cursor[1] - self.park[1]) <= RECENTRE_PX: return
+        try:
+            self.client.warp_cursor(*self.park)
+            self._last = self.park; self.recentres += 1
+        except (OSError, ValueError, TypeError, KeyError, AttributeError): pass
+
+    def _apply(self):
+        serial, kind, point = self.pointer.want
+        if self.pointer.binds_dropped:  # a config reload removed the binds and showed the cursor
+            self.pointer.binds_dropped = False
+            if self.grabbed:
+                now = time.monotonic()
+                if self._regrabbed_at is None or now - self._regrabbed_at >= 2.0:  # never a reload loop
+                    self._regrabbed_at = now
+                    self.grabbed = False
+                    self.applied = None
+        if serial == self.applied: return
+        try:
+            if kind == 'free':
+                if point is None: return
+                self.ever_grabbed = True  # set first: a failed or partial grab is still undone at stop
+                self.client.grab_pointer(*self.bind_args, *point)
+                self.grabbed, self.park, self._last = True, point, point
+            elif kind == 'off':
+                self._release()
+            elif point is not None:
+                self.client.release_pointer(*point)
+                self.grabbed, self._last = False, point
+            elif self.grabbed:
+                self.client.release_pointer()
+                self.grabbed = False
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            self.errors += 1
+            return  # retried on the next sample
+        self.applied = serial
+
+    def _release(self):
+        if not self.grabbed: return
+        try:
+            self.client.remove_resize_binds()  # binds gone, cursor shown and put back where free mode found it
+            self.grabbed = False
+        except (OSError, ValueError, TypeError, KeyError):
+            self.errors += 1
