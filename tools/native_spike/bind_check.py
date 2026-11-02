@@ -55,7 +55,8 @@ def _lua_string(s):
 
 
 def harness_lua(config, out):
-    chunks = [view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
+    chunks = [view.install_binds_lua(*DUMMY_ARGS, typing=True), view.remove_binds_lua(),  # typing mode's toggle-only set
+              view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
               view.install_menu_binds_lua(*DUMMY_ARGS),
               view.install_mouse_binds_lua(*DUMMY_ARGS), view.remove_binds_lua()]
     ours = '\n'.join(f'do {c} end' for c in chunks)
@@ -155,7 +156,7 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     if problems: return 1, report + problems
     labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w == 'menu'}))
     sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
-    return 0, report + [f'no clash: {len(view.BINDS)} run binds, send-window binds ({sends}), menu binds ({labels}) '
+    return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), menu binds ({labels}) '
                         'and the mouse-mode left button']
 
 

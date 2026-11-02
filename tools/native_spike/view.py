@@ -29,6 +29,14 @@ Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1/2/3 t
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
 add no help card row (a 13th row does not fit); the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
 
+Typing mode (Ctrl+Alt+T, TYPING_OP): one chord that hands the keyboard back while the run keeps going. Entering it
+closes the placement menu and the help card, then reinstalls the run's bind table with only the Ctrl+Alt+T bind in
+it: the view binds, the send-window binds, the menu and mouse-mode binds, the overview corner resize binds and a
+playing video's bare-key binds are all released, so arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach
+the focused window. Ctrl+Alt+T again puts every bind back (control mode). The mode is in the `view` payload, so the
+renderer shows a short, dimmed pop-up when it changes; it is never saved and every run starts in control mode. Config
+reloads keep the current mode (after_reload in managed.py reinstalls the matching set). Panel buttons keep working.
+
 Mouse mode (Ctrl+Alt+M while the menu is open, a modal menu bind): each menu row is drawn as a slider, and a round
 pointer moves freely over the whole card, 1:1 with the mouse. A sampler thread reads Hyprland's cursor position every
 MOUSE_SAMPLE_S, adds up the motion (re-centring the hidden cursor so it never stops at a screen edge) and wakes the
@@ -59,15 +67,21 @@ MODES = ('anchor', 'follow', 'locked')  # cycle order
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
-         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'),
+         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + T', 'typing_toggle'),
+         ('CTRL + ALT + L', 'menu_toggle'),
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
          ('CTRL + ALT + U', 'video_paste'))  # video_paste: the helper sends the clipboard's web video (docs/delightxr.md)
+# Typing mode (module docstring): the one run bind that stays while every other bind is released. Ctrl+Alt+T is free in
+# Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
+TYPING_OP = 'typing_toggle'
+TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview; drag a corner there to resize',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction',
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
+                'typing_toggle': 'Typing mode: XR keys off / on',
                 'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied'}
 # Placement menu: actions (shared contract with the renderer overlay and tests) and the modal binds present only while open.
@@ -82,6 +96,9 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
 # Mouse mode only: the left button (press, and release with { release = true }). Clicks go to the menu, not to windows.
 MOUSE_OPS = ('menu_mouse_press', 'menu_mouse_release')
 MOUSE_BINDS = (('mouse:272', 'menu_mouse_press'), ('mouse:272', 'menu_mouse_release'))
+# Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
+# (Corner resize is off in typing mode: resize.CornerResize.overview.)
+IGNORED_WHILE_TYPING = MENU_OPS + MOUSE_OPS + SEND_OPS
 # Pointer, in menu-card pixels (the card is drawn 1:1 in the glasses): free over the whole card.
 MOUSE_GAIN = 1.0           # card pixels per cursor pixel (the cursor's own speed and acceleration already apply)
 MOUSE_SAMPLE_S = 1 / 250   # cursor reads while mouse mode is on: faster than the glasses' 120 Hz
@@ -114,7 +131,8 @@ EXTRA_HELP_ROWS = ()
 
 # Bind pairs shown as one help-card row, so the card stays at 12 rows: a 13th row makes it 1008 px tall with
 # JetBrainsMono, past the 960 px glasses surface. first op -> (second op, action).
-HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+HELP_PAIRS = {'cursor_follow': ('prediction', 'Toggle cursor follow / prediction'),  # frees the row Ctrl+Alt+T uses
+              'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               'video_open': ('video_paste', 'VR video: file / copied web link')}  # docs/delightxr.md
 
 
@@ -241,6 +259,8 @@ class ViewState:
         placements = list(placements or [])[:len(self.names)]
         self.placements = [validate_placement(p) for p in placements] + \
             [dict(DEFAULT_PLACEMENT) for _ in range(len(self.names) - len(placements))]
+        # Typing mode (Ctrl+Alt+T): every run bind but the toggle released. Never saved; each run starts in control mode.
+        self.typing = False
         # Placement menu; never saved, starts closed. `menu_desktop` indexes self.names.
         self.menu_open, self.menu_desktop, self.menu_field = False, 0, 'x'
         # Mouse mode pointer {'x', 'y' (card pixels, float), 'held': field key or None, 'placed': bool}, or None when off;
@@ -389,7 +409,7 @@ class ViewState:
     def view(self):
         """Renderer payload. Cursor follow is acted on supervisor-side; the renderer only displays it."""
         return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode,
-                'cursor_follow': self.cursor_follow, 'prediction': self.prediction}
+                'cursor_follow': self.cursor_follow, 'prediction': self.prediction, 'typing': self.typing}
 
     def settings(self):
         return {'spacing': self.spacing, 'mode': self.mode, 'cursor_follow': self.cursor_follow, 'prediction': self.prediction}
@@ -511,12 +531,14 @@ def restore_mode_lua(mode):
             f'scale = {mode["scale"]:g} }})')
 
 
-def install_binds_lua(python, client, control_socket, run_id, session):
+def install_binds_lua(python, client, control_socket, run_id, session, typing=False):
+    """The run's Ctrl+Alt binds; in typing mode only the Ctrl+Alt+T toggle (TYPING_BIND), in the same table."""
     for p in (python, client, control_socket):
         if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
     for t in (run_id, session):
         if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
-    return _binds_lua('xr_workspace_binds', BINDS, f'{python} -I {client} {control_socket} {run_id} {session}')
+    return _binds_lua('xr_workspace_binds', (TYPING_BIND,) if typing else BINDS,
+                      f'{python} -I {client} {control_socket} {run_id} {session}')
 
 
 def _binds_lua(table, binds, base):
@@ -601,7 +623,8 @@ def remove_mouse_binds_lua():
 class ViewControl:
     """Supervisor-side handler: user op -> state, async focus, saved spacing, renderer view frame."""
     def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None, on_reload=None,
-                 placements=None, menu_binds=None, clock=time.monotonic, mouse_binds=None, cursor=None, warp=None):
+                 placements=None, menu_binds=None, clock=time.monotonic, mouse_binds=None, cursor=None, warp=None,
+                 typing_binds=None):
         self.state, self.run_id, self.session = state, run_id, session
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
@@ -643,6 +666,10 @@ class ViewControl:
         self.mouse_moves = 0            # diagnostic: loop ticks that moved the pointer
         self.recentres = 0              # diagnostic: hidden-cursor re-centrings
         self.sender = None              # optional send.WindowSender (Ctrl+Alt+G/1-3/B); set by managed.view_controls
+        # optional (typing: bool) -> None: swap the run's bind table between the full set and the Ctrl+Alt+T toggle alone
+        # (a compositor call, run off the loop under _menu_lock so it is ordered with the menu's own bind changes).
+        self.typing_binds = typing_binds
+        self._typing_installed = False  # the bind set last put in place (False: the full set from install_view_binds)
 
     def initial_frame(self):
         return self._frame() + self._placement_frame(initial=True) + self._style_frame()
@@ -826,6 +853,31 @@ class ViewControl:
         out += self._pointer_frame()  # at most one per tick: the latest position
         return out or None
 
+    def _typing_toggle(self):
+        """Ctrl+Alt+T: typing mode on (the menu and help card close, every run bind but this one goes) or back off."""
+        out = b''
+        if not self.state.typing:
+            if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves; releases the menu keys
+            if self.help_visible: out += self._help_toggle()
+        self.state.typing = not self.state.typing
+        self._sync_typing_binds()
+        return out + self._frame()  # the renderer's pop-up shows the new mode
+
+    def _sync_typing_binds(self):
+        if self.typing_binds is None: return
+        t = threading.Thread(target=self._typing_bind_work, daemon=True); t.start()
+        self._threads.append(t); self._menu_threads.append(t)
+
+    def _typing_bind_work(self, force=False):
+        with self._menu_lock:
+            binds, want = self.typing_binds, self.state.typing
+            if binds is None or (want == self._typing_installed and not force): return
+            try:
+                binds(want)
+                self._typing_installed = want
+                if want: self._menu_binds_installed = self._mouse_binds_installed = False  # the swap removed those too
+            except (OSError, ValueError, TypeError, KeyError): pass  # best effort; Ctrl+Alt+T again retries
+
     def _help_toggle(self):
         self.help_visible = not self.help_visible
         frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible)
@@ -853,6 +905,9 @@ class ViewControl:
             self.last_input = self.clock()  # any run key or panel change keeps an open card up
         if isinstance(message, dict) and message.get('op') == 'placement':
             return self._on_placement(message.get('payload'))
+        if isinstance(message, dict) and message.get('op') == TYPING_OP:
+            return self._typing_toggle()
+        if isinstance(message, dict) and self.state.typing and message.get('op') in IGNORED_WHILE_TYPING: return None
         if isinstance(message, dict) and message.get('op') in MENU_OPS + MOUSE_OPS:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
@@ -913,8 +968,12 @@ class ViewControl:
         return out or None
 
     def _reload_work(self):
-        try: self.on_reload()
-        except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; the run itself is unaffected
+        with self._menu_lock:  # ordered with a typing-mode swap in flight
+            typing = self.state.typing  # on_reload (managed.after_reload) reinstalls the set for this mode
+            try: self.on_reload()
+            except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; the run itself is unaffected
+            self._typing_installed = typing
+        self._typing_bind_work()  # Ctrl+Alt+T pressed during the reload: put the matching set in place
         # After the view binds: re-add the modal menu binds if the menu is open, and mouse mode's. Should hiding the
         # cursor ever itself count as a config reload, the rate limit stops a reinstall loop (mouse mode then needs
         # Ctrl+Alt+M twice).
@@ -929,7 +988,7 @@ class ViewControl:
 
     def stop_menu_binds(self, timeout=2.5):
         """Run end: no later menu bind change, and wait (bounded in total) for any in flight, so none outlives the run."""
-        self.menu_binds = self.mouse_binds = self.cursor = self.warp = None
+        self.menu_binds = self.mouse_binds = self.cursor = self.warp = self.typing_binds = None
         self._sampling.set()  # wake the cursor sampler so it sees cursor=None and ends
         deadline = time.monotonic() + timeout
         for t in self._menu_threads + ([self._sampler] if self._sampler else []): t.join(max(0.0, deadline - time.monotonic()))

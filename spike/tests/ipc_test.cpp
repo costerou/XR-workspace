@@ -53,12 +53,15 @@ int main() {
     auto view = [](const std::string& payload) {
         return std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"view","payload":)") + payload + "}\n";
     };
-    auto view_decoded = xr::decode_control(view(R"({"zoomed":true,"selected":2,"spacing":40,"mode":"follow","cursor_follow":true,"prediction":true})"));
+    auto view_decoded = xr::decode_control(view(R"({"zoomed":true,"selected":2,"spacing":40,"mode":"follow","cursor_follow":true,"prediction":true,"typing":true})"));
     require(std::holds_alternative<xr::ControlMessage>(view_decoded));
     auto& message = std::get<xr::ControlMessage>(view_decoded);
     require(message.op == xr::ControlOp::view);
     auto& v = std::get<xr::ViewPayload>(message.payload);
-    require(v.zoomed && v.selected == 2 && v.spacing == 40 && v.mode == 2 && v.cursor_follow && v.prediction);
+    require(v.zoomed && v.selected == 2 && v.spacing == 40 && v.mode == 2 && v.cursor_follow && v.prediction && v.typing);
+    auto control_mode = xr::decode_control(view(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false})"));
+    require(std::holds_alternative<xr::ControlMessage>(control_mode) &&
+            !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).typing);
     for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":0,"spacing":0,"mode":"orbit"})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":3,"spacing":0})",
                             R"({"zoomed":true,"selected":0,"spacing":401})", R"({"zoomed":true,"selected":-1,"spacing":0})",
@@ -69,7 +72,10 @@ int main() {
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"x":1})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":1})",
-                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"x":1})"})
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"x":1})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":1})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"x":1})"})
         require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
     auto style = [](const std::string& payload) {
         return std::string(R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"style","payload":)") + payload + "}\n";

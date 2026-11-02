@@ -90,6 +90,7 @@ These keybinds exist only during a run. The keys marked "menu open" are bound on
 | Ctrl+Alt+F | run | Toggle cursor follow |
 | Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | run | Show the help card in the glasses |
+| Ctrl+Alt+T | run, both modes | Typing mode on / off (see [Typing mode](#typing-mode)) |
 | Ctrl+Alt+L | run | Open / close the placement menu in the glasses |
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
@@ -110,6 +111,25 @@ Menu changes apply immediately and are saved to the glasses profile half a secon
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
+
+### Typing mode
+
+**Ctrl+Alt+T** switches between XR control (the default each run) and typing mode. Typing mode hands the keyboard back
+without stopping the run: the placement menu and help card close, and the run's bind table (`xr_workspace_binds`) is
+reinstalled with only the Ctrl+Alt+T bind in it. Every other run bind is released: the view keys, the send-window keys,
+the menu and mouse-mode binds, the overview corner-resize and grab-pill left button, and a playing video's bare Space,
+arrow, Tab and Escape keys. Arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts then reach the focused window.
+Ctrl+Alt+T again reinstalls the full set. The binds use the same runtime `hl.bind` tables as the rest of the run
+(`view.install_binds_lua(..., typing=True)`, `HyprlandClient.reinstall_view_binds(..., typing=...)`); no Hyprland
+submap and no config file is involved. A config reload (theme switch) reinstalls whichever set matches the current mode.
+Panel buttons keep working in both modes. Key-only ops that arrive late from a released bind (menu, mouse mode, send)
+are ignored in typing mode.
+
+The mode is part of the renderer's `view` payload (`typing`). Each switch shows the usual 2 s status pop-up (fade in,
+1.5 s hold, fade out), drawn in the cards' dimmed colours and accent so nothing on it passes 191/255. Nothing stays
+on screen in either mode. The mode is never saved. Ctrl+Alt+T is free in Omarchy, which binds Super+Ctrl+Alt+T (a
+different chord), and in this project's binds; `python -m tools.native_spike.bind_check` checks it against your config.
+To fit the help card's 12 rows, Ctrl+Alt+F and Ctrl+Alt+P now share one row ("Ctrl+Alt+F / P").
 
 ### Head tracking from the command line
 

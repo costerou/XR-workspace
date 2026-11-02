@@ -783,9 +783,9 @@ void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hov
 }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
-                            bool prediction) {
+                            bool prediction, bool typing) {
     if (!impl_) return;
-    impl_->popups.update(mode, cursor_follow, prediction, double(monotonic_ms()));
+    impl_->popups.update(mode, cursor_follow, prediction, typing, double(monotonic_ms()));
     impl_->prediction = prediction;
     impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),

@@ -21,7 +21,7 @@ OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'rec
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back', 'menu_mouse_press',
        'menu_mouse_release', 'resize_press', 'resize_release', 'send_glasses', 'send_glasses_1', 'send_glasses_2',
-       'send_glasses_3', 'send_back')  # view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS
+       'send_glasses_3', 'send_back', 'typing_toggle')  # view.USER_OPS + MENU_OPS + MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit')

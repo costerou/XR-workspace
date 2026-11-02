@@ -160,11 +160,12 @@ class HyprlandClient:
             except (OSError, ValueError): pass
             raise
 
-    def reinstall_view_binds(self, python, client, control_socket, run_id, session):
-        """After a config reload: drop any surviving handles, then bind again (never doubled)."""
+    def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
+        """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
+        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send, menu and mouse binds."""
         from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
-        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session))
-        self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
+        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
 
     # Ownership plugin lifecycle. Wire strings follow hyprctl's request format ('/plugin load <abs path>',
     # '/plugin unload <abs path>', 'j/plugin list'); they MUST be confirmed against the VM's Hyprland before
