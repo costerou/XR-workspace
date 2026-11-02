@@ -165,10 +165,8 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<std::array<std::int32_t, 7>> placements;
     std::uint64_t placement_updates = 0;
     Placement target_placement(std::size_t i) const {
-        constexpr float rad = float(M_PI) / 180.f;
         if (i >= placements.size()) return {};
-        const auto& w = placements[i];
-        return {w[0] / 100.f, w[1] / 100.f, w[2] / 100.f, w[3] * rad, w[4] * rad, w[5] * rad, w[6] * rad};
+        return placement_from_wire(placements[i]);
     }
     // Drawn placements ease toward the latest ones (view.hpp ease_toward), so a pill drag or corner resize, whose
     // updates arrive at the pointer's rate, moves smoothly at the display's rate.
@@ -213,9 +211,8 @@ struct Presentation::Impl : SurfaceRequests {
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
     HelpOverlay help;          // keyboard help card (Ctrl+Alt+H)
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
-    PlacementMenuOverlay menu; // keyboard placement menu (supervisor-owned state)
-    bool menu_drawn = false;   // last frame showed the menu: draw once more so it clears
-    std::uint64_t menu_geometry_sent = 0;  // geometry generation last handed to the supervisor
+    GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
+    bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
     struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
     struct FreePointer { bool visible = false, held = false; std::int32_t x = 0, y = 0; std::uint64_t shown = 0; } free_pointer;
@@ -463,7 +460,6 @@ struct Presentation::Impl : SurfaceRequests {
         zwlr_layer_surface_v1_ack_configure(layer, serial);
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
-        s.menu.set_viewport(w, h);  // the placement menu card is laid out to fit the output
         if (s.gl) s.gl->resize(w, h);
         s.half_w = 0;  // recompute FOV split for the new aspect
     }
@@ -473,9 +469,10 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()) || s.menu.animating(now) || (s.menu_drawn && !s.menu.visible()) || s.placements_easing() ||
+            (s.help_drawn && !s.help.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() ||
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
-            s.cadence.invalidate();  // animate / follow the head / fade a pop-up, the help card or the menu every frame
+            s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -580,10 +577,10 @@ std::string Presentation::capture_report() const {
     }
     out += "],\"help\":{\"visible\":" + std::string(impl_->help.visible() ? "true" : "false") +
            ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) + "}";
-    out += ",\"placement_menu\":{\"visible\":" + std::string(impl_->menu.visible() ? "true" : "false") +
-           ",\"shown\":" + std::to_string(impl_->menu.shown_count()) + ",\"hidden\":" + std::to_string(impl_->menu.hidden_count()) +
-           ",\"renders\":" + std::to_string(impl_->menu.render_count()) +
-           ",\"fits\":" + (impl_->menu.fits() ? "true" : "false") + "}";
+    out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
+           ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
+           ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
+           ",\"renders\":" + std::to_string(impl_->glass.renders()) + "}";
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
     out += ",\"overview_pointer\":{\"shown\":" + std::to_string(impl_->free_pointer.shown) + "}";
@@ -696,7 +693,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
             s->popups.set_font(std::move(font));
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
-            std::string menu_why; s->menu.set_font(HudFont::load(kHudFontFamily, menu_why));
+            std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
         }
         s->uploaded.assign(s->captures.size(), 0);
         s->allocation_enabled = true;
@@ -709,17 +706,6 @@ Status Presentation::dispatch(int timeout_ms, int wake_fd) {
     if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms, wake_fd)) return Error{"dispatch", "closed, removed or disconnected"};
     return {};
 }
-void Presentation::set_menu_pointer(bool visible, std::int32_t x, std::int32_t y, bool held) {
-    if (impl_ && impl_->menu.set_pointer(visible, x, y, held) && impl_->menu.visible()) impl_->cadence.invalidate();
-}
-std::optional<std::string> Presentation::take_menu_geometry() {
-    if (!impl_ || !impl_->menu.visible()) return std::nullopt;
-    const auto generation = impl_->menu.geometry_generation();  // lays the card out if it changed
-    if (generation == impl_->menu_geometry_sent) return std::nullopt;
-    impl_->menu_geometry_sent = generation;
-    return menu_geometry_json(impl_->menu.geometry());
-}
-void Presentation::resend_menu_geometry() { if (impl_) impl_->menu_geometry_sent = 0; }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
         return Error{"pattern", "animation requires configured surface, finite 1..60000 ms, before submission"};
@@ -759,10 +745,11 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                                      const std::array<std::array<std::int32_t, 7>, 3>& placements) {
+                                      const std::array<std::array<std::int32_t, 7>, 3>& placements,
+                                      const std::optional<std::array<std::int32_t, 7>>& surface) {
     if (!impl_) return;
     PlacementMenuState state{open, desktop, field, placements};
-    if (impl_->menu.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
+    if (impl_->glass.set(state, double(monotonic_ms()), surface)) impl_->cadence.invalidate();
 }
 void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>& placements) {
     if (!impl_) return;
@@ -877,7 +864,7 @@ Status Presentation::draw_test_pattern() {
         const float popup = s.popups.alpha(double(monotonic_ms()));
         s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
         s.popup_drawn = popup > 0.f;
-        if (s.video && s.video->active()) {  // VR video replaces the desktops; help card and menu are closed (video.py)
+        if (s.video && s.video->active()) {  // VR video replaces the desktops; help card and placement panel are closed (video.py)
             const double video_now = double(monotonic_ms());
             if (!s.video->prepare(video_now)) return Error{"gl", "video update failed"};
             float card_alpha = 0; std::uint64_t card_generation = 0;
@@ -886,7 +873,7 @@ Status Presentation::draw_test_pattern() {
             if (!s.gl->draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) { s.video->draw(world, fov, w, h); }, card, card_generation, card_alpha))
                 return Error{"gl", "draw or swap failed"};
             s.video->after_swap();
-            s.help_drawn = s.menu_drawn = false;
+            s.help_drawn = s.glass_drawn = false;
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
             return {};
@@ -895,21 +882,18 @@ Status Presentation::draw_test_pattern() {
         const float help = s.help.alpha(help_now);
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
-        const float menu = s.menu.alpha(help_now);
-        s.gl->set_menu(menu > 0.f ? &s.menu.image() : nullptr, s.menu.generation(), menu, s.menu.offset_px(help_now));
-        s.menu_drawn = menu > 0.f;
-        if (menu > 0.f && s.menu.pointer_visible()) {  // hot spot on the card point, through the card's own origin
-            const auto& card = s.menu.image(); const auto& p = s.menu.pointer_image();
-            const auto o = centered_card_origin(s.width, s.height, card.width, card.height, s.menu.offset_px(help_now));
-            s.gl->set_menu_pointer(&p, s.menu.pointer_generation(), menu, o.x + float(s.menu.pointer_x()) - float(p.width / 2),
-                                   o.y + float(s.menu.pointer_y()) - float(p.height / 2));
-        } else s.gl->set_menu_pointer(nullptr, 0, 0, 0, 0);
         // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
         const bool handle = s.handle.visible && s.view.zoom() < 0.01f;
         s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);
-        const bool pills = s.pills.visible && s.view.zoom() < 0.01f;  // grab pills: overview only, never moving on their own
-        s.gl->set_grab_pills(pills ? kPillLevelIdle : 0.f, s.pills.hover || s.pills.active ? int(s.pills.desktop) : -1,
-                             s.pills.active ? kPillLevelActive : kPillLevelHover);
+        {  // Glass pills and the open placement panel: overview only (a zoom hides them, and holds an expanding pill's
+           // morph until the overview is reached: GlassPills::frame), never moving on their own.
+            const bool overview = s.view.zoom() < 0.01f;
+            GlassFrame glass = s.glass.frame(overview, help_now);
+            glass.pills = s.pills.visible && overview;
+            if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
+            s.gl->set_glass(glass);
+            s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
+        }
         const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f;  // overview only; world-locked on the canvas
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel);

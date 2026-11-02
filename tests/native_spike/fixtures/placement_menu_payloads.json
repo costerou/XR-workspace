@@ -1,5 +1,5 @@
 {
- "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\".",
+ "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders.",
  "valid": [
   {
    "open": true,
@@ -306,6 +306,92 @@
      "curvature": 0
     }
    ]
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 23,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ],
+   "surface": {
+    "x": 0,
+    "y": 0,
+    "distance": 100,
+    "yaw": 0,
+    "pitch": 0,
+    "roll": 0,
+    "curvature": 0
+   }
+  },
+  {
+   "open": true,
+   "desktop": 2,
+   "field": "yaw",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 200,
+     "yaw": -60,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
+   ],
+   "surface": {
+    "x": -100,
+    "y": 100,
+    "distance": 50,
+    "yaw": 60,
+    "pitch": -45,
+    "roll": 45,
+    "curvature": 120
+   }
   }
  ],
  "invalid": [
@@ -1419,7 +1505,7 @@
    }
   },
   {
-   "why": "pointer inside placement_menu (the pointer is its own op, menu_pointer)",
+   "why": "unknown key \"pointer\" inside placement_menu",
    "payload": {
     "open": true,
     "desktop": 1,
@@ -1459,127 +1545,413 @@
      "drag": false
     }
    }
-  }
- ],
- "_comment_menu_pointer": "menu_pointer_valid / menu_pointer_invalid: payloads of the supervisor->renderer op \"menu_pointer\" (mouse mode: visible, x and y in card pixels 0..8192, held). Checked by test_placement_mouse.py (view.menu_pointer_frame) and placement_menu_ipc_test.cpp.",
- "menu_pointer_valid": [
-  {
-   "visible": true,
-   "x": 0,
-   "y": 0,
-   "held": false
   },
   {
-   "visible": true,
-   "x": 8192,
-   "y": 8192,
-   "held": true
-  },
-  {
-   "visible": false,
-   "x": 614,
-   "y": 366,
-   "held": false
-  },
-  {
-   "visible": true,
-   "x": 1228,
-   "y": 1,
-   "held": false
-  }
- ],
- "menu_pointer_invalid": [
-  {
-   "why": "x past the limit",
+   "why": "surface with the panel closed",
    "payload": {
-    "visible": true,
-    "x": 8193,
-    "y": 0,
-    "held": false
+    "open": false,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
    }
   },
   {
-   "why": "negative y",
+   "why": "surface is null",
    "payload": {
-    "visible": true,
-    "x": 0,
-    "y": -1,
-    "held": false
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": null
    }
   },
   {
-   "why": "fractional x",
+   "why": "surface not an object",
    "payload": {
-    "visible": true,
-    "x": 10.5,
-    "y": 0,
-    "held": false
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": [
+     0,
+     0,
+     100,
+     0,
+     0,
+     0,
+     0
+    ]
    }
   },
   {
-   "why": "string x",
+   "why": "surface above bound",
    "payload": {
-    "visible": true,
-    "x": "10",
-    "y": 0,
-    "held": false
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 61,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
    }
   },
   {
-   "why": "held not a bool",
+   "why": "surface below bound",
    "payload": {
-    "visible": true,
-    "x": 0,
-    "y": 0,
-    "held": 1
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0,
+     "y": 0,
+     "distance": 49,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
    }
   },
   {
-   "why": "visible not a bool",
+   "why": "surface missing key",
    "payload": {
-    "visible": "yes",
-    "x": 0,
-    "y": 0,
-    "held": false
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "curvature": 0
+    }
    }
   },
   {
-   "why": "missing held",
+   "why": "surface extra key",
    "payload": {
-    "visible": true,
-    "x": 0,
-    "y": 0
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0,
+     "z": 0
+    }
    }
   },
   {
-   "why": "extra key",
+   "why": "surface float value",
    "payload": {
-    "visible": true,
-    "x": 0,
-    "y": 0,
-    "held": false,
-    "field": "x"
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0.5,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    }
    }
   },
   {
-   "why": "huge x",
+   "why": "surface and another extra key",
    "payload": {
-    "visible": true,
-    "x": 18446744073709551615,
-    "y": 0,
-    "held": false
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "surface": {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "yaw": 0,
+     "pitch": 0,
+     "roll": 0,
+     "curvature": 0
+    },
+    "visible": true
    }
-  },
-  {
-   "why": "null payload",
-   "payload": null
-  },
-  {
-   "why": "list payload",
-   "payload": [
-    0,
-    0
-   ]
   }
  ]
 }

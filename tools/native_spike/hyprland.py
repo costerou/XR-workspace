@@ -162,7 +162,7 @@ class HyprlandClient:
 
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
         """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
-        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send, menu and mouse binds."""
+        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
         from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
         if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
@@ -260,7 +260,8 @@ class HyprlandClient:
         self._eval(remove_video_binds_lua())
 
     def install_menu_binds(self, python, client, control_socket, run_id, session):
-        """Placement menu opened: its modal bare-key binds (replacing any surviving set); generated Lua only."""
+        """A glass pill expanded into its placement panel: the panel's modal bare-key binds (replacing any surviving set);
+        generated Lua only."""
         from .view import install_menu_binds_lua
         self._eval(install_menu_binds_lua(python, client, control_socket, run_id, session))
 
@@ -287,18 +288,9 @@ class HyprlandClient:
         from .free_pointer import release_pointer_lua
         self._eval(release_pointer_lua(x, y))
 
-    def install_mouse_binds(self, python, client, control_socket, run_id, session):
-        """Placement menu mouse mode on: left-button binds, cursor hidden (runtime only); generated Lua only."""
-        from .view import install_mouse_binds_lua
-        self._eval(install_mouse_binds_lua(python, client, control_socket, run_id, session))
-
-    def remove_mouse_binds(self):
-        """Mouse mode off: the click binds go, the cursor is shown and put back where it was."""
-        from .view import remove_mouse_binds_lua
-        self._eval(remove_mouse_binds_lua())
-
     def warp_cursor(self, x, y):
-        """Mouse mode: put the hidden cursor back at integer layout pixel (x, y); generated Lua only."""
+        """Overview free pointer: put the hidden cursor back at its parking point, integer layout pixel (x, y); generated
+        Lua only."""
         from .view import warp_cursor_lua
         self._eval(warp_cursor_lua(x, y))
 

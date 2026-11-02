@@ -75,15 +75,14 @@ When the session ends they go away, so they never get in the way of normal typin
 | Ctrl+Alt+H | Show or hide the help card |
 | Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
 | Ctrl+Alt+Up | Zoom into the selected desktop |
-| Ctrl+Alt+Down | Zoom out to see all desktops (the overview). The mouse can then move anywhere around them |
+| Ctrl+Alt+Down | Zoom out to see all desktops (the overview). The mouse can then move anywhere around them, and each desktop has a small glass pill under it |
 | Ctrl+Alt+Left / Right | Select the previous / next desktop |
 | Ctrl+Alt+[ / ] | Less / more space between desktops |
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
 | Ctrl+Alt+V | Change how the desktops follow your head (see below) |
 | Ctrl+Alt+F | Turn cursor follow on or off: the view switches to the desktop your mouse moves onto |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
-| Ctrl+Alt+L | Open or close the placement menu |
-| Ctrl+Alt+M | Mouse mode in the placement menu (only while the menu is open) |
+| Ctrl+Alt+L | Open or close the placement pill of the selected desktop (zooms out to the overview first) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 | Send the window you're using to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
@@ -92,8 +91,9 @@ When the session ends they go away, so they never get in the way of normal typin
 
 **Typing mode.** Press **Ctrl+Alt+T** when you want to type or use an app's own shortcuts while the session runs.
 All of the keys in this list stop working until you press Ctrl+Alt+T again, so the arrow keys, Space, Tab, Esc and
-other apps' Ctrl+Alt shortcuts do their normal thing. Any open help card or placement menu closes, and a playing video
-gives its keys back too. In the overview the mouse stays a normal cursor (no grey dot) until you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
+other apps' Ctrl+Alt shortcuts do their normal thing. Any open help card or placement pill closes, and a playing video
+gives its keys back too. In the overview the mouse stays a normal cursor (no grey dot) and the pills are hidden until
+you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
 A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
 control. The panel's buttons work in both modes.
 
@@ -110,26 +110,39 @@ sent, a small notification tells you why.
 ## Placing desktops
 
 You can move, tilt, curve and resize each desktop in space. Your layout is saved for your glasses model and comes back
-next session. There are three ways to do it.
+next session. There are three ways to do it: the panel, the glass pill under each desktop in the glasses, and the
+mouse in the overview.
 
 **In the panel.** Before starting, click a desktop. During a session, use the **Place** section. Each desktop has
 these settings: left/right, down/up, distance (how big it looks), yaw (turn left or right), pitch (tilt up or down),
 roll (tilt sideways) and curvature.
 
-**With the placement menu in the glasses.** Press **Ctrl+Alt+L**. Changes apply straight away, and there's no Save
-button.
+**With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
+(**Ctrl+Alt+Down**) each desktop has a small frosted-glass pill just under it. Click a pill with the grey dot (see the
+next part) and it grows smoothly into that desktop's own placement panel: one slider for each setting, with its value.
+Or press **Ctrl+Alt+L** to open the pill of the selected desktop. If you are zoomed in, Ctrl+Alt+L zooms out first so
+you can see it. Only one pill is open at a time: opening another one closes the first. Changes apply straight away,
+and there's no Save button.
 
-| Keys (menu open) | What it does |
+With a pill open:
+
+- **Click on a slider** and it jumps to that spot. Hold the button and drag along it to change it live; the desktop
+  follows, while the pill stays put under the dot until you let go. Letting go saves it.
+- **Drag the top strip** of the open pill to move the desktop, the same as dragging the closed pill.
+- **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click inside a desktop
+  with the normal cursor goes to the window there and leaves the pill open.
+
+| Keys (pill open) | What it does |
 | --- | --- |
-| Tab / Shift+Tab | Next / previous desktop |
+| Tab / Shift+Tab | Open the next / previous desktop's pill instead |
 | Up / Down | Previous / next setting |
 | Left / Right | Change the setting a little (hold Shift for a bigger step) |
 | R | Reset this desktop to flat |
-| Ctrl+Alt+M | Mouse mode: click or drag the sliders with your mouse |
-| Esc | Leave mouse mode, or close the menu |
-| Ctrl+Alt+L | Close the menu |
+| Esc | Close the pill |
+| Ctrl+Alt+L | Close the pill |
 
-These menu keys only take over while the menu is open. After it closes, the arrows, Tab, R and Esc type normally again.
+These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
+Zooming in (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 
 **With the mouse in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
 In the overview your mouse is no longer stuck inside the desktops:
@@ -138,17 +151,18 @@ In the overview your mouse is no longer stuck inside the desktops:
 - **Push the mouse past the edge of a desktop** and it keeps going into the space around it. The normal cursor
   disappears and a small grey dot takes its place. Move the dot back onto a desktop and the normal cursor comes back
   right there.
-- **Move a desktop:** put the dot on the thin grey bar above a desktop. The bar lights up. Hold the left button and
-  drag; the desktop follows like a window by its title bar. It snaps back into its slot if you drop it close by, and it
-  won't overlap its neighbours by much.
+- **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
+  desktop follows like a window by its title bar. It snaps back into its slot if you drop it close by, and it won't
+  overlap its neighbours by much. A click that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
 - **Focus a desktop:** click it with the dot. That desktop is selected (Ctrl+Alt+Up zooms into it) and the normal
   cursor appears where you clicked. Moving the mouse into a desktop selects it too.
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
-Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, bars and bracket are off in typing mode (Ctrl+Alt+T), while the placement
-menu is open or a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back).
+Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
+and while a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back). An open
+pill stays until you close it or until 30 seconds pass without input.
 
 Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
 edit the desktop in the panel.
@@ -197,18 +211,18 @@ and put your windows and display back. If the panel says "Needs CLI recovery", s
 - **"No VITURE glasses detected."** Check the cable and plug the glasses in again.
 - **Starting takes a long time.** Head tracking is calibrating. Keep the glasses still for up to two minutes.
 - **Start refuses because another tracking driver is running.** Close the other XRLinuxDriver first.
-- **A key does nothing.** The keys only work during a session. The menu keys only work while the menu is open, and
-  most desktop keys do nothing while a video plays.
+- **A key does nothing.** The keys only work during a session. The arrows, Tab, R and Esc only act on a pill while
+  one is open, and most desktop keys do nothing while a video plays.
 - **Keys or the cursor act strangely after a crash.** Press the key once more, or click once. That clears what the
   crashed session left behind.
 - **The panel looks out of date after an update.** Run `omarchy-restart-shell`.
 - **It stopped working after a Hyprland update.** Rebuild and run the install step again with no session running.
 
 **About ghost images on the glasses screens.** The glasses use tiny OLED screens. Bright text that stays still for a
-long time can leave a faint ghost image that fades after a while. To prevent that, the help card, placement menu and
-video controls are dimmed, and they close by themselves after 30 seconds without input. The overview's dot, bars and
-corner bracket are dim grey and hide after 30 seconds without mouse movement. Don't leave a bright video
-paused for a long time either.
+long time can leave a faint ghost image that fades after a while. To prevent that, the help card, the open placement
+pill and the video controls are dimmed, and they close by themselves after 30 seconds without input. The overview's
+dot, glass pills and corner bracket are dim and hide after 30 seconds without mouse movement. Don't leave a bright
+video paused for a long time either.
 
 ## FAQ
 

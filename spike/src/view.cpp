@@ -137,12 +137,6 @@ CornerHandle corner_handle(const FRect& t, std::uint32_t corner) {
     return {{x0, hy, arm, kHandleThicknessPx}, {vx, y0, kHandleThicknessPx, arm}};
 }
 
-FRect grab_pill(const FRect& t) {
-    if (t.width <= 0 || t.height <= 0) return {};
-    const float w = std::min(clampf(kPillShare * t.width, kPillMinPx, kPillMaxPx), t.width);
-    return {t.x + (t.width - w) / 2, t.y - kPillGapPx - kPillThicknessPx, w, kPillThicknessPx};
-}
-
 std::vector<Vec3> canvas_disc(const Canvas& c, float x, float y, float radius, int segments) {
     if (c.view_w <= 0 || c.view_h <= 0 || !(radius > 0) || segments < 3) return {};
     auto at = [&](float px, float py) { return Vec3{(2 * px / c.view_w - 1) * c.half_w, (1 - 2 * py / c.view_h) * c.half_h, -1.f}; };

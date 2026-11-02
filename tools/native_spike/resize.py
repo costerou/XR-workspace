@@ -1,6 +1,6 @@
-"""Overview corner resize and drag bar (grab pill): the shared pieces. The pointer, hit testing and drags live in
-free_pointer.py (the overview free pointer, 2026-11-02), which replaced this module's logical-pixel zones and its
-30 Hz pointer poller.
+"""Overview corner resize and glass pill moves: the shared pieces. The pointer, hit testing, drags, pill clicks and the
+placement panel's sliders live in free_pointer.py (the overview free pointer, 2026-11-02), which replaced this module's
+logical-pixel zones and its 30 Hz pointer poller; the pills' look and geometry are the renderer's (glass.hpp).
 
 Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
   * What changes is the desktop's size in space, never its pixels. A corner drag drives the existing per-desktop
@@ -8,17 +8,19 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
     from half to twice its default size and the clamp is the placement's own. Resolution and Hyprland scale stay what
     the desktop editor set; they change only at session start through the journaled, read-back output creation, so
     this feature adds no compositor output mutation and no journal record kind. The aspect ratio is always kept.
-  * A bar drag moves the desktop like a title bar through its `x` / `y` placement. Free placement with two guards, not
-    a snap grid: each axis snaps back to the desktop's own row slot (0) within SNAP_PCT, and a move is clamped so the
-    desktop overlaps no other desktop by more than MAX_OVERLAP of the smaller one's area (approximate overview
-    rectangles: shared height, own aspect, apparent size 100/distance, rotation ignored, gaps ignored so the guard
-    errs early). If the target overlaps, the desktop slides along the free axis, else stops.
+  * A pill drag moves the desktop like a title bar through its `x` / `y` placement (the pill sits under the desktop;
+    an expanded pill's panel header drags the same way). Free placement with two guards, not a snap grid: each axis
+    snaps back to the desktop's own row slot (0) within SNAP_PCT, and a move is clamped so the desktop overlaps no
+    other desktop by more than MAX_OVERLAP of the smaller one's area (approximate overview rectangles: shared height,
+    own aspect, apparent size 100/distance, rotation ignored, gaps ignored so the guard errs early). If the target
+    overlaps, the desktop slides along the free axis, else stops.
   * Sizes and positions are saved with the other placements in the glasses model's profile (PlacementStore), 0.5 s
     after the last change and at once on release.
-  * Both drags use the same modal left-button binds and ops (resize_press / resize_release), so whatever disables one
-    (zoomed in, the placement menu open, a VR video playing) disables the other.
-  * OLED care: the bracket's brightest level is 184/255 and the bars' 184/255 (the cards' cap is 191); they hide after
-    OVERLAY_IDLE_CLOSE_S without pointer movement. Neither drifts or orbits.
+  * Every free-pointer click (corner and pill drags, pill clicks, panel sliders) uses the same modal left-button binds
+    and ops (resize_press / resize_release), so whatever disables one (zoomed in, typing mode, a VR video playing)
+    disables them all. An open placement panel does not: the pointer is how it is clicked.
+  * OLED care: the bracket's brightest level is 184/255 and no glass pixel passes 191/255 (the cards' cap); they hide
+    after OVERLAY_IDLE_CLOSE_S without pointer movement. Neither drifts or orbits.
 """
 import json
 
@@ -139,8 +141,9 @@ def remove_resize_binds_lua():
 
 
 def pill_frame(run_id, session, request_id, pill):
-    """Renderer `move_handle` frame: the overview's grab pills. visible = shown above every desktop; desktop + hover =
-    the one under the pointer (brighter); active = that one is being dragged (brightest)."""
+    """Renderer `move_handle` frame: the overview's glass pills. visible = shown under every desktop (an open placement
+    panel is drawn either way); desktop + hover = the one under the pointer or held (brighter); active = that one is
+    being dragged (brightest)."""
     if (not isinstance(pill, dict) or set(pill) != {'visible', 'desktop', 'hover', 'active'}
             or any(type(pill[k]) is not bool for k in ('visible', 'hover', 'active'))
             or type(pill['desktop']) is not int or not 0 <= pill['desktop'] <= 2):

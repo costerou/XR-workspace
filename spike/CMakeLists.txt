@@ -197,32 +197,22 @@ if(XR_ENABLE_PRESENTATION)
   # Pop-up text: installed system font via fontconfig + FreeType (local libraries, no downloads;
   # approved 2026-10-31). Missing font at runtime -> built-in pixel font, reported.
   pkg_check_modules(FONT REQUIRED IMPORTED_TARGET freetype2 fontconfig)
-  add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp)  # video.cpp: VR video maths + controls card state
-  target_link_libraries(xr_hud PUBLIC xr_types xr_pose PRIVATE PkgConfig::FONT)
+  add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp)  # video.cpp: VR video maths + controls card state
+  target_link_libraries(xr_hud PUBLIC xr_types xr_pose xr_view PRIVATE PkgConfig::FONT)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
   add_test(NAME hud COMMAND hud_test)
-  # The menu geometry status line, renderer side to supervisor side (tools/native_spike/view.py parse_menu_geometry).
-  add_executable(menu_geometry_dump tests/menu_geometry_dump.cpp)
-  target_link_libraries(menu_geometry_dump PRIVATE xr_hud)
+  # Glass pills (glass.hpp): geometry, look, panel content, animation.
+  add_executable(glass_test tests/glass_test.cpp)
+  target_link_libraries(glass_test PRIVATE xr_hud)
+  add_test(NAME glass COMMAND glass_test)
+  # The glass pill geometry, renderer side to supervisor side (tools/native_spike/free_pointer.py mirrors it).
+  add_executable(glass_geometry_dump tests/glass_geometry_dump.cpp)
+  target_link_libraries(glass_geometry_dump PRIVATE xr_hud)
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
-    add_test(NAME menu_geometry_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/menu_geometry_contract_test.py"
-      "$<TARGET_FILE:menu_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
-  endif()
-  # Placement menu card vs help card style and 1920x1200 @1.25 fit; needs MENU-UI (render_placement_menu_card, placement_menu_fit).
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/xr/hud.hpp" XR_HUD_HEADER)
-  string(FIND "${XR_HUD_HEADER}" "placement_menu_fit" XR_HAS_MENU_CARD)
-  if(XR_HAS_MENU_CARD GREATER -1)
-    add_executable(placement_menu_style_test tests/placement_menu_style_test.cpp)
-    target_link_libraries(placement_menu_style_test PRIVATE xr_hud)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-      target_compile_options(placement_menu_style_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    endif()
-    add_test(NAME placement_menu_style COMMAND placement_menu_style_test)
-  else()
-    add_test(NAME placement_menu_style COMMAND "${CMAKE_COMMAND}" -E echo "SKIP: hud.hpp has no placement_menu_fit yet (needs MENU-UI)")
-    set_tests_properties(placement_menu_style PROPERTIES DISABLED TRUE)
+    add_test(NAME glass_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/glass_contract_test.py"
+      "$<TARGET_FILE:glass_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
   endif()
   add_library(xr_capture STATIC src/capture.cpp)
   target_link_libraries(xr_capture PUBLIC xr_types)
@@ -238,13 +228,19 @@ if(XR_ENABLE_PRESENTATION)
   target_link_libraries(xr-native-spike PRIVATE xr_presentation xr_ipc)
   add_executable(presentation_test tests/presentation_test.cpp)
   target_link_libraries(presentation_test PRIVATE xr_presentation)
-  # A closed help card / placement menu leaves nothing in the frame (real GlHud on surfaceless EGL; skipped without it).
+  # A closed help card leaves nothing in the frame (real GlHud on surfaceless EGL; skipped without it).
   add_executable(overlay_residue_test tests/overlay_residue_test.cpp src/hud_gl.cpp)
   target_include_directories(overlay_residue_test PRIVATE src)
   target_link_libraries(overlay_residue_test PRIVATE xr_hud PkgConfig::GPU)
   add_test(NAME overlay_residue COMMAND overlay_residue_test)
   set_tests_properties(overlay_residue PROPERTIES SKIP_RETURN_CODE 77)
-  foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test)
+  # The glass shader matches its CPU mirror and the OLED cap on a real GLES2 context (surfaceless EGL; skipped without it).
+  add_executable(glass_render_test tests/glass_render_test.cpp)
+  target_link_libraries(glass_render_test PRIVATE xr_hud PkgConfig::GPU)
+  target_compile_options(glass_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME glass_render COMMAND glass_render_test)
+  set_tests_properties(glass_render PROPERTIES SKIP_RETURN_CODE 77)
+  foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump)
     target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endforeach()
   add_test(NAME presentation COMMAND presentation_test)

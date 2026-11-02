@@ -107,21 +107,7 @@ int main() {
             CHECK(std::get<Error>(e).code == std::string(kInvalidMoveHandleCode));
         }
     }
-    // Pill geometry: centred just above the tile, a share of its width clamped, thin, fixed (no drift input at all).
-    {
-        const FRect p = grab_pill(tile);
-        CHECK(std::fabs(p.x + p.width / 2 - (tile.x + tile.width / 2)) < 1e-3f);
-        CHECK(std::fabs(p.y + p.height - (tile.y - kPillGapPx)) < 1e-3f && p.height == kPillThicknessPx);
-        CHECK(std::fabs(p.width - 180.f) < 1e-3f);  // 30% of 600
-        CHECK(std::fabs(grab_pill({0, 100, 4000, 2000}).width - kPillMaxPx) < 1e-3f);
-        CHECK(std::fabs(grab_pill({0, 100, 50, 30}).width - kPillMinPx) < 1e-3f);
-        CHECK(grab_pill({0, 100, 10, 30}).width <= 10.f);  // never wider than its desktop
-        CHECK(grab_pill({0, 0, 0, 30}).width == 0);
-        CHECK(p.height * 10 < p.width);  // long and thin
-    }
-    // Pill levels: dim greys, hover brighter, drag brightest, all at or under 191/255.
-    CHECK(kPillLevelIdle > 0.f && kPillLevelIdle < kPillLevelHover && kPillLevelHover < kPillLevelActive);
-    CHECK(std::lround(kPillLevelActive * 255.f) <= 191);
+    // Pill geometry and look: glass_test (the pills are glass.hpp glass_pill, under each desktop).
     // Placement easing: frame-rate independent, converges, lands exactly, no time = no change, no overshoot.
     {
         const Placement from{0, 0, 1, 0, 0, 0, 0}, to{0.3f, -0.2f, 0.6f, 0.1f, 0, 0, 0.5f};

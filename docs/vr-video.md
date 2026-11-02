@@ -35,7 +35,7 @@ Start an XR session from the panel as usual. Then open a video in one of four wa
 4. Any client of the controller socket can send `{"op":"video_open","path":"/abs/path.mp4"}`, optionally with
    `"format":{"projection":"180","stereo":"sbs","fov":180}` to skip detection.
 
-While a video plays, these keys exist (bare keys, like the placement menu's; they are removed when you exit):
+While a video plays, these keys exist (bare keys, like an open placement pill's; they are removed when you exit):
 
 | Keys | Action |
 | --- | --- |
@@ -50,13 +50,14 @@ While a video plays, these keys exist (bare keys, like the placement menu's; the
 | Ctrl+Alt+P | Pose prediction on/off (the existing bind) |
 | Ctrl+Alt+O | Open another video: the desktops come back so you can see the picker |
 
-The desktop keys (zoom, switch, spacing, viewing mode, cursor follow, placement menu) do nothing while a video plays. The
-panel shows the title, the detected format and how it was detected, the state, any warnings, and buttons for the same
-actions.
+The desktop keys (zoom, switch, spacing, viewing mode, cursor follow, placement pill) do nothing while a video plays.
+Opening a video closes an open placement pill and turns the overview free pointer, its dot and the pills off until you
+return to the desktops. The panel shows the title, the detected format and how it was detected, the state, any
+warnings, and buttons for the same actions.
 
 The **controls card** appears head-locked near the bottom of the view when a video opens and on any video key. It shows
 the title, playing/paused/ended, the position and length, a progress bar, the format and the key hints. It follows the
-OLED rules of the help card and placement menu. It uses the help card's dimmed text and accent, and no channel goes
+OLED rules of the help card and the placement pills. It uses the help card's dimmed text and accent, and no channel goes
 above 191/255 (measured: 186). It never moves (no pixel orbit or drift). It closes after 30 s without a video key
 (`view.OVERLAY_IDLE_CLOSE_S`). The video itself is your content and is shown as is. A paused frame stays on screen
 like any paused video, so don't leave a bright frame paused for long.
@@ -158,11 +159,12 @@ for diagnosis.
   playlist-like file cannot reach the network.
 - **Binds:** Ctrl+Alt+O is a run bind like the other Ctrl+Alt keys. The bare video keys exist only while a video plays,
   are re-added after a Hyprland config reload, and are removed on exit and at run end. If the run dies with them
-  installed, the first video key pressed afterwards removes them (`xr_control.drop_stale_video_binds`), as for the
-  placement menu.
+  installed, the first video key pressed afterwards removes them (`xr_control.drop_stale_video_binds`), as for an
+  open placement pill's keys.
 - **Wire:** one renderer op, `video`, with `{"action": open|format|close|pause|seek|controls, …}`. The shared fixture
   `tests/native_spike/fixtures/video_payloads.json` is decoded by both the renderer and the supervisor tests. A
-  malformed `video` frame stops the renderer like any other malformed frame (only menu redraws are droppable). The
+  malformed `video` frame stops the renderer like any other malformed frame (only the placement pill, resize handle
+  and overview pointer redraws are droppable). The
   renderer reports `"video": loading|playing|paused|ended|error` in its once-a-second status. The supervisor uses it to
   leave the video after an error (4 s) or if the renderer never reports video at all (5 s: a renderer built without
   libmpv, or CPU composition).
@@ -256,7 +258,7 @@ Offline only (no display, glasses or compositor):
   *ended*), and seeked back.
 - `tests/native_spike/test_video.py`: requests, the shared payload fixture, detection (metadata, names, shape), limits,
   file checks, a real ffprobe of a generated Matroska file with a `stereo_mode` tag, the control state machine
-  (open closes help/menu, key handling, ignored desktop keys, idle close, error and no-support exits, request-id
+  (open closes the help card and an open placement pill, key handling, ignored desktop keys, idle close, error and no-support exits, request-id
   order, bind install/removal, config reload), descriptor passing over a socketpair, and the bind helper and picker.
 - `tests/xr_controller/test_video.py`: the controller forwards opens and keys only while running and writes no new consent.
 - `omarchy-plugin/.../tests/test_video_controls.py`: the panel component in offscreen Quickshell with a stand-in picker.

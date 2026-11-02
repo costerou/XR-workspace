@@ -59,8 +59,9 @@ class ViewStateTests(unittest.TestCase):
         from tools.native_spike import xr_control
         from tools.native_spike import resize
         from tools.native_spike import send
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS
-                         + (view.TYPING_OP,))  # bind helper and supervisor agree
+        # Bind helper and supervisor agree; the helper also keeps the old menu mouse mode's op names, for cleanup only.
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS
+                         + (view.TYPING_OP,) + xr_control.LEGACY_OPS)
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()

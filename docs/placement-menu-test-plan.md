@@ -1,106 +1,132 @@
-# Placement menu: integration checklist and glasses test script
+# Placement pills: test coverage and glasses test script
 
-Automated coverage lives in three places:
+On 2026-11-02 (`feature/glass-pills`) the head-locked placement menu card and its mouse mode (Ctrl+Alt+M) were replaced
+by a frosted-glass pill under each desktop in the overview. Clicking a pill with the overview free pointer, or pressing
+Ctrl+Alt+L for the selected desktop, expands it into that desktop's own placement panel with the menu's seven sliders
+and keys. The pill is also the desktop's move handle: it replaces the thin grey bar that sat above each desktop. The
+menu card's script (steps 1–36), its integration checklist and trial-merge notes, and its tests `placement_menu_style`
+and `menu_geometry_contract` went with the card. They are in git history before `feature/glass-pills`.
 
-- `tests/native_spike/test_placement_menu.py`: Python, contract level, plus checks that no permission scope widens.
-- `spike/tests/placement_menu_ipc_test.cpp`: the renderer's `decode_control`. It shares its payload cases with the
-  Python tests through `tests/native_spike/fixtures/placement_menu_payloads.json`.
-- `spike/tests/placement_menu_style_test.cpp`: whether the menu card matches the help card's look and fits the glasses
-  at 1920×1200 @1.25.
+Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38) has run in
+an isolated VM or been tried in the glasses.
 
-Passing tests do not count as a glasses pass. Only the script at the end does.
+## Placement pills: automated coverage
 
-## Trial merge (2026-11-01)
+Renderer (ctest, offline):
 
-I computed a three-way merge of `feature/placement-menu-ui` (`a034eb7`), `feature/placement-menu-wiring` (`b74eda7`)
-and this branch in memory with `git merge-tree`, exported it to `/tmp`, and ran everything on it. No branch, ref or
-worktree was changed.
+- `spike/tests/glass_test.cpp` (`glass`): the pill's geometry (centred 10 px under the desktop, 24% of its width within
+  64–160 px, never wider than the desktop, 14 px tall); the panel (480×322) sharing the pill's top and centre; the morph
+  between them; the panel layout (rows under the 42 px header, sliders between the label and value columns, footer
+  inside); every look state (idle, hover, drag, pill to panel) at or under 191/255 and premultiplied, with any accent;
+  the panel content (readable but under the cap, the selected row's band, a knob at a field's bounds exactly on the
+  slider's ends); the animation (one open at a time, opening another collapses the first, the content fades in over the
+  last quarter, value changes re-render once per frame however many arrive, without restarting anything); a panel
+  opened from a zoomed-in view (Ctrl+Alt+L zooms out in the same write) holding its morph until the overview is reached,
+  so the first frame that can show it starts as the pill and the whole 260 ms expansion is seen, also after a long
+  zoomed-in pause, while a collapse is never held; the draw order (the open panel's desktop last, over other pills); a
+  held slider's press-time surface (drawn on it while open, dropped on release or collapse, no content re-render).
+- `spike/tests/glass_render_test.cpp` (`glass_render`): on a real GLES2 context (surfaceless EGL: no display, window or
+  compositor) the fragment shader matches its CPU mirror `glass_shade()` within rounding over black and over a bright
+  (0.9) desktop, and over black the glass alone, and the glass with the panel content on top, stays at or under
+  191/255. Reports skipped (exit 77) without EGL or GLES.
+- `glass_contract` (`spike/tests/glass_contract_test.py`, which runs `glass_geometry_dump`): the supervisor's copy of the
+  geometry in `tools/native_spike/free_pointer.py` (`PILL_*`, `PANEL_*`, `pill_rect`, `panel_rect`) matches the
+  renderer's constants and layouts.
+- `spike/tests/placement_menu_ipc_test.cpp` (`placement_menu_ipc`): the `placement_menu` frame (now "this desktop's pill
+  is expanded") from the shared fixture `tests/native_spike/fixtures/placement_menu_payloads.json`: valid payloads
+  decode exactly, including a held slider's optional `surface` (open panels only), malformed ones are dropped without
+  ending the run. `menu_pointer` is now rejected.
+- `hud_test.cpp`, `overlay_residue_test.cpp`, `resize_handle_test.cpp`: updated for the removed card. A closed help card
+  still leaves nothing in the frame and stays under the cap; the pill checks moved from `resize_handle_test` to
+  `glass_test`.
 
-- The merge has no conflicts. An earlier README conflict was fixed by leaving the keybind tables to MENU-WIRING.
-- ctest: 12/12 pass, including `placement_menu_ipc` and `placement_menu_style`.
-- Python `tests/native_spike`: 327 run, no failures or errors. The only non-passing results are 3 deliberate unexpected
-  successes (item 2 below). `tests/xr_controller`: 73 OK. Plugin tests: OK.
-- Largest menu card with the renderer's own fitting: 969×733 with JetBrainsMono, 1040×502 with the pixel font, within
-  the 1536×960 surface.
+Supervisor (Python, offline), in `tests/native_spike/`:
 
-## Integration checklist (merging MENU-UI, MENU-WIRING and MENU-TESTS into `feature/placement-menu`)
+- `test_glass_pills.py`: the pill and panel geometry mirror; pill and panel hit testing (the open panel first, even
+  where it covers another desktop: its top strip, a slider row from 12 px before the knob's lowest position to 12 px
+  past its highest (`PANEL_KNOB_LO` / `PANEL_KNOB_HI` and `PANEL_SLOP_PX`: about 5 px past each end of the drawn track),
+  the rest of the panel; then corners over pills, then desktops; tilted and curved panels on their own surface); click
+  or drag on a pill (the 4 px threshold, so a click never nudges the desktop); a click toggles that desktop's panel and
+  closes any other; Escape, Tab or Ctrl+Alt+L pressed while the button is held are not undone by the release; a press
+  outside closes the open panel and then carries on (another pill's click or drag, a desktop's focus, empty space); the
+  open desktop's own corners leave it open and resize it; slider snap, live drag (measured on the panel as it was at the
+  press, and the panel drawn on that same press-time `surface` until the release, so the knob stays within 1.5 px of
+  the pointer for x, yaw and distance where a live-placed panel would drift up to 135 px), the debounced save and the
+  save on release; a key that collapses or moves the panel mid-drag ending what that drag does; pointer opens and
+  closes going through the same path as Ctrl+Alt+L (keys installed and removed, frame sent); Ctrl+Alt+L, Tab, Escape
+  and zoom-in on a clicked panel; typing mode (panel closed, pills hidden, pointer off); the 30 s idle close and pointer motion postponing it;
+  the free pointer and its sampler thread staying on while a panel is open; Ctrl+Alt+M and mouse mode gone; the legacy
+  `menu_mouse_*` op names still accepted by `xr_control.py` for cleanup only and rejected by the run;
+  `view.remove_menu_binds_lua()` still equal to `xr_control.REMOVE_MENU_BINDS`, run by a Lua interpreter against a stub
+  `hl` to show it removes an older run's mouse-mode bind and gives the cursor back; the bind checker (no Ctrl+Alt+M, the
+  free pointer's left button, `Hyprland --verify-config` on throwaway configs).
+- `test_free_pointer.py`: the pill zone under the desktop, pill and corner drags, and the free pointer staying on while
+  a panel is open (it turns off for zoom, typing mode, video and idle).
+- `test_placement_menu.py`, `test_view_menu_wiring.py`: the keyboard contract (Ctrl+Alt+L toggles the selected
+  desktop's pill; Tab / Shift+Tab move the open panel, wrapping; field and value keys, clamps and reset; the live
+  `placement` and `placement_menu` frames; saving, debounced and on close; the modal keys installed and removed; the
+  30 s idle close); the open panel's footer keys are bound and named in the README; the panel loads the help card's
+  font and uses its dimmed colours. `test_typing_mode.py`: typing mode closes an open panel and hides the pills.
 
-1. Merge all three branches, then run:
-   ```sh
-   python -m unittest discover -s tests/native_spike -v
-   python -m unittest discover -s tests/xr_controller -v
-   python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
-   cmake --build build/release -j && ctest --test-dir build/release --output-on-failure
-   ```
-2. After the merge, three expected failures turn into **unexpected successes** and fail the suite on purpose. Delete
-   their `@unittest.expectedFailure` decorators in `test_placement_menu.py`:
-   - `SentinelTests.test_menu_wiring_landed` and `test_menu_renderer_landed`: their job is to tell you the
-     previously skipped tests now run.
-   - `BindSafetyTests.test_reload_bind_reinstall_fits_one_eval`. MENU-WIRING's shared-prefix Lua (`local c = "…"`)
-     fixed the existing bug where the reinstall after a config reload went over the 4096-byte eval cap.
+Not checked offline: how the glass looks on the micro-OLED panels (the tint, gloss, hairline and shadow under the
+191/255 cap), whether the panel text is readable at overview size (the panel is drawn on the desktop's surface, so it
+shrinks as Distance grows), whether the panel hanging below the desktop row stays in view at the default spacing,
+whether the morph looks smooth at 120 Hz, how the 4 px click threshold feels with a real mouse, and the shader's frame
+time. The glasses steps below cover them.
 
-   After that the suite must be fully OK, with every "needs MENU-WIRING" / "needs MENU-UI" test running.
+Before the glasses run, run `python -m tools.native_spike.bind_check`. It must report no clash, and its list must no
+longer name Ctrl+Alt+M or a mouse-mode left button. Then rebuild the renderer and record its sha256 (other sessions
+rebuild in shared worktrees).
 
-   Done on `feature/placement-menu-integrate` (2026-11-01, merging wiring `120b719`, UI `7df6c33`, tests `0bf1e4e`):
-   the three decorators are gone, and `test_menu_card_uses_the_help_card_accent` now requires both cards to pass the
-   shared `kAccent` constant. The style test needed one fix: UI `460fa86` renamed the hint-segment helper to
-   `placement_menu_hint_segments()`.
-3. `ctest` must show `placement_menu_ipc` and `placement_menu_style` as **Passed**. Skipped or "Not Run (Disabled)"
-   means the build is missing MENU-UI. "Rejected" in the ipc test means either an `Error` or a decoded message with an
-   empty payload: MENU-UI ignores a well-framed message with a bad payload rather than ending the session.
-4. What the style test checks. It compares the menu card with the help card pixel by pixel:
-   - identical corners, border, background and padding;
-   - only the help card's colours (text white, text dim, accent);
-   - a pixel-font glyph for every character, in both hint wordings;
-   - the title, the desktop selector, all 7 rows and every footer line are drawn;
-   - no text reaches the padding.
-
-   Fit is checked the way the renderer lays the card out (`set_viewport(1536, 960)`), including the 18 px fade-in
-   drop, for every desktop and field selection at extreme values, in the pixel font and in JetBrainsMono when
-   fontconfig finds it. `MenuStyleSourceTests` checks what pixels can't: the menu loads the same `kHudFontFamily` as
-   the help card, and both cards get the same accent.
-5. Known warning, accepted: the style test prints that the 12-row help card (now including Ctrl+Alt+L) is 945 px tall
-   with JetBrainsMono. It fits at rest but starts its fade-in 18 px low, so its bottom 3 px are off-screen for the first
-   frames of the fade, at low opacity. This is a warning, not a failure, because it isn't the menu and isn't visible at
-   rest. Suggested fix for MENU-UI: limit the drop to the free margin (`min(kHelpRisePx, (height - card) / 2)`).
-6. The keys must agree in three places: wiring's `MENU_BINDS`, the menu card's footer (`kMenuHints` in `hud.cpp`) and
-   the README. `MenuHintAgreementTests` checks this, and `MenuBindTests.test_readme_documents_the_real_toggle_chord`
-   checks the README names the real toggle chord (Ctrl+Alt+L).
-7. Check that the help card (Ctrl+Alt+H) lists Ctrl+Alt+L and still has 24 rows or fewer (tested).
-8. Rebuild the renderer, then record its sha256 before any live run. Other sessions rebuild in shared worktrees.
-
-## Manual glasses test script (Cody)
+## Glass pills: glasses test script (Cody)
 
 This needs your usual go-ahead for a live run. Note the controller worktree HEAD, `git status`, the controller MainPID
 and the renderer sha256 before you start, and check them again afterwards.
 
-Setup: install the merged branch the usual way. No XR session should be running while you switch. Use your
-1920×1200, scale 1.25 session mode. Start tracking, open the panel and start a session with all three desktops.
-Before starting, give XR-2 a visible tilt in the panel (for example yaw 25), so a reset has something to undo.
+Setup: install this branch the usual way, with no XR session running while you switch. Use your 1920×1200, scale 1.25
+session mode. Start tracking, open the panel and start a session with all three desktops. Before starting, give XR-2 a
+visible tilt in the panel (for example yaw 25), so a reset has something to undo. Then press Ctrl+Alt+Down.
 
 | # | Do | Expect |
 |---|----|--------|
-| 1 | Look at XR-1 and press Ctrl+Alt+L | The menu fades in, centred, on XR-1. It shows the "Placement" title, the XR-1/XR-2/XR-3 selector with XR-1 underlined, the seven settings with plain-English hints and current values, one setting highlighted, and the key hints at the bottom. |
-| 2 | **Style.** Close the menu (Escape), press Ctrl+Alt+H, look at the help card, close it, reopen the menu | Both cards share the font (JetBrainsMono, not blocky pixel letters), the dark translucent background, the blue accent border, corner radius and divider, white and grey text, padding and row spacing. They fade and rise the same way. |
-| 3 | **Fit.** With the menu open and centred, look at every edge | Nothing clips at any edge: title, selector, all seven rows (Left/right, Down/up, Distance, Yaw, Pitch, Roll, Curvature) with hints and values, and every footer line. There's clear space between the card and the edge of the view. |
-| 4 | **Fit, longest values.** On one desktop set Left/right −100, Down/up −100, Yaw −60, Pitch −45, Roll −45, Curvature 120, then select each row in turn | The card stays inside the view. Nothing clips or wraps, and the highlight stays inside the card. Close and reopen: no edge clips during the fade-in. |
-| 5 | **Help card fade.** Close the menu, press Ctrl+Alt+H and watch the fade-in | Ctrl+Alt+L is listed. Note whether the bottom edge clips for a moment at the start of the fade (checklist item 5 predicts 3 px). |
-| 6 | Press Ctrl+Alt+L, then Escape, then Ctrl+Alt+L | It opens, closes, and opens again. The highlighted setting is kept. |
-| 7 | Press Tab three times, then Shift+Tab once | XR-1 → XR-2 → XR-3 → XR-1, then back to XR-3. Nothing moves in space. |
-| 8 | Press Down seven times, then Up once | The setting cycles Left/right → Down/up → Distance → Yaw → Pitch → Roll → Curvature → Left/right, then goes back to Curvature. |
-| 9 | Choose XR-1, Distance. Press Right a few times, then Shift+Right | The desktop moves farther away straight away with each press (no Apply). Shift takes a clearly bigger step. The value in the menu updates each time. |
-| 10 | Hold Shift+Right until it stops, then Shift+Left until it stops | Stops at 200, then at 50. Nothing jumps or flickers at a limit. |
-| 11 | Repeat step 10 for Yaw (±60), Pitch (±45), Roll (±45), Curvature (0 to 120), Left/right and Down/up (±100) | Each stops at its limit. The directions match the labels: yaw turns, pitch tilts up and down, roll tilts sideways. |
-| 12 | Choose XR-2 (tilted in setup), press R | XR-2 snaps flat (all defaults). XR-1 and XR-3 do not move. |
-| 13 | Close the menu, look at XR-3 (Ctrl+Alt+Right), press Ctrl+Alt+L | The menu opens on XR-3. |
-| 14 | With the menu closed, type in a terminal using the arrows, Tab, R and Escape | They type normally. The menu keys are bound only while it's open. |
-| 15 | Open the menu, change XR-3, wait 2 s **without closing**, then open the panel's **Place** tab | The panel shows XR-3's new values. |
-| 16 | Change XR-1 again and close the menu at once. Stop the session, start a new one | XR-1 comes back where you left it (saved on close). |
-| 17 | With the menu open, move a slider in the panel's **Place** tab | The desktop and the menu's value both update. The next arrow press continues from the panel's value. |
-| 18 | With the menu open, press Ctrl+Alt+H | The menu stays on top: the help card does not show while the menu is open (by design, the menu replaces it). Close the menu: the help card appears if it was toggled on. |
-| 19 | Press Ctrl+Alt+P | Pose prediction still toggles (its pop-up shows). The menu does not open. |
-| 20 | Switch the Omarchy theme during the run, then press Ctrl+Alt+L and an arrow | The menu still opens and adjusts (the binds were reinstalled). The cards keep their own blue accent; only the desktop highlight follows the theme. |
-| 21 | Stop the session | Windows return to the physical output as usual. `profiles.json` is still mode 0600 and holds the placements. |
+| G1 | Look under each desktop | A small frosted-glass pill sits centred just under each of XR-1, XR-2 and XR-3: dark, faintly tinted with the theme colour, rounded ends, a soft gloss along the top, a thin hairline edge and a soft shadow. Nothing on it is white or glaring. |
+| G2 | **OLED.** Compare the pills under a dark desktop and under a bright one (a white web page) | The pills read as solid glass shapes in both cases, not as holes, and are never brighter than the help card's grey text. They don't flicker, drift or shimmer. |
+| G3 | Push the mouse down past XR-1's bottom edge so the grey dot shows, and move the dot onto XR-1's pill | That pill gets brighter; the others don't. No corner bracket. |
+| G4 | Click the pill without moving the mouse | It grows smoothly (about a quarter of a second) into XR-1's placement panel under XR-1: "XR-1" and "Placement" at the top with a small grabber, seven rows (Left/right, Down/up, Distance, Yaw, Pitch, Roll, Curvature) with a slider and value each, the selected row on a faint band, and the key hints at the bottom. The text fades in at the end. XR-1 does not move. |
+| G5 | **Readability.** Read every row and the footer | The text is sharp and readable in the help card's dimmed colours. Nothing clips at the panel's edges or at the bottom of the view. Nothing in the panel is brighter than the help card's text. |
+| G6 | Click the panel's top strip | It shrinks back into the pill smoothly, a little faster than it opened. |
+| G7 | **Animation.** Click the pill, and click it again before it has finished growing. Repeat a few times quickly | It turns round and shrinks back with no jump, flash or leftover pixels. |
+| G8 | Open XR-1's pill, then click XR-3's pill | XR-1's panel collapses while XR-3's grows. Only one is ever open. |
+| G9 | With XR-3 open, click in empty space between the desktops | The panel collapses. Nothing else happens. |
+| G10 | Open XR-3, then bring the dot just onto XR-2's edge (as in F13) and click without moving | The panel collapses, XR-2 is selected and the cursor comes back there. |
+| G11 | Open XR-3 again. Move the dot into XR-3 so the normal cursor shows, and click a window there | The window gets the click and the panel stays open: clicks inside a desktop go to its windows, and the run never sees them. |
+| G12 | Press Escape | The panel collapses. In a terminal, the arrows, Tab, R and Escape type normally again. |
+| G13 | Select XR-1 (Ctrl+Alt+Left), press Ctrl+Alt+L, then Ctrl+Alt+L again | XR-1's pill opens, then closes. |
+| G14 | Zoom into XR-2 (Ctrl+Alt+Right, Ctrl+Alt+Up) and press Ctrl+Alt+L | The view zooms out to the overview, and only then XR-2's pill grows into its panel: the whole morph is seen, as in G4. It does not pop in nearly full size. |
+| G15 | With XR-2 open, press Tab three times, then Shift+Tab once | The open panel moves XR-2 → XR-3 → XR-1 → XR-2, then back to XR-1, one pill collapsing as the next grows. Nothing moves in space. |
+| G16 | Press Down seven times, then Up once | The selected row cycles Left/right → Down/up → Distance → Yaw → Pitch → Roll → Curvature → Left/right, then goes back to Curvature. |
+| G17 | On XR-1, select Distance. Press Right a few times, then Shift+Right | The desktop moves farther away with each press (no Apply). Shift takes a clearly bigger step. The value updates each time, and the panel stays attached under the desktop as it shrinks. |
+| G18 | Hold Shift+Right until it stops, then Shift+Left until it stops | Stops at 200, then at 50. Nothing jumps or flickers at a limit. The panel is still readable at 200. |
+| G19 | Repeat G18 for Yaw (±60), Pitch (±45), Roll (±45), Curvature (0 to 120), Left/right and Down/up (±100) | Each stops at its limit. The directions match the labels. The panel turns, tilts and curves with its desktop and stays readable. |
+| G20 | Open XR-2's pill (tilted in setup) and press R | XR-2 snaps flat (all defaults). XR-1 and XR-3 do not move. |
+| G21 | **Slider click.** On XR-1's open panel, click near the left end of the Yaw slider | Yaw becomes the selected row and jumps to about −60°; the desktop turns at once. A click on a label or value changes nothing and the panel stays open. |
+| G22 | **Slider drag.** Hold the button on the Yaw knob, drag right past the end, then release. Repeat with the Left/right and Distance sliders | The desktop turns (moves, recedes) continuously while the panel holds still where it was when you pressed, so the knob stays under the dot; it stops at the limit. On release the panel joins its desktop again at the new placement. After release, moving the dot changes nothing. The settings panel's Place tab shows the new values. |
+| G23 | **Move with the pill.** Close the panel. Hold the button on XR-1's pill and drag down, then left, then release | XR-1 follows with the pill under the dot (brightest while dragged). It stops one desktop height / width from its slot and snaps back in when dropped near it. No panel opens on release. |
+| G24 | Open XR-1's pill and drag its top strip | XR-1 moves the same way, with the panel open and following it. |
+| G25 | Press a closed pill and release with only a tiny, shaky movement. Then hold the button on the open panel's top strip, press Escape, and release; open it again, hold the strip, press Tab, and release | The first counts as a click: the pill opens and the desktop does not nudge. With the key pressed while the button was down, the key wins: the panel stays closed after Escape, and stays on the next desktop after Tab. |
+| G26 | **Corner resize.** With XR-1's panel open, drag XR-1's bottom-right corner outward and back in | XR-1 grows and shrinks about its centre, keeping its shape. Its panel stays open and the Distance row follows. |
+| G27 | With XR-1's panel open, drag a corner of XR-2 | XR-1's panel closes first, then XR-2 resizes as usual. |
+| G28 | **Typing mode.** Open a pill and press Ctrl+Alt+T | The panel closes, the pills and the dot disappear, and the cursor is a normal cursor everywhere. Ctrl+Alt+L and the arrows reach the focused app. Ctrl+Alt+T again: the pills are back (move the mouse if they don't show), none open. |
+| G29 | **Zoom-in closes.** Open XR-2's pill, change a value, press Ctrl+Alt+Up | The panel closes first, then the view zooms in. No pill or panel shows while zoomed. Zoom out: the pills are back, none open. The change was kept (Place tab). |
+| G30 | **Idle.** Open a pill and leave the mouse and keyboard alone for 30 s | The panel collapses by itself; the pills and the dot hide too. Moving the mouse brings the pills back, closed. |
+| G31 | Open a pill and click one of its sliders every 20 s for a minute. Then do the same only moving the dot a little every 20 s | The panel stays open both times. |
+| G32 | Change XR-3 with its pill, wait 2 s **without closing**, then open the settings panel's **Place** tab | The Place tab shows XR-3's new values. |
+| G33 | Change XR-1 and close its pill at once (Escape). Stop the session and start a new one | XR-1 comes back where you left it (saved on close). |
+| G34 | With a pill open, move a slider in the settings panel's **Place** tab | The desktop and the open panel's value both update. The next arrow press continues from the Place tab's value. |
+| G35 | With a pill open, press Ctrl+Alt+H, then Ctrl+Alt+P | The help card shows in front as usual and the panel stays open behind it. Its Ctrl+Alt+L row names the placement pill. Ctrl+Alt+P toggles prediction (its pop-up shows) and opens nothing. |
+| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider | Both still work (the binds were reinstalled). The glass's faint tint follows the new theme colour; the panel text keeps the cards' own blue accent. |
+| G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
+| G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
@@ -108,22 +134,24 @@ Record any failure with the step number and what you saw. Keep it apart from aut
 
 Since 2026-11-02 the overview's mouse can leave the desktops (`tools/native_spike/free_pointer.py`). This replaces the
 earlier corner-resize (R1–R15) and grab-bar (P1–P16) scripts: they assumed the pointer was stuck inside the desktops,
-with the bar's grab strip inside the desktop's top edge and corners only reachable from inside.
+with the bar's grab strip inside the desktop's top edge and corners only reachable from inside. Since
+`feature/glass-pills` the move handle is the glass pill under each desktop, not the thin bar above it, so F6–F9, F15,
+F16, F19 and F21 now say pill.
 
 Automated coverage (offline only):
 
 - `tests/native_spike/test_free_pointer.py`: the `overview_geometry` / `overview_pointer` contract (shared fixture with
   the renderer), projection and hit testing with the renderer's placement maths (offset, distance, yaw/pitch/roll,
-  curvature, front desktop first), corner and bar zones outside the desktops, drag maths (the bar stays under the
+  curvature, front desktop first), corner and pill zones outside the desktops, drag maths (the pill stays under the
   pointer, the corner follows its diagonal, clamps, snap, overlap guard), the desktop / free mode switch (edge, monitor
-  crossing, keyboard jumps, the 4 px return margin, samples before a hand-back), clicks (bar, corner, focus, empty
-  space, lost release), gates (zoom, menu, video, idle 30 s), the 250 Hz sampler (grab, re-centre, hand-back, errors,
+  crossing, keyboard jumps, the 4 px return margin, samples before a hand-back), clicks (pill, corner, focus, empty
+  space, lost release), gates (zoom, typing, video, idle 30 s), the 250 Hz sampler (grab, re-centre, hand-back, errors,
   reload, cleanup), the generated Lua run by a Lua interpreter against a stub `hl`, and the run wiring.
 - `tests/native_spike/test_resize.py`, `test_grab_pill.py`: the shared left-button binds, their removal after a dead
   run, the overlap guard, and the help card row.
 - `spike/tests/free_pointer_test.cpp`: `overview_pointer` decoding (malformed payloads dropped, never fatal), the
   `overview_geometry` line, the dot's shape and its levels at or under 191/255.
-  `spike/tests/resize_handle_test.cpp` still covers the bracket and the bars.
+  `spike/tests/resize_handle_test.cpp` still covers the bracket; the pills are in `glass_test.cpp` (above).
 - Not done: the new cursor Lua has not been loaded under `Hyprland --verify-config`, and nothing has run in the glasses.
 
 The steps below need your usual go-ahead for a live run, the same setup as above, and the renderer built from this
@@ -137,108 +165,25 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F3 | Push the mouse up past XR-1's top edge | The cursor disappears and a small grey dot with a dark ring carries on above XR-1 with no jump. It is dim, never white. |
 | F4 | Move the dot around above, beside and between the desktops, and past the outer edges | It goes everywhere smoothly, as fast as the cursor did on the desktop, with no lag you can see. |
 | F5 | Hold the dot still for 10 s | It stays on the same pixels (no drift or orbit). |
-| F6 | Move the dot onto the thin bar above XR-1 | That bar gets brighter. No corner bracket. |
-| F7 | Hold the left button on the bar and drag down, then up a long way, then left | XR-1 follows with the bar staying under the dot. It stops one desktop height up / width left of its slot. |
-| F8 | Release | Place tab: Left/right and Down/up show the new values. The dot stays where it is. |
-| F9 | Drag XR-1's bar right toward XR-2 at the same height | It stops when it just touches XR-2. Lift it above the row first and it passes over. Back near its slot it snaps in. |
+| F6 | Bring the dot round XR-1's side (or push the mouse down past XR-1's bottom edge) onto the pill under XR-1 | That pill gets brighter. No corner bracket. |
+| F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot. It stops one desktop height down / width left of its slot. |
+| F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values. The dot stays where it is. |
+| F9 | Drag XR-1's pill right toward XR-2 at the same height | It stops when it just touches XR-2. Lift it above the row first and it passes over. Back near its slot it snaps in. |
 | F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner. |
 | F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
 | F13 | Highlight XR-1 (Ctrl+Alt+Left), then on XR-2 push the mouse just past its top edge so the dot shows on the edge, and click without moving | XR-2 is highlighted and the cursor appears there. That click does not reach the window; the next one does. |
 | F14 | Click with the dot in empty space | Nothing happens. No window gets the click. |
-| F15 | Leave the mouse still for 30 s with the dot showing | The dot, bars and bracket fade off. A click then does nothing but bring them back. |
-| F16 | With the dot showing, open the placement menu (Ctrl+Alt+L), then close it | The dot and bars go and the cursor shows again (the menu's mouse mode owns the left button). After closing, the overview works as before. |
+| F15 | Leave the mouse still for 30 s with the dot showing | The dot, pills and bracket fade off. A click then does nothing but bring them back. |
+| F16 | With the dot showing, open the selected desktop's pill with Ctrl+Alt+L, then close it with Escape | The dot stays and keeps working while the pill is open (the free pointer drives the panel). After closing, the overview works as before. |
 | F17 | With the dot showing, zoom in (Ctrl+Alt+Up) | The cursor is visible and normal again. Zoom out: the free pointer is back. |
 | F18 | With the mouse on DP-1, press Ctrl+Alt+Down | The cursor jumps into the middle of the highlighted desktop. |
-| F19 | Switch the Omarchy theme while the dot shows | Still free afterwards: the cursor stays hidden and the bar can still be dragged. |
+| F19 | Switch the Omarchy theme while the dot shows | Still free afterwards: the cursor stays hidden and the pill can still be dragged. |
 | F20 | Stop the session from the panel while the dot shows (or mid-drag), then left-click on DP-1 | The cursor is visible and the click works. Moves and sizes made are back next session. |
-| F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no bars; nothing moves (the video gate ignores the click ops). |
+| F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no pills; nothing moves (the video gate ignores the click ops). |
 | F22 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: moving and resizing never change pixels or scale. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
-
-## Sliders and mouse mode
-
-Each setting in the menu is drawn as a slider. With the menu open, **Ctrl+Alt+M** turns on mouse mode: a round pointer
-moves freely over the whole menu card, 1:1 with the mouse, a click snaps the slider under it, and a drag moves it live.
-Ctrl+Alt+M again or Escape leaves mouse mode.
-
-How the pointer gets to the glasses (rebuilt 2026-11-02 after the first glasses trial felt laggy and jumpy):
-
-- A sampler thread reads Hyprland's `cursorpos` every 4 ms (250 Hz) while mouse mode is on, adds up the motion, and
-  wakes the supervisor loop through a socket. The hidden cursor is put back where mouse mode started whenever it strays
-  200 px, so no screen edge ever stops the pointer.
-- The loop moves the pointer in card pixels and sends one small `menu_pointer` frame per wake with the latest position.
-- The renderer draws the pointer as its own 26×26 overlay on the next frame. It wakes on the control socket instead of
-  waiting out its 50 ms Wayland poll. Moving the pointer never re-renders the menu card.
-- The renderer reports the card's layout (tab and slider rectangles, in card pixels) on its status socket
-  (`menu_geometry`, only when it changes). The supervisor hit-tests clicks against it, so only a click or drag on a
-  slider changes a value.
-- A drag changes values, and so the card: that is rasterised at most once per displayed frame (lazily), in about 2 ms.
-  The first version took about 24 ms per pointer move, on the render thread.
-
-Automated coverage:
-
-- `tests/native_spike/test_placement_mouse.py`: the pointer state machine (on/off, Escape leaves mouse mode first,
-  Ctrl+Alt+L and the idle close end it, nothing shows before the layout is known); free 1:1 motion in card pixels
-  (sub-pixel motion adds up, every corner of the card is reachable, clamped to the card with no build-up past an
-  edge); hovering changes nothing; one pointer frame per tick; a click on a slider snaps it (both bounds of every
-  field, with a pointer-radius slop at the ends), a click elsewhere does nothing; live drag, clamp and release; the
-  desktop tabs; debounced save; activity for the 30 s idle close (motion and clicks count, a still cursor does not);
-  bind order; the sampler (motion summed, the loop woken, more than 120 samples a second, stops with mouse mode); the
-  hidden-cursor re-centring (nothing lost to the warps); bad cursor replies; cursor follow paused; the reload rate limit;
-  the supervisor woken by motion within 30 ms and routing `menu_geometry` (malformed lines ignored, run status
-  untouched); the run wiring; the wire formats; the generated Lua and the bind clash checker, including real
-  `Hyprland --verify-config` runs on throwaway configs when Hyprland is installed.
-- `spike/tests/placement_menu_ipc_test.cpp`: the `menu_pointer` op from the shared fixture's `menu_pointer_valid` /
-  `menu_pointer_invalid` cases (x and y 0..8192 card pixels; a malformed object is dropped without ending the run), and
-  that `placement_menu` no longer accepts a pointer.
-- `spike/tests/hud_test.cpp`: the geometry matches the card for both fonts and four output sizes (one slider per visible
-  row, bands stacked, tabs above, independent of values); a knob at a field's low or high bound is centred on that
-  slider's reported ends; the pointer image is round, hard-edged, in the text grey only, at most `kCardMaxLevel`; the
-  card origin formula; pointer moves never re-render the card; several card changes in one frame cost one render.
-- `spike/tests/overlay_residue_test.cpp` (real GLES on a surfaceless EGL context): the pointer lands exactly on the card
-  pixel it names (a 1 px error fails), moves 1:1 with no card re-render, stays under the brightness cap, and leaves
-  nothing behind when hidden or when the menu closes.
-- `menu_geometry_contract` (ctest): the renderer's real `menu_geometry` lines for six layouts parse in the supervisor,
-  and its hit test maps both ends of a slider to the field's bounds.
-- `spike/tests/placement_menu_style_test.cpp`: the card with sliders still matches the help card's look and fits
-  1920×1200 @1.25 (1229×733 with JetBrainsMono). It now uses the help card's real menu row, "Placement menu
-  (Ctrl+Alt+M: mouse)": the help card is 1220×945.
-
-Bind check, run on this machine on 2026-11-01 (Hyprland 0.56.2, the live `~/.config/hypr` copied into a temporary HOME):
-
-```
-$ python -m tools.native_spike.bind_check
-Hyprland --verify-config: config ok (0)
-desktop config: 250 chords bound
-no clash: 12 run binds, menu binds (Ctrl+Alt+M, Down, Esc, Left, R, Right, Shift+Left, Shift+Right, Shift+Tab, Tab, Up) and the mouse-mode left button
-```
-
-Not checked offline: whether Hyprland 0.56.2 applies `cursor.invisible` and `hl.dsp.cursor.move` from a runtime
-`/eval` the way it does at config load (the re-centring depends on the latter), how the hidden cursor interacts with
-Omarchy's startup-cursor handling, the end-to-end latency in the glasses, and how the 1:1 speed feels. The glasses
-steps below cover them.
-
-Glasses steps (continue after step 21, with a new run started the usual way):
-
-| # | Do | Expect |
-|---|----|--------|
-| 22 | Press Ctrl+Alt+L | Every setting shows a slider between its label and value. The knob sits at the value; the stretch from flat to the knob is tinted blue. Nothing is brighter than the text. |
-| 23 | Press Ctrl+Alt+M | A ring appears around the selected setting's knob. The desktop cursor disappears from every XR desktop. |
-| 24 | Move the mouse slowly, then quickly, in circles and diagonals all over the menu | The ring follows the hand smoothly with no visible lag, stutter or jumps, glides between rows (no snapping) and reaches the title, labels, values and every corner of the card. It never sticks at a screen edge, however far the mouse travels. Nothing moves in space and no value changes. Cursor follow does not switch desktops. |
-| 25 | On Yaw, click near the left end of the slider | The desktop turns at once; the value reads about −60°. The ring fills while the button is held. A click on a label or empty space changes nothing. |
-| 26 | Hold the button and drag right, then release | The desktop turns continuously with the drag and the knob stays under the ring; the value updates. Dragging past the end stops at +60°. After release, moving the mouse moves only the ring. |
-| 27 | Move up to the tabs and click XR-3 | XR-3 is selected; the sliders show its values. |
-| 28 | Press Right, Shift+Right, Tab, R | The keyboard still adjusts, switches desktop and resets while mouse mode is on. |
-| 29 | Leave the mouse still for 30 s | The menu fades out; the cursor is visible again where it was before step 23. Left clicks reach windows again. |
-| 30 | Reopen the menu, Ctrl+Alt+M, move the mouse a little every 20 s for a minute | The menu stays open. |
-| 31 | Press Escape | Mouse mode ends: the ring goes, the cursor is back where it was, the menu stays open. Escape again closes the menu. |
-| 32 | Ctrl+Alt+M, then Ctrl+Alt+M again | Same as step 31's first Escape. |
-| 33 | Ctrl+Alt+M, then Ctrl+Alt+L | The menu closes and the cursor comes back. |
-| 34 | Ctrl+Alt+M, switch the Omarchy theme | Mouse mode still works after the reload: clicks still go to the menu and the cursor stays hidden. |
-| 35 | With the menu closed, press Ctrl+Alt+M in a terminal | Nothing happens in the glasses; the key reaches the terminal (it is bound only while the menu is open). |
-| 36 | Stop the session from mouse mode | The cursor is visible and clicks work after the run ends. |
 
 ## Sending windows to the glasses (Ctrl+Alt+G, Ctrl+Alt+1/2/3, Ctrl+Alt+B)
 
@@ -266,7 +211,7 @@ Automated coverage (offline only):
   `code:12`; Hyprland builds the move dispatcher).
 - `spike/tests/placement_menu_style_test.cpp`: the help card with the new Ctrl+Alt+H row still fits 1920×1200 @1.25:
   1404×945 with JetBrainsMono (was 1220×945), still 12 rows. The existing warning that its 18 px fade-in drop runs 3 px
-  off the surface is unchanged.
+  off the surface is unchanged. (This test was removed on 2026-11-02 with the placement menu card.)
 
 Bind check, run on this machine on 2026-11-02 (Hyprland 0.56.2, the live `~/.config/hypr` copied into a temporary HOME):
 
@@ -276,6 +221,9 @@ Hyprland --verify-config: config ok (0)
 desktop config: 250 chords bound
 no clash: 12 run binds, send-window binds (Ctrl+Alt+G, Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3, Ctrl+Alt+B), menu binds (Ctrl+Alt+M, Down, Esc, Left, R, Right, Shift+Left, Shift+Right, Shift+Tab, Tab, Up) and the mouse-mode left button
 ```
+
+That run predates the glass pills. Ctrl+Alt+M and the mouse-mode left button are no longer bound; the pill keys are the
+same list without Ctrl+Alt+M.
 
 Not checked offline: that Hyprland 0.56.2 carries out `hl.dsp.window.move({ workspace, follow, window })` from a runtime
 `/dispatch` the way Omarchy's own bind does, where floating and fullscreen windows land on an XR desktop, and whether

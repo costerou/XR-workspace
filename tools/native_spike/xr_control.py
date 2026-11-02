@@ -17,11 +17,15 @@ import struct
 import sys
 import time
 
+# Legacy, cleanup only: the menu "mouse mode" of builds before the glass pills bound Ctrl+Alt+M and the left button to
+# these. The run no longer accepts them (ipc.decode_control); they stay in OPS so a bind left behind by an older run that
+# died in that mode still runs, finds no run listening and removes itself (drop_stale_menu_binds: cursor shown again).
+LEGACY_OPS = ('menu_mouse', 'menu_mouse_press', 'menu_mouse_release')
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
-       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back', 'menu_mouse_press',
-       'menu_mouse_release', 'resize_press', 'resize_release', 'send_glasses', 'send_glasses_1', 'send_glasses_2',
-       'send_glasses_3', 'send_back', 'typing_toggle')  # view.USER_OPS + MENU_OPS + MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP
+       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'resize_press', 'resize_release',
+       'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_back', 'typing_toggle'
+       ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP + LEGACY_OPS
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit')
@@ -35,7 +39,8 @@ VIDEO_FILTER = 'Videos | *.mp4 *.MP4 *.mkv *.MKV *.webm *.mov *.MOV *.m4v *.avi 
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 # Same text as view.remove_menu_binds_lua() (tests compare); duplicated because this helper is stdlib-only under -I.
-# It also leaves menu mouse mode: the left-button binds go and the cursor is shown and put back.
+# Its tail is the legacy mouse-mode cleanup (view._LEGACY_MOUSE_CLEANUP_LUA): an older run's left-button binds go and the
+# cursor is shown and put back; a no-op when there are none.
 REMOVE_MENU_BINDS = ('for _, b in ipairs(xr_workspace_menu_binds or {}) do '
                      'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_menu_binds = nil '
                      'for _, b in ipairs(xr_workspace_mouse_binds or {}) do '
@@ -56,8 +61,9 @@ REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
 
 
 def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
-    """A menu key with no run listening: the supervisor died with the menu open. Remove its modal binds so the arrows,
-    Tab, R and Escape work again (and, in mouse mode, the left button and the cursor). Fixed Lua only, on the compositor that ran this bind (its own environment)."""
+    """A panel key with no run listening: the supervisor died with a placement panel open. Remove its modal binds so the
+    arrows, Tab, R and Escape work again (and an older build's mouse-mode left button and hidden cursor, LEGACY_OPS).
+    Fixed Lua only, on the compositor that ran this bind (its own environment)."""
     runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
     if not runtime.startswith('/') or not INSTANCE.match(instance): return False
     try:

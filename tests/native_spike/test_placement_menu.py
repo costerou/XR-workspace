@@ -1,4 +1,9 @@
-"""In-session placement menu (glasses overlay, keyboard driven): contract tests written ahead of the implementation.
+"""In-session placement from the keyboard: contract tests written ahead of the placement menu, kept for the glass pills.
+
+Since feature/glass-pills (2026-11-02) the head-locked menu card is gone: the same state and ops drive a frosted-glass
+pill under each desktop, and 'placement_menu' {open, desktop, ...} means "that desktop's pill is expanded into its
+placement panel". The keyboard contract below is unchanged; the pointer side (pill clicks, sliders, click outside) is
+tested in test_glass_pills.py.
 
 SHARED CONTRACT (feature/placement-menu, base f593574)
   * The Python side owns menu state {open, desktop 0..2, field, placements[3]} and sends it to the renderer as the view
@@ -77,12 +82,17 @@ NEEDS_WIRING = unittest.skipUnless(WIRING, 'needs MENU-WIRING: the control socke
 
 
 def check_menu_payload(p):
-    """Reference validator for the 'placement_menu' payload, straight from the shared contract."""
-    if not isinstance(p, dict) or set(p) != MENU_PAYLOAD_KEYS: raise ValueError('payload must have exactly open, desktop, field, placements')
+    """Reference validator for the 'placement_menu' payload, straight from the shared contract. Since the glass pills an
+    open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders)."""
+    if not isinstance(p, dict) or set(p) - {'surface'} != MENU_PAYLOAD_KEYS:
+        raise ValueError('payload must have exactly open, desktop, field, placements (and an optional surface)')
     if type(p['open']) is not bool: raise ValueError('open must be a bool')
     if type(p['desktop']) is not int or not 0 <= p['desktop'] <= 2: raise ValueError('desktop must be an integer 0..2')
     if not isinstance(p['field'], str) or p['field'] not in MENU_FIELDS: raise ValueError('unknown field')
     g.validate_placements(p['placements'], 3)
+    if 'surface' in p:
+        if p['open'] is not True: raise ValueError('surface only with an open panel')
+        g.validate_placement(p['surface'])
     return p
 
 
@@ -658,65 +668,58 @@ class MenuBindTests(unittest.TestCase):
     def test_readme_documents_the_real_toggle_chord(self):
         chord = view.chord_label(next(c for c, op in view.BINDS if op == 'menu_toggle'))
         # The README is the plain-language guide (its "## Placing desktops" section); docs/technical.md has the detail.
-        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement menu')):
+        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement pills')):
             section = (ROOT / doc).read_text().split(heading, 1)
             self.assertEqual(len(section), 2, f'{doc} needs a "{heading}" section')
             self.assertIn(chord, section[1].split('\n## ', 1)[0])
         self.assertEqual(chord, MENU_TOGGLE_LABEL)
 
 
-@unittest.skipUnless(RENDERER and 'PlacementMenuOverlay' in (ROOT / 'spike/src/wayland.cpp').read_text(),
-                     'needs MENU-UI: no placement menu overlay in the renderer yet')
-class MenuStyleSourceTests(unittest.TestCase):
-    """What the pixel tests cannot see (spike/tests/placement_menu_style_test.cpp covers chrome, colours, spacing, fit)."""
-    def test_menu_loads_the_same_font_family_as_the_help_card(self):
+class GlassPanelSourceTests(unittest.TestCase):
+    """What the pixel tests cannot see (spike/tests/glass_test.cpp covers the geometry, the look under the 191/255 cap and
+    the panel content): the open panel shares the help card's font and dimmed colours."""
+    def test_the_panel_loads_the_same_font_family_as_the_help_card(self):
         src = (ROOT / 'spike/src/wayland.cpp').read_text()
         loads = re.findall(r's->(\w+)\.set_font\(HudFont::load\((\w+)', src)
         self.assertIn(('help', 'kHudFontFamily'), loads)
-        menu = [family for owner, family in loads if owner != 'help' and owner != 'popups']
-        self.assertEqual(menu, ['kHudFontFamily'], f'menu overlay font: {loads}')
+        self.assertIn(('glass', 'kHudFontFamily'), loads)
 
-    def test_menu_card_uses_the_help_card_accent(self):
-        hud = (ROOT / 'spike/src/hud.cpp').read_text()
-        # Both cards take the one shared (dimmed) kCardAccent constant, so a colour change cannot reach only one of them.
-        self.assertEqual(len(re.findall(r'^constexpr std::array<float, 3> kCardAccent\{', hud, re.M)), 1, 'one kCardAccent definition')
-        help_accent = re.findall(r'render_help_card\(rows_, (\{[^}]*\}|\w+)', hud)
-        # The overlay's own card render (it may call the shared render_menu helper, which also reports the layout).
-        menu_accent = re.findall(r'render_(?:placement_menu_card|menu)\(rendered_, (\{[^}]*\}|\w+)', hud)
-        self.assertEqual(help_accent, ['kCardAccent'])
-        self.assertEqual(menu_accent, ['kCardAccent'])
+    def test_the_panel_text_uses_the_help_cards_dimmed_colours(self):
+        card = dict(re.findall(r'\b(kCardText|kCardDim)\{([^}]*)\}', (ROOT / 'spike/src/hud.cpp').read_text()))
+        panel = re.findall(r'\b(kText|kDim)\{([^}]*)\}', (ROOT / 'spike/src/glass.cpp').read_text())
+        self.assertEqual(panel[:2], [('kText', card['kCardText']), ('kDim', card['kCardDim'])])
 
-
-HINT_KEYS = {'Up': 'up', 'Down': 'down', 'Left': 'left', 'Right': 'right', 'Tab': 'Tab', 'R': 'R', 'Esc': 'Escape',
-             'Escape': 'Escape', 'Shift': 'SHIFT', 'Ctrl+Alt+M': 'M'}  # Ctrl+Alt+M: mouse mode, a menu bind
+    def test_the_head_locked_menu_card_is_gone(self):
+        for path in ('spike/src/wayland.cpp', 'spike/src/hud.cpp', 'spike/include/xr/hud.hpp'):
+            src = (ROOT / path).read_text()
+            for name in ('PlacementMenuOverlay', 'render_placement_menu_card', 'menu_geometry_json', 'render_menu_pointer'):
+                self.assertNotIn(name, src, f'{path}: {name}')
 
 
-@unittest.skipUnless(WIRING and 'kMenuHints' in (ROOT / 'spike/src/hud.cpp').read_text(),
-                     'needs MENU-UI footer hints and MENU-WIRING binds')
-class MenuHintAgreementTests(unittest.TestCase):
-    """The keys the menu card tells you to press are the keys wiring binds, and the README names them."""
+# The open panel's footer (spike/src/glass.cpp glass_panel_hint, drawn with the system font): arrow glyph -> bound key.
+HINT_KEYS = {'\u2191': 'up', '\u2193': 'down', '\u2190': 'left', '\u2192': 'right', 'Tab': 'Tab', 'R': 'R'}
+
+
+@unittest.skipUnless(WIRING, 'needs MENU-WIRING binds')
+class PanelHintAgreementTests(unittest.TestCase):
+    """The keys the open panel's footer tells you to press are the keys wiring binds, and the README names them."""
     def hint_keys(self):
-        hud = (ROOT / 'spike/src/hud.cpp').read_text()
-        keys = set()
-        for table in re.findall(r'kMenuHints(?:Short)?\{(.*?)\};', hud, re.S):
-            for k in re.findall(r'\{"([^"]+)",\s*"[^"]+"\}', table):
-                keys.update(part.strip() for part in k.split('/'))
-        self.assertTrue(keys)
+        src = (ROOT / 'spike/src/glass.cpp').read_text()
+        raw = re.search(r'glass_panel_hint\(bool ascii\) \{\s*return ascii \? "[^"]+" : "([^"]+)"', src).group(1)
+        hint = raw.encode('ascii').decode('unicode_escape').encode('latin-1').decode('utf-8')  # C escapes -> text
+        keys = [ch for ch in hint if ch in HINT_KEYS] + [w for w in hint.split() if w in HINT_KEYS]
+        self.assertEqual(set(keys), set(HINT_KEYS), hint)
         return keys
 
-    def test_every_footer_key_is_bound_in_the_menu(self):
-        chords = {c for table in menu_bind_tables().values() for c, _ in table}
-        parts = {p for c in chords for p in c.split(' + ')}
+    def test_every_footer_key_is_bound_while_a_panel_is_open(self):
+        parts = {p for c, _ in view.MENU_BINDS for p in c.split(' + ')}
         for key in self.hint_keys():
-            with self.subTest(key=key):
-                self.assertIn(key, HINT_KEYS, f'footer names a key the test does not know: {key}')
-                self.assertIn(HINT_KEYS[key], parts)
+            with self.subTest(key=key): self.assertIn(HINT_KEYS[key], parts)
 
     def test_readme_names_every_footer_key(self):
-        readme = (ROOT / 'README.md').read_text()
+        section = (ROOT / 'README.md').read_text().split('## Placing desktops', 1)[1].split('\n## ', 1)[0]
         for key in self.hint_keys():
-            with self.subTest(key=key):
-                self.assertTrue(key in readme or HINT_KEYS[key] in readme or HINT_KEYS[key].title() in readme, key)
+            with self.subTest(key=key): self.assertIn(HINT_KEYS[key].title() if len(HINT_KEYS[key]) > 1 else key, section)
 
 
 class MenuToggleKeyTests(unittest.TestCase):
@@ -726,11 +729,12 @@ class MenuToggleKeyTests(unittest.TestCase):
         self.assertEqual([op for chord, op in view.BINDS if chord == MENU_TOGGLE_CHORD and op != 'menu_toggle'], [])
 
     def test_readme_section_uses_ctrl_alt_l(self):
-        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement menu')):
+        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement pills')):
             section = (ROOT / doc).read_text().split(heading, 1)[1].split('\n## ', 1)[0]
             self.assertIn(MENU_TOGGLE_LABEL, section)
-            self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+M\*\* during a run')  # Ctrl+Alt+M is mouse mode, not the toggle
+            self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+M\*\*')  # the old mouse mode's key is gone
             self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+P')
+        self.assertNotIn('Ctrl+Alt+M', (ROOT / 'README.md').read_text())  # the user guide no longer names it at all
 
 
 class NoScopeChangeTests(unittest.TestCase):

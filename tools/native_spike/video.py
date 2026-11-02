@@ -10,11 +10,11 @@ or the panel; web_video.py relays the stream through ffmpeg into a pipe, and the
 (never the path again, so the file cannot be swapped in between), detects the format, and hands the renderer that open
 descriptor over the run's private control socket (SCM_RIGHTS). The renderer never sees or opens a path.
 
-While a video plays, modal bare-key binds (VIDEO_BINDS: Space, arrows, Shift+arrows, Tab, Up/Down, Escape) exist, as the
-placement menu's do while it is open; they are removed on exit, at run end, and by the bind helper if a key finds no run.
-The help card and placement menu are closed when a video opens. Desktop view keys (zoom, switch, spacing, viewing mode,
-cursor follow, the menu) are ignored while it plays; Ctrl+Alt+Space recenters the video, Ctrl+Alt+P toggles prediction
-and Ctrl+Alt+H shows the controls card.
+While a video plays, modal bare-key binds (VIDEO_BINDS: Space, arrows, Shift+arrows, Tab, Up/Down, Escape) exist, as an
+open placement panel's do; they are removed on exit, at run end, and by the bind helper if a key finds no run. The help
+card closes and an open placement panel collapses when a video opens. Desktop view keys (zoom, switch, spacing, viewing
+mode, cursor follow, the placement pills) are ignored while it plays; Ctrl+Alt+Space recenters the video, Ctrl+Alt+P
+toggles prediction and Ctrl+Alt+H shows the controls card.
 
 The controls card follows the OLED rules of the help card: dimmed (nothing above 191/255), never moved, and closed after
 view.OVERLAY_IDLE_CLOSE_S seconds without a video key. VideoControl wraps view.ViewControl and passes everything that is
@@ -30,7 +30,7 @@ import stat
 import subprocess
 import threading
 
-from .view import CONFIGRELOADED, MENU_OPS, MOUSE_OPS, OVERLAY_IDLE_CLOSE_S, SAFE_PATH, SAFE_TOKEN, _binds_lua, _remove_lua
+from .view import CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, SAFE_PATH, SAFE_TOKEN, _binds_lua, _remove_lua
 from .resize import RESIZE_OPS
 from .send import SEND_OPS
 
@@ -42,13 +42,14 @@ SEEK_S = {'video_seek_back': -10, 'video_seek_fwd': 10, 'video_seek_back_big': -
 VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 'video_seek_fwd'),
                ('SHIFT + left', 'video_seek_back_big'), ('SHIFT + right', 'video_seek_fwd_big'), ('Tab', 'video_format'),
                ('up', 'video_controls'), ('down', 'video_controls'), ('Escape', 'video_exit'))
-# Desktop view keys that do nothing while a video plays (their effect would be invisible, and the menu's keys would clash):
-# the view keys, the placement menu (incl. its mouse mode's Ctrl+Alt+M and Escape), mouse mode's left-button clicks and
-# the overview free pointer's bar / corner drags. The video closes the menu (ending mouse mode) when it opens, and the free
-# pointer is off while it plays (free_pointer.OverviewPointer.overview), so these can only arrive from stale or racing binds. Send-window keys
-# (Ctrl+Alt+G, 1/2/3, B) are ignored too: the desktops are hidden, so a window (and focus) would move somewhere unseen.
+# Desktop view keys that do nothing while a video plays (their effect would be invisible, and the panel's keys would
+# clash): the view keys, the placement pills' keys (Ctrl+Alt+L and an open panel's arrows, Tab, R, Escape) and the
+# overview free pointer's clicks (pill and corner drags, pill clicks, panel sliders). The video collapses an open panel
+# when it opens, and the free pointer is off while it plays (free_pointer.OverviewPointer.overview), so these can only
+# arrive from stale or racing binds. Send-window keys (Ctrl+Alt+G, 1/2/3, B) are ignored too: the desktops are hidden,
+# so a window (and focus) would move somewhere unseen.
 IGNORED_WHILE_PLAYING = (('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'mode_next', 'cursor_follow')
-                         + MENU_OPS + MOUSE_OPS + RESIZE_OPS + SEND_OPS)
+                         + MENU_OPS + RESIZE_OPS + SEND_OPS)
 
 PROJECTIONS = ('360', '180', 'fisheye')
 STEREO = ('mono', 'sbs', 'tb')
@@ -504,7 +505,7 @@ class VideoControl:
 
     def _open(self, fd, title, fmt, source, warnings, stream=None):
         out = b''
-        if self.view.state.menu_open: out += self.view._on_menu('menu_toggle') or b''  # saves; releases the menu keys
+        if self.view.state.menu_open: out += self.view._on_menu('menu_toggle') or b''  # collapses: saves, releases the keys
         if self.view.help_visible: out += self.view._help_toggle()
         if self.stream is not None and self.stream is not stream: self.stream.stop()
         self.stream, self.origin, self.opening, self.stream_retries = stream, 'web' if stream else 'file', False, 0
