@@ -6,7 +6,9 @@ control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
 
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
 dead zone, eases back in front) and locked (0DoF, head-locked). Ctrl+Alt+H toggles a help card in
-the glasses listing every bind (rows come from BINDS, so it cannot drift). Optional cursor follow (Ctrl+Alt+F):
+the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
+the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
+click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. Optional cursor follow (Ctrl+Alt+F):
 when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
@@ -73,7 +75,11 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + T', 'typing_toggle'),
          ('CTRL + ALT + L', 'menu_toggle'),
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
-         ('CTRL + ALT + U', 'video_paste'))  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
+         ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
+         ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'))  # help card pages (HELP_PAGE_OPS)
+# Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
+# plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
+HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
 # Typing mode (module docstring): the one run bind that stays while every other bind is released. Ctrl+Alt+T is free in
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
@@ -86,7 +92,8 @@ HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overvi
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'typing_toggle': 'Typing mode: XR keys off / on',
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
-                'video_paste': 'Play the browser video you copied'}
+                'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
+                'help_next': 'Next help page'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -110,6 +117,7 @@ MENU_SAVE_DELAY = 0.5  # seconds after the last panel change (key, slider or pil
 OVERLAY_IDLE_CLOSE_S = 30
 KEY_NAMES = {'CTRL': 'Ctrl', 'ALT': 'Alt', 'SHIFT': 'Shift', 'SUPER': 'Super', 'up': 'Up', 'down': 'Down', 'left': 'Left',
              'right': 'Right', 'bracketleft': '[', 'bracketright': ']', 'space': 'Space', 'Tab': 'Tab', 'Escape': 'Esc',
+             'Page_Up': 'PgUp', 'Page_Down': 'PgDn',
              **{f'code:{10 + i}': str((i + 1) % 10) for i in range(10)}}  # Omarchy-style digit keycodes: code:10 is 1
 
 
@@ -119,36 +127,63 @@ def chord_label(chord):
 
 
 # Help card rows that are not key binds. Empty: the overview free pointer (free_pointer.py, mouse only) is named in the
-# zoom_out row. The card sizes its text from the output (hud.cpp kHelpStyles); at 1920x1200 @1.25 (960 px) up to 15 rows
-# fit at full size (spike/tests/help_card_test.cpp).
+# zoom_out row. The card sizes its text from the output (hud.cpp kHelpStyles) and splits rows it cannot fit into pages,
+# so there is no row limit beyond the renderer's kMaxHelpRows (spike/tests/help_card_test.cpp). Extra rows get their own
+# section at the end.
 EXTRA_HELP_ROWS = ()
+
+# Help card sections, in order: the op naming each row (a pair's first op). The renderer keeps a section on one page when
+# it fits one and draws a faint rule between sections. An op in BINDS but in no section lands in the last one.
+HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recenter'),  # moving around the desktops
+                 ('mode_next', 'cursor_follow', 'typing_toggle'),                       # modes
+                 ('menu_toggle', 'video_open'),                                          # placement and VR video
+                 ('help', 'help_prev'))                                                  # this card
 
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action).
 HELP_PAIRS = {'cursor_follow': ('prediction', 'Toggle cursor follow / prediction'),  # frees the row Ctrl+Alt+T uses
               'spacing_down': ('spacing_up', 'Less / more space between desktops'),
-              'video_open': ('video_paste', 'VR video: file / copied web link')}  # docs/web-video.md
+              'video_open': ('video_paste', 'VR video: file / copied web link'),  # docs/web-video.md
+              'help_prev': ('help_next', 'Help: previous / next page')}
+
+
+def _help_sections():
+    """[[row, ...], ...]: the help card's rows grouped by HELP_SECTIONS (empty sections dropped)."""
+    chords = {op: chord for chord, op in BINDS}
+    seconds = {second for second, _ in HELP_PAIRS.values()}
+
+    def row(op):
+        if op in HELP_PAIRS:
+            second, action = HELP_PAIRS[op]
+            a, b = chord_label(chords[op]), chord_label(chords[second])
+            prefix = a[:a.rfind('+') + 1]  # 'Ctrl+Alt+[' and 'Ctrl+Alt+]' -> 'Ctrl+Alt+[ / ]'
+            return [f'{a} / {b[len(prefix):]}' if b.startswith(prefix) else f'{a} / {b}', action]
+        return [chord_label(chords[op]), HELP_ACTIONS[op]]
+    placed = {op for section in HELP_SECTIONS for op in section}
+    sections = [[row(op) for op in section if op in chords] for section in HELP_SECTIONS]
+    rest = [row(op) for _, op in BINDS if op not in placed and op not in seconds]
+    if rest: sections[-1] += rest
+    if EXTRA_HELP_ROWS: sections.append([list(r) for r in EXTRA_HELP_ROWS])
+    return [s for s in sections if s]
 
 
 def help_rows():
-    chords = {op: chord for chord, op in BINDS}
-    seconds = {second for second, _ in HELP_PAIRS.values()}
-    rows = []
-    for chord, op in BINDS:
-        if op in seconds: continue
-        if op in HELP_PAIRS:
-            second, action = HELP_PAIRS[op]
-            a, b = chord_label(chord), chord_label(chords[second])
-            prefix = a[:a.rfind('+') + 1]  # 'Ctrl+Alt+[' and 'Ctrl+Alt+]' -> 'Ctrl+Alt+[ / ]'
-            rows.append([f'{a} / {b[len(prefix):]}' if b.startswith(prefix) else f'{a} / {b}', action])
-        else:
-            rows.append([chord_label(chord), HELP_ACTIONS[op]])
-    return rows + [list(row) for row in EXTRA_HELP_ROWS]
+    return [row for section in _help_sections() for row in section]
 
 
-def help_frame(run_id, session, request_id, visible):
+def help_sections():
+    """Row count of each help card section, in order (the `help` frame's `sections`; they add up to help_rows())."""
+    return [len(section) for section in _help_sections()]
+
+
+def help_frame(run_id, session, request_id, visible, turn=0):
+    """Renderer `help` frame: the card shown or hidden with every row and its sections; `turn` -1 / 1 flips a shown
+    card to the previous / next page (the renderer knows how many pages fit and wraps round)."""
+    if type(turn) is not int or turn not in (-1, 0, 1): raise ValueError('invalid help turn')
+    payload = {'visible': bool(visible), 'rows': help_rows(), 'sections': help_sections()}
+    if turn: payload['turn'] = turn
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'help',
-                        'payload': {'visible': bool(visible), 'rows': help_rows()}}, separators=(',', ':')) + '\n').encode()
+                        'payload': payload}, separators=(',', ':')) + '\n').encode()
 FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
 CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
 COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
@@ -700,10 +735,24 @@ class ViewControl:
             except (OSError, ValueError, TypeError, KeyError): pass  # best effort; Ctrl+Alt+T again retries
 
     def _help_toggle(self):
-        self.help_visible = not self.help_visible
+        self.help_visible = not self.help_visible  # the renderer starts a reopened card on page 1
         frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible)
         self.next_id += 1
         return frame
+
+    def help_turn(self, turn):
+        """Ctrl+Alt+PgUp / PgDn, or a free-pointer click on the card's arrows or page indicator: the open help card flips
+        to the previous (-1) or next (1) page. Nothing while it is closed. A `help` frame (bytes) or b''."""
+        if not self.help_visible or turn not in (-1, 1): return b''
+        self.last_input = self.clock()  # turning pages keeps the card up
+        frame = help_frame(self.run_id, self.session, self.next_id, True, turn)
+        self.next_id += 1
+        return frame
+
+    def set_help_geometry(self, geometry):
+        """Supervisor: where the help card and its page controls lie on the overview's canvas (free_pointer.
+        parse_help_geometry; None when the card is not up in the overview), for free-pointer hit testing."""
+        if self.overview_pointer is not None: self.overview_pointer.set_help_geometry(geometry)
 
     def flush(self):
         """Write any pending panel / drag placement save now (panel collapse, drag release, run end)."""
@@ -736,6 +785,8 @@ class ViewControl:
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None
+        if isinstance(message, dict) and message.get('op') in HELP_PAGE_OPS:
+            return self.help_turn(HELP_PAGE_OPS[message['op']]) or None
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
         if message['op'] == 'help': return self._help_toggle()
         if message['op'] == 'recenter':

@@ -170,12 +170,29 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = StylePayload{c[0], c[1], c[2]};
         } else if (op == ControlOp::help) {
             const auto& p = j["payload"];
-            if (p.size() != 2 || !p.contains("visible") || !p["visible"].is_boolean() || !p.contains("rows") || !p["rows"].is_array() ||
-                p["rows"].size() > kMaxHelpRows) return invalid();
-            HelpPayload help{p["visible"].get<bool>(), {}};
+            if (!p.contains("visible") || !p["visible"].is_boolean() || !p.contains("rows") || !p["rows"].is_array() ||
+                p["rows"].size() > kMaxHelpRows || p.size() != std::size_t(2 + p.contains("sections") + p.contains("turn"))) return invalid();
+            HelpPayload help{p["visible"].get<bool>(), {}, {}, 0};
             for (const auto& row : p["rows"]) {
                 if (!row.is_array() || row.size() != 2 || !help_text(row[0]) || !help_text(row[1])) return invalid();
                 help.rows.emplace_back(row[0].get<std::string>(), row[1].get<std::string>());
+            }
+            if (p.contains("sections")) {
+                const auto& sections = p["sections"];
+                if (!sections.is_array() || sections.size() > kMaxHelpRows) return invalid();
+                std::size_t total = 0;
+                for (const auto& n : sections) {
+                    if (!n.is_number_unsigned() || n.get<std::uint64_t>() < 1 || n.get<std::uint64_t>() > kMaxHelpRows) return invalid();
+                    help.sections.push_back(std::uint32_t(n.get<std::uint64_t>()));
+                    total += help.sections.back();
+                }
+                if (total != help.rows.size()) return invalid();
+            }
+            if (p.contains("turn")) {
+                const auto& t = p["turn"];
+                if (!t.is_number_integer() || (t.is_number_unsigned() ? t.get<std::uint64_t>() != 1 : t.get<std::int64_t>() != -1))
+                    return invalid();
+                help.turn = std::int32_t(t.get<std::int64_t>());
             }
             payload = std::move(help);
         } else if (op == ControlOp::placement) {

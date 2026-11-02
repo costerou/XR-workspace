@@ -100,6 +100,22 @@ int main() {
     const auto& hp = std::get<xr::HelpPayload>(std::get<xr::ControlMessage>(hd).payload);
     require(hp.visible && hp.rows.size() == 2 && hp.rows[1].first == "Ctrl+Alt+[" && hp.rows[0].second == "Show / hide this help");
     require(std::holds_alternative<xr::ControlMessage>(xr::decode_control(help(R"({"visible":false,"rows":[]})"))));
+    // Optional sections (sizes adding up to the rows) and turn (-1 / 1): the help card's pages.
+    auto paged = xr::decode_control(help(R"({"visible":true,"rows":[["a","b"],["c","d"],["e","f"]],"sections":[2,1],"turn":-1})"));
+    require(std::holds_alternative<xr::ControlMessage>(paged));
+    const auto& hpp = std::get<xr::HelpPayload>(std::get<xr::ControlMessage>(paged).payload);
+    require(hpp.sections == std::vector<std::uint32_t>{2, 1} && hpp.turn == -1 && hpp.rows.size() == 3);
+    require(std::get<xr::HelpPayload>(std::get<xr::ControlMessage>(xr::decode_control(help(R"({"visible":true,"rows":[["a","b"]],"turn":1})"))).payload).turn == 1);
+    for (const char* bad : {R"({"visible":true,"rows":[["a","b"]],"sections":[2]})", R"({"visible":true,"rows":[["a","b"]],"sections":[0,1]})",
+                            R"({"visible":true,"rows":[["a","b"]],"sections":[1.0]})", R"({"visible":true,"rows":[["a","b"]],"sections":[-1,2]})",
+                            R"({"visible":true,"rows":[["a","b"]],"sections":1})", R"({"visible":true,"rows":[["a","b"]],"turn":0})",
+                            R"({"visible":true,"rows":[["a","b"]],"turn":2})", R"({"visible":true,"rows":[["a","b"]],"turn":-2})",
+                            R"({"visible":true,"rows":[["a","b"]],"turn":true})", R"({"visible":true,"rows":[["a","b"]],"turn":1.0})",
+                            R"({"visible":true,"rows":[["a","b"]],"turn":1,"x":1})"})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(help(bad))));
+    std::string full = R"({"visible":true,"rows":[)";  // kMaxHelpRows rows: accepted (the card pages them)
+    for (std::size_t i = 0; i < xr::kMaxHelpRows; ++i) full += std::string(i ? "," : "") + R"(["Ctrl+Alt+X","Some action"])";
+    require(std::holds_alternative<xr::ControlMessage>(xr::decode_control(help(full + "]}"))));
     std::string many = R"({"visible":true,"rows":[)";
     for (std::size_t i = 0; i <= xr::kMaxHelpRows; ++i) many += std::string(i ? "," : "") + R"(["a","b"])";
     many += "]}";

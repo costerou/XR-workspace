@@ -90,6 +90,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+F | run | Toggle cursor follow |
 | Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | run | Show the help card in the glasses |
+| Ctrl+Alt+PgUp / PgDn | run | Previous / next help card page (wraps round; nothing while the card is closed) |
 | Ctrl+Alt+T | run, both modes | Typing mode on / off (see [Typing mode](#typing-mode)) |
 | Ctrl+Alt+L | run | Open the selected desktop's placement pill (zooming out to the overview first if zoomed in), or close the open one |
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
@@ -107,6 +108,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, focus a desktop, or nothing in empty space |
 | Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
 | Left click a desktop | free pointer on a desktop | Select and focus it; the cursor comes back at that spot |
+| Left click a help card arrow or its "2 / 3" | free pointer on the open help card | Previous page (left arrow) or next page (right arrow or the page number). Elsewhere on the card a click does nothing, and it never closes an open pill |
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
@@ -282,10 +284,34 @@ Until 2026-11-02 the move handle was a thin grey bar 4 px tall, drawn above each
 desktop replaced it. The wire op (`move_handle`) and the move maths (snap, overlap guard, reach) are unchanged; only
 the 4 px click threshold is new.
 
-The help card (Ctrl+Alt+H) sizes its text from the output height: row text 30 px at 1920x1200 @1.25, where 12 rows
-take 738 of 960 px and 15 would fit, stepping down to 18 px on smaller outputs, so it never clips at any scale up to 2.
-It keeps the card chrome (padding, border, radius, dimmed colours) and is laid out again whenever the output is
-reconfigured.
+### Help card pages
+
+The help card (Ctrl+Alt+H) sizes its text from the output height: row text 30 px at 1920x1200 @1.25, where today's 13
+rows sit on one page, stepping down to 18 px on smaller outputs. It keeps the card chrome (padding, border, radius,
+dimmed colours) and is laid out again whenever the output is reconfigured.
+
+Rows are grouped in sections (`view.HELP_SECTIONS`: moving around, modes, placement and video, this card), sent as the
+`help` frame's `sections` (row counts) and drawn with a faint rule between them. When even 18 px text cannot fit every
+row, the card keeps 18 px and splits the rows into pages (`hud.cpp` `paginate`): each page takes what fits the height,
+a section moves whole to the next page when it fits one, and a section taller than a page is split. Every page has the
+same card size; the footer gains a "2 / 3" indicator between drawn left and right arrows and the hint "Ctrl+Alt+PgUp /
+PgDn or click an arrow for more". There is no row limit beyond the wire's `kMaxHelpRows` (64); the old 15-row cap is gone.
+
+The renderer owns the page, because only it knows how many pages fit. **Ctrl+Alt+PgUp / PgDn** (`help_prev` /
+`help_next`, run binds; they do nothing while the card is closed) send a `help` frame with `"turn": -1` or `1`, and the
+renderer flips, wrapping round. Showing a closed card always starts on page 1. Page turns count as input for the 30 s
+idle close.
+
+Free-pointer clicks: the card is head-locked and the overview's canvas world-locked, so while the card is up in the
+overview the renderer sends a `help_geometry` status line with the card and its prev arrow, page indicator and next
+arrow mapped onto the canvas under the current head rotation (bounding boxes, canvas px; re-sent at most every 40 ms
+while the head moves, and `{"help_geometry":null}` when the card closes or the view zooms in). The supervisor treats the
+open card as the pointer's top layer: a cursor inside a desktop that moves onto it, or that it opens or moves over,
+turns into the free dot (the
+renderer draws the dot over the card), the dot enters a desktop again only 4 px clear of the card, a click on the left
+arrow is `help_prev`, on the right arrow or the indicator `help_next`, and anywhere else on the card nothing.
+
+Offline only: none of the paging has been tried in the glasses.
 
 ### Placement pills
 
@@ -389,9 +415,13 @@ animation, held until the overview is reached, the draw order and a held slider'
 against its CPU mirror over black and over a bright desktop, and the cap over black, on a surfaceless EGL context; it
 reports skipped, exit 77, where EGL or GLES is missing) and `glass_contract` (runs `glass_geometry_dump` and checks that
 `tools/native_spike/free_pointer.py` uses the same pill and panel geometry). `menu_geometry_contract` and
-`placement_menu_style` were removed with the head-locked menu card. `help_card` (`spike/tests/help_card_test.cpp`) took over the help card's fit checks: the real rows and three more fit
-1920×1200 @1.25 at full size with nothing clipped, the card fits at every scale from 1 to 2, its text only shrinks as the
-output gets shorter, and it is laid out again when the output size changes.
+`placement_menu_style` were removed with the head-locked menu card. `help_card` (`spike/tests/help_card_test.cpp`) took over the help card's fit checks: the real rows fit 1920×1200 @1.25
+on one page at full size (and with three more rows still on one page); 1 to 64 rows page without clipping at every
+scale from 1 to 2 (every row on one page, in order, pages the same size, nothing in the padding); sections stay whole
+when they fit a page; the overlay turns and wraps pages and reopens on page 1; the arrows sit in their click rects and
+`help_geometry_json` maps them onto the canvas; text only shrinks as the output gets shorter, and the card is laid out
+again when the output size changes. `tests/native_spike/test_help_pages.py` covers the page keys, the `sections` /
+`turn` frame, the `help_geometry` line and the free pointer's clicks on the card.
 
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 

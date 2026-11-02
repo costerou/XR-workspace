@@ -68,11 +68,17 @@ Move your mouse onto a glasses desktop the same way you would move it onto anoth
 Press **Ctrl+Alt+H** at any time for a help card in the glasses. The keys below only work while a session is running.
 When the session ends they go away, so they never get in the way of normal typing.
 
+The help card groups its keys by what they do. If they don't all fit the glasses' screen at the card's usual text
+size, it splits them into pages and shows "1 / 3" between two arrows at the bottom. Turn pages with **Ctrl+Alt+PgUp /
+PgDn**, or in the overview move the mouse onto an arrow or the page number and click (the grey dot works on the card,
+which sits on top of the desktops). The card opens on page 1 every time.
+
 ### Key cheat sheet
 
 | Keys | What it does |
 | --- | --- |
 | Ctrl+Alt+H | Show or hide the help card |
+| Ctrl+Alt+PgUp / PgDn | Previous / next page of the help card, when it has more than one |
 | Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
 | Ctrl+Alt+Up | Zoom into the selected desktop |
 | Ctrl+Alt+Down | Zoom out to see all desktops (the overview). The mouse can then move anywhere around them, and each desktop has a small glass pill under it |

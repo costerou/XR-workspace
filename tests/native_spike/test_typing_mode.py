@@ -48,7 +48,7 @@ class ChordTests(unittest.TestCase):
     def test_help_card_lists_it_and_fits(self):
         rows = view.help_rows()
         self.assertIn(['Ctrl+Alt+T', 'Typing mode: XR keys off / on'], rows)
-        self.assertLessEqual(len(rows), 15)  # 15 rows fit the 960 px surface at full size (spike/tests/help_card_test.cpp)
+        # No row cap: the card splits rows it cannot fit into pages (spike/tests/help_card_test.cpp).
         self.assertIn(['Ctrl+Alt+F / P', 'Toggle cursor follow / prediction'], rows)  # the pair that made room
 
     def test_readme_and_technical_docs_name_the_key(self):

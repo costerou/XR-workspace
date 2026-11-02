@@ -90,16 +90,42 @@ private:
 // current opacity instead of jumping.
 // Fit: the card keeps the menu's chrome (padding, border, radius, colours) but has its own, more compact text sizes and
 // gaps. Given the output surface (`max_width` x `max_height`, 0 = unbounded) it takes the largest text size (row em
-// kHelpRowPxMax down to kHelpRowPxMin) whose card leaves kHudFitMargin free on every side, so it never clips at any
-// output scale; if even the smallest does not fit, the smallest is used (fits=false).
-struct HelpRow { std::string keys, action; };
+// kHelpRowPxMax down to kHelpRowPxMin) whose card, with every row on it, leaves kHudFitMargin free on every side.
+// Pages: if even the smallest text does not fit every row, the card keeps that smallest text and splits the rows into
+// pages instead (any number of rows): each page holds what fits the height, a section (rows from one `section` row up to
+// the next) is kept on one page when it fits one, and every page has the same card size, a "2 / 3" indicator between a
+// previous and a next arrow, and a hint naming the page keys. The supervisor turns pages (HelpOverlay::set `turn`); the
+// arrows and the indicator are also clicked with the overview free pointer (HelpCardControls, help_geometry_json).
+// fits=false only if a single row is wider or taller than the surface allows.
+struct CardOrigin { float x = 0, y = 0; };  // a centred card's top-left, output px
+struct HelpRow { std::string keys, action; bool section = false; };  // section: this row starts a new section
 constexpr std::uint32_t kHudFitMargin = 34;  // free space the help card leaves on every side of the output (= its padding)
 constexpr std::uint32_t kHelpRowPxMax = 30, kHelpRowPxMin = 18;  // row text em size in pixels, roomiest / smallest
-struct HelpCardFit { std::uint32_t width = 0, height = 0, row_px = 0; bool fits = false; };
+// Page keys named by the hint on a paged card (tools/native_spike/view.py BINDS help_prev / help_next; a test compares).
+constexpr const char* kHelpPageHint = "Ctrl+Alt+PgUp / PgDn or click an arrow for more";
+struct HelpCardFit {
+    std::uint32_t width = 0, height = 0, row_px = 0; bool fits = false;
+    std::vector<std::uint32_t> page_rows;  // rows on each page, in order (one entry: everything on one page)
+    std::uint32_t pages() const { return std::uint32_t(page_rows.size()); }
+};
 HelpCardFit help_card_fit(const std::vector<HelpRow>& rows, const HudFont* font = nullptr, std::uint32_t max_width = 0,
                           std::uint32_t max_height = 0);
+// Clickable parts of a paged card, card pixels from its top-left (all empty on a one-page card). The indicator turns
+// to the next page like the next arrow.
+struct HelpRect { std::int32_t x = 0, y = 0, w = 0, h = 0; bool empty() const { return w <= 0 || h <= 0; } };
+struct HelpCardControls { HelpRect prev, indicator, next; };
+// `page` is taken modulo the page count.
 HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font = nullptr,
-                          std::uint32_t max_width = 0, std::uint32_t max_height = 0);
+                          std::uint32_t max_width = 0, std::uint32_t max_height = 0, std::uint32_t page = 0,
+                          HelpCardControls* controls = nullptr);
+// The supervisor's free-pointer hit testing for the help card: one status line
+// {"help_geometry":{"card":[x,y,w,h],"prev":[...],"indicator":[...],"next":[...]}} (prev / indicator / next only on a
+// paged card) or {"help_geometry":null}, canvas px (the overview's plane, as overview_geometry). The card is head-locked
+// and the canvas world-locked, so each rect is where the card's rect (output px, top-left `origin`) lands on the canvas
+// under head rotation `view` (pose.hpp, row-major), as its bounding box. Empty if the canvas is unusable.
+std::string help_geometry_json(const std::array<float, 9>& view, std::uint32_t width, std::uint32_t height, float half_w,
+                               float half_h, CardOrigin origin, std::uint32_t card_w, std::uint32_t card_h,
+                               const HelpCardControls& controls);
 constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
 // Image-retention protection for the centred help card and the placement panels (glass.hpp) on the glasses' micro-OLED panels:
 // dimmed text and accent (see hud.cpp kCardText) and an idle auto-close. The cards never move while shown.
@@ -131,21 +157,25 @@ private:
 };
 
 // Top-left (from the top of the output) of a card drawn centred, lowered by `drop_px` while it fades in: the one
-// formula GlHud uses for the help card.
-struct CardOrigin { float x = 0, y = 0; };
+// formula GlHud uses for the help card (CardOrigin is declared with the help card above).
 CardOrigin centered_card_origin(std::uint32_t output_w, std::uint32_t output_h, std::uint32_t card_w, std::uint32_t card_h, float drop_px);
 
 class HelpOverlay {
 public:
-    // Show/hide; rows are rendered when shown with different rows (or the first time).
-    // Returns true if visibility changed.
-    bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms);
+    // Show/hide; rows are rendered when shown with different rows (or the first time). Showing a hidden card starts it
+    // on page 1. `turn` (-1 / +1) flips a shown card to the previous / next page, wrapping round; ignored when hidden.
+    // Returns true if visibility changed or a shown card was redrawn (new page or new rows).
+    bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms, int turn = 0);
     void set_font(std::unique_ptr<HudFont> font);
     // Output surface size the card must fit (0 = unbounded); a rendered card is laid out again when it changes.
     bool set_viewport(std::uint32_t width, std::uint32_t height);
     bool visible() const { return fade_.visible(); }
     std::uint64_t shown_count() const { return shown_; }
     std::uint64_t hidden_count() const { return hidden_; }
+    std::uint64_t turns() const { return turns_; }
+    std::uint32_t page() const { return page_; }
+    std::uint32_t pages() const { return pages_; }
+    const HelpCardControls& controls() const { return controls_; }  // card px; empty on a one-page card
     float alpha(double now_ms) const;        // eased 0..1
     float offset_px(double now_ms) const;    // downward offset in output pixels, 0 when fully shown
     bool animating(double now_ms) const;     // mid-fade: redraw every frame
@@ -153,10 +183,11 @@ public:
     std::uint64_t generation() const { return generation_; }
 private:
     CardFade fade_{kHelpFadeInMs, kHelpFadeOutMs};
-    std::uint64_t shown_ = 0, hidden_ = 0;  // actual visibility changes, diagnostic only
-    void render();                           // rows_ for the viewport, bumps generation_
+    std::uint64_t shown_ = 0, hidden_ = 0, turns_ = 0;  // actual visibility changes and page turns, diagnostic only
+    void render();                           // rows_ and page_ for the viewport, bumps generation_
     std::vector<HelpRow> rows_;
-    std::uint32_t max_w_ = 0, max_h_ = 0;
+    std::uint32_t max_w_ = 0, max_h_ = 0, page_ = 0, pages_ = 1;
+    HelpCardControls controls_;
     std::uint64_t generation_ = 0;
     HudImage image_;
     std::unique_ptr<HudFont> font_;

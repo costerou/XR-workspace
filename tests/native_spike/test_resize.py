@@ -85,13 +85,17 @@ class BindTests(unittest.TestCase):
 
 class HelpCardFitTests(unittest.TestCase):
     def test_the_fit_tested_help_card_is_the_real_one_and_the_free_pointer_is_on_it(self):
-        # help_card_test checks the help card fits 1920x1200 @1.25 (960 px tall), with three rows to spare, and at every
-        # scale up to 2. It must check the rows the run really sends (a row added only here once went untested).
+        # help_card_test checks the help card fits 1920x1200 @1.25 (960 px tall) on one page at full size, with three rows
+        # to spare, and pages any row count without clipping at every scale from 1 to 2. It must check the rows and
+        # sections the run really sends (a row added only here once went untested). No row cap: rows that do not fit
+        # flow onto further pages.
         import re
         src = (Path(__file__).resolve().parents[2] / 'spike/tests/help_card_test.cpp').read_text()
         body = re.search(r'std::vector<HelpRow> help_rows\(\) \{.*?\n\}', src, re.S).group(0)
-        self.assertEqual([list(r) for r in re.findall(r'\{"([^"]+)", "([^"]+)"\}', body)], view.help_rows())
-        self.assertLessEqual(len(view.help_rows()), 15)  # the fit test fits 12 + 3 rows
+        found = re.findall(r'\{"([^"]+)", "([^"]+)"(, true)?\}', body)
+        self.assertEqual([[k, a] for k, a, _ in found], view.help_rows())
+        starts = [i for i, (_, _, section) in enumerate(found) if section]  # rows starting a section after the first
+        self.assertEqual(starts, [sum(view.help_sections()[:n]) for n in range(1, len(view.help_sections()))])
         self.assertTrue(any('free mouse' in action and 'pills' in action and 'corner' in action
                             for _, action in view.help_rows()))
 
