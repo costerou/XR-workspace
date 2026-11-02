@@ -103,3 +103,37 @@ Before starting, give XR-2 a visible tilt in the panel (for example yaw 25), so 
 | 21 | Stop the session | Windows return to the physical output as usual. `profiles.json` is still mode 0600 and holds the placements. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Overview corner resize: automated coverage and glasses test script
+
+Automated coverage (offline only):
+
+- `tests/native_spike/test_resize.py`: corner hit test, drag math and clamping, the modal left-button binds and their
+  removal (including after a dead run), the hover and drag state machine, the 30 s idle hide, the profile save, panel
+  sync through the status reply, the pointer poller thread, and the supervisor wake-up.
+- `spike/tests/resize_handle_test.cpp`: the renderer's `resize_handle` decoding (a malformed payload is dropped, never
+  fatal), the handle geometry in each corner (fixed, no orbit), and its grey levels at or under 191/255.
+
+The steps below need your usual go-ahead for a live run, the same setup as above (any desktop shapes), and the
+renderer built from this branch. Note the controller worktree HEAD, the controller MainPID and the renderer sha256
+before and after. Start in the overview (Ctrl+Alt+Down) with every desktop at Distance 100.
+
+| # | Do | Expect |
+|---|----|--------|
+| R1 | Move the pointer around the middle of XR-1 and across its edges | No handle. Clicks in windows work as usual. |
+| R2 | Move the pointer into XR-1's bottom-right corner (the last few percent of its width and height) | A small grey L-bracket appears just inside that corner. It is dim, never white. |
+| R3 | Visit the other three corners of XR-1, then a corner of XR-2 and XR-3 | The bracket follows to the corner the pointer is in, on the right desktop. It disappears between corners. |
+| R4 | Rest the pointer in a corner without moving for 30 s | The bracket fades off by itself (OLED care). A left click there now reaches the window again. Moving the pointer brings the bracket back. |
+| R5 | Watch the bracket for 10 s while moving the pointer slightly inside the corner | It stays put on the same pixels (no drift or orbit) and stays dim. |
+| R6 | In XR-1's bottom-right corner, hold the left button and drag right and down | XR-1 grows smoothly while you drag, about its own centre, keeping its shape. The bracket is a little brighter while you drag. Nothing in the window under the corner gets the click. |
+| R7 | Keep dragging far outward, then far inward | It stops growing at twice its size and stops shrinking at half. Nothing jumps or flickers at a limit. |
+| R8 | Release, then open the panel's **Place** tab for XR-1 | Distance shows the new value (bigger = lower Distance, for example 67 % for 1.5× size). The other fields are unchanged. |
+| R9 | Drag XR-3 from its top-left corner inward | XR-3 shrinks. XR-1 and XR-2 do not change. |
+| R10 | Open the placement menu (Ctrl+Alt+L) on XR-1, then drag XR-1's corner | The menu's Distance value updates with the drag. Arrow keys still adjust from the new value. |
+| R11 | Zoom in (Ctrl+Alt+Up) with the pointer on a corner | No bracket while zoomed or zooming. Left clicks at the corner go to the window. |
+| R12 | Zoom back out, resize XR-2, stop the session, start a new one | XR-2 comes back at the size you left it (saved per glasses model, like the other placements). |
+| R13 | Resize a desktop, then switch the Omarchy theme and resize again | Resizing still works after the reload (the bind is reinstalled while the pointer is on a corner). |
+| R14 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: resizing never changes pixels or scale. Those still change only in the desktop editor, at the next start. |
+| R15 | Stop the session with the pointer resting in a corner, then left-click on DP-1 | The click works normally (the run removed its corner binds). |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.

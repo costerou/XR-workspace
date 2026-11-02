@@ -12,7 +12,8 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Settings panel and controller service | Physical panel acceptance on Luma Ultra (2026-11-01; controller source `d685884`, which includes `8538468`, `4cfa04d` and `d9fbb28`; pinned renderer `62989b6e…` built from `822495c`). Run `d3adc32d` (on controller code a peer session had loaded but not yet committed; the later run and the recovery used committed `d685884`), started from the panel, calibrated tracking, switched DP-2 to 1920×1200@120 and presented ~120.0 Hz on dmabuf with 0 missed frames. Cody confirmed in the glasses that zoom/overview, desktop switching, spacing, recenter, viewing modes, cursor follow, prediction, the help card and live window content all worked. Panel Stop exited cleanly (renderer rc 0, nothing left over). In run `88b7e850`, the session kept running through a controller restart, and the new controller picked it up again. After a deliberate SIGKILL of the run unit, the panel showed Recover, and panel Recover put the desktop back to its baseline (XR outputs removed, plugin unloaded, DP-2 back to 1080@60). Earlier physical attempts failed before the renderer launched (mode readback, then `Errno 11`). Beast panel sessions are untested. The ~120 Hz figure is presentation cadence only. |
 | Per-desktop placement (position, distance, yaw/pitch/roll, curvature) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
-| Not built yet | More or fewer than three desktops; resizing while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
+| Overview corner resize (drag a desktop's corner to make it bigger or smaller in space) | Offline tests only (`tests/native_spike/test_resize.py`, `spike/tests/resize_handle_test.cpp`). Not yet tried in the glasses; the steps are in `docs/placement-menu-test-plan.md` (R1–R15). |
+| Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
 
@@ -76,12 +77,48 @@ These keybinds exist only during a run. The keys marked "menu open" are bound on
 | Left / Right | menu open | Decrease / increase the field by a small step (Shift for a big step) |
 | R | menu open | Reset the desktop to flat |
 | Escape | menu open | Close the menu |
+| Left-drag a desktop corner | overview, pointer on a corner | Resize that desktop: outward is bigger, inward is smaller |
 
 Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring is covered by offline tests only.
 
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
+
+### Resizing desktops in the overview
+
+In the overview (Ctrl+Alt+Down), move the pointer into a corner of a desktop: the last few percent of its width and
+height (8% of its shorter side, 32–160 px). A small dim L-bracket appears just inside that corner. Hold the left button
+and drag. Outward makes the desktop bigger and inward makes it smaller, live while you drag. Either direction is
+enough, because the pointer stops at the edge of the monitor layout: dragging outward by about the desktop's average
+side length doubles its size. Release to finish. The desktop scales about its own centre and always keeps its shape.
+
+The size has limits and is saved like the other placements:
+
+- It goes from half to twice the default size. A resize is the desktop's **Distance** placement seen from the other
+  side (apparent size = 100 / Distance), so the limits are Distance's 200 and 50. The panel's **Place** tab and an
+  open placement menu show the new Distance while you drag. For example, 1.5× bigger is Distance 67.
+- It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
+  over to the next session.
+- Zooming into a desktop still brings it flat and full size in front of you. The bracket only shows in the overview.
+
+Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
+overview all desktops share one height, so pixel count only changes sharpness, never size. A free-aspect resize could
+only stretch the captured image, which is why the shape is always kept. Changing a running output's mode would also
+need a new ownership-broker operation in the accepted plugin. Resolution, shape and scale stay in the desktop editor
+and apply at the next start, through the journaled output creation that reads every value back. Corner resizing adds
+no compositor output change and no new journal record.
+
+How clicks are handled: while the pointer is on a corner, or during a drag, the run binds the left button to the
+resize (press and release), so the window under that corner does not get the click. Everywhere else, and whenever the
+bracket is hidden, clicks go to windows as usual. The pointer is read about 30 times a second, only in the overview,
+with the read-only `cursorpos` query. The binds go away when the pointer leaves the corner, after 30 s without pointer
+movement, on zoom-in and at run end. If the run dies while they are bound, the first left click afterwards removes them.
+
+The bracket protects the micro-OLED the way the cards do, by dimming and auto-closing. It is grey at about 55%
+brightness, and 72% while you drag (184/255, under the cards' 191 cap). It hides after 30 s without pointer movement
+(`OVERLAY_IDLE_CLOSE_S`). A drag still held at that point ends and is saved. It does not drift or orbit.
+The CPU fallback renderer draws no bracket.
 
 ### Placement menu
 
@@ -113,6 +150,9 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 - Intent is journaled before any mutation, and actual state is read back before a step counts as confirmed. Recovery keeps ambiguous or user-modified resources and reports incomplete recovery instead of deleting them.
 - Capture is limited to the run's own `XR-n` outputs and stays in memory. There is no general desktop capture, input injection or vendor SDK.
 - Display-mode switches are runtime only. Saved monitor configuration is never edited.
+- Run binds use Ctrl+Alt chords. The only unmodified binds are modal: the placement menu's keys while it is open, and
+  the left button while the pointer is on a desktop corner in the overview (corner resize). Both are removed when no
+  longer needed.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
 
 ## Host diagnostic (`xr_probe`)

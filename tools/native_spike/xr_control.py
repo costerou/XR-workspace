@@ -13,15 +13,19 @@ import time
 
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
-       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset')  # view.USER_OPS + view.MENU_OPS
+       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset',
+       'resize_press', 'resize_release')  # view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 # Same text as view.remove_menu_binds_lua() (tests compare); duplicated because this helper is stdlib-only under -I.
 REMOVE_MENU_BINDS = ('for _, b in ipairs(xr_workspace_menu_binds or {}) do '
                      'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_menu_binds = nil')
+# Same text as resize.remove_resize_binds_lua() (tests compare). A left click with no run listening must not stay bound.
+REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
+                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_resize_binds = nil')
 
 
-def drop_stale_menu_binds(environ=os.environ):
+def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
     """A menu key with no run listening: the supervisor died with the menu open. Remove its modal binds so the arrows,
     Tab, R and Escape work again. Fixed Lua only, on the compositor that ran this bind (its own environment)."""
     runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
@@ -31,7 +35,7 @@ def drop_stale_menu_binds(environ=os.environ):
             s.settimeout(0.5); s.connect(f'{runtime}/hypr/{instance}/.socket.sock')
             uid = struct.unpack('3i', s.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
             if uid != os.getuid(): return False
-            s.sendall(('/eval ' + REMOVE_MENU_BINDS).encode())
+            s.sendall(('/eval ' + code).encode())
             return s.recv(64).strip() == b'ok'
     except OSError:
         return False
@@ -48,6 +52,7 @@ def main(argv):
             s.settimeout(0.5); s.connect(path); s.sendall(frame.encode())
     except OSError:
         if op.startswith('menu_'): drop_stale_menu_binds()  # incl. Escape (menu_toggle); harmless if none are left
+        if op.startswith('resize_'): drop_stale_menu_binds(code=REMOVE_RESIZE_BINDS)  # give the left button back
         return 1
     return 0
 

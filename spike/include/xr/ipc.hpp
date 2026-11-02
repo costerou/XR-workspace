@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -34,7 +34,14 @@ struct PlacementPayload { std::vector<WirePlacement> desktops; };
 constexpr const char* kInvalidMenuCode = "invalid_menu";
 constexpr std::size_t kPlacementMenuDesktops = 3;
 struct PlacementMenuPayload { bool open = false; std::uint32_t desktop = 0, field = 0; std::array<WirePlacement, kPlacementMenuDesktops> placements{}; };
-using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload>;
+// Overview corner-resize handle (tools/native_spike/resize.py), display only:
+// {"visible":bool,"desktop":0..2,"corner":"tl"|"tr"|"bl"|"br","active":bool}; active = a drag is in progress.
+// `corner` is the index into that order. Like placement_menu, a malformed payload is rejected with kInvalidHandleCode and
+// dropped without stopping the renderer.
+constexpr const char* kInvalidHandleCode = "invalid_resize_handle";
+struct ResizeHandlePayload { bool visible = false; std::uint32_t desktop = 0, corner = 0; bool active = false; };
+using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
+                                    ResizeHandlePayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -43,9 +50,9 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu payload. It carries no
-// action, so its identity and request id are not checked and it does not advance the replay floor.
-inline bool ignorable_control_error(const Error& e) { return e.code == kInvalidMenuCode; }
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu or resize_handle payload. It
+// carries no action, so its identity and request id are not checked and it does not advance the replay floor.
+inline bool ignorable_control_error(const Error& e) { return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode; }
 class ControlQueue {
 public:
     ControlQueue(std::string run_id, std::string session);

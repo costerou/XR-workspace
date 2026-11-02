@@ -3,6 +3,7 @@ import math
 import multiprocessing
 from dataclasses import dataclass
 import selectors
+import socket
 import time
 
 
@@ -162,6 +163,9 @@ class Supervisor:
                 if self.control is not None: selector.register(self.control.server.socket, selectors.EVENT_READ)
                 if self.control is not None and getattr(self.control, 'events', None) is not None:
                     selector.register(self.control.events, selectors.EVENT_READ)
+                wake = getattr(self.control, 'wake', None)  # resize pointer poller: run poll() now, not at the next tick
+                if not isinstance(wake, socket.socket): wake = None
+                if wake is not None: selector.register(wake, selectors.EVENT_READ)
                 while not self.finished:
                     now = time.monotonic()
                     # Expiry precedes reading queued heartbeats: delayed bytes
@@ -185,6 +189,9 @@ class Supervisor:
                             continue
                         if self.control is not None and key.fileobj is getattr(self.control, 'events', None):
                             self._events_ready(heartbeat_socket, selector)
+                            continue
+                        if wake is not None and key.fileobj is wake:
+                            self.control.resize.drain()  # poll() below applies the new pointer sample
                             continue
                         if key.fileobj is status_socket:
                             try: data = status_socket.recv(16385)

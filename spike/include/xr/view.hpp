@@ -52,6 +52,15 @@ Placement faded(const Placement& placement, float weight);
 // are not split). `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);
 
+// Overview corner-resize handle (tools/native_spike/resize.py): an L-shaped bracket inside corner `corner` (0 tl, 1 tr,
+// 2 bl, 3 br) of `tile`, as two canvas rects (horizontal arm, vertical arm) drawn on the desktop's own surface. No pixel
+// orbit or drift. Empty tile: two empty rects. Levels are grey on 0..1; both stay at or under the cards' cap of 191/255
+// (micro-OLED retention), and the supervisor hides the handle after 30 s without pointer movement.
+struct CornerHandle { FRect horizontal, vertical; };
+CornerHandle corner_handle(const FRect& tile, std::uint32_t corner);
+constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 255.f;
+constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
+
 // Time-based animation toward targets (no frame-rate dependence).
 // Zoom and spacing ease with smoothstep over `duration_ms`. Switching desktops (position) has its
 // own gentle ease-in/ease-out over `move_ms`; pressing again mid-move keeps the current speed

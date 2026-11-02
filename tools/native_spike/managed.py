@@ -74,7 +74,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
     store = store or LayoutStore(view.settings_path())
     server = PrivateServer(client.runtime_dir, run_id, session)
     installed = False
-    events = control = None
+    events = control = poller = resize = None
     try:
         saved = store.load()
         bind_args = (sys.executable, str(Path(view.__file__).with_name('xr_control.py')), str(server.path), run_id, session)
@@ -110,6 +110,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds)
+        # Overview corner resize: pointer reads and its modal mouse binds, off the supervisor loop (resize.py).
+        from .resize import CornerResize, PointerPoller
+        resize = control.resize = CornerResize(control)
+        control.wake = resize.wake_reader
+        if hasattr(client, 'install_resize_binds'): poller = PointerPoller(client, capture, resize, bind_args).start()
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
@@ -120,11 +125,13 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
         if control is not None:
             control.flush()  # a menu change still inside its save delay
             control.stop_menu_binds()  # no modal menu bind may land after the removal below
+        if poller is not None: poller.stop()  # removes the resize binds; none may be added after this
         try:
             if installed: client.remove_view_binds()  # also removes an open menu's modal binds
         except (OSError, ValueError):
             pass  # never block recovery on bind removal; binds also vanish on config reload
         if events is not None: events.close()
+        if resize is not None: resize.close()
         server.close()
 
 
