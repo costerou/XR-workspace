@@ -15,7 +15,7 @@ in the glasses whenever the viewing mode, cursor follow or prediction changes (a
 Per-desktop placement (position, distance, yaw/pitch/roll, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
-Placement menu (Ctrl+Alt+M; Ctrl+Alt+P was already prediction): an in-glasses, keyboard-driven editor for the same placements.
+Placement menu (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): an in-glasses, keyboard-driven editor for the same placements.
 While it is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R, Escape) is installed and it is removed
 again on close. Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu`
 frame (the drawn overlay) and saved to the profile 500 ms after the last change, or at once when the menu closes.
@@ -36,7 +36,7 @@ MODES = ('anchor', 'follow', 'locked')  # cycle order
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
-         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + M', 'menu_toggle'))
+         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'))
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Back to the overview',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
@@ -432,7 +432,7 @@ class ViewControl:
             binds, want = self.menu_binds, self.state.menu_open
             if binds is None or (want == self._menu_binds_installed and not (force and want)): return
             try: binds(want)
-            except (OSError, ValueError, TypeError, KeyError): return  # best-effort; Ctrl+Alt+M still closes the menu
+            except (OSError, ValueError, TypeError, KeyError): return  # best-effort; Ctrl+Alt+L still closes the menu
             self._menu_binds_installed = want
 
     def poll(self, now=None):

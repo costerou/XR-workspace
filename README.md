@@ -68,7 +68,7 @@ These keybinds exist only during a run:
 | Ctrl+Alt+F | Toggle cursor follow |
 | Ctrl+Alt+P | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | Show the help card in the glasses |
-| Ctrl+Alt+M | Open / close the placement menu in the glasses |
+| Ctrl+Alt+L | Open / close the placement menu in the glasses |
 
 While the placement menu is open, these keys belong to it (they are bound only while it is open, and released when it closes or the run ends; if the run dies with the menu open, the first menu key pressed afterwards releases them):
 

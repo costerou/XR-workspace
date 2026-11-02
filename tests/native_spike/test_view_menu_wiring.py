@@ -86,7 +86,7 @@ class MenuStateTests(unittest.TestCase):
         for op in view.MENU_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()
             self.assertEqual(decode_control(frame)['op'], op)
-        self.assertIn(('CTRL + ALT + M', 'menu_toggle'), view.BINDS)
+        self.assertIn(('CTRL + ALT + L', 'menu_toggle'), view.BINDS)
         self.assertEqual(len({chord for chord, _ in view.BINDS}), len(view.BINDS))  # Ctrl+Alt+P stays prediction
 
 
