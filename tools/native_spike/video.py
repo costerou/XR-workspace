@@ -31,6 +31,7 @@ import threading
 
 from .view import CONFIGRELOADED, MENU_OPS, MOUSE_OPS, OVERLAY_IDLE_CLOSE_S, SAFE_PATH, SAFE_TOKEN, _binds_lua, _remove_lua
 from .resize import RESIZE_OPS
+from .send import SEND_OPS
 
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit')
@@ -43,9 +44,10 @@ VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 
 # Desktop view keys that do nothing while a video plays (their effect would be invisible, and the menu's keys would clash):
 # the view keys, the placement menu (incl. its mouse mode's Ctrl+Alt+M and Escape), mouse mode's left-button clicks and
 # the overview corner resize. The video closes the menu (ending mouse mode) when it opens, and corner resize is off while
-# it plays (resize.CornerResize.overview), so these can only arrive from stale or racing binds.
+# it plays (resize.CornerResize.overview), so these can only arrive from stale or racing binds. Send-window keys
+# (Ctrl+Alt+G, 1/2/3, B) are ignored too: the desktops are hidden, so a window (and focus) would move somewhere unseen.
 IGNORED_WHILE_PLAYING = (('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'mode_next', 'cursor_follow')
-                         + MENU_OPS + MOUSE_OPS + RESIZE_OPS)
+                         + MENU_OPS + MOUSE_OPS + RESIZE_OPS + SEND_OPS)
 
 PROJECTIONS = ('360', '180', 'fisheye')
 STEREO = ('mono', 'sbs', 'tb')

@@ -392,12 +392,13 @@ class ManagedTests(unittest.TestCase):
         broker = OwnershipBrokerClient(transport, 'run', 'session', 'DP-1'); broker.require_output_ownership()
         store, seen = object(), {}
         class Stop(Exception): pass
-        def controls(client, run_id, session, capture, output=None, store=None):
-            seen['store'] = store; raise Stop
+        def controls(client, run_id, session, capture, output=None, store=None, fallback=None):
+            seen['store'], seen['fallback'] = store, fallback; raise Stop
         transport.connect_wayland = lambda session: open(os.devnull, 'rb')
         with patch.object(managed, 'view_controls', controls), patch.object(managed, 'recover'), self.assertRaises(Stop):
             managed._run_owned(transport, self.journal, broker, 'DP-2', 'DP-1', plan_outputs([], [], 'run'), store=store)
         self.assertIs(seen['store'], store)
+        self.assertEqual(seen['fallback'], 'DP-1')  # Ctrl+Alt+B sends windows back to the run's recovery output
 
     def test_missing_plugin_or_physical_pair_cannot_create_journal(self):
         from tools.native_spike.managed import run_managed

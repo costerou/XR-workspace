@@ -517,3 +517,23 @@ class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
         self.at(2560 + 1915 + 600, 1075)
         self.assertIsNone(self.r.drag)
         self.assertEqual(self.view.state.placements[0]['distance'], size)
+
+
+class VideoIgnoresSendWindowTests(unittest.TestCase):
+    """Ctrl+Alt+G / 1-3 / B move nothing while a video hides the desktops, and work again once it closes."""
+    setUp, op, open, join_binds = ControlTests.setUp, ControlTests.op, ControlTests.open, ControlTests.join_binds
+
+    def test_send_keys_are_ignored_while_playing_and_work_after(self):
+        from tools.native_spike.send import SEND_OPS
+        requests = []
+        class Sender:
+            def request(self, op, selected): requests.append((op, selected))
+        self.view.sender = Sender()
+        for op in SEND_OPS: self.assertIn(op, video.IGNORED_WHILE_PLAYING)
+        self.open()
+        for op in SEND_OPS:
+            with self.subTest(op=op): self.assertIsNone(self.op(op))
+        self.assertEqual(requests, [])
+        self.op('video_exit')
+        self.op('send_glasses_2')
+        self.assertEqual([r[0] for r in requests], ['send_glasses_2'])

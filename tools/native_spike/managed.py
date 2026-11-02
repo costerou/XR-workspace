@@ -62,8 +62,10 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def view_controls(client, run_id, session, capture, output=None, store=None):
-    """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds."""
+def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None):
+    """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
+
+    `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py)."""
     if not capture:
         yield None
         return
@@ -123,6 +125,10 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
         resize = control.resize = CornerResize(control)
         control.wake = resize.wake_reader
         if hasattr(client, 'install_resize_binds'): poller = PointerPoller(client, capture, resize, bind_args).start()
+        # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-3, B). Closed first at run end (below).
+        if hasattr(client, 'mutate'):
+            from .send import WindowSender
+            control.sender = WindowSender(client, capture, fallback)
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
@@ -138,6 +144,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
         yield video
     finally:
         if video is not None: video.close()  # removes the video keys if a video was playing; none are added after this
+        if control is not None and control.sender is not None:
+            control.sender.close()  # no window move may start after this; one in flight lands before recovery runs
         if control is not None:
             control.flush()  # a menu change still inside its save delay
             control.stop_menu_binds()  # no modal menu bind may land after the removal below
@@ -169,7 +177,8 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         create_outputs(specs, journal, broker)
         if guard is None: guard = ManagedGuard(broker, output, specs)
         guard()
-        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store) as control:
+        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store,
+                                                                                   fallback) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
                                  control=control, pose_feed=pose_feed, renderer=renderer)
     finally:

@@ -103,7 +103,7 @@ std::vector<HelpRow> help_rows() {  // exactly view.help_rows() (12 rows; tests/
             {"Ctrl+Alt+Right", "Next desktop"}, {"Ctrl+Alt+[ / ]", "Less / more space between desktops"},
             {"Ctrl+Alt+Space", "Recenter the view"}, {"Ctrl+Alt+V", "Cycle viewing mode"},
             {"Ctrl+Alt+F", "Toggle cursor follow"}, {"Ctrl+Alt+P", "Toggle pose prediction"},
-            {"Ctrl+Alt+H", "Show / hide this help"}, {"Ctrl+Alt+L", "Placement menu (Ctrl+Alt+M: mouse)"},
+            {"Ctrl+Alt+H", "Help; Ctrl+Alt+G/B: window to glasses/back"}, {"Ctrl+Alt+L", "Placement menu (Ctrl+Alt+M: mouse)"},
             {"Ctrl+Alt+O", "Play a 180/360 VR video"}};
 }
 }

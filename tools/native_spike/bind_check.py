@@ -6,9 +6,10 @@ The user's Hyprland config (by default ~/.config/hypr/hyprland.lua: Omarchy's de
 loaded by `Hyprland --verify-config`, which runs the Lua config with the real `hl` API but starts no compositor. It
 runs in a throwaway HOME holding a copy of ~/.config/hypr and the Omarchy state the config reads, so nothing outside
 that directory is written. A small harness wraps hl.bind / hl.unbind to record every chord the config binds, then runs
-this run's own generated bind Lua (view binds, placement-menu binds, mouse mode) the same way, so Hyprland also checks
-that ours load. The run's chords (view.BINDS, MENU_BINDS, MOUSE_BINDS) are then compared with the desktop's and with
-each other. The running compositor is never contacted.
+this run's own generated bind Lua (view binds, send-window binds, placement-menu binds, mouse mode) the same way, so
+Hyprland also checks that ours load. The run's chords (view.BINDS, send.SEND_BINDS, MENU_BINDS, MOUSE_BINDS) are then
+compared with the desktop's and with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
+digits) count as the same key. The running compositor is never contacted.
 
 Exit status: 0 no clash, 1 clash found, 2 could not check (no Hyprland binary, config or harness error).
 """
@@ -20,11 +21,13 @@ import subprocess
 import sys
 import tempfile
 
-from . import view
+from . import send, view
 
 # Hyprland modifier spellings -> one name each.
 MODS = {'SUPER': 'SUPER', 'WIN': 'SUPER', 'LOGO': 'SUPER', 'MOD4': 'SUPER', 'META': 'SUPER', 'CTRL': 'CTRL',
         'CONTROL': 'CTRL', 'ALT': 'ALT', 'MOD1': 'ALT', 'SHIFT': 'SHIFT'}
+# Digit keys by keysym and by keycode are one key: '1' is code:10 ... '0' is code:19.
+DIGIT_CODES = {str((i + 1) % 10): f'code:{10 + i}' for i in range(10)}
 # Omarchy state its Hyprland config reads at load (themes, toggles, layouts); copied, never linked.
 STATE_DIRS = ('current', 'toggles', 'settings', 'workspace-layouts', 'monitor-workspaces', 'monitor-workspaces-merged',
               'indicators')
@@ -36,12 +39,14 @@ def normalize(chord):
     """'SUPER + SHIFT + R' and 'shift + win + r' -> (frozenset({'SUPER', 'SHIFT'}), 'r')."""
     parts = [p.strip() for p in str(chord).split('+')]
     if not parts or not parts[-1]: raise ValueError(f'unreadable chord: {chord!r}')
-    return frozenset(MODS.get(p.upper(), p.upper()) for p in parts[:-1] if p), parts[-1].lower()
+    key = parts[-1].lower()
+    return frozenset(MODS.get(p.upper(), p.upper()) for p in parts[:-1] if p), DIGIT_CODES.get(key, key)
 
 
 def run_chords():
     """(set name, chord, op) for every bind this project installs during a run."""
-    out = [('run', c, op) for c, op in view.BINDS] + [('menu', c, op) for c, op in view.MENU_BINDS]
+    out = [('run', c, op) for c, op in view.BINDS] + [('send', c, op) for c, op in send.SEND_BINDS]
+    out += [('menu', c, op) for c, op in view.MENU_BINDS]
     return out + [('mouse', c, op) for c, op in view.MOUSE_BINDS]
 
 
@@ -50,7 +55,8 @@ def _lua_string(s):
 
 
 def harness_lua(config, out):
-    chunks = [view.install_binds_lua(*DUMMY_ARGS), view.install_menu_binds_lua(*DUMMY_ARGS),
+    chunks = [view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
+              view.install_menu_binds_lua(*DUMMY_ARGS),
               view.install_mouse_binds_lua(*DUMMY_ARGS), view.remove_binds_lua()]
     ours = '\n'.join(f'do {c} end' for c in chunks)
     return f'''local out = assert(io.open({_lua_string(out)}, "w"))
@@ -95,7 +101,7 @@ def clashes(records):
         if key in desktop: problems.append(f'{chord} ({where}: {op}) is already bound by the desktop config as {desktop[key][0]}')
         for other_where, other_op in seen.get(key, []):
             pair = {op, other_op} == set(view.MOUSE_OPS)
-            # The run and menu sets are live at the same time while the menu is open; so are menu and mouse.
+            # The run, send and menu sets are live at the same time while the menu is open; so are menu and mouse.
             if not pair: problems.append(f'{chord} is bound twice in this project ({other_where}: {other_op}, {where}: {op})')
         seen.setdefault(key, []).append((where, op))
     return problems
@@ -147,8 +153,10 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     problems = clashes(records)
     if r.returncode != 0: return 2, report + ['Hyprland reported config errors (above); results may be incomplete']
     if problems: return 1, report + problems
-    labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w != 'run'} - {'mouse:272'}))
-    return 0, report + [f'no clash: {len(view.BINDS)} run binds, menu binds ({labels}) and the mouse-mode left button']
+    labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w == 'menu'}))
+    sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
+    return 0, report + [f'no clash: {len(view.BINDS)} run binds, send-window binds ({sends}), menu binds ({labels}) '
+                        'and the mouse-mode left button']
 
 
 def main(argv=None):

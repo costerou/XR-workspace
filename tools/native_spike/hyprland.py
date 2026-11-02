@@ -128,29 +128,43 @@ class HyprlandClient:
         return strict_json(self._request('j/' + kind + suffix, timeout))
 
     def mutate(self, command):
+        self._check_mutation(command)
+        return self._request('/' + command).decode('utf-8', errors='strict').strip()
+
+    @staticmethod
+    def _check_mutation(command):
         # Internal API only. Never expose this string through the public control wire.
         # Managed output lifecycle is exclusively broker/handle addressed.
         # This host uses Lua config; legacy keyword monitor is not a fallback.
         patterns = [r'keyword input:follow_mouse [0-3]',
                     rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})',
                     r'dispatch hl\.dsp\.focus\(\{monitor="XR-[1-3]"\}\)']  # glasses view focus, managed outputs only
+        from .send import MOVE_PATTERN
+        patterns.append(MOVE_PATTERN)  # Ctrl+Alt+G/1-3/B: one window by address onto one regular workspace (send.py)
         if not isinstance(command, str) or len(command) > 512: raise ValueError('invalid mutation')
         if not any(re.fullmatch(p, command) for p in patterns): raise ValueError('mutation not allowlisted')
         for word in re.split(r'[ ,]', command):
             if word.startswith('XR-') and not re.fullmatch(OWNED, word): raise ValueError('invalid managed output name')
         if command.startswith('dispatch moveworkspacetomonitor') and int(command.split()[2]) > 2147483647:
             raise ValueError('invalid workspace')
-        return self._request('/' + command).decode('utf-8', errors='strict').strip()
+        if command.startswith('dispatch hl.dsp.window.move') and int(re.fullmatch(MOVE_PATTERN, command).group(1)) > 2147483647:
+            raise ValueError('invalid workspace')
 
     def install_view_binds(self, python, client, control_socket, run_id, session):
         """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
-        from .view import install_binds_lua
+        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(install_binds_lua(python, client, control_socket, run_id, session))
+        try: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+        except (OSError, ValueError):
+            try: self._eval(remove_binds_lua())  # the run will not start: leave no half-installed binds behind
+            except (OSError, ValueError): pass
+            raise
 
     def reinstall_view_binds(self, python, client, control_socket, run_id, session):
         """After a config reload: drop any surviving handles, then bind again (never doubled)."""
-        from .view import install_binds_lua, remove_binds_lua
+        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session))
+        self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
 
     # Ownership plugin lifecycle. Wire strings follow hyprctl's request format ('/plugin load <abs path>',
     # '/plugin unload <abs path>', 'j/plugin list'); they MUST be confirmed against the VM's Hyprland before

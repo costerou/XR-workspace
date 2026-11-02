@@ -25,6 +25,10 @@ button changes that desktop's `distance` placement live (apparent size), saved l
 resize_release come from modal mouse binds that exist only while the pointer is on a corner; they are not USER_OPS.
 It is off while the placement menu is open, so the menu's mouse mode and a corner drag never share a click.
 
+Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1/2/3 to XR-n, Ctrl+Alt+B back to the physical
+fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
+add no help card row (a 13th row does not fit); the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
+
 Mouse mode (Ctrl+Alt+M while the menu is open, a modal menu bind): each menu row is drawn as a slider. The supervisor
 polls Hyprland's cursor position and turns cursor motion into an in-glasses pointer (`pointer` in the placement_menu
 payload): sideways along a slider, up/down one row per MOUSE_ROW_PX. While it is on, a left-click bind
@@ -40,6 +44,8 @@ import re
 import threading
 import time
 
+from .send import SEND_OPS
+
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
 USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
             'prediction', 'help')
@@ -54,7 +60,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview; drag a corner there to resize',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
-                'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction', 'help': 'Show / hide this help',
+                'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction',
+                'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)', 'video_open': 'Play a 180/360 VR video'}
 # Placement menu: actions (shared contract with the renderer overlay and tests) and the modal binds present only while open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -82,7 +89,8 @@ MENU_SAVE_DELAY = 0.5  # seconds after the last menu change before the profile i
 # help card's footer note repeats it from spike/include/xr/hud.hpp kOverlayIdleCloseS (a test keeps them equal).
 OVERLAY_IDLE_CLOSE_S = 30
 KEY_NAMES = {'CTRL': 'Ctrl', 'ALT': 'Alt', 'SHIFT': 'Shift', 'SUPER': 'Super', 'up': 'Up', 'down': 'Down', 'left': 'Left',
-             'right': 'Right', 'bracketleft': '[', 'bracketright': ']', 'space': 'Space', 'Tab': 'Tab', 'Escape': 'Esc'}
+             'right': 'Right', 'bracketleft': '[', 'bracketright': ']', 'space': 'Space', 'Tab': 'Tab', 'Escape': 'Esc',
+             **{f'code:{10 + i}': str((i + 1) % 10) for i in range(10)}}  # Omarchy-style digit keycodes: code:10 is 1
 
 
 def chord_label(chord):
@@ -448,8 +456,23 @@ def _remove_lua(table):
 
 
 def remove_binds_lua():
-    """Run end / reinstall: the view binds and any open menu's modal binds."""
-    return _remove_lua('xr_workspace_binds') + ' ' + remove_menu_binds_lua()
+    """Run end / reinstall: the view binds, the send-window binds and any open menu's modal binds."""
+    return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_menu_binds_lua()
+
+
+def install_send_binds_lua(python, client, control_socket, run_id, session):
+    """Send-window binds (send.SEND_BINDS); a separate table and eval so the view binds' reinstall stays one eval."""
+    from .send import SEND_BINDS
+    for p in (python, client, control_socket):
+        if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
+    for t in (run_id, session):
+        if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
+    return remove_send_binds_lua() + ' ' + _binds_lua('xr_workspace_send_binds', SEND_BINDS,
+                                                      f'{python} -I {client} {control_socket} {run_id} {session}')
+
+
+def remove_send_binds_lua():
+    return _remove_lua('xr_workspace_send_binds')
 
 
 def install_menu_binds_lua(python, client, control_socket, run_id, session):
@@ -535,6 +558,7 @@ class ViewControl:
         self._sampler = None
         self._sampling = threading.Event()
         self.mouse_moves = 0            # diagnostic: cursor samples that moved the pointer
+        self.sender = None              # optional send.WindowSender (Ctrl+Alt+G/1-3/B); set by managed.view_controls
 
     def initial_frame(self):
         return self._frame() + self._placement_frame(initial=True) + self._style_frame()
@@ -708,6 +732,9 @@ class ViewControl:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.resize.on_op(message['op']) if self.resize is not None else None
+        if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
+            if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
+            return None
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
         if message['op'] == 'help': return self._help_toggle()
         if message['op'] == 'recenter':

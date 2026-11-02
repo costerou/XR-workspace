@@ -196,3 +196,63 @@ Glasses steps (continue after step 21, with a new run started the usual way):
 | 34 | Ctrl+Alt+M, switch the Omarchy theme | Mouse mode still works after the reload: clicks still go to the menu and the cursor stays hidden. |
 | 35 | With the menu closed, press Ctrl+Alt+M in a terminal | Nothing happens in the glasses; the key reaches the terminal (it is bound only while the menu is open). |
 | 36 | Stop the session from mouse mode | The cursor is visible and clicks work after the run ends. |
+
+## Sending windows to the glasses (Ctrl+Alt+G, Ctrl+Alt+1/2/3, Ctrl+Alt+B)
+
+Run binds, installed and removed with the other run keys (`tools/native_spike/send.py`):
+
+| Keys | Sends the focused window to |
+| --- | --- |
+| Ctrl+Alt+G | the desktop selected in the glasses view (zoomed in, or highlighted in the overview) |
+| Ctrl+Alt+1 / 2 / 3 | XR-1 / XR-2 / XR-3 (bound by keycode, `code:10..12`) |
+| Ctrl+Alt+B | the run's physical fallback monitor, only if the window is on an XR desktop |
+
+The window goes onto the active workspace of the target output and focus follows it.
+
+Automated coverage (offline only):
+
+- `tests/native_spike/test_send_window.py`: target choice (selected desktop, numbered, a desktop the run lacks),
+  refusals (pinned, no window, malformed address, special or missing target workspace, Ctrl+Alt+B on a window not in the
+  glasses or with no fallback), already-there no-op, Hyprland refusing the move, errors never escaping the worker,
+  close-before-recovery (a move in flight lands first, none starts after, the wait is bounded), the mutation allowlist
+  (only this move shape, by address, follow on, workspace 1..2^31-1), the wire and helper op lists, routing from the
+  supervisor with the selected desktop, the run wiring order (sender closed before the binds are removed, recovery
+  after the controls close), the generated Lua (guarded, keycodes, removed at run end, the reload reinstall still one
+  eval for the view binds), the no-session notification, the help row and the bind clash checker, including
+  `Hyprland --verify-config` runs on throwaway configs (a desktop `CTRL + ALT + 3` is found as a clash with
+  `code:12`; Hyprland builds the move dispatcher).
+- `spike/tests/placement_menu_style_test.cpp`: the help card with the new Ctrl+Alt+H row still fits 1920×1200 @1.25:
+  1404×945 with JetBrainsMono (was 1220×945), still 12 rows. The existing warning that its 18 px fade-in drop runs 3 px
+  off the surface is unchanged.
+
+Bind check, run on this machine on 2026-11-02 (Hyprland 0.56.2, the live `~/.config/hypr` copied into a temporary HOME):
+
+```
+$ python -m tools.native_spike.bind_check
+Hyprland --verify-config: config ok (0)
+desktop config: 250 chords bound
+no clash: 12 run binds, send-window binds (Ctrl+Alt+G, Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3, Ctrl+Alt+B), menu binds (Ctrl+Alt+M, Down, Esc, Left, R, Right, Shift+Left, Shift+Right, Shift+Tab, Tab, Up) and the mouse-mode left button
+```
+
+Not checked offline: that Hyprland 0.56.2 carries out `hl.dsp.window.move({ workspace, follow, window })` from a runtime
+`/dispatch` the way Omarchy's own bind does, where floating and fullscreen windows land on an XR desktop, and whether
+the notifications reach the desktop from the run's systemd unit. The glasses steps below cover them.
+
+Glasses steps (a new run started the usual way, three desktops, a terminal and a floating window open on DP-1):
+
+| # | Do | Expect |
+|---|----|--------|
+| S1 | In the overview, select XR-2 (Ctrl+Alt+Right), focus the terminal on DP-1, press Ctrl+Alt+G | The terminal appears on XR-2 in the glasses and has keyboard focus. DP-1 no longer shows it. |
+| S2 | Zoom into XR-1 (Ctrl+Alt+Left, Ctrl+Alt+Up), focus another DP-1 window, press Ctrl+Alt+G | It lands on XR-1. |
+| S3 | Focus a DP-1 window, press Ctrl+Alt+3 | It lands on XR-3, whichever desktop is selected. Repeat with Ctrl+Alt+1 and 2. |
+| S4 | Send the floating window with Ctrl+Alt+G | It appears on the target desktop, inside its bounds. |
+| S5 | With a window on XR-2 focused, press Ctrl+Alt+B | It goes back to DP-1, on the workspace DP-1 shows, with focus. |
+| S6 | Focus a window on DP-1, press Ctrl+Alt+B | Nothing moves. A notification says the window is not on the glasses. |
+| S7 | Pin a window on DP-1 (Omarchy's pin key), press Ctrl+Alt+G | Nothing moves. A notification says to unpin it first. |
+| S8 | Press Ctrl+Alt+G with the window already on the selected desktop | Nothing happens. |
+| S9 | Switch the Omarchy theme, then press Ctrl+Alt+G on a DP-1 window | It still moves (the binds were reinstalled). |
+| S10 | With windows sent to XR-1 and XR-3, stop the session | Every window, including the sent ones, is back on DP-1. Recovery reports complete. |
+| S11 | After the session ends, press Ctrl+Alt+G and Ctrl+Alt+B in a terminal | Nothing moves; the keys reach the terminal (no run, no binds). |
+| S12 | Start a session, send a window to XR-2, kill the run unit (as in the Recover test), press Ctrl+Alt+G, then Recover from the panel | The key shows "No XR session is running" and moves nothing. Recover returns the window on XR-2 to DP-1. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.

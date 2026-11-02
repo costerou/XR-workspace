@@ -17,7 +17,8 @@ import time
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back', 'menu_mouse_press',
-       'menu_mouse_release', 'resize_press', 'resize_release')  # view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS
+       'menu_mouse_release', 'resize_press', 'resize_release', 'send_glasses', 'send_glasses_1', 'send_glasses_2',
+       'send_glasses_3', 'send_back')  # view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit')
@@ -55,6 +56,25 @@ def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
             s.sendall(('/eval ' + code).encode())
             return s.recv(64).strip() == b'ok'
     except OSError:
+        return False
+
+
+# A send key (send.SEND_OPS) with no run listening: say so; nothing moves. Stdlib only, like the rest of this helper.
+NO_SESSION = 'No XR session is running; the window stays where it is.'
+
+
+def notify_no_session(environ=os.environ, run=None):
+    """Best-effort desktop notification; fixed argv, no shell, never raises."""
+    import shutil
+    import subprocess
+    binary = shutil.which('notify-send', path=environ.get('PATH') or '/usr/bin:/bin')
+    if not binary: return False
+    try:
+        (run or subprocess.run)([binary, '--app-name', 'VITURE Workspace', '--expire-time', '4000', 'VITURE Workspace',
+                                 NO_SESSION], timeout=2, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, check=False)
+        return True
+    except (OSError, subprocess.SubprocessError):
         return False
 
 
@@ -115,6 +135,7 @@ def main(argv, picker=pick_video):
         if op.startswith('video_'): drop_stale_video_binds()  # incl. Escape (video_exit)
         if op.startswith('menu_'): drop_stale_menu_binds()  # incl. Escape (menu_toggle); harmless if none are left
         if op.startswith('resize_'): drop_stale_menu_binds(code=REMOVE_RESIZE_BINDS)  # give the left button back
+        if op.startswith('send_'): notify_no_session()  # nothing moves
         return 1
     return 0
 
