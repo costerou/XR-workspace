@@ -1,4 +1,4 @@
-// Overview corner-resize handle: the renderer side of tools/native_spike/resize.py. Display only; offline.
+// Overview corner-resize handle and grab pills: the renderer side of tools/native_spike/resize.py. Display only; offline.
 //  * the `resize_handle` control frame decodes strictly, and a malformed payload is the ignorable kind (dropped);
 //  * corner_handle() puts an L-bracket inside the requested corner, at a fixed spot (no pixel orbit);
 //  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention).
@@ -88,5 +88,54 @@ int main() {
     // OLED: both levels are dim greys at or under the cards' cap, and dragging is the brighter one.
     CHECK(kHandleLevelIdle > 0.f && kHandleLevelIdle < kHandleLevelActive);
     CHECK(std::lround(kHandleLevelActive * 255.f) <= 191 && std::lround(kHandleLevelIdle * 255.f) <= 191);
-    std::cout << "resize handle: decode, ignorable drop, corner geometry, OLED levels: PASS\n";
+    // Grab pills (move_handle): strict decode, malformed payloads dropped, never fatal.
+    auto pill = [](const std::string& payload) {
+        return R"({"schema":1,"request_id":8,"run_id":"run","session":"session","op":"move_handle","payload":)" + payload + "}\n";
+    };
+    {
+        auto d = decode_control(pill(R"({"visible":true,"desktop":1,"hover":true,"active":false})"));
+        CHECK(std::holds_alternative<ControlMessage>(d) && std::get<ControlMessage>(d).op == ControlOp::move_handle);
+        const auto* p = std::get_if<MoveHandlePayload>(&std::get<ControlMessage>(d).payload);
+        CHECK(p && p->visible && p->desktop == 1 && p->hover && !p->active);
+        for (const char* bad : {R"({})", R"({"visible":true,"desktop":3,"hover":false,"active":false})",
+                                R"({"visible":true,"desktop":-1,"hover":false,"active":false})",
+                                R"({"visible":"yes","desktop":0,"hover":false,"active":false})",
+                                R"({"visible":true,"desktop":0,"hover":false})",
+                                R"({"visible":true,"desktop":0,"hover":false,"active":false,"x":5})"}) {
+            auto e = decode_control(pill(bad));
+            CHECK(std::holds_alternative<Error>(e) && ignorable_control_error(std::get<Error>(e)));
+            CHECK(std::get<Error>(e).code == std::string(kInvalidMoveHandleCode));
+        }
+    }
+    // Pill geometry: centred just above the tile, a share of its width clamped, thin, fixed (no drift input at all).
+    {
+        const FRect p = grab_pill(tile);
+        CHECK(std::fabs(p.x + p.width / 2 - (tile.x + tile.width / 2)) < 1e-3f);
+        CHECK(std::fabs(p.y + p.height - (tile.y - kPillGapPx)) < 1e-3f && p.height == kPillThicknessPx);
+        CHECK(std::fabs(p.width - 180.f) < 1e-3f);  // 30% of 600
+        CHECK(std::fabs(grab_pill({0, 100, 4000, 2000}).width - kPillMaxPx) < 1e-3f);
+        CHECK(std::fabs(grab_pill({0, 100, 50, 30}).width - kPillMinPx) < 1e-3f);
+        CHECK(grab_pill({0, 100, 10, 30}).width <= 10.f);  // never wider than its desktop
+        CHECK(grab_pill({0, 0, 0, 30}).width == 0);
+        CHECK(p.height * 10 < p.width);  // long and thin
+    }
+    // Pill levels: dim greys, hover brighter, drag brightest, all at or under 191/255.
+    CHECK(kPillLevelIdle > 0.f && kPillLevelIdle < kPillLevelHover && kPillLevelHover < kPillLevelActive);
+    CHECK(std::lround(kPillLevelActive * 255.f) <= 191);
+    // Placement easing: frame-rate independent, converges, lands exactly, no time = no change, no overshoot.
+    {
+        const Placement from{0, 0, 1, 0, 0, 0, 0}, to{0.3f, -0.2f, 0.6f, 0.1f, 0, 0, 0.5f};
+        CHECK(same_placement(ease_toward(from, to, 1e9f, kPlacementEaseMs), to));
+        CHECK(same_placement(ease_toward(from, to, 0, kPlacementEaseMs), from));
+        const Placement half = ease_toward(from, to, kPlacementEaseMs, kPlacementEaseMs);
+        CHECK(half.x > 0 && half.x < to.x && half.distance < 1 && half.distance > to.distance);
+        Placement a = from, b = from;
+        for (int i = 0; i < 8; ++i) a = ease_toward(a, to, 4.f, kPlacementEaseMs);  // 8 x 4 ms
+        for (int i = 0; i < 2; ++i) b = ease_toward(b, to, 16.f, kPlacementEaseMs); // 2 x 16 ms
+        CHECK(std::fabs(a.x - b.x) < 1e-4f && std::fabs(a.distance - b.distance) < 1e-4f);
+        Placement c = from; int frames = 0;
+        while (!same_placement(c, to) && frames < 1000) { c = ease_toward(c, to, 1000.f / 120, kPlacementEaseMs); ++frames; }
+        CHECK(same_placement(c, to) && frames < 120);  // settles in well under a second
+    }
+    std::cout << "resize handle and grab pills: decode, ignorable drop, geometry, OLED levels, placement easing: PASS\n";
 }

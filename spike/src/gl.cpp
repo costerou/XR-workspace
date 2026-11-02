@@ -102,6 +102,7 @@ struct GlCompositor::Impl {
     const HudImage* pointer = nullptr; std::uint64_t pointer_generation = 0; float pointer_alpha = 0, pointer_left = 0, pointer_top = 0;
     const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0;
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
+    float pill_level = 0, pill_bright_level = 0; int pill_bright = -1;                 // grab pills
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
@@ -268,6 +269,11 @@ void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float le
     impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive);
 }
 
+void GlCompositor::set_grab_pills(float level, int bright, float bright_level) {
+    impl_->pill_level = std::min(level, kPillLevelActive); impl_->pill_bright = bright;
+    impl_->pill_bright_level = std::min(bright_level, kPillLevelActive);
+}
+
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
 
 void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
@@ -358,6 +364,19 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         const GLsizei n = mesh(i, tiles[i], false);
         attrib(s.pos, 3, 0); attrib(s.uv, 2, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+    }
+    if (s.pill_level > 0.f) {
+        // Grab pills: opaque dim bars just above each desktop, on its own surface (a tilted desktop tilts its pill).
+        if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
+        glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
+        for (const std::size_t i : draw_order(canvas, tiles, resolved)) {
+            if (i >= s.textures.size()) continue;
+            const float level = int(i) == s.pill_bright ? s.pill_bright_level : s.pill_level;
+            glUniform4f(s.color, level, level, level, 1.f);
+            const GLsizei n = mesh(i, grab_pill(tiles[i]), false);
+            attrib(s.color_pos, 3, 0);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+        }
     }
     if (s.handle_desktop >= 0 && std::size_t(s.handle_desktop) < tiles.size() && s.handle_level > 0.f) {
         // Corner-resize handle: an opaque grey bracket on the desktop's own surface, over its pixels (no blending needed).

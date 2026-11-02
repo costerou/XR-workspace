@@ -136,6 +136,26 @@ CornerHandle corner_handle(const FRect& t, std::uint32_t corner) {
     return {{x0, hy, arm, kHandleThicknessPx}, {vx, y0, kHandleThicknessPx, arm}};
 }
 
+FRect grab_pill(const FRect& t) {
+    if (t.width <= 0 || t.height <= 0) return {};
+    const float w = std::min(clampf(kPillShare * t.width, kPillMinPx, kPillMaxPx), t.width);
+    return {t.x + (t.width - w) / 2, t.y - kPillGapPx - kPillThicknessPx, w, kPillThicknessPx};
+}
+
+Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms) {
+    if (tau_ms <= 0) return to;
+    if (!(dt_ms > 0)) return from;
+    const float k = std::exp(-dt_ms / tau_ms);
+    auto step = [&](float a, float b) { const float v = b + (a - b) * k; return std::fabs(v - b) < 2e-4f ? b : v; };
+    return {step(from.x, to.x), step(from.y, to.y), step(from.distance, to.distance), step(from.yaw, to.yaw),
+            step(from.pitch, to.pitch), step(from.roll, to.roll), step(from.curvature, to.curvature)};
+}
+
+bool same_placement(const Placement& a, const Placement& b) {
+    return a.x == b.x && a.y == b.y && a.distance == b.distance && a.yaw == b.yaw && a.pitch == b.pitch && a.roll == b.roll &&
+           a.curvature == b.curvature;
+}
+
 void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {
     advance(now_ms);
     from_zoom_ = zoom(); from_spacing_ = this->spacing();

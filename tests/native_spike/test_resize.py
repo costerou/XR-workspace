@@ -27,8 +27,9 @@ LIVE_BIND_ARGS = ('/usr/bin/python3', '/home/cody/.t3/worktrees/viture-workspace
                   '/run/user/1000/xr-workspace-spike/' + 'a' * 32 + '/control.sock', 'a' * 32, 'e' * 64)
 
 
-def frames(data):
-    return [json.loads(line) for line in (data or b'').decode().splitlines()]
+def frames(data, skip=('move_handle',)):
+    """Renderer frames, without the grab pills' frames unless asked (the corner tests don't follow the pills)."""
+    return [f for f in (json.loads(line) for line in (data or b'').decode().splitlines()) if f['op'] not in skip]
 
 
 class Clock:

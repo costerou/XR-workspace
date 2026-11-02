@@ -52,6 +52,9 @@ public:
     void set_menu_pointer(const HudImage* image, std::uint64_t generation, float alpha, float left, float top);
     // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop`, grey `level` (0..1); desktop < 0: none.
     void set_corner_handle(int desktop, std::uint32_t corner, float level);
+    // Overview grab pills (view.hpp grab_pill) above every desktop at grey `level`, desktop `bright` at `bright_level`
+    // (hover or drag); level 0: none.
+    void set_grab_pills(float level, int bright, float bright_level);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
     // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.

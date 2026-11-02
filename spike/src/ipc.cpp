@@ -75,6 +75,14 @@ bool resize_handle(const Json& p, ResizeHandlePayload& out) {
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), std::uint32_t(named - std::begin(kHandleCorners)), p["active"].get<bool>()};
     return true;
 }
+bool move_handle(const Json& p, MoveHandlePayload& out) {
+    if (!p.is_object() || p.size() != 4) return false;
+    for (const char* key : {"visible", "hover", "active"})
+        if (!p.contains(key) || !p[key].is_boolean()) return false;
+    if (!p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() > 2) return false;
+    out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>()};
+    return true;
+}
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
     if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid();
@@ -110,6 +118,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "placement_menu") op = ControlOp::placement_menu;
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "menu_pointer") op = ControlOp::menu_pointer;
+        else if (name == "move_handle") op = ControlOp::move_handle;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -172,6 +181,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             ResizeHandlePayload handle;
             if (!resize_handle(j["payload"], handle)) return Error{kInvalidHandleCode, "Ignored malformed resize_handle payload"};
             payload = handle;
+        } else if (op == ControlOp::move_handle) {
+            MoveHandlePayload pill;
+            if (!move_handle(j["payload"], pill)) return Error{kInvalidMoveHandleCode, "Ignored malformed move_handle payload"};
+            payload = pill;
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

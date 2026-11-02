@@ -9,7 +9,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, menu_pointer, resize_handle, video };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, menu_pointer, resize_handle, video, move_handle };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -54,8 +54,13 @@ struct ResizeHandlePayload { bool visible = false; std::uint32_t desktop = 0, co
 enum class VideoAction : std::uint8_t { open, close, pause, seek, format, controls };
 constexpr std::int32_t kMaxVideoSeekS = 3600;
 struct VideoPayload { VideoAction action = VideoAction::close; VideoFormat format; std::string title; std::int32_t seconds = 0; bool visible = false; };
+// Overview grab pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..2,"hover":bool,
+// "active":bool}. visible = a pill above every desktop; `desktop` with hover = the brighter one under the pointer, with
+// active = being dragged. Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
+constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
+struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    MenuPointerPayload, ResizeHandlePayload, VideoPayload>;
+                                    MenuPointerPayload, ResizeHandlePayload, VideoPayload, MoveHandlePayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -64,9 +69,11 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, menu_pointer or resize_handle payload. It
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, menu_pointer, resize_handle or move_handle payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
-inline bool ignorable_control_error(const Error& e) { return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode; }
+inline bool ignorable_control_error(const Error& e) {
+    return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode;
+}
 class ControlQueue {
 public:
     ControlQueue(std::string run_id, std::string session);

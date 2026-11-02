@@ -13,6 +13,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Per-desktop placement (position, distance, yaw/pitch/roll, curvature) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
 | Overview corner resize (drag a desktop's corner to make it bigger or smaller in space) | Offline tests only (`tests/native_spike/test_resize.py`, `spike/tests/resize_handle_test.cpp`). Not yet tried in the glasses; the steps are in `docs/placement-menu-test-plan.md` (R1–R15). |
+| Overview grab pill (drag the bar above a desktop to move it) | Offline tests only (`tests/native_spike/test_grab_pill.py`, `spike/tests/resize_handle_test.cpp`); its cursor Lua loads under `Hyprland --verify-config`. Not yet tried in the glasses; steps P1–P16 in `docs/placement-menu-test-plan.md`. |
 | Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
@@ -86,6 +87,7 @@ These keybinds exist only during a run. The keys marked "menu open" are bound on
 | Left click | mouse mode | Snap the slider under the pointer to it, or pick the desktop tab under it; elsewhere nothing |
 | Left drag | mouse mode | Drag that slider; the desktop follows live |
 | Left-drag a desktop corner | overview, menu closed, pointer on a corner | Resize that desktop: outward is bigger, inward is smaller |
+| Left-drag the bar above a desktop | overview, menu closed, pointer at the top centre | Move that desktop, like a title bar |
 
 Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring and mouse mode are covered by offline tests only.
 
@@ -150,6 +152,43 @@ brightness, and 72% while you drag (184/255, under the cards' 191 cap). It hides
 (`OVERLAY_IDLE_CLOSE_S`). A drag still held at that point ends and is saved. It does not drift or orbit.
 The CPU fallback renderer draws no bracket.
 
+### Moving desktops in the overview (grab pill)
+
+In the overview, a long thin grey bar sits centred just above each desktop. To grab it, move the pointer to the top
+centre of the desktop: the middle 30% of its width (120–720 px), in the same top strip as the corners. The pointer
+can't go above a desktop, so that strip stands in for the bar. The bar over that desktop gets brighter. Hold the left
+button and drag. The desktop follows the mouse like a window by its title bar: right is right, up is up. Half the
+desktop's width in mouse travel moves it one full width. Release to drop it.
+
+While you drag, the cursor is hidden and kept near the middle of its monitor, so the desktop can go up or sideways even
+though the pointer started at the top of the layout. This is the placement menu's mouse-mode technique, with its own
+saved state. On release the cursor shows again where you grabbed, which is still on the bar, because the bar moved with
+the desktop. Movement is applied live and eased in the renderer (35 ms time constant), so it looks smooth at the
+display's rate even though the pointer is read 60 times a second during a drag.
+
+Placement is free, with three guards instead of a snap grid:
+
+- **Back to the row.** Each direction snaps to the desktop's own slot when within 4%, so putting it back is easy.
+- **No bad overlap.** A desktop may cover another by at most 10% of the smaller one's area, judged on the overview's
+  rectangles (apparent size included, tilt ignored). If a move would overlap more, the desktop slides along the free
+  direction or stops at the edge. To pass a neighbour, lift it clear of the row first. A desktop already overlapping
+  (set from the panel) can always move to where it overlaps less.
+- **In reach.** The limits are the Left/right and Down/up placements' own: one desktop width or height from its slot.
+
+The position is the desktop's **Left/right** and **Down/up** placement. It is saved to the glasses model's profile like
+a size (half a second after the last change, and on release), and the panel's **Place** tab shows it.
+
+The bar and the corner bracket share one left-button bind and never compete. A corner zone always wins where they
+meet, and the bar's strip is kept clear of both corners, so a click is either a resize or a move. Both are off when
+zoomed in and while the placement menu is open. A VR video's playback gate (`IGNORED_WHILE_PLAYING`) covers both
+through the same `resize_press` / `resize_release` ops. Clicks are handled as for corner resize: only while the
+pointer is on the bar's strip or a drag is in progress does the left button go to the run. If the run dies mid-drag,
+the release click removes the bind and also shows the cursor again and puts it back.
+
+The bars protect the micro-OLED like the bracket. They are dim grey: 90/255 normally, 150 on hover and 184 while
+dragging (cap 191). They never move on their own, and they hide after 30 s without pointer movement in the overview.
+The CPU fallback renderer draws no bars.
+
 ### Placement menu
 
 You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings as sliders with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
@@ -194,8 +233,9 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
   of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
   windows are refused, so recovery can always move the XR desktops' windows back.
 - Run binds use Ctrl+Alt chords. The only unmodified binds are modal: the placement menu's keys while it is open, and
-  the left button while the pointer is on a desktop corner in the overview (corner resize). Both are removed when no
-  longer needed.
+  the left button while the pointer is on a desktop corner or grab bar in the overview (corner resize, pill move). Both
+  are removed when no longer needed. A pill drag hides the cursor and re-centres it with fixed Lua (as mouse mode
+  does), and shows it again where it was on release, at run end, or on the first click after a dead run.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
 
 ## Host diagnostic (`xr_probe`)

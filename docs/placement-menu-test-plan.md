@@ -138,6 +138,41 @@ before and after. Start in the overview (Ctrl+Alt+Down) with every desktop at Di
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
+## Overview grab pill (move): automated coverage and glasses test script
+
+Automated coverage (offline only):
+
+- `tests/native_spike/test_grab_pill.py`: the grab strip and its precedence below the corners, move math (direction,
+  gain, clamp, snap), the overlap guard and slide, the drag state machine (live frames, warp filtering, save, panel
+  sync), off while zoomed or with the menu open, idle hide, the hidden-cursor Lua and its cleanup (run end, dead run),
+  and the poller's re-centring.
+- `spike/tests/resize_handle_test.cpp`: `move_handle` decoding (malformed payloads dropped), pill geometry, its levels at
+  or under 191/255, and the renderer's placement easing.
+- The cursor Lua also loads under `Hyprland --verify-config`, run with this project's `bind_check` harness. That is not a live test.
+
+Same setup and go-ahead as the corner script. Start in the overview with every desktop flat (Place tab: all zero).
+
+| # | Do | Expect |
+|---|----|--------|
+| P1 | Look at the overview | A thin, dim grey bar is centred just above each desktop. It never drifts. |
+| P2 | Move the pointer to the top centre of XR-1 | XR-1's bar gets brighter. The other bars stay dim. No corner bracket. |
+| P3 | Move along the top edge toward a corner | The bar dims again before the corner bracket appears; the two never show together. |
+| P4 | On XR-1's bar, hold the left button and drag down | The cursor disappears and XR-1 moves down smoothly with the mouse. The window under the bar gets no click. |
+| P5 | Keep holding: drag up a long way, then left | XR-1 follows up past where it started (the cursor never gets stuck at the top), then left. It stops at one desktop height up / width left. |
+| P6 | Release | The cursor reappears on XR-1's bar, where you grabbed. Place tab: Left/right and Down/up show the new values. |
+| P7 | Drag XR-1 right toward XR-2 at the same height | It stops when it just touches XR-2 (a small overlap at most). It never covers XR-2. |
+| P8 | Keep the button held, drag up until XR-1 is above the row, then right | XR-1 passes over XR-2 once it is clear of the row. |
+| P9 | Drag XR-1 back to roughly where it started | It snaps into its slot in the row when close. Place tab: 0 and 0. |
+| P10 | Hover the bar without moving for 30 s | All bars fade off; moving the pointer brings them back. |
+| P11 | Open the placement menu (Ctrl+Alt+L) | The bars disappear and a click on the top centre goes to the window. Close the menu: they return. |
+| P12 | Zoom in (Ctrl+Alt+Up) | No bars while zoomed or zooming. |
+| P13 | Move XR-3, stop the session, start a new one | XR-3 comes back where you left it. |
+| P14 | During a drag, press nothing else and stop the session from the panel | The cursor reappears where you grabbed, visible. A left click on DP-1 works. |
+| P15 | If VR video is merged: play a video, click the top centre of where a desktop was | Nothing moves (the video gate ignores the click ops). |
+| P16 | Resize a desktop by a corner, then move it by its bar | Each does only its own thing; a move never changes size and a resize never moves. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
 ## Sliders and mouse mode
 
 Each setting in the menu is drawn as a slider. With the menu open, **Ctrl+Alt+M** turns on mouse mode: a round pointer
