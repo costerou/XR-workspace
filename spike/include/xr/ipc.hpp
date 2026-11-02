@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, move_handle };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -45,8 +45,13 @@ struct PlacementMenuPayload {
 // dropped without stopping the renderer.
 constexpr const char* kInvalidHandleCode = "invalid_resize_handle";
 struct ResizeHandlePayload { bool visible = false; std::uint32_t desktop = 0, corner = 0; bool active = false; };
+// Overview grab pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..2,"hover":bool,
+// "active":bool}. visible = a pill above every desktop; `desktop` with hover = the brighter one under the pointer, with
+// active = being dragged. Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
+constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
+struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    ResizeHandlePayload>;
+                                    ResizeHandlePayload, MoveHandlePayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -55,9 +60,11 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu or resize_handle payload. It
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle or move_handle payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
-inline bool ignorable_control_error(const Error& e) { return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode; }
+inline bool ignorable_control_error(const Error& e) {
+    return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode;
+}
 class ControlQueue {
 public:
     ControlQueue(std::string run_id, std::string session);

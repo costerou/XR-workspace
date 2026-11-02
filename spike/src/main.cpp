@@ -143,6 +143,10 @@ int main(int argc, char** argv) {
                         if (const auto* h = std::get_if<xr::ResizeHandlePayload>(&m->payload))
                             presentation.set_resize_handle(h->visible, h->desktop, h->corner, h->active);
                     }
+                    else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
+                        if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
+                            presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
+                    }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 7>> placements;
                         for (const auto& w : std::get<xr::PlacementPayload>(m->payload).desktops)

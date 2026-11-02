@@ -27,9 +27,15 @@ REMOVE_MENU_BINDS = ('for _, b in ipairs(xr_workspace_menu_binds or {}) do '
                      'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
                      'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
                      'end end')
-# Same text as resize.remove_resize_binds_lua() (tests compare). A left click with no run listening must not stay bound.
+# Same text as resize.remove_resize_binds_lua() (tests compare). A left click with no run listening must not stay bound,
+# and a cursor hidden by a pill drag must come back.
 REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
-                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_resize_binds = nil')
+                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_resize_binds = nil '
+                       # resize.GRAB_LEAVE_LUA: a run that died mid pill-drag left the cursor hidden; show it and put it back
+                       'do local s = xr_workspace_grab xr_workspace_grab = nil if s then '
+                       'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
+                       'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
+                       'end end')
 
 
 def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):

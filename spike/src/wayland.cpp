@@ -162,16 +162,31 @@ struct Presentation::Impl : SurfaceRequests {
     // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
     std::vector<std::array<std::int32_t, 7>> placements;
     std::uint64_t placement_updates = 0;
+    Placement target_placement(std::size_t i) const {
+        constexpr float rad = float(M_PI) / 180.f;
+        if (i >= placements.size()) return {};
+        const auto& w = placements[i];
+        return {w[0] / 100.f, w[1] / 100.f, w[2] / 100.f, w[3] * rad, w[4] * rad, w[5] * rad, w[6] * rad};
+    }
+    // Drawn placements ease toward the latest ones (view.hpp ease_toward), so a pill drag or corner resize, whose
+    // updates arrive at the pointer's rate, moves smoothly at the display's rate.
+    std::vector<Placement> eased;
+    double eased_ms = -1;
+    void ease_placements(double now_ms) {
+        const float dt = eased_ms < 0 ? 1e9f : float(now_ms - eased_ms);
+        eased_ms = now_ms;
+        eased.resize(captures.size());
+        for (std::size_t i = 0; i < eased.size(); ++i) eased[i] = ease_toward(eased[i], target_placement(i), dt, kPlacementEaseMs);
+    }
+    bool placements_easing() const {
+        for (std::size_t i = 0; i < eased.size(); ++i) if (!same_placement(eased[i], target_placement(i))) return true;
+        return false;
+    }
     std::vector<Placement> resolved_placements() const {
         std::vector<Placement> out;
-        constexpr float rad = float(M_PI) / 180.f;
         const float zoom = view.zoom(), position = view.position();
         for (std::size_t i = 0; i < captures.size(); ++i) {
-            Placement p;
-            if (i < placements.size()) {
-                const auto& w = placements[i];
-                p = {w[0] / 100.f, w[1] / 100.f, w[2] / 100.f, w[3] * rad, w[4] * rad, w[5] * rad, w[6] * rad};
-            }
+            const Placement p = i < eased.size() ? eased[i] : target_placement(i);
             out.push_back(faded(p, zoom_weight(zoom, position, i)));  // the zoomed desktop comes flat in front of you
         }
         return out;
@@ -199,6 +214,7 @@ struct Presentation::Impl : SurfaceRequests {
     PlacementMenuOverlay menu; // keyboard placement menu (supervisor-owned state)
     bool menu_drawn = false;   // last frame showed the menu: draw once more so it clears
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
+    struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -452,7 +468,7 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()) || s.menu.animating(now) || (s.menu_drawn && !s.menu.visible()))
+            (s.help_drawn && !s.help.visible()) || s.menu.animating(now) || (s.menu_drawn && !s.menu.visible()) || s.placements_easing())
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up, the help card or the menu every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
@@ -555,6 +571,7 @@ std::string Presentation::capture_report() const {
            ",\"renders\":" + std::to_string(impl_->menu.render_count()) +
            ",\"fits\":" + (impl_->menu.fits() ? "true" : "false") + "}";
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
+    out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
     const auto mode = impl_->modes.mode();
     out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
@@ -715,6 +732,13 @@ void Presentation::set_resize_handle(bool visible, std::uint32_t desktop, std::u
     h.visible = visible; h.desktop = desktop; h.corner = corner; h.active = active;
     impl_->cadence.invalidate();
 }
+void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active) {
+    if (!impl_) return;
+    auto& p = impl_->pills;
+    if (visible && !p.visible) ++p.shown;
+    p.visible = visible; p.desktop = desktop; p.hover = hover; p.active = active;
+    impl_->cadence.invalidate();
+}
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
                             bool prediction) {
@@ -774,6 +798,7 @@ Status Presentation::draw_test_pattern() {
             head = view_from(relative, s.modes.update(relative, double(now)));
         }
         if (!s.half_w) s.update_fov();
+        s.ease_placements(double(monotonic_ms()));
         auto tiles = blended_layout(s.capture_sizes(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position());
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
         if (s.presentation) {
@@ -798,6 +823,9 @@ Status Presentation::draw_test_pattern() {
         // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
         const bool handle = s.handle.visible && s.view.zoom() < 0.01f;
         s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);
+        const bool pills = s.pills.visible && s.view.zoom() < 0.01f;  // grab pills: overview only, never moving on their own
+        s.gl->set_grab_pills(pills ? kPillLevelIdle : 0.f, s.pills.hover || s.pills.active ? int(s.pills.desktop) : -1,
+                             s.pills.active ? kPillLevelActive : kPillLevelHover);
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();

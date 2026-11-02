@@ -253,6 +253,20 @@ class HyprlandClient:
         from .resize import remove_resize_binds_lua
         self._eval(remove_resize_binds_lua())
 
+    def grab_cursor(self):
+        """Pill drag started: remember, centre and hide the cursor (fixed Lua, resize.GRAB_ENTER_LUA)."""
+        from .resize import GRAB_ENTER_LUA
+        self._eval(GRAB_ENTER_LUA)
+
+    def recentre_cursor(self):
+        from .resize import GRAB_RECENTRE_LUA
+        self._eval(GRAB_RECENTRE_LUA)
+
+    def release_cursor(self):
+        """Pill drag ended: the cursor's visibility and position back (no-op if it was never hidden)."""
+        from .resize import GRAB_LEAVE_LUA
+        self._eval(GRAB_LEAVE_LUA)
+
     def install_mouse_binds(self, python, client, control_socket, run_id, session):
         """Placement menu mouse mode on: left-button binds, cursor hidden (runtime only); generated Lua only."""
         from .view import install_mouse_binds_lua

@@ -59,6 +59,16 @@ std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect>
 struct CornerHandle { FRect horizontal, vertical; };
 CornerHandle corner_handle(const FRect& tile, std::uint32_t corner);
 constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 255.f;
+// Overview grab pill (resize.py): a long thin bar centred just above `tile`, on the desktop's own surface, never moving
+// on its own. Three dim greys, all at or under the cards' 191/255 cap: idle (every desktop), hover, dragging.
+FRect grab_pill(const FRect& tile);
+constexpr float kPillLevelIdle = 90.f / 255.f, kPillLevelHover = 150.f / 255.f, kPillLevelActive = 184.f / 255.f;
+constexpr float kPillShare = 0.3f, kPillMinPx = 24.f, kPillMaxPx = 240.f, kPillThicknessPx = 4.f, kPillGapPx = 7.f;
+// Placement easing: the drawn placement approaches the latest one with time constant `tau_ms` (exponential, frame-rate
+// independent) and lands on it exactly once within a hair, so drags at the pointer's ~30-60 Hz look smooth at 120 Hz.
+Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
+bool same_placement(const Placement& a, const Placement& b);
+constexpr float kPlacementEaseMs = 35.f;
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 
 // Time-based animation toward targets (no frame-rate dependence).

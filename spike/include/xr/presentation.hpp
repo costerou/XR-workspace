@@ -86,6 +86,10 @@ public:
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.
     void set_resize_handle(bool visible, std::uint32_t desktop, std::uint32_t corner, bool active);
+    // Overview grab pills (display only; the supervisor owns hover/drag and moves desktops with set_placements): a dim
+    // bar above every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging). Overview only,
+    // never moving on its own. GPU composition only.
+    void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
