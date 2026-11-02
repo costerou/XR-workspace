@@ -92,7 +92,8 @@ class BindTests(unittest.TestCase):
 
     def test_focus_command_allowlisted(self):
         self.assertEqual(view.focus_command('XR-2'), 'dispatch hl.dsp.focus({monitor="XR-2"})')
-        for bad in ('DP-1', 'XR-4', 'XR-1"})', ''):
+        self.assertEqual(view.focus_command('XR-6'), 'dispatch hl.dsp.focus({monitor="XR-6"})')
+        for bad in ('DP-1', 'XR-7', 'XR-0', 'XR-10', 'XR-1"})', ''):
             with self.assertRaises(ValueError): view.focus_command(bad)
 
 

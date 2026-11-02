@@ -116,7 +116,9 @@ class PanelConsentTests(unittest.TestCase):
             with self.assertRaises(ValueError): load_panel_consent(path, *args)
 
     def test_rejects_bad_desktops_tracking_schema(self):
-        with self.assertRaises(ValueError): build_consent(scope(desktops=scope()['desktops'][:2]))
+        for n in (0, 7):
+            with self.assertRaises(ValueError): build_consent(scope(desktops=[scope()['desktops'][0]] * n))
+        with self.assertRaises(ValueError): build_consent(scope(desktops=scope()['desktops'][0]))
         with self.assertRaises(ValueError):
             build_consent(scope(desktops=[{'width': 3840, 'height': 1080, 'scale': 1.75}] * 3))
         with self.assertRaises(ValueError): build_consent(scope(tracking=True))

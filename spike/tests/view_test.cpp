@@ -86,7 +86,23 @@ int main() {
     a.advance(1300); CHECK(near(a.position(), halfway, 1e-3f));
     a.advance(2000); CHECK(a.zoom() == 0 && a.position() == 1 && a.spacing() == 120);
     a.set_target(true, 9, 9999, 2000); a.advance(3000);  // selection and spacing are clamped
-    CHECK(a.selected() == 2 && a.spacing() == float(kMaxSpacing));
+    CHECK(a.selected() == kMaxDesktops - 1 && a.spacing() == float(kMaxSpacing));
+
+    // Any desktop count: one desktop fills the view; six stay in one row inside it.
+    const Size one[] = {{1920, 1080}};
+    auto single = overview_layout(one, 1920, 1200, 40);
+    CHECK(single.size() == 1 && near(single[0].x + single[0].width / 2, 960) && single[0].width <= 1920);
+    auto single_zoom = zoomed_layout(one, 1920, 1200, 40, 0);
+    CHECK(single_zoom.size() == 1 && near(single_zoom[0].x, 0) && near(single_zoom[0].width, 1920));
+    const Size many[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}, {1920, 1080}, {1920, 1080}, {1920, 1080}};
+    auto row6 = overview_layout(many, 1920, 1200, 40);
+    CHECK(row6.size() == 6 && row6[0].x >= 0 && row6[5].x + row6[5].width <= 1920.5f);
+    for (std::size_t i = 1; i < row6.size(); ++i) CHECK(near(row6[i].x - (row6[i - 1].x + row6[i - 1].width), 40));
+    auto zoom6 = zoomed_layout(many, 1920, 1200, 40, 5);
+    CHECK(near(zoom6[5].x, 0) && near(zoom6[5].width, 1920) && near(zoom6[4].x, -1960));
+    ViewAnimator last6(200, 200);
+    last6.set_target(true, 5, 40, 0); last6.advance(1000);
+    CHECK(last6.selected() == 5 && last6.position() == 5);
 
     // Desktop switch: gentle ease-in/out, momentum kept across quick presses, never overshoots.
     CHECK(smootherstep(0) == 0 && smootherstep(1) == 1 && near(smootherstep(0.5f), 0.5f, 1e-3f));

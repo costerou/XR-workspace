@@ -18,6 +18,8 @@ import os
 from pathlib import Path
 import re
 
+from .geometry import MANAGED_NAME, MAX_DESKTOPS
+
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
 USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
             'prediction', 'help')
@@ -48,7 +50,7 @@ def help_rows():
 def help_frame(run_id, session, request_id, visible):
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'help',
                         'payload': {'visible': bool(visible), 'rows': help_rows()}}, separators=(',', ':')) + '\n').encode()
-FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
+FOCUSEDMON = re.compile(r'focusedmon>>(' + MANAGED_NAME + r'),')
 CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
 COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
 
@@ -76,14 +78,14 @@ def style_frame(run_id, session, request_id, rgb):
     if len(rgb) != 3 or any(type(c) is not int or not 0 <= c <= 255 for c in rgb): raise ValueError('invalid colour')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'style',
                         'payload': {'border': list(rgb)}}, separators=(',', ':')) + '\n').encode()
-MANAGED = re.compile(r'XR-[1-3]\Z')
+MANAGED = re.compile(MANAGED_NAME + r'\Z')
 SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
 class ViewState:
     def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=True):
-        if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
+        if not names or len(names) > MAX_DESKTOPS or len(set(names)) != len(names) or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if mode not in MODES or type(cursor_follow) is not bool or type(prediction) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)

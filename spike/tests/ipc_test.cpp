@@ -59,6 +59,11 @@ int main() {
     require(message.op == xr::ControlOp::view);
     auto& v = std::get<xr::ViewPayload>(message.payload);
     require(v.zoomed && v.selected == 2 && v.spacing == 40 && v.mode == 2 && v.cursor_follow && v.prediction);
+    // Selection covers every managed desktop index, XR-1..XR-6, and nothing beyond.
+    auto last = xr::decode_control(view(R"({"zoomed":true,"selected":5,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false})"));
+    require(std::holds_alternative<xr::ControlMessage>(last));
+    require(std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(last).payload).selected == 5);
+    require(std::holds_alternative<xr::Error>(xr::decode_control(view(R"({"zoomed":true,"selected":6,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false})"))));
     for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":0,"spacing":0,"mode":"orbit"})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":3,"spacing":0})",
                             R"({"zoomed":true,"selected":0,"spacing":401})", R"({"zoomed":true,"selected":-1,"spacing":0})",

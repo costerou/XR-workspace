@@ -11,6 +11,7 @@ ColumnLayout {
     required property var settings
     property bool busy: false
     property int selected: -1
+    readonly property var limits: Model.desktopLimits(snapshot)
     signal request(var message)
     spacing: 12
     Label { text: "Not running · " + (root.snapshot.model || "VITURE") + " · " + (root.snapshot.output || "no presentation output"); font.bold:true }
@@ -37,15 +38,33 @@ ColumnLayout {
             }
         }
     }
+    RowLayout {
+        Label { text:"Desktops" }
+        SpinBox {
+            objectName:"desktopCount"
+            from:root.limits.min; to:root.limits.max
+            value:(root.settings.desktops || []).length || root.limits.min
+            enabled:!root.busy && !!root.settings.desktops
+            onValueModified: {
+                const count=value
+                if (root.selected >= count) root.selected=-1
+                root.request({op:"set_desktop_count",count:count})
+                value=Qt.binding(() => (root.settings.desktops || []).length || root.limits.min)  // show what was saved
+            }
+        }
+        Label { text:"Added desktops copy the last one. Applies to the next session."; opacity:0.65; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+    }
     Label { text:"Click a desktop to edit its startup geometry."; opacity:0.65 }
     Loader {
-        Layout.fillWidth:true; active:root.selected>=0 && !!root.settings.desktops
+        Layout.fillWidth:true; active:root.selected>=0 && !!root.settings.desktops && root.selected<root.settings.desktops.length
         sourceComponent: DesktopEditor {
             desktop:root.settings.desktops[root.selected]; index:root.selected; busy:root.busy
+            removable:Model.removeDesktop(root.settings.desktops,root.selected,root.limits)!==null
             onSave: function(desktop) { const ds=root.settings.desktops.slice(); ds[root.selected]=desktop; root.request({op:"set_settings",settings:{desktops:ds}}) }
+            onRemove: { const ds=Model.removeDesktop(root.settings.desktops,root.selected,root.limits); if (ds) { root.selected=-1; root.request({op:"set_settings",settings:{desktops:ds}}) } }
         }
     }
-    Label { visible:Model.largeLayoutWarning(root.settings.desktops || []); text:"Large desktops: 120 Hz with this layout has not been measured."; color:"#e7c78a"; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+    Label { visible:Model.largeLayoutWarning(root.settings.desktops || []); text:"Large layout: 120 Hz with this many pixels has not been measured."; color:"#e7c78a"; Layout.fillWidth:true; wrapMode:Text.WordWrap }
     Label { text:"Startup view"; font.bold:true }
     RowLayout {
         Repeater {

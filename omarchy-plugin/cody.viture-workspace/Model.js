@@ -1,5 +1,24 @@
 .pragma library
 
+// Managed desktop count; mirrors MIN_DESKTOPS/MAX_DESKTOPS in tools/native_spike/geometry.py.
+// The controller also reports its limits (snapshot.desktop_limits), which take precedence.
+var MIN_DESKTOPS = 1, MAX_DESKTOPS = 6;
+
+function desktopLimits(snapshot) {
+    const l = snapshot && snapshot.desktop_limits;
+    return l && Number.isInteger(l.min) && Number.isInteger(l.max) && l.min <= l.max
+        ? {min:l.min, max:l.max} : {min:MIN_DESKTOPS, max:MAX_DESKTOPS};
+}
+
+// Startup layout without desktop `index`; null if that would leave too few or the index is bad.
+function removeDesktop(desktops, index, limits) {
+    const min = (limits || {min:MIN_DESKTOPS}).min;
+    if (!Array.isArray(desktops) || !Number.isInteger(index) || index < 0
+            || index >= desktops.length || desktops.length <= min)
+        return null;
+    return desktops.slice(0, index).concat(desktops.slice(index + 1));
+}
+
 function validScales(w, h) {
     if (typeof w !== "number" || typeof h !== "number"
             || !Number.isInteger(w) || !Number.isInteger(h) || w <= 0 || h <= 0)
@@ -96,9 +115,11 @@ function scopeLines(scope, action) {
 
 // Translate a preview click into the existing relative operations. The caller
 // serializes replies, stops on refusal/disconnect, and never changes view locally.
-function selectOperations(selected, target, capabilities) {
-    if (!Number.isInteger(selected) || !Number.isInteger(target)
-            || selected < 0 || selected > 2 || target < 0 || target > 2) return [];
+// `count` is the running session's desktop count.
+function selectOperations(selected, target, capabilities, count) {
+    if (!Number.isInteger(count) || count < 1 || count > MAX_DESKTOPS
+            || !Number.isInteger(selected) || !Number.isInteger(target)
+            || selected < 0 || selected >= count || target < 0 || target >= count) return [];
     const operation = target > selected ? "next" : "prev";
     if (capabilities.indexOf(operation) < 0) return [];
     return Array(Math.abs(target-selected)).fill(operation);

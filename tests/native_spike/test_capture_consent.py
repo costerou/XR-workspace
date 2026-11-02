@@ -46,7 +46,7 @@ class CaptureConsentTests(unittest.TestCase):
     def test_capture_arguments_only_for_managed_names(self):
         self.assertEqual(capture_arguments(['XR-1', 'XR-2', 'XR-3'], 'DP-2'), ['--capture', 'XR-1,XR-2,XR-3'])
         self.assertEqual(capture_arguments(None, 'DP-2'), [])
-        for bad in (['DP-1'], ['XR-1', 'XR-1'], ['XR-4'], ['XR-1', 'DP-2'], [], ['XR-1,XR-2']):
+        for bad in (['DP-1'], ['XR-1', 'XR-1'], ['XR-7'], ['XR-10'], [f'XR-{i}' for i in range(1, 8)], ['XR-1', 'DP-2'], [], ['XR-1,XR-2']):
             with self.subTest(bad), self.assertRaises(ValueError):
                 capture_arguments(bad, 'DP-2')
 

@@ -5,12 +5,12 @@ from pathlib import Path
 import tempfile
 
 from . import view
-from .geometry import DEFAULT_DESKTOP, validate_desktop
+from .geometry import DEFAULT_DESKTOP, DEFAULT_DESKTOP_COUNT, MAX_DESKTOPS, MIN_DESKTOPS, validate_desktop, validate_desktops
 from .ipc import token
 
 MODELS = ('beast', 'luma-ultra', 'unknown')
 SCHEMA = 2
-DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
+DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(DEFAULT_DESKTOP_COUNT)],
                    'tracking': True, 'mode_switch': True, 'fallback': None}
 
 
@@ -46,8 +46,10 @@ def _clean(data):
     """Each field validated on its own; anything invalid or missing falls back to its default."""
     out = _view_part(data)
     desktops = data.get('desktops')
-    out['desktops'] = [_desktop(desktops[i]) if isinstance(desktops, list) and len(desktops) == 3 else dict(DEFAULT_DESKTOP)
-                       for i in range(3)]
+    # A saved count is kept (one bad entry falls back alone); an unusable list is the default layout.
+    if not isinstance(desktops, list) or not MIN_DESKTOPS <= len(desktops) <= MAX_DESKTOPS:
+        desktops = [DEFAULT_DESKTOP] * DEFAULT_DESKTOP_COUNT
+    out['desktops'] = [_desktop(d) for d in desktops]
     for key in ('tracking', 'mode_switch'):
         out[key] = data[key] if type(data.get(key)) is bool else True
     out['fallback'] = _fallback(data.get('fallback'))
@@ -74,9 +76,7 @@ def load_profile(path, model):
 def _check(profile):
     if not isinstance(profile, dict) or set(profile) != set(DEFAULT_PROFILE): raise ValueError('invalid profile')
     if not view._valid({k: profile[k] for k in view.DEFAULT_SETTINGS}): raise ValueError('invalid profile')
-    d = profile['desktops']
-    if not isinstance(d, list) or len(d) != 3: raise ValueError('invalid profile')
-    out = {**profile, 'desktops': [validate_desktop(x) for x in d]}
+    out = {**profile, 'desktops': validate_desktops(profile['desktops'])}
     if any(type(profile[k]) is not bool for k in ('tracking', 'mode_switch')): raise ValueError('invalid profile')
     if profile['fallback'] is not None: token(profile['fallback'])
     return out

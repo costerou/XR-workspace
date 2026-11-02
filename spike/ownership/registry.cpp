@@ -54,7 +54,7 @@ Json parse_request(const std::string& wire) {
         for(auto key:{"index","width","height","refresh_millihz","x","y"})
             if(!p[key].is_number_integer() || (p[key].is_number_unsigned() ? p[key].get<uint64_t>()>2147483647ULL :
                 (p[key].get<int64_t>() < -2147483648LL || p[key].get<int64_t>()>2147483647LL))) throw std::runtime_error("integer");
-        if(p["index"]<0 || p["index"]>2 || p["refresh_millihz"]!=120000 ||
+        if(p["index"]<0 || p["index"]>=kMaxDesktops || p["refresh_millihz"]!=120000 ||
            !p["scale"].is_number() || !validDesktop(p["width"].get<int>(),p["height"].get<int>(),p["scale"].get<double>())) throw std::runtime_error("geometry");
         // Stable names: Omarchy gives each managed output its own persistent workspace block.
         if(p["name"]!="XR-"+std::to_string(p["index"].get<int>()+1)) throw std::runtime_error("output name");

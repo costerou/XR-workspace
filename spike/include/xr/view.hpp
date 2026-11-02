@@ -13,6 +13,8 @@ namespace xr {
 struct FRect { float x = 0, y = 0, width = 0, height = 0; };
 struct Size { float w, h; };  // a source desktop's pixel size
 constexpr std::uint32_t kMaxSpacing = 400;
+// Managed desktops XR-1..XR-6; mirrors MAX_DESKTOPS in tools/native_spike/geometry.py.
+constexpr std::uint32_t kMaxDesktops = 6;
 
 // Empty if there are no sources, the view is empty, or any source has a non-positive size.
 // Overview: the largest shared height whose widths plus spacing gaps and margins fit view_w, <= view_h.

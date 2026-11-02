@@ -1,4 +1,5 @@
 #include "xr/ipc.hpp"
+#include "xr/view.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <set>
@@ -60,7 +61,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             const auto& p = j["payload"];
             if (p.size() != 6 || !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
-                p["selected"].get<std::uint64_t>() > 2 || p["spacing"].get<std::uint64_t>() > 400) return invalid();
+                p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return invalid();
             const auto mode = p["mode"].get<std::string>();
             std::uint8_t m = 0;
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();

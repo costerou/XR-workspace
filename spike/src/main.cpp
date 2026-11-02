@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
                      "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
-                     "Or --capture XR-1[,XR-2[,XR-3]]: show only the app's own managed outputs (managed-output capture consent),\n"
+                     "Or --capture XR-1[,XR-2...,XR-6]: show only the app's own managed outputs (managed-output capture consent),\n"
                      "  optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n"
                      "Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
         return 0;

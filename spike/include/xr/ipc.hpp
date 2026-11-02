@@ -9,7 +9,7 @@
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help };
 struct SelectPayload { OutputId output_id; };
-// Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
+// Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
 // `cursor_follow` is display-only for the renderer (mode/cursor pop-ups); the supervisor acts on it.
 // `prediction`: renderer-side bounded head-pose prediction (predict.hpp), toggled at run time.

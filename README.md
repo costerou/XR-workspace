@@ -11,7 +11,8 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Managed virtual desktops, capture, rendering, viewing modes, zoom/switch controls, pose prediction, theme-reload survival | Physical runs on Luma Ultra through the `tools.native_spike` CLI. The `mod1` run presented ~119.9 Hz over 168 s on the zero-copy dmabuf path. The `trk1` run held ~119.8 Hz for 214 s with 0 tracking losses. These measure presentation cadence only, not latency or long-session comfort. |
 | Settings panel and controller service | Physical panel acceptance on Luma Ultra (2026-11-01; controller source `d685884`, which includes `8538468`, `4cfa04d` and `d9fbb28`; pinned renderer `62989b6e…` built from `822495c`). Run `d3adc32d` (on controller code a peer session had loaded but not yet committed; the later run and the recovery used committed `d685884`), started from the panel, calibrated tracking, switched DP-2 to 1920×1200@120 and presented ~120.0 Hz on dmabuf with 0 missed frames. Cody confirmed in the glasses that zoom/overview, desktop switching, spacing, recenter, viewing modes, cursor follow, prediction, the help card and live window content all worked. Panel Stop exited cleanly (renderer rc 0, nothing left over). In run `88b7e850`, the session kept running through a controller restart, and the new controller picked it up again. After a deliberate SIGKILL of the run unit, the panel showed Recover, and panel Recover put the desktop back to its baseline (XR outputs removed, plugin unloaded, DP-2 back to 1080@60). Earlier physical attempts failed before the renderer launched (mode readback, then `Errno 11`). After the startup-state fix (`d685884`), Cody reported a cursor-follow retest on the Luma Ultra (start XR, wait for calibration, fullscreen YouTube) with no blackout. That is a human-reported result, and the earlier blackout's root cause is unproven. Beast panel sessions are untested. The ~120 Hz figure is presentation cadence only. |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
-| Not built yet | Per-desktop position, curvature and rotation; more or fewer than three desktops; resizing while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
+| Desktop count 1–6 | Offline tests only (Python suites, CTest, QML). Counts other than three have not been run in the isolated VM or on the glasses. See [Managed desktop count](#managed-desktop-count-16). |
+| Not built yet | Per-desktop position, curvature and rotation; resizing while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
 
@@ -67,6 +68,18 @@ These keybinds exist only during a run:
 | Ctrl+Alt+H | Show the help card in the glasses |
 
 Settings are saved per glasses model.
+
+## Managed desktop count (1–6)
+
+The number of managed desktops can be set from 1 to 6. The default is 3. In the panel it is the **Desktops** spin box when no session is running, plus **Remove XR-n** in the desktop editor. The controller op is `set_desktop_count`. The count is saved in each glasses model's profile (`~/.config/viture-workspace/profiles.json`), so Beast and Luma Ultra keep separate layouts. The start confirmation lists every desktop it will create, and that consented list is what the run creates. The count cannot change while a session is starting, running or awaiting recovery. A start is refused while any `XR-n` from an earlier run is still present, even when the new run would not reuse that name. The limit lives in `tools/native_spike/geometry.py` and is copied into the broker, the renderer and `Model.js`. A test fails if the copies drift.
+
+| Level | Status for counts other than three |
+| --- | --- |
+| Offline tests | **Pass.** Each count from 1 to 6 is covered for planning, journaled broker creation and readback, partial failure at every index, lost replies, controller restart from the saved epoch, epoch loss, the guard, teardown and renderer-crash recovery, using a synthetic broker. |
+| Isolated VM | **Not run.** |
+| Physical glasses | **Not run.** No 120 Hz or comfort claim exists for these layouts, and the panel warns when total pixels exceed three 1080p desktops. |
+
+All VM and physical managed-run evidence so far used three desktops. Two prerequisites come before any live run with more than three. First, the rebuilt ownership plugin and renderer must be reinstalled and pinned (`python -m tools.xr_controller install --build <dir>`). The previously pinned plugin refuses index 3 and above, so creation fails safely. Second, managed-output capture was granted for `XR-1`..`XR-3` only, so capturing `XR-4`..`XR-6` on the live desktop needs Cody's explicit approval.
 
 ## Tests
 

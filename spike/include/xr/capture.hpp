@@ -1,5 +1,5 @@
 #pragma once
-// Capture of the app's own managed outputs only (user grant 2026-10-31: XR-1..XR-3, in memory,
+// Capture of the app's own managed outputs only (XR-1..XR-kMaxDesktops, in memory,
 // never written anywhere, never the presentation or recovery outputs). Pure, offline-testable
 // helpers; the Wayland client lives in wayland.cpp.
 #include <cstddef>
@@ -11,8 +11,8 @@
 #include "xr/view.hpp"
 
 namespace xr {
-// "XR-1,XR-2,XR-3" -> ordered unique names. Rejects anything not exactly XR-[1-3], duplicates,
-// empty entries, more than three, or the renderer's own output.
+// "XR-1,XR-2,XR-3" -> unique names in numeric order. Rejects anything not exactly XR-1..XR-kMaxDesktops,
+// duplicates, empty entries, more than kMaxDesktops, or the renderer's own output.
 std::optional<std::vector<std::string>> parse_capture_list(const std::string& csv, const std::string& own_output);
 
 constexpr std::uint32_t kShmArgb8888 = 0, kShmXrgb8888 = 1;  // wl_shm.format values

@@ -11,6 +11,7 @@ import secrets
 import subprocess
 from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE
 from tools.native_spike.profiles import _check
+from tools.native_spike.geometry import MIN_DESKTOPS, MAX_DESKTOPS, resize_desktops
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MODES, SPACING_STEP
 from .detect import pick_fallback
 
@@ -35,7 +36,14 @@ class Controller:
             run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
             view=self.live.get('view',{}) if self.state=='running' else {},
-            status=self.live.get('status',{}) if self.state=='running' else {}))
+            status=self.live.get('status',{}) if self.state=='running' else {},
+            desktops=self._running_desktops(), desktop_limits=dict(min=MIN_DESKTOPS,max=MAX_DESKTOPS)))
+
+    def _running_desktops(self):
+        # The consented layout is what the run created; the saved profile may differ.
+        if self.state!='running' or not self.run: return None
+        try: return self._consent(self.run)['desktops']
+        except (OSError,ValueError,KeyError): return None
 
     def _state(self, state):
         if self.state != state: self.pending=None
@@ -159,6 +167,11 @@ class Controller:
                 return dict(forwarded=True)
             model=self.observed['model']; profile=self.store.load(model)
             self.store.save(model,_check({**profile,**settings})); return
+        if op=='set_desktop_count':
+            # Startup layout only: a running session keeps the outputs it was consented with.
+            if self.state!='idle': raise ValueError('desktop count is fixed while busy or running')
+            model=self.observed['model']; profile=self.store.load(model)
+            self.store.save(model,_check({**profile,'desktops':resize_desktops(profile['desktops'],msg.get('count'))})); return
         if op=='begin_start':
             self.tick()
             if self.state!='idle': raise ValueError('busy')

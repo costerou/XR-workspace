@@ -7,6 +7,8 @@
 namespace xr::ownership {
 using Json = nlohmann::json;
 Json parse_request(const std::string&);
+// Managed desktops XR-1..XR-6; mirrors MAX_DESKTOPS in tools/native_spike/geometry.py.
+constexpr int kMaxDesktops=6;
 bool validDesktop(int w,int h,double scale);
 struct Object { virtual ~Object() = default; bool live=true, physical=false; };
 using Handle=std::shared_ptr<Object>;

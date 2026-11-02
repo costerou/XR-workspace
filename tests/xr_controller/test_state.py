@@ -159,3 +159,88 @@ class StateTests(unittest.TestCase):
         self.c.probe=fail; self.c.tick()
         self.assertEqual(self.c.snapshot()['state'],'failed'); self.assertIsNone(self.c.pending)
         self.assertEqual(self.c.snapshot()['reason'],'probe unavailable')
+
+
+class DesktopCountTests(unittest.TestCase):
+    """Configurable managed-desktop count: startup-only, bounded, consented exactly, per model."""
+    setUp, begin, journal = StateTests.setUp, StateTests.begin, StateTests.journal
+    def count(self, n): return self.c.request(dict(op='set_desktop_count', count=n))
+
+    def test_count_changes_startup_layout_and_consent(self):
+        for n in (1, 6, 2):
+            with self.subTest(n=n):
+                self.assertTrue(self.count(n)['ok'])
+                self.assertEqual(len(self.c.store.profile['desktops']), n)
+        self.assertTrue(self.count(5)['ok'])
+        r = self.begin()
+        self.assertEqual(len(r['scope']['desktops']), 5)
+        self.c.request(dict(op='confirm_start', scope_id=r['scope_id']))
+        consent = load_panel_consent(self.path/(r['scope']['run_id']+'.json'), 'instance', 'DP-2')
+        self.assertEqual(len(consent['desktops']), 5)
+
+    def test_growing_copies_last_desktop_and_shrinking_keeps_first(self):
+        wide = {'width': 3840, 'height': 1080, 'scale': 1.0}
+        self.c.store.profile['desktops'] = [{'width': 1920, 'height': 1080, 'scale': 1.0}, wide]
+        self.assertTrue(self.count(4)['ok'])
+        self.assertEqual(self.c.store.profile['desktops'][1:], [wide] * 3)
+        self.assertTrue(self.count(1)['ok'])
+        self.assertEqual(self.c.store.profile['desktops'], [{'width': 1920, 'height': 1080, 'scale': 1.0}])
+
+    def test_out_of_range_or_malformed_count_refused_without_saving(self):
+        before = copy.deepcopy(self.c.store.profile)
+        for bad in (0, 7, -1, 3.0, '3', True, None):
+            with self.subTest(bad=bad):
+                reply = self.count(bad)
+                self.assertFalse(reply['ok'])
+                self.assertEqual(self.c.store.profile, before)
+        self.assertFalse(self.c.request(dict(op='set_settings', settings={'desktops': []}))['ok'])
+        self.assertFalse(self.c.request(dict(op='set_settings', settings={'desktops': [before['desktops'][0]] * 7}))['ok'])
+        self.assertEqual(self.c.store.profile, before)
+
+    def test_set_settings_accepts_any_valid_count(self):
+        d = {'width': 2560, 'height': 1440, 'scale': 1.25}
+        self.assertTrue(self.c.request(dict(op='set_settings', settings={'desktops': [d] * 6}))['ok'])
+        self.assertEqual(self.c.store.profile['desktops'], [d] * 6)
+
+    def test_snapshot_reports_limits(self):
+        self.assertEqual(self.c.snapshot()['desktop_limits'], {'min': 1, 'max': 6})
+        self.assertIsNone(self.c.snapshot()['desktops'])
+
+    def test_count_locked_while_confirming_running_or_recovering(self):
+        self.begin()
+        self.assertFalse(self.count(4)['ok'])            # a pending scope cannot drift from what is shown
+        self.c.request(dict(op='cancel'))
+        self.journal(); self.c.tick()
+        self.assertEqual(self.c.snapshot()['state'], 'recovery-needed')
+        self.assertFalse(self.count(4)['ok'])
+        self.units.active = True; self.c.tick()
+        self.assertEqual(self.c.snapshot()['state'], 'running')
+        self.assertFalse(self.count(4)['ok'])
+
+    def test_running_snapshot_shows_consented_desktops_not_later_profile(self):
+        self.assertTrue(self.count(4)['ok'])
+        self.journal(); self.units.active = True; self.c.tick()
+        self.c.store.profile['desktops'] = self.c.store.profile['desktops'][:1]  # e.g. edited by another tool
+        snap = self.c.snapshot()
+        self.assertEqual(snap['state'], 'running')
+        self.assertEqual(len(snap['desktops']), 4)
+
+
+class RealStoreCountTests(unittest.TestCase):
+    """The controller's store is the per-glasses-model profiles file."""
+    def test_count_saved_per_model(self):
+        from unittest import mock
+        from tools.xr_controller.__main__ import Store
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, XDG_CONFIG_HOME=tmp):
+            fd = os.open(tmp, os.O_DIRECTORY); self.addCleanup(os.close, fd)
+            obs = dict(model='beast', output='DP-2', reason=None, instance='instance', monitors=[dict(name='DP-2'), dict(name='DP-1')],
+                       journals=[], installed={k: dict(path='/p/'+k, sha256='a'*64) for k in ('plugin', 'renderer')}, plugins=[])
+            c = Controller(lambda: 0, lambda: copy.deepcopy(obs), lambda *a: None, Units(), Store(), fd, tmp)
+            self.assertTrue(c.request(dict(op='set_desktop_count', count=6))['ok'])
+            obs['model'] = 'luma-ultra'; c.tick()
+            self.assertEqual(len(c.request(dict(op='get_settings'))['settings']['desktops']), 3)
+            self.assertTrue(c.request(dict(op='set_desktop_count', count=1))['ok'])
+            obs['model'] = 'beast'; c.tick()
+            self.assertEqual(len(c.request(dict(op='get_settings'))['settings']['desktops']), 6)
+            obs['model'] = 'luma-ultra'; c.tick()
+            self.assertEqual(len(c.request(dict(op='get_settings'))['settings']['desktops']), 1)

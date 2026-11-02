@@ -114,10 +114,49 @@ TestCase {
         compare(Model.desktopEdit(3440,1440,1.25), {width:3440,height:1440,scale:1.25});
     }
     function test_selectOperations() {
-        compare(Model.selectOperations(0,2,["next","prev"]), ["next","next"]);
-        compare(Model.selectOperations(2,0,["next","prev"]), ["prev","prev"]);
-        compare(Model.selectOperations(undefined,2,["next"]), []);
-        compare(Model.selectOperations(0,2,[]), []);
-        compare(Model.selectOperations(1,1,["next","prev"]), []);
+        compare(Model.selectOperations(0,2,["next","prev"],3), ["next","next"]);
+        compare(Model.selectOperations(2,0,["next","prev"],3), ["prev","prev"]);
+        compare(Model.selectOperations(undefined,2,["next"],3), []);
+        compare(Model.selectOperations(0,2,[],3), []);
+        compare(Model.selectOperations(1,1,["next","prev"],3), []);
+        // Any running count: XR-6 is reachable with six desktops, never beyond the run's count.
+        compare(Model.selectOperations(0,5,["next","prev"],6), Array(5).fill("next"));
+        compare(Model.selectOperations(0,3,["next","prev"],3), []);
+        compare(Model.selectOperations(0,1,["next","prev"],1), []);
+        compare(Model.selectOperations(0,1,["next","prev"],undefined), []);
+        compare(Model.selectOperations(0,6,["next","prev"],7), []);
+    }
+    function test_desktopCount() {
+        compare(Model.desktopLimits({}), {min:1,max:6});
+        compare(Model.desktopLimits({desktop_limits:{min:1,max:4}}), {min:1,max:4});
+        compare(Model.desktopLimits({desktop_limits:{min:5,max:4}}), {min:1,max:6});
+        const a={width:1920,height:1080,scale:1}, b={width:3840,height:1080,scale:1}, c={width:2560,height:1440,scale:1};
+        compare(Model.removeDesktop([a,b,c],1), [a,c]);
+        compare(Model.removeDesktop([a,b],0,{min:1,max:6}), [b]);
+        compare(Model.removeDesktop([a],0), null);          // never below the minimum
+        compare(Model.removeDesktop([a,b],2), null);
+        compare(Model.removeDesktop([a,b],-1), null);
+        compare(Model.removeDesktop(undefined,0), null);
+        verify(Model.largeLayoutWarning(Array(4).fill({width:1920,height:1080})));  // more than three 1080p is unmeasured
+        verify(!Model.largeLayoutWarning([{width:1920,height:1080}]));
+        const lines=Model.scopeLines({model:"beast",output:"DP-2",recovery_output:"DP-1",desktops:Array(6).fill(a),tracking:false,mode_switch:false},"start");
+        compare(lines.filter(l => /^XR-\d: /.test(l.text)).length, 6);
+        verify(Model.scopeLines({recovery_output:"DP-1",desktops:Array(6).fill(a)},"recover").some(l => l.text.indexOf("XR-1, XR-2, XR-3, XR-4, XR-5, XR-6.") >= 0));
+    }
+    SignalSpy { id:removeSpy; signalName:"remove" }
+    function test_desktopRemoveButton() {
+        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,index:3,desktop:{width:1920,height:1080,scale:1}});
+        verify(waitForRendering(editor));
+        const remove=findChild(editor,"removeDesktop");
+        compare(remove.text,"Remove XR-4");
+        verify(!remove.enabled);                            // removable defaults to false (e.g. last remaining desktop)
+        editor.removable=true;
+        verify(remove.enabled);
+        removeSpy.target=editor; removeSpy.clear();
+        mouseClick(remove);
+        compare(removeSpy.count,1);
+        editor.busy=true;
+        verify(!remove.enabled);
+        removeSpy.target=null;
     }
 }
