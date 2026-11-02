@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 40 224 168" width="224" height="168">
+  <!-- Monochrome VITURE Workspace mark for the bar; the widget tints it.
+       Same shapes as #vw-mark in assets/icon.svg. -->
+  <g fill="#ffffff" stroke="#ffffff" stroke-width="8" stroke-linejoin="round">
+    <path d="M28 60 L76 50 L76 102 L28 92 Z"/>
+    <rect x="100" y="48" width="56" height="56" rx="2"/>
+    <path d="M180 50 L228 60 L228 92 L180 102 Z"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="18" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40 136 H116 V160 C116 178 104 192 86 192 H72 C54 192 40 178 40 160 Z"/>
+    <path d="M140 136 H216 V160 C216 178 202 192 184 192 H170 C152 192 140 178 140 160 Z"/>
+    <path d="M116 146 C122 140 134 140 140 146"/>
+  </g>
+</svg>

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=VITURE Workspace
+GenericName=XR Desktop
+Comment=Start and control the VITURE XR desktop
+Icon=viture-workspace
+Exec=omarchy-shell shell summon cody.viture-workspace {}
+Terminal=false
+Categories=Utility;
+Keywords=VITURE;XR;AR;glasses;Luma;Beast;virtual desktop;
+# The panel is a window of the Omarchy shell, so Hyprland sees it as class
+# org.quickshell. Its title is "VITURE Workspace"; Quickshell's
+# DesktopEntries.heuristicLookup matches StartupWMClass, so bar widgets that
+# look shell-hosted windows up by title (Spaces) find this entry and its icon.
+StartupWMClass=VITURE Workspace

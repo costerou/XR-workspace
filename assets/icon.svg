@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>VITURE Workspace</title>
+  <!-- App icon. The mark (#vw-mark: three desktops floating in an arc above
+       XR glasses) is self-contained so a wider logo can reuse it with <use>
+       or by copying the group. Coordinates sit on a 16-unit grid so the
+       shapes land on whole pixels at 16, 32 and 64 px. -->
+  <defs>
+    <linearGradient id="vw-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101935"/>
+      <stop offset="1" stop-color="#1c1340"/>
+    </linearGradient>
+    <linearGradient id="vw-xr" x1="32" y1="48" x2="224" y2="208" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.55" stop-color="#6d8bfa"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="vw-lens" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#a855f7" stop-opacity="0.16"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#vw-bg)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+  <g id="vw-mark">
+    <!-- three virtual desktops, the side ones turned toward the viewer -->
+    <g fill="url(#vw-xr)" stroke="url(#vw-xr)" stroke-width="8" stroke-linejoin="round">
+      <path d="M28 60 L76 50 L76 102 L28 92 Z"/>
+      <rect x="100" y="48" width="56" height="56" rx="2"/>
+      <path d="M180 50 L228 60 L228 92 L180 102 Z"/>
+    </g>
+    <!-- glasses -->
+    <g fill="url(#vw-lens)" stroke="url(#vw-xr)" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M40 136 H116 V160 C116 178 104 192 86 192 H72 C54 192 40 178 40 160 Z"/>
+      <path d="M140 136 H216 V160 C216 178 202 192 184 192 H170 C152 192 140 178 140 160 Z"/>
+      <path d="M116 146 C122 140 134 140 140 146" fill="none"/>
+    </g>
+  </g>
+</svg>
