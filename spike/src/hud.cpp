@@ -34,7 +34,11 @@ constexpr Glyph kSpace{}, kColon{0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x00}, kDas
 
 constexpr std::array<float, 3> kWhite{0.96f, 0.96f, 0.96f}, kDim{0.62f, 0.62f, 0.62f};
 constexpr std::array<float, 3> kBackground{0.06f, 0.06f, 0.07f};
-constexpr std::array<float, 3> kAccent{0.48f, 0.64f, 0.97f};  // cards' border, dividers and highlights
+constexpr std::array<float, 3> kAccent{0.48f, 0.64f, 0.97f};  // pop-up border
+// Help card and placement menu: these stay up for a while, so they are dimmed against micro-OLED image retention.
+// Text at ~70% and dim text at ~46% stay readable on the near-black card; the accent keeps its hue at 75%.
+constexpr std::array<float, 3> kCardText{0.70f, 0.70f, 0.70f}, kCardDim{0.46f, 0.46f, 0.46f};
+constexpr std::array<float, 3> kCardAccent{kAccent[0] * 0.75f, kAccent[1] * 0.75f, kAccent[2] * 0.75f};  // border, rules, highlights
 constexpr float kBackgroundAlpha = 0.88f;
 // Card chrome in output pixels (the card is drawn 1:1 in the glasses).
 constexpr float kPad = 22, kLineGap = 8, kRadius = 14, kBorder = 2;
@@ -148,10 +152,10 @@ namespace {
 constexpr float kDividerAlpha = 0.45f;     // faint accent rule under the card title
 constexpr float kHighlightAlpha = 0.28f;   // accent wash behind the selected menu row
 static_assert(kHudFitMargin == std::uint32_t(kHelpPad), "fit margin is the card padding");
-HudLine card_title(std::string text) { return {std::move(text), 2, kWhite, true}; }
-HudLine card_key(std::string text) { return {std::move(text), 2, kWhite, true}; }     // left column: bold white
-HudLine card_detail(std::string text) { return {std::move(text), 2, kDim}; }          // descriptions: dim
-HudLine card_footer(std::string text) { return {std::move(text), 1, kDim}; }          // key hints: small, dim
+HudLine card_title(std::string text) { return {std::move(text), 2, kCardText, true}; }
+HudLine card_key(std::string text) { return {std::move(text), 2, kCardText, true}; }     // left column: bold
+HudLine card_detail(std::string text) { return {std::move(text), 2, kCardDim}; }         // descriptions: dim
+HudLine card_footer(std::string text) { return {std::move(text), 1, kCardDim}; }         // key hints: small, dim
 std::uint32_t height(const LineBox& b) { return b.ascent + b.descent; }
 struct Cell { HudLine line; LineBox box; };
 Cell cell(HudLine line, const HudFont* font) { auto b = box(line, font); return {std::move(line), b}; }
@@ -173,7 +177,8 @@ std::uint32_t card_size(std::uint32_t content) { return content + 2 * std::uint3
 }
 
 HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font) {
-    const Cell title = cell(card_title("Keyboard shortcuts"), font), footer = cell(card_footer("Ctrl+Alt+H to close"), font);
+    const Cell title = cell(card_title("Keyboard shortcuts"), font),
+               footer = cell(card_footer("Ctrl+Alt+H to close. Help and menu close after " + std::to_string(kOverlayIdleCloseS) + " s idle."), font);
     std::vector<std::pair<Cell, Cell>> table;
     std::uint32_t keys_w = 0, actions_w = 0, rows_h = 0;
     for (const auto& r : rows) {
@@ -492,6 +497,16 @@ float StatusPopups::alpha(double now_ms) const { return generation_ ? popup_alph
 namespace xr {
 void StatusPopups::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }
 
+OrbitOffset overlay_orbit(double now_ms) {
+    constexpr int r = kOrbitRadiusPx, side = 2 * kOrbitRadiusPx, n = 4 * side;  // n positions round the square's edge
+    if (r <= 0) return {};
+    int i = int(std::fmod(std::floor(std::max(0.0, now_ms) / kOrbitStepMs), double(n)));
+    if (i < side) return {-r + i, -r};  // top edge, left to right
+    i -= side; if (i < side) return {r, -r + i};   // right edge, down
+    i -= side; if (i < side) return {r - i, r};    // bottom edge, right to left
+    i -= side; return {-r, r - i};                 // left edge, up (the next step is the start again: one pixel)
+}
+
 bool CardFade::set(bool visible, double now_ms) {
     if (visible == visible_) return false;
     from_ = level(now_ms);  // reverse from wherever the fade is
@@ -514,7 +529,7 @@ bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now
                     !std::equal(rows.begin(), rows.end(), rows_.begin(),
                                 [](const HelpRow& a, const HelpRow& b) { return a.keys == b.keys && a.action == b.action; }))) {
         rows_ = rows;
-        image_ = render_help_card(rows_, kAccent, font_.get());
+        image_ = render_help_card(rows_, kCardAccent, font_.get());
         ++generation_;
     }
     if (!fade_.set(visible, now_ms)) return false;
@@ -539,7 +554,7 @@ bool PlacementMenuOverlay::set(const PlacementMenuState& state, double now_ms) {
     return changed;
 }
 void PlacementMenuOverlay::render() {
-    image_ = render_placement_menu_card(rendered_, kAccent, font_.get(), max_w_, max_h_);
+    image_ = render_placement_menu_card(rendered_, kCardAccent, font_.get(), max_w_, max_h_);
     fits_ = placement_menu_fit(rendered_, font_.get(), max_w_, max_h_).fits;
     ++generation_;
 }

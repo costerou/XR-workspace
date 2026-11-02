@@ -91,6 +91,8 @@ The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn
 
 Each key press moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's profile shortly after the last key press, and again when the menu closes. The menu changes placement only. It does not change the run's consent, capture or the panel's buttons.
 
+The help card and the placement menu protect the glasses' micro-OLED panels from image retention (a faint copy of bright, static text that stays for a while after it closes). Their text and accent are dimmed to about 70% and 75% of full brightness. Both cards drift by one pixel every 2 s around a 7×7 pixel square, so their text doesn't sit on the same pixels. Both close by themselves after 30 s without input: a run key or a panel placement change. The help card's footer says so. Typing in a window doesn't count. Ctrl+Alt+L and Ctrl+Alt+H reopen them. The timeout is `OVERLAY_IDLE_CLOSE_S` in `tools/native_spike/view.py`. Its copy `kOverlayIdleCloseS` in `spike/include/xr/hud.hpp` feeds the footer note, and a test keeps the two equal.
+
 ## Tests
 
 Bare `python -m unittest` from the root finds nothing. Run each suite explicitly:

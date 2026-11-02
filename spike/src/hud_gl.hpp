@@ -12,9 +12,9 @@ public:
     ~GlHud();
     // Draw `image` (re-uploaded when `generation` changes) centred horizontally near the bottom
     // (or, with `centered`, in the middle) of a `width` x `height` viewport at `alpha`, moved
-    // down by `drop_px`, blended over what is already drawn.
+    // down by `drop_px` and shifted by whole pixels (`dx` right, `dy` up; the pixel orbit), blended over what is drawn.
     void draw(const HudImage& image, std::uint64_t generation, float alpha, std::uint32_t width, std::uint32_t height,
-              bool centered = false, float drop_px = 0);
+              bool centered = false, float drop_px = 0, int dx = 0, int dy = 0);
 private:
     GlHud() = default;
     unsigned program_ = 0, texture_ = 0;

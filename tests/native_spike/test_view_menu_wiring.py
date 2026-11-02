@@ -198,6 +198,78 @@ class MenuControlTests(unittest.TestCase):
         self.assertEqual(calls, [True, True, False])  # closed menu: nothing re-added
 
 
+class OverlayIdleCloseTests(unittest.TestCase):
+    """Image-retention protection: the help card and the menu close by themselves after OVERLAY_IDLE_CLOSE_S idle."""
+    IDLE = view.OVERLAY_IDLE_CLOSE_S
+    control, send = MenuControlTests.control, MenuControlTests.send
+
+    def test_menu_closes_after_the_idle_time_saves_and_releases_its_keys(self):
+        store, clock, calls = MemoryPlacements(), Clock(), []
+        c = self.control(store, binds=calls.append, clock=clock)
+        start = clock.now
+        self.send(c, 'menu_toggle'); self.send(c, 'menu_inc'); c.join_focus(2)
+        self.assertIsNone(c.poll(start + self.IDLE - 0.01))
+        self.assertTrue(c.state.menu_open)
+        out = frames(c.poll(start + self.IDLE))
+        self.assertEqual([f['op'] for f in out], ['placement_menu']); self.assertFalse(out[0]['payload']['open'])
+        self.assertFalse(c.state.menu_open)
+        self.assertEqual((store.saves, store.saved[0]['x']), (1, 2))  # the pending change is saved at once
+        c.join_focus(2); self.assertEqual(calls, [True, False])  # the arrows, Tab, R and Escape are released
+        self.assertIsNone(c.poll(start + self.IDLE + 5))  # closed once; nothing more is sent
+        self.assertTrue(frames(c.on_message({'op': 'menu_toggle'}))[0]['payload']['open'])  # Ctrl+Alt+L reopens it
+
+    def test_each_key_or_panel_change_restarts_the_idle_time(self):
+        clock = Clock(); c = self.control(clock=clock)
+        self.send(c, 'menu_toggle')
+        clock.now += self.IDLE - 1; self.send(c, 'menu_field_next')  # a key with no visible change still counts
+        self.assertIsNone(c.poll(clock.now + self.IDLE - 0.01))
+        clock.now += self.IDLE - 1
+        c.on_message({'op': 'placement', 'payload': {'desktops': [DEFAULT_PLACEMENT] * 3}})  # panel slider
+        self.assertIsNone(c.poll(clock.now + self.IDLE - 0.01)); self.assertTrue(c.state.menu_open)
+        self.assertFalse(frames(c.poll(clock.now + self.IDLE))[0]['payload']['open'])
+
+    def test_help_card_closes_after_the_idle_time_and_ctrl_alt_h_still_toggles(self):
+        clock = Clock(); c = self.control(clock=clock)
+        self.assertTrue(self.send(c, 'help')[0]['payload']['visible'])
+        self.assertIsNone(c.poll(clock.now + self.IDLE - 0.01))
+        out = frames(c.poll(clock.now + self.IDLE))
+        self.assertEqual([(f['op'], f['payload']['visible']) for f in out], [('help', False)])
+        self.assertFalse(c.help_visible)
+        self.assertTrue(self.send(c, 'help')[0]['payload']['visible'])  # the next Ctrl+Alt+H opens it, not a no-op close
+
+    def test_both_open_close_together_and_nothing_open_sends_nothing(self):
+        clock = Clock(); c = self.control(clock=clock)
+        self.assertIsNone(c.poll(clock.now + 10 * self.IDLE))  # idle with nothing open
+        self.send(c, 'help'); self.send(c, 'menu_toggle')
+        out = frames(c.poll(clock.now + self.IDLE))
+        self.assertEqual([f['op'] for f in out], ['placement_menu', 'help'])
+        ids = [f['request_id'] for f in out]; self.assertEqual(ids, sorted(set(ids)))
+
+    def test_idle_time_is_sensible_and_matches_the_help_card_note(self):
+        self.assertTrue(15 <= self.IDLE <= 120)
+        root = Path(__file__).resolve().parents[2]
+        import re
+        found = re.findall(r'constexpr std::uint32_t kOverlayIdleCloseS = (\d+);', (root / 'spike/include/xr/hud.hpp').read_text())
+        self.assertEqual([int(v) for v in found], [self.IDLE])
+        footer = re.search(r'render_help_card\(.*?draw_centered\(im, footer', (root / 'spike/src/hud.cpp').read_text(), re.S).group(0)
+        self.assertIn('std::to_string(kOverlayIdleCloseS)', footer)
+
+    def test_supervisor_sends_idle_close_frames_to_the_renderer(self):
+        import socket
+        from unittest import mock
+        from tools.native_spike.supervisor import Supervisor
+        child = mock.Mock(); child.poll.side_effect = [None, None, None, 0, 0, 0, 0]
+        frame = view.help_frame('run', 'session', 9, False)
+        replies = iter([frame])
+        control = mock.Mock(events=None); control.poll.side_effect = lambda now: next(replies, None)
+        a, b = socket.socketpair()
+        with a, b:
+            control.server.socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            with control.server.socket:
+                Supervisor(child, lambda: 'done', control=control).run(a, interval=0.01)
+            b.settimeout(1); self.assertEqual(b.recv(4096), frame)
+
+
 class ManagedMenuWiringTests(unittest.TestCase):
     def test_run_wires_modal_binds_and_saves_a_pending_change_at_run_end(self):
         from unittest import mock

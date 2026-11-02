@@ -53,6 +53,10 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
 MENU_STEPS = {'x': (2, 10), 'y': (2, 10), 'distance': (5, 25), 'yaw': (1, 10), 'pitch': (1, 10), 'roll': (1, 10),
               'curvature': (2, 20)}
 MENU_SAVE_DELAY = 0.5  # seconds after the last menu change before the profile is written
+# The help card and the placement menu close by themselves after this many seconds without input (a run key or a
+# panel placement change), so static text does not burn into the glasses' micro-OLED panels. Change it here; the
+# help card's footer note repeats it from spike/include/xr/hud.hpp kOverlayIdleCloseS (a test keeps them equal).
+OVERLAY_IDLE_CLOSE_S = 30
 KEY_NAMES = {'CTRL': 'Ctrl', 'ALT': 'Alt', 'SHIFT': 'Shift', 'SUPER': 'Super', 'up': 'Up', 'down': 'Down', 'left': 'Left',
              'right': 'Right', 'bracketleft': '[', 'bracketright': ']', 'space': 'Space', 'Tab': 'Tab', 'Escape': 'Esc'}
 
@@ -362,6 +366,7 @@ class ViewControl:
         self.on_reload = on_reload  # optional () -> None, run off-loop after Hyprland config reloads
         self.reloads = 0
         self.help_visible = False  # Ctrl+Alt+H card; never saved, starts hidden each run
+        self.last_input = clock()  # monotonic time of the last run key / panel change (overlay idle close)
         self.placements = placements  # optional store with save(list of 3); see profiles.PlacementStore
         self.menu_binds = menu_binds  # optional (open: bool) -> None: install/remove the modal menu binds (compositor call)
         self.clock = clock
@@ -436,8 +441,21 @@ class ViewControl:
             self._menu_binds_installed = want
 
     def poll(self, now=None):
-        """Supervisor loop tick: write a debounced menu placement save once it is due."""
-        if self.save_due is not None and (self.clock() if now is None else now) >= self.save_due: self.flush()
+        """Supervisor loop tick: write a debounced menu placement save once it is due, and close the help card and the
+        placement menu once they have been up OVERLAY_IDLE_CLOSE_S without input. Returns renderer frames or None."""
+        now = self.clock() if now is None else now
+        if self.save_due is not None and now >= self.save_due: self.flush()
+        if now - self.last_input < OVERLAY_IDLE_CLOSE_S: return None
+        out = b''
+        if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the menu keys
+        if self.help_visible: out += self._help_toggle()
+        return out or None
+
+    def _help_toggle(self):
+        self.help_visible = not self.help_visible
+        frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible)
+        self.next_id += 1
+        return frame
 
     def flush(self):
         """Write any pending menu placement save now (menu close, run end)."""
@@ -456,16 +474,14 @@ class ViewControl:
         except (OSError, ValueError): pass
 
     def on_message(self, message):
+        if isinstance(message, dict) and isinstance(message.get('op'), str):
+            self.last_input = self.clock()  # any run key or panel change keeps an open card up
         if isinstance(message, dict) and message.get('op') == 'placement':
             return self._on_placement(message.get('payload'))
         if isinstance(message, dict) and message.get('op') in MENU_OPS:
             return self._on_menu(message['op'])
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
-        if message['op'] == 'help':
-            self.help_visible = not self.help_visible
-            frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible)
-            self.next_id += 1
-            return frame
+        if message['op'] == 'help': return self._help_toggle()
         if message['op'] == 'recenter':
             frame = (json.dumps({'schema': 1, 'request_id': self.next_id, 'run_id': self.run_id, 'session': self.session,
                                  'op': 'recenter', 'payload': {}}, separators=(',', ':')) + '\n').encode()

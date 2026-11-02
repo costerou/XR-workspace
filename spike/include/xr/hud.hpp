@@ -83,6 +83,19 @@ private:
 struct HelpRow { std::string keys, action; };
 HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font = nullptr);
 constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
+// Image-retention protection for the centred cards (help card, placement menu) on the glasses' micro-OLED panels:
+// dimmed text and accent (see hud.cpp kCardText), a slow pixel orbit, and an idle auto-close.
+// The supervisor closes both cards after this many seconds without a run key or panel change. The value lives in
+// tools/native_spike/view.py OVERLAY_IDLE_CLOSE_S; this copy is only for the help card's footer note (a test pins them).
+constexpr std::uint32_t kOverlayIdleCloseS = 30;
+// Pixel orbit: the cards walk the edge of a (2r+1) x (2r+1) pixel square, one pixel every kOrbitStepMs, so static
+// text never sits on the same pixels for long. Whole pixels keep the text crisp.
+constexpr int kOrbitRadiusPx = 3;
+constexpr double kOrbitStepMs = 2000;
+struct OrbitOffset { int x = 0, y = 0; bool operator==(const OrbitOffset&) const = default; };
+OrbitOffset overlay_orbit(double now_ms);
+// Brightest channel (0..255) any pixel of the help card or menu may reach; full white is 255.
+constexpr std::uint8_t kCardMaxLevel = 191;
 constexpr float kHelpRisePx = 18;  // the card rises this far while fading in (and sinks fading out)
 
 // Eased show/hide fade shared by the centred cards: toggling mid-fade reverses from the current

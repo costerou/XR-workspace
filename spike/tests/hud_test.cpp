@@ -1,5 +1,9 @@
 #include "xr/hud.hpp"
+#include <algorithm>
+#include <cstdlib>
 #include <iostream>
+#include <set>
+#include <string>
 #include <stdexcept>
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(#x); } while (0)
 using namespace xr;
@@ -308,5 +312,51 @@ int main() {
     CHECK(!fitted.set_viewport(1536, 960) && fitted.generation() == 1);
     CHECK(fitted.set_viewport(400, 300) && fitted.generation() == 2 && !fitted.fits());
     CHECK(fitted.set_viewport(1920, 1200) && fitted.fits() && fitted.image().width == placement_menu_fit(wide, nullptr, 1920, 1200).width);
+
+    // Image-retention protection. Both centred cards stay well below full white everywhere (text, accent, highlight
+    // band, border), with the pixel font and with the installed font; the pop-ups keep their full brightness.
+    {
+        auto brightest = [](const HudImage& im) {
+            std::uint8_t top = 0;
+            for (std::size_t i = 0; i < im.rgba.size(); i += 4) for (int c = 0; c < 3; ++c) top = std::max(top, im.rgba[i + std::size_t(c)]);
+            return top;
+        };
+        std::string why;
+        const std::vector<HelpRow> rows{{"Ctrl+Alt+H", "Show / hide this help"}, {"Ctrl+Alt+L", "Placement menu (arrows adjust)"}};
+        for (bool real_font : {false, true}) {
+            HelpOverlay help; PlacementMenuOverlay menu;
+            if (real_font) { help.set_font(HudFont::load(kHudFontFamily, why)); menu.set_font(HudFont::load(kHudFontFamily, why)); }
+            menu.set_viewport(1536, 960);
+            help.set(true, rows, 0);
+            PlacementMenuState st; st.open = true;
+            for (std::uint32_t f = 0; f < kPlacementMenuFields; ++f) {  // every selection: the band moves
+                st.field = f; menu.set(st, 0);
+                CHECK(brightest(menu.image()) <= kCardMaxLevel);
+            }
+            CHECK(brightest(help.image()) <= kCardMaxLevel);
+            CHECK(brightest(help.image()) >= 140 && brightest(menu.image()) >= 140);  // still clearly readable
+        }
+        CHECK(kCardMaxLevel <= 0.75 * 255);
+        CHECK(kOverlayIdleCloseS >= 10 && kOverlayIdleCloseS <= 300);  // the footer note's value (tests/native_spike pins it)
+
+        // Pixel orbit: whole pixels within the radius, one pixel per step, every edge position visited once per lap,
+        // and nothing moves between steps.
+        const int n = 8 * kOrbitRadiusPx;
+        std::set<std::pair<int, int>> seen;
+        OrbitOffset prev = overlay_orbit(0);
+        for (int k = 0; k <= n; ++k) {
+            const auto o = overlay_orbit(k * kOrbitStepMs);
+            CHECK(std::abs(o.x) <= kOrbitRadiusPx && std::abs(o.y) <= kOrbitRadiusPx);
+            CHECK(std::max(std::abs(o.x), std::abs(o.y)) == kOrbitRadiusPx);  // on the square's edge
+            if (k) CHECK(std::abs(o.x - prev.x) + std::abs(o.y - prev.y) == 1);
+            CHECK(overlay_orbit(k * kOrbitStepMs + kOrbitStepMs * 0.99) == o);
+            if (k < n) seen.insert({o.x, o.y});
+            prev = o;
+        }
+        CHECK(int(seen.size()) == n);
+        CHECK(overlay_orbit(n * kOrbitStepMs) == overlay_orbit(0));
+        CHECK(overlay_orbit(-5) == overlay_orbit(0));
+        CHECK(kOrbitStepMs >= 500 && kOrbitRadiusPx >= 2 && kOrbitRadiusPx <= 6);  // slow, a few pixels
+    }
     std::cout << "hud ok\n";
 }

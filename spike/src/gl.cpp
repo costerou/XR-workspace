@@ -94,9 +94,9 @@ struct GlCompositor::Impl {
     std::unique_ptr<GlHud> hud;           // status pop-ups; absent if its shaders failed
     const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
     std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
-    const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
+    const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0; OrbitOffset help_orbit;
     std::unique_ptr<GlHud> menu_hud;      // placement menu card (own texture); absent if its shaders failed
-    const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0;
+    const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0; OrbitOffset menu_orbit;
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
@@ -245,12 +245,12 @@ void GlCompositor::set_popup(const HudImage* image, std::uint64_t generation, fl
     impl_->popup = image; impl_->popup_generation = generation; impl_->popup_alpha = alpha;
 }
 
-void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
-    impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px;
+void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px, OrbitOffset orbit) {
+    impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px; impl_->help_orbit = orbit;
 }
 
-void GlCompositor::set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
-    impl_->menu = image; impl_->menu_generation = generation; impl_->menu_alpha = alpha; impl_->menu_drop = drop_px;
+void GlCompositor::set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px, OrbitOffset orbit) {
+    impl_->menu = image; impl_->menu_generation = generation; impl_->menu_alpha = alpha; impl_->menu_drop = drop_px; impl_->menu_orbit = orbit;
 }
 
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
@@ -346,8 +346,9 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     }
     const bool menu = s.menu_hud && s.menu;
     const float help_alpha = s.help_alpha * (menu ? 1.f - s.menu_alpha : 1.f);  // the menu replaces the help card
-    if (s.help_hud && s.help && help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, help_alpha, s.width, s.height, true, s.help_drop);
-    if (menu) s.menu_hud->draw(*s.menu, s.menu_generation, s.menu_alpha, s.width, s.height, true, s.menu_drop);
+    if (s.help_hud && s.help && help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, help_alpha, s.width, s.height, true, s.help_drop,
+                                                                          s.help_orbit.x, s.help_orbit.y);
+    if (menu) s.menu_hud->draw(*s.menu, s.menu_generation, s.menu_alpha, s.width, s.height, true, s.menu_drop, s.menu_orbit.x, s.menu_orbit.y);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);
