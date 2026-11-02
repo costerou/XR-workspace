@@ -68,6 +68,19 @@ These keybinds exist only during a run:
 | Ctrl+Alt+F | Toggle cursor follow |
 | Ctrl+Alt+P | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | Show the help card in the glasses |
+| Ctrl+Alt+M | Open / close the placement menu in the glasses |
+
+While the placement menu is open, these keys belong to it (they are bound only while it is open, and released when it closes or the run ends):
+
+| Keys | Action |
+| --- | --- |
+| Tab / Shift+Tab | Next / previous desktop |
+| Up / Down | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
+| Left / Right | Decrease / increase the field by a small step (Shift for a big step) |
+| R | Reset the desktop to flat |
+| Escape | Close the menu |
+
+Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring is covered by offline tests only.
 
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 

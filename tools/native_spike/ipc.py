@@ -47,7 +47,8 @@ def decode_control(raw):
     op, payload = message["op"], message["payload"]
     if op not in ("status", "start", "stop", "select", "recover", "zoom_in", "zoom_out", "next", "prev",
                   "spacing_up", "spacing_down", "recenter", "mode_next", "cursor_follow", "prediction", "help",
-                  "placement"): raise ValueError("invalid operation")
+                  "placement", "menu_toggle", "menu_desktop_next", "menu_desktop_prev", "menu_field_next", "menu_field_prev",
+                  "menu_inc", "menu_dec", "menu_inc_big", "menu_dec_big", "menu_reset"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")

@@ -74,7 +74,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
     store = store or LayoutStore(view.settings_path())
     server = PrivateServer(client.runtime_dir, run_id, session)
     installed = False
-    events = None
+    events = control = None
     try:
         saved = store.load()
         bind_args = (sys.executable, str(Path(view.__file__).with_name('xr_control.py')), str(server.path), run_id, session)
@@ -95,6 +95,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
                 now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
                 if view.session_mode(now) != mode: client.apply_session_mode(output)
 
+        def menu_binds(open_):
+            # Placement menu: bare arrows/Tab/R/Escape exist only while it is open.
+            if open_: client.install_menu_binds(*bind_args)
+            else: client.remove_menu_binds()
+
         # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
         from .profiles import PlacementStore, ProfileStore
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
@@ -104,7 +109,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
                                                    saved['prediction'], initial), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
-                                   on_reload=after_reload, placements=placements)
+                                   on_reload=after_reload, placements=placements, menu_binds=menu_binds)
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
@@ -112,8 +117,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
         installed = True
         yield control
     finally:
+        if control is not None:
+            control.flush()  # a menu change still inside its save delay
+            control.stop_menu_binds()  # no modal menu bind may land after the removal below
         try:
-            if installed: client.remove_view_binds()
+            if installed: client.remove_view_binds()  # also removes an open menu's modal binds
         except (OSError, ValueError):
             pass  # never block recovery on bind removal; binds also vanish on config reload
         if events is not None: events.close()

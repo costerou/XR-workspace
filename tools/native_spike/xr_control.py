@@ -10,7 +10,8 @@ import sys
 import time
 
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
-       'prediction', 'help')
+       'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
+       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset')  # view.USER_OPS + view.MENU_OPS
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
