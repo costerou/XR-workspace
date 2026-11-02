@@ -97,6 +97,7 @@ int main() {
     // Help card: brackets have real pixel glyphs; card grows with rows, is premultiplied and
     // rounded; with the system font it also renders.
     CHECK(&hud_glyph('[') != &hud_glyph('?') && &hud_glyph(']') != &hud_glyph('?'));
+    CHECK(&hud_glyph('%') != &hud_glyph('?'));  // placement menu units
     const std::vector<HelpRow> rows{{"Ctrl+Alt+Up", "Zoom in"}, {"Ctrl+Alt+[", "Less space"}, {"Ctrl+Alt+H", "Show / hide this help"}};
     auto hc = render_help_card(rows, {0.5f, 0.6f, 0.9f});
     auto hc1 = render_help_card({rows[0]}, {0.5f, 0.6f, 0.9f});
@@ -126,5 +127,186 @@ int main() {
     CHECK(h.alpha(5000 + kHelpFadeInMs / 2 + kHelpFadeOutMs) == 0);
     CHECK(h.shown_count() == 2 && h.hidden_count() == 2 && !h.visible());
     CHECK(h.set(true, {rows[0]}, 7000) && h.generation() == 2);  // new rows: new card
+
+    // Placement menu rows: friendly labels and hints, signed values with units, the selected field
+    // highlighted, values from the selected desktop; ASCII units for the pixel font.
+    PlacementMenuState ms;
+    ms.open = true; ms.desktop = 1; ms.field = 3;
+    ms.placements[0] = {0, 0, 100, 0, 0, 0, 0};
+    ms.placements[1] = {12, -7, 150, -30, 45, 0, 90};
+    ms.placements[2] = {-100, 100, 200, 60, -45, -45, 120};
+    auto mr = placement_menu_rows(ms, false);
+    CHECK(mr.size() == kPlacementMenuFields);
+    CHECK(mr[0].label == "Left / right" && mr[1].label == "Down / up" && mr[2].label == "Distance" && mr[6].label == "Curvature");
+    CHECK(mr[3].label == "Yaw" && mr[3].hint == "turn left or right" && mr[4].label == "Pitch" && mr[4].hint == "tilt up or down" &&
+          mr[5].label == "Roll" && mr[5].hint == "tilt sideways");
+    CHECK(mr[0].value == "+12%" && mr[1].value == "-7%" && mr[2].value == "150%" && mr[3].value == "-30\xc2\xb0" &&
+          mr[4].value == "+45\xc2\xb0" && mr[5].value == "0\xc2\xb0" && mr[6].value == "90\xc2\xb0");
+    for (std::size_t i = 0; i < mr.size(); ++i) CHECK(mr[i].selected == (i == 3));
+    auto ascii = placement_menu_rows(ms, true);
+    CHECK(ascii[3].value == "-30 deg" && ascii[0].value == "+12%");
+    for (const auto& r : ascii) for (unsigned char c : r.label + r.hint + r.value) CHECK(c >= 0x20 && c < 0x7f);
+    ms.desktop = 2; CHECK(placement_menu_rows(ms, true)[0].value == "-100%" && placement_menu_rows(ms, true)[6].value == "120 deg");
+    ms.desktop = 9; CHECK(placement_menu_rows(ms, true)[0].value == "-100%");  // out of range: clamped, no crash
+    ms.field = 7; for (const auto& r : placement_menu_rows(ms, true)) CHECK(!r.selected);
+    ms.desktop = 1; ms.field = 3;
+    // Footer names the adjust keys; ASCII so the pixel fallback can draw it.
+    std::string hint_text; for (const auto& h : placement_menu_hints()) hint_text += h + "\n";
+    CHECK(hint_text.find("Left / Right") != std::string::npos && hint_text.find("Shift") != std::string::npos &&
+          hint_text.find("R ") != std::string::npos);
+    for (unsigned char c : hint_text) CHECK(c == '\n' || (c >= 0x20 && c < 0x7f));
+
+    // Menu card: help-card chrome (rounded, premultiplied, opaque accent edge); the selected row's band
+    // tints the left marker column in the accent colour; the card changes with the selected field.
+    auto mc = render_placement_menu_card(ms, {0.5f, 0.6f, 0.9f});
+    CHECK(mc.width > 0 && mc.height > hc.height && premultiplied(mc) && !lit(mc, 0, 0) && !lit(mc, mc.width - 1, mc.height - 1));
+    CHECK(mc.rgba[(std::size_t(mc.height / 2) * mc.width) * 4 + 3] == 255);
+    auto marker_rows = [](const HudImage& im) {  // rows whose leftmost table pixels are the solid accent marker
+        std::vector<std::uint32_t> ys;
+        for (std::uint32_t y = 4; y + 4 < im.height; ++y)  // inside the accent border
+            for (std::uint32_t x = 34; x < im.width / 2; ++x) {
+                const auto* px = &im.rgba[(std::size_t(y) * im.width + x) * 4];
+                // The 2 px marker is followed by the translucent wash (an underline or scroll arrow is solid or ends).
+                if (x + 6 >= im.width) break;
+                const auto* wash = px + 4 * 3, * further = px + 4 * 6;
+                if (px[2] > 200 && px[0] < 150 && wash[2] < 200 && wash[2] > 40 && further[2] > 40 && further[2] < 200) { ys.push_back(y); break; }
+            }
+        return ys;
+    };
+    auto field3 = marker_rows(mc);
+    PlacementMenuState other = ms; other.field = 0;
+    auto mc0 = render_placement_menu_card(other, {0.5f, 0.6f, 0.9f});
+    auto field0 = marker_rows(mc0);
+    CHECK(!field3.empty() && !field0.empty() && field0.back() < field3.back());  // highlight moves up with the field
+    CHECK(mc0.width == mc.width && mc0.height == mc.height);  // same layout, only the highlight moves
+    if (font) { auto fm = render_placement_menu_card(ms, {0.5f, 0.6f, 0.9f}, font.get()); CHECK(fm.height > 200 && premultiplied(fm)); }
+
+    // Uniform with the help card: identical corner chrome (radius, border, background alpha, accent),
+    // and the same row pitch (rows are drawn with the help card's sizes and gaps).
+    auto same_corner = [](const HudImage& a, const HudImage& b) {
+        for (std::uint32_t y = 0; y < 30; ++y)
+            for (std::uint32_t x = 0; x < 30; ++x)
+                for (int c = 0; c < 4; ++c)
+                    if (a.rgba[(std::size_t(y) * a.width + x) * 4 + std::size_t(c)] != b.rgba[(std::size_t(y) * b.width + x) * 4 + std::size_t(c)]) return false;
+        return true;
+    };
+    CHECK(same_corner(render_placement_menu_card(ms, {0.5f, 0.6f, 0.9f}), render_help_card(rows, {0.5f, 0.6f, 0.9f})));
+    if (font) CHECK(same_corner(render_placement_menu_card(ms, {0.5f, 0.6f, 0.9f}, font.get()), render_help_card(rows, {0.5f, 0.6f, 0.9f}, font.get())));
+
+    // Fit: the widest values on every desktop; the card always matches the reported size, keeps the
+    // fit margin inside the output where it fits, and never changes text size (same highlight band
+    // height in every arrangement). 1920x1200 @1.25 (1536x960) uses the roomiest arrangement.
+    PlacementMenuState wide = ms;
+    for (auto& pl : wide.placements) pl = {-100, -100, 200, -60, -45, -45, 120};
+    auto band_height = [&](const HudImage& im) { return marker_rows(im).size(); };
+    struct Output { std::uint32_t w, h; bool must_fit; };
+    std::vector<const HudFont*> faces{nullptr};  // pixel fallback, and the system font when installed
+    if (font) faces.push_back(font.get());
+    for (const HudFont* f : faces) {
+        const auto roomy = placement_menu_fit(wide, f, 0, 0);
+        CHECK(roomy.fits && !roomy.tabs_beside_title && !roomy.wide_footer && !roomy.short_hints && roomy.footer_lines >= 1);
+        const auto band = band_height(render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f}, f));
+        CHECK(band > 20);  // one text row plus the row gap
+        const auto big = placement_menu_fit(wide, f, 1536, 960);
+        CHECK(big.fits && big.width == roomy.width && big.height == roomy.height && !big.short_hints && !big.tabs_beside_title);
+        for (Output o : {Output{1920, 1200, true}, Output{1536, 960, true}, Output{1536, 864, true}, Output{1280, 800, true},
+                         Output{1280, 720, true}, Output{1200, 750, true}, Output{1200, 675, true}, Output{960, 600, true},
+                         Output{960, 540, true}, Output{640, 400, false}}) {
+            const auto fit = placement_menu_fit(wide, f, o.w, o.h);
+            const auto im = render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f}, f, o.w, o.h);
+            CHECK(im.width == fit.width && im.height == fit.height && premultiplied(im));
+            CHECK(band_height(im) == band);  // text and row spacing unchanged
+            if (o.must_fit) CHECK(fit.fits);
+            if (fit.fits) CHECK(fit.width + 2 * kHudFitMargin <= o.w && fit.height + 2 * kHudFitMargin <= o.h);
+            CHECK(fit.width >= roomy.width || fit.footer_lines < roomy.footer_lines || fit.wide_footer || fit.visible_rows < kPlacementMenuFields);
+            if (o.w >= 1280 && o.h >= 720) CHECK(fit.visible_rows == kPlacementMenuFields && fit.hint_column);  // everything at once
+        }
+        // Scale 2 (960x540): a window of at least three rows; every field, when selected, is in the window and
+        // highlighted; scrolling never resizes the card.
+        for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
+            PlacementMenuState sel = wide; sel.field = field;
+            const auto fit = placement_menu_fit(sel, f, 960, 540);
+            CHECK(fit.fits && fit.visible_rows >= 3 && fit.first_row <= field && field < fit.first_row + fit.visible_rows);
+            const auto first = placement_menu_fit(wide, f, 960, 540);
+            CHECK(fit.width == first.width && fit.height == first.height && fit.visible_rows == first.visible_rows);
+            CHECK(band_height(render_placement_menu_card(sel, {0.5f, 0.6f, 0.9f}, f, 960, 540)) == band);
+        }
+    }
+    // Scroll arrows: drawn only when rows are hidden (solid accent left of the table, none in the full layout).
+    // An arrow row is a short solid accent run with dark card background on both sides; the selection marker
+    // is followed by the wash and the tab underline is a long run.
+    auto has_cue = [](const HudImage& im) {
+        auto at = [&](std::uint32_t x, std::uint32_t y) { return &im.rgba[(std::size_t(y) * im.width + x) * 4]; };
+        auto solid = [&](std::uint32_t x, std::uint32_t y) { return at(x, y)[2] > 200 && at(x, y)[0] < 150; };
+        auto dark = [&](std::uint32_t x, std::uint32_t y) { return at(x, y)[2] < 40; };
+        for (std::uint32_t y = kHudFitMargin; y + kHudFitMargin < im.height; ++y)
+            for (std::uint32_t x = 8; x + 24 < im.width; ++x) {
+                if (!solid(x, y) || !dark(x - 1, y)) continue;
+                std::uint32_t run = 0;
+                while (solid(x + run, y)) ++run;
+                if (run >= 2 && run <= 18 && dark(x + run, y)) return true;
+                x += run;
+            }
+        return false;
+    };
+    {
+        PlacementMenuState top_sel = wide; top_sel.field = 0;
+        const auto im = render_placement_menu_card(top_sel, {0.5f, 0.6f, 0.9f}, nullptr, 960, 400);
+        const auto fit = placement_menu_fit(top_sel, nullptr, 960, 400);
+        CHECK(fit.fits && fit.visible_rows < kPlacementMenuFields && fit.first_row == 0);
+        CHECK(has_cue(im));  // rows hidden below
+        CHECK(!has_cue(render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f})));  // full layout: no arrows
+        CHECK(!has_cue(render_placement_menu_card(wide, {0.5f, 0.6f, 0.9f}, font.get())));
+    }
+    // placement_menu_hints(): the footer lines as drawn, one per line, covering every hint segment in order.
+    for (const HudFont* f : faces)
+        for (auto [w, h] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {1536, 960}, {1280, 720}, {960, 540}}) {
+            const auto lines = placement_menu_hints(f, w, h);
+            CHECK(lines.size() == placement_menu_fit(wide, f, w, h).footer_lines);
+            const auto fit = placement_menu_fit(wide, f, w, h);
+            std::string joined; for (const auto& l : lines) joined += l + "|";
+            for (const auto& seg : placement_menu_hint_segments(fit.short_hints)) CHECK(joined.find(seg) != std::string::npos);
+        }
+    CHECK(placement_menu_hints().size() == 2);  // pixel font, unbounded: two footer lines
+    // Values never resize the card: flat and extreme placements give the same size at every output.
+    PlacementMenuState flat_menu; flat_menu.open = true;
+    for (const HudFont* f : faces)
+        for (auto [w, h] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {1536, 960}, {1280, 720}, {960, 540}}) {
+            const auto a = placement_menu_fit(flat_menu, f, w, h), b = placement_menu_fit(wide, f, w, h);
+            CHECK(a.width == b.width && a.height == b.height && a.footer_lines == b.footer_lines);
+        }
+    // Hints keep every key in both wordings.
+    for (bool shortw : {false, true}) {
+        std::string all; for (const auto& h : placement_menu_hint_segments(shortw)) all += h + "|";
+        for (const char* key : {"Up", "Down", "Left", "Right", "Shift", "Tab", "R ", "Esc"}) CHECK(all.find(key) != std::string::npos);
+    }
+
+    // Menu overlay: hidden until opened; re-renders on any change while open (no fade restart), not on
+    // repeats; closing fades the last card out; changes while closed do not render.
+    PlacementMenuOverlay m;
+    CHECK(m.alpha(0) == 0 && !m.animating(0) && m.generation() == 0 && !m.visible());
+    PlacementMenuState closed = ms; closed.open = false;
+    CHECK(!m.set(closed, 0) && m.generation() == 0);
+    CHECK(m.set(ms, 1000) && m.visible() && m.generation() == 1 && m.shown_count() == 1 && m.alpha(1000) == 0);
+    CHECK(m.offset_px(1000) == kHelpRisePx && m.animating(1000));
+    CHECK(m.alpha(1000 + kHelpFadeInMs) == 1 && !m.animating(1000 + kHelpFadeInMs) && m.offset_px(1000 + kHelpFadeInMs) == 0);
+    CHECK(!m.set(ms, 1500) && m.generation() == 1);
+    PlacementMenuState bumped = ms; bumped.placements[1][3] = -29;
+    CHECK(m.set(bumped, 1600) && m.generation() == 2 && m.alpha(1600) == 1 && m.shown_count() == 1);
+    PlacementMenuState next = bumped; next.desktop = 2;
+    CHECK(m.set(next, 1700) && m.generation() == 3);
+    PlacementMenuState shut = next; shut.open = false;
+    CHECK(m.set(shut, 2000) && !m.visible() && m.hidden_count() == 1 && m.generation() == 3 && m.alpha(2000) == 1);
+    CHECK(m.alpha(2000 + kHelpFadeOutMs) == 0 && !m.animating(2000 + kHelpFadeOutMs));
+    shut.placements[0][0] = 5;
+    CHECK(!m.set(shut, 3000) && m.generation() == 3);  // closed: no render
+    CHECK(m.set(next, 4000) && m.generation() == 3 && m.shown_count() == 2);  // reopened unchanged: same card
+    // The output size picks the arrangement: a new viewport re-renders the card; the same one does not.
+    PlacementMenuOverlay fitted;
+    CHECK(!fitted.set_viewport(1536, 960));  // nothing rendered yet
+    CHECK(fitted.set(wide, 0) && fitted.generation() == 1 && fitted.fits());
+    CHECK(!fitted.set_viewport(1536, 960) && fitted.generation() == 1);
+    CHECK(fitted.set_viewport(400, 300) && fitted.generation() == 2 && !fitted.fits());
+    CHECK(fitted.set_viewport(1920, 1200) && fitted.fits() && fitted.image().width == placement_menu_fit(wide, nullptr, 1920, 1200).width);
     std::cout << "hud ok\n";
 }

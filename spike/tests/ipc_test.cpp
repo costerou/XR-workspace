@@ -132,29 +132,58 @@ int main() {
                                   std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0}]})"),
                                   std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0,"z":0}]})")})
         require(std::holds_alternative<xr::Error>(xr::decode_control(placement(bad))));
-    // Placement menu overlay state: open, desktop 0..2, field by name, exactly three placements.
-    auto menu = [](const std::string& payload) {
-        return std::string(R"({"schema":1,"request_id":11,"run_id":"run","session":"session","op":"placement_menu","payload":)") + payload + "}\n";
+    // Placement menu: display-only state. Valid payloads decode; a malformed payload in a well-framed message is
+    // rejected with the ignorable invalid_menu code (dropped, never fatal); malformed framing is fatal as before.
+    auto menu = [](const std::string& payload, const char* op = "placement_menu") {
+        return std::string(R"({"schema":1,"request_id":11,"run_id":"run","session":"session","op":")") + op + R"(","payload":)" + payload + "}\n";
     };
     const std::string three = "[" + flat + "," + edge + "," + flat + "]";
-    auto md = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"curvature","placements":)" + three + "}"));
+    auto md = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"pitch","placements":)" + three + "}"));
     require(std::holds_alternative<xr::ControlMessage>(md) && std::get<xr::ControlMessage>(md).op == xr::ControlOp::placement_menu);
-    const auto& mp = std::get<xr::PlacementMenuPayload>(std::get<xr::ControlMessage>(md).payload);
-    require(mp.open && mp.desktop == 1 && mp.field == 6 && mp.placements.size() == 3 && mp.placements[1].curvature == 120 &&
-            mp.placements[1].x == -100 && mp.placements[2].distance == 100);
-    auto closed = xr::decode_control(menu(R"({"open":false,"desktop":0,"field":"x","placements":)" + three + "}"));
-    require(std::holds_alternative<xr::ControlMessage>(closed) &&
-            !std::get<xr::PlacementMenuPayload>(std::get<xr::ControlMessage>(closed).payload).open &&
-            std::get<xr::PlacementMenuPayload>(std::get<xr::ControlMessage>(closed).payload).field == 0);
-    for (const std::string& bad : {R"({"open":true,"desktop":3,"field":"x","placements":)" + three + "}",
+    const auto* mp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(md).payload);
+    require(mp && mp->open && mp->desktop == 1 && mp->field == 4 && mp->placements[1].x == -100 && mp->placements[1].curvature == 120 &&
+            mp->placements[2].distance == 100);
+    const char* fields[] = {"x", "y", "distance", "yaw", "pitch", "roll", "curvature"};
+    for (std::uint32_t i = 0; i < 7; ++i) {
+        auto fd = xr::decode_control(menu(R"({"open":false,"desktop":2,"field":")" + std::string(fields[i]) + R"(","placements":)" + three + "}"));
+        const auto* fp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(fd).payload);
+        require(fp && !fp->open && fp->desktop == 2 && fp->field == i);
+    }
+    for (const std::string& bad : {std::string("{}"),
+                                  R"({"open":true,"desktop":3,"field":"x","placements":)" + three + "}",
                                   R"({"open":true,"desktop":-1,"field":"x","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":1.0,"field":"x","placements":)" + three + "}",
                                   R"({"open":1,"desktop":0,"field":"x","placements":)" + three + "}",
-                                  R"({"open":true,"desktop":0,"field":"zoom","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"z","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"X","placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":0,"placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "]}",
-                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "," + with("yaw", "61") + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + with("yaw", "61") + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + ",1]}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"extra":1})",
-                                  std::string(R"({"open":true,"desktop":0,"field":"x"})")})
-        require(std::holds_alternative<xr::Error>(xr::decode_control(menu(bad))));
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement menu: PASS\n";
+                                  R"({"open":true,"desktop":0,"placements":)" + three + "}"}) {
+        auto ignored = xr::decode_control(menu(bad));
+        require(std::holds_alternative<xr::Error>(ignored) && xr::ignorable_control_error(std::get<xr::Error>(ignored)));
+    }
+    // Framing problems are not ignorable, even on a placement_menu frame.
+    for (const auto& fatal : {xr::decode_control(menu("[]")), xr::decode_control(menu("{}", "placement-menu")),
+                              xr::decode_control(menu(R"({"open":true,"desktop":0,"field":"x","placements":)" + three + "}").substr(1))})
+        require(std::holds_alternative<xr::Error>(fatal) && !xr::ignorable_control_error(std::get<xr::Error>(fatal)));
+    for (const std::string& bad : {wire().substr(1), std::string(R"({"schema":2})") + "\n"})
+        require(!xr::ignorable_control_error(std::get<xr::Error>(xr::decode_control(bad))));
+    {  // A dropped menu frame does not consume its request id; later frames still go through.
+        xr::ControlQueue q("run", "session");
+        auto bad = q.push(menu(R"({"open":true,"desktop":9,"field":"x","placements":)" + three + "}"));
+        require(std::holds_alternative<xr::Error>(bad) && xr::ignorable_control_error(std::get<xr::Error>(bad)));
+        require(std::holds_alternative<std::monostate>(q.push(menu(R"({"open":true,"desktop":2,"field":"x","placements":)" + three + "}"))));
+        require(q.pop().has_value());
+    }
+    {
+        auto frame = menu(R"({"open":true,"desktop":0,"field":"x","placements":)" + three + "}");
+        frame.replace(frame.find("\"run\""), 5, "\"other\"");
+        xr::ControlQueue q("run", "session");
+        require(std::holds_alternative<xr::Error>(q.push(frame)));  // identity is still checked
+    }
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu: PASS\n";
 }

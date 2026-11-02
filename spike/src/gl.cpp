@@ -95,12 +95,14 @@ struct GlCompositor::Impl {
     const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
     std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
+    std::unique_ptr<GlHud> menu_hud;      // placement menu card (own texture); absent if its shaders failed
+    const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0;
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
-            hud.reset(); help_hud.reset();
+            hud.reset(); help_hud.reset(); menu_hud.reset();
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
             if (glow_program) glDeleteProgram(glow_program);
@@ -167,6 +169,7 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
     s.hud = GlHud::create();  // optional: composition works without pop-ups
     s.help_hud = GlHud::create();
+    s.menu_hud = GlHud::create();
     s.textures.resize(sources);
     s.imported.resize(sources);
     const char* extensions = eglQueryString(s.display, EGL_EXTENSIONS);
@@ -244,6 +247,10 @@ void GlCompositor::set_popup(const HudImage* image, std::uint64_t generation, fl
 
 void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
     impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px;
+}
+
+void GlCompositor::set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
+    impl_->menu = image; impl_->menu_generation = generation; impl_->menu_alpha = alpha; impl_->menu_drop = drop_px;
 }
 
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
@@ -337,7 +344,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         attrib(s.pos, 3, 0); attrib(s.uv, 2, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
-    if (s.help_hud && s.help) s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
+    const bool menu = s.menu_hud && s.menu;
+    const float help_alpha = s.help_alpha * (menu ? 1.f - s.menu_alpha : 1.f);  // the menu replaces the help card
+    if (s.help_hud && s.help && help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, help_alpha, s.width, s.height, true, s.help_drop);
+    if (menu) s.menu_hud->draw(*s.menu, s.menu_generation, s.menu_alpha, s.width, s.height, true, s.menu_drop);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);

@@ -110,7 +110,12 @@ int main(int argc, char** argv) {
             if (pending.size() > 65536) return false;
             for (std::size_t nl; (nl = pending.find('\n')) != std::string::npos;) {
                 auto frame = pending.substr(0, nl + 1); pending.erase(0, nl + 1);
-                if (!std::holds_alternative<std::monostate>(queue.push(frame))) return false;  // malformed/replayed: stop
+                const auto pushed = queue.push(frame);
+                if (const auto* error = std::get_if<xr::Error>(&pushed)) {
+                    if (!xr::ignorable_control_error(*error)) return false;  // malformed/replayed: stop
+                    std::cerr << "control: ignored malformed placement_menu payload\n";
+                    continue;
+                }
                 while (auto m = queue.pop()) {
                     if (m->op == xr::ControlOp::stop) stopping = 1;
                     else if (m->op == xr::ControlOp::recenter) presentation.recenter();
@@ -122,15 +127,22 @@ int main(int argc, char** argv) {
                         const auto& h = std::get<xr::HelpPayload>(m->payload);
                         presentation.set_help(h.visible, h.rows);
                     }
+                    else if (m->op == xr::ControlOp::placement_menu) {
+                        // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
+                        if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
+                            std::array<std::array<std::int32_t, 7>, 3> placements{};
+                            for (std::size_t i = 0; i < placements.size(); ++i) {
+                                const auto& w = menu->placements[i];
+                                placements[i] = {w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature};
+                            }
+                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements);
+                        }
+                    }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 7>> placements;
                         for (const auto& w : std::get<xr::PlacementPayload>(m->payload).desktops)
                             placements.push_back({w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature});
                         presentation.set_placements(placements);
-                    }
-                    else if (m->op == xr::ControlOp::placement_menu) {
-                        // Accepted (an unknown op would end the run). Drawing the overlay is the MENU-UI work:
-                        // it hooks in here, e.g. presentation.set_placement_menu(std::get<xr::PlacementMenuPayload>(m->payload)).
                     }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
