@@ -24,10 +24,10 @@ class ViewStateTests(unittest.TestCase):
 
     def test_transitions_focus_and_view(self):
         v = view.ViewState(NAMES, spacing=40)
-        self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True})
+        self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False})
         self.assertEqual(v.apply('next'), 'XR-2')            # overview: highlight + focus
         self.assertEqual(v.apply('zoom_in'), 'XR-2')         # zoom into the highlighted desktop
-        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True})
+        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False})
         self.assertEqual(v.apply('next'), 'XR-3')            # zoomed: slide + focus
         self.assertIsNone(v.apply('next'))                   # clamped at the last desktop: no change
         self.assertEqual(v.apply('prev'), 'XR-2')
@@ -59,7 +59,8 @@ class ViewStateTests(unittest.TestCase):
         from tools.native_spike import xr_control
         from tools.native_spike import resize
         from tools.native_spike import send
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS)  # bind helper and supervisor agree
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS
+                         + (view.TYPING_OP,))  # bind helper and supervisor agree
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()
@@ -72,7 +73,7 @@ class BindTests(unittest.TestCase):
     def test_help_bind_and_rows_cover_every_bind(self):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
-        self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste'}, set(view.HELP_ACTIONS))  # video.py, web_video.py
+        self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste', view.TYPING_OP}, set(view.HELP_ACTIONS))  # video.py, web_video.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 24 rows
@@ -157,9 +158,9 @@ class SupervisorControlTests(unittest.TestCase):
         t.join(5)
         frames = [json.loads(l) for l in renderer.recv(65536).decode().splitlines()]
         self.assertEqual([f['payload'] for f in frames],
-                         [{'zoomed': False, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True},
-                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True},
-                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True}])
+                         [{'zoomed': False, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False},
+                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False},
+                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False}])
         ids = [f['request_id'] for f in frames]
         self.assertEqual(ids, sorted(ids)); self.assertGreater(ids[0], 1)  # start frame used 1
         control.join_focus(timeout=2)
@@ -229,7 +230,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         frame = json.loads(c.on_message({'op': 'prediction'}))
         self.assertEqual(frame['op'], 'view')
         self.assertEqual(frame['payload'], {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False,
-                                            'prediction': False})
+                                            'prediction': False, 'typing': False})
         self.assertFalse(view.load_settings(self.settings)['prediction'])  # an explicit off is kept
         self.assertTrue(json.loads(c.on_message({'op': 'prediction'}))['payload']['prediction'])
         self.assertTrue(view.load_settings(self.settings)['prediction'])
@@ -277,7 +278,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         c = self.control(focused=focused)
         self.assertIsNone(c.on_events(b'focusedmon>>XR-2,7\n'))          # off by default: ignored
         toggled = json.loads(c.on_message({'op': 'cursor_follow'}))       # renderer shows the cursor pop-up
-        self.assertEqual(toggled['payload'], {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': True, 'prediction': True})
+        self.assertEqual(toggled['payload'], {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': True, 'prediction': True, 'typing': False})
         self.assertTrue(view.load_settings(self.settings)['cursor_follow'])
         frame = c.on_events(b'workspace>>3\nfocusedmon>>XR-')            # split across reads
         self.assertIsNone(frame)

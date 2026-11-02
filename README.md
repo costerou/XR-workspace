@@ -73,6 +73,7 @@ When the session ends they go away, so they never get in the way of normal typin
 | Keys | What it does |
 | --- | --- |
 | Ctrl+Alt+H | Show or hide the help card |
+| Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
 | Ctrl+Alt+Up | Zoom into the selected desktop |
 | Ctrl+Alt+Down | Zoom out to see all desktops (the overview) |
 | Ctrl+Alt+Left / Right | Select the previous / next desktop |
@@ -88,6 +89,13 @@ When the session ends they go away, so they never get in the way of normal typin
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
 | Ctrl+Alt+O | Play a VR video file |
 | Ctrl+Alt+U | Play the web video you copied with the *Play in VITURE* bookmark |
+
+**Typing mode.** Press **Ctrl+Alt+T** when you want to type or use an app's own shortcuts while the session runs.
+All of the keys in this list stop working until you press Ctrl+Alt+T again, so the arrow keys, Space, Tab, Esc and
+other apps' Ctrl+Alt shortcuts do their normal thing. Any open help card or placement menu closes, and a playing video
+gives its keys back too. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
+A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
+control. The panel's buttons work in both modes.
 
 **Ctrl+Alt+V** cycles through three ways the desktops can behave:
 

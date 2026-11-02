@@ -89,7 +89,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         def after_reload():
             # Config reloads (Omarchy theme switches) drop runtime binds and reset the session mode.
             reinstall = getattr(client, 'reinstall_view_binds', None)
-            if reinstall: reinstall(*bind_args)
+            # Typing mode (Ctrl+Alt+T) survives a reload: only its toggle comes back.
+            if reinstall: reinstall(*bind_args, **({'typing': True} if control is not None and control.state.typing else {}))
             # Park first: an asynchronous mode restore followed by parking could
             # read the pre-restore mode and overwrite the requested 120 Hz rule.
             if output is not None and hasattr(client, 'park_presentation'):
@@ -102,6 +103,10 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             # Placement menu: bare arrows/Tab/R/Escape exist only while it is open.
             if open_: client.install_menu_binds(*bind_args)
             else: client.remove_menu_binds()
+
+        def typing_binds(on):
+            # Typing mode: the run's bind table holds only Ctrl+Alt+T; off: the full set again (view.py docstring).
+            client.reinstall_view_binds(*bind_args, typing=on)
 
         def mouse_binds(on):
             # Menu mouse mode: the left button and a hidden cursor exist only while it is on.
@@ -120,7 +125,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
                                    mouse_binds=mouse_binds if hasattr(client, 'install_mouse_binds') else None,
                                    cursor=lambda: client.query('cursorpos', timeout=0.25),
-                                   warp=getattr(client, 'warp_cursor', None))
+                                   warp=getattr(client, 'warp_cursor', None),
+                                   typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
         # Overview corner resize: pointer reads and its modal mouse binds, off the supervisor loop (resize.py).
         from .resize import CornerResize, PointerPoller
         resize = control.resize = CornerResize(control)

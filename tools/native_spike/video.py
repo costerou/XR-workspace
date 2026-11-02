@@ -425,6 +425,10 @@ class VideoControl:
         if op in VIDEO_OPS:
             self.view.last_input = self.last_input = self.clock()
             return self._on_video(op, message.get('payload') or {})
+        if op == 'typing_toggle':  # view.TYPING_OP: typing mode releases the video's bare keys too, and gives them back
+            out = self.view.on_message(message)
+            self._sync_binds()
+            return out
         if self.active:
             if op == 'help':  # Ctrl+Alt+H: the video controls instead of the desktop help card
                 self.last_input = self.clock()
@@ -627,7 +631,7 @@ class VideoControl:
 
     def _bind_work(self, force):
         with self._bind_lock:
-            binds, want = self.binds, self.active
+            binds, want = self.binds, self.active and not getattr(self.view.state, 'typing', False)
             if binds is None or (want == self._binds_installed and not (force and want)): return
             try: binds(want)
             except (OSError, ValueError, TypeError, KeyError): return  # best effort; Ctrl+Alt+O/stop still work

@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
-                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction);
+                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing);
                     }
                 }
             }

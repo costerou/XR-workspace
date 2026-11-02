@@ -110,7 +110,7 @@ class BindTests(unittest.TestCase):
             with self.subTest(bad), self.assertRaises(ValueError): resize.install_resize_binds_lua(*args)
 
     def test_the_bind_helper_knows_the_ops_and_the_fixed_removal_text(self):
-        self.assertEqual(xr_control.OPS[-7:-5], resize.RESIZE_OPS)  # then send.SEND_OPS
+        self.assertEqual(xr_control.OPS[-8:-6], resize.RESIZE_OPS)  # then send.SEND_OPS and view.TYPING_OP
         self.assertEqual(xr_control.REMOVE_RESIZE_BINDS, resize.remove_resize_binds_lua())
         self.assertFalse(set(resize.RESIZE_OPS) & set(view.USER_OPS))  # not panel buttons
         for op in resize.RESIZE_OPS:

@@ -97,6 +97,22 @@ int main() {
     CHECK(!p.update(1, false, true, 12001));
     CHECK(p.update(1, false, false, 13000) && p.generation() == 6);
     StatusPopups quiet; CHECK(quiet.update(0, false, true, 0) && quiet.generation() == 1);  // first: mode card only
+    // Typing mode (Ctrl+Alt+T): its own short card on every switch, nothing for unchanged frames; the 3- and 4-argument
+    // updates keep the current typing state. It auto-hides like every pop-up (kPopupTotalMs).
+    CHECK(joined(typing_lines(true)).find("Keys|Typing|") == 0 && typing_lines(true)[1].bold);
+    CHECK(joined(typing_lines(false)).find("Keys|XR control|") == 0);
+    CHECK(joined(typing_lines(true)).find("Ctrl+Alt+T") != std::string::npos);
+    {
+        StatusPopups t;
+        CHECK(t.update(0, false, true, false, 0.0) && t.generation() == 1);
+        CHECK(t.update(0, false, true, true, 3000.0) && t.generation() == 2 && t.active(3000.0));
+        CHECK(!t.active(3000.0 + kPopupTotalMs) && t.alpha(3000.0 + kPopupTotalMs) == 0);  // gone by itself
+        CHECK(!t.update(0, false, true, true, 4000.0) && !t.update(0, false, true, 4001.0) && !t.update(0, false, 4002.0));
+        CHECK(t.update(0, false, true, false, 6000.0) && t.generation() == 3);
+        StatusPopups started_typing; CHECK(started_typing.update(0, false, true, true, 0.0));
+        const auto both = started_typing.image().height;
+        CHECK(both > t.image().height);  // first update in typing mode: mode card plus the typing section
+    }
     StatusPopups bad; CHECK(bad.update(9, false, 0));  // out-of-range mode is treated as anchor
 
     // Help card: brackets have real pixel glyphs; card grows with rows, is premultiplied and
@@ -338,6 +354,14 @@ int main() {
             }
             CHECK(brightest(help.image()) <= kCardMaxLevel);
             CHECK(brightest(help.image()) >= 140 && brightest(menu.image()) >= 140);  // still clearly readable
+            // Typing mode pop-up (Ctrl+Alt+T): a switch alone draws only dimmed card colours, either way.
+            StatusPopups typing;
+            if (real_font) typing.set_font(HudFont::load(kHudFontFamily, why));
+            CHECK(typing.update(0, false, true, false, 0.0));                   // first: the viewing mode card
+            CHECK(typing.update(0, false, true, true, 5000.0));
+            CHECK(brightest(typing.image()) <= kCardMaxLevel && brightest(typing.image()) >= 140);
+            CHECK(typing.update(0, false, true, false, 9000.0));
+            CHECK(brightest(typing.image()) <= kCardMaxLevel);
         }
         CHECK(kCardMaxLevel <= 0.75 * 255);
         CHECK(kOverlayIdleCloseS >= 10 && kOverlayIdleCloseS <= 300);  // the footer note's value (tests/native_spike pins it)
