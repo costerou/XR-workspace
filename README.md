@@ -1,267 +1,218 @@
+<p align="center"><img src="assets/logo.svg" width="420" alt="VITURE Workspace logo"></p>
+
 # VITURE Workspace
 
-A local XR desktop for Omarchy/Hyprland on VITURE Beast and Luma Ultra glasses. It creates independent virtual desktops (three 1080p outputs by default), captures only those outputs, and renders them in the glasses with 3DoF head tracking. You start and control a session from an Omarchy shell panel, or with Ctrl+Alt keybinds while a session runs.
+VITURE Workspace turns your VITURE glasses into a big multi-screen desk on Omarchy. Put the glasses on and you see
+three extra desktops floating in front of you. They stay where you put them when you turn your head, and you can use
+them with your normal keyboard and mouse.
 
-## Status
+It works with the VITURE **Luma Ultra** (tested in the glasses) and **Beast** (only partly tested so far).
 
-Every claim in this repo says whether it comes from offline tests, an isolated VM, or the physical glasses. Passing tests or a VM trial is not physical acceptance.
+## What you need
 
-| Area | Evidence |
-| --- | --- |
-| Managed virtual desktops, capture, rendering, viewing modes, zoom/switch controls, pose prediction, theme-reload survival | Physical runs on Luma Ultra through the `tools.native_spike` CLI. The `mod1` run presented ~119.9 Hz over 168 s on the zero-copy dmabuf path. The `trk1` run held ~119.8 Hz for 214 s with 0 tracking losses. These measure presentation cadence only, not latency or long-session comfort. |
-| Settings panel and controller service | Physical panel acceptance on Luma Ultra (2026-11-01; controller source `d685884`, which includes `8538468`, `4cfa04d` and `d9fbb28`; pinned renderer `62989b6e…` built from `822495c`). Run `d3adc32d` (on controller code a peer session had loaded but not yet committed; the later run and the recovery used committed `d685884`), started from the panel, calibrated tracking, switched DP-2 to 1920×1200@120 and presented ~120.0 Hz on dmabuf with 0 missed frames. Cody confirmed in the glasses that zoom/overview, desktop switching, spacing, recenter, viewing modes, cursor follow, prediction, the help card and live window content all worked. Panel Stop exited cleanly (renderer rc 0, nothing left over). In run `88b7e850`, the session kept running through a controller restart, and the new controller picked it up again. After a deliberate SIGKILL of the run unit, the panel showed Recover, and panel Recover put the desktop back to its baseline (XR outputs removed, plugin unloaded, DP-2 back to 1080@60). Earlier physical attempts failed before the renderer launched (mode readback, then `Errno 11`). Beast panel sessions are untested. The ~120 Hz figure is presentation cadence only. |
-| Per-desktop placement (position, distance, yaw/pitch/roll, curvature) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
-| Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
-| Overview corner resize (drag a desktop's corner to make it bigger or smaller in space) | Offline tests only (`tests/native_spike/test_resize.py`, `spike/tests/resize_handle_test.cpp`). Not yet tried in the glasses; the steps are in `docs/placement-menu-test-plan.md` (R1–R15). |
-| Overview grab pill (drag the bar above a desktop to move it) | Offline tests only (`tests/native_spike/test_grab_pill.py`, `spike/tests/resize_handle_test.cpp`); its cursor Lua loads under `Hyprland --verify-config`. Not yet tried in the glasses; steps P1–P16 in `docs/placement-menu-test-plan.md`. |
-| Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
+- A computer running [Omarchy](https://omarchy.org) (it uses the Hyprland window manager).
+- VITURE Luma Ultra or Beast glasses, plugged in.
+- XRLinuxDriver (`xr-driver-git`). It reads the glasses' motion sensors so the desktops can react to your head.
+- To build it: CMake, a C++ compiler, and Python 3.10 or newer.
+- Optional, for videos: `mpv` (playing), `ffmpeg` (web videos), `zenity` (the file picker), `wl-clipboard` and Chromium
+  (the browser button).
 
-## How it fits together
+## Getting started
 
-- `spike/` is the C++20 renderer (`xr-native-spike`), a layer-shell client that draws the captured desktops in the glasses. `spike/ownership/` is a small Hyprland plugin (`libxr-ownership.so`). It creates and removes the managed `XR-n` outputs through object-bound handles and epochs, never by name alone.
-- `tools/native_spike/` holds the Python supervisor: consent, durable journal, managed output lifecycle, recovery, view controls and the tracking driver wrapper.
-- `tools/xr_controller/` is a `systemd --user` controller service. It owns glasses detection, per-glasses profiles, consent and the run lifecycle. Each run is a separate transient unit, so a shell restart cannot kill it.
-- `omarchy-plugin/cody.viture-workspace/` is the Quickshell panel and bar widget. It is a thin client of the controller socket.
-- `tools/xr_probe/` is the original read-only host diagnostic (see below).
+### 1. Install
 
-Head tracking comes from XRLinuxDriver (`/usr/bin/xrDriver`), run in an unprivileged network namespace in `external_only` mode so it cannot reach the network or move the mouse.
-
-## Build and install
-
-The ownership plugin is ABI-pinned to the installed Hyprland and Aquamarine. Rebuild it after either one updates.
+Run these from this folder:
 
 ```sh
+# Build the program that draws in the glasses
 cmake -S spike -B build/release -DCMAKE_BUILD_TYPE=Release \
   -DXR_ENABLE_HARDWARE=OFF -DXR_ENABLE_SDK=OFF -DXR_ENABLE_OWNERSHIP_PLUGIN=ON
 cmake --build build/release -j
-ctest --test-dir build/release --output-on-failure
 
-# Pin the renderer and plugin by hash under ~/.local/share/viture-workspace/bin/
-# and write the user unit. The controller only launches pinned copies.
+# Install it and the background helper, then start the helper
 python -m tools.xr_controller install --build build/release
+systemctl --user start viture-workspace-controller.service
 
+# Add the panel to Omarchy
 ln -s "$PWD/omarchy-plugin/cody.viture-workspace" ~/.config/omarchy/plugins/
 omarchy-shell shell rescanPlugins
 
-# App icon and launcher entry
+# Optional: app icon and a launcher entry
 install -Dm644 assets/icon.svg ~/.local/share/icons/hicolor/scalable/apps/viture-workspace.svg
 install -Dm644 packaging/viture-workspace.desktop ~/.local/share/applications/
 gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ```
 
-The panel is a window of the Omarchy shell, so Hyprland reports its class as `org.quickshell`, the same as every other shell window. Quickshell 0.3.2 sets the Wayland app_id once per process (`QS_APP_ID`), and its windows have no per-window app_id, so the panel cannot get its own class. The desktop entry works around that: its `StartupWMClass=VITURE Workspace` matches the panel's window title. Widgets that look shell-hosted windows up by title, such as the Spaces bar widget (`tornikegomareli.spaces`, checked with 1.6.0), show the VITURE icon without any change to their code. Anything that maps windows to icons by app_id alone, like Omarchy's dock, still shows the Quickshell icon. The bar widget draws `icon-symbolic.svg`, a one-colour copy of the mark, tinted by state.
+The background helper never starts anything in the glasses by itself. It waits for you to press Start.
 
-To switch an existing install to another checkout or build, do it with no XR session running. First back up `~/.local/share/viture-workspace/installed.json`, `~/.config/systemd/user/viture-workspace-controller.service` and the panel symlink's target. Run `install` from the checkout the controller should use; to keep an accepted plugin binary, stage the new renderer next to the currently pinned `libxr-ownership.so`. Point the panel symlink at that checkout, restart the controller, then **run `omarchy-restart-shell`**. `rescanPlugins` does not reload panel QML the shell has already loaded, so without a shell restart the panel keeps its old UI. To roll back, restore the two backed-up files, run `systemctl --user daemon-reload`, point the symlink back, restart the controller and run `omarchy-restart-shell` again.
+### 2. Open the panel
 
-`install` writes `viture-workspace-controller.service` but does not enable it. Start it with `systemctl --user start viture-workspace-controller.service`, or run `python -m tools.xr_controller serve` in the foreground. The service never starts an XR session by itself.
+Plug in the glasses, then open **VITURE Workspace** from the app launcher. You can also add the small **XR** widget to
+your bar and click it.
 
-## Use
+If the panel says "controller not running", click **Start / restart controller**.
 
-Open the VITURE Workspace panel with the glasses connected. Choose the shape, resolution and scale of each desktop, then press **Start XR session**. That confirmation click is the consent for one run, including any temporary display-mode switch (for example Luma 1920×1200@120). **Stop** returns every window to the physical fallback output. **Recover** appears if an earlier run left resources behind.
+### 3. Start a session
 
-Other Hyprland plugins may stay loaded during a run. Omarchy keeps `hyprbars` loaded all session for its titlebars workspace mode. Start and recovery refuse only if the VITURE ownership plugin (`xr-ownership`) is already loaded. If an XR desktop's workspace is in Omarchy's floating mode, its windows get title bars inside the glasses, as they would on any monitor. That changes nothing about what the run captures or controls.
+1. Optional: click a desktop to change its size, sharpness or where it sits.
+2. Press **Start XR session**.
+3. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
+4. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
 
-Head tracking must be running before a session starts:
+Your three desktops now appear in the glasses. They are called XR-1, XR-2 and XR-3.
 
-```sh
-python -m tools.native_spike tracking start   # also: status, stop
-```
+## Everyday use
 
-**VR video** (offline tests only, not yet run in the glasses): during a session, **Ctrl+Alt+O** (or the panel's *VR video* section) plays a 360° or 180° video, mono or 3D (side-by-side, top-bottom), equirectangular or fisheye, head-tracked around you in place of the desktops. Space pauses, the arrows seek, Tab changes the format, Ctrl+Alt+Space recenters and Esc returns to the desktops. While a video plays, the placement menu, its mouse mode and the overview corner resize are off. The renderer decodes with libmpv (`mpv` package; without it the renderer builds without video). Design, formats, limits and performance: [docs/vr-video.md](docs/vr-video.md).
+Move your mouse onto a glasses desktop the same way you would move it onto another monitor. Open apps there as usual.
 
-**Web VR video / DelightXR** (offline tests only): click the *Play in VITURE* bookmark (built by `python -m tools.delightxr.build`) on a DelightXR or other video page, then press **Ctrl+Alt+U** in the glasses (or the panel's *Paste from browser*). The run streams the page's own video link through an ffmpeg relay into the same VR video player; no download, no browser changes, renderer unchanged. Findings, options and limits (no DRM, no cookie-gated links): [docs/delightxr.md](docs/delightxr.md).
+Press **Ctrl+Alt+H** at any time for a help card in the glasses. The keys below only work while a session is running.
+When the session ends they go away, so they never get in the way of normal typing.
 
-These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; the left-button binds marked "mouse mode" exist only while mouse mode is on. If the run dies with the menu open, the first menu key (or, in mouse mode, the first click) pressed afterwards releases them and shows the cursor again.
+### Key cheat sheet
 
-| Keys | When | Action |
-| --- | --- | --- |
-| Ctrl+Alt+Up / Down | run | Zoom into the selected desktop / back to the overview |
-| Ctrl+Alt+Left / Right | run | Previous / next desktop |
-| Ctrl+Alt+[ / ] | run | Less / more space between desktops |
-| Ctrl+Alt+Space | run | Recenter |
-| Ctrl+Alt+V | run | Cycle viewing mode: anchor (3DoF), follow, locked (0DoF) |
-| Ctrl+Alt+F | run | Toggle cursor follow |
-| Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
-| Ctrl+Alt+H | run | Show the help card in the glasses |
-| Ctrl+Alt+L | run | Open / close the placement menu in the glasses |
-| Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
-| Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
-| Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
-| Tab / Shift+Tab | menu open | Next / previous desktop |
-| Up / Down | menu open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
-| Left / Right | menu open | Decrease / increase the field by a small step (Shift for a big step) |
-| R | menu open | Reset the desktop to flat |
-| Ctrl+Alt+M | menu open | Turn mouse mode on / off |
-| Escape | menu open | Leave mouse mode; otherwise close the menu |
-| Left click | mouse mode | Snap the slider under the pointer to it, or pick the desktop tab under it; elsewhere nothing |
-| Left drag | mouse mode | Drag that slider; the desktop follows live |
-| Left-drag a desktop corner | overview, menu closed, pointer on a corner | Resize that desktop: outward is bigger, inward is smaller |
-| Left-drag the bar above a desktop | overview, menu closed, pointer at the top centre | Move that desktop, like a title bar |
-
-Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring and mouse mode are covered by offline tests only.
-
-Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
-
-Settings, including placements, are saved per glasses model.
-
-### Sending windows to the glasses
-
-During a run, focus a window on your monitor and press **Ctrl+Alt+G**. It moves to the desktop selected in the glasses
-view: the one you are zoomed into, or the one highlighted in the overview (Ctrl+Alt+Left / Right change it). **Ctrl+Alt+1**,
-**2** or **3** send it to XR-1, XR-2 or XR-3 instead, whichever is selected. The digits are bound by keycode, like
-Omarchy's workspace keys, so they work on any keyboard layout. **Ctrl+Alt+B** sends the focused window back from the
-glasses to the physical monitor, the same output Stop and Recover return windows to. In every case the window lands on
-the workspace that output is showing, and keyboard focus goes with it.
-
-Pinned windows are refused with a short desktop notification: a pinned window on an XR desktop would stop recovery from
-moving that desktop's windows back. Unpin it first. Pressing a send key for a desktop the session doesn't have
-(Ctrl+Alt+3 with two desktops), with no focused window, or Ctrl+Alt+B on a window that isn't in the glasses also only
-shows a notification. Like the other run keys, these are bound only while a session runs and are removed when it ends.
-Stop and Recover still return every window, including the ones you sent, to the physical monitor. A move already in
-flight when you press Stop finishes before recovery starts, and none starts after. If a run dies and leaves its binds
-behind, a send key shows "No XR session is running" and moves nothing.
-
-The help card has no room for a 13th row (12 rows are 945 px of the 960 px surface), so its Ctrl+Alt+H row reads
-"Help; Ctrl+Alt+G/B: window to glasses/back". The numbered keys are listed only here.
-
-### Resizing desktops in the overview
-
-In the overview (Ctrl+Alt+Down), move the pointer into a corner of a desktop: the last few percent of its width and
-height (8% of its shorter side, 32–160 px). A small dim L-bracket appears just inside that corner. Hold the left button
-and drag. Outward makes the desktop bigger and inward makes it smaller, live while you drag. Either direction is
-enough, because the pointer stops at the edge of the monitor layout: dragging outward by about the desktop's average
-side length doubles its size. Release to finish. The desktop scales about its own centre and always keeps its shape.
-
-The size has limits and is saved like the other placements:
-
-- It goes from half to twice the default size. A resize is the desktop's **Distance** placement seen from the other
-  side (apparent size = 100 / Distance), so the limits are Distance's 200 and 50. The panel's **Place** tab and an
-  open placement menu show the new Distance while you drag. For example, 1.5× bigger is Distance 67.
-- It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
-  over to the next session.
-- Zooming into a desktop still brings it flat and full size in front of you. The bracket only shows in the overview.
-
-Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
-overview all desktops share one height, so pixel count only changes sharpness, never size. A free-aspect resize could
-only stretch the captured image, which is why the shape is always kept. Changing a running output's mode would also
-need a new ownership-broker operation in the accepted plugin. Resolution, shape and scale stay in the desktop editor
-and apply at the next start, through the journaled output creation that reads every value back. Corner resizing adds
-no compositor output change and no new journal record.
-
-How clicks are handled: while the pointer is on a corner, or during a drag, the run binds the left button to the
-resize (press and release), so the window under that corner does not get the click. Everywhere else, and whenever the
-bracket is hidden, clicks go to windows as usual. The pointer is read about 30 times a second, only in the overview,
-with the read-only `cursorpos` query. The binds go away when the pointer leaves the corner, after 30 s without pointer
-movement, on zoom-in, when the placement menu opens, and at run end. If the run dies while they are bound, the first left click afterwards removes them.
-Corner resize is off while the placement menu is open. The menu's mouse mode uses the left button, and the menu has its own
-Distance setting. A drag in progress ends and is saved when the menu opens.
-
-The bracket protects the micro-OLED the way the cards do, by dimming and auto-closing. It is grey at about 55%
-brightness, and 72% while you drag (184/255, under the cards' 191 cap). It hides after 30 s without pointer movement
-(`OVERLAY_IDLE_CLOSE_S`). A drag still held at that point ends and is saved. It does not drift or orbit.
-The CPU fallback renderer draws no bracket.
-
-### Moving desktops in the overview (grab pill)
-
-In the overview, a long thin grey bar sits centred just above each desktop. To grab it, move the pointer to the top
-centre of the desktop: the middle 30% of its width (120–720 px), in the same top strip as the corners. The pointer
-can't go above a desktop, so that strip stands in for the bar. The bar over that desktop gets brighter. Hold the left
-button and drag. The desktop follows the mouse like a window by its title bar: right is right, up is up. Half the
-desktop's width in mouse travel moves it one full width. Release to drop it.
-
-While you drag, the cursor is hidden and kept near the middle of its monitor, so the desktop can go up or sideways even
-though the pointer started at the top of the layout. This is the placement menu's mouse-mode technique, with its own
-saved state. On release the cursor shows again where you grabbed, which is still on the bar, because the bar moved with
-the desktop. Movement is applied live and eased in the renderer (35 ms time constant), so it looks smooth at the
-display's rate even though the pointer is read 60 times a second during a drag.
-
-Placement is free, with three guards instead of a snap grid:
-
-- **Back to the row.** Each direction snaps to the desktop's own slot when within 4%, so putting it back is easy.
-- **No bad overlap.** A desktop may cover another by at most 10% of the smaller one's area, judged on the overview's
-  rectangles (apparent size included, tilt ignored). If a move would overlap more, the desktop slides along the free
-  direction or stops at the edge. To pass a neighbour, lift it clear of the row first. A desktop already overlapping
-  (set from the panel) can always move to where it overlaps less.
-- **In reach.** The limits are the Left/right and Down/up placements' own: one desktop width or height from its slot.
-
-The position is the desktop's **Left/right** and **Down/up** placement. It is saved to the glasses model's profile like
-a size (half a second after the last change, and on release), and the panel's **Place** tab shows it.
-
-The bar and the corner bracket share one left-button bind and never compete. A corner zone always wins where they
-meet, and the bar's strip is kept clear of both corners, so a click is either a resize or a move. Both are off when
-zoomed in and while the placement menu is open. A VR video's playback gate (`IGNORED_WHILE_PLAYING`) covers both
-through the same `resize_press` / `resize_release` ops. Clicks are handled as for corner resize: only while the
-pointer is on the bar's strip or a drag is in progress does the left button go to the run. If the run dies mid-drag,
-the release click removes the bind and also shows the cursor again and puts it back.
-
-The bars protect the micro-OLED like the bracket. They are dim grey: 90/255 normally, 150 on hover and 184 while
-dragging (cap 191). They never move on their own, and they hide after 30 s without pointer movement in the overview.
-The CPU fallback renderer draws no bars.
-
-### Placement menu
-
-You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings as sliders with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
-
-The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. Each is a row with its label, a slider and its current value. The slider's ends are the setting's limits, the same as the panel's sliders, and the stretch from the flat value to the knob is coloured. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. R puts every setting of the selected desktop back to flat.
-
-**Mouse mode.** With the menu open, press **Ctrl+Alt+M** to use the mouse on the sliders in the glasses. A round pointer appears on the selected slider's knob and the desktop cursor is hidden. The pointer moves freely over the whole menu, one menu pixel per pixel of cursor movement, with your usual mouse speed, and it is redrawn every frame of the glasses' 120 Hz display. Moving it never changes a value. Click on a slider to snap it to the pointer, or hold the button and drag to move it, and the desktop follows live. Clicking a desktop tab (XR-1/XR-2/XR-3) selects that desktop. A click anywhere else does nothing. While mouse mode is on, left clicks go to the menu, not to your windows, and cursor follow is paused. The keyboard keeps working: the arrows, Shift, Tab and R act as usual. Press Ctrl+Alt+M again or Escape to leave mouse mode. The cursor comes back where it was when mouse mode started, and the menu stays open. Escape again closes the menu; Ctrl+Alt+L closes it at once, mouse mode included. Any mouse movement or click in mouse mode counts as input for the 30 s idle close described below. The sliders and the pointer use only the cards' dimmed colours, nothing brighter than their text. Ctrl+Alt+M is bound only while the menu is open. It clashes with none of Omarchy's binds or this project's; `python -m tools.native_spike.bind_check` checks that against your Hyprland config with `Hyprland --verify-config` (see Tests).
-
-Each key press moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's profile shortly after the last key press, and again when the menu closes. The menu changes placement only. It does not change the run's consent, capture or the panel's buttons.
-
-The help card and the placement menu protect the glasses' micro-OLED panels from image retention (a faint copy of bright, static text that stays for a while after it closes). Their text and accent are dimmed to about 70% and 75% of full brightness. Both cards stay perfectly still while shown. Both close by themselves after 30 s without input: a run key or a panel placement change. The help card's footer says so. Typing in a window doesn't count. Ctrl+Alt+L and Ctrl+Alt+H reopen them. The timeout is `OVERLAY_IDLE_CLOSE_S` in `tools/native_spike/view.py`. Its copy `kOverlayIdleCloseS` in `spike/include/xr/hud.hpp` feeds the footer note, and a test keeps the two equal.
-
-## Tests
-
-Bare `python -m unittest` from the root finds nothing. Run each suite explicitly:
-
-```sh
-python -m unittest discover -s tests/probe -v
-python -m unittest discover -s tests/native_spike -v
-python -m unittest discover -s tests/xr_controller -v
-python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
-ctest --test-dir build/release --output-on-failure
-```
-
-Check that this project's run, send-window, menu and mouse-mode binds clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
-
-```sh
-python -m tools.native_spike.bind_check
-```
-
-It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. A digit and its keycode (`1` and `code:10`, the way Omarchy binds workspace digits) count as the same key. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads.
-
-Tests use synthetic collectors, fake sockets and temporary directories. They never open a real display or device, and their output is never published as host evidence. Build and link success does not show that the plugin loads at runtime against the installed compositor.
-
-## Safety boundaries
-
-- Nothing touches the glasses or the live desktop without explicit consent for that run.
-- Intent is journaled before any mutation, and actual state is read back before a step counts as confirmed. Recovery keeps ambiguous or user-modified resources and reports incomplete recovery instead of deleting them.
-- Capture is limited to the run's own `XR-n` outputs and stays in memory. There is no general desktop capture, input injection or vendor SDK.
-- Display-mode switches are runtime only. Saved monitor configuration is never edited.
-- The send-window keys (Ctrl+Alt+G, 1-3, B) move only the focused window, by address, onto the active regular workspace
-  of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
-  windows are refused, so recovery can always move the XR desktops' windows back.
-- Run binds use Ctrl+Alt chords. The only unmodified binds are modal: the placement menu's keys while it is open, and
-  the left button while the pointer is on a desktop corner or grab bar in the overview (corner resize, pill move). Both
-  are removed when no longer needed. A pill drag hides the cursor and re-centres it with fixed Lua (as mouse mode
-  does), and shows it again where it was on release, at run end, or on the first click after a dead run.
-- The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
-
-## Host diagnostic (`xr_probe`)
-
-The read-only probe from the feasibility phase. It needs Python 3.10+ and only the standard library, and it installs nothing.
-
-```sh
-python -m tools.xr_probe --list-sessions
-python -m tools.xr_probe --instance INSTANCE --output-dir OUTPUT_DIR
-```
-
-Pass the literal identifier from `--list-sessions`. Only a session classified `physical` can be selected. Without `--instance`, collection runs only when there is exactly one physical candidate and no unknown one. The probe writes sanitized `host-report.json` and `host-report.md`: no window titles, serial numbers, process or socket identifiers, raw errors or environment.
-
-| Exit | Meaning |
+| Keys | What it does |
 | --- | --- |
-| `0` | Reports written with successful USB/DRM inventories, or listing/help succeeded. This is not a support or performance verdict, and missing glasses can still return 0. |
-| `2` | Bad arguments, ambiguous or nonphysical selection, an existing report without `--overwrite`, an unsafe target, or a held lock. |
-| `3` | Discovery, required inventory, host collection or report writing failed. A sanitized partial report may still be written. |
+| Ctrl+Alt+H | Show or hide the help card |
+| Ctrl+Alt+Up | Zoom into the selected desktop |
+| Ctrl+Alt+Down | Zoom out to see all desktops (the overview) |
+| Ctrl+Alt+Left / Right | Select the previous / next desktop |
+| Ctrl+Alt+[ / ] | Less / more space between desktops |
+| Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
+| Ctrl+Alt+V | Change how the desktops follow your head (see below) |
+| Ctrl+Alt+F | Turn cursor follow on or off: the view switches to the desktop your mouse moves onto |
+| Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
+| Ctrl+Alt+L | Open or close the placement menu |
+| Ctrl+Alt+M | Mouse mode in the placement menu (only while the menu is open) |
+| Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
+| Ctrl+Alt+1 / 2 / 3 | Send the window you're using to XR-1 / XR-2 / XR-3 |
+| Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
+| Ctrl+Alt+O | Play a VR video file |
+| Ctrl+Alt+U | Play the web video you copied with the *Play in VITURE* bookmark |
 
-Existing reports are refused unless you pass `--overwrite`. Commit the old evidence first, or write later collections to a separate directory. The two report files are replaced one at a time, not as one transaction, so an interrupted run can leave a mixed pair. If rollback fails, backups stay in the `.xr-probe.lock` directory; recover them before removing it.
+**Ctrl+Alt+V** cycles through three ways the desktops can behave:
+
+- **Anchor:** the desktops stay fixed in the room. Turn your head to look at a different one.
+- **Follow:** the desktops stay put for small head moves and drift back in front of you if you turn away.
+- **Locked:** the desktops are fixed to your view, like a normal screen glued to your face.
+
+**Sending windows.** Ctrl+Alt+G sends a window to the desktop you are zoomed into, or the one highlighted in the
+overview. The number keys work on any keyboard layout. A pinned window can't be sent; unpin it first. If nothing can be
+sent, a small notification tells you why.
+
+## Placing desktops
+
+You can move, tilt, curve and resize each desktop in space. Your layout is saved for your glasses model and comes back
+next session. There are three ways to do it.
+
+**In the panel.** Before starting, click a desktop. During a session, use the **Place** section. Each desktop has
+these settings: left/right, down/up, distance (how big it looks), yaw (turn left or right), pitch (tilt up or down),
+roll (tilt sideways) and curvature.
+
+**With the placement menu in the glasses.** Press **Ctrl+Alt+L**. Changes apply straight away, and there's no Save
+button.
+
+| Keys (menu open) | What it does |
+| --- | --- |
+| Tab / Shift+Tab | Next / previous desktop |
+| Up / Down | Previous / next setting |
+| Left / Right | Change the setting a little (hold Shift for a bigger step) |
+| R | Reset this desktop to flat |
+| Ctrl+Alt+M | Mouse mode: click or drag the sliders with your mouse |
+| Esc | Leave mouse mode, or close the menu |
+| Ctrl+Alt+L | Close the menu |
+
+These menu keys only take over while the menu is open. After it closes, the arrows, Tab, R and Esc type normally again.
+
+**By dragging in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
+
+- **Resize:** move the mouse into a corner of a desktop until a small grey bracket appears. Drag outward to make it
+  bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
+- **Move:** move the mouse to the top middle of a desktop. The thin grey bar above it lights up. Drag it like a window
+  title bar. It snaps back into its slot if you drop it close by, and it won't overlap its neighbours by much.
+
+Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
+edit the desktop in the panel.
+
+## VR video and DelightXR
+
+During a session you can watch 360° and 180° videos, including 3D ones, all around you. The desktops come back when you
+press Esc. This is new and has not been tried in the glasses yet.
+
+**A video file:** press **Ctrl+Alt+O** and pick a file. Or use the panel's **VR video** section and click
+**Browse…**.
+
+**A video on a website (DelightXR and others):** set up the bookmark once, then use it on any video page.
+
+1. Once: run `python -m tools.delightxr.build | wl-copy`. In Chromium, press Ctrl+Shift+O, open the ⋮ menu, choose
+   *Add new bookmark*, name it **Play in VITURE** and paste the copied text as its address.
+2. Open the video page and click **Play in VITURE**. The page's video pauses.
+3. Press **Ctrl+Alt+U** (or click **Paste from browser** in the panel). The video opens around you, near where you left
+   off.
+
+While a video plays:
+
+| Keys | What it does |
+| --- | --- |
+| Space | Play / pause |
+| Left / Right | Back / forward 10 seconds (hold Shift for 60 seconds) |
+| Tab | Try the next video format, if the picture looks wrong |
+| Up / Down | Show or hide the controls |
+| Ctrl+Alt+Space | Recenter the video |
+| Esc | Back to your desktops |
+
+Videos with copy protection, or links that need you to be logged in, won't play. The panel or a notification will tell
+you why. See [docs/vr-video.md](docs/vr-video.md) and [docs/delightxr.md](docs/delightxr.md) for formats and limits.
+
+## Stopping, recovering and troubleshooting
+
+**Stop.** Press **Stop** in the panel. Every window on the glasses desktops moves back to your normal monitor, and your
+display goes back to how it was.
+
+**Recover.** If a session crashed or the computer lost track of it, the panel shows **Recover**. Press it to clean up
+and put your windows and display back. If the panel says "Needs CLI recovery", see
+[docs/technical.md](docs/technical.md#cli-recovery).
+
+**Common problems:**
+
+- **"No VITURE glasses detected."** Check the cable and plug the glasses in again.
+- **Starting takes a long time.** Head tracking is calibrating. Keep the glasses still for up to two minutes.
+- **Start refuses because another tracking driver is running.** Close the other XRLinuxDriver first.
+- **A key does nothing.** The keys only work during a session. The menu keys only work while the menu is open, and
+  most desktop keys do nothing while a video plays.
+- **Keys or the cursor act strangely after a crash.** Press the key once more, or click once. That clears what the
+  crashed session left behind.
+- **The panel looks out of date after an update.** Run `omarchy-restart-shell`.
+- **It stopped working after a Hyprland update.** Rebuild and run the install step again with no session running.
+
+**About ghost images on the glasses screens.** The glasses use tiny OLED screens. Bright text that stays still for a
+long time can leave a faint ghost image that fades after a while. To prevent that, the help card, placement menu and
+video controls are dimmed, and they close by themselves after 30 seconds without input. Don't leave a bright video
+paused for a long time either.
+
+## FAQ
+
+**Does it change my normal monitor setup?**
+No. Any display change is temporary and is undone when you stop. Your saved monitor settings are never edited.
+
+**Does it record or send my screen anywhere?**
+No. It only reads the three glasses desktops, and only to draw them in the glasses. The picture stays in memory and is
+never saved or sent anywhere. The head tracking driver runs with no network access. The only thing that goes online is
+a web video you choose to play.
+
+**Can I use more or fewer than three desktops?**
+Not yet. Those panel options are greyed out and marked "coming". You can't change a desktop's resolution during a
+session either.
+
+**Which glasses are tested?**
+The Luma Ultra has been used in real sessions. On the Beast only basic display tests have run. See
+[what has been tested](docs/technical.md#status).
+
+**Will it start a session by itself?**
+No. A session only starts when you press Start, and that approval covers only that one session.
+
+## More detail
+
+- [docs/technical.md](docs/technical.md): test evidence, how it is built, the safety design, the full key rules, running
+  the tests, and the host diagnostic tool.
+- [docs/vr-video.md](docs/vr-video.md) and [docs/delightxr.md](docs/delightxr.md): how VR video and web video work.
+- [docs/placement-menu-test-plan.md](docs/placement-menu-test-plan.md): step-by-step checks to try in the glasses.
