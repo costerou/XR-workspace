@@ -97,6 +97,7 @@ int main() {
     // Help card: brackets have real pixel glyphs; card grows with rows, is premultiplied and
     // rounded; with the system font it also renders.
     CHECK(&hud_glyph('[') != &hud_glyph('?') && &hud_glyph(']') != &hud_glyph('?'));
+    CHECK(&hud_glyph('%') != &hud_glyph('?'));  // placement menu units
     const std::vector<HelpRow> rows{{"Ctrl+Alt+Up", "Zoom in"}, {"Ctrl+Alt+[", "Less space"}, {"Ctrl+Alt+H", "Show / hide this help"}};
     auto hc = render_help_card(rows, {0.5f, 0.6f, 0.9f});
     auto hc1 = render_help_card({rows[0]}, {0.5f, 0.6f, 0.9f});
@@ -126,5 +127,76 @@ int main() {
     CHECK(h.alpha(5000 + kHelpFadeInMs / 2 + kHelpFadeOutMs) == 0);
     CHECK(h.shown_count() == 2 && h.hidden_count() == 2 && !h.visible());
     CHECK(h.set(true, {rows[0]}, 7000) && h.generation() == 2);  // new rows: new card
+
+    // Placement menu rows: friendly labels and hints, signed values with units, the selected field
+    // highlighted, values from the selected desktop; ASCII units for the pixel font.
+    PlacementMenuState ms;
+    ms.open = true; ms.desktop = 1; ms.field = 3;
+    ms.placements[0] = {0, 0, 100, 0, 0, 0, 0};
+    ms.placements[1] = {12, -7, 150, -30, 45, 0, 90};
+    ms.placements[2] = {-100, 100, 200, 60, -45, -45, 120};
+    auto mr = placement_menu_rows(ms, false);
+    CHECK(mr.size() == kPlacementMenuFields);
+    CHECK(mr[0].label == "Left / right" && mr[1].label == "Down / up" && mr[2].label == "Distance" && mr[6].label == "Curvature");
+    CHECK(mr[3].label == "Yaw" && mr[3].hint == "turn left or right" && mr[4].label == "Pitch" && mr[4].hint == "tilt up or down" &&
+          mr[5].label == "Roll" && mr[5].hint == "tilt sideways");
+    CHECK(mr[0].value == "+12%" && mr[1].value == "-7%" && mr[2].value == "150%" && mr[3].value == "-30\xc2\xb0" &&
+          mr[4].value == "+45\xc2\xb0" && mr[5].value == "0\xc2\xb0" && mr[6].value == "90\xc2\xb0");
+    for (std::size_t i = 0; i < mr.size(); ++i) CHECK(mr[i].selected == (i == 3));
+    auto ascii = placement_menu_rows(ms, true);
+    CHECK(ascii[3].value == "-30 deg" && ascii[0].value == "+12%");
+    for (const auto& r : ascii) for (unsigned char c : r.label + r.hint + r.value) CHECK(c >= 0x20 && c < 0x7f);
+    ms.desktop = 2; CHECK(placement_menu_rows(ms, true)[0].value == "-100%" && placement_menu_rows(ms, true)[6].value == "120 deg");
+    ms.desktop = 9; CHECK(placement_menu_rows(ms, true)[0].value == "-100%");  // out of range: clamped, no crash
+    ms.field = 7; for (const auto& r : placement_menu_rows(ms, true)) CHECK(!r.selected);
+    ms.desktop = 1; ms.field = 3;
+    // Footer names the adjust keys; ASCII so the pixel fallback can draw it.
+    std::string hint_text; for (const auto& h : placement_menu_hints()) hint_text += h + "\n";
+    CHECK(hint_text.find("Left / Right") != std::string::npos && hint_text.find("Shift") != std::string::npos &&
+          hint_text.find("R ") != std::string::npos);
+    for (unsigned char c : hint_text) CHECK(c == '\n' || (c >= 0x20 && c < 0x7f));
+
+    // Menu card: help-card chrome (rounded, premultiplied, opaque accent edge); the selected row's band
+    // tints the left marker column in the accent colour; the card changes with the selected field.
+    auto mc = render_placement_menu_card(ms, {0.5f, 0.6f, 0.9f});
+    CHECK(mc.width > 0 && mc.height > hc.height && premultiplied(mc) && !lit(mc, 0, 0) && !lit(mc, mc.width - 1, mc.height - 1));
+    CHECK(mc.rgba[(std::size_t(mc.height / 2) * mc.width) * 4 + 3] == 255);
+    auto marker_rows = [](const HudImage& im) {  // rows whose leftmost table pixels are the solid accent marker
+        std::vector<std::uint32_t> ys;
+        for (std::uint32_t y = 4; y + 4 < im.height; ++y)  // inside the accent border
+            for (std::uint32_t x = 34; x < im.width / 2; ++x) {
+                const auto* px = &im.rgba[(std::size_t(y) * im.width + x) * 4];
+                if (px[2] > 200 && px[0] < 150) { ys.push_back(y); break; }  // accent blue, not white text
+            }
+        return ys;
+    };
+    auto field3 = marker_rows(mc);
+    PlacementMenuState other = ms; other.field = 0;
+    auto mc0 = render_placement_menu_card(other, {0.5f, 0.6f, 0.9f});
+    auto field0 = marker_rows(mc0);
+    CHECK(!field3.empty() && !field0.empty() && field0.back() < field3.back());  // highlight moves up with the field
+    CHECK(mc0.width == mc.width && mc0.height == mc.height);  // same layout, only the highlight moves
+    if (font) { auto fm = render_placement_menu_card(ms, {0.5f, 0.6f, 0.9f}, font.get()); CHECK(fm.height > 200 && premultiplied(fm)); }
+
+    // Menu overlay: hidden until opened; re-renders on any change while open (no fade restart), not on
+    // repeats; closing fades the last card out; changes while closed do not render.
+    PlacementMenuOverlay m;
+    CHECK(m.alpha(0) == 0 && !m.animating(0) && m.generation() == 0 && !m.visible());
+    PlacementMenuState closed = ms; closed.open = false;
+    CHECK(!m.set(closed, 0) && m.generation() == 0);
+    CHECK(m.set(ms, 1000) && m.visible() && m.generation() == 1 && m.shown_count() == 1 && m.alpha(1000) == 0);
+    CHECK(m.offset_px(1000) == kHelpRisePx && m.animating(1000));
+    CHECK(m.alpha(1000 + kHelpFadeInMs) == 1 && !m.animating(1000 + kHelpFadeInMs) && m.offset_px(1000 + kHelpFadeInMs) == 0);
+    CHECK(!m.set(ms, 1500) && m.generation() == 1);
+    PlacementMenuState bumped = ms; bumped.placements[1][3] = -29;
+    CHECK(m.set(bumped, 1600) && m.generation() == 2 && m.alpha(1600) == 1 && m.shown_count() == 1);
+    PlacementMenuState next = bumped; next.desktop = 2;
+    CHECK(m.set(next, 1700) && m.generation() == 3);
+    PlacementMenuState shut = next; shut.open = false;
+    CHECK(m.set(shut, 2000) && !m.visible() && m.hidden_count() == 1 && m.generation() == 3 && m.alpha(2000) == 1);
+    CHECK(m.alpha(2000 + kHelpFadeOutMs) == 0 && !m.animating(2000 + kHelpFadeOutMs));
+    shut.placements[0][0] = 5;
+    CHECK(!m.set(shut, 3000) && m.generation() == 3);  // closed: no render
+    CHECK(m.set(next, 4000) && m.generation() == 3 && m.shown_count() == 2);  // reopened unchanged: same card
     std::cout << "hud ok\n";
 }

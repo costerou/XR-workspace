@@ -122,6 +122,17 @@ int main(int argc, char** argv) {
                         const auto& h = std::get<xr::HelpPayload>(m->payload);
                         presentation.set_help(h.visible, h.rows);
                     }
+                    else if (m->op == xr::ControlOp::placement_menu) {
+                        // Display only. A malformed payload decodes as monostate and is ignored (ipc.hpp).
+                        if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
+                            std::array<std::array<std::int32_t, 7>, 3> placements{};
+                            for (std::size_t i = 0; i < placements.size(); ++i) {
+                                const auto& w = menu->placements[i];
+                                placements[i] = {w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature};
+                            }
+                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements);
+                        }
+                    }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 7>> placements;
                         for (const auto& w : std::get<xr::PlacementPayload>(m->payload).desktops)

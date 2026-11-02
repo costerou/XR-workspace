@@ -1,5 +1,6 @@
 #pragma once
 #include "xr/types.hpp"
+#include <array>
 #include <deque>
 #include <string_view>
 #include <string>
@@ -7,7 +8,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -24,7 +25,14 @@ struct HelpPayload { bool visible = false; std::vector<std::pair<std::string, st
 // order, every field an integer inside kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch = 0, roll = 0, curvature = 0; };
 struct PlacementPayload { std::vector<WirePlacement> desktops; };
-using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload>;
+// Keyboard placement menu, display only (the supervisor owns the state and applies placements with `placement`):
+// {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]},
+// placements as above. `field` is the index into that key order. open=false hides the menu. A well-framed
+// placement_menu message whose payload is malformed decodes with a std::monostate payload: the renderer ignores it
+// (a menu redraw is not worth stopping the session for). Framing, identity and replay stay strict.
+constexpr std::size_t kPlacementMenuDesktops = 3;
+struct PlacementMenuPayload { bool open = false; std::uint32_t desktop = 0, field = 0; std::array<WirePlacement, kPlacementMenuDesktops> placements{}; };
+using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;

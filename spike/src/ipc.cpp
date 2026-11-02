@@ -40,6 +40,21 @@ bool placement(const Json& value, WirePlacement& out) {
     }
     return true;
 }
+bool placement_menu(const Json& p, PlacementMenuPayload& out) {
+    if (!p.is_object() || p.size() != 4 || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
+        !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kPlacementMenuDesktops || !p.contains("field") ||
+        !p["field"].is_string() || !p.contains("placements") || !p["placements"].is_array() || p["placements"].size() != kPlacementMenuDesktops)
+        return false;
+    const auto& field = p["field"].get_ref<const std::string&>();
+    const auto* named = std::find_if(std::begin(kPlacementBounds), std::end(kPlacementBounds), [&](const Bound& b) { return field == b.key; });
+    if (named == std::end(kPlacementBounds)) return false;
+    out.open = p["open"].get<bool>();
+    out.desktop = p["desktop"].get<std::uint32_t>();
+    out.field = std::uint32_t(named - std::begin(kPlacementBounds));
+    for (std::size_t i = 0; i < kPlacementMenuDesktops; ++i)
+        if (!placement(p["placements"][i], out.placements[i])) return false;
+    return true;
+}
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
     if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid();
@@ -71,6 +86,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "style") op = ControlOp::style;
         else if (name == "help") op = ControlOp::help;
         else if (name == "placement") op = ControlOp::placement;
+        else if (name == "placement_menu") op = ControlOp::placement_menu;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
@@ -117,6 +133,9 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 placements.desktops.push_back(w);
             }
             payload = std::move(placements);
+        } else if (op == ControlOp::placement_menu) {
+            PlacementMenuPayload menu;
+            if (placement_menu(j["payload"], menu)) payload = menu;  // else monostate: ignored by the renderer
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

@@ -43,6 +43,9 @@ public:
     // Keyboard help card, head-locked in the middle of the view, under the pop-ups; `drop_px`
     // moves it down (fade-in rise). Same lifetime/upload rules as set_popup.
     void set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
+    // Placement menu card: same place and rules as the help card, drawn over it; while the menu
+    // shows, the help card fades out by the menu's opacity so the two never stack.
+    void set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:

@@ -85,13 +85,30 @@ HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3>
 constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
 constexpr float kHelpRisePx = 18;  // the card rises this far while fading in (and sinks fading out)
 
+// Eased show/hide fade shared by the centred cards: toggling mid-fade reverses from the current
+// opacity instead of jumping.
+class CardFade {
+public:
+    CardFade(double in_ms, double out_ms) : in_ms_(in_ms), out_ms_(out_ms) {}
+    bool set(bool visible, double now_ms);   // true if visibility changed
+    bool visible() const { return visible_; }
+    float level(double now_ms) const;        // linear 0..1
+    float alpha(double now_ms) const;        // eased 0..1
+    bool animating(double now_ms) const;     // mid-fade
+private:
+    double in_ms_, out_ms_;
+    bool visible_ = false;
+    float from_ = 0;                         // level when the last toggle happened
+    double changed_ms_ = 0;
+};
+
 class HelpOverlay {
 public:
     // Show/hide; rows are rendered when shown with different rows (or the first time).
     // Returns true if visibility changed.
     bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms);
     void set_font(std::unique_ptr<HudFont> font);
-    bool visible() const { return visible_; }
+    bool visible() const { return fade_.visible(); }
     std::uint64_t shown_count() const { return shown_; }
     std::uint64_t hidden_count() const { return hidden_; }
     float alpha(double now_ms) const;        // eased 0..1
@@ -100,13 +117,54 @@ public:
     const HudImage& image() const { return image_; }
     std::uint64_t generation() const { return generation_; }
 private:
-    float level(double now_ms) const;        // linear 0..1
+    CardFade fade_{kHelpFadeInMs, kHelpFadeOutMs};
     std::uint64_t shown_ = 0, hidden_ = 0;  // actual visibility changes, diagnostic only
-    bool visible_ = false;
-    float from_ = 0;                         // level when the last toggle happened
-    double changed_ms_ = 0;
     std::vector<HelpRow> rows_;
     std::uint64_t generation_ = 0;
+    HudImage image_;
+    std::unique_ptr<HudFont> font_;
+};
+
+// Keyboard placement menu (supervisor-owned state, ipc.hpp PlacementMenuPayload): a centred card in the
+// help card's style showing the selected desktop, the seven placement fields with values and units
+// (highlighting the selected field) and a key-hint footer. Fades like the help card; value changes
+// while open re-render the card without a fade.
+constexpr std::size_t kPlacementMenuFields = 7, kPlacementMenuDesktopCount = 3;
+// {x, y, distance, yaw, pitch, roll, curvature} in the wire units of ipc.hpp WirePlacement.
+using MenuPlacement = std::array<std::int32_t, kPlacementMenuFields>;
+struct PlacementMenuState {
+    bool open = false;
+    std::uint32_t desktop = 0, field = 0;  // 0..2, 0..6 (out of range: drawn with nothing selected)
+    std::array<MenuPlacement, kPlacementMenuDesktopCount> placements{};
+    bool operator==(const PlacementMenuState&) const = default;
+};
+struct PlacementMenuRow { std::string label, hint, value; bool selected = false; };
+// Label, plain-English hint and formatted value ("+12%", "100%", "-5°"; " deg" with the pixel font,
+// which is ASCII-only) for each field of the selected desktop.
+std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& state, bool ascii_units);
+// Footer key hints, one string per footer line.
+const std::vector<std::string>& placement_menu_hints();
+HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font = nullptr);
+
+class PlacementMenuOverlay {
+public:
+    // Apply the latest state. Re-renders when open and the state differs from the last rendered one.
+    // Returns true if anything to draw changed (visibility or card).
+    bool set(const PlacementMenuState& state, double now_ms);
+    void set_font(std::unique_ptr<HudFont> font);
+    bool visible() const { return fade_.visible(); }
+    std::uint64_t shown_count() const { return shown_; }
+    std::uint64_t hidden_count() const { return hidden_; }
+    std::uint64_t render_count() const { return generation_; }
+    float alpha(double now_ms) const;
+    float offset_px(double now_ms) const;
+    bool animating(double now_ms) const;
+    const HudImage& image() const { return image_; }
+    std::uint64_t generation() const { return generation_; }
+private:
+    CardFade fade_{kHelpFadeInMs, kHelpFadeOutMs};
+    std::uint64_t shown_ = 0, hidden_ = 0, generation_ = 0;
+    PlacementMenuState rendered_;
     HudImage image_;
     std::unique_ptr<HudFont> font_;
 };

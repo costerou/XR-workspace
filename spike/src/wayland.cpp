@@ -196,6 +196,8 @@ struct Presentation::Impl : SurfaceRequests {
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
     HelpOverlay help;          // keyboard help card (Ctrl+Alt+H)
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
+    PlacementMenuOverlay menu; // keyboard placement menu (supervisor-owned state)
+    bool menu_drawn = false;   // last frame showed the menu: draw once more so it clears
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -448,8 +450,8 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()))
-            s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card every frame
+            (s.help_drawn && !s.help.visible()) || s.menu.animating(now) || (s.menu_drawn && !s.menu.visible()))
+            s.cadence.invalidate();  // animate / follow the head / fade a pop-up, the help card or the menu every frame
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -546,6 +548,9 @@ std::string Presentation::capture_report() const {
     }
     out += "],\"help\":{\"visible\":" + std::string(impl_->help.visible() ? "true" : "false") +
            ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) + "}";
+    out += ",\"placement_menu\":{\"visible\":" + std::string(impl_->menu.visible() ? "true" : "false") +
+           ",\"shown\":" + std::to_string(impl_->menu.shown_count()) + ",\"hidden\":" + std::to_string(impl_->menu.hidden_count()) +
+           ",\"renders\":" + std::to_string(impl_->menu.render_count()) + "}";
     const auto mode = impl_->modes.mode();
     out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
@@ -654,6 +659,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
             s->popups.set_font(std::move(font));
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
+            std::string menu_why; s->menu.set_font(HudFont::load(kHudFontFamily, menu_why));
         }
         s->uploaded.assign(s->captures.size(), 0);
         s->allocation_enabled = true;
@@ -684,6 +690,12 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     std::vector<HelpRow> help;
     for (const auto& [keys, action] : rows) help.push_back({keys, action});
     if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
+}
+void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
+                                      const std::array<std::array<std::int32_t, 7>, 3>& placements) {
+    if (!impl_) return;
+    PlacementMenuState state{open, desktop, field, placements};
+    if (impl_->menu.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>& placements) {
     if (!impl_) return;
@@ -768,6 +780,9 @@ Status Presentation::draw_test_pattern() {
         const float help = s.help.alpha(help_now);
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
+        const float menu = s.menu.alpha(help_now);
+        s.gl->set_menu(menu > 0.f ? &s.menu.image() : nullptr, s.menu.generation(), menu, s.menu.offset_px(help_now));
+        s.menu_drawn = menu > 0.f;
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();

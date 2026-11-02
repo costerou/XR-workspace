@@ -132,5 +132,48 @@ int main() {
                                   std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0}]})"),
                                   std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0,"z":0}]})")})
         require(std::holds_alternative<xr::Error>(xr::decode_control(placement(bad))));
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement: PASS\n";
+    // Placement menu: display-only state. Valid payloads decode; a malformed payload in a well-framed message decodes
+    // with a monostate payload (ignored, never fatal); malformed framing is still rejected.
+    auto menu = [](const std::string& payload, const char* op = "placement_menu") {
+        return std::string(R"({"schema":1,"request_id":11,"run_id":"run","session":"session","op":")") + op + R"(","payload":)" + payload + "}\n";
+    };
+    const std::string three = "[" + flat + "," + edge + "," + flat + "]";
+    auto md = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"pitch","placements":)" + three + "}"));
+    require(std::holds_alternative<xr::ControlMessage>(md) && std::get<xr::ControlMessage>(md).op == xr::ControlOp::placement_menu);
+    const auto* mp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(md).payload);
+    require(mp && mp->open && mp->desktop == 1 && mp->field == 4 && mp->placements[1].x == -100 && mp->placements[1].curvature == 120 &&
+            mp->placements[2].distance == 100);
+    const char* fields[] = {"x", "y", "distance", "yaw", "pitch", "roll", "curvature"};
+    for (std::uint32_t i = 0; i < 7; ++i) {
+        auto fd = xr::decode_control(menu(R"({"open":false,"desktop":2,"field":")" + std::string(fields[i]) + R"(","placements":)" + three + "}"));
+        const auto* fp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(fd).payload);
+        require(fp && !fp->open && fp->desktop == 2 && fp->field == i);
+    }
+    for (const std::string& bad : {std::string("{}"),
+                                  R"({"open":true,"desktop":3,"field":"x","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":-1,"field":"x","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":1.0,"field":"x","placements":)" + three + "}",
+                                  R"({"open":1,"desktop":0,"field":"x","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"z","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"X","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":0,"placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + with("yaw", "61") + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + ",1]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"extra":1})",
+                                  R"({"open":true,"desktop":0,"placements":)" + three + "}"}) {
+        auto ignored = xr::decode_control(menu(bad));
+        require(std::holds_alternative<xr::ControlMessage>(ignored));
+        require(std::holds_alternative<std::monostate>(std::get<xr::ControlMessage>(ignored).payload));
+    }
+    require(std::holds_alternative<xr::Error>(xr::decode_control(menu("[]"))));  // payload must still be an object
+    require(std::holds_alternative<xr::Error>(xr::decode_control(menu("{}", "placement-menu"))));
+    {
+        auto frame = menu(R"({"open":true,"desktop":0,"field":"x","placements":)" + three + "}");
+        frame.replace(frame.find("\"run\""), 5, "\"other\"");
+        xr::ControlQueue q("run", "session");
+        require(std::holds_alternative<xr::Error>(q.push(frame)));  // identity is still checked
+    }
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu: PASS\n";
 }
