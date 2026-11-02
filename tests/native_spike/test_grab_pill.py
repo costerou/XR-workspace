@@ -1,5 +1,6 @@
-"""Overview drag bar (grab pill), shared pieces (resize.py): the overlap guard, the ops and the cursor restore on bind
-removal. Hit zones, the bar drag itself and the hidden cursor are tested in test_free_pointer.py.
+"""Overview glass pill moves, shared pieces (resize.py): the overlap guard, the ops and the cursor restore on bind
+removal. Hit zones, the pill drag itself and the hidden cursor are tested in test_free_pointer.py; pill clicks, the
+placement panel and its sliders in test_glass_pills.py.
 
 Offline only. No compositor, renderer binary or glasses.
 """
@@ -40,9 +41,9 @@ class MoveMathTests(unittest.TestCase):
 
 
 class OpsTests(unittest.TestCase):
-    def test_resize_ops_are_unchanged_so_video_and_menu_gates_cover_the_pill(self):
+    def test_resize_ops_are_unchanged_so_video_and_typing_gates_cover_the_pill(self):
         self.assertEqual(resize.RESIZE_OPS, ('resize_press', 'resize_release'))
-        self.assertTrue(set(resize.RESIZE_OPS) <= set(xr_control.OPS))  # the pill adds no op of its own
+        self.assertTrue(set(resize.RESIZE_OPS) <= set(xr_control.OPS))  # the pill (move, click, panel) adds no op of its own
         self.assertFalse(any('move' in op or 'pill' in op for op in xr_control.OPS))
 
 

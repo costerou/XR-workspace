@@ -458,8 +458,8 @@ if __name__ == '__main__':
     unittest.main()
 
 
-class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
-    """A video owns the input: the placement menu, its mouse mode and the overview free pointer are off while it plays."""
+class VideoWithPillsAndResizeTests(unittest.TestCase):
+    """A video owns the input: the glass pills (their panel and keys) and the overview free pointer are off while it plays."""
     setUp_base, op, open, join_binds = ControlTests.setUp, ControlTests.op, ControlTests.open, ControlTests.join_binds
     OUTPUTS = [{'index': 0, 'x': 2560, 'y': 0, 'width': 1920, 'height': 1080},
                {'index': 1, 'x': 4480, 'y': 0, 'width': 1920, 'height': 1080}]
@@ -468,8 +468,6 @@ class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
     def setUp(self):
         from tools.native_spike import free_pointer
         self.setUp_base()
-        self.mouse_binds = []
-        self.view.mouse_binds = self.mouse_binds.append
         self.r = self.view.overview_pointer = free_pointer.OverviewPointer(self.view, clock=self.clock)
         self.addCleanup(self.r.close)
         self.r.set_geometry(self.GEOMETRY)
@@ -486,28 +484,34 @@ class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
         self.r.feed(self.cursor, (float(dx), float(dy)), self.OUTPUTS, self.r.want[0])
         return frames(self.v.poll(self.clock()))
 
-    def grab_bar(self):
-        self.at(2560 + 960, 300); self.at(2560 + 960, 0)  # XR-1's top edge: the free pointer, just under the bar
-        self.move(0, -20)
+    def grab_pill(self):
+        self.at(2560 + 960, 540); self.at(2560 + 960, 1079)  # XR-1's bottom edge: the free pointer, just over its pill
+        self.move(0, 20)
         self.assertEqual(self.r.hover, ('pill', 0))
         self.view.on_message({'op': 'resize_press'})
         self.assertIsNotNone(self.r.drag)
 
-    def test_ignored_ops_cover_menu_mouse_mode_and_resize(self):
+    def test_ignored_ops_cover_the_pills_and_resize(self):
         from tools.native_spike import resize
-        for op in view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + ('menu_mouse', 'menu_back'):
+        for op in view.MENU_OPS + resize.RESIZE_OPS + ('menu_toggle', 'menu_back'):
             with self.subTest(op=op): self.assertIn(op, video.IGNORED_WHILE_PLAYING)
+        self.assertFalse(hasattr(view, 'MOUSE_OPS'))  # the old menu mouse mode is gone
+        self.assertFalse(any(op.startswith('menu_mouse') for op in video.IGNORED_WHILE_PLAYING))
 
-    def test_opening_a_video_ends_mouse_mode_and_the_menu(self):
-        self.view.on_message({'op': 'menu_toggle'}); self.view.on_message({'op': 'menu_mouse'})
+    def test_opening_a_video_collapses_an_open_panel_and_ignores_the_pills(self):
+        self.view.on_message({'op': 'menu_toggle'}); self.view.on_message({'op': 'menu_inc'})
         self.join_binds()
-        self.assertIsNotNone(self.view.state.mouse)
-        self.open()
+        self.assertTrue(self.view.state.menu_open); self.assertEqual(self.menu_binds, [True])
+        out = self.open()
         self.join_binds()
-        self.assertFalse(self.view.state.menu_open); self.assertIsNone(self.view.state.mouse)
-        for op in ('menu_toggle', 'menu_mouse', 'menu_back', 'menu_mouse_press', 'menu_mouse_release'):
+        self.assertFalse(self.view.state.menu_open); self.assertEqual(self.menu_binds, [True, False])
+        self.assertEqual([f['op'] for f in frames(bytes(out))][:2], ['placement_menu', 'video'])
+        for op in ('menu_toggle', 'menu_back', 'menu_inc', 'resize_press', 'resize_release'):
             with self.subTest(op=op): self.assertIsNone(self.op(op))
-        self.assertFalse(self.view.state.menu_open); self.assertIsNone(self.view.state.mouse)
+        self.assertEqual(self.view.pill_click(0), b'')  # a stale free-pointer click: nothing
+        self.assertFalse(self.view.state.menu_open)
+        self.op('video_exit')
+        self.assertTrue(frames(self.op('menu_toggle'))[-1]['payload']['open'])  # back after the video
 
     def test_the_free_pointer_is_off_while_a_video_plays_and_back_after(self):
         self.at(2560 + 960, 300); shown = self.at(2560 + 960, 0)
@@ -526,7 +530,7 @@ class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
         self.assertEqual(self.r.mode, 'desktop')
 
     def test_a_drag_in_progress_ends_and_is_saved_when_a_video_opens(self):
-        self.grab_bar()
+        self.grab_pill()
         self.move(300, -200)
         moved = dict(self.view.state.placements[0])
         self.assertNotEqual((moved['x'], moved['y']), (0, 0))

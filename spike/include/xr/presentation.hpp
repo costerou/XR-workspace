@@ -89,29 +89,25 @@ public:
     void video_controls(bool visible);
     // Keyboard help card (Ctrl+Alt+H): fades in/out in the middle of the view; rows are (keys, action).
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows);
-    // Keyboard placement menu (display only; placements are applied by set_placements): fades in/out in the
-    // middle of the view like the help card, which it replaces while shown. `desktop` 0..2, `field` 0..6 in
-    // WirePlacement order; `placements` for all three desktops in the same units as set_placements.
+    // Placement panel (display only; placements are applied by set_placements): with `open`, desktop `desktop`'s glass
+    // pill expands into its placement panel (glass.hpp) and any other collapses; closed, every pill is a pill again.
+    // `desktop` 0..2, `field` 0..6 in WirePlacement order; `placements` for all three desktops in set_placements' units.
+    // `surface` (open only): while the supervisor holds one of the panel's sliders, the placement the panel is drawn on
+    // (its desktop's at the press; the desktop itself follows set_placements). Empty: the desktop's live placement.
     void set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                            const std::array<std::array<std::int32_t, 7>, 3>& placements);
-    // Mouse-mode pointer over the menu, in card pixels from the card's top-left (hud.hpp MenuGeometry). It is its own
-    // small overlay, redrawn the next frame; the card is not re-rendered.
-    void set_menu_pointer(bool visible, std::int32_t x, std::int32_t y, bool held);
-    // The menu card's geometry as one status line (hud.hpp menu_geometry_json), when it changed since the last call
-    // and the menu is open; the supervisor hit-tests mouse-mode clicks with it.
-    std::optional<std::string> take_menu_geometry();
-    void resend_menu_geometry();  // the last take was not delivered
+                            const std::array<std::array<std::int32_t, 7>, 3>& placements,
+                            const std::optional<std::array<std::int32_t, 7>>& surface = std::nullopt);
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.
     void set_resize_handle(bool visible, std::uint32_t desktop, std::uint32_t corner, bool active);
-    // Overview grab pills (display only; the supervisor owns hover/drag and moves desktops with set_placements): a dim
-    // bar above every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging). Overview only,
-    // never moving on its own. GPU composition only.
+    // Overview glass pills (display only; the supervisor owns hover/drag/click and moves desktops with set_placements): a
+    // frosted capsule under every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging).
+    // Overview only, never moving on its own. GPU composition only.
     void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
     // Overview free pointer (display only; the supervisor owns it): a dim dot at canvas pixel (x, y) on the overview's
-    // plane, world-locked, a little brighter while `held` (a bar or corner drag). Overview only (hidden while zoomed or
-    // zooming), never moving on its own. GPU composition only.
+    // plane, world-locked, a little brighter while `held` (a pill, corner or panel-slider press/drag is in progress).
+    // Overview only (hidden while zoomed or zooming), never moving on its own. GPU composition only.
     void set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held);
     // The overview's canvas and settled desktop slots (view.hpp overview_geometry_json) when they changed since the last
     // call; the supervisor hit-tests the free pointer with them. GPU composition only.

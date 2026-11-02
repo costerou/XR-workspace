@@ -1,5 +1,6 @@
 """Overview free pointer (free_pointer.py): geometry contract, projection and hit testing, drag maths, the desktop / free
-mode state machine, drags, gates (zoom, menu, video, idle), the sampler thread, compositor Lua and wiring.
+mode state machine, pill and corner drags, gates (zoom, typing, video, idle; an open placement panel is not one), the
+sampler thread, compositor Lua and wiring. The glass pills' clicks, panel and sliders are in test_glass_pills.py.
 
 Offline only: fake clocks, fake compositor clients and socketpairs. No compositor, renderer binary or glasses.
 """
@@ -132,13 +133,15 @@ class ProjectionTests(unittest.TestCase):
 
 
 class HitTests(unittest.TestCase):
-    def test_bar_corners_desktop_and_space(self):
-        bar = fp.pill_rect(T0)
-        mid = bar[0] + bar[2] / 2
-        self.assertEqual(fp.hit(G, FLAT, (mid, bar[1] + 2)), ('pill', 0))
-        self.assertEqual(fp.hit(G, FLAT, (mid, T0[1] - 1)), ('pill', 0))   # the gap under the bar grabs it too
-        self.assertEqual(fp.hit(G, FLAT, (mid, bar[1] - 9)), ('pill', 0))  # a little above it as well
-        self.assertIsNone(fp.hit(G, FLAT, (mid, bar[1] - 12)))
+    def test_pill_corners_desktop_and_space(self):
+        pill = fp.pill_rect(T0)
+        mid = pill[0] + pill[2] / 2
+        self.assertEqual(pill[1], T0[1] + T0[3] + fp.PILL_GAP)  # under the desktop
+        self.assertEqual(fp.hit(G, FLAT, (mid, pill[1] + 2)), ('pill', 0))
+        self.assertEqual(fp.hit(G, FLAT, (mid, T0[1] + T0[3] + 1)), ('pill', 0))     # the gap over the pill grabs it too
+        self.assertEqual(fp.hit(G, FLAT, (mid, pill[1] + pill[3] + 9)), ('pill', 0))  # a little below it as well
+        self.assertIsNone(fp.hit(G, FLAT, (mid, pill[1] + pill[3] + 12)))
+        self.assertIsNone(fp.hit(G, FLAT, (mid, T0[1] - 3)))  # nothing above the desktop (the old drag bar's place)
         self.assertIsNone(fp.hit(G, FLAT, (T0[0] + 20, T0[1] - 40)))
         self.assertEqual(fp.hit(G, FLAT, (T0[0] - 8, T0[1] - 8)), ('corner', 0, 'tl'))  # outside the desktop: now reachable
         self.assertEqual(fp.hit(G, FLAT, (T0[0] + T0[2] + 10, T0[1] + T0[3] + 10)), ('corner', 0, 'br'))
@@ -149,12 +152,12 @@ class HitTests(unittest.TestCase):
         self.assertIsNone(fp.hit(G, FLAT, ((T0[0] + T0[2] + T1[0]) / 2, T0[1] + 150)))  # between desktops
         self.assertIsNone(fp.hit(None, FLAT, (0, 0))); self.assertIsNone(fp.hit(G, FLAT, None))
 
-    def test_the_bar_zone_never_reaches_a_corner(self):
-        tile = (0.0, 100.0, 60.0, 40.0)  # a very small desktop: the bar is wider than the space between the corners
+    def test_the_pill_zone_never_reaches_a_corner(self):
+        tile = (0.0, 100.0, 60.0, 40.0)  # a very small desktop: the pill is wider than the space between the corners
         g = dict(G, tiles=[tile])
         z = fp.corner_zone(tile)
         for x in range(-12, 72, 2):
-            h = fp.hit(g, FLAT[:1], (x, 100 - 3))
+            h = fp.hit(g, FLAT[:1], (x, 140 + 3))  # the gap under the desktop
             if abs(x) <= z or abs(x - 60) <= z: self.assertEqual(h and h[0], 'corner', x)  # corners win
             elif h is not None: self.assertEqual(h, ('pill', 0), x)
 
@@ -236,6 +239,14 @@ class PointerBase(unittest.TestCase):
         self.at(X1 + 960, 300)
         return self.at(X1 + lx, 0)
 
+    def on_pill(self, i=0):
+        """Free mode from XR-1's bottom edge, then the dot onto desktop i's glass pill (under the desktop)."""
+        self.at(X1 + 960, 540); self.at(X1 + 960, 1079)
+        x, y, w, h = fp.pill_rect(G['tiles'][i])
+        out = self.move_canvas(x + w / 2 - self.p.pointer[0], y + h / 2 - self.p.pointer[1])
+        self.assertEqual(self.p.hover, ('pill', i))
+        return out
+
 
 class ModeTests(PointerBase):
     def test_inside_a_desktop_the_real_cursor_is_the_pointer(self):
@@ -245,7 +256,7 @@ class ModeTests(PointerBase):
         self.assertAlmostEqual(self.p.pointer[0], T0[0] + T0[2] / 2, places=2)
         self.assertAlmostEqual(self.p.pointer[1], T0[1] + T0[3] / 2, places=2)
         self.assertIsNone(last(out, 'overview_pointer'))  # no dot: the captured cursor shows
-        self.assertTrue(last(out, 'move_handle')['visible'])  # the bars are up in the overview
+        self.assertTrue(last(out, 'move_handle')['visible'])  # the pills are up in the overview
 
     def test_the_edge_hands_over_to_the_free_pointer(self):
         out = self.free_at_top()
@@ -360,29 +371,30 @@ class ClickTests(PointerBase):
         self.assertIsNone(self.p.drag); self.assertEqual(self.p.mode, 'free')
         self.assertFalse(any(f['op'] in ('placement', 'view') for f in out))
 
-    def test_drag_the_bar_moves_the_desktop_live_and_saves_on_release(self):
-        self.free_at_top()
-        out = self.move_canvas(0, -6)
-        self.assertEqual(self.p.hover, ('pill', 0))
+    def test_drag_the_pill_moves_the_desktop_live_and_saves_on_release(self):
+        out = self.on_pill(0)
         self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': False})
         out = self.op('resize_press')
-        self.assertEqual(last(out, 'move_handle')['active'], True)
         self.assertTrue(last(out, 'overview_pointer')['held'])
+        self.assertFalse(self.p.pills['active'])  # held, not moving yet: a release now would be a click
         out = self.move_canvas(T0[2] * 0.2, -T0[3] * 0.5)
+        self.assertEqual(last(out, 'move_handle')['active'], True)
         p = self.control.state.placements[0]
         self.assertEqual((p['x'], p['y']), (20, 50))
         self.assertEqual(frames_of(out, 'placement')['desktops'][0]['x'], 20)
         self.assertEqual(self.store.saves, 0)  # debounced while dragging
-        bar = fp.pill_rect(T0)  # the bar is still under the pointer
-        centre = fp.project(G, T0, p, bar[0] + bar[2] / 2, bar[1] + bar[3] / 2)
+        pill = fp.pill_rect(T0)  # the pill is still under the pointer
+        centre = fp.project(G, T0, p, pill[0] + pill[2] / 2, pill[1] + pill[3] / 2)
         self.assertLess(math.hypot(centre[0] - self.p.pointer[0], centre[1] - self.p.pointer[1]), 8)
         self.op('resize_release')
         self.assertEqual(self.store.saved[0]['x'], 20); self.assertEqual(self.store.saved[0]['y'], 50)
         self.assertIsNone(self.p.drag)
+        self.assertFalse(self.control.state.menu_open)  # a drag is not a click: the pill did not expand
 
-    def test_bar_drag_respects_the_overlap_guard(self):
-        self.free_at_top(); self.move_canvas(0, -6); self.op('resize_press')
+    def test_pill_drag_respects_the_overlap_guard(self):
+        self.on_pill(0); self.op('resize_press')
         self.move_canvas(T0[2] * 0.6, 0)  # straight into XR-2
+        self.assertGreater(self.control.state.placements[0]['x'], 0)
         self.assertLess(self.control.state.placements[0]['x'], 15)
         self.op('resize_release')
 
@@ -404,9 +416,10 @@ class ClickTests(PointerBase):
         self.assertEqual(self.p.mode, 'free')  # a drag never hands the cursor back by itself
 
     def test_a_lost_release_is_finished_by_the_next_press(self):
-        self.free_at_top(); self.move_canvas(0, -6); self.op('resize_press')
+        self.on_pill(0); self.op('resize_press')
         self.move_canvas(T0[2] * 0.1, -T0[3] * 0.2)
         moved = dict(self.control.state.placements[0])
+        self.assertNotEqual(moved, DEFAULT_PLACEMENT)
         self.op('resize_press')  # its release never came
         self.assertEqual(self.store.saved[0], moved)
 
@@ -421,17 +434,32 @@ def frames_of(fs, op):
 
 
 class GateTests(PointerBase):
-    def test_off_while_the_placement_menu_is_open_and_a_drag_is_saved(self):
-        self.free_at_top(); self.move_canvas(0, -6); self.op('resize_press')
+    def test_on_while_a_placement_panel_is_open_and_a_drag_carries_on(self):
+        # The glass pills replaced the head-locked menu card: the free pointer is how an open panel is clicked.
+        self.on_pill(0); self.op('resize_press')
+        self.move_canvas(T0[2] * 0.1, -T0[3])  # lifted clear of the row: no overlap guard in the way
+        out = self.op('menu_toggle') + self.move_canvas(T0[2] * 0.3, 0)
+        self.assertTrue(self.control.state.menu_open)
+        self.assertEqual(self.p.mode, 'free'); self.assertEqual(self.p.want[1], 'free')
+        self.assertIsNotNone(self.p.drag)
+        self.assertEqual(self.control.state.placements[0]['x'], 40)
+        self.assertEqual(last(out, 'placement_menu')['placements'][0]['x'], 40)  # the open panel shows the drag
+        self.assertTrue(last(out, 'overview_pointer')['visible'])
+        self.op('resize_release')
+        self.assertEqual(self.store.saved[0]['x'], 40)
+        self.assertTrue(self.control.state.menu_open)
+
+    def test_off_in_typing_mode_and_a_drag_is_saved(self):
+        self.on_pill(0); self.op('resize_press')
         self.move_canvas(T0[2] * 0.1, -T0[3] * 0.3)
         moved = dict(self.control.state.placements[0])
-        out = self.op('menu_toggle') + self.move_canvas(T0[2] * 0.3, 0)
+        out = self.op(view.TYPING_OP) + self.move_canvas(T0[2] * 0.3, 0)
         self.assertEqual(self.p.mode, 'off'); self.assertEqual(self.p.want[1], 'off')
         self.assertIsNone(self.p.drag)
         self.assertEqual(self.control.state.placements[0], moved); self.assertEqual(self.store.saved[0], moved)
-        self.assertFalse(last(out, 'overview_pointer')['visible'])
+        self.assertFalse(last(out, 'overview_pointer')['visible']); self.assertFalse(last(out, 'move_handle')['visible'])
         self.assertEqual(self.op('resize_press', ops=('placement',)), [])
-        self.op('menu_toggle')
+        self.op(view.TYPING_OP)
         self.at(X1 + 960, 540)
         self.assertEqual(self.p.mode, 'desktop')
 
@@ -448,7 +476,7 @@ class GateTests(PointerBase):
         self.assertEqual(self.p.mode, 'desktop')
 
     def test_idle_hides_everything_and_a_click_only_wakes_it(self):
-        self.free_at_top(); self.move_canvas(0, -6)
+        self.on_pill(0)
         self.clock.now += view.OVERLAY_IDLE_CLOSE_S + 0.01
         out = frames(self.control.poll())
         self.assertFalse(last(out, 'overview_pointer')['visible'])
@@ -457,10 +485,12 @@ class GateTests(PointerBase):
         self.assertIsNone(self.p.drag)  # the hidden pointer grabbed nothing
         self.assertTrue(last(out, 'overview_pointer')['visible'])
         self.op('resize_release')
+        self.assertFalse(self.control.state.menu_open)  # and clicked nothing
 
     def test_idle_mid_drag_ends_and_saves_it(self):
-        self.free_at_top(); self.move_canvas(0, -6); self.op('resize_press'); self.move_canvas(30, 0)
+        self.on_pill(0); self.op('resize_press'); self.move_canvas(30, 0)
         moved = dict(self.control.state.placements[0])
+        self.assertNotEqual(moved, DEFAULT_PLACEMENT)
         self.clock.now += view.OVERLAY_IDLE_CLOSE_S + 0.01
         self.control.poll()
         self.assertIsNone(self.p.drag); self.assertEqual(self.store.saved[0], moved)
@@ -496,7 +526,7 @@ class LuaTests(unittest.TestCase):
     def test_lua_is_fixed_and_guarded(self):
         for lua in (fp.grab_pointer_lua(*BIND_ARGS, 1, 2), fp.release_pointer_lua(1, 2)):
             self.assertNotIn('os.', lua); self.assertNotIn('io.', lua)
-            self.assertNotIn('xr_workspace_mouse', lua)  # the menu's mouse mode keeps its own saved state
+            self.assertNotIn('xr_workspace_mouse', lua)  # never the old menu mouse mode's tables (view.py legacy cleanup)
             self.assertEqual(lua.count('hl.dispatch('), lua.count('pcall(function() hl.dispatch('))
 
     def test_a_dead_runs_left_button_gives_the_cursor_back(self):
@@ -632,16 +662,23 @@ class SamplerTests(unittest.TestCase):
         self.assertGreaterEqual(client.count('remove'), 1)  # a run that ever grabbed always cleans up at the end
 
     def test_no_reads_and_no_grab_outside_the_overview(self):
-        for gate in ('zoomed', 'menu_open', 'video'):
+        for gate in ('zoomed', 'typing', 'video'):
             with self.subTest(gate):
                 client = FakeClient(cursor=(X1 + 960, 0))
-                self.control.state.zoomed = gate == 'zoomed'; self.control.state.menu_open = gate == 'menu_open'
+                self.control.state.zoomed = gate == 'zoomed'; self.control.state.typing = gate == 'typing'
                 self.control.video_active = gate == 'video'
                 sampler = self.start(client)
                 time.sleep(0.12)
                 sampler.stop()
                 self.assertEqual(client.count('cursorpos'), 0); self.assertEqual(client.count('grab'), 0)
-        self.control.state.zoomed = self.control.state.menu_open = self.control.video_active = False
+        self.control.state.zoomed = self.control.state.typing = self.control.video_active = False
+
+    def test_an_open_placement_panel_does_not_stop_it(self):
+        client = FakeClient(cursor=(X1 + 960, 0))
+        self.control.state.open_menu(0)
+        self.start(client)
+        self.assertTrue(self.wait(lambda: client.count('grab') == 1))
+        self.assertGreater(client.count('cursorpos'), 0)
 
     def test_leaving_the_overview_in_free_mode_removes_the_binds(self):
         client = FakeClient(cursor=(X1 + 960, 0))

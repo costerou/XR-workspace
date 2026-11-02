@@ -41,6 +41,10 @@ const char* kGlowFragment =
     "void main() { vec2 d2 = max(abs(p - rect.xy) - rect.zw, 0.0); float d = length(d2);\n"
     "  float a = falloff.x * exp(-d * d / (2.0 * falloff.y * falloff.y));\n"
     "  gl_FragColor = vec4(color * a, 1.0); }\n";
+// Glass pill content (glass.hpp render_glass_panel): a premultiplied image on the panel's own surface, faded uniformly.
+const char* kPanelFragment =
+    "precision mediump float; varying vec2 v; uniform sampler2D tex; uniform float alpha;\n"
+    "void main() { gl_FragColor = texture2D(tex, v) * alpha; }\n";
 constexpr float kBorderPx = 6.f, kGlowRadiusPx = 40.f, kGlowSigmaPx = 12.f, kGlowIntensity = 0.18f;
 GLuint compile(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
@@ -65,13 +69,16 @@ struct GlCompositor::Impl {
     EGLContext context = EGL_NO_CONTEXT;
     EGLSurface surface = EGL_NO_SURFACE;
     wl_egl_window* window = nullptr;
-    GLuint program = 0, color_program = 0, glow_program = 0;
+    GLuint program = 0, color_program = 0, glow_program = 0, glass_program = 0, panel_program = 0;
     // Highlight border + glow colour: Hyprland general:col.active_border (Omarchy theme), set by
     // the supervisor at start and on every config reload; this default is used until then.
     float accent[3] = {0x8d / 255.f, 0x8d / 255.f, 0x8d / 255.f};
     GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
     GLint glow_pos = -1, glow_px = -1, glow_rect = -1, glow_color = -1, glow_falloff = -1, glow_view = -1, glow_half_fov = -1;
     GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
+    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, tint = -1, look = -1, edge = -1, shadow_dy = -1, opacity = -1; } glass_loc;
+    struct { GLint pos = -1, uv = -1, view = -1, half_fov = -1, tex = -1, alpha = -1; } panel_loc;
+    GLuint panel_texture = 0; std::uint64_t panel_uploaded = 0;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
     // Zero-copy: per source, per capture slot, an EGLImage-backed texture; `current` = slot to draw (-1 = SHM).
@@ -97,19 +104,18 @@ struct GlCompositor::Impl {
     const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
     std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
-    std::unique_ptr<GlHud> menu_hud;      // placement menu card (own texture); absent if its shaders failed
-    std::unique_ptr<GlHud> pointer_hud;   // mouse-mode pointer over the menu (own small texture)
-    const HudImage* pointer = nullptr; std::uint64_t pointer_generation = 0; float pointer_alpha = 0, pointer_left = 0, pointer_top = 0;
-    const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0;
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
-    float pill_level = 0, pill_bright_level = 0; int pill_bright = -1;                 // grab pills
+    GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
-            hud.reset(); help_hud.reset(); menu_hud.reset(); pointer_hud.reset();
+            hud.reset(); help_hud.reset();
+            if (panel_texture) glDeleteTextures(1, &panel_texture);
+            if (glass_program) glDeleteProgram(glass_program);
+            if (panel_program) glDeleteProgram(panel_program);
             video_hud.reset();
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
@@ -177,8 +183,33 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
     s.hud = GlHud::create();  // optional: composition works without pop-ups
     s.help_hud = GlHud::create();
-    s.menu_hud = GlHud::create();
-    s.pointer_hud = GlHud::create();
+    // Glass pills: optional too (composition works without them; the run reports no pills then).
+    auto link = [](const char* vertex, const char* fragment) -> GLuint {
+        GLuint v = compile(GL_VERTEX_SHADER, vertex), f = compile(GL_FRAGMENT_SHADER, fragment);
+        if (!v || !f) { if (v) glDeleteShader(v); if (f) glDeleteShader(f); return 0; }
+        GLuint p = glCreateProgram(); glAttachShader(p, v); glAttachShader(p, f); glLinkProgram(p);
+        glDeleteShader(v); glDeleteShader(f);
+        GLint ok = 0; glGetProgramiv(p, GL_LINK_STATUS, &ok);
+        if (!ok) { glDeleteProgram(p); return 0; }
+        return p;
+    };
+    if ((s.glass_program = link(kGlowVertex, glass_fragment_shader()))) {
+        auto& g = s.glass_loc; const GLuint p = s.glass_program;
+        g.pos = glGetAttribLocation(p, "pos"); g.px = glGetAttribLocation(p, "px");
+        g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
+        g.rect = glGetUniformLocation(p, "rect"); g.radius = glGetUniformLocation(p, "radius"); g.tint = glGetUniformLocation(p, "tint");
+        g.look = glGetUniformLocation(p, "look"); g.edge = glGetUniformLocation(p, "edge");
+        g.shadow_dy = glGetUniformLocation(p, "shadow_dy"); g.opacity = glGetUniformLocation(p, "opacity");
+    }
+    if ((s.panel_program = link(kVertex, kPanelFragment))) {
+        auto& g = s.panel_loc; const GLuint p = s.panel_program;
+        g.pos = glGetAttribLocation(p, "pos"); g.uv = glGetAttribLocation(p, "uv");
+        g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
+        g.tex = glGetUniformLocation(p, "tex"); g.alpha = glGetUniformLocation(p, "alpha");
+        glGenTextures(1, &s.panel_texture); glBindTexture(GL_TEXTURE_2D, s.panel_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
     s.textures.resize(sources);
     s.imported.resize(sources);
     const char* extensions = eglQueryString(s.display, EGL_EXTENSIONS);
@@ -258,22 +289,11 @@ void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, flo
     impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px;
 }
 
-void GlCompositor::set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
-    impl_->menu = image; impl_->menu_generation = generation; impl_->menu_alpha = alpha; impl_->menu_drop = drop_px;
-}
-
-void GlCompositor::set_menu_pointer(const HudImage* image, std::uint64_t generation, float alpha, float left, float top) {
-    impl_->pointer = image; impl_->pointer_generation = generation; impl_->pointer_alpha = alpha;
-    impl_->pointer_left = left; impl_->pointer_top = top;
-}
 void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level) {
     impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive);
 }
 
-void GlCompositor::set_grab_pills(float level, int bright, float bright_level) {
-    impl_->pill_level = std::min(level, kPillLevelActive); impl_->pill_bright = bright;
-    impl_->pill_bright_level = std::min(bright_level, kPillLevelActive);
-}
+void GlCompositor::set_glass(const GlassFrame& frame) { impl_->glass = frame; }
 
 void GlCompositor::set_free_pointer(bool visible, float x, float y, float level) {
     impl_->free_pointer = visible; impl_->free_x = x; impl_->free_y = y; impl_->free_level = std::min(level, kFreePointerHeldLevel);
@@ -323,12 +343,13 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     auto placement = [&](std::size_t i) { return i < placements.size() ? placements[i] : Placement{}; };
     // Interleaved per vertex: world xyz, then u v (tiles) or canvas px py (glow).
     std::vector<GLfloat> buffer;
-    auto mesh = [&](std::size_t i, const FRect& rect, bool pixels) {
-        const auto vertices = tile_mesh(canvas, tiles[i], placement(i), rect);
+    auto mesh_on = [&](std::size_t i, const Placement& on, const FRect& rect, bool pixels) {  // desktop i's slot, placed `on`
+        const auto vertices = tile_mesh(canvas, tiles[i], on, rect);
         buffer.clear();
         for (const auto& m : vertices) buffer.insert(buffer.end(), {m.world.x, m.world.y, m.world.z, pixels ? m.px : m.u, pixels ? m.py : m.v});
         return GLsizei(vertices.size());
     };
+    auto mesh = [&](std::size_t i, const FRect& rect, bool pixels) { return mesh_on(i, placement(i), rect, pixels); };
     auto attrib = [&](GLint loc, int size, int offset) {
         glVertexAttribPointer(static_cast<GLuint>(loc), size, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), buffer.data() + offset);
         glEnableVertexAttribArray(static_cast<GLuint>(loc));
@@ -370,18 +391,61 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         attrib(s.pos, 3, 0); attrib(s.uv, 2, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
-    if (s.pill_level > 0.f) {
-        // Grab pills: opaque dim bars just above each desktop, on its own surface (a tilted desktop tilts its pill).
+    if (s.glass_program) {
+        // Glass pills: blended over the desktops, each on its own desktop's surface (a tilted desktop tilts its pill),
+        // back to front, except that the open panel's desktop comes last (glass_draw_order): the supervisor hit-tests
+        // the open panel as the top layer. The open one morphs into its placement panel; its content fades in over the
+        // glass. While a slider is held the open panel stays on its press-time surface (GlassFrame::surface).
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
-        for (const std::size_t i : draw_order(canvas, tiles, resolved)) {
-            if (i >= s.textures.size()) continue;
-            const float level = int(i) == s.pill_bright ? s.pill_bright_level : s.pill_level;
-            glUniform4f(s.color, level, level, level, 1.f);
-            const GLsizei n = mesh(i, grab_pill(tiles[i]), false);
-            attrib(s.color_pos, 3, 0);
+        const auto& g = s.glass;
+        glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        auto glass_on = [&](std::size_t i) { return int(i) == g.surface_desktop && g.surface ? *g.surface : placement(i); };
+        auto shape = [&](std::size_t i, const FRect& r, float radius, const GlassLook& look, float opacity, float margin) {
+            glUseProgram(s.glass_program); uniforms(s.glass_loc.view, s.glass_loc.half_fov);
+            glUniform4f(s.glass_loc.rect, r.x + r.width / 2, r.y + r.height / 2, r.width / 2, r.height / 2);
+            glUniform1f(s.glass_loc.radius, radius);
+            glUniform3f(s.glass_loc.tint, look.tint[0], look.tint[1], look.tint[2]);
+            glUniform4f(s.glass_loc.look, look.fill, look.gloss, look.gloss_px, look.level);
+            glUniform4f(s.glass_loc.edge, look.border_top, look.border_bottom, look.shadow, look.shadow_sigma);
+            glUniform1f(s.glass_loc.shadow_dy, look.shadow_dy); glUniform1f(s.glass_loc.opacity, opacity);
+            const GLsizei n = mesh_on(i, glass_on(i), {r.x - margin, r.y - margin, r.width + 2 * margin, r.height + 2 * margin}, true);
+            attrib(s.glass_loc.pos, 3, 0); attrib(s.glass_loc.px, 2, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+            glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
+        };
+        const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
+        for (const std::size_t i : glass_draw_order(draw_order(canvas, tiles, resolved), g.top)) {
+            if (i >= s.textures.size() || i >= g.expand.size()) continue;
+            const float e = std::clamp(g.expand[i], 0.f, 1.f);
+            if (!g.pills && e <= 0.f) continue;
+            const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
+            const FRect r = glass_morph(tiles[i], e);
+            shape(i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
+            if (e <= 0.f) continue;
+            // The grabber where the pill was, fading in with the panel.
+            const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};
+            shape(i, grab, kGrabberH / 2, grabber_look(level), std::clamp((e - 0.5f) * 2.f, 0.f, 1.f), 2.f);
+            if (int(i) != g.content || !g.image || g.content_alpha <= 0.f || !s.panel_program) continue;
+            const auto& im = *g.image;
+            if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) continue;
+            glUseProgram(s.panel_program); uniforms(s.panel_loc.view, s.panel_loc.half_fov);
+            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, s.panel_texture);
+            if (g.generation != s.panel_uploaded) {
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(im.width), GLsizei(im.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, im.rgba.data());
+                s.panel_uploaded = g.generation;
+            }
+            glUniform1i(s.panel_loc.tex, 0); glUniform1f(s.panel_loc.alpha, std::min(g.content_alpha, 1.f));
+            // The content rides on the morphing shape (it only shows over the last quarter, when the shape is near full size).
+            const auto vertices = tile_mesh(canvas, tiles[i], glass_on(i), r);
+            buffer.clear();
+            for (const auto& m : vertices)
+                buffer.insert(buffer.end(), {m.world.x, m.world.y, m.world.z, (m.px - r.x) / r.width, (m.py - r.y) / r.height});
+            attrib(s.panel_loc.pos, 3, 0); attrib(s.panel_loc.uv, 2, 3);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, GLsizei(vertices.size()));
+            glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
         }
+        glDisable(GL_BLEND);
     }
     if (s.handle_desktop >= 0 && std::size_t(s.handle_desktop) < tiles.size() && s.handle_level > 0.f) {
         // Corner-resize handle: an opaque grey bracket on the desktop's own surface, over its pixels (no blending needed).
@@ -409,12 +473,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glDrawArrays(GL_TRIANGLE_FAN, 0, GLsizei(fan.size()));
         }
     }
-    const bool menu = s.menu_hud && s.menu;
-    const float help_alpha = s.help_alpha * (menu ? 1.f - s.menu_alpha : 1.f);  // the menu replaces the help card
-    if (s.help_hud && s.help && help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, help_alpha, s.width, s.height, true, s.help_drop);
-    if (menu) s.menu_hud->draw(*s.menu, s.menu_generation, s.menu_alpha, s.width, s.height, true, s.menu_drop);
-    if (menu && s.pointer_hud && s.pointer)
-        s.pointer_hud->draw_at(*s.pointer, s.pointer_generation, s.pointer_alpha, s.width, s.height, s.pointer_left, s.pointer_top);
+    if (s.help_hud && s.help && s.help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);

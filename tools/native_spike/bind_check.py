@@ -6,9 +6,10 @@ The user's Hyprland config (by default ~/.config/hypr/hyprland.lua: Omarchy's de
 loaded by `Hyprland --verify-config`, which runs the Lua config with the real `hl` API but starts no compositor. It
 runs in a throwaway HOME holding a copy of ~/.config/hypr and the Omarchy state the config reads, so nothing outside
 that directory is written. A small harness wraps hl.bind / hl.unbind to record every chord the config binds, then runs
-this run's own generated bind Lua (view binds, send-window binds, placement-menu binds, mouse mode) the same way, so
-Hyprland also checks that ours load. The run's chords (view.BINDS, send.SEND_BINDS, MENU_BINDS, MOUSE_BINDS) are then
-compared with the desktop's and with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
+this run's own generated bind Lua (view binds, send-window binds, the placement panel's modal binds, the overview free
+pointer's left button) the same way, so Hyprland also checks that ours load. The run's chords (view.BINDS,
+send.SEND_BINDS, MENU_BINDS, the free pointer's resize_press / resize_release) are then compared with the desktop's and
+with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
 digits) count as the same key. The running compositor is never contacted.
 
 Exit status: 0 no clash, 1 clash found, 2 could not check (no Hyprland binary, config or harness error).
@@ -21,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 
-from . import send, view
+from . import resize, send, view
 
 # Hyprland modifier spellings -> one name each.
 MODS = {'SUPER': 'SUPER', 'WIN': 'SUPER', 'LOGO': 'SUPER', 'MOD4': 'SUPER', 'META': 'SUPER', 'CTRL': 'CTRL',
@@ -47,7 +48,8 @@ def run_chords():
     """(set name, chord, op) for every bind this project installs during a run."""
     out = [('run', c, op) for c, op in view.BINDS] + [('send', c, op) for c, op in send.SEND_BINDS]
     out += [('menu', c, op) for c, op in view.MENU_BINDS]
-    return out + [('mouse', c, op) for c, op in view.MOUSE_BINDS]
+    # The overview free pointer's left button (free mode only: pill and corner drags, pill clicks, panel sliders).
+    return out + [('pointer', resize.RESIZE_BUTTON, op) for op in resize.RESIZE_OPS]
 
 
 def _lua_string(s):
@@ -57,8 +59,8 @@ def _lua_string(s):
 def harness_lua(config, out):
     chunks = [view.install_binds_lua(*DUMMY_ARGS, typing=True), view.remove_binds_lua(),  # typing mode's toggle-only set
               view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
-              view.install_menu_binds_lua(*DUMMY_ARGS),
-              view.install_mouse_binds_lua(*DUMMY_ARGS), view.remove_binds_lua()]
+              view.install_menu_binds_lua(*DUMMY_ARGS), resize.install_resize_binds_lua(*DUMMY_ARGS),
+              resize.remove_resize_binds_lua(), view.remove_binds_lua()]
     ours = '\n'.join(f'do {c} end' for c in chunks)
     return f'''local out = assert(io.open({_lua_string(out)}, "w"))
 local phase = "desktop"
@@ -101,8 +103,8 @@ def clashes(records):
         key = normalize(chord)
         if key in desktop: problems.append(f'{chord} ({where}: {op}) is already bound by the desktop config as {desktop[key][0]}')
         for other_where, other_op in seen.get(key, []):
-            pair = {op, other_op} == set(view.MOUSE_OPS)
-            # The run, send and menu sets are live at the same time while the menu is open; so are menu and mouse.
+            pair = {op, other_op} == set(resize.RESIZE_OPS)  # one left-button bind: press, and release
+            # The run, send, panel and free-pointer sets can all be live at once (a panel open, the pointer free).
             if not pair: problems.append(f'{chord} is bound twice in this project ({other_where}: {other_op}, {where}: {op})')
         seen.setdefault(key, []).append((where, op))
     return problems
@@ -156,8 +158,8 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     if problems: return 1, report + problems
     labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w == 'menu'}))
     sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
-    return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), menu binds ({labels}) '
-                        'and the mouse-mode left button']
+    return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), '
+                        f'placement panel binds ({labels}) and the free pointer\'s left button']
 
 
 def main(argv=None):

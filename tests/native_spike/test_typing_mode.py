@@ -6,7 +6,7 @@ import re
 import tempfile
 import unittest
 
-from tools.native_spike import send, video, view, xr_control
+from tools.native_spike import resize, send, video, view, xr_control
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
 
@@ -30,7 +30,7 @@ class ChordTests(unittest.TestCase):
         self.assertIn(view.TYPING_BIND, view.BINDS)
         from tools.native_spike import bind_check
         others = [c for c, op in view.BINDS if op != view.TYPING_OP] + [c for c, _ in send.SEND_BINDS + view.MENU_BINDS
-                                                                         + view.MOUSE_BINDS + video.VIDEO_BINDS]
+                                                                         + video.VIDEO_BINDS] + [resize.RESIZE_BUTTON]
         self.assertNotIn(bind_check.normalize(view.TYPING_BIND[0]), {bind_check.normalize(c) for c in others})
         # Omarchy's own Ctrl+Alt+T relative is Super+Ctrl+Alt+T (show time): a different chord.
         self.assertNotEqual(bind_check.normalize('SUPER + CTRL + ALT + T'), bind_check.normalize(view.TYPING_BIND[0]))
@@ -75,7 +75,8 @@ class BindLuaTests(unittest.TestCase):
         client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
         client._eval = sent.append
         client.reinstall_view_binds(*ARGS, typing=True)
-        # One eval: every run table goes (view, send, menu, mouse), then only the toggle comes back. No send-window binds.
+        # One eval: every run table goes (view, send, the placement panel's, and an older build's mouse-mode table: legacy
+        # cleanup), then only the toggle comes back. No send-window binds.
         self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS, typing=True)])
         for table in ('xr_workspace_binds = nil', 'xr_workspace_send_binds = nil', 'xr_workspace_menu_binds = nil',
                       'xr_workspace_mouse_binds = nil'):
@@ -134,13 +135,17 @@ class ControlTests(unittest.TestCase):
     def test_late_key_only_ops_are_ignored_but_panel_ops_still_work(self):
         c = self.control()
         self.send(c, view.TYPING_OP)
-        for op in ('menu_toggle', 'menu_inc', 'menu_mouse', 'menu_mouse_press') + send.SEND_OPS:
+        for op in ('menu_toggle', 'menu_inc', 'menu_back', 'menu_desktop_next') + send.SEND_OPS:
             with self.subTest(op): self.assertEqual(self.send(c, op), [])
+        self.assertEqual(c.pill_click(0), b'')  # a stale free-pointer click on a pill: nothing either
         self.assertFalse(c.state.menu_open)
         zoomed = self.send(c, 'zoom_in')  # a panel button (USER_OPS) in typing mode
         self.assertTrue(zoomed[0]['payload']['zoomed'] and zoomed[0]['payload']['typing'])
         self.send(c, view.TYPING_OP)
-        self.assertEqual([f['op'] for f in self.send(c, 'menu_toggle')], ['placement_menu'])  # keys are back
+        # Keys are back. Ctrl+Alt+L zooms out first (the pills are drawn in the overview only), then expands the pill.
+        out = self.send(c, 'menu_toggle')
+        self.assertEqual([f['op'] for f in out], ['view', 'placement_menu'])
+        self.assertFalse(out[0]['payload']['zoomed']); self.assertTrue(out[1]['payload']['open'])
 
     def test_a_config_reload_keeps_the_mode(self):
         c = self.control()
@@ -172,13 +177,19 @@ class ControlTests(unittest.TestCase):
         c.on_message({'op': view.TYPING_OP}); c.join_focus(2)
         self.assertEqual(self.typing, [])
 
-    def test_free_pointer_is_off_in_typing_mode(self):
+    def test_free_pointer_and_pills_are_off_in_typing_mode(self):
         from tools.native_spike import free_pointer
         c = self.control()
         r = c.overview_pointer = free_pointer.OverviewPointer(c); self.addCleanup(r.close)
+        r.set_geometry({'w': 1920, 'h': 1200, 'half': (0.36, 0.225), 'tiles': [(40.0, 435.0, 586.67, 330.0)]})
+        r.feed((960, 540), (0.0, 0.0), [{'index': 0, 'x': 0, 'y': 0, 'width': 1920, 'height': 1080}], 0)  # a sampler read
         self.assertTrue(r.overview())
+        shown = frames(c.poll())
+        self.assertTrue([f for f in shown if f['op'] == 'move_handle'][-1]['payload']['visible'])  # the pills are up
         self.send(c, view.TYPING_OP)
         self.assertFalse(r.overview())
+        hidden = frames(c.poll())
+        self.assertFalse([f for f in hidden if f['op'] == 'move_handle'][-1]['payload']['visible'])  # and hide
         self.send(c, view.TYPING_OP)
         self.assertTrue(r.overview())
 

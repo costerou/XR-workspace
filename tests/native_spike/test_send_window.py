@@ -223,7 +223,7 @@ class WiringTests(unittest.TestCase):
     def test_not_panel_capabilities_and_not_view_ops(self):
         c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', None, None, None)
         self.assertFalse(set(send.SEND_OPS) & set(c.status_reply({})['capabilities']))
-        self.assertFalse(set(send.SEND_OPS) & set(view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS))
+        self.assertFalse(set(send.SEND_OPS) & set(view.USER_OPS + view.MENU_OPS + xr_control.LEGACY_OPS))
 
     def test_view_control_routes_with_the_selected_desktop_and_sends_no_frame(self):
         c = view.ViewControl(view.ViewState(NAMES), 'run', 'session', None, None, None)
@@ -343,7 +343,6 @@ class HelpCardTests(unittest.TestCase):
         self.assertIn('Ctrl+Alt+G', row); self.assertIn('B', row)
         self.assertLessEqual(len(row), 48)  # ipc.hpp kMaxHelpText
         self.assertEqual(len(view.help_rows()), 12)  # 945 px of 960; a 13th row does not fit
-        self.assertIn(row, (ROOT / 'spike/tests/placement_menu_style_test.cpp').read_text())  # the fit test uses the real row
 
 
 class BindCheckTests(unittest.TestCase):

@@ -100,18 +100,13 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                 if view.session_mode(now) != mode: client.apply_session_mode(output)
 
         def menu_binds(open_):
-            # Placement menu: bare arrows/Tab/R/Escape exist only while it is open.
+            # Placement panel (an expanded glass pill): bare arrows/Tab/R/Escape exist only while one is open.
             if open_: client.install_menu_binds(*bind_args)
             else: client.remove_menu_binds()
 
         def typing_binds(on):
             # Typing mode: the run's bind table holds only Ctrl+Alt+T; off: the full set again (view.py docstring).
             client.reinstall_view_binds(*bind_args, typing=on)
-
-        def mouse_binds(on):
-            # Menu mouse mode: the left button and a hidden cursor exist only while it is on.
-            if on: client.install_mouse_binds(*bind_args)
-            else: client.remove_mouse_binds()
 
         # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
         from .profiles import PlacementStore, ProfileStore
@@ -123,11 +118,9 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
-                                   mouse_binds=mouse_binds if hasattr(client, 'install_mouse_binds') else None,
-                                   cursor=lambda: client.query('cursorpos', timeout=0.25),
-                                   warp=getattr(client, 'warp_cursor', None),
                                    typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
-        # Overview free pointer: cursor reads, its modal left-button binds and cursor hiding, off the supervisor loop.
+        # Overview free pointer (glass pills, corners, panel sliders): cursor reads, its modal left-button binds and cursor
+        # hiding, off the supervisor loop.
         from .free_pointer import OverviewPointer, PointerSampler
         pointer = control.overview_pointer = OverviewPointer(control)
         control.wake = pointer.wake_reader
@@ -154,11 +147,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if control is not None and control.sender is not None:
             control.sender.close()  # no window move may start after this; one in flight lands before recovery runs
         if control is not None:
-            control.flush()  # a menu change still inside its save delay
-            control.stop_menu_binds()  # no modal menu bind may land after the removal below
+            control.flush()  # a panel or drag change still inside its save delay
+            control.stop_menu_binds()  # no modal panel bind may land after the removal below
         if sampler is not None: sampler.stop()  # removes the free pointer's binds and shows the cursor; none after this
         try:
-            if installed: client.remove_view_binds()  # also removes an open menu's modal binds
+            if installed: client.remove_view_binds()  # also removes an open panel's modal binds
         except (OSError, ValueError):
             pass  # never block recovery on bind removal; binds also vanish on config reload
         if events is not None: events.close()

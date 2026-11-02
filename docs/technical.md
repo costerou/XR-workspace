@@ -22,7 +22,8 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Per-desktop placement (position, distance, yaw/pitch/roll, curvature) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
 | Cursor-follow retest | After the startup-state fix (`b309827`, in this branch), Cody reported a cursor-follow retest on the Luma Ultra (start XR, wait for calibration, fullscreen YouTube) with no blackout. That is a human-reported result, and the earlier blackout's root cause is unproven. Details: [feasibility/native-spike/luma-cursor-follow-retest.md](feasibility/native-spike/luma-cursor-follow-retest.md). |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
-| Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's bar to move it, its corner to resize it, click it to focus it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. |
+| Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to focus it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
+| Glass placement pills (a frosted pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
@@ -73,11 +74,11 @@ Other Hyprland plugins may stay loaded during a run. Omarchy keeps `hyprbars` lo
 Head tracking must be running and calibrated before the renderer starts. A panel start with *Head tracking* ticked
 does that itself; see [Head tracking from the command line](#head-tracking-from-the-command-line).
 
-**VR video** (offline tests only, not yet run in the glasses): during a session, **Ctrl+Alt+O** (or the panel's *VR video* section) plays a 360° or 180° video, mono or 3D (side-by-side, top-bottom), equirectangular or fisheye, head-tracked around you in place of the desktops. Space pauses, the arrows seek, Tab changes the format, Ctrl+Alt+Space recenters and Esc returns to the desktops. While a video plays, the placement menu, its mouse mode and the overview free pointer are off. The renderer decodes with libmpv (`mpv` package; without it the renderer builds without video). Design, formats, limits and performance: [vr-video.md](vr-video.md).
+**VR video** (offline tests only, not yet run in the glasses): during a session, **Ctrl+Alt+O** (or the panel's *VR video* section) plays a 360° or 180° video, mono or 3D (side-by-side, top-bottom), equirectangular or fisheye, head-tracked around you in place of the desktops. Space pauses, the arrows seek, Tab changes the format, Ctrl+Alt+Space recenters and Esc returns to the desktops. Opening a video closes an open placement pill; while it plays, Ctrl+Alt+L, the pills and the overview free pointer are off. The renderer decodes with libmpv (`mpv` package; without it the renderer builds without video). Design, formats, limits and performance: [vr-video.md](vr-video.md).
 
 **Web VR video / DelightXR** (offline tests only): click the *Play in VITURE* bookmark (built by `python -m tools.delightxr.build`) on a DelightXR or other video page, then press **Ctrl+Alt+U** in the glasses (or the panel's *Paste from browser*). The run streams the page's own video link through an ffmpeg relay into the same VR video player; no download, no browser changes, renderer unchanged. Findings, options and limits (no DRM, no cookie-gated links): [delightxr.md](delightxr.md).
 
-These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; the left-button binds marked "mouse mode" exist only while mouse mode is on, and those marked "free pointer" only while the overview's pointer is outside the desktops. If the run dies with the menu open, the first menu key (or, in mouse mode or with the free pointer out, the first click) pressed afterwards releases them and shows the cursor again.
+These keybinds exist only during a run. The keys marked "pill open" are bound only while a placement pill is open (expanded into its panel), and released when it closes or the run ends; the left-button binds marked "free pointer" exist only while the overview's pointer is outside the desktops. If the run dies with a pill open, the first of those keys pressed afterwards releases them all; if it dies with the free pointer out, the first click releases the left button and shows the cursor again. A run from an older build that died in the old placement menu's mouse mode is cleaned up the same way: its left-button bind still calls the bind helper (`xr_control.py` keeps the `menu_mouse_press` / `menu_mouse_release` op names for that cleanup only), which removes it.
 
 | Keys | When | Action |
 | --- | --- | --- |
@@ -90,24 +91,24 @@ These keybinds exist only during a run. The keys marked "menu open" are bound on
 | Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | run | Show the help card in the glasses |
 | Ctrl+Alt+T | run, both modes | Typing mode on / off (see [Typing mode](#typing-mode)) |
-| Ctrl+Alt+L | run | Open / close the placement menu in the glasses |
+| Ctrl+Alt+L | run | Open the selected desktop's placement pill (zooming out to the overview first if zoomed in), or close the open one |
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
-| Tab / Shift+Tab | menu open | Next / previous desktop |
-| Up / Down | menu open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
-| Left / Right | menu open | Decrease / increase the field by a small step (Shift for a big step) |
-| R | menu open | Reset the desktop to flat |
-| Ctrl+Alt+M | menu open | Turn mouse mode on / off |
-| Escape | menu open | Leave mouse mode; otherwise close the menu |
-| Left click | mouse mode | Snap the slider under the pointer to it, or pick the desktop tab under it; elsewhere nothing |
-| Left drag | mouse mode | Drag that slider; the desktop follows live |
-| Mouse past a desktop's edge | overview, menu closed | Free pointer: the cursor hides and a dim dot moves through the space around the desktops |
-| Left-drag a desktop's bar | free pointer on the bar | Move that desktop, like a title bar |
-| Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller |
+| Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
+| Up / Down | pill open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
+| Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step) |
+| R | pill open | Reset the desktop to flat |
+| Escape | pill open | Close the pill |
+| Mouse past a desktop's edge | overview | Free pointer: the cursor hides and a dim dot moves through the space around the desktops |
+| Left click a pill | free pointer on a pill, or on the open panel's top strip | Open that desktop's panel (closing any other), or close it if it is the open one |
+| Left-drag a pill | free pointer on a pill, or on the open panel's top strip | Move that desktop, like a title bar. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
+| Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
+| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, focus a desktop, or nothing in empty space |
+| Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
 | Left click a desktop | free pointer on a desktop | Select and focus it; the cursor comes back at that spot |
 
-Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring and mouse mode are covered by offline tests only.
+Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
@@ -116,15 +117,15 @@ Settings, including placements, are saved per glasses model.
 ### Typing mode
 
 **Ctrl+Alt+T** switches between XR control (the default each run) and typing mode. Typing mode hands the keyboard back
-without stopping the run: the placement menu and help card close, and the run's bind table (`xr_workspace_binds`) is
-reinstalled with only the Ctrl+Alt+T bind in it. Every other run bind is released: the view keys, the send-window keys,
-the menu and mouse-mode binds, the overview free pointer (its left-button bind; the hidden cursor comes back and the dot
-hides), and a playing video's bare Space, arrow, Tab and Escape keys. Arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts then reach the focused window.
+without stopping the run: an open placement pill and the help card close, and the run's bind table
+(`xr_workspace_binds`) is reinstalled with only the Ctrl+Alt+T bind in it. Every other run bind is released: the view
+keys, the send-window keys, the open pill's keys, the overview free pointer (its left-button bind; the hidden cursor
+comes back, and the dot and the pills hide), and a playing video's bare Space, arrow, Tab and Escape keys. Arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts then reach the focused window.
 Ctrl+Alt+T again reinstalls the full set. The binds use the same runtime `hl.bind` tables as the rest of the run
 (`view.install_binds_lua(..., typing=True)`, `HyprlandClient.reinstall_view_binds(..., typing=...)`); no Hyprland
 submap and no config file is involved. A config reload (theme switch) reinstalls whichever set matches the current mode.
-Panel buttons keep working in both modes. Key-only ops that arrive late from a released bind (menu, mouse mode, send)
-are ignored in typing mode.
+Panel buttons keep working in both modes. Key-only ops that arrive late from a released bind (pill keys, send) are
+ignored in typing mode.
 
 The mode is part of the renderer's `view` payload (`typing`). Each switch shows the usual 2 s status pop-up (fade in,
 1.5 s hold, fade out), drawn in the cards' dimmed colours and accent so nothing on it passes 191/255. Nothing stays
@@ -171,8 +172,8 @@ The help card has no room for a 13th row (12 rows are 945 px of the 960 px surfa
 ### The overview free pointer
 
 In the overview (Ctrl+Alt+Down) the mouse is no longer confined to the desktops. Hyprland keeps the real cursor inside
-the monitor layout, so before this a desktop's drag bar (drawn above it) and the outside of its corners were out of
-reach. Now the pointer has two modes, and switches by itself:
+the monitor layout, so on its own it could not reach a desktop's glass pill (drawn under it), an open placement panel
+or the outside of its corners. The pointer has two modes, and switches by itself:
 
 - **Inside a desktop** the real cursor is the pointer. It is visible (the capture paints it), and clicks, hover, window
   drags and window-border resizes go to the window under it exactly as on a monitor. The run only reads the cursor's
@@ -191,16 +192,26 @@ left alone; Ctrl+Alt+Down brings it into the middle of the selected desktop.
 
 With the dot:
 
-- **Move a desktop: drag its bar.** The grab zone is the drawn bar with 10 px around it and the gap down to the desktop.
-  The bar under the dot gets brighter. Hold the left button and drag; the desktop follows so that the bar stays under
-  the dot. Release to drop it.
+- **Move a desktop: drag its pill.** The grab zone is the drawn pill with 10 px around it (`PILL_PAD_X`, `PILL_PAD_Y`)
+  and the gap up to the desktop's bottom edge. The pill under the dot gets brighter. Hold the left button and drag:
+  nothing moves until the dot is more than 4 canvas px (`CLICK_PX`) from where you pressed, then the desktop follows so
+  that the pill stays under the dot. Release to drop it. An open panel's top strip is the same pill and drags the same
+  way.
+- **Open a pill: click it.** A press and release that never moved more than 4 px is a click, not a drag: it expands that
+  desktop's pill into its placement panel, closing any other, or collapses it if it is the open one. A key that changes
+  the open panel while the button is down (Escape, Tab, Ctrl+Alt+L) wins: that release is dropped, so it never undoes
+  the key. See [Placement pills](#placement-pills) for the panel.
 - **Resize a desktop: drag a corner.** Each corner's grab zone is a square centred on the corner (6% of the desktop's
   shorter side, 10–28 px each way), so it reaches outside the desktop. A small dim L-bracket shows inside that corner.
   Drag it: the corner follows the dot along its diagonal, outward bigger, inward smaller. A corner wins where it meets
-  the bar's zone.
+  the pill's zone.
 - **Focus a desktop: click it.** The click is the run's, not the window's (the dot is only free close to an edge): the
   desktop is selected and the cursor comes back at the clicked spot, so the next click reaches the window there.
-- A click in empty space does nothing.
+- A click in empty space does nothing, apart from closing an open panel.
+
+Hit testing order: an open panel is drawn on top (the renderer draws its desktop's glass last, over every other pill),
+so it is tested first (the pointer is mapped onto the open desktop's surface, where the panel is drawn). Then, front
+desktop first, each desktop's corners, its pill zone and the desktop itself.
 
 Hit testing uses the same maths the renderer draws with (`spike/src/view.cpp` `place_point`, mirrored in
 `free_pointer.py`), including offset, distance, yaw, pitch, roll and curvature, front desktop first. The renderer reports
@@ -210,17 +221,20 @@ second in the overview with the read-only `cursorpos` query, and each change wak
 renderer draws the dot on the next frame (`overview_pointer` op) and eases placements (35 ms time constant), so drags
 look smooth at the display's rate.
 
-The free pointer is off in typing mode (Ctrl+Alt+T: the cursor stays a normal cursor everywhere), while zoomed in, while the placement menu is open (its mouse mode owns the left button) and
-while a VR video plays (`resize_press` / `resize_release` are in `IGNORED_WHILE_PLAYING`). Leaving the overview removes
-the left-button binds and shows the cursor again. A drag in progress ends and is saved when the menu or a video opens,
-on zoom-in and after 30 s without pointer movement. Right clicks and scrolling while the dot is free still reach the
-window under the hidden, parked cursor.
+The free pointer is off in typing mode (Ctrl+Alt+T: the cursor stays a normal cursor everywhere), while zoomed in and
+while a VR video plays (`resize_press` / `resize_release` are in `IGNORED_WHILE_PLAYING`). It stays on while a
+placement panel is open: it is how you use the panel. Leaving the overview removes the left-button binds and shows the
+cursor again. A drag in progress (pill, corner or slider) ends and is saved when a video opens, on zoom-in and after
+30 s without pointer movement. Right clicks and scrolling while the dot is free still reach the window under the
+hidden, parked cursor.
 
-The dot, bars and bracket protect the micro-OLED like the cards. The dot is a grey disc (170/255, 184 while dragging)
-in a black ring, 16 px across. The bars are 90/255, 150 on hover and 184 while dragging; the bracket 140, 184 while
-dragging (cap 191). None of them moves on its own. They hide after 30 s without pointer movement
-(`OVERLAY_IDLE_CLOSE_S`); a click while hidden only brings them back. The CPU fallback renderer draws none of them, and
-the run reports no `overview_geometry` there, so the free pointer stays off.
+The dot, pills and bracket protect the micro-OLED like the cards. The dot is a grey disc (170/255, 184 while dragging)
+in a black ring, 16 px across. The pills are dark glass (see [Placement pills](#placement-pills)) that brightens on
+hover and while dragged, never above 191/255; the bracket is 140, 184 while dragging (cap 191). None of them moves on
+its own. They hide after 30 s without pointer movement (`OVERLAY_IDLE_CLOSE_S`); a click while hidden only brings them
+back. An open panel is still drawn while the pills are hidden, and closes by itself after its own 30 s without input.
+The CPU fallback renderer draws none of them, and the run reports no `overview_geometry` there, so the free pointer
+stays off.
 
 ### Resizing desktops in the overview
 
@@ -231,10 +245,11 @@ The size has limits and is saved like the other placements:
 
 - It goes from half to twice the default size. A resize is the desktop's **Distance** placement seen from the other
   side (apparent size = 100 / Distance), so the limits are Distance's 200 and 50. The panel's **Place** tab and an
-  open placement menu show the new Distance. For example, 1.5× bigger is Distance 67.
+  open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
-- Zooming into a desktop still brings it flat and full size in front of you. The bracket only shows in the overview.
+- Zooming into a desktop still brings it flat and full size in front of you. The bracket and the pills only show in
+  the overview.
 
 Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
 overview all desktops share one height, so pixel count only changes sharpness, never size. A free-aspect resize could
@@ -243,9 +258,9 @@ need a new ownership-broker operation in the accepted plugin. Resolution, shape 
 and apply at the next start, through the journaled output creation that reads every value back. Corner resizing adds
 no compositor output change and no new journal record.
 
-### Moving desktops in the overview (drag bar)
+### Moving desktops in the overview (the pill under the desktop)
 
-A bar drag (above) changes the desktop's **Left/right** and **Down/up** placement. Placement is free, with three guards
+A pill drag (above) changes the desktop's **Left/right** and **Down/up** placement. Placement is free, with three guards
 instead of a snap grid:
 
 - **Back to the row.** Each direction snaps to the desktop's own slot when within 4%, so putting it back is easy.
@@ -258,22 +273,99 @@ instead of a snap grid:
 The position is the desktop's **Left/right** and **Down/up** placement. It is saved to the glasses model's profile like
 a size (half a second after the last change, and on release), and the panel's **Place** tab shows it.
 
-The bar and the corner bracket share one left-button bind (`resize_press` / `resize_release`, bound only while the
-pointer is free) and never compete: a corner zone always wins where they meet. If the run dies while the pointer is
-free, the next left click runs the bind helper, which removes the bind and shows the cursor again where free mode found
-it.
+The pill, the open panel and the corner bracket share one left-button bind (`resize_press` / `resize_release`, bound
+only while the pointer is free) and never compete: the open panel is tested first, and a corner zone wins over a pill
+where they meet. If the run dies while the pointer is free, the next left click runs the bind helper, which removes the
+bind and shows the cursor again where free mode found it.
 
-### Placement menu
+Until 2026-11-02 the move handle was a thin grey bar 4 px tall, drawn above each desktop. The glass pill under the
+desktop replaced it. The wire op (`move_handle`) and the move maths (snap, overlap guard, reach) are unchanged; only
+the 4 px click threshold is new.
 
-You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings as sliders with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
+### Placement pills
 
-The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. Each is a row with its label, a slider and its current value. The slider's ends are the setting's limits, the same as the panel's sliders, and the stretch from the flat value to the knob is coloured. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. R puts every setting of the selected desktop back to flat.
+You can also place desktops from inside the glasses, without the settings panel. In the overview, each desktop has a
+small frosted-glass pill under it. Click a pill with the free pointer's dot, or press **Ctrl+Alt+L** for the selected
+desktop's pill, and it expands into that desktop's own placement panel. (Ctrl+Alt+P was already taken by pose
+prediction.) Ctrl+Alt+L again, Escape, a click on the panel's top strip (the pill itself) or a click outside the panel
+collapses it. Only one pill is open at a time: opening another collapses the first, and Tab / Shift+Tab move the open
+panel to the next / previous desktop. Pressed while zoomed in, Ctrl+Alt+L first zooms out to the overview so the pill is
+visible; the pill only starts growing once the overview is reached, so the whole expansion is seen. Zooming in
+(Ctrl+Alt+Up) closes an open panel first, saved, with its keys released. Everything here is covered by offline tests
+only. It has not been run in an isolated VM or tried in the glasses.
 
-**Mouse mode.** With the menu open, press **Ctrl+Alt+M** to use the mouse on the sliders in the glasses. A round pointer appears on the selected slider's knob and the desktop cursor is hidden. The pointer moves freely over the whole menu, one menu pixel per pixel of cursor movement, with your usual mouse speed, and it is redrawn every frame of the glasses' 120 Hz display. Moving it never changes a value. Click on a slider to snap it to the pointer, or hold the button and drag to move it, and the desktop follows live. Clicking a desktop tab (XR-1/XR-2/XR-3) selects that desktop. A click anywhere else does nothing. While mouse mode is on, left clicks go to the menu, not to your windows, and cursor follow is paused. The keyboard keeps working: the arrows, Shift, Tab and R act as usual. Press Ctrl+Alt+M again or Escape to leave mouse mode. The cursor comes back where it was when mouse mode started, and the menu stays open. Escape again closes the menu; Ctrl+Alt+L closes it at once, mouse mode included. Any mouse movement or click in mouse mode counts as input for the 30 s idle close described below. The sliders and the pointer use only the cards' dimmed colours, nothing brighter than their text. Ctrl+Alt+M is bound only while the menu is open. It clashes with none of Omarchy's binds or this project's; `python -m tools.native_spike.bind_check` checks that against your Hyprland config with `Hyprland --verify-config` (see Tests).
+This replaces the earlier placement menu: a head-locked card in the middle of the view, with a mouse mode (Ctrl+Alt+M)
+that drew its own pointer over the card. The card, Ctrl+Alt+M, mouse mode, the renderer's `menu_pointer` op and its
+`menu_geometry` status line are gone. The overview free pointer does that job now.
 
-Each key press moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's profile shortly after the last key press, and again when the menu closes. The menu changes placement only. It does not change the run's consent, capture or the panel's buttons.
+**The placement panel.** It is drawn on the desktop's own surface, so a tilted or curved desktop tilts and curves its
+panel. It is 480 × 322 canvas px with 18 px corners, centred under the desktop, its top where the pill's top is (10 px
+under the desktop). The top strip, 42 px tall, shows "XR-n" and "Placement" with a small grabber where the pill was.
+That strip is still the pill: drag it to move the desktop, click it to collapse the panel. Below it are the seven
+settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or
+down), **Roll** (tilt sideways) and **Curvature**. Each row has its label, a slider and the current value with units.
+The selected row sits on a faint accent band. The slider's ends are the setting's limits, the same as the settings
+panel's sliders, and the stretch from the flat value to the knob is coloured. The footer lists the keys (↑↓ field, ←→
+adjust, Tab next, R flat). Desktop and setting selection wrap round. R puts every setting of the open desktop back to
+flat.
 
-The help card and the placement menu protect the glasses' micro-OLED panels from image retention (a faint copy of bright, static text that stays for a while after it closes). Their text and accent are dimmed to about 70% and 75% of full brightness. Both cards stay perfectly still while shown. Both close by themselves after 30 s without input: a run key or a panel placement change. The help card's footer says so. Typing in a window doesn't count. Ctrl+Alt+L and Ctrl+Alt+H reopen them. The timeout is `OVERLAY_IDLE_CLOSE_S` in `tools/native_spike/view.py`. Its copy `kOverlayIdleCloseS` in `spike/include/xr/hud.hpp` feeds the footer note, and a test keeps the two equal.
+**With the pointer.** Press on a slider (its row, from 12 px before the knob's lowest position to 12 px past its highest,
+`PANEL_KNOB_LO` / `PANEL_KNOB_HI` and `PANEL_SLOP_PX` in `free_pointer.py`: about 5 px past each end of the drawn track)
+and that setting becomes the selected one and jumps to the pointer. Hold and drag to move it live; the desktop follows.
+The drag is measured on the panel as it was at the press, so a setting that moves its own desktop does not chase
+itself. Until the release the renderer keeps drawing the panel on that same press-time placement while the desktop
+moves live, so the knob stays under the dot. On release the panel joins its desktop again. Release ends the drag and
+saves. A key that collapses the panel or moves it to another desktop during the drag ends what the drag does. A press
+elsewhere inside the panel does nothing and the panel stays open. A press anywhere else while a panel is open closes it
+first (saved, its keys released), then carries on as usual: on another desktop's pill it starts that pill's click or
+drag, on a desktop it focuses that desktop, and in empty space it does nothing more. Pressing the open desktop's own
+corners resizes it without closing the panel. A click inside a desktop while the real cursor is there (desktop mode, not
+the dot) goes to the window under it. The run never sees that click, so it does not close the panel.
+
+**With the keyboard.** The keys are in the keybind table above. They are bound only while a pill is open, so the arrows,
+Tab, R and Escape type normally once it is closed. Opening or closing a pill with the pointer installs and removes the
+same keys as Ctrl+Alt+L.
+
+**Expanding.** The pill morphs into the panel over 260 ms and back over 200 ms, eased. The panel's text fades in over
+the last quarter of the expansion. Moving the open panel to another desktop collapses one pill while the other expands,
+the new one drawn on top. An expansion that starts while the view is zoomed in or still zooming out is held where it is
+until the overview is reached (`GlassPills::frame`), so a panel opened with Ctrl+Alt+L from a zoomed-in view does not
+pop in nearly full size; a collapse is never held.
+
+**The look.** Frosted glass: a dark translucent tint with a fifth of the Omarchy theme accent mixed in, lighter toward
+the top, a soft gloss along the top, a 1 px hairline that is brighter at the top edge, fully rounded ends and a soft
+drop shadow. The collapsed pill is 14 px tall and 24% of the desktop's width (64–160 px). Hover and drag brighten it.
+The renderer draws it with one GLSL fragment shader (`glass_fragment_shader` in `spike/src/glass.cpp`) whose CPU mirror
+(`glass_shade`) is checked against it on a real GLES context. On the glasses' micro-OLED panels black is see-through, so
+the glass is mostly its own tint. No pixel of it passes 191/255 (`kCardMaxLevel`), the panel stays dark behind its text,
+and the text uses the help card's dimmed colours. Nothing on it moves on its own. Pills and panels are drawn only in the
+overview; any zoom hides them. Whether the glass reads well on the OLED panels has not been checked in the glasses.
+
+Each change moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's
+profile half a second after the last change, at once when a slider is released, and again when the panel closes. The
+placement panel changes placement only. It does not change the run's consent, capture or the settings panel's buttons.
+
+**Wire.** The supervisor owns the state and the hit testing. `tools/native_spike/free_pointer.py` mirrors the renderer's
+pill and panel geometry from `spike/include/xr/glass.hpp`, and the `glass_contract` ctest compares the two. Two
+display-only frames drive the renderer:
+
+- `placement_menu` `{open, desktop, field, placements}` now means "this desktop's pill is expanded into its panel";
+  `open: false` collapses it. While the free pointer holds one of the open panel's sliders the payload also carries
+  `surface`, the open desktop's placement at the press: the renderer draws the panel on it (the desktop itself follows
+  its live placement) until a frame without it. `surface` is only valid with `open: true`.
+- `move_handle` `{visible, desktop, hover, active}` shows the pills under every desktop and brightens the hovered or
+  dragged one. The renderer draws an open panel even when `visible` is false.
+
+A malformed payload of either is dropped and the run goes on. The renderer now rejects `menu_pointer` like any unknown
+op, and its status `placement_menu` object is `{open, desktop, shown, hidden, renders}` (no `visible` or `fits`).
+
+The help card and an open placement panel protect the glasses' micro-OLED panels from image retention (a faint copy of
+bright, static text that stays for a while after it closes). Their text and accent are dimmed to about 70% and 75% of
+full brightness. Neither moves on its own while shown. Both close by themselves after 30 s without input: a run key, a
+pill key, a free-pointer click or slider press, moving the dot while a panel is open, or a placement change in the
+settings panel. The help card's footer says so. Typing in a window doesn't count. Ctrl+Alt+L and Ctrl+Alt+H reopen them.
+The timeout is `OVERLAY_IDLE_CLOSE_S` in `tools/native_spike/view.py`. Its copy `kOverlayIdleCloseS` in
+`spike/include/xr/hud.hpp` feeds the footer note, and a test keeps the two equal.
 
 ## Tests
 
@@ -287,7 +379,14 @@ python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
 ctest --test-dir build/release --output-on-failure
 ```
 
-Check that this project's run, send-window, menu and mouse-mode binds clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
+The glass pills add three ctest tests: `glass` (geometry, morph, look under the 191/255 cap, panel content, the expand
+animation, held until the overview is reached, the draw order and a held slider's surface), `glass_render` (the shader
+against its CPU mirror over black and over a bright desktop, and the cap over black, on a surfaceless EGL context; it
+reports skipped, exit 77, where EGL or GLES is missing) and `glass_contract` (runs `glass_geometry_dump` and checks that
+`tools/native_spike/free_pointer.py` uses the same pill and panel geometry). `menu_geometry_contract` and
+`placement_menu_style` were removed with the head-locked menu card.
+
+Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
 ```sh
 python -m tools.native_spike.bind_check
@@ -306,10 +405,10 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 - The send-window keys (Ctrl+Alt+G, 1-3, B) move only the focused window, by address, onto the active regular workspace
   of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
   windows are refused, so recovery can always move the XR desktops' windows back.
-- Run binds use Ctrl+Alt chords. The only unmodified binds are modal: the placement menu's keys while it is open, and
-  the left button while the overview's free pointer is outside the desktops (bar move, corner resize, click to focus).
-  Both are removed when no longer needed. The free pointer hides the cursor and re-centres it with fixed Lua (as mouse
-  mode does), and shows it again when the pointer goes back into a desktop, when the overview ends, at run end, or on
+- Run binds use Ctrl+Alt chords. The only unmodified binds are modal: an open placement pill's keys, and the left
+  button while the overview's free pointer is outside the desktops (pill click and move, panel sliders, corner resize,
+  click to focus). Both are removed when no longer needed. The free pointer hides the cursor and re-centres it with
+  fixed Lua, and shows it again when the pointer goes back into a desktop, when the overview ends, at run end, or on
   the first click after a dead run. It warps the cursor only onto the run's own XR desktops.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
 

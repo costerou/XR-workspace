@@ -58,7 +58,7 @@ struct HudFont::Impl {
     }
     FT_Face face(bool b) const { return b && bold ? bold : regular; }
     // Rasterised glyphs and advances, per (code point, pixel size, bold). Cards are re-rendered whenever a value
-    // changes (a mouse-mode drag: up to once per frame), and FreeType hinting and rasterising is most of that cost.
+    // changes (a placement-panel slider drag: up to once per frame), and FreeType hinting and rasterising is most of that cost.
     // Exactly what FreeType returned is kept, so cached text draws byte for byte the same. Bounded: cleared when full.
     struct Glyph { bool ok = false; std::vector<unsigned char> coverage; unsigned width = 0, rows = 0; int left = 0, top = 0; FT_Pos advance = 0; };
     using Key = std::tuple<char32_t, std::uint32_t, bool>;

@@ -51,7 +51,7 @@ ColumnLayout {
         }
     }
     Label {
-        text: "Offsets are a share of the desktop's own size; dragging the bar above a desktop in the glasses' overview sets them. Distance 200% is twice as far (half the apparent size); dragging a desktop's corner in the glasses' overview sets it too. Positive yaw faces right, positive pitch tilts the top toward you. Curvature bends the desktop into a horizontal arc without stretching it. Zooming into a desktop brings it flat in front of you; curvature stays."
+        text: "Offsets are a share of the desktop's own size; dragging the glass pill under a desktop in the glasses' overview sets them. Distance 200% is twice as far (half the apparent size); dragging a desktop's corner in the glasses' overview sets it too. Positive yaw faces right, positive pitch tilts the top toward you. Curvature bends the desktop into a horizontal arc without stretching it. Zooming into a desktop brings it flat in front of you; curvature stays."
         Layout.fillWidth: true; wrapMode: Text.WordWrap; opacity: 0.65
     }
     RowLayout {

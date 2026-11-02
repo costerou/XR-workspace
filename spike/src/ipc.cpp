@@ -41,13 +41,6 @@ bool placement(const Json& value, WirePlacement& out) {
     }
     return true;
 }
-bool menu_pointer(const Json& p, MenuPointerPayload& out) {
-    if (!p.is_object() || p.size() != 4 || !p.contains("visible") || !p["visible"].is_boolean() || !p.contains("x") ||
-        !p["x"].is_number_unsigned() || p["x"].get<std::uint64_t>() > kMaxPointerPx || !p.contains("y") || !p["y"].is_number_unsigned() ||
-        p["y"].get<std::uint64_t>() > kMaxPointerPx || !p.contains("held") || !p["held"].is_boolean()) return false;
-    out = {p["visible"].get<bool>(), std::int32_t(p["x"].get<std::uint64_t>()), std::int32_t(p["y"].get<std::uint64_t>()), p["held"].get<bool>()};
-    return true;
-}
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     if (!p.is_object() || p.size() != 4) return false;
     for (const char* key : {"visible", "held"})
@@ -66,7 +59,9 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     return true;
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
-    if (!p.is_object() || p.size() != 4 || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
+    // "surface" (optional, open panels only): the placement the open panel is drawn on while a slider is held.
+    const bool surface = p.is_object() && p.contains("surface");
+    if (!p.is_object() || p.size() != (surface ? 5u : 4u) || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
         !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kPlacementMenuDesktops || !p.contains("field") ||
         !p["field"].is_string() || !p.contains("placements") || !p["placements"].is_array() || p["placements"].size() != kPlacementMenuDesktops)
         return false;
@@ -78,6 +73,13 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     out.field = std::uint32_t(named - std::begin(kPlacementBounds));
     for (std::size_t i = 0; i < kPlacementMenuDesktops; ++i)
         if (!placement(p["placements"][i], out.placements[i])) return false;
+    out.surface.reset();
+    if (surface) {
+        if (!out.open) return false;
+        WirePlacement held;
+        if (!placement(p["surface"], held)) return false;
+        out.surface = held;
+    }
     return true;
 }
 constexpr const char* kHandleCorners[] = {"tl", "tr", "bl", "br"};
@@ -134,7 +136,6 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "placement") op = ControlOp::placement;
         else if (name == "placement_menu") op = ControlOp::placement_menu;
         else if (name == "resize_handle") op = ControlOp::resize_handle;
-        else if (name == "menu_pointer") op = ControlOp::menu_pointer;
         else if (name == "move_handle") op = ControlOp::move_handle;
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
         else return invalid();
@@ -192,10 +193,6 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             PlacementMenuPayload menu;
             if (!placement_menu(j["payload"], menu)) return Error{kInvalidMenuCode, "Ignored malformed placement_menu payload"};
             payload = menu;
-        } else if (op == ControlOp::menu_pointer) {
-            MenuPointerPayload pointer;
-            if (!menu_pointer(j["payload"], pointer)) return Error{kInvalidMenuCode, "Ignored malformed menu_pointer payload"};
-            payload = pointer;
         } else if (op == ControlOp::resize_handle) {
             ResizeHandlePayload handle;
             if (!resize_handle(j["payload"], handle)) return Error{kInvalidHandleCode, "Ignored malformed resize_handle payload"};

@@ -1,36 +1,63 @@
 """Overview free pointer: in the overview the mouse moves freely through the glasses' space, not only over the desktops.
 
-Design (feature/overview-free-pointer, 2026-11-02):
-  * Entering the overview hands the mouse to a pointer that can go anywhere in the XR view: between desktops, above
+Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pills, 2026-11-02):
+  * Entering the overview hands the mouse to a pointer that can go anywhere in the XR view: between desktops, below
     them, past their corners. The real cursor is confined to the XR-n monitor layout, so it cannot reach a desktop's
-    drag bar (drawn above it) or go round a corner. The old overview put the bar's grab strip inside the desktop's top
-    edge for that reason.
+    glass pill (drawn under it) or go round a corner.
   * Two modes, switched by where the pointer is:
       - desktop: the pointer is inside a desktop. The real cursor is visible there (the capture paints it) and every
-        click, hover, window drag and window-border resize goes to the window under it as usual. The pointer's place
-        in space is the cursor's position mapped onto that desktop's surface.
+        click, hover, window drag and window-border resize goes to the window under it as usual (the run never sees
+        those clicks, so a click inside a desktop leaves an open placement panel open). The pointer's place in space is
+        the cursor's position mapped onto that desktop's surface.
       - free: the cursor reached the edge of its desktop, or crossed onto another monitor. The cursor is hidden and
         parked in the middle of its monitor (put back there whenever it strays RECENTRE_PX), and its motion moves a
         small dim dot drawn by the renderer on the overview's plane (`overview_pointer`). While free, the left button is
-        bound to the run (`resize_press` / `resize_release`, the existing modal binds): on a drag bar it moves that
-        desktop, on a corner it resizes it, on a desktop it focuses that desktop and hands the cursor back at that spot.
-        Moving ENTER_PX into a desktop does the same without a click.
+        bound to the run (`resize_press` / `resize_release`, the existing modal binds): see Clicks below. Moving
+        ENTER_PX into a desktop hands the pointer back to the cursor without a click.
     The switch back to desktop mode needs the pointer ENTER_PX inside, while leaving needs the very edge pixel, so
     the modes never flap at an edge. Moving into a desktop (or clicking it) also selects it, so Ctrl+Alt+Up zooms into
     the desktop the pointer is on and the highlight shows it.
+  * Glass pills (spike/include/xr/glass.hpp, mirrored here: pill_rect, panel_rect and the PILL_* / PANEL_* constants; the
+    ctest `glass_contract` compares them): a frosted-glass pill sits PILL_GAP under every desktop, on that desktop's own
+    surface. One at a time expands into the desktop's placement panel (PANEL_W x PANEL_H, centred under the desktop, its
+    top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. The state is
+    view.ViewState's menu_open / menu_desktop; Ctrl+Alt+L and the panel's modal keys drive the same state (view.py).
+  * Clicks in free mode, tested front to back (hit): the open panel first (it is drawn on top), then each desktop's
+    corners (they win over its pill), its pill zone (the pill padded by PILL_PAD_X / PILL_PAD_Y, plus the gap up to the
+    desktop's bottom edge) and the desktop itself.
+      - pill, or the open panel's header: press and drag moves the desktop (its x / y placement, the pill staying under
+        the pointer). The desktop does not move until the pointer is CLICK_PX away from the press, so a click never
+        nudges it; a release before that is a click: it expands that pill (any other open panel collapses) or collapses
+        it if it is the open one (view.ViewControl.pill_click, the same path as Ctrl+Alt+L: modal keys, save, idle).
+        A key that changed which panel is open while the button was down (Escape, Tab, Ctrl+Alt+L) wins: that release
+        is dropped, not a click, so it never undoes the key.
+      - a slider of the open panel: that setting is highlighted and its value jumps to the pointer; holding and
+        dragging moves it live; the release saves. The value is measured on the panel as it was at the press, so a
+        setting that moves its own desktop never chases itself, and until the release the renderer draws the panel on
+        that same press-time surface (the `placement_menu` frame's `surface`) while the desktop itself moves live, so
+        the knob stays under the pointer. On release the panel joins its desktop again.
+      - elsewhere in the open panel: nothing (it stays open).
+      - corner: resize (the `distance` placement), as before.
+      - desktop: focus it and hand the cursor back right there.
+    A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
+    collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
+    still starts its drag or click, a desktop is still focused, empty space does nothing more).
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
     the same placement maths as spike/src/view.cpp place_point (offset, distance, yaw/pitch/roll, curvature), front
     desktop first. The overview's slots never move with head pose, so neither does this.
-  * Drags follow the pointer: a bar drag changes the desktop's x / y placement so the bar stays under the pointer
+  * Drags follow the pointer: a pill drag changes the desktop's x / y placement so the pill stays under the pointer
     (with the overlap guard and slot snap of resize.allowed_move); a corner drag changes `distance` so the corner
-    follows the pointer along its diagonal. Both are saved like a placement-menu change (0.5 s debounce, and at once
-    on release). Corner and bar zones extend outside the desktop, which is where the pointer now can go.
-  * Off in typing mode (Ctrl+Alt+T), while zoomed, while the placement menu is open (its mouse mode owns the left button) and while a VR video plays
-    (resize ops are in video.IGNORED_WHILE_PLAYING). Leaving the overview removes the binds and shows the cursor again.
-  * OLED care: the dot is grey at 170/255 (184 while held; cards cap at 191), drawn only in free mode, never moves on
-    its own, and hides with the bars and bracket after OVERLAY_IDLE_CLOSE_S without pointer movement. A click while
-    hidden only wakes them.
+    follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
+    debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
+    on zoom-in and when a VR video opens.
+  * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
+    VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
+    is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
+  * OLED care: the dot is grey at 170/255 (184 while held; cards and glass cap at 191), drawn only in free mode, never
+    moves on its own, and hides with the pills and bracket after OVERLAY_IDLE_CLOSE_S without pointer movement (an
+    open panel stays until the view's own idle close, which pointer motion over it postpones). A click while hidden
+    only wakes them.
   * Threads: the sampler reads `cursorpos` every SAMPLE_S (250 Hz) in the overview and does every compositor call
     (binds, hide/show, warps); the supervisor loop owns all state and frames. A run that dies in free mode leaves
     the left-button bind; the next click runs xr_control.py, which removes it and shows the cursor again.
@@ -44,7 +71,7 @@ import time
 from . import resize, view
 from .geometry import PLACEMENT_BOUNDS
 
-SAMPLE_S = 1 / 250        # cursor reads per second in the overview (the menu's mouse mode rate)
+SAMPLE_S = 1 / 250        # cursor reads per second in the overview (faster than the glasses' 120 Hz)
 IDLE_S = 0.1              # not in the overview: just notice when it is again
 OUTPUTS_REFRESH = 2.0     # seconds between XR-n monitor geometry reads
 EDGE_PX = 0.5             # desktop mode: the cursor this close to its monitor's edge (logical px) has hit it
@@ -55,10 +82,17 @@ JUMP_PX = 400             # a cursor step this long is a warp or focus change (k
 SAMPLE_JUMP_PX = 1500     # a single sample's motion beyond this is dropped (warps the sampler did not make)
 # Grab zones, canvas px: corners are squares centred on the corner (half inside, half outside the desktop).
 CORNER_SHARE, CORNER_MIN, CORNER_MAX = 0.06, 10.0, 28.0
-# The drag bar (view.hpp grab_pill: share of the width clamped to px, thickness, gap above the desktop) and the padding
-# around it that still grabs it; the zone also covers the gap down to the desktop's top edge.
-PILL_SHARE, PILL_MIN, PILL_MAX, PILL_THICKNESS, PILL_GAP = 0.3, 24.0, 240.0, 4.0, 7.0
+# Glass pill (glass.hpp glass_pill: share of the desktop's width clamped to px, height, gap under the desktop) and the
+# padding around it that still grabs it; the zone also covers the gap up to the desktop's bottom edge.
+PILL_SHARE, PILL_MIN, PILL_MAX, PILL_THICKNESS, PILL_GAP = 0.24, 64.0, 160.0, 14.0, 10.0
 PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
+# Expanded pill = placement panel (glass.hpp glass_panel and its layout, panel px from its top-left): the header strip
+# (the pill itself: drag to move, click to collapse), then one row per placement setting (geometry.PLACEMENT_KEYS order)
+# whose slider knob centre runs PANEL_KNOB_LO (low bound) .. PANEL_KNOB_HI (high bound).
+PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 322.0, 42.0
+PANEL_ROWS_TOP, PANEL_ROW_H, PANEL_KNOB_LO, PANEL_KNOB_HI = 46.0, 34.0, 191.0, 367.0
+PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
+CLICK_PX = 4.0            # a pill press moving less than this (canvas px) before release is a click: the desktop stays put
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
@@ -160,10 +194,34 @@ def corner_zone(tile):
 
 
 def pill_rect(tile):
-    """The drawn drag bar (view.cpp grab_pill): (x, y, w, h) canvas px, just above the desktop."""
+    """The drawn glass pill (glass.hpp glass_pill): (x, y, w, h) canvas px on the desktop's surface, centred PILL_GAP
+    under the desktop."""
     tx, ty, tw, th = tile
     w = min(min(max(PILL_SHARE * tw, PILL_MIN), PILL_MAX), tw)
-    return (tx + (tw - w) / 2, ty - PILL_GAP - PILL_THICKNESS, w, PILL_THICKNESS)
+    return (tx + (tw - w) / 2, ty + th + PILL_GAP, w, PILL_THICKNESS)
+
+
+def panel_rect(tile):
+    """The expanded pill, the placement panel (glass.hpp glass_panel): (x, y, w, h) canvas px on the desktop's surface,
+    centred under the desktop with its top where the pill's top is."""
+    tx, ty, tw, th = tile
+    return (tx + (tw - PANEL_W) / 2, ty + th + PILL_GAP, PANEL_W, PANEL_H)
+
+
+def slider_fraction(lx):
+    """Panel x (px from the panel's left) -> fraction 0..1 along a slider's knob range (glass.cpp draws the knob there)."""
+    return min(max((lx - PANEL_KNOB_LO) / (PANEL_KNOB_HI - PANEL_KNOB_LO), 0.0), 1.0)
+
+
+def panel_hit(lx, ly, index):
+    """What panel point (lx, ly) (panel px from its top-left, inside the panel) is on: ('pill', index) for the header
+    strip, ('slider', index, field, lx) on a slider row's knob range (PANEL_SLOP_PX either side), else ('panel', index)."""
+    from .geometry import PLACEMENT_KEYS
+    if ly < PANEL_HEADER_H: return ('pill', index)
+    row = math.floor((ly - PANEL_ROWS_TOP) / PANEL_ROW_H) if ly >= PANEL_ROWS_TOP else -1
+    if 0 <= row < len(PLACEMENT_KEYS) and PANEL_KNOB_LO - PANEL_SLOP_PX <= lx <= PANEL_KNOB_HI + PANEL_SLOP_PX:
+        return ('slider', index, PLACEMENT_KEYS[row], lx)
+    return ('panel', index)
 
 
 def front_order(g, placements):
@@ -176,10 +234,19 @@ def front_order(g, placements):
     return sorted(range(n), key=depth)
 
 
-def hit(g, placements, pointer):
-    """What is under canvas point `pointer`, front desktop first:
-    ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index), ('desktop', index, (px, py) tile pixel), or None."""
+def hit(g, placements, pointer, open_=None):
+    """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
+    panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
+    ('panel', i)); then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
+    ('desktop', index, (px, py) tile pixel). None if nothing."""
     if g is None or pointer is None: return None
+    n = min(len(g['tiles']), len(placements))
+    if type(open_) is int and 0 <= open_ < n:
+        tile = g['tiles'][open_]
+        q = unproject(g, tile, placements[open_], pointer)
+        if q is not None:
+            x, y, w, h = panel_rect(tile)
+            if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
     for i in front_order(g, placements):
         tile = g['tiles'][i]
         q = unproject(g, tile, placements[i], pointer)
@@ -189,7 +256,7 @@ def hit(g, placements, pointer):
         for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
             if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
         px, py, pw, ph = pill_rect(tile)
-        if px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and py - PILL_PAD_Y <= q[1] < ty: return ('pill', i)
+        if px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and ty + th <= q[1] <= py + ph + PILL_PAD_Y: return ('pill', i)
         if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
     return None
 
@@ -201,7 +268,7 @@ def inside_by(tile, q):
 
 
 def move_target(start, dx, dy, tile):
-    """New (x, y) placement for a bar drag of (dx, dy) canvas px from offsets `start`: the bar stays under the pointer
+    """New (x, y) placement for a pill drag of (dx, dy) canvas px from offsets `start`: the pill stays under the pointer
     (offsets are percent of the desktop's own size, so this holds at any distance). Clamped, each axis snapped."""
     (xlo, xhi), (ylo, yhi) = PLACEMENT_BOUNDS['x'], PLACEMENT_BOUNDS['y']
     x = min(max(round(start[0] + dx / tile[2] * 100), xlo), xhi)
@@ -270,7 +337,10 @@ class OverviewPointer:
         self.gain = 1.0            # canvas px per cursor px in free mode (the desktop's own scale when it was left)
         self.hover = None          # hit(): what a click would grab (free mode only)
         # Corner: {'kind': 'corner', 'index', 'corner', 'start', 'distance', 'tile'}
-        # Bar:    {'kind': 'pill', 'index', 'start', 'xy', 'tile'}
+        # Pill:   {'kind': 'pill', 'index', 'start', 'xy', 'tile', 'moved', 'open_at_press'}  (moved: past CLICK_PX, so
+        #         not a click; open_at_press: the open panel's desktop or None after the press, a click needs it unchanged)
+        # Slider: {'kind': 'slider', 'index', 'field', 'tile', 'placement'}  (placement: the desktop's at the press, the
+        #         surface both the drag and the renderer's panel use until the release)
         self.drag = None
         self.last_move = clock()
         self.shown, self.pills, self.sent = dict(resize.HIDDEN), dict(resize.PILLS_HIDDEN), dict(POINTER_HIDDEN)
@@ -279,6 +349,7 @@ class OverviewPointer:
         self.summoned = False         # Ctrl+Alt+Down: bring a cursor that is off the desktops into the selected one
         self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
+        self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = 0  # diagnostics
         reader, writer = socket.socketpair()
         reader.setblocking(False); writer.setblocking(False)
         self.wake_reader, self._wake_writer = reader, writer
@@ -287,11 +358,11 @@ class OverviewPointer:
         self.wake_reader.close(); self._wake_writer.close()
 
     def overview(self):
-        """In the overview with nothing else owning the mouse: not zoomed, no placement menu, no VR video, and not in
-        typing mode (view.py, Ctrl+Alt+T: every run bind but the toggle is released, the left button and cursor too)."""
+        """In the overview with nothing else owning the mouse: not zoomed, no VR video, and not in typing mode (view.py,
+        Ctrl+Alt+T: every run bind but the toggle is released, the left button and cursor too, and the pills hide). An
+        open placement panel keeps it on: the pointer clicks its pill and drags its sliders."""
         s = self.control.state
-        return (not s.zoomed and not s.menu_open and not getattr(self.control, 'video_active', False)
-                and not getattr(s, 'typing', False))
+        return not s.zoomed and not getattr(self.control, 'video_active', False) and not getattr(s, 'typing', False)
 
     def active(self):
         return self.overview() and self.geometry is not None and len(self.outputs) > 0
@@ -336,6 +407,14 @@ class OverviewPointer:
         serial = self.want[0] + 1
         self.want = (serial, kind, point)
         if sync: self._sync = serial
+
+    def _open(self):
+        """The desktop whose pill is expanded into its panel, or None."""
+        s = self.control.state
+        return s.menu_desktop if s.menu_open else None
+
+    def _hit(self):
+        return hit(self.geometry, self.control.state.placements, self.pointer, self._open())
 
     def _output(self, index):
         return next((o for o in self.outputs if o['index'] == index), None)
@@ -462,43 +541,64 @@ class OverviewPointer:
         self.mode, self.last_move = 'free', now
         self.exits += 1
         self._set_want('free', (int(o['x'] + w / 2), int(o['y'] + h / 2)))
-        self.hover = hit(self.geometry, self.control.state.placements, self.pointer)
+        self.hover = self._hit()
         return out
 
     def _move(self, dx, dy, now):
         """Free mode: the pointer moves by the cursor's motion; a drag follows it, otherwise it may go into a desktop."""
         self.pointer = self._clamp((self.pointer[0] + dx, self.pointer[1] + dy))
         self.last_move = now
+        if self.control.state.menu_open: self.control.last_input = now  # moving over an open panel keeps it up
         if self.drag is not None: return self._apply_drag()
-        self.hover = hit(self.geometry, self.control.state.placements, self.pointer)
+        self.hover = self._hit()
         if self.hover is not None and self.hover[0] == 'desktop' and inside_by(self._tile(self.hover[1]), self.hover[2]) >= ENTER_PX:
             return self._enter(self.hover[1], self.hover[2])
         return b''
 
     def on_op(self, op):
-        """resize_press / resize_release: the left button, bound only in free mode."""
+        """resize_press / resize_release: the left button, bound only in free mode (module docstring: Clicks)."""
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
-        self.last_move = now  # a click is input: the pointer, bars and bracket come back
+        self.last_move = now  # a click is input: the pointer, pills and bracket come back
         out = b''
         if op == 'resize_release':
-            out += self._apply_drag() + self._end_drag()
+            d = self.drag
+            out += self._apply_drag()
+            if d is not None and d['kind'] == 'pill' and not d['moved']:  # a click, not a drag: expand / collapse
+                if self._open() == d['open_at_press']:
+                    self.drag = None
+                    self.pill_clicks += 1
+                    out += self.control.pill_click(d['index'])
+                else:  # a key changed the open panel while the button was down: that key wins, the release is dropped
+                    self.stale_clicks += 1
+            out += self._end_drag()
         elif self.active() and self.mode == 'free' and not idle and self.pointer is not None:
             out += self._end_drag()  # a press during a drag: its release was lost; finish that one first
-            self.hover = hit(self.geometry, self.control.state.placements, self.pointer)
-            h = self.hover
+            open_ = self._open()
+            self.hover = h = self._hit()
+            if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner')):
+                self.outside_closes += 1
+                out += self.control.pill_close()  # a click outside collapses the open panel; the press carries on (what
+                # it hit was not on that panel, so the panel's going changes nothing about it)
             if h is not None and h[0] in ('corner', 'pill'):
                 i, tile, p = h[1], self._tile(h[1]), self._placement(h[1])
                 if h[0] == 'corner':
                     self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile}
                     self.drags += 1
-                else:
-                    self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile}
-                    self.moves += 1
-            elif h is not None:  # a desktop: focus it and hand the cursor back right there
+                else:  # the desktop moves only once the pointer is CLICK_PX away; a release before that is a click
+                    self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile, 'moved': False,
+                                 'open_at_press': self._open()}  # after any click-outside collapse above
+            elif h is not None and h[0] == 'slider':
+                i = h[1]
+                self.drag = {'kind': 'slider', 'index': i, 'field': h[2], 'tile': self._tile(i), 'placement': dict(self._placement(i))}
+                self.slides += 1
+                # The value jumps to the pointer; the panel stays drawn on the press-time placement until the release.
+                out += self.control.pill_slide(i, h[2], slider_fraction(h[3]), surface=self.drag['placement'])
+            elif h is not None and h[0] == 'desktop':  # focus it and hand the cursor back right there
                 self.focus_clicks += 1
                 out += self._enter(h[1], h[2])
+            # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
 
     def _aspects(self):
@@ -508,11 +608,23 @@ class OverviewPointer:
         d = self.drag
         if d is None or self.pointer is None: return b''
         c = self.control
+        if d['kind'] == 'slider':
+            # Measured on the panel as it was at the press, where the renderer keeps drawing it until the release (the
+            # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
+            # A key that collapsed or moved the panel meanwhile dropped that surface: the rest of this drag does nothing.
+            if c.state.menu_surface is None: return b''
+            q = unproject(self.geometry, d['tile'], d['placement'], self.pointer)
+            if q is None: return b''
+            return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
         current = c.state.placements[d['index']]
         dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
         if d['kind'] == 'corner':
             updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], dx, dy, d['tile'])}
         else:
+            if not d['moved']:
+                if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
+                d['moved'] = True
+                self.moves += 1
             target = move_target(d['xy'], dx, dy, d['tile'])
             x, y = resize.allowed_move(d['index'], (current['x'], current['y']), target, c.state.placements, self._aspects())
             updated = {**current, 'x': x, 'y': y}
@@ -522,10 +634,14 @@ class OverviewPointer:
         return c._placement_frame() + (c._menu_frame() if c.state.menu_open else b'')
 
     def _end_drag(self):
-        if self.drag is None: return b''
+        """Release, idle, zoom-in, typing mode or a video: the drag ends and is saved at once. A held slider's panel goes
+        back onto its desktop's live placement (a `placement_menu` frame without `surface`)."""
+        d = self.drag
+        if d is None: return b''
         self.drag = None
+        out = self.control.pill_release() if d['kind'] == 'slider' else b''
         self.control.flush()  # saved at once on release (no-op if nothing changed)
-        return b''
+        return out
 
     # --- frames ---------------------------------------------------------------------------------------------------
     def _send(self, make, state):
@@ -546,10 +662,12 @@ class OverviewPointer:
         return self._send(resize.handle_frame, want)
 
     def _pills(self, idle):
-        """Bars show above every desktop in the overview while the pointer moved in the last 30 s (OLED idle close)."""
+        """`move_handle`: the glass pills show under every desktop in the overview while the pointer moved in the last
+        30 s (OLED idle close; an open panel is drawn regardless). hover: the pointer is on that pill or the open panel's
+        header (or holds it); active: that pill is being dragged (moved past CLICK_PX)."""
         visible = self.active() and not idle
         d, h = self.drag, self.hover
-        if d is not None and d['kind'] == 'pill': target, hover, active = d['index'], True, True
+        if d is not None and d['kind'] == 'pill': target, hover, active = d['index'], True, d['moved']
         elif d is None and self.mode == 'free' and h is not None and h[0] == 'pill': target, hover, active = h[1], True, False
         else: target, hover, active = self.pills['desktop'], False, False
         want = {'visible': visible, 'desktop': target, 'hover': hover and visible, 'active': active and visible}

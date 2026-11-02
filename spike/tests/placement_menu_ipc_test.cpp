@@ -48,30 +48,28 @@ int main(int argc, char** argv) {
         return 77;
     }
     if (ok != valid.size()) { std::cerr << ok << "/" << valid.size() << " valid payloads accepted\n"; ++failures; }
-    // Mouse mode's pointer is its own op, "menu_pointer": valid payloads decode exactly, malformed ones are dropped
-    // (ignorable, like a malformed placement_menu) and never reach the renderer.
-    auto pointer_frame = [](const nlohmann::json& payload, unsigned rid) {
-        nlohmann::json j = {{"schema", 1}, {"request_id", rid}, {"run_id", "run"}, {"session", "session"}, {"op", "menu_pointer"}, {"payload", payload}};
-        return j.dump() + "\n";
-    };
-    for (const auto& p : cases.value("menu_pointer_valid", nlohmann::json::array())) {
-        const auto r = xr::decode_control(pointer_frame(p, id++));
+    // A held slider's "surface" arrives as the placement the open panel is drawn on; without it there is none.
+    unsigned surfaces = 0;
+    for (const auto& p : valid) {
+        const auto r = xr::decode_control(frame(p, id++));
         const auto* m = std::get_if<xr::ControlMessage>(&r);
-        const auto* ptr = m ? std::get_if<xr::MenuPointerPayload>(&m->payload) : nullptr;
-        if (!ptr || ptr->visible != p.at("visible").get<bool>() || ptr->x != p.at("x").get<int>() || ptr->y != p.at("y").get<int>() ||
-            ptr->held != p.at("held").get<bool>()) { ++failures; std::cerr << "menu_pointer payload not decoded: " << p.dump() << "\n"; }
+        const auto* menu = m ? std::get_if<xr::PlacementMenuPayload>(&m->payload) : nullptr;
+        if (!menu) continue;
+        if (menu->surface.has_value() != p.contains("surface")) { ++failures; std::cerr << "surface lost or invented: " << p.dump() << "\n"; continue; }
+        if (!menu->surface) continue;
+        ++surfaces;
+        const auto& w = *menu->surface; const auto& j = p.at("surface");
+        if (w.x != j.at("x") || w.y != j.at("y") || w.distance != j.at("distance") || w.yaw != j.at("yaw") || w.pitch != j.at("pitch") ||
+            w.roll != j.at("roll") || w.curvature != j.at("curvature")) { ++failures; std::cerr << "surface decoded wrong: " << p.dump() << "\n"; }
     }
-    for (const auto& c : cases.value("menu_pointer_invalid", nlohmann::json::array())) {
-        const auto r = xr::decode_control(pointer_frame(c.at("payload"), id++));
-        const auto* e = std::get_if<xr::Error>(&r);
-        // A well-framed object is dropped and the run goes on; a non-object payload fails the envelope like any op.
-        if (!e || (c.at("payload").is_object() && !xr::ignorable_control_error(*e))) {
-            ++failures; std::cerr << "menu_pointer not dropped (" << c.at("why") << ")\n";
-        }
+    if (ok && surfaces == 0) { ++failures; std::cerr << "the fixture has no valid payload with a surface\n"; }
+    // The old head-locked menu's mouse-mode pointer op ("menu_pointer") is gone with the menu card: rejected outright.
+    {
+        nlohmann::json j = {{"schema", 1}, {"request_id", id++}, {"run_id", "run"}, {"session", "session"}, {"op", "menu_pointer"},
+                            {"payload", {{"visible", true}, {"x", 1}, {"y", 2}, {"held", false}}}};
+        if (!std::holds_alternative<xr::Error>(xr::decode_control(j.dump() + "\n"))) { ++failures; std::cerr << "menu_pointer still decoded\n"; }
     }
     if (failures) return 1;
-    std::cout << "placement_menu: " << ok << " valid accepted, " << cases.at("invalid").size() << " invalid rejected, "
-              << cases.value("menu_pointer_valid", nlohmann::json::array()).size() << " + "
-              << cases.value("menu_pointer_invalid", nlohmann::json::array()).size() << " menu_pointer cases\n";
+    std::cout << "placement_menu: " << ok << " valid accepted, " << cases.at("invalid").size() << " invalid rejected, menu_pointer retired\n";
     return 0;
 }

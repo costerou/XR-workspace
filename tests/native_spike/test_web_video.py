@@ -32,13 +32,6 @@ def web(*sources, **kw):
     return out
 
 
-def close_wake(ctl):
-    """ViewControl's mouse-mode wake socketpair (view.py); closed so tests leave no sockets behind."""
-    for name in ('mouse_wake', '_mouse_wake_writer'):
-        sock = getattr(ctl, name, None)
-        if sock is not None: sock.close()
-
-
 def frames(data):
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
@@ -297,7 +290,6 @@ class RelayTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
                                clock=clock, menu_binds=lambda on: None)
-        self.addCleanup(close_wake, ctl)
         v = video.VideoControl(ctl, probe=lambda fd: None, threads=False, clock=clock, allow_local=True)
         self.addCleanup(v.close)
         page = web({'src': self.base + '/hls/index.m3u8', 'type': 'application/x-mpegurl'}, {'src': self.base + '/beach_180_LR.mp4', 'quality': '1080p'},
@@ -325,7 +317,6 @@ class RelayTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
                                clock=clock, menu_binds=lambda on: None)
-        self.addCleanup(close_wake, ctl)
         v = video.VideoControl(ctl, probe=lambda fd: None, threads=False, clock=clock, allow_local=True)
         self.addCleanup(v.close)
         v.on_message({'op': 'video_open', 'payload': {'url': self.base + '/vrpage'}})
@@ -376,7 +367,6 @@ class WebControlTests(unittest.TestCase):
         self.clock = Clock()
         self.view = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(self.tmp.name) / 'l.json'),
                                      None, clock=self.clock, menu_binds=lambda on: None)
-        self.addCleanup(close_wake, self.view)
         self.relays, self.probed, self.told = [], [], []
         self.info = {'width': 8192, 'height': 4096, 'codec': 'hevc', 'fps': 30.0, 'duration': 600.0, 'projection': None,
                      'coverage': None, 'stereo': None}
@@ -530,10 +520,10 @@ class WebVideoGatingTests(unittest.TestCase):
         self.op('video_open', {'url': 'https://cdn.example.com/clips/Alps_360_TB.mp4'})
         self.poll()
         self.assertTrue(self.v.active); self.assertEqual(self.v.snapshot()['origin'], 'web')
-        self.assertTrue(self.view.video_active)  # the overview free pointer (bars, corners) is off
+        self.assertTrue(self.view.video_active)  # the overview free pointer (pills, corners) is off
         self.assertFalse(self.view.help_visible or self.view.state.menu_open)
         self.assertFalse(r.overview())
-        for op in ('menu_toggle', 'menu_mouse_press', 'resize_press', 'send_glasses', 'send_glasses_1', 'zoom_in'):
+        for op in ('menu_toggle', 'menu_back', 'resize_press', 'send_glasses', 'send_glasses_1', 'zoom_in'):
             with self.subTest(op=op): self.assertIsNone(self.op(op))
         self.assertEqual(requests, []); self.assertFalse(self.view.state.menu_open)
         self.op('video_exit')
@@ -736,7 +726,6 @@ class PageFailureTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
                                clock=clock, menu_binds=lambda on: None)
-        self.addCleanup(close_wake, ctl)
         self.relays = []
         v = video.VideoControl(ctl, probe=lambda fd: None, threads=False, clock=clock, web_probe=probe, web_resolve=resolve,
                                relay_factory=lambda argv: FakeRelay(argv, self.relays))

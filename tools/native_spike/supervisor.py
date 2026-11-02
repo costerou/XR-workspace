@@ -95,12 +95,6 @@ class Supervisor:
                         geometry = parse_overview_geometry(value['overview_geometry'])
                         handler = getattr(self.control, 'set_overview_geometry', None)
                         if handler is not None: handler(geometry)
-                    elif isinstance(value, dict) and set(value) == {'menu_geometry'}:
-                        # The menu card's layout, sent when it changes (mouse-mode hit testing); not run status.
-                        from .view import parse_menu_geometry
-                        geometry = parse_menu_geometry(value['menu_geometry'])
-                        handler = getattr(self.control, 'set_menu_geometry', None)
-                        if handler is not None: handler(geometry)
                     else:
                         if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video'}:
                             raise ValueError('invalid status')
@@ -186,10 +180,6 @@ class Supervisor:
                 wake = getattr(self.control, 'wake', None)  # overview free pointer sampler: run poll() now, not at the next tick
                 if not isinstance(wake, socket.socket): wake = None
                 if wake is not None: selector.register(wake, selectors.EVENT_READ)
-                # Placement-menu mouse mode: the cursor sampler pokes this so poll() moves the pointer at once.
-                mouse_wake = getattr(self.control, 'mouse_wake', None)
-                if not isinstance(mouse_wake, socket.socket) or mouse_wake.fileno() < 0: mouse_wake = None
-                if mouse_wake is not None: selector.register(mouse_wake, selectors.EVENT_READ)
                 while not self.finished:
                     now = time.monotonic()
                     # Expiry precedes reading queued heartbeats: delayed bytes
@@ -217,9 +207,6 @@ class Supervisor:
                         if wake is not None and key.fileobj is wake:
                             self.control.overview_pointer.drain()  # poll() below applies the new pointer sample
                             continue
-                        if mouse_wake is not None and key.fileobj is mouse_wake:
-                            self.control.drain_mouse_wake()  # poll() below moves the menu pointer
-                            continue
                         if key.fileobj is status_socket:
                             try: data = status_socket.recv(16385)
                             except BlockingIOError: continue
@@ -234,7 +221,7 @@ class Supervisor:
                             self.disconnect(now)
                             selector.unregister(heartbeat_socket)
                     self.tick(time.monotonic())
-                    poll = getattr(self.control, 'poll', None)  # debounced placement-menu save, overlay idle close
+                    poll = getattr(self.control, 'poll', None)  # free pointer, debounced panel save, overlay idle close
                     if poll is not None:
                         out = poll(time.monotonic())
                         if isinstance(out, (bytes, bytearray)) and out: self._send(out, heartbeat_socket)  # keeps FdFrame descriptors

@@ -15,46 +15,48 @@ in the glasses whenever the viewing mode, cursor follow or prediction changes (a
 Per-desktop placement (position, distance, yaw/pitch/roll, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
-Placement menu (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): an in-glasses, keyboard-driven editor for the same placements.
-While it is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R, Escape, Ctrl+Alt+M) is installed and it is removed
-again on close. Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu`
-frame (the drawn overlay) and saved to the profile 500 ms after the last change, or at once when the menu closes.
-Menu ops are not in USER_OPS, so they are not panel capabilities either.
+Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a frosted-glass pill
+under every desktop (spike/include/xr/glass.hpp). One at a time expands, with a short morph, into that desktop's own
+placement panel: the same seven settings the panel edits (position, distance, yaw/pitch/roll, curvature) as sliders.
+Ctrl+Alt+L expands the selected desktop's pill (zooming out to the overview first if zoomed in) or collapses whichever
+is open; the overview free pointer clicks a pill to expand it (collapsing any other) and the pill, or anything outside
+the panel, to collapse it. While a panel is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R,
+Escape) is installed and it is removed again on close: Up/Down pick the setting, Left/Right adjust it (Shift: big step),
+Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that desktop back flat, Escape collapses.
+Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu` frame
+(open + desktop = the expanded pill; while the free pointer holds a slider, also `surface`, the press-time placement the
+renderer keeps the panel on) and saved to the profile 500 ms after the last change, or at once when the panel
+collapses. Zooming in collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
-space as a small dim dot, to drag a desktop's bar (move), drag its corner (resize, the `distance` placement) or click a
-desktop to focus it; inside a desktop the real cursor works on windows as usual. resize_press and resize_release come
-from modal left-button binds that exist only while the pointer is outside the desktops; they are not USER_OPS.
-It is off while the placement menu is open, so the menu's mouse mode and a free-pointer drag never share a click.
+space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
+pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to focus it; inside a
+desktop the real cursor works on windows as usual (a click there goes to the window, so it leaves an open panel
+open). resize_press and resize_release come from modal left-button binds that exist only while the pointer is outside
+the desktops; they are not USER_OPS.
 
 Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1/2/3 to XR-n, Ctrl+Alt+B back to the physical
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
 add no help card row (a 13th row does not fit); the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
 
 Typing mode (Ctrl+Alt+T, TYPING_OP): one chord that hands the keyboard back while the run keeps going. Entering it
-closes the placement menu and the help card, then reinstalls the run's bind table with only the Ctrl+Alt+T bind in
-it: the view binds, the send-window binds, the menu and mouse-mode binds, the overview free pointer (its left-button binds, hidden cursor
-and dot) and a playing video's bare-key binds are all released, so arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach
-the focused window. Ctrl+Alt+T again puts every bind back (control mode). The mode is in the `view` payload, so the
-renderer shows a short, dimmed pop-up when it changes; it is never saved and every run starts in control mode. Config
-reloads keep the current mode (after_reload in managed.py reinstalls the matching set). Panel buttons keep working.
+collapses an open placement panel and closes the help card, then reinstalls the run's bind table with only the
+Ctrl+Alt+T bind in it: the view binds, the send-window binds, the panel's modal binds, the overview free pointer (its
+left-button binds, hidden cursor, dot and the pills) and a playing video's bare-key binds are all released, so arrows,
+Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach the focused window. Ctrl+Alt+T again puts every bind back
+(control mode). The mode is in the `view` payload, so the renderer shows a short, dimmed pop-up when it changes; it is
+never saved and every run starts in control mode. Config reloads keep the current mode (after_reload in managed.py
+reinstalls the matching set). Panel buttons keep working.
 
-Mouse mode (Ctrl+Alt+M while the menu is open, a modal menu bind): each menu row is drawn as a slider, and a round
-pointer moves freely over the whole card, 1:1 with the mouse. A sampler thread reads Hyprland's cursor position every
-MOUSE_SAMPLE_S, adds up the motion (re-centring the hidden cursor so it never stops at a screen edge) and wakes the
-supervisor loop, which moves the pointer in card pixels and sends one small `menu_pointer` frame; the renderer draws it
-as its own overlay on the next frame without re-rendering the card. The renderer reports the card's layout (tabs and
-sliders, in card pixels) on its status socket (`menu_geometry`); clicks are hit-tested against it here. While mouse mode
-is on, a left-click bind (MOUSE_BINDS) snaps the slider under the pointer to the pointer and drags it until release (a
-click on a desktop tab selects it; elsewhere a click does nothing), the desktop cursor is hidden (runtime
-`cursor.invisible`) and cursor follow is paused. Ctrl+Alt+M again or Escape leave mouse mode: the cursor is shown again
-and put back where it was. Any mouse motion or click counts as input for the overlay idle close.
+Legacy cleanup: builds before the glass pills had a menu "mouse mode" (Ctrl+Alt+M) with its own left-button binds and
+hidden cursor. A run of such a build that died in mouse mode left those behind; remove_menu_binds_lua() (and the bind
+helper xr_control.py, which still accepts the old op names for this only) removes them and shows the cursor again, a
+no-op when there are none.
 """
 import math
 import json
 import os
 from pathlib import Path
 import re
-import socket
 import threading
 import time
 
@@ -77,42 +79,33 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
 TYPING_OP = 'typing_toggle'
 TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, drag bars/corners',
+HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction',
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'typing_toggle': 'Typing mode: XR keys off / on',
-                'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)', 'video_open': 'Play a 180/360 VR video',
+                'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied'}
-# Placement menu: actions (shared contract with the renderer overlay and tests) and the modal binds present only while open.
+# Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
+# placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
-            'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back')
-# menu_back (Escape): leaves mouse mode if it is on, otherwise closes the menu. Ctrl+Alt+M is free in Omarchy and in
-# this run's binds (tools/native_spike/bind_check.py checks it against the real config with Hyprland --verify-config).
+            'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back')
+# menu_back (Escape) collapses the open panel; Tab / Shift+Tab move it to the next / previous desktop (only one is open).
 MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', 'menu_dec'), ('right', 'menu_inc'),
               ('SHIFT + left', 'menu_dec_big'), ('SHIFT + right', 'menu_inc_big'), ('Tab', 'menu_desktop_next'),
-              ('SHIFT + Tab', 'menu_desktop_prev'), ('R', 'menu_reset'), ('Escape', 'menu_back'),
-              ('CTRL + ALT + M', 'menu_mouse'))
-# Mouse mode only: the left button (press, and release with { release = true }). Clicks go to the menu, not to windows.
-MOUSE_OPS = ('menu_mouse_press', 'menu_mouse_release')
-MOUSE_BINDS = (('mouse:272', 'menu_mouse_press'), ('mouse:272', 'menu_mouse_release'))
+              ('SHIFT + Tab', 'menu_desktop_prev'), ('R', 'menu_reset'), ('Escape', 'menu_back'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
-# (The overview free pointer is off in typing mode: free_pointer.OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + MOUSE_OPS + SEND_OPS
-# Pointer, in menu-card pixels (the card is drawn 1:1 in the glasses): free over the whole card.
-MOUSE_GAIN = 1.0           # card pixels per cursor pixel (the cursor's own speed and acceleration already apply)
-MOUSE_SAMPLE_S = 1 / 250   # cursor reads while mouse mode is on: faster than the glasses' 120 Hz
-MOUSE_RECENTRE_PX = 200    # the hidden cursor is put back to where mouse mode started once it is this far away
-MOUSE_JUMP_PX = 1500       # a single sample moving farther than this is a warp, not a hand movement: re-baseline
-MOUSE_SLOP_PX = 12         # a click this far past either end of a slider still grabs it (the pointer's radius)
-MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx
+# (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS
+MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 10), 'y': (2, 10), 'distance': (5, 25), 'yaw': (1, 10), 'pitch': (1, 10), 'roll': (1, 10),
               'curvature': (2, 20)}
-MENU_SAVE_DELAY = 0.5  # seconds after the last menu change before the profile is written
-# The help card and the placement menu close by themselves after this many seconds without input (a run key or a
-# panel placement change), so static text does not burn into the glasses' micro-OLED panels. Change it here; the
+MENU_SAVE_DELAY = 0.5  # seconds after the last panel change (key, slider or pill drag) before the profile is written
+# The help card and an open placement panel close by themselves after this many seconds without input (a run key, a
+# free-pointer click or slider, pointer motion while a panel is open, or a panel placement change), so static text does
+# not burn into the glasses' micro-OLED panels. Change it here; the
 # help card's footer note repeats it from spike/include/xr/hud.hpp kOverlayIdleCloseS (a test keeps them equal).
 OVERLAY_IDLE_CLOSE_S = 30
 KEY_NAMES = {'CTRL': 'Ctrl', 'ALT': 'Alt', 'SHIFT': 'Shift', 'SUPER': 'Super', 'up': 'Up', 'down': 'Down', 'left': 'Left',
@@ -197,53 +190,26 @@ def placement_frame(run_id, session, request_id, placements):
 
 
 def placement_menu_frame(run_id, session, request_id, menu):
-    from .geometry import PLACEMENT_KEYS, validate_placements
+    """Renderer `placement_menu` frame: open + desktop = that desktop's pill is expanded into its placement panel (open
+    false: every pill collapsed), field = the highlighted setting, placements = what the panel shows (always three).
+    Optional `surface`, open panels only: while the free pointer holds one of its sliders, the placement the panel is
+    drawn on (its desktop's at the press; spike/include/xr/ipc.hpp PlacementMenuPayload)."""
+    from .geometry import PLACEMENT_KEYS, validate_placement, validate_placements
     keys = {'open', 'desktop', 'field', 'placements'}
-    if not isinstance(menu, dict) or set(menu) != keys: raise ValueError('invalid menu')
+    if not isinstance(menu, dict) or set(menu) - {'surface'} != keys: raise ValueError('invalid menu')
     if type(menu['open']) is not bool or type(menu['desktop']) is not int or not 0 <= menu['desktop'] <= 2 \
-            or menu['field'] not in PLACEMENT_KEYS:
+            or menu['field'] not in PLACEMENT_KEYS or ('surface' in menu and menu['open'] is not True):
         raise ValueError('invalid menu')
     payload = {'open': menu['open'], 'desktop': menu['desktop'], 'field': menu['field'],
                'placements': validate_placements(menu['placements'])}
+    if 'surface' in menu: payload['surface'] = validate_placement(menu['surface'])
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'placement_menu',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
 
 
-def menu_pointer_frame(run_id, session, request_id, pointer):
-    """Mouse-mode pointer for the renderer: {visible, x, y, held}, x/y in menu-card pixels (spike/src/ipc.cpp checks the same)."""
-    if not isinstance(pointer, dict) or set(pointer) != {'visible', 'x', 'y', 'held'} or type(pointer['visible']) is not bool \
-            or type(pointer['held']) is not bool or any(type(pointer[k]) is not int or not 0 <= pointer[k] <= MAX_POINTER_PX for k in 'xy'):
-        raise ValueError('invalid menu pointer')
-    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'menu_pointer',
-                        'payload': dict(pointer)}, separators=(',', ':')) + '\n').encode()
-
-
-def parse_menu_geometry(value):
-    """The renderer's `menu_geometry` status line (spike/src/hud.cpp menu_geometry_json) -> a validated dict:
-    {'w', 'h', 'tabs': [(x0, y0, x1, y1)] * 3, 'sliders': [(field index, top, bottom, lo_x, hi_x), ...]}. ValueError if malformed."""
-    from .geometry import PLACEMENT_KEYS
-    def ints(seq, n):
-        if not isinstance(seq, list) or len(seq) != n or any(type(v) is not int or not -MAX_POINTER_PX <= v <= MAX_POINTER_PX for v in seq):
-            raise ValueError('invalid menu geometry')
-        return tuple(seq)
-    if not isinstance(value, dict) or set(value) != {'w', 'h', 'tabs', 'sliders'}: raise ValueError('invalid menu geometry')
-    w, h = value['w'], value['h']
-    if type(w) is not int or type(h) is not int or not 0 < w <= MAX_POINTER_PX or not 0 < h <= MAX_POINTER_PX:
-        raise ValueError('invalid menu geometry')
-    if not isinstance(value['tabs'], list) or len(value['tabs']) != 3 or not isinstance(value['sliders'], list) \
-            or not 1 <= len(value['sliders']) <= len(PLACEMENT_KEYS):
-        raise ValueError('invalid menu geometry')
-    tabs = [ints(t, 4) for t in value['tabs']]
-    sliders = [ints(sl, 5) for sl in value['sliders']]
-    fields = [sl[0] for sl in sliders]
-    if any(not x0 < x1 or not y0 < y1 for x0, y0, x1, y1 in tabs) or len(set(fields)) != len(fields) \
-            or any(not 0 <= f < len(PLACEMENT_KEYS) or not top < bottom or not lo < hi for f, top, bottom, lo, hi in sliders):
-        raise ValueError('invalid menu geometry')
-    return {'w': w, 'h': h, 'tabs': tabs, 'sliders': sliders}
-
-
 def warp_cursor_lua(x, y):
-    """Put the (hidden) cursor at layout pixel (x, y): mouse mode re-centres it so it never stops at a screen edge."""
+    """Put the cursor at layout pixel (x, y): the overview free pointer parks its hidden cursor (and re-centres it, so it
+    never stops at a screen edge) and hands it back where the pointer re-enters a desktop."""
     if any(type(v) is not int or not -1_000_000 <= v <= 1_000_000 for v in (x, y)): raise ValueError('invalid cursor position')
     return f'pcall(function() hl.dispatch(hl.dsp.cursor.move({{ x = {x}, y = {y} }})) end)'
 
@@ -262,125 +228,67 @@ class ViewState:
             [dict(DEFAULT_PLACEMENT) for _ in range(len(self.names) - len(placements))]
         # Typing mode (Ctrl+Alt+T): every run bind but the toggle released. Never saved; each run starts in control mode.
         self.typing = False
-        # Placement menu; never saved, starts closed. `menu_desktop` indexes self.names.
+        # Placement pills; never saved, every pill starts collapsed. menu_open + menu_desktop (an index into self.names):
+        # that desktop's pill is expanded into its panel (only one ever is); menu_field: the highlighted setting.
         self.menu_open, self.menu_desktop, self.menu_field = False, 0, 'x'
-        # Mouse mode pointer {'x', 'y' (card pixels, float), 'held': field key or None, 'placed': bool}, or None when off;
-        # only while open. `geometry` is the renderer's menu layout (parse_menu_geometry), None until it reports one.
-        self.mouse, self.geometry = None, None
+        # While the free pointer holds one of the open panel's sliders: the desktop's placement at the press, which the
+        # renderer draws the panel on (hold_surface). None otherwise; any collapse or switch of the open panel drops it.
+        self.menu_surface = None
 
     def menu(self):
-        """`placement_menu` payload: always three placements (desktops beyond this run's outputs are shown flat)."""
+        """`placement_menu` payload: always three placements (desktops beyond this run's outputs are shown flat), plus
+        `surface` while a slider of the open panel is held."""
         from .geometry import DEFAULT_PLACEMENT
         placements = [dict(p) for p in self.placements] + [dict(DEFAULT_PLACEMENT) for _ in range(3 - len(self.placements))]
-        return {'open': self.menu_open, 'desktop': self.menu_desktop, 'field': self.menu_field, 'placements': placements}
+        out = {'open': self.menu_open, 'desktop': self.menu_desktop, 'field': self.menu_field, 'placements': placements}
+        if self.menu_open and self.menu_surface is not None: out['surface'] = dict(self.menu_surface)
+        return out
 
-    def pointer(self):
-        """`menu_pointer` payload. Shown once mouse mode is on and the card's layout is known."""
-        m = self.mouse
-        if m is None or not m['placed']: return {'visible': False, 'x': 0, 'y': 0, 'held': False}
-        return {'visible': True, 'x': int(math.floor(m['x'] + 0.5)), 'y': int(math.floor(m['y'] + 0.5)), 'held': m['held'] is not None}
+    def open_menu(self, desktop):
+        """Expand `desktop`'s pill into its panel; an open one on another desktop collapses (only one is ever open)."""
+        if type(desktop) is not int or not 0 <= desktop < len(self.names): raise ValueError('invalid desktop')
+        self.menu_open, self.menu_desktop, self.menu_surface = True, desktop, None
 
-    def _slider(self, field):
-        from .geometry import PLACEMENT_KEYS
-        if self.geometry is None: return None
-        return next((sl for sl in self.geometry['sliders'] if sl[0] == PLACEMENT_KEYS.index(field)), None)
+    def hold_surface(self, placement):
+        """The free pointer pressed one of the open panel's sliders: draw the panel on `placement` (the desktop's at the
+        press, which the drag is measured on) until hold_surface(None) at the release. Ignored with every pill collapsed."""
+        from .geometry import validate_placement
+        placement = None if placement is None else validate_placement(placement)
+        self.menu_surface = placement if self.menu_open else None
 
-    def _knob_x(self, slider, field):
+    def slide(self, field, t):
+        """The open panel's slider for `field` pressed or dragged at fraction `t` of its track (0 = low bound, 1 = high):
+        that setting becomes the highlighted one and takes the whole-unit value there (geometry.PLACEMENT_BOUNDS).
+        True if a placement changed. Nothing happens while every pill is collapsed."""
         from .geometry import PLACEMENT_BOUNDS
+        if field not in PLACEMENT_BOUNDS or type(t) not in (int, float) or not math.isfinite(t): raise ValueError('invalid slider')
+        if not self.menu_open: return False
+        self.menu_field = field
         lo, hi = PLACEMENT_BOUNDS[field]
-        return slider[3] + (slider[4] - slider[3]) * (self.placements[self.menu_desktop][field] - lo) / (hi - lo)
-
-    def _place_pointer(self):
-        """First position once the layout is known: on the selected setting's knob, else the middle of the card."""
-        g, m = self.geometry, self.mouse
-        if g is None or m is None or m['placed']: return
-        slider = self._slider(self.menu_field)
-        if slider is not None: m['x'], m['y'] = self._knob_x(slider, self.menu_field), (slider[1] + slider[2]) / 2
-        else: m['x'], m['y'] = g['w'] / 2, g['h'] / 2
-        m['placed'] = True
-
-    def set_geometry(self, geometry):
-        """The renderer laid the card out (again). The pointer is placed or kept inside the card. True if it moved."""
-        before = self.pointer()
-        self.geometry = geometry
-        if self.mouse is not None:
-            self._place_pointer()
-            self.mouse['x'] = min(max(self.mouse['x'], 0.0), geometry['w'] - 1.0)
-            self.mouse['y'] = min(max(self.mouse['y'], 0.0), geometry['h'] - 1.0)
-            if self.mouse['held'] is not None and self._slider(self.mouse['held']) is None: self.mouse['held'] = None
-        return self.pointer() != before
-
-    def _set_from_pointer(self):
-        """A held slider takes the value under the pointer (clamped to its bounds). True if a placement changed."""
-        from .geometry import PLACEMENT_BOUNDS
-        field = self.mouse['held']
-        slider = self._slider(field)
-        if slider is None: return False
-        lo, hi = PLACEMENT_BOUNDS[field]
-        t = min(max((self.mouse['x'] - slider[3]) / (slider[4] - slider[3]), 0.0), 1.0)
-        value = lo + int(math.floor(t * (hi - lo) + 0.5))
+        value = lo + int(math.floor(min(max(t, 0.0), 1.0) * (hi - lo) + 0.5))
         current = self.placements[self.menu_desktop]
         if current[field] == value: return False
         self.placements = [{**current, field: value} if i == self.menu_desktop else p for i, p in enumerate(self.placements)]
         return True
 
-    def mouse_move(self, dx, dy):
-        """Cursor motion in mouse mode (Hyprland layout pixels): the pointer moves freely over the card. True if a held
-        slider changed a placement."""
-        m, g = self.mouse, self.geometry
-        if m is None or g is None or not m['placed']: return False
-        m['x'] = min(max(m['x'] + dx * MOUSE_GAIN, 0.0), g['w'] - 1.0)
-        m['y'] = min(max(m['y'] + dy * MOUSE_GAIN, 0.0), g['h'] - 1.0)
-        return self._set_from_pointer() if m['held'] is not None else False
-
-    def _press(self):
-        """Left button down: the slider under the pointer snaps to it and is held; a desktop tab is selected; elsewhere
-        nothing happens. True if a placement changed."""
-        from .geometry import PLACEMENT_KEYS
-        m, g = self.mouse, self.geometry
-        if m is None or g is None or not m['placed']: return False
-        x, y = m['x'], m['y']
-        for field, top, bottom, lo_x, hi_x in g['sliders']:
-            if top <= y < bottom and lo_x - MOUSE_SLOP_PX <= x <= hi_x + MOUSE_SLOP_PX:
-                self.menu_field = m['held'] = PLACEMENT_KEYS[field]
-                return self._set_from_pointer()
-        for desktop, (x0, y0, x1, y1) in enumerate(g['tabs']):
-            if x0 <= x < x1 and y0 <= y < y1 and desktop < len(self.names): self.menu_desktop = desktop
-        return False
-
-    def _mouse_off(self):
-        self.mouse = None
-
     def apply_menu(self, op):
-        """Update menu state and, for adjust/reset ops, the selected desktop's placement (clamped). True if placements changed.
+        """Update the pills' state and, for adjust/reset ops, the open desktop's placement (clamped). True if placements
+        changed.
 
-        Only menu_toggle acts while the menu is closed (its other binds exist only while open; a late key is ignored).
-        Mouse ops (press/release) act only in mouse mode.
+        menu_toggle expands the selected desktop's pill, or collapses the open one; menu_back (Escape) collapses. The
+        other ops act only while a panel is open (their binds exist only then; a late key is ignored).
         """
         from .geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
-        if op not in MENU_OPS + MOUSE_OPS: raise ValueError('unsupported menu operation')
-        if op == 'menu_back' and self.mouse is not None: op = 'menu_mouse'  # Escape leaves mouse mode first
-        elif op == 'menu_back': op = 'menu_toggle' if self.menu_open else None
+        if op not in MENU_OPS: raise ValueError('unsupported menu operation')
+        if op == 'menu_back': op = 'menu_toggle' if self.menu_open else None
         if op == 'menu_toggle':
-            self.menu_open = not self.menu_open
-            if self.menu_open: self.menu_desktop = self.selected  # open on the desktop being looked at
-            else: self._mouse_off()
+            if self.menu_open: self.menu_open, self.menu_surface = False, None
+            else: self.open_menu(self.selected)  # the pill of the desktop being looked at
             return False
         if not self.menu_open: return False
-        if op == 'menu_mouse':
-            if self.mouse is not None: self._mouse_off()
-            else:  # the pointer starts on the selected setting's knob (once the layout is known)
-                self.mouse = {'x': 0.0, 'y': 0.0, 'held': None, 'placed': False}
-                self._place_pointer()
-            return False
-        if op in MOUSE_OPS:
-            if self.mouse is None: return False
-            if op == 'menu_mouse_release':
-                self.mouse['held'] = None
-                return False
-            return self._press()
-        if op in ('menu_desktop_next', 'menu_desktop_prev'):
+        if op in ('menu_desktop_next', 'menu_desktop_prev'):  # the open panel moves to the next / previous desktop's pill
             self.menu_desktop = (self.menu_desktop + (1 if op == 'menu_desktop_next' else -1)) % len(self.names)
+            self.menu_surface = None
             return False
         if op in ('menu_field_next', 'menu_field_prev'):
             i = PLACEMENT_KEYS.index(self.menu_field) + (1 if op == 'menu_field_next' else -1)
@@ -556,7 +464,7 @@ def _remove_lua(table):
 
 
 def remove_binds_lua():
-    """Run end / reinstall: the view binds, the send-window binds and any open menu's modal binds."""
+    """Run end / reinstall: the view binds, the send-window binds and an open placement panel's modal binds."""
     return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_menu_binds_lua()
 
 
@@ -576,7 +484,7 @@ def remove_send_binds_lua():
 
 
 def install_menu_binds_lua(python, client, control_socket, run_id, session):
-    """Modal placement-menu binds (bare arrows, Tab, R, Escape); replaces any surviving set, so never doubled."""
+    """Modal placement-panel binds (bare arrows, Tab, R, Escape); replaces any surviving set, so never doubled."""
     for p in (python, client, control_socket):
         if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
     for t in (run_id, session):
@@ -585,47 +493,26 @@ def install_menu_binds_lua(python, client, control_socket, run_id, session):
                                                       f'{python} -I {client} {control_socket} {run_id} {session}')
 
 
+# Legacy cleanup (module docstring): the left-button binds and hidden cursor of the old menu "mouse mode", which builds
+# before the glass pills installed. This build never creates xr_workspace_mouse_binds or xr_workspace_mouse, so the tail
+# is a no-op unless a run of an older build died in that mode: then the binds go and the cursor's own visibility and
+# position come back. Kept byte for byte (xr_control.REMOVE_MENU_BINDS repeats it; a test compares).
+_LEGACY_MOUSE_CLEANUP_LUA = (_remove_lua('xr_workspace_mouse_binds') + ' '
+                             'do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then '
+                             'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
+                             'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
+                             'end end')
+
+
 def remove_menu_binds_lua():
-    """Menu closed, run end, or (xr_control.py) a menu key with no run listening: also leaves mouse mode."""
-    return _remove_lua('xr_workspace_menu_binds') + ' ' + remove_mouse_binds_lua()
-
-
-# Mouse mode, entering: remember whether the cursor was hidden and where it was (only the first time, so a reinstall
-# after a config reload keeps the original), move it to the middle of its monitor so it has room to move in every
-# direction, and hide it. Every compositor call is wrapped in pcall: a refused cursor change never blocks the binds.
-_MOUSE_ENTER_LUA = ('if xr_workspace_mouse == nil then '
-                    'local ok, hidden = pcall(hl.get_config, "cursor.invisible") local p = hl.get_cursor_pos() '
-                    'xr_workspace_mouse = { invisible = ok and hidden == true, home = p and { x = p.x, y = p.y } } '
-                    'local m = hl.get_monitor_at_cursor() '
-                    'if m then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = m.x + m.width / m.scale / 2, '
-                    'y = m.y + m.height / m.scale / 2 })) end) end end '
-                    'pcall(hl.config, { cursor = { invisible = true } })')
-# Leaving: the cursor's own visibility back, and the cursor back where mouse mode found it.
-_MOUSE_LEAVE_LUA = ('do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then '
-                    'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
-                    'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
-                    'end end')
-
-
-def install_mouse_binds_lua(python, client, control_socket, run_id, session):
-    """Mouse mode on: hide the cursor and bind the left button (press and release) to the menu."""
-    for p in (python, client, control_socket):
-        if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
-    for t in (run_id, session):
-        if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
-    return (_remove_lua('xr_workspace_mouse_binds') + ' ' + _MOUSE_ENTER_LUA + ' ' +
-            _binds_lua('xr_workspace_mouse_binds', MOUSE_BINDS, f'{python} -I {client} {control_socket} {run_id} {session}'))
-
-
-def remove_mouse_binds_lua():
-    return _remove_lua('xr_workspace_mouse_binds') + ' ' + _MOUSE_LEAVE_LUA
+    """Panel collapsed, run end, or (xr_control.py) a panel key with no run listening; plus the legacy cleanup above."""
+    return _remove_lua('xr_workspace_menu_binds') + ' ' + _LEGACY_MOUSE_CLEANUP_LUA
 
 
 class ViewControl:
     """Supervisor-side handler: user op -> state, async focus, saved spacing, renderer view frame."""
     def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None, on_reload=None,
-                 placements=None, menu_binds=None, clock=time.monotonic, mouse_binds=None, cursor=None, warp=None,
-                 typing_binds=None):
+                 placements=None, menu_binds=None, clock=time.monotonic, typing_binds=None):
         self.state, self.run_id, self.session = state, run_id, session
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
@@ -639,9 +526,9 @@ class ViewControl:
         self.reloads = 0
         self.help_visible = False  # Ctrl+Alt+H card; never saved, starts hidden each run
         self.video_active = False  # a VR video plays in place of the desktops (video.VideoControl sets it)
-        self.last_input = clock()  # monotonic time of the last run key / panel change (overlay idle close)
+        self.last_input = clock()  # monotonic time of the last run key / click / panel change (overlay idle close)
         self.placements = placements  # optional store with save(list of 3); see profiles.PlacementStore
-        self.menu_binds = menu_binds  # optional (open: bool) -> None: install/remove the modal menu binds (compositor call)
+        self.menu_binds = menu_binds  # optional (open: bool) -> None: install/remove the panel's modal binds (compositor call)
         self.clock = clock
         self.save_due = None          # monotonic deadline of a pending debounced placement save
         self._menu_lock = threading.Lock()
@@ -649,26 +536,9 @@ class ViewControl:
         self._menu_threads = []
         self.overview_pointer = None  # optional free_pointer.OverviewPointer (overview free pointer); set by managed.view_controls
         self.wake = None    # optional socket the supervisor loop also waits on (the free pointer's sampler pokes it)
-        self.mouse_binds = mouse_binds  # optional (on: bool) -> None: mouse mode's click binds and hidden cursor
-        self.cursor = cursor            # optional () -> Hyprland cursorpos reply {'x', 'y'}; sampled off-loop in mouse mode
-        self.warp = warp                # optional (x, y) -> None: put the hidden cursor back (warp_cursor_lua), off-loop
-        self._mouse_binds_installed = False
-        self._mouse_forced_at = None    # last reinstall after a config reload (rate limited)
-        self._motion_lock = threading.Lock()
-        self._motion = [0.0, 0.0]       # cursor motion the sampler has seen and the loop has not applied yet
-        self._rebase = False            # set once the mouse binds (and the cursor warp) landed: next sample is the baseline
-        self._sampler = None
-        self._sampling = threading.Event()
-        self._pointer_sent = self.state.pointer()  # last menu_pointer payload sent to the renderer
-        # The sampler wakes the supervisor loop through this socket (supervisor.py waits on `mouse_wake`), so a mouse
-        # movement reaches the renderer within a sample, not at the loop's next 50 ms tick.
-        self.mouse_wake, self._mouse_wake_writer = socket.socketpair()
-        self.mouse_wake.setblocking(False); self._mouse_wake_writer.setblocking(False)
-        self.mouse_moves = 0            # diagnostic: loop ticks that moved the pointer
-        self.recentres = 0              # diagnostic: hidden-cursor re-centrings
-        self.sender = None              # optional send.WindowSender (Ctrl+Alt+G/1-3/B); set by managed.view_controls
+        self.sender = None  # optional send.WindowSender (Ctrl+Alt+G/1-3/B); set by managed.view_controls
         # optional (typing: bool) -> None: swap the run's bind table between the full set and the Ctrl+Alt+T toggle alone
-        # (a compositor call, run off the loop under _menu_lock so it is ordered with the menu's own bind changes).
+        # (a compositor call, run off the loop under _menu_lock so it is ordered with the panel's own bind changes).
         self.typing_binds = typing_binds
         self._typing_installed = False  # the bind set last put in place (False: the full set from install_view_binds)
 
@@ -708,161 +578,107 @@ class ViewControl:
         self.next_id += 1
         return frame
 
-    def _on_menu(self, op):
-        """Menu op: live placement frame first (if changed), then the overlay frame (if anything changed)."""
-        before = self.state.menu()
-        was_open, was_mouse = self.state.menu_open, self.state.mouse is not None
-        changed = self.state.apply_menu(op)
+    def _menu_update(self, change):
+        """Apply `change` (() -> True if a placement changed) to the pills' state: the live placement frame first (if one
+        changed; saved after MENU_SAVE_DELAY), then the `placement_menu` frame (if anything it shows changed). A panel
+        collapsing saves at once; the modal keys follow the panel being open (installed / removed off the loop)."""
+        before, was_open = self.state.menu(), self.state.menu_open
+        changed = change()
         out = b''
         if changed:
             out += self._placement_frame()
             self.save_due = self.clock() + MENU_SAVE_DELAY
-        if was_open and not self.state.menu_open: self.flush()  # closing saves at once
-        if (was_open, was_mouse) != (self.state.menu_open, self.state.mouse is not None):
-            if self.state.mouse is None: self._sampling.clear()
-            self._sync_menu_binds()
+        if was_open and not self.state.menu_open: self.flush()  # collapsing saves at once
+        if was_open != self.state.menu_open: self._sync_menu_binds()
         if self.state.menu() != before: out += self._menu_frame()
-        out += self._pointer_frame()
-        return out or None
+        return out
 
-    def _pointer_frame(self):
-        """A menu_pointer frame if the pointer changed since the last one sent (moves, shows, hides, holds)."""
-        pointer = self.state.pointer()
-        if pointer == self._pointer_sent: return b''
-        self._pointer_sent = pointer
-        frame = menu_pointer_frame(self.run_id, self.session, self.next_id, pointer)
-        self.next_id += 1
-        return frame
+    def _zoom_out(self):
+        """To the overview (the pills and panels are drawn there only), as Ctrl+Alt+Down does. A view frame."""
+        if self.overview_pointer is not None: self.overview_pointer.summon()  # a cursor off the desktops comes into one
+        self.state.apply('zoom_out')
+        return self._frame()
+
+    def _on_menu(self, op):
+        """Panel key op. Ctrl+Alt+L while zoomed in zooms out first, so the expanding pill is seen."""
+        out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
+        return (out + self._menu_update(lambda: self.state.apply_menu(op))) or None
+
+    # --- the overview free pointer's pill clicks and sliders (free_pointer.OverviewPointer) ------------------------------
+    def pill_click(self, desktop):
+        """A click on `desktop`'s pill (or its open panel's header): expand it, collapsing any other (only one is open),
+        or collapse it if it is the open one. Same path as Ctrl+Alt+L: the modal keys are installed / removed, a
+        collapsing panel is saved at once and the idle close restarts. Renderer frames (bytes)."""
+        if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
+        if self.state.typing or self.video_active: return b''  # the free pointer is off then; a stale click does nothing
+        self.last_input = self.clock()
+        if self.state.menu_open and self.state.menu_desktop == desktop: return self._on_menu('menu_toggle') or b''
+        if self.state.menu_open: self.flush()  # the other desktop's panel collapses: its changes are saved at once
+        out = self._zoom_out() if self.state.zoomed else b''  # (the free pointer only clicks in the overview anyway)
+        return out + self._menu_update(lambda: self.state.open_menu(desktop) or False)
+
+    def pill_close(self):
+        """A press outside the open panel: collapse it (saved at once, modal keys removed). Frames (bytes), b'' if none."""
+        if not self.state.menu_open: return b''
+        return self._on_menu('menu_toggle') or b''
+
+    def pill_slide(self, desktop, field, t, surface=None):
+        """The free pointer pressed or drags the open panel's `field` slider at fraction `t` of its track: that setting is
+        highlighted and takes the value there, applied live and saved like a key change (MENU_SAVE_DELAY, at once on
+        release). `surface` (the press): the desktop's placement then, which the renderer draws the panel on until
+        pill_release, so the knob stays under the pointer the drag is measured with. Ignored unless `desktop`'s panel is
+        the open one. Frames (bytes)."""
+        if not self.state.menu_open or self.state.menu_desktop != desktop: return b''
+        self.last_input = self.clock()  # a held slider keeps the panel up
+
+        def change():
+            if surface is not None: self.state.hold_surface(surface)
+            return self.state.slide(field, t)
+        return self._menu_update(change)
+
+    def pill_release(self):
+        """The held slider was let go (or its drag ended): the open panel goes back onto its desktop's live placement.
+        Frames (bytes), b'' if nothing was held."""
+        if self.state.menu_surface is None: return b''
+        return self._menu_update(lambda: self.state.hold_surface(None) or False)
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""
         if self.overview_pointer is not None: self.overview_pointer.set_geometry(geometry)
 
-    def set_menu_geometry(self, geometry):
-        """Supervisor: the renderer's menu layout (parse_menu_geometry). Places or clamps the pointer; the loop sends it."""
-        if self.state.set_geometry(geometry): self._poke()
-
-    def _poke(self):
-        try: self._mouse_wake_writer.send(b'.')
-        except OSError: pass  # full or closed: the loop's own tick picks it up
-
-    def drain_mouse_wake(self):
-        try:
-            while self.mouse_wake.recv(4096): pass
-        except OSError: pass
-
-    def _take_motion(self):
-        with self._motion_lock:
-            (dx, dy), self._motion = self._motion, [0.0, 0.0]
-        return dx, dy
-
-    def _mouse_tick(self, now):
-        """Supervisor loop: apply the motion gathered since the last tick. A held slider follows the pointer live."""
-        dx, dy = self._take_motion()
-        if not dx and not dy: return b''
-        self.last_input = now  # mouse motion keeps the menu up
-        self.mouse_moves += 1
-        before = self.state.menu()
-        out = b''
-        if self.state.mouse_move(dx, dy):
-            out += self._placement_frame()
-            self.save_due = now + MENU_SAVE_DELAY
-        if self.state.menu() != before: out += self._menu_frame()
-        return out
-
-    def _start_sampling(self):
-        self._rebase = True
-        if self.cursor is None: return
-        self._sampling.set()
-        if self._sampler is None or not self._sampler.is_alive():
-            self._sampler = threading.Thread(target=self._sample_cursor, daemon=True); self._sampler.start()
-
-    def _sample_cursor(self):
-        """Off-loop: read the cursor every MOUSE_SAMPLE_S while mouse mode is on (a read-only query), add up its motion,
-        and wake the loop. The hidden cursor is put back where sampling started once it strays MOUSE_RECENTRE_PX, so a
-        screen edge never stops the pointer."""
-        last = home = None
-        while self.cursor is not None:
-            if not self._sampling.wait(0.5):
-                last = home = None
-                continue
-            cursor = self.cursor
-            if cursor is None: break
-            if self._rebase: self._rebase, last, home = False, None, None
-            try:
-                reply = cursor()
-                x, y = reply['x'], reply['y']
-                if not (isinstance(x, (int, float)) and isinstance(y, (int, float)) and math.isfinite(x) and math.isfinite(y)):
-                    raise ValueError('cursor position')
-                x, y = float(x), float(y)
-            except (OSError, ValueError, TypeError, KeyError):
-                time.sleep(MOUSE_SAMPLE_S)
-                continue  # a missed sample just means no motion this time
-            if last is None: last = home = (x, y)
-            dx, dy = x - last[0], y - last[1]
-            last = (x, y)
-            if (dx or dy) and abs(dx) <= MOUSE_JUMP_PX and abs(dy) <= MOUSE_JUMP_PX:  # larger: a warp, not a hand
-                with self._motion_lock:
-                    self._motion[0] += dx; self._motion[1] += dy
-                self._poke()
-            warp = self.warp
-            if warp is not None and math.hypot(x - home[0], y - home[1]) > MOUSE_RECENTRE_PX:
-                try:
-                    warp(int(home[0]), int(home[1]))
-                    last = home; self.recentres += 1
-                except (OSError, ValueError, TypeError, KeyError): home = last  # could not move it: measure from here
-            time.sleep(MOUSE_SAMPLE_S)
-
     def _sync_menu_binds(self, force=False):
-        if self.menu_binds is None and self.mouse_binds is None:
-            if self.state.mouse is not None: self._start_sampling()
-            return
+        if self.menu_binds is None: return
         # Compositor call: never on the watchdog loop. The worker applies the state current when it runs, serialized,
-        # so a fast open/close/open cannot leave the binds out of step with the menu.
+        # so a fast open/close/open cannot leave the binds out of step with the panel.
         t = threading.Thread(target=self._menu_bind_work, args=(force,), daemon=True); t.start()
         self._threads.append(t); self._menu_threads.append(t)
 
-    def _menu_bind_work(self, force, mouse_allowed=True):
+    def _menu_bind_work(self, force):
         with self._menu_lock:
             binds, want = self.menu_binds, self.state.menu_open
-            mouse, want_mouse = self.mouse_binds, self.state.mouse is not None
-            # Leaving mouse mode first (cursor back), then the menu keys; entering in the opposite order.
-            if mouse is not None and not want_mouse and self._mouse_binds_installed:
-                try: mouse(False)
-                except (OSError, ValueError, TypeError, KeyError): pass  # the menu's own removal also leaves mouse mode
-                self._mouse_binds_installed = False
             if binds is not None and (want != self._menu_binds_installed or (force and want)):
                 try:
                     binds(want)
                     self._menu_binds_installed = want
-                    if not want: self._mouse_binds_installed = False  # remove_menu_binds_lua leaves mouse mode too
-                except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; Ctrl+Alt+L still closes the menu
-            if want_mouse and mouse_allowed and self.state.mouse is not None and (not self._mouse_binds_installed or force):
-                if mouse is not None:
-                    try:
-                        mouse(True)
-                        self._mouse_binds_installed = True
-                    except (OSError, ValueError, TypeError, KeyError): pass  # the pointer still moves; Esc still leaves
-                if self.state.mouse is not None: self._start_sampling()  # after the cursor moved to its start point
+                except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; Ctrl+Alt+L still collapses the panel
 
     def poll(self, now=None):
-        """Supervisor loop tick: write a debounced menu placement save once it is due, and close the help card and the
-        placement menu once they have been up OVERLAY_IDLE_CLOSE_S without input. Returns renderer frames or None."""
+        """Supervisor loop tick: the overview free pointer, a debounced panel placement save once it is due, and closing
+        the help card and an open panel once they have been up OVERLAY_IDLE_CLOSE_S without input. Frames or None."""
         now = self.clock() if now is None else now
-        out = self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # free pointer, bar / corner drags
-        out += self._mouse_tick(now) if self.state.mouse is not None else b''
+        out = self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
         if self.save_due is not None and now >= self.save_due: self.flush()
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
-            if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the menu keys
+            if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
-        out += self._pointer_frame()  # at most one per tick: the latest position
         return out or None
 
     def _typing_toggle(self):
-        """Ctrl+Alt+T: typing mode on (the menu and help card close, every run bind but this one goes) or back off."""
+        """Ctrl+Alt+T: typing mode on (an open panel collapses, the help card closes, every run bind but this one goes,
+        and the free pointer with its pills is off) or back off."""
         out = b''
         if not self.state.typing:
-            if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves; releases the menu keys
+            if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves; releases the panel keys
             if self.help_visible: out += self._help_toggle()
         self.state.typing = not self.state.typing
         self._sync_typing_binds()
@@ -880,7 +696,7 @@ class ViewControl:
             try:
                 binds(want)
                 self._typing_installed = want
-                if want: self._menu_binds_installed = self._mouse_binds_installed = False  # the swap removed those too
+                if want: self._menu_binds_installed = False  # the swap removed those too
             except (OSError, ValueError, TypeError, KeyError): pass  # best effort; Ctrl+Alt+T again retries
 
     def _help_toggle(self):
@@ -890,7 +706,7 @@ class ViewControl:
         return frame
 
     def flush(self):
-        """Write any pending menu placement save now (menu close, run end)."""
+        """Write any pending panel / drag placement save now (panel collapse, drag release, run end)."""
         if self.save_due is None: return
         self.save_due = None
         self._save_placements()
@@ -907,13 +723,13 @@ class ViewControl:
 
     def on_message(self, message):
         if isinstance(message, dict) and isinstance(message.get('op'), str):
-            self.last_input = self.clock()  # any run key or panel change keeps an open card up
+            self.last_input = self.clock()  # any run key, click or panel change keeps an open card or panel up
         if isinstance(message, dict) and message.get('op') == 'placement':
             return self._on_placement(message.get('payload'))
         if isinstance(message, dict) and message.get('op') == TYPING_OP:
             return self._typing_toggle()
         if isinstance(message, dict) and self.state.typing and message.get('op') in IGNORED_WHILE_TYPING: return None
-        if isinstance(message, dict) and message.get('op') in MENU_OPS + MOUSE_OPS:
+        if isinstance(message, dict) and message.get('op') in MENU_OPS:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
@@ -927,18 +743,20 @@ class ViewControl:
                                  'op': 'recenter', 'payload': {}}, separators=(',', ':')) + '\n').encode()
             self.next_id += 1
             return frame
+        # Zooming in collapses an open panel first (saved, keys released): pills and panels live in the overview.
+        out = (self._on_menu('menu_toggle') or b'') if message['op'] == 'zoom_in' and self.state.menu_open else b''
         before = self.state.view()
         if message['op'] == 'zoom_out' and self.state.zoomed and self.overview_pointer is not None:
             self.overview_pointer.summon()  # a cursor off the desktops comes into the selected one
         target = self.state.apply(message['op'])
         if target is not None:
-            import threading
             # Never block the watchdog loop on a compositor reply.
             t = threading.Thread(target=self._focus, args=(target,), daemon=True); t.start(); self._threads.append(t)
         if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'cursor_follow', 'prediction'):
             try: self.settings.save(self.state.settings())  # a settings store (profiles.LayoutStore/ProfileStore)
             except (OSError, ValueError): pass
-        return self._frame() if self.state.view() != before else None
+        if self.state.view() != before: out += self._frame()
+        return out or None
 
     def _on_placement(self, payload):
         """Absolute placements from the panel; applied live and saved to the glasses profile. Invalid: ignored."""
@@ -946,9 +764,9 @@ class ViewControl:
             if not isinstance(payload, dict) or not self.state.set_placements(payload.get('desktops')): return None
         except ValueError:
             return None
-        self.save_due = None  # this save also covers any pending menu change
+        self.save_due = None  # this save also covers any pending pill-panel change
         self._save_placements()
-        # An open menu shows the panel's values too.
+        # An open glass panel shows the panel's values too.
         return self._placement_frame() + (self._menu_frame() if self.state.menu_open else b'')
 
     def on_events(self, data):
@@ -960,16 +778,14 @@ class ViewControl:
         for line in lines:
             text = line.decode('utf-8', errors='replace')
             m = FOCUSEDMON.match(text)
-            if m and self.state.mouse is None and self.state.cursor_entered(m.group(1)):  # paused in mouse mode
+            if m and self.state.cursor_entered(m.group(1)):
                 changed = True; self.cursor_switches += 1
             if CONFIGRELOADED.match(text): reloaded = True
         if reloaded:
             self.reloads += 1
-            self._menu_binds_installed = False  # a reload drops runtime binds; the reload work re-adds an open menu's
+            self._menu_binds_installed = False  # a reload drops runtime binds; the reload work re-adds an open panel's
             if self.overview_pointer is not None: self.overview_pointer.binds_dropped = True  # the sampler redoes them if wanted
-            self._mouse_binds_installed = False
             if self.on_reload is not None:  # binds and session mode: compositor calls, never on the watchdog loop
-                import threading
                 t = threading.Thread(target=self._reload_work, daemon=True); t.start(); self._threads.append(t)
         out = (self._frame() if changed else b'') + (self._style_frame() if reloaded else b'')
         return out or None
@@ -981,27 +797,18 @@ class ViewControl:
             except (OSError, ValueError, TypeError, KeyError): pass  # best-effort; the run itself is unaffected
             self._typing_installed = typing
         self._typing_bind_work()  # Ctrl+Alt+T pressed during the reload: put the matching set in place
-        # After the view binds: re-add the modal menu binds if the menu is open, and mouse mode's. Should hiding the
-        # cursor ever itself count as a config reload, the rate limit stops a reinstall loop (mouse mode then needs
-        # Ctrl+Alt+M twice).
-        now = time.monotonic()
-        mouse = self._mouse_forced_at is None or now - self._mouse_forced_at >= 2.0
-        if mouse and self.state.mouse is not None: self._mouse_forced_at = now
-        self._menu_bind_work(force=True, mouse_allowed=mouse)
+        self._menu_bind_work(force=True)  # after the view binds: re-add an open panel's modal keys
 
     def _focus(self, target):
         try: self.focus(target)
         except (OSError, ValueError): pass  # focus is best-effort; the view still changes
 
     def stop_menu_binds(self, timeout=2.5):
-        """Run end: no later menu bind change, and wait (bounded in total) for any in flight, so none outlives the run."""
-        self.menu_binds = self.mouse_binds = self.cursor = self.warp = self.typing_binds = None
-        self._sampling.set()  # wake the cursor sampler so it sees cursor=None and ends
+        """Run end: no later panel or typing bind change, and wait (bounded in total) for any in flight, so none outlives
+        the run."""
+        self.menu_binds = self.typing_binds = None
         deadline = time.monotonic() + timeout
-        for t in self._menu_threads + ([self._sampler] if self._sampler else []): t.join(max(0.0, deadline - time.monotonic()))
-        for sock in (self.mouse_wake, self._mouse_wake_writer):
-            try: sock.close()
-            except OSError: pass
+        for t in self._menu_threads: t.join(max(0.0, deadline - time.monotonic()))
 
     def join_focus(self, timeout=2.0):
         for t in self._threads: t.join(timeout)

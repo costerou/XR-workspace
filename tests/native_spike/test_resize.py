@@ -1,5 +1,6 @@
-"""Overview corner resize and drag bar, shared pieces (resize.py): monitor rectangles, the modal left-button binds and
-their removal, and the help card. The pointer, hit testing, drags and wiring are tested in test_free_pointer.py.
+"""Overview corner resize and glass pill moves, shared pieces (resize.py): monitor rectangles, the modal left-button
+binds and their removal, and the help card. The pointer, hit testing, drags and wiring are tested in test_free_pointer.py
+and test_glass_pills.py.
 
 Offline only: fake compositor clients. No compositor, renderer binary or glasses.
 """
@@ -49,7 +50,8 @@ class BindTests(unittest.TestCase):
             with self.subTest(bad), self.assertRaises(ValueError): resize.install_resize_binds_lua(*args)
 
     def test_the_bind_helper_knows_the_ops_and_the_fixed_removal_text(self):
-        self.assertEqual(xr_control.OPS[-8:-6], resize.RESIZE_OPS)  # then send.SEND_OPS and view.TYPING_OP
+        i = xr_control.OPS.index(resize.RESIZE_OPS[0])
+        self.assertEqual(xr_control.OPS[i:i + 2], resize.RESIZE_OPS)  # then send.SEND_OPS, view.TYPING_OP and LEGACY_OPS
         self.assertEqual(xr_control.REMOVE_RESIZE_BINDS, resize.remove_resize_binds_lua())
         self.assertFalse(set(resize.RESIZE_OPS) & set(view.USER_OPS))  # not panel buttons
         for op in resize.RESIZE_OPS:
@@ -81,16 +83,14 @@ class BindTests(unittest.TestCase):
         self.assertEqual(h.QUERY, {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'})
 
 
-class HelpCardFitTests(unittest.TestCase):
-    def test_the_fit_tested_help_card_is_the_real_one_and_the_free_pointer_is_on_it(self):
-        # placement_menu_style_test checks the help card fits 1920x1200 @1.25 (960 px tall). It must check the rows the
-        # run really sends: a 13th row (the corner-resize hint, as first merged) was 1008 px tall and went untested.
-        import re
-        src = (Path(__file__).resolve().parents[2] / 'spike/tests/placement_menu_style_test.cpp').read_text()
-        body = re.search(r'std::vector<HelpRow> help_rows\(\) \{.*?\n\}', src, re.S).group(0)
-        self.assertEqual([list(r) for r in re.findall(r'\{"([^"]+)", "([^"]+)"\}', body)], view.help_rows())
+class HelpCardRowTests(unittest.TestCase):
+    def test_the_free_pointer_pills_and_corners_are_on_the_card_in_twelve_rows(self):
+        # A 13th row (the corner-resize hint, as first merged) made the card 1008 px tall, past the 960 px glasses
+        # surface. The renderer-side fit check of these exact rows lived in placement_menu_style_test.cpp, which was
+        # removed with the placement menu card; until the card's layout work adds one back, only the row count is held.
         self.assertLessEqual(len(view.help_rows()), 12)
-        self.assertTrue(any('free mouse' in action and 'corner' in action for _, action in view.help_rows()))
+        self.assertTrue(any('free mouse' in action and 'pills' in action and 'corner' in action
+                            for _, action in view.help_rows()))
 
 
 if __name__ == '__main__':

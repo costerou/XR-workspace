@@ -3,13 +3,14 @@
 #include "xr/video.hpp"
 #include <array>
 #include <deque>
+#include <optional>
 #include <string_view>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, menu_pointer, resize_handle, video, move_handle,
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
                        overview_pointer };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
@@ -29,19 +30,23 @@ struct HelpPayload { bool visible = false; std::vector<std::pair<std::string, st
 // order, every field an integer inside kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch = 0, roll = 0, curvature = 0; };
 struct PlacementPayload { std::vector<WirePlacement> desktops; };
-// Keyboard placement menu (Ctrl+Alt+L toggles it in the supervisor; Ctrl+Alt+P is pose prediction), display only
-// (the supervisor owns the state and applies placements with `placement`):
-// {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]},
-// placements as above. `field` is the index into that key order. open=false hides the menu. A placement_menu frame
-// whose envelope is valid but whose payload is malformed is rejected with kInvalidMenuCode; the renderer drops that
-// frame and keeps running (a menu redraw is not worth ending the session for). Every other rejection still stops it.
-// Mouse mode's pointer is a separate op, "menu_pointer": {"visible":bool,"x":0..kMaxPointerPx,"y":0..kMaxPointerPx,
-// "held":bool}, in card pixels from the menu card's top-left. Display only; malformed is dropped like placement_menu.
+// Placement panel (a glass pill expanded: a pill click or Ctrl+Alt+L in the supervisor; Ctrl+Alt+P is pose prediction),
+// display only (the supervisor owns the state and applies placements with `placement`):
+// {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]}
+// plus, only with open=true and only while the overview free pointer holds one of the panel's sliders, "surface":placement
+// (the open desktop's placement at the press: the panel is drawn on it, while the desktop follows its live placement, so
+// the knob stays under the pointer the supervisor measures on that same surface). Placements as above. `field` is the
+// index into that key order. open=true expands desktop `desktop`'s pill into its panel (glass.hpp); open=false collapses
+// it. A placement_menu frame whose envelope is valid but whose payload is malformed is rejected with kInvalidMenuCode;
+// the renderer drops that frame and keeps running (a panel redraw is not worth ending the session for). Every other
+// rejection still stops it.
 constexpr const char* kInvalidMenuCode = "invalid_menu";
 constexpr std::size_t kPlacementMenuDesktops = 3;
-struct PlacementMenuPayload { bool open = false; std::uint32_t desktop = 0, field = 0; std::array<WirePlacement, kPlacementMenuDesktops> placements{}; };
+struct PlacementMenuPayload {
+    bool open = false; std::uint32_t desktop = 0, field = 0; std::array<WirePlacement, kPlacementMenuDesktops> placements{};
+    std::optional<WirePlacement> surface;
+};
 constexpr std::uint32_t kMaxPointerPx = 8192;
-struct MenuPointerPayload { bool visible = false; std::int32_t x = 0, y = 0; bool held = false; };
 // Overview corner-resize handle (tools/native_spike/resize.py), display only:
 // {"visible":bool,"desktop":0..2,"corner":"tl"|"tr"|"bl"|"br","active":bool}; active = a drag is in progress.
 // `corner` is the index into that order. Like placement_menu, a malformed payload is rejected with kInvalidHandleCode and
@@ -57,18 +62,19 @@ struct ResizeHandlePayload { bool visible = false; std::uint32_t desktop = 0, co
 enum class VideoAction : std::uint8_t { open, close, pause, seek, format, controls };
 constexpr std::int32_t kMaxVideoSeekS = 3600;
 struct VideoPayload { VideoAction action = VideoAction::close; VideoFormat format; std::string title; std::int32_t seconds = 0; bool visible = false; };
-// Overview grab pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..2,"hover":bool,
-// "active":bool}. visible = a pill above every desktop; `desktop` with hover = the brighter one under the pointer, with
+// Overview glass pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..2,"hover":bool,
+// "active":bool}. visible = a pill under every desktop; `desktop` with hover = the brighter one under the pointer, with
 // active = being dragged. Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
 constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
 struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false; };
 // Overview free pointer (tools/native_spike/free_pointer.py), display only: {"visible":bool,"x":int,"y":int,"held":bool}, x and
 // y in canvas px, each -kMaxPointerPx..kMaxPointerPx (the pointer can go past the view's edge, beyond the desktops). held =
-// a bar or corner drag is in progress. Malformed: rejected with kInvalidOverviewPointerCode and dropped, like menu_pointer.
+// a pill, corner or panel-slider press/drag is in progress. Malformed: rejected with kInvalidOverviewPointerCode and
+// dropped, like move_handle.
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
 struct OverviewPointerPayload { bool visible = false; std::int32_t x = 0, y = 0; bool held = false; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    MenuPointerPayload, ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload>;
+                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -77,7 +83,7 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, menu_pointer, resize_handle, move_handle or
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle or
 // overview_pointer payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
