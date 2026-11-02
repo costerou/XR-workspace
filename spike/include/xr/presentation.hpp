@@ -82,7 +82,7 @@ public:
                             const std::array<std::array<std::int32_t, 7>, 3>& placements);
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
-    // Drawn only in the overview (hidden while zoomed or zooming), with the cards' pixel orbit. GPU composition only.
+    // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.
     void set_resize_handle(bool visible, std::uint32_t desktop, std::uint32_t corner, bool active);
 private:
     struct Impl;

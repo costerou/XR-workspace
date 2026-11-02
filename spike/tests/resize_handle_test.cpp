@@ -1,6 +1,6 @@
 // Overview corner-resize handle: the renderer side of tools/native_spike/resize.py. Display only; offline.
 //  * the `resize_handle` control frame decodes strictly, and a malformed payload is the ignorable kind (dropped);
-//  * corner_handle() puts an L-bracket inside the requested corner, shifted by the cards' pixel orbit;
+//  * corner_handle() puts an L-bracket inside the requested corner, at a fixed spot (no pixel orbit);
 //  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention).
 #include "xr/ipc.hpp"
 #include "xr/view.hpp"
@@ -74,13 +74,13 @@ int main() {
         CHECK(std::fabs((bottom ? h.horizontal.y + h.horizontal.height : h.horizontal.y) - edge_y) < 1e-3f);
         CHECK(std::fabs((right ? h.vertical.x + h.vertical.width : h.vertical.x) - edge_x) < 1e-3f);
     }
-    // Arm length follows the tile, clamped; the orbit offset moves both arms by exactly (dx, dy).
+    // Arm length follows the tile, clamped; the same input always gives the same pixels (no orbit or drift).
     CHECK(std::fabs(corner_handle(tile, 3).horizontal.width - 34.f) < 1e-3f);  // 10% of 340
     CHECK(std::fabs(corner_handle({0, 0, 4000, 3000}, 0).horizontal.width - kHandleMaxArmPx) < 1e-3f);
     CHECK(std::fabs(corner_handle({0, 0, 60, 40}, 0).horizontal.width - kHandleMinArmPx) < 1e-3f);
-    const auto still = corner_handle(tile, 1), moved = corner_handle(tile, 1, 3, -2);
-    CHECK(std::fabs(moved.horizontal.x - still.horizontal.x - 3) < 1e-4f && std::fabs(moved.horizontal.y - still.horizontal.y + 2) < 1e-4f);
-    CHECK(std::fabs(moved.vertical.x - still.vertical.x - 3) < 1e-4f && std::fabs(moved.vertical.y - still.vertical.y + 2) < 1e-4f);
+    const auto once = corner_handle(tile, 1), again = corner_handle(tile, 1);
+    CHECK(once.horizontal.x == again.horizontal.x && once.horizontal.y == again.horizontal.y && once.vertical.x == again.vertical.x &&
+          once.vertical.y == again.vertical.y);
     // Degenerate input draws nothing.
     const auto none = corner_handle({0, 0, 0, 10}, 0), wrong = corner_handle(tile, 4);
     CHECK(none.horizontal.width == 0 && none.vertical.height == 0 && wrong.horizontal.width == 0);
@@ -88,5 +88,5 @@ int main() {
     // OLED: both levels are dim greys at or under the cards' cap, and dragging is the brighter one.
     CHECK(kHandleLevelIdle > 0.f && kHandleLevelIdle < kHandleLevelActive);
     CHECK(std::lround(kHandleLevelActive * 255.f) <= 191 && std::lround(kHandleLevelIdle * 255.f) <= 191);
-    std::cout << "resize handle: decode, ignorable drop, corner geometry, orbit, OLED levels: PASS\n";
+    std::cout << "resize handle: decode, ignorable drop, corner geometry, OLED levels: PASS\n";
 }

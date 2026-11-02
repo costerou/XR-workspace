@@ -98,7 +98,7 @@ struct GlCompositor::Impl {
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0; OrbitOffset help_orbit;
     std::unique_ptr<GlHud> menu_hud;      // placement menu card (own texture); absent if its shaders failed
     const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0; OrbitOffset menu_orbit;
-    int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0; OrbitOffset handle_orbit;  // corner resize
+    int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
@@ -255,8 +255,8 @@ void GlCompositor::set_menu(const HudImage* image, std::uint64_t generation, flo
     impl_->menu = image; impl_->menu_generation = generation; impl_->menu_alpha = alpha; impl_->menu_drop = drop_px; impl_->menu_orbit = orbit;
 }
 
-void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level, OrbitOffset orbit) {
-    impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive); impl_->handle_orbit = orbit;
+void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level) {
+    impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive);
 }
 
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
@@ -353,7 +353,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     if (s.handle_desktop >= 0 && std::size_t(s.handle_desktop) < tiles.size() && s.handle_level > 0.f) {
         // Corner-resize handle: an opaque grey bracket on the desktop's own surface, over its pixels (no blending needed).
         const auto h = std::size_t(s.handle_desktop);
-        const auto arms = corner_handle(tiles[h], s.handle_corner, float(s.handle_orbit.x), float(s.handle_orbit.y));
+        const auto arms = corner_handle(tiles[h], s.handle_corner);
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));  // the tiles' uv array points into `buffer`, rewritten below
         glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
         glUniform4f(s.color, s.handle_level, s.handle_level, s.handle_level, 1.f);

@@ -115,9 +115,9 @@ bracket is hidden, clicks go to windows as usual. The pointer is read about 30 t
 with the read-only `cursorpos` query. The binds go away when the pointer leaves the corner, after 30 s without pointer
 movement, on zoom-in and at run end. If the run dies while they are bound, the first left click afterwards removes them.
 
-The bracket follows the same micro-OLED rules as the help card and the placement menu. It is grey at about 55%
-brightness, and 72% while you drag (184/255, under the cards' 191 cap). It drifts with the cards' 7×7 pixel orbit and
-hides after 30 s without pointer movement (`OVERLAY_IDLE_CLOSE_S`). A drag still held at that point ends and is saved.
+The bracket protects the micro-OLED the way the cards do, by dimming and auto-closing. It is grey at about 55%
+brightness, and 72% while you drag (184/255, under the cards' 191 cap). It hides after 30 s without pointer movement
+(`OVERLAY_IDLE_CLOSE_S`). A drag still held at that point ends and is saved. It does not drift or orbit.
 The CPU fallback renderer draws no bracket.
 
 ### Placement menu

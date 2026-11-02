@@ -112,7 +112,7 @@ Automated coverage (offline only):
   removal (including after a dead run), the hover and drag state machine, the 30 s idle hide, the profile save, panel
   sync through the status reply, the pointer poller thread, and the supervisor wake-up.
 - `spike/tests/resize_handle_test.cpp`: the renderer's `resize_handle` decoding (a malformed payload is dropped, never
-  fatal), the handle geometry in each corner with the pixel orbit, and its grey levels at or under 191/255.
+  fatal), the handle geometry in each corner (fixed, no orbit), and its grey levels at or under 191/255.
 
 The steps below need your usual go-ahead for a live run, the same setup as above (any desktop shapes), and the
 renderer built from this branch. Note the controller worktree HEAD, the controller MainPID and the renderer sha256
@@ -124,7 +124,7 @@ before and after. Start in the overview (Ctrl+Alt+Down) with every desktop at Di
 | R2 | Move the pointer into XR-1's bottom-right corner (the last few percent of its width and height) | A small grey L-bracket appears just inside that corner. It is dim, never white. |
 | R3 | Visit the other three corners of XR-1, then a corner of XR-2 and XR-3 | The bracket follows to the corner the pointer is in, on the right desktop. It disappears between corners. |
 | R4 | Rest the pointer in a corner without moving for 30 s | The bracket fades off by itself (OLED care). A left click there now reaches the window again. Moving the pointer brings the bracket back. |
-| R5 | Watch the bracket for 10 s | It shifts by a pixel every 2 s or so (the cards' 7×7 orbit); it does not stay pinned. |
+| R5 | Watch the bracket for 10 s while moving the pointer slightly inside the corner | It stays put on the same pixels (no drift or orbit) and stays dim. |
 | R6 | In XR-1's bottom-right corner, hold the left button and drag right and down | XR-1 grows smoothly while you drag, about its own centre, keeping its shape. The bracket is a little brighter while you drag. Nothing in the window under the corner gets the click. |
 | R7 | Keep dragging far outward, then far inward | It stops growing at twice its size and stops shrinking at half. Nothing jumps or flickers at a limit. |
 | R8 | Release, then open the panel's **Place** tab for XR-1 | Distance shows the new value (bigger = lower Distance, for example 67 % for 1.5× size). The other fields are unchanged. |

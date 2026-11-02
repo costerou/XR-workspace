@@ -21,9 +21,9 @@ How it is wired (supervisor side; the renderer only draws the handle):
     `resize_press`, release runs `resize_release`, through the same xr_control.py helper as every run key. These binds
     exist only while the pointer is in a corner zone or a drag is in progress. Ordinary clicks anywhere else are never
     taken. While they exist, the left click at that corner resizes instead of reaching the window under it.
-  * OLED care, the same rules as the help card and the menu: the handle's brightest level is 184/255 (cap 191), it
-    follows the cards' 7x7 pixel orbit, and it hides after OVERLAY_IDLE_CLOSE_S without pointer movement (the binds go
-    with it, and a drag still held then ends and is saved).
+  * OLED care: the handle's brightest level is 184/255 (the cards' cap is 191), and it hides after OVERLAY_IDLE_CLOSE_S
+    without pointer movement (the binds go with it, and a drag still held then ends and is saved). It has no pixel
+    orbit or drift (that is being removed from the cards in feature/remove-pixel-orbit).
 """
 import json
 import socket
