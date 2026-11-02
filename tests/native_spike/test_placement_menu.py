@@ -325,10 +325,14 @@ class MenuNavigationTests(unittest.TestCase):
         self.assertEqual(m.c.state.placements, [TILTED] * 3)
         self.assertEqual(m.store.saved, [])
 
-    def test_selection_survives_close_and_reopen_within_a_run(self):
+    def test_reopen_starts_on_the_viewed_desktop_and_keeps_the_field(self):
+        """MENU-WIRING's choice, adopted: opening selects the desktop being looked at (view selection); the field stays."""
         m = Menu(self); m.goto(desktop=2, field='roll')
-        m.send('menu_toggle'); m.send('menu_toggle')
-        self.assertEqual((m.menu['open'], m.menu['desktop'], m.menu['field']), (True, 2, 'roll'))
+        m.send('menu_toggle')
+        self.assertEqual(m.send('next')[0]['op'], 'view')   # look at XR-2 while the menu is closed
+        m.send('menu_toggle')
+        self.assertEqual((m.menu['open'], m.menu['desktop'], m.menu['field']), (True, m.c.state.selected, 'roll'))
+        self.assertEqual(m.menu['desktop'], 1)
 
 
 @NEEDS_WIRING
@@ -556,8 +560,22 @@ class MenuSupervisorEndToEndTests(unittest.TestCase):
         self.assertEqual(ids, sorted(ids))
 
 
+def bind_commands(lua):
+    """(chord, full shell command) for every hl.bind in generated Lua. Accepts the inline form
+    exec_cmd("<prefix> op") and the shared-prefix form `local c = "<prefix> "` ... exec_cmd(c .. "op") that MENU-WIRING
+    uses to stay under the 4096-byte eval cap."""
+    local = re.search(r'local c = "([^"]*)"', lua)
+    out = []
+    for m in re.finditer(r'hl\.bind\("([^"]+)", hl\.dsp\.exec_cmd\((?:"([^"]*)"|c \.\. "([^"]*)")\)\)', lua):
+        if m.group(2) is not None: out.append((m.group(1), m.group(2)))
+        else:
+            assert local is not None, 'exec_cmd(c .. ...) without a local c'
+            out.append((m.group(1), local.group(1) + m.group(3)))
+    return out
+
+
 def installed_binds(lua):
-    return re.findall(r'hl\.bind\("([^"]+)", hl\.dsp\.exec_cmd\("[^"]* (\w+)"\)\)', lua)
+    return [(chord, cmd.rsplit(' ', 1)[1]) for chord, cmd in bind_commands(lua)]
 
 
 def menu_bind_tables():
@@ -656,9 +674,43 @@ class MenuStyleSourceTests(unittest.TestCase):
 
     def test_menu_card_uses_the_help_card_accent(self):
         hud = (ROOT / 'spike/src/hud.cpp').read_text()
-        help_accent = re.search(r'render_help_card\(rows_, (\{[^}]*\})', hud).group(1)
-        menu_accent = re.search(r'render_placement_menu_card\(\w+, (\{[^}]*\})', hud).group(1)
+        # The accent argument: a literal {r, g, b} or a shared constant such as kAccent.
+        help_accent = re.findall(r'render_help_card\(rows_, (\{[^}]*\}|\w+)', hud)
+        menu_accent = re.findall(r'render_placement_menu_card\(\w+, (\{[^}]*\}|\w+)', hud)
+        self.assertEqual(len(help_accent), 1, help_accent); self.assertEqual(len(menu_accent), 1, menu_accent)
         self.assertEqual(menu_accent, help_accent)
+
+
+HINT_KEYS = {'Up': 'up', 'Down': 'down', 'Left': 'left', 'Right': 'right', 'Tab': 'Tab', 'R': 'R', 'Esc': 'Escape',
+             'Escape': 'Escape', 'Shift': 'SHIFT'}
+
+
+@unittest.skipUnless(WIRING and 'kMenuHints' in (ROOT / 'spike/src/hud.cpp').read_text(),
+                     'needs MENU-UI footer hints and MENU-WIRING binds')
+class MenuHintAgreementTests(unittest.TestCase):
+    """The keys the menu card tells you to press are the keys wiring binds, and the README names them."""
+    def hint_keys(self):
+        hud = (ROOT / 'spike/src/hud.cpp').read_text()
+        keys = set()
+        for table in re.findall(r'kMenuHints(?:Short)?\{(.*?)\};', hud, re.S):
+            for k in re.findall(r'\{"([^"]+)",\s*"[^"]+"\}', table):
+                keys.update(part.strip() for part in k.split('/'))
+        self.assertTrue(keys)
+        return keys
+
+    def test_every_footer_key_is_bound_in_the_menu(self):
+        chords = {c for table in menu_bind_tables().values() for c, _ in table}
+        parts = {p for c in chords for p in c.split(' + ')}
+        for key in self.hint_keys():
+            with self.subTest(key=key):
+                self.assertIn(key, HINT_KEYS, f'footer names a key the test does not know: {key}')
+                self.assertIn(HINT_KEYS[key], parts)
+
+    def test_readme_names_every_footer_key(self):
+        readme = (ROOT / 'README.md').read_text()
+        for key in self.hint_keys():
+            with self.subTest(key=key):
+                self.assertTrue(key in readme or HINT_KEYS[key] in readme or HINT_KEYS[key].title() in readme, key)
 
 
 class NoScopeChangeTests(unittest.TestCase):
@@ -684,8 +736,9 @@ class NoScopeChangeTests(unittest.TestCase):
 
     def test_bind_commands_only_run_the_control_helper(self):
         lua = view.install_binds_lua(*LIVE_BIND_ARGS)
-        cmds = re.findall(r'hl\.dsp\.exec_cmd\("([^"]*)"\)', lua)
+        cmds = [cmd for _, cmd in bind_commands(lua)]
         self.assertEqual(len(cmds), lua.count('hl.bind('))
+        self.assertEqual(len(cmds), lua.count('exec_cmd('))  # every command was parsed, none hidden
         prefix = '{} -I {} {} {} {} '.format(*LIVE_BIND_ARGS)
         for cmd in cmds:
             self.assertTrue(cmd.startswith(prefix), cmd)

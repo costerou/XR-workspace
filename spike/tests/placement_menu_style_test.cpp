@@ -8,11 +8,12 @@
 //     font is checked for fit and clipping when fontconfig finds it (wayland.cpp loads the same kHudFontFamily for both
 //     cards; tests/native_spike/test_placement_menu.py checks that).
 // Fit: the renderer draws cards 1:1 into the layer surface with no buffer scale and never shrinks them, so at
-// 1920x1200 @1.25 a card has 1536x960 logical pixels, less kHelpRisePx for the fade-in drop. Every desktop/field
-// selection with extreme values (longest strings) must fit, all seven rows plus the desktop selector and every hint
-// line must be drawn, and no ink may reach the card's padding (nothing clipped at the edges).
+// 1920x1200 @1.25 a card has 1536x960 logical pixels, less kHelpRisePx for the fade-in drop. The menu is laid out
+// for that surface the way the renderer does it (PlacementMenuOverlay::set_viewport, as wayland.cpp calls it on
+// configure). Every desktop/field selection with extreme values (longest strings) must fit, all seven rows plus the
+// desktop selector and every footer line must be drawn, and no ink may reach the card's padding (nothing clipped).
 //
-// Built only when hud.hpp declares render_placement_menu_card (MENU-UI); CMake otherwise registers a skip.
+// Built only when hud.hpp declares placement_menu_fit (MENU-UI, a034eb7 or later); CMake otherwise registers it disabled.
 #include "xr/hud.hpp"
 #include <algorithm>
 #include <cstdlib>
@@ -101,7 +102,7 @@ std::vector<HelpRow> help_rows() {  // the run's binds today plus the menu toggl
             {"Ctrl+Alt+Left", "Previous desktop"}, {"Ctrl+Alt+Right", "Next desktop"}, {"Ctrl+Alt+[", "Less space between desktops"},
             {"Ctrl+Alt+]", "More space between desktops"}, {"Ctrl+Alt+Space", "Recenter the view"}, {"Ctrl+Alt+V", "Cycle viewing mode"},
             {"Ctrl+Alt+F", "Toggle cursor follow"}, {"Ctrl+Alt+P", "Toggle pose prediction"}, {"Ctrl+Alt+H", "Show / hide this help"},
-            {"Ctrl+Alt+M", "Open / close the placement menu"}};
+            {"Ctrl+Alt+L", "Placement menu (arrows adjust)"}};
 }
 }
 
@@ -152,12 +153,16 @@ int main() {
     CHECK(labels.size() == 7);
     for (std::size_t i : {std::size_t(3), std::size_t(4), std::size_t(5)}) CHECK(rows.size() == 7 && !rows[i].hint.empty());  // yaw, pitch, roll explained
     CHECK(!placement_menu_hints().empty());
-    for (const auto& h : placement_menu_hints()) CHECK(!h.empty() && all_glyphs(h));
-    // Title + desktop selector + 7 rows + every footer line are each drawn as separate ink bands.
-    const auto bands = ink_bands(menu);
-    if (bands.size() < 2 + 7 + placement_menu_hints().size())
-        std::cerr << "only " << bands.size() << " text bands drawn; want title, selector, 7 rows, " << placement_menu_hints().size() << " hint lines\n";
-    CHECK(bands.size() >= 2 + 7 + placement_menu_hints().size());
+    for (bool short_wording : {false, true})
+        for (const auto& h : placement_menu_hints(short_wording)) CHECK(!h.empty() && all_glyphs(h));
+    // Title + desktop selector (one band if beside the title) + 7 rows + every footer line, each a separate ink band.
+    for (const auto& [mw, mh] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {kSurfaceW, kSurfaceH}}) {
+        const auto fit = placement_menu_fit(state(0, 7, 0), nullptr, mw, mh);
+        const auto bands = ink_bands(render_placement_menu_card(state(0, 7, 0), kAccent, nullptr, mw, mh));
+        const std::size_t want = (fit.tabs_beside_title ? 1 : 2) + 7 + fit.footer_lines;
+        if (bands.size() < want) std::cerr << "only " << bands.size() << " text bands drawn of " << want << " (title, selector, 7 rows, footer)\n";
+        CHECK(fit.footer_lines >= 1 && bands.size() >= want);
+    }
 
     // Fit and clipping, pixel font and (if installed) the real font, every selection with extreme values.
     std::string why;
@@ -172,12 +177,22 @@ int main() {
         for (int which = 0; which < 3; ++which)
             for (std::uint32_t d = 0; d < 3; ++d)
                 for (std::uint32_t field = 0; field <= 7; ++field) {
-                    const auto m = render_placement_menu_card(state(d, field, which), kAccent, f);
+                    const auto st = state(d, field, which);
+                    const auto m = render_placement_menu_card(st, kAccent, f, kSurfaceW, kSurfaceH);
                     max_w = std::max(max_w, m.width); max_h = std::max(max_h, m.height);
-                    check_fit(m, std::string("menu, ") + name + ", desktop " + std::to_string(d) + ", field " + std::to_string(field));
+                    const auto where = std::string("menu, ") + name + ", desktop " + std::to_string(d) + ", field " + std::to_string(field);
+                    check_fit(m, where);
+                    CHECK(placement_menu_fit(st, f, kSurfaceW, kSurfaceH).fits);
                     if (field == 7) check_pads_clean(m, name);
                 }
         std::cout << name << ": largest menu card " << max_w << "x" << max_h << " of " << kSurfaceW << "x" << kSurfaceH << "\n";
+        // The overlay the renderer actually draws, sized by set_viewport like wayland.cpp does on configure.
+        PlacementMenuOverlay overlay;
+        if (f) { std::string w; overlay.set_font(HudFont::load(kHudFontFamily, w)); }
+        overlay.set_viewport(kSurfaceW, kSurfaceH);
+        overlay.set(state(2, 3, 0), 1000);
+        CHECK(overlay.visible() && overlay.fits());
+        check_fit(overlay.image(), std::string("overlay, ") + name);
     }
     if (failures) { std::cerr << failures << " placement menu style check(s) failed\n"; return 1; }
     std::cout << "placement menu: help-card style and 1920x1200 @1.25 fit OK\n";
