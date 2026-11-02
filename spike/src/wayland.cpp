@@ -441,6 +441,7 @@ struct Presentation::Impl : SurfaceRequests {
         zwlr_layer_surface_v1_ack_configure(layer, serial);
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
+        s.menu.set_viewport(w, h);  // the placement menu card is laid out to fit the output
         if (s.gl) s.gl->resize(w, h);
         s.half_w = 0;  // recompute FOV split for the new aspect
     }
@@ -550,7 +551,8 @@ std::string Presentation::capture_report() const {
            ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) + "}";
     out += ",\"placement_menu\":{\"visible\":" + std::string(impl_->menu.visible() ? "true" : "false") +
            ",\"shown\":" + std::to_string(impl_->menu.shown_count()) + ",\"hidden\":" + std::to_string(impl_->menu.hidden_count()) +
-           ",\"renders\":" + std::to_string(impl_->menu.render_count()) + "}";
+           ",\"renders\":" + std::to_string(impl_->menu.render_count()) +
+           ",\"fits\":" + (impl_->menu.fits() ? "true" : "false") + "}";
     const auto mode = impl_->modes.mode();
     out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +

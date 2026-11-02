@@ -142,9 +142,23 @@ struct PlacementMenuRow { std::string label, hint, value; bool selected = false;
 // Label, plain-English hint and formatted value ("+12%", "100%", "-5°"; " deg" with the pixel font,
 // which is ASCII-only) for each field of the selected desktop.
 std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& state, bool ascii_units);
-// Footer key hints, one string per footer line.
-const std::vector<std::string>& placement_menu_hints();
-HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font = nullptr);
+// Key hints ("keys  action"), full or short wording; the footer packs them into lines.
+std::vector<std::string> placement_menu_hints(bool short_wording = false);
+// Fit. The card is built from the help card's parts (font, sizes, padding, spacing, colours) and sized
+// to its content. Given the output surface (`max_width` x `max_height`, 0 = unbounded) it takes the
+// roomiest arrangement whose card leaves kHudFitMargin free on every side: title above the desktop
+// tabs; tabs beside the title; key hints allowed wider than the table (fewer lines); shorter hint
+// wording. Text is never scaled. If nothing fits, the most compact arrangement is used (fits=false).
+constexpr std::uint32_t kHudFitMargin = 34;  // = the card padding
+struct PlacementMenuFit {
+    std::uint32_t width = 0, height = 0;
+    bool tabs_beside_title = false, wide_footer = false, short_hints = false;
+    std::uint32_t footer_lines = 0;
+    bool fits = false;
+};
+PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height);
+HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font = nullptr,
+                                    std::uint32_t max_width = 0, std::uint32_t max_height = 0);
 
 class PlacementMenuOverlay {
 public:
@@ -152,6 +166,9 @@ public:
     // Returns true if anything to draw changed (visibility or card).
     bool set(const PlacementMenuState& state, double now_ms);
     void set_font(std::unique_ptr<HudFont> font);
+    // Output surface size the card must fit (0 = unbounded); re-renders a shown card when it changes.
+    bool set_viewport(std::uint32_t width, std::uint32_t height);
+    bool fits() const { return fits_; }  // last rendered card fits the viewport
     bool visible() const { return fade_.visible(); }
     std::uint64_t shown_count() const { return shown_; }
     std::uint64_t hidden_count() const { return hidden_; }
@@ -165,6 +182,9 @@ private:
     CardFade fade_{kHelpFadeInMs, kHelpFadeOutMs};
     std::uint64_t shown_ = 0, hidden_ = 0, generation_ = 0;
     PlacementMenuState rendered_;
+    std::uint32_t max_w_ = 0, max_h_ = 0;
+    bool fits_ = true;
+    void render();
     HudImage image_;
     std::unique_ptr<HudFont> font_;
 };

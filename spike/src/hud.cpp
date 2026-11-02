@@ -34,6 +34,7 @@ constexpr Glyph kSpace{}, kColon{0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x00}, kDas
 
 constexpr std::array<float, 3> kWhite{0.96f, 0.96f, 0.96f}, kDim{0.62f, 0.62f, 0.62f};
 constexpr std::array<float, 3> kBackground{0.06f, 0.06f, 0.07f};
+constexpr std::array<float, 3> kAccent{0.48f, 0.64f, 0.97f};  // cards' border, dividers and highlights
 constexpr float kBackgroundAlpha = 0.88f;
 // Card chrome in output pixels (the card is drawn 1:1 in the glasses).
 constexpr float kPad = 22, kLineGap = 8, kRadius = 14, kBorder = 2;
@@ -141,41 +142,64 @@ HudImage render_hud_card(const std::vector<HudLine>& lines, std::array<float, 3>
     return im;
 }
 
+namespace {
+// Help-card building blocks. The help card and the placement menu are both drawn from these, so
+// type, colours, sizes and spacing cannot drift apart.
+constexpr float kDividerAlpha = 0.45f;     // faint accent rule under the card title
+constexpr float kHighlightAlpha = 0.28f;   // accent wash behind the selected menu row
+static_assert(kHudFitMargin == std::uint32_t(kHelpPad), "fit margin is the card padding");
+HudLine card_title(std::string text) { return {std::move(text), 2, kWhite, true}; }
+HudLine card_key(std::string text) { return {std::move(text), 2, kWhite, true}; }     // left column: bold white
+HudLine card_detail(std::string text) { return {std::move(text), 2, kDim}; }          // descriptions: dim
+HudLine card_footer(std::string text) { return {std::move(text), 1, kDim}; }          // key hints: small, dim
+std::uint32_t height(const LineBox& b) { return b.ascent + b.descent; }
+struct Cell { HudLine line; LineBox box; };
+Cell cell(HudLine line, const HudFont* font) { auto b = box(line, font); return {std::move(line), b}; }
+// Cells sharing one baseline: tallest ascent above it, deepest descent below it.
+template<class... C> std::uint32_t row_ascent(const C&... c) { return std::max({c.box.ascent...}); }
+template<class... C> std::uint32_t row_descent(const C&... c) { return std::max({c.box.descent...}); }
+void draw_cell(HudImage& im, const Cell& c, int left, std::uint32_t top, std::uint32_t ascent, const HudFont* font) {
+    draw_line(im, c.line, c.box, left, top + ascent - c.box.ascent, font);
+}
+void draw_centered(HudImage& im, const Cell& c, std::uint32_t top, const HudFont* font) {
+    draw_line(im, c.line, c.box, int((im.width - c.box.width) / 2), top, font);
+}
+// Divider across the card's padded width, centred in the section gap that ends at `section_top`.
+void draw_divider(HudImage& im, std::uint32_t section_top, std::array<float, 3> accent) {
+    for (std::uint32_t x = std::uint32_t(kHelpPad); x + std::uint32_t(kHelpPad) < im.width; ++x)
+        over(im, int(x), int(section_top - std::uint32_t(kSectionGap) / 2), accent, kDividerAlpha);
+}
+std::uint32_t card_size(std::uint32_t content) { return content + 2 * std::uint32_t(kHelpPad); }
+}
+
 HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font) {
-    const HudLine title{"Keyboard shortcuts", 2, kWhite, true}, footer{"Ctrl+Alt+H to close", 1, kDim};
-    std::vector<std::pair<HudLine, HudLine>> table;
-    for (const auto& r : rows) table.push_back({{r.keys, 2, kWhite, true}, {r.action, 2, kDim}});
-    const LineBox title_box = box(title, font), footer_box = box(footer, font);
+    const Cell title = cell(card_title("Keyboard shortcuts"), font), footer = cell(card_footer("Ctrl+Alt+H to close"), font);
+    std::vector<std::pair<Cell, Cell>> table;
     std::uint32_t keys_w = 0, actions_w = 0, rows_h = 0;
-    std::vector<std::pair<LineBox, LineBox>> boxes;
-    for (const auto& [k, a] : table) {
-        boxes.push_back({box(k, font), box(a, font)});
-        keys_w = std::max(keys_w, boxes.back().first.width); actions_w = std::max(actions_w, boxes.back().second.width);
-        rows_h += std::max(boxes.back().first.ascent, boxes.back().second.ascent) +
-                  std::max(boxes.back().first.descent, boxes.back().second.descent) + std::uint32_t(kRowGap);
+    for (const auto& r : rows) {
+        table.push_back({cell(card_key(r.keys), font), cell(card_detail(r.action), font)});
+        const auto& [k, a] = table.back();
+        keys_w = std::max(keys_w, k.box.width); actions_w = std::max(actions_w, a.box.width);
+        rows_h += row_ascent(k, a) + row_descent(k, a) + std::uint32_t(kRowGap);
     }
     const std::uint32_t table_w = table.empty() ? 0 : keys_w + std::uint32_t(kColumnGap) + actions_w;
-    const std::uint32_t content_w = std::max({title_box.width, footer_box.width, table_w});
-    const std::uint32_t content_h = title_box.ascent + title_box.descent + std::uint32_t(kSectionGap) + rows_h +
-                                    std::uint32_t(kSectionGap) + footer_box.ascent + footer_box.descent;
+    const std::uint32_t content_w = std::max({title.box.width, footer.box.width, table_w});
+    const std::uint32_t content_h = height(title.box) + std::uint32_t(kSectionGap) + rows_h + std::uint32_t(kSectionGap) + height(footer.box);
     HudImage im;
-    allocate_card(im, content_w + 2 * std::uint32_t(kHelpPad), content_h + 2 * std::uint32_t(kHelpPad), accent);
+    allocate_card(im, card_size(content_w), card_size(content_h), accent);
     std::uint32_t top = std::uint32_t(kHelpPad);
-    draw_line(im, title, title_box, int((im.width - title_box.width) / 2), top, font);
-    top += title_box.ascent + title_box.descent + std::uint32_t(kSectionGap);
-    // Divider under the title, in the accent colour, faint.
-    for (std::uint32_t x = std::uint32_t(kHelpPad); x + std::uint32_t(kHelpPad) < im.width; ++x)
-        over(im, int(x), int(top - std::uint32_t(kSectionGap) / 2), accent, 0.45f);
+    draw_centered(im, title, top, font);
+    top += height(title.box) + std::uint32_t(kSectionGap);
+    draw_divider(im, top, accent);
     const int left = int((im.width - table_w) / 2);
-    for (std::size_t i = 0; i < table.size(); ++i) {
-        const auto& [kb, ab] = boxes[i];
-        const std::uint32_t ascent = std::max(kb.ascent, ab.ascent);
-        draw_line(im, table[i].first, kb, left, top + ascent - kb.ascent, font);   // shared baseline
-        draw_line(im, table[i].second, ab, left + int(keys_w + std::uint32_t(kColumnGap)), top + ascent - ab.ascent, font);
-        top += ascent + std::max(kb.descent, ab.descent) + std::uint32_t(kRowGap);
+    for (const auto& [k, a] : table) {
+        const std::uint32_t ascent = row_ascent(k, a);
+        draw_cell(im, k, left, top, ascent, font);
+        draw_cell(im, a, left + int(keys_w + std::uint32_t(kColumnGap)), top, ascent, font);
+        top += ascent + row_descent(k, a) + std::uint32_t(kRowGap);
     }
     top += std::uint32_t(kSectionGap);
-    draw_line(im, footer, footer_box, int((im.width - footer_box.width) / 2), top, font);
+    draw_centered(im, footer, top, font);
     return im;
 }
 
@@ -186,7 +210,117 @@ constexpr MenuField kMenuFields[kPlacementMenuFields] = {
     {"Left / right", "", true, true}, {"Down / up", "", true, true}, {"Distance", "", true, false},
     {"Yaw", "turn left or right", false, true}, {"Pitch", "tilt up or down", false, true},
     {"Roll", "tilt sideways", false, true}, {"Curvature", "", false, false}};
-constexpr float kMenuHintGap = 20, kMenuBandPad = 12, kMenuMarkerW = 4, kMenuTabRule = 3;
+// Key hints (keys, action); must match the supervisor's modal menu binds (tools/native_spike/view.py MENU_BINDS).
+// The short set is the last resort on small outputs; it keeps every key.
+const std::vector<std::pair<std::string, std::string>> kMenuHints{
+    {"Up / Down", "choose a setting"}, {"Left / Right", "adjust"}, {"Shift", "bigger steps"},
+    {"Tab", "next desktop"}, {"R", "reset to flat"}, {"Esc", "close"}};
+const std::vector<std::pair<std::string, std::string>> kMenuHintsShort{
+    {"Up/Down", "setting"}, {"Left/Right", "adjust"}, {"Shift", "big step"}, {"Tab", "desktop"}, {"R", "flat"}, {"Esc", "close"}};
+constexpr const char* kHintKeyGap = "  ";      // between a key and its action
+constexpr const char* kHintGap = "     ";      // between hints on one footer line
+
+// Arrangements, roomiest first; text sizes and spacing are the same in all of them.
+struct MenuArrangement { bool tabs_beside_title, wide_footer, short_hints; };
+constexpr MenuArrangement kArrangements[] = {
+    {false, false, false},  // title, then desktop tabs; full hints wrapped to the table width
+    {true, false, false},   // tabs beside the title (one header line)
+    {true, true, false},    // ... hints may use the output's width (fewer footer lines)
+    {true, true, true},     // ... shorter hint wording
+};
+
+struct MenuLayout {
+    MenuArrangement arrangement{};
+    Cell title;
+    std::vector<Cell> tabs;
+    std::uint32_t tabs_w = 0, tabs_ascent = 0, tabs_descent = 0;
+    struct Row { Cell label, hint, value; bool selected; };
+    std::vector<Row> rows;
+    std::uint32_t label_w = 0, hint_w = 0, value_w = 0, table_w = 0, rows_h = 0;
+    std::vector<Cell> footer;
+    std::uint32_t footer_w = 0, footer_h = 0;
+    std::uint32_t header_h = 0, content_w = 0, content_h = 0;
+};
+std::uint32_t tab_rule() { return std::uint32_t(kBorder); }  // selected-tab underline: the border's weight
+
+// Greedy wrap of hint segments into lines no wider than `wrap` (a single segment may exceed it).
+std::vector<Cell> footer_lines(const std::vector<std::pair<std::string, std::string>>& hints, std::uint32_t wrap, const HudFont* font) {
+    std::vector<Cell> lines;
+    std::string line;
+    for (const auto& [keys, action] : hints) {
+        const std::string segment = keys + kHintKeyGap + action;
+        const std::string joined = line.empty() ? segment : line + kHintGap + segment;
+        if (!line.empty() && box(card_footer(joined), font).width > wrap) { lines.push_back(cell(card_footer(line), font)); line = segment; }
+        else line = joined;
+    }
+    if (!line.empty()) lines.push_back(cell(card_footer(line), font));
+    return lines;
+}
+
+MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, MenuArrangement a, std::uint32_t avail_content_w) {
+    MenuLayout L;
+    L.arrangement = a;
+    L.title = cell(card_title("Placement"), font);
+    for (std::uint32_t d = 0; d < kPlacementMenuDesktopCount; ++d) {
+        L.tabs.push_back(cell(d == state.desktop ? card_key("XR-" + std::to_string(d + 1)) : card_detail("XR-" + std::to_string(d + 1)), font));
+        L.tabs_w += L.tabs.back().box.width + (d ? std::uint32_t(kColumnGap) : 0);
+        L.tabs_ascent = std::max(L.tabs_ascent, L.tabs.back().box.ascent); L.tabs_descent = std::max(L.tabs_descent, L.tabs.back().box.descent);
+    }
+    for (auto& r : placement_menu_rows(state, font == nullptr)) {
+        L.rows.push_back({cell(card_key(r.label), font), cell(card_detail(r.hint), font), cell(card_key(r.value), font), r.selected});
+        const auto& row = L.rows.back();
+        L.label_w = std::max(L.label_w, row.label.box.width); L.hint_w = std::max(L.hint_w, row.hint.box.width);
+        L.value_w = std::max(L.value_w, row.value.box.width);
+        L.rows_h += row_ascent(row.label, row.hint, row.value) + row_descent(row.label, row.hint, row.value) + std::uint32_t(kRowGap);
+    }
+    // Columns: label, hint, value (right-aligned); the selected-row band reaches kRowGap past the text on each side.
+    L.table_w = L.label_w + (L.hint_w ? std::uint32_t(kColumnGap) / 2 + L.hint_w : 0) + std::uint32_t(kColumnGap) + L.value_w + 2 * std::uint32_t(kRowGap);
+    std::uint32_t header_w;
+    if (a.tabs_beside_title) {
+        header_w = L.title.box.width + std::uint32_t(kColumnGap) + L.tabs_w;
+        L.header_h = std::max(L.title.box.ascent, L.tabs_ascent) + std::max(L.title.box.descent, L.tabs_descent) + std::uint32_t(kLineGap) + tab_rule();
+    } else {
+        header_w = std::max(L.title.box.width, L.tabs_w);
+        L.header_h = height(L.title.box) + std::uint32_t(kLineGap) + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) + tab_rule();
+    }
+    const std::uint32_t body_w = std::max(header_w, L.table_w);
+    L.footer = footer_lines(a.short_hints ? kMenuHintsShort : kMenuHints, a.wide_footer ? std::max(body_w, avail_content_w) : body_w, font);
+    for (std::size_t i = 0; i < L.footer.size(); ++i) {
+        L.footer_w = std::max(L.footer_w, L.footer[i].box.width);
+        L.footer_h += height(L.footer[i].box) + (i ? std::uint32_t(kLineGap) : 0);
+    }
+    L.content_w = std::max(body_w, L.footer_w);
+    L.content_h = L.header_h + std::uint32_t(kSectionGap) + L.rows_h + std::uint32_t(kSectionGap) + L.footer_h;
+    return L;
+}
+
+bool fits(const MenuLayout& L, std::uint32_t max_w, std::uint32_t max_h) {
+    return (!max_w || card_size(L.content_w) + 2 * kHudFitMargin <= max_w) && (!max_h || card_size(L.content_h) + 2 * kHudFitMargin <= max_h);
+}
+
+MenuLayout choose_layout(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_w, std::uint32_t max_h) {
+    const std::uint32_t avail = max_w > 2 * kHudFitMargin + 2 * std::uint32_t(kHelpPad) ? max_w - 2 * kHudFitMargin - 2 * std::uint32_t(kHelpPad) : 0;
+    MenuLayout L;
+    for (const auto& a : kArrangements) {
+        L = layout_menu(state, font, a, avail);
+        if (fits(L, max_w, max_h)) break;
+    }
+    return L;  // nothing fits: the most compact arrangement, centred (clipped equally on each side)
+}
+
+// Desktop tabs on a shared baseline from `left`; the selected one is underlined in the accent colour.
+void draw_tabs(HudImage& im, const MenuLayout& L, std::uint32_t desktop, int left, std::uint32_t top, std::uint32_t ascent,
+               std::uint32_t rule_top, std::array<float, 3> accent, const HudFont* font) {
+    int x = left;
+    for (std::uint32_t d = 0; d < L.tabs.size(); ++d) {
+        const auto& t = L.tabs[d];
+        draw_cell(im, t, x, top, ascent, font);
+        if (d == desktop)
+            for (std::uint32_t y = 0; y < tab_rule(); ++y)
+                for (std::uint32_t dx = 0; dx < t.box.width; ++dx) over(im, x + int(dx), int(rule_top + y), accent, 1.f);
+        x += int(t.box.width + std::uint32_t(kColumnGap));
+    }
+}
 }
 
 std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& state, bool ascii_units) {
@@ -202,93 +336,54 @@ std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& stat
     return rows;
 }
 
-const std::vector<std::string>& placement_menu_hints() {
-    // Keys must match the supervisor's modal menu binds (tools/native_spike/view.py MENU_BINDS).
-    static const std::vector<std::string> hints{"Up / Down  choose a setting     Left / Right  adjust     Shift  bigger steps",
-                                                "Tab  next desktop     R  reset to flat     Esc  close"};
-    return hints;
+std::vector<std::string> placement_menu_hints(bool short_wording) {
+    std::vector<std::string> out;
+    for (const auto& [keys, action] : short_wording ? kMenuHintsShort : kMenuHints) out.push_back(keys + kHintKeyGap + action);
+    return out;
 }
 
-HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font) {
-    const HudLine title{"Placement", 2, kWhite, true};
-    std::vector<HudLine> tabs;
-    for (std::uint32_t d = 0; d < kPlacementMenuDesktopCount; ++d) {
-        const bool on = d == state.desktop;
-        tabs.push_back({"XR-" + std::to_string(d + 1), 2, on ? kWhite : kDim, on});
-    }
-    std::vector<HudLine> footer;
-    for (const auto& h : placement_menu_hints()) footer.push_back({h, 1, kDim});
-    struct Cells { HudLine label, hint, value; LineBox lb, hb, vb; bool selected; };
-    std::vector<Cells> rows;
-    std::uint32_t label_w = 0, hint_w = 0, value_w = 0;
-    for (auto& r : placement_menu_rows(state, font == nullptr)) {
-        Cells c{{r.label, 2, kWhite, r.selected}, {r.hint, 2, kDim}, {r.value, 2, kWhite, true}, {}, {}, {}, r.selected};
-        c.lb = box(c.label, font); c.hb = box(c.hint, font); c.vb = box(c.value, font);
-        label_w = std::max(label_w, c.lb.width); hint_w = std::max(hint_w, c.hb.width); value_w = std::max(value_w, c.vb.width);
-        rows.push_back(std::move(c));
-    }
-    const LineBox title_box = box(title, font);
-    std::vector<LineBox> tab_boxes, footer_boxes;
-    std::uint32_t tabs_w = 0, tabs_ascent = 0, tabs_descent = 0, footer_w = 0, footer_h = 0;
-    for (std::size_t i = 0; i < tabs.size(); ++i) {
-        tab_boxes.push_back(box(tabs[i], font));
-        tabs_w += tab_boxes.back().width + (i ? std::uint32_t(kColumnGap) : 0);
-        tabs_ascent = std::max(tabs_ascent, tab_boxes.back().ascent); tabs_descent = std::max(tabs_descent, tab_boxes.back().descent);
-    }
-    for (std::size_t i = 0; i < footer.size(); ++i) {
-        footer_boxes.push_back(box(footer[i], font));
-        footer_w = std::max(footer_w, footer_boxes.back().width);
-        footer_h += footer_boxes.back().ascent + footer_boxes.back().descent + (i ? std::uint32_t(kLineGap) : 0);
-    }
-    const std::uint32_t hint_col = hint_w ? hint_w + std::uint32_t(kMenuHintGap) : 0;
-    const std::uint32_t table_w = label_w + hint_col + std::uint32_t(kColumnGap) + value_w + 2 * std::uint32_t(kMenuBandPad);
-    std::uint32_t rows_h = 0;
-    for (const auto& c : rows)
-        rows_h += std::max({c.lb.ascent, c.hb.ascent, c.vb.ascent}) + std::max({c.lb.descent, c.hb.descent, c.vb.descent}) + std::uint32_t(kRowGap);
-    const std::uint32_t content_w = std::max({title_box.width, tabs_w, table_w, footer_w});
-    const std::uint32_t tabs_h = tabs_ascent + tabs_descent + std::uint32_t(kMenuTabRule) + std::uint32_t(kLineGap);
-    const std::uint32_t content_h = title_box.ascent + title_box.descent + std::uint32_t(kLineGap) + tabs_h + std::uint32_t(kSectionGap) +
-                                    rows_h + std::uint32_t(kSectionGap) + footer_h;
+PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height) {
+    const auto L = choose_layout(state, font, max_width, max_height);
+    return {card_size(L.content_w), card_size(L.content_h), L.arrangement.tabs_beside_title, L.arrangement.wide_footer,
+            L.arrangement.short_hints, std::uint32_t(L.footer.size()), fits(L, max_width, max_height)};
+}
+
+HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font,
+                                    std::uint32_t max_width, std::uint32_t max_height) {
+    const auto L = choose_layout(state, font, max_width, max_height);
     HudImage im;
-    allocate_card(im, content_w + 2 * std::uint32_t(kHelpPad), content_h + 2 * std::uint32_t(kHelpPad), accent);
+    allocate_card(im, card_size(L.content_w), card_size(L.content_h), accent);
     std::uint32_t top = std::uint32_t(kHelpPad);
-    draw_line(im, title, title_box, int((im.width - title_box.width) / 2), top, font);
-    top += title_box.ascent + title_box.descent + std::uint32_t(kLineGap);
-    // Desktop tabs on a shared baseline; the selected one is underlined in the accent colour.
-    int x = int((im.width - tabs_w) / 2);
-    for (std::size_t i = 0; i < tabs.size(); ++i) {
-        const auto& b = tab_boxes[i];
-        draw_line(im, tabs[i], b, x, top + tabs_ascent - b.ascent, font);
-        if (tabs[i].bold)
-            for (std::uint32_t y = 0; y < std::uint32_t(kMenuTabRule); ++y)
-                for (std::uint32_t dx = 0; dx < b.width; ++dx)
-                    over(im, x + int(dx), int(top + tabs_ascent + tabs_descent + std::uint32_t(kLineGap) / 2 + y), accent, 1.f);
-        x += int(b.width + std::uint32_t(kColumnGap));
+    if (L.arrangement.tabs_beside_title) {
+        const std::uint32_t ascent = std::max(L.title.box.ascent, L.tabs_ascent), descent = std::max(L.title.box.descent, L.tabs_descent);
+        const int left = int((im.width - (L.title.box.width + std::uint32_t(kColumnGap) + L.tabs_w)) / 2);
+        draw_cell(im, L.title, left, top, ascent, font);
+        draw_tabs(im, L, state.desktop, left + int(L.title.box.width + std::uint32_t(kColumnGap)), top, ascent,
+                  top + ascent + descent + std::uint32_t(kLineGap) / 2, accent, font);
+    } else {
+        draw_centered(im, L.title, top, font);
+        const std::uint32_t tabs_top = top + height(L.title.box) + std::uint32_t(kLineGap);
+        draw_tabs(im, L, state.desktop, int((im.width - L.tabs_w) / 2), tabs_top, L.tabs_ascent,
+                  tabs_top + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) / 2, accent, font);
     }
-    top += tabs_h + std::uint32_t(kSectionGap);
-    for (std::uint32_t dx = std::uint32_t(kHelpPad); dx + std::uint32_t(kHelpPad) < im.width; ++dx)  // divider, as on the help card
-        over(im, int(dx), int(top - std::uint32_t(kSectionGap) / 2), accent, 0.45f);
-    const int left = int((im.width - table_w) / 2);
-    for (const auto& c : rows) {
-        const std::uint32_t ascent = std::max({c.lb.ascent, c.hb.ascent, c.vb.ascent});
-        const std::uint32_t height = ascent + std::max({c.lb.descent, c.hb.descent, c.vb.descent});
-        if (c.selected) {  // translucent accent band behind the row, solid marker on its left edge
-            const int y0 = int(top) - int(kRowGap) / 2, y1 = int(top + height) + int(kRowGap) / 2;
+    top += L.header_h + std::uint32_t(kSectionGap);
+    draw_divider(im, top, accent);
+    const int left = int((im.width - L.table_w) / 2);
+    for (const auto& r : L.rows) {
+        const std::uint32_t ascent = row_ascent(r.label, r.hint, r.value), h = ascent + row_descent(r.label, r.hint, r.value);
+        if (r.selected) {  // accent wash behind the row, solid marker (border weight) on its left edge
+            const int y0 = int(top) - int(kRowGap) / 2, y1 = int(top + h) + int(kRowGap) / 2;
             for (int y = y0; y < y1; ++y)
-                for (int dx = 0; dx < int(table_w); ++dx) over(im, left + dx, y, accent, dx < int(kMenuMarkerW) ? 1.f : 0.28f);
+                for (int dx = 0; dx < int(L.table_w); ++dx) over(im, left + dx, y, accent, dx < int(kBorder) ? 1.f : kHighlightAlpha);
         }
-        const int col = left + int(kMenuBandPad);
-        draw_line(im, c.label, c.lb, col, top + ascent - c.lb.ascent, font);
-        if (!c.hint.text.empty()) draw_line(im, c.hint, c.hb, col + int(label_w + std::uint32_t(kMenuHintGap)), top + ascent - c.hb.ascent, font);
-        draw_line(im, c.value, c.vb, left + int(table_w) - int(kMenuBandPad) - int(c.vb.width), top + ascent - c.vb.ascent, font);  // right-aligned
-        top += height + std::uint32_t(kRowGap);
+        const int col = left + int(kRowGap);
+        draw_cell(im, r.label, col, top, ascent, font);
+        if (!r.hint.line.text.empty()) draw_cell(im, r.hint, col + int(L.label_w + std::uint32_t(kColumnGap) / 2), top, ascent, font);
+        draw_cell(im, r.value, left + int(L.table_w) - int(kRowGap) - int(r.value.box.width), top, ascent, font);  // right-aligned
+        top += h + std::uint32_t(kRowGap);
     }
     top += std::uint32_t(kSectionGap);
-    for (std::size_t i = 0; i < footer.size(); ++i) {
-        const auto& b = footer_boxes[i];
-        draw_line(im, footer[i], b, int((im.width - b.width) / 2), top, font);
-        top += b.ascent + b.descent + std::uint32_t(kLineGap);
-    }
+    for (const auto& f : L.footer) { draw_centered(im, f, top, font); top += height(f.box) + std::uint32_t(kLineGap); }
     return im;
 }
 
@@ -335,7 +430,7 @@ bool StatusPopups::update(std::uint8_t mode, bool cursor_follow, bool prediction
         if (!lines.empty()) lines.push_back({"", 1, kDim});
         for (auto& l : prediction_lines(prediction)) lines.push_back(std::move(l));
     }
-    image_ = render_hud_card(lines, {0.48f, 0.64f, 0.97f}, font_.get());  // same accent as the selection highlight
+    image_ = render_hud_card(lines, kAccent, font_.get());
     shown_ms_ = now_ms; ++generation_;
     return true;
 }
@@ -368,7 +463,7 @@ bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now
                     !std::equal(rows.begin(), rows.end(), rows_.begin(),
                                 [](const HelpRow& a, const HelpRow& b) { return a.keys == b.keys && a.action == b.action; }))) {
         rows_ = rows;
-        image_ = render_help_card(rows_, {0.48f, 0.64f, 0.97f}, font_.get());  // same accent as the pop-ups
+        image_ = render_help_card(rows_, kAccent, font_.get());
         ++generation_;
     }
     if (!fade_.set(visible, now_ms)) return false;
@@ -384,14 +479,25 @@ bool PlacementMenuOverlay::set(const PlacementMenuState& state, double now_ms) {
     bool changed = false;
     if (state.open && (!generation_ || !(state == rendered_))) {
         rendered_ = state;
-        image_ = render_placement_menu_card(rendered_, {0.48f, 0.64f, 0.97f}, font_.get());  // help card accent
-        ++generation_; changed = true;
+        render(); changed = true;
     }
     if (fade_.set(state.open, now_ms)) {  // closing keeps the last card for the fade-out
         if (state.open) ++shown_; else ++hidden_;
         changed = true;
     }
     return changed;
+}
+void PlacementMenuOverlay::render() {
+    image_ = render_placement_menu_card(rendered_, kAccent, font_.get(), max_w_, max_h_);
+    fits_ = placement_menu_fit(rendered_, font_.get(), max_w_, max_h_).fits;
+    ++generation_;
+}
+bool PlacementMenuOverlay::set_viewport(std::uint32_t width, std::uint32_t height) {
+    if (width == max_w_ && height == max_h_) return false;
+    max_w_ = width; max_h_ = height;
+    if (!generation_) return false;
+    render();
+    return true;
 }
 void PlacementMenuOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }
 float PlacementMenuOverlay::alpha(double now_ms) const { return generation_ ? fade_.alpha(now_ms) : 0.f; }
