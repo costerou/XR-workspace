@@ -22,19 +22,19 @@ ColumnLayout {
     Label { text: "Placement · XR-" + (root.index + 1); font.bold: true }
     Repeater {
         model: [
-            {key:"x", label:"Left / right", unit:"%"},
-            {key:"y", label:"Down / up", unit:"%"},
-            {key:"distance", label:"Distance", unit:"%"},
-            {key:"yaw", label:"Yaw", unit:"°"},
-            {key:"pitch", label:"Pitch", unit:"°"},
-            {key:"roll", label:"Roll", unit:"°"},
-            {key:"curvature", label:"Curvature", unit:"°"}
+            {key:"x", unit:"%"},
+            {key:"y", unit:"%"},
+            {key:"distance", unit:"%"},
+            {key:"yaw", unit:"°"},
+            {key:"pitch", unit:"°"},
+            {key:"roll", unit:"°"},
+            {key:"curvature", unit:"°"}
         ]
         delegate: RowLayout {
             id: row
             required property var modelData
             Layout.fillWidth: true
-            Label { text: row.modelData.label; Layout.preferredWidth: 95 }
+            Label { objectName: "placementLabel_" + row.modelData.key; text: Model.placementLabel(row.modelData.key); Layout.preferredWidth: 150 }
             Slider {
                 objectName: "placement_" + row.modelData.key
                 Layout.fillWidth: true

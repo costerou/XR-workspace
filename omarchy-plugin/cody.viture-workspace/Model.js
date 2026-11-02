@@ -109,6 +109,12 @@ function selectOperations(selected, target, capabilities) {
 const PLACEMENT_BOUNDS = {x: [-100, 100], y: [-100, 100], distance: [50, 200], yaw: [-60, 60], pitch: [-45, 45], roll: [-45, 45], curvature: [0, 120]};
 const PLACEMENT_KEYS = ["x", "y", "distance", "yaw", "pitch", "roll", "curvature"];
 
+// Slider labels; the angle terms keep their names plus plain wording. Shared by the editor and placementSummary.
+const PLACEMENT_LABELS = {x: "Left / right", y: "Down / up", distance: "Distance", yaw: "Yaw (turn left/right)",
+                          pitch: "Pitch (tilt up/down)", roll: "Roll (tilt sideways)", curvature: "Curvature"};
+
+function placementLabel(key) { return PLACEMENT_LABELS[key] || ""; }
+
 function placementBounds(key) { return (PLACEMENT_BOUNDS[key] || [0, 0]).slice(); }
 
 function defaultPlacement() { return {x:0, y:0, distance:100, yaw:0, pitch:0, roll:0, curvature:0}; }
@@ -144,7 +150,8 @@ function placementSummary(p) {
     const parts = [];
     if (p.x || p.y) parts.push("offset " + p.x + "%, " + p.y + "%");
     if (p.distance !== 100) parts.push("distance " + p.distance + "%");
-    if (p.yaw || p.pitch || p.roll) parts.push("yaw " + p.yaw + "° pitch " + p.pitch + "° roll " + p.roll + "°");
+    for (const key of ["yaw", "pitch", "roll"])  // only the angles in use, so the one-line summary stays short
+        if (p[key]) parts.push(PLACEMENT_LABELS[key] + " " + p[key] + "°");
     if (p.curvature) parts.push("curved " + p.curvature + "°");
     return parts.join(" · ");
 }

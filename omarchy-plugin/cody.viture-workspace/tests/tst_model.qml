@@ -144,7 +144,9 @@ TestCase {
         compare(Model.withPlacement([tilt, {bad:1}], 2, tilt), [tilt, Model.defaultPlacement(), tilt]);
         compare(Model.withPlacement([tilt, tilt, tilt], 0, {x:999}), [tilt, tilt, tilt]);
         compare(Model.placementSummary(Model.defaultPlacement()), "flat, in line");
-        verify(Model.placementSummary(tilt).indexOf("curved 30°") >= 0);
+        compare(Model.placementSummary(tilt), "offset 10%, 0% · Yaw (turn left/right) 20° · curved 30°");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {pitch:-5, roll:3})),
+                "Pitch (tilt up/down) -5° · Roll (tilt sideways) 3°");
     }
     function test_placedRects() {
         const rects = [{x:0, y:0, width:100, height:50}];
@@ -201,5 +203,21 @@ TestCase {
         verify(waitForRendering(editor));
         compare(findChild(editor,"placement_distance").value,150);
         compare(findChild(editor,"placement_curvature").value,20);
+    }
+    function test_placementLabels() {
+        compare(Model.placementLabel("yaw"), "Yaw (turn left/right)");
+        compare(Model.placementLabel("pitch"), "Pitch (tilt up/down)");
+        compare(Model.placementLabel("roll"), "Roll (tilt sideways)");
+        compare(Model.placementLabel("distance"), "Distance");
+        // At the panel's editor width every label fits its column (no clipping or eliding).
+        const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:Model.defaultPlacement()});
+        verify(waitForRendering(editor));
+        for (const key of ["x","y","distance","yaw","pitch","roll","curvature"]) {
+            const label=findChild(editor,"placementLabel_" + key);
+            verify(label !== null, key);
+            compare(label.text, Model.placementLabel(key));
+            verify(label.width >= label.implicitWidth, key + " label clipped: " + label.width + " < " + label.implicitWidth);
+            verify(findChild(editor,"placement_" + key).width >= 200, key + " slider squeezed");
+        }
     }
 }
