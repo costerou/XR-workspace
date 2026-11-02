@@ -198,7 +198,6 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     PlacementMenuOverlay menu; // keyboard placement menu (supervisor-owned state)
     bool menu_drawn = false;   // last frame showed the menu: draw once more so it clears
-    OrbitOffset drawn_orbit;   // pixel-orbit offset of the last drawn help card / menu
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -721,8 +720,6 @@ bool Presentation::finished() const { return impl_ && impl_->cadence.finished(mo
 Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
     auto& s = *impl_;
-    // A shown card moves one pixel every kOrbitStepMs even in a still scene (no tracking, no new captures).
-    if ((s.help.visible() || s.menu.visible()) && overlay_orbit(double(monotonic_ms())) != s.drawn_orbit) s.cadence.invalidate();
     if (!s.cadence.ready(monotonic_ms(), true, s.metrics.can_submit())) return {};
     if (s.gl) {
         for (std::size_t i = 0; i < s.captures.size(); ++i) {
@@ -783,12 +780,10 @@ Status Presentation::draw_test_pattern() {
         s.popup_drawn = popup > 0.f;
         const double help_now = double(monotonic_ms());
         const float help = s.help.alpha(help_now);
-        const OrbitOffset orbit = overlay_orbit(help_now);  // the same slow shift for both cards
-        s.drawn_orbit = orbit;
-        s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now), orbit);
+        s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
         const float menu = s.menu.alpha(help_now);
-        s.gl->set_menu(menu > 0.f ? &s.menu.image() : nullptr, s.menu.generation(), menu, s.menu.offset_px(help_now), orbit);
+        s.gl->set_menu(menu > 0.f ? &s.menu.image() : nullptr, s.menu.generation(), menu, s.menu.offset_px(help_now));
         s.menu_drawn = menu > 0.f;
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits

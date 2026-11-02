@@ -7,7 +7,6 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -66,9 +65,8 @@ int main() {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         // Same selection as GlCompositor: an image only while its alpha is > 0, and the menu replaces the help card.
         const float m = menu.alpha(now), h = help.alpha(now) * (m > 0.f ? 1.f - m : 1.f);
-        const OrbitOffset o = overlay_orbit(now);  // the slow pixel orbit, as in the renderer
-        if (h > 0.f) help_gl->draw(help.image(), help.generation(), h, W, H, true, help.offset_px(now), o.x, o.y);
-        if (m > 0.f) menu_gl->draw(menu.image(), menu.generation(), m, W, H, true, menu.offset_px(now), o.x, o.y);
+        if (h > 0.f) help_gl->draw(help.image(), help.generation(), h, W, H, true, help.offset_px(now));
+        if (m > 0.f) menu_gl->draw(menu.image(), menu.generation(), m, W, H, true, menu.offset_px(now));
         glFinish(); glReadPixels(0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         CHECK(glGetError() == GL_NO_ERROR);
     };
@@ -100,26 +98,17 @@ int main() {
         state.open = false; menu.set(state, now); run(500); help.set(false, rows, now); run(settle);
         closed_clean("menu closed over the help card, then help closed");
     }
-    // The orbit moves the card by whole pixels: one orbit step later the frame is the same card shifted by the step.
+    // Once faded in, an open card stays perfectly still: frames a minute apart are identical.
     {
-        PlacementMenuState state; state.open = true; menu.set(state, now);
-        now = std::ceil(now / kOrbitStepMs) * kOrbitStepMs + 5 * kOrbitStepMs;  // start of an orbit step
-        frame(now + kHelpFadeInMs + 1); const auto a = pixels; const auto oa = overlay_orbit(now + kHelpFadeInMs + 1);
-        frame(now + kOrbitStepMs + kHelpFadeInMs + 1); const auto ob = overlay_orbit(now + kOrbitStepMs + kHelpFadeInMs + 1);
-        const int dx = ob.x - oa.x, dy = ob.y - oa.y;
-        CHECK(std::abs(dx) + std::abs(dy) == 1);
-        std::size_t moved = 0, mismatched = 0;
-        // Inside the flat desktop tile (its edges are 5% in from the frame), where only the card can differ.
-        for (int y = H / 20 + 8; y < H - H / 20 - 8; ++y)
-            for (int x = W / 20 + 8; x < W - W / 20 - 8; ++x) {
-                const auto* pa = &a[(std::size_t(y) * W + std::size_t(x)) * 4];
-                const auto* pb = &pixels[(std::size_t(y + dy) * W + std::size_t(x + dx)) * 4];  // GL rows: y up, like dy
-                if (pa[0] != pixels[(std::size_t(y) * W + std::size_t(x)) * 4]) ++moved;
-                for (int c = 0; c < 4; ++c) if (pa[c] != pb[c]) { ++mismatched; break; }
-            }
-        if (mismatched) std::fprintf(stderr, "orbit step (%d,%d): %zu pixels are not the shifted card\n", dx, dy, mismatched);
-        CHECK(moved > 0 && mismatched == 0);
-        state.open = false; menu.set(state, now + 2 * kOrbitStepMs);
+        frame(now); before = pixels;  // nothing open
+        PlacementMenuState state; state.open = true; menu.set(state, now); help.set(true, rows, now);
+        frame(now + kHelpFadeInMs + 1); CHECK(changed() > 0); before = pixels;  // the menu is really drawn
+        for (const double later : {2000.0, 7000.0, 31000.0, 60000.0}) {
+            frame(now + kHelpFadeInMs + 1 + later);
+            if (const auto n = changed()) std::fprintf(stderr, "open card moved after %.0f ms: %zu bytes differ\n", later, n);
+            CHECK(changed() == 0);
+        }
+        state.open = false; menu.set(state, now); help.set(false, rows, now);
     }
     std::printf("%s\n", failures ? "overlay residue test FAILED" : "overlay residue test passed");
     return failures ? 1 : 0;
