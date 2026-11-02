@@ -232,6 +232,47 @@ class ManagedMenuWiringTests(unittest.TestCase):
         self.assertTrue(control.poll.called)
 
 
+class StaleMenuBindTests(unittest.TestCase):
+    """Supervisor gone with the menu open: a menu key removes the modal binds through the compositor socket."""
+    def setUp(self):
+        import os, socket
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.instance = 'a' * 40 + '_1_2'
+        d = Path(self.tmp.name) / 'hypr' / self.instance; d.mkdir(parents=True)
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); self.addCleanup(self.server.close)
+        self.server.bind(str(d / '.socket.sock')); self.server.listen(2)
+        self.received = []
+        def serve():
+            for _ in range(1):
+                conn, _ = self.server.accept()
+                with conn: self.received.append(conn.recv(4096)); conn.sendall(b'ok')
+        self.thread = threading.Thread(target=serve, daemon=True); self.thread.start()
+        self.env = {'XDG_RUNTIME_DIR': self.tmp.name, 'HYPRLAND_INSTANCE_SIGNATURE': self.instance}
+
+    def test_fixed_lua_matches_view_and_reaches_the_compositor(self):
+        from tools.native_spike import xr_control
+        self.assertEqual(xr_control.REMOVE_MENU_BINDS, view.remove_menu_binds_lua())
+        self.assertTrue(xr_control.drop_stale_menu_binds(self.env))
+        self.thread.join(2)
+        self.assertEqual(self.received, [('/eval ' + view.remove_menu_binds_lua()).encode()])
+
+    def test_dead_run_menu_key_cleans_up_and_view_keys_do_not(self):
+        from unittest import mock
+        from tools.native_spike import xr_control
+        dead = str(Path(self.tmp.name) / 'nobody.sock')
+        with mock.patch.object(xr_control, 'drop_stale_menu_binds') as drop:
+            self.assertEqual(xr_control.main(['x', dead, 'run', 's', 'zoom_in']), 1); drop.assert_not_called()
+            self.assertEqual(xr_control.main(['x', dead, 'run', 's', 'menu_inc']), 1); drop.assert_called_once()
+            self.assertEqual(xr_control.main(['x', dead, 'run', 's', 'menu_toggle']), 1); self.assertEqual(drop.call_count, 2)
+
+    def test_untrusted_environment_is_refused(self):
+        from tools.native_spike import xr_control
+        for env in ({}, {**self.env, 'XDG_RUNTIME_DIR': 'relative'}, {**self.env, 'HYPRLAND_INSTANCE_SIGNATURE': '../x'}):
+            with self.subTest(env): self.assertFalse(xr_control.drop_stale_menu_binds(env))
+        self.assertFalse(xr_control.drop_stale_menu_binds({**self.env, 'HYPRLAND_INSTANCE_SIGNATURE': 'b' * 40 + '_1_2'}))
+        self.assertTrue(xr_control.drop_stale_menu_binds(self.env)); self.thread.join(2)  # unblock the server
+
+
 class MenuBindLuaTests(unittest.TestCase):
     # A realistic worst case: long worktree path, 32-hex run id, 64-hex session.
     ARGS = ('/usr/bin/python3', '/home/cody/.t3/worktrees/viture-workspace/feature-placement-menu-wiring/tools/native_spike/xr_control.py',
