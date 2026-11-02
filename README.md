@@ -50,6 +50,8 @@ To switch an existing install to another checkout or build, do it with no XR ses
 
 Open the VITURE Workspace panel with the glasses connected. Choose the shape, resolution and scale of each desktop, then press **Start XR session**. That confirmation click is the consent for one run, including any temporary display-mode switch (for example Luma 1920×1200@120). **Stop** returns every window to the physical fallback output. **Recover** appears if an earlier run left resources behind.
 
+Other Hyprland plugins may stay loaded during a run. Omarchy keeps `hyprbars` loaded all session for its titlebars workspace mode. Start and recovery refuse only if the VITURE ownership plugin (`xr-ownership`) is already loaded. If an XR desktop's workspace is in Omarchy's floating mode, its windows get title bars inside the glasses, as they would on any monitor. That changes nothing about what the run captures or controls.
+
 Head tracking must be running before a session starts:
 
 ```sh

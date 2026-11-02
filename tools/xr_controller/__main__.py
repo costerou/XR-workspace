@@ -11,7 +11,7 @@ import socket
 import subprocess
 import sys
 import time
-from tools.native_spike.hyprland import HyprlandClient
+from tools.native_spike.hyprland import HyprlandClient, ownership_plugin_count
 from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
 from tools.native_spike.profiles import load_profile, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
@@ -125,11 +125,11 @@ def recover_run(consent_path,journal):
     verify_pinned(pinned['plugin'])
     client=HyprlandClient(consent['instance'],Path(os.environ['XDG_RUNTIME_DIR']))
     # Recover only the consented broker; never load a replacement with a new epoch.
-    if client.plugins_loaded()!=['xr-ownership']: raise ValueError('consented ownership plugin unavailable for recovery')
+    if ownership_plugin_count(client.plugins_loaded())!=1: raise ValueError('consented ownership plugin unavailable for recovery')
     result=recover_managed(client,consent,Path(journal))
     if result['complete']:
         client.plugin_unload(pinned['plugin']['path'],data_home=data_home)
-        if 'xr-ownership' in client.plugins_loaded(): raise ValueError('plugin unload not confirmed')
+        if ownership_plugin_count(client.plugins_loaded()): raise ValueError('plugin unload not confirmed')
     return 0 if result['complete'] else 2
 
 

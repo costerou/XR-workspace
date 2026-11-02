@@ -13,6 +13,8 @@ from tools.native_spike.panel_consent import build_consent
 from tools.native_spike.profiles import ProfileStore
 from tools.xr_controller import runner
 from tools.xr_controller.install import install
+from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME
+HYPRBARS = 'hyprbars'  # Omarchy titlebars workspace mode
 
 INSTANCE = 'a' * 40 + '_123_456'
 DESKTOPS = [{'width': 1920, 'height': 1080, 'scale': 1.0}, {'width': 2560, 'height': 1440, 'scale': 1.25},
@@ -140,11 +142,13 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse(result['complete'])
 
     def test_does_not_unload_foreign_plugin(self):
+        # A foreign plugin no longer blocks the run, and teardown only ever unloads the pinned broker path.
         self.consent(); self.client.loaded = ['someone-else']
-        self.assertEqual(self.main(), 2)
-        self.assertFalse(any(isinstance(e, tuple) for e in self.log))
+        self.assertEqual(self.main(), 0)
+        plugin = self.installed['plugin']['path']
+        self.assertEqual([e for e in self.log if isinstance(e, tuple) and e[0].startswith('plugin_')],
+                         [('plugin_load', plugin), ('plugin_unload', plugin)])
         self.assertEqual(self.client.loaded, ['someone-else'])
-        self.assertEqual(self.result()['error'], 'ownership plugin already loaded')
 
     def test_incomplete_recovery_preserves_plugin(self):
         self.consent()
@@ -250,6 +254,30 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(self.result()['phase'], 'plugin')
         self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o700)
         self.assertEqual(sorted(p.name for p in self.state.iterdir()), ['invalid.result.json', 'run1.result.json'])
+
+
+    # Unrelated plugins (Omarchy's hyprbars stays loaded all session) must not block; only 'xr-ownership' counts.
+    def test_runs_and_leaves_hyprbars_alone(self):
+        self.consent(); self.client.loaded = [HYPRBARS]
+        self.assertEqual(self.main(), 0, self.result())
+        plugin = self.installed['plugin']['path']
+        self.assertIn(('plugin_load', plugin), self.log); self.assertIn(('plugin_unload', plugin), self.log)
+        self.assertEqual(self.client.loaded, [HYPRBARS])
+        self.assertEqual(self.result()['error'], None)
+
+    def test_refuses_when_our_broker_is_loaded_beside_hyprbars(self):
+        self.consent(); self.client.loaded = [HYPRBARS, OWNERSHIP_PLUGIN_NAME]
+        self.assertEqual(self.main(), 2)
+        self.assertEqual(self.log, ['plugins_loaded'])
+        self.assertEqual(self.result()['error'], 'ownership plugin already loaded')
+        self.assertEqual(self.client.loaded, [HYPRBARS, OWNERSHIP_PLUGIN_NAME])
+
+    def test_readback_without_our_broker_is_not_confirmed_by_hyprbars(self):
+        self.consent(); self.client.loaded = [HYPRBARS]
+        self.client.plugin_load = lambda path, data_home=None: self.log.append(('plugin_load', path))  # load is a no-op
+        self.assertEqual(self.main(), 2)
+        self.assertIn('plugin load not confirmed by readback', self.result()['error'])
+        self.assertNotIn('run', self.log)
 
 
 if __name__ == '__main__':

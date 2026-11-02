@@ -386,6 +386,15 @@ class PluginLifecycleTests(unittest.TestCase):
         for _ in range(3):
             with self.assertRaises(ValueError): self.client.plugins_loaded()
 
+    def test_plugins_loaded_with_omarchy_hyprbars(self):
+        # Shape of the live 0.56.2 reply with Omarchy's titlebars mode on: all names are returned, only ours counts.
+        bars = {'name': 'hyprbars', 'author': 'Vaxry', 'handle': '555d59bd5790', 'version': '1.0',
+                'description': 'A plugin to add title bars to windows.'}
+        ours = {'name': 'xr-ownership', 'author': 'Hermes Agent', 'handle': '0x1', 'version': '1', 'description': 'd'}
+        self.replies = {'j/plugin list': [json.dumps([bars]).encode(), json.dumps([bars, ours]).encode()]}
+        names = self.client.plugins_loaded(); self.assertEqual(names, ['hyprbars']); self.assertEqual(h.ownership_plugin_count(names), 0)
+        names = self.client.plugins_loaded(); self.assertEqual(h.ownership_plugin_count(names), 1)
+
     def monitor(self, **changes):
         m = dict(RawFixture().monitors[0], name='DP-2', x=1920, y=0, scale=1.0, width=1920, height=1080, refreshRate=60.0)
         m.update(changes); return m

@@ -9,6 +9,8 @@ from tools.native_spike.panel_consent import build_consent
 from tools.native_spike.isolated import FORBIDDEN_INSTANCE
 from tools.xr_controller import isolated
 from tests.xr_controller.test_runner import DESKTOPS, INSTANCE
+from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME
+HYPRBARS = 'hyprbars'  # Omarchy titlebars workspace mode
 
 
 class IsolationTests(unittest.TestCase):
@@ -94,3 +96,33 @@ class IsolationTests(unittest.TestCase):
         reply=controller.request(dict(op='begin_start'))
         self.assertTrue(reply['ok'],reply)
         self.assertEqual(reply['scope']['run_id'],'vmtest')
+
+    # Unrelated plugins (Omarchy's hyprbars stays loaded all session) must not block; only 'xr-ownership' counts.
+    def execute(self, action, lists, result):
+        pins = {k: self.panel[k] for k in ('plugin', 'renderer')}
+        self.client.plugins_loaded.side_effect = [list(x) for x in lists]
+        with patch.dict(os.environ, XDG_DATA_HOME=str(self.root)), \
+             patch.object(isolated, 'load_vm', return_value=self.vm), \
+             patch.object(isolated, 'load_panel_consent', return_value=self.panel), \
+             patch.object(isolated, 'HyprlandClient', return_value=self.client), \
+             patch.object(isolated, 'authorize'), patch.object(isolated, 'load_installed', return_value=pins), \
+             patch.object(isolated, 'verify_pinned'), \
+             patch.object(isolated.vm, 'run_isolated', return_value=result), \
+             patch.object(isolated.vm, 'recover_isolated', return_value=result), \
+             patch.object(isolated, '_write_result'):
+            return isolated.execute(action, self.path, self.path, self.root, journal=self.root / 'j.json')
+
+    def test_start_with_hyprbars(self):
+        ok = dict(complete=True, remaining=[], renderer_returncode=0)
+        self.assertEqual(self.execute('start', [[HYPRBARS], [HYPRBARS, OWNERSHIP_PLUGIN_NAME], [HYPRBARS]], ok), 0)
+        self.client.plugin_load.assert_called_once(); self.client.plugin_unload.assert_called_once()
+
+    def test_start_refused_when_our_broker_is_loaded(self):
+        with self.assertRaisesRegex(ValueError, 'ownership plugin already loaded'):
+            self.execute('start', [[HYPRBARS, OWNERSHIP_PLUGIN_NAME]], dict(complete=True, remaining=[], renderer_returncode=0))
+        self.client.plugin_load.assert_not_called(); self.client.plugin_unload.assert_not_called()
+
+    def test_recover_with_hyprbars(self):
+        ok = dict(complete=True, remaining=[], renderer_returncode=None)
+        self.assertEqual(self.execute('recover', [[HYPRBARS, OWNERSHIP_PLUGIN_NAME], [HYPRBARS]], ok), 0)
+        self.client.plugin_unload.assert_called_once()

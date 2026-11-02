@@ -6,6 +6,8 @@ import unittest
 from tools.native_spike.profiles import DEFAULT_PROFILE
 from tools.native_spike.panel_consent import load_panel_consent, build_consent
 from tools.xr_controller.state import Controller
+from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME
+HYPRBARS = 'hyprbars'  # Omarchy titlebars workspace mode
 
 class Store:
     def __init__(self): self.profile=copy.deepcopy(DEFAULT_PROFILE)
@@ -185,3 +187,13 @@ class StateTests(unittest.TestCase):
         self.c.probe=fail; self.c.tick()
         self.assertEqual(self.c.snapshot()['state'],'failed'); self.assertIsNone(self.c.pending)
         self.assertEqual(self.c.snapshot()['reason'],'probe unavailable')
+
+    # Unrelated plugins (Omarchy's hyprbars stays loaded all session) must not block; only 'xr-ownership' counts.
+    def test_hyprbars_does_not_block_begin_start(self):
+        self.observation['plugins'] = [HYPRBARS]; self.c.tick()
+        self.assertTrue(self.confirm()['ok']); self.assertEqual(len(self.calls), 1)
+
+    def test_our_broker_still_blocks_begin_start(self):
+        self.observation['plugins'] = [HYPRBARS, OWNERSHIP_PLUGIN_NAME]; self.c.tick()
+        reply = self.c.request(dict(op='begin_start'))
+        self.assertFalse(reply['ok']); self.assertIn('ownership plugin already loaded', reply['error'])

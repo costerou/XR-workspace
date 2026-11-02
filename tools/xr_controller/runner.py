@@ -17,7 +17,7 @@ from tools.native_spike.panel_consent import load_panel_consent
 from tools.native_spike.profiles import ProfileStore, profiles_path
 from tools.xr_controller.install import load_installed, verify_pinned
 
-PLUGIN_NAME = 'xr-ownership'  # PLUGIN_INIT name in spike/ownership/plugin.cpp; `plugin list` has no path field
+from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME as PLUGIN_NAME, ownership_plugin_count
 
 
 def _run_id(raw):
@@ -74,11 +74,12 @@ def execute(consent_path, data_home, progress=None):
         result['phase'] = 'plugin'
         if progress: progress(result['run_id'], 'plugin')
         client = HyprlandClient(consent['instance'], runtime)
-        if client.plugins_loaded(): raise ValueError('ownership plugin already loaded')
+        # Other plugins (e.g. Omarchy's hyprbars) may stay loaded; only a broker of ours already present blocks.
+        if ownership_plugin_count(client.plugins_loaded()): raise ValueError('ownership plugin already loaded')
         verify_pinned(installed['plugin'])
         attempted = True
         client.plugin_load(plugin, data_home=data_home)
-        if client.plugins_loaded() != [PLUGIN_NAME]: raise ValueError('plugin load not confirmed by readback')
+        if ownership_plugin_count(client.plugins_loaded()) != 1: raise ValueError('plugin load not confirmed by readback')
         if consent['mode_switch'] is not False:
             result['phase'] = 'mode'
             client.apply_session_mode(consent['output'])  # raises unless 1920x1200@~120 is read back

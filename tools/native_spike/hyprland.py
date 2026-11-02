@@ -26,6 +26,15 @@ OWNED = r'XR-[1-9][0-9]*'
 # Any managed name, including pre-Omarchy per-run names: never adoptable without a broker.
 MANAGED_ANY = r'XR-(?:[1-9][0-9]*|SPIKE-.*)'
 PLUGIN_PATH = re.compile(r'(?:/[A-Za-z0-9_.-]+)+/viture-workspace/bin/[0-9a-f]{12}/libxr-ownership\.so')
+# Our broker's PLUGIN_INIT name (spike/ownership/plugin.cpp). `plugin list` has no path field, so it is matched by name.
+OWNERSHIP_PLUGIN_NAME = 'xr-ownership'
+
+
+def ownership_plugin_count(names):
+    """How many entries of a `plugins_loaded()` list are our broker. Unrelated plugins, such as the hyprbars that
+    Omarchy keeps loaded all session for its titlebars workspace mode, do not count: the broker hooks no compositor
+    functions and every broker reply is checked against the run's session and epoch, so they cannot stand in for it."""
+    return sum(1 for name in names if name == OWNERSHIP_PLUGIN_NAME)
 QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 LIMIT = 1048576
 DEADLINE = 2.0

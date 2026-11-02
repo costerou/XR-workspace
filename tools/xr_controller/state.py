@@ -12,6 +12,7 @@ import subprocess
 from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE
 from tools.native_spike.profiles import _check
 from tools.native_spike.geometry import validate_placements
+from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MODES, SPACING_STEP
 from .detect import pick_fallback
 
@@ -174,7 +175,7 @@ class Controller:
             o=self.observed; p=self.store.load(o['model'])
             fallback=pick_fallback(o['monitors'],o['output'],p['fallback'])
             if not o['output'] or fallback in (None,'choose'): raise ValueError(o.get('reason') or 'choose a physical fallback output')
-            if o.get('plugins'): raise ValueError('ownership plugin already loaded')
+            if ownership_plugin_count(o.get('plugins') or []): raise ValueError('ownership plugin already loaded')
             scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
                 tracking='xrlinuxdriver' if p['tracking'] else False,mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
                 desktops=p['desktops'],**o['installed'])

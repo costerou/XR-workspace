@@ -13,6 +13,7 @@ import sys
 import time
 
 from tools.native_spike import isolated as vm
+from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import private_dir, read_private_json
 from tools.native_spike.panel_consent import load_panel_consent
@@ -89,18 +90,18 @@ def execute(action,path,panel_path,state,journal=None):
     plugin=pins['plugin']['path']; loaded=False
     try:
         if action=='start':
-            if client.plugins_loaded(): raise ValueError('ownership plugin already loaded')
+            if ownership_plugin_count(client.plugins_loaded()): raise ValueError('ownership plugin already loaded')
             client.plugin_load(plugin); loaded=True
-            if client.plugins_loaded()!=['xr-ownership']: raise ValueError('plugin load not confirmed')
+            if ownership_plugin_count(client.plugins_loaded())!=1: raise ValueError('plugin load not confirmed')
             result=vm.run_isolated(client,consent,Path(consent['runtime']),desktops=panel['desktops'],
                 store=ProfileStore(profiles_path(),panel['model']),renderer=pins['renderer']['path'])
         else:
-            if client.plugins_loaded()!=['xr-ownership']: raise ValueError('saved broker unavailable')
+            if ownership_plugin_count(client.plugins_loaded())!=1: raise ValueError('saved broker unavailable')
             result=vm.recover_isolated(client,consent,Path(journal))
         # Preserve broker epoch if recovery is incomplete. Never unload that authority.
         if result['complete']:
             client.plugin_unload(plugin)
-            if client.plugins_loaded(): raise ValueError('plugin unload not confirmed')
+            if ownership_plugin_count(client.plugins_loaded()): raise ValueError('plugin unload not confirmed')
         _write_result(state,consent['run_id']+'.result.json',dict(result,run_id=consent['run_id']))
         return 0 if result['complete'] and (action=='recover' or result['renderer_returncode']==0) else 2
     except BaseException:
