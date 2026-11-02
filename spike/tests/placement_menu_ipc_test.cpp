@@ -2,7 +2,10 @@
 // reject every invalid one. Cases come from tests/native_spike/fixtures/placement_menu_payloads.json, the same file the
 // Python reference validator checks, so the two sides cannot drift.
 //
-// Uses only the existing public API (decode_control -> ControlMessage | Error), so it compiles before MENU-UI lands.
+// "Rejected" means decode_control returns an Error, or a ControlMessage whose payload is empty (std::monostate): MENU-UI
+// decodes a well-framed placement_menu message with a malformed payload that way so the renderer ignores it instead of
+// ending the session. Either way the renderer never draws it. Only the existing public API is used, so this compiles
+// before MENU-UI lands.
 // Until the renderer knows the op, every valid payload is rejected: the test then exits 77, which CMake maps to SKIP.
 // Accepting some valid payloads and rejecting others, or accepting any invalid one, is a failure.
 #include "xr/ipc.hpp"
@@ -18,7 +21,11 @@ std::string frame(const nlohmann::json& payload, unsigned id) {
                         {"payload", payload}};
     return j.dump() + "\n";
 }
-bool accepted(const std::string& wire) { return std::holds_alternative<xr::ControlMessage>(xr::decode_control(wire)); }
+bool accepted(const std::string& wire) {
+    const auto r = xr::decode_control(wire);
+    const auto* m = std::get_if<xr::ControlMessage>(&r);
+    return m && !std::holds_alternative<std::monostate>(m->payload);
+}
 }
 
 int main(int argc, char** argv) {

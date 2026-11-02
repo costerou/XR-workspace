@@ -643,6 +643,24 @@ class MenuBindTests(unittest.TestCase):
         self.assertIn(chord, section[1].split('\n## ', 1)[0])
 
 
+@unittest.skipUnless(RENDERER and 'PlacementMenuOverlay' in (ROOT / 'spike/src/wayland.cpp').read_text(),
+                     'needs MENU-UI: no placement menu overlay in the renderer yet')
+class MenuStyleSourceTests(unittest.TestCase):
+    """What the pixel tests cannot see (spike/tests/placement_menu_style_test.cpp covers chrome, colours, spacing, fit)."""
+    def test_menu_loads_the_same_font_family_as_the_help_card(self):
+        src = (ROOT / 'spike/src/wayland.cpp').read_text()
+        loads = re.findall(r's->(\w+)\.set_font\(HudFont::load\((\w+)', src)
+        self.assertIn(('help', 'kHudFontFamily'), loads)
+        menu = [family for owner, family in loads if owner != 'help' and owner != 'popups']
+        self.assertEqual(menu, ['kHudFontFamily'], f'menu overlay font: {loads}')
+
+    def test_menu_card_uses_the_help_card_accent(self):
+        hud = (ROOT / 'spike/src/hud.cpp').read_text()
+        help_accent = re.search(r'render_help_card\(rows_, (\{[^}]*\})', hud).group(1)
+        menu_accent = re.search(r'render_placement_menu_card\(\w+, (\{[^}]*\})', hud).group(1)
+        self.assertEqual(menu_accent, help_accent)
+
+
 class NoScopeChangeTests(unittest.TestCase):
     """The menu is presentation only. None of these grants, allowlists or persisted shapes may widen. Runs now."""
     def test_consent_shapes_unchanged(self):
