@@ -87,7 +87,7 @@ When the session ends they go away, so they never get in the way of normal typin
 | Ctrl+Alt+1 / 2 / 3 | Send the window you're using to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
 | Ctrl+Alt+O | Play a VR video file |
-| Ctrl+Alt+U | Play the web video you copied with the *Play in VITURE* bookmark |
+| Ctrl+Alt+U | Play the video or video page link you copied |
 
 **Typing mode.** Press **Ctrl+Alt+T** when you want to type or use an app's own shortcuts while the session runs.
 All of the keys in this list stop working until you press Ctrl+Alt+T again, so the arrow keys, Space, Tab, Esc and
@@ -167,7 +167,7 @@ pill stays until you close it or until 30 seconds pass without input.
 Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
 edit the desktop in the panel.
 
-## VR video and DelightXR
+## VR video
 
 During a session you can watch 360° and 180° videos, including 3D ones, all around you. The desktops come back when you
 press Esc. This is new and has not been tried in the glasses yet.
@@ -175,13 +175,8 @@ press Esc. This is new and has not been tried in the glasses yet.
 **A video file:** press **Ctrl+Alt+O** and pick a file. Or use the panel's **VR video** section and click
 **Browse…**.
 
-**A video on a website (DelightXR and others):** set up the bookmark once, then use it on any video page.
-
-1. Once: run `python -m tools.delightxr.build | wl-copy`. In Chromium, press Ctrl+Shift+O, open the ⋮ menu, choose
-   *Add new bookmark*, name it **Play in VITURE** and paste the copied text as its address.
-2. Open the video page and click **Play in VITURE**. The page's video pauses.
-3. Press **Ctrl+Alt+U** (or click **Paste from browser** in the panel). The video opens around you, near where you left
-   off.
+**A video on a website:** copy the video's link, or the page's address, then press **Ctrl+Alt+U** (or click **Paste
+from browser** in the panel). The video opens around you. Page links are looked up with yt-dlp.
 
 While a video plays:
 
@@ -195,7 +190,7 @@ While a video plays:
 | Esc | Back to your desktops |
 
 Videos with copy protection, or links that need you to be logged in, won't play. The panel or a notification will tell
-you why. See [docs/vr-video.md](docs/vr-video.md) and [docs/delightxr.md](docs/delightxr.md) for formats and limits.
+you why. See [docs/vr-video.md](docs/vr-video.md) for formats and limits.
 
 ## Stopping, recovering and troubleshooting
 
@@ -249,5 +244,5 @@ No. A session only starts when you press Start, and that approval covers only th
 
 - [docs/technical.md](docs/technical.md): test evidence, how it is built, the safety design, the full key rules, running
   the tests, and the host diagnostic tool.
-- [docs/vr-video.md](docs/vr-video.md) and [docs/delightxr.md](docs/delightxr.md): how VR video and web video work.
+- [docs/vr-video.md](docs/vr-video.md): how VR video and web video work.
 - [docs/placement-menu-test-plan.md](docs/placement-menu-test-plan.md): step-by-step checks to try in the glasses.

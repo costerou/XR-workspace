@@ -32,7 +32,7 @@ ShellRoot {
             anchors.fill: parent
             snapshot: ({})
             pickerCommand: ["/bin/sh", "-c", "printf '%s\\\\n' /tmp/picked_180_LR.mp4"]
-            pasteCommand: ["/bin/sh", "-c", "printf '%s' '{\\"viture_xr_video\\":1,\\"format\\":\\"STEREO_180_LR\\",\\"sources\\":[{\\"src\\":\\"https://cdn.example.com/a.mp4\\"}]}'"]
+            pasteCommand: ["/bin/sh", "-c", "printf '%s' 'https://www.example.com/watch?v=42'"]
             onRequest: message => shell.sent.push(message)
         }
     }
@@ -105,11 +105,10 @@ class VideoControlsTests(unittest.TestCase):
                               "video_format", "video_controls", "recenter", "video_exit"])
             self.assertTrue(all(m["op"] == "view_op" for m in sent[2:11]))
             self.assertEqual(sent[11], {"op": "video_open", "url": "https://cdn.example.com/b_360.mp4"})
-            self.assertEqual(sent[12], {"op": "video_open", "web": {"viture_xr_video": 1, "format": "STEREO_180_LR",
-                                                                    "sources": [{"src": "https://cdn.example.com/a.mp4"}]}})
+            self.assertEqual(sent[12], {"op": "video_open", "url": "https://www.example.com/watch?v=42"})
             self.assertEqual(len(sent), 13)  # "shopping list" and an empty clipboard send nothing
-            from tools.native_spike.web_video import validate_web
-            validate_web(sent[12]["web"])  # the run accepts what the panel forwards
+            from tools.native_spike.web_video import validate_url
+            validate_url(sent[12]["url"])  # the run accepts what the panel forwards
             from tools.native_spike.video import KEY_OPS  # every button is an op the controller forwards
             from tools.native_spike.view import USER_OPS
             self.assertTrue({m["operation"] for m in sent[2:11]} <= set(KEY_OPS) | set(USER_OPS))

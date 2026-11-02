@@ -6,8 +6,8 @@ import Quickshell.Io
 
 // VR video in a running session (docs/vr-video.md). A thin client like the rest of the panel: the run itself checks,
 // probes and opens the file and owns the playback state; this shows it and sends paths and key operations.
-// Web videos (docs/delightxr.md): an http(s) link typed here, or "Paste from browser" (the clipboard once, after the
-// "Play in VITURE" bookmarklet). The run validates, picks the stream and relays it.
+// Web videos: an http(s) video or page link typed here, or "Paste from browser" (the clipboard once). The run
+// validates it, resolves a page link with yt-dlp and relays the stream.
 ColumnLayout {
     id: root
     required property var snapshot
@@ -39,13 +39,9 @@ ColumnLayout {
         const t = String(text || "").trim();
         root.pasteError = "";
         if (t.length > 16384) { root.pasteError = "The clipboard holds too much text to be a video link."; return; }
-        if (t.startsWith("{")) {
-            let obj = null;
-            try { obj = JSON.parse(t); } catch (e) { obj = null; }
-            if (obj && typeof obj === "object" && obj.viture_xr_video === 1) { root.request({op: "video_open", web: obj}); return; }
-        } else if (root.isLink(t)) { root.request({op: "video_open", url: t}); return; }
-        root.pasteError = t ? "The clipboard holds no video link. Click \"Play in VITURE\" on the video page first."
-                            : "The clipboard is empty. Click \"Play in VITURE\" on the video page first.";
+        if (root.isLink(t)) { root.request({op: "video_open", url: t}); return; }
+        root.pasteError = t ? "The clipboard holds no video link. Copy the video page or video link first."
+                            : "The clipboard is empty. Copy a video link first.";
     }
     function paste() { if (!paster.running) paster.running = true; }
     function clock(s) {
@@ -72,7 +68,7 @@ ColumnLayout {
     }
     Label {
         visible: !root.playing; Layout.fillWidth: true; wrapMode: Text.WordWrap; opacity: 0.65
-        text: "Or press Ctrl+Alt+O in the glasses for a file, Ctrl+Alt+U for the browser video you copied with the \"Play in VITURE\" bookmark. 360° or 180°, mono or 3D (side-by-side / top-bottom), equirectangular or fisheye. The desktops come back when you exit (Esc)."
+        text: "Or press Ctrl+Alt+O in the glasses for a file, Ctrl+Alt+U for a video or video page link you copied. 360° or 180°, mono or 3D (side-by-side / top-bottom), equirectangular or fisheye. The desktops come back when you exit (Esc)."
     }
     Label { objectName: "videoPasteError"; visible: !!root.pasteError && !root.playing; Layout.fillWidth: true; wrapMode: Text.WordWrap; color: "#e06c75"; text: root.pasteError }
     Label {

@@ -2,7 +2,7 @@
 
 The [README](../README.md) is the friendly guide. This page keeps the full detail: what has been tested and how,
 how the pieces fit together, build and install internals, the exact keybind rules, the safety model, the tests and the
-host diagnostic. Feature deep dives live in [vr-video.md](vr-video.md), [delightxr.md](delightxr.md) and
+host diagnostic. Feature deep dives live in [vr-video.md](vr-video.md) and
 [placement-menu-test-plan.md](placement-menu-test-plan.md).
 
 ## Summary
@@ -76,7 +76,7 @@ does that itself; see [Head tracking from the command line](#head-tracking-from-
 
 **VR video** (offline tests only, not yet run in the glasses): during a session, **Ctrl+Alt+O** (or the panel's *VR video* section) plays a 360° or 180° video, mono or 3D (side-by-side, top-bottom), equirectangular or fisheye, head-tracked around you in place of the desktops. Space pauses, the arrows seek, Tab changes the format, Ctrl+Alt+Space recenters and Esc returns to the desktops. Opening a video closes an open placement pill; while it plays, Ctrl+Alt+L, the pills and the overview free pointer are off. The renderer decodes with libmpv (`mpv` package; without it the renderer builds without video). Design, formats, limits and performance: [vr-video.md](vr-video.md).
 
-**Web VR video / DelightXR** (offline tests only): click the *Play in VITURE* bookmark (built by `python -m tools.delightxr.build`) on a DelightXR or other video page, then press **Ctrl+Alt+U** in the glasses (or the panel's *Paste from browser*). The run streams the page's own video link through an ffmpeg relay into the same VR video player; no download, no browser changes, renderer unchanged. Findings, options and limits (no DRM, no cookie-gated links): [delightxr.md](delightxr.md).
+**Web VR video** (offline tests only): copy a stream link or a video page link, then press **Ctrl+Alt+U** in the glasses (or the panel's *Paste from browser*). Page links are resolved with yt-dlp; the run streams the video through an ffmpeg relay into the same VR video player; no download, no browser changes, renderer unchanged. Details and limits (no DRM, no cookie-gated links): [vr-video.md](vr-video.md#web-video).
 
 These keybinds exist only during a run. The keys marked "pill open" are bound only while a placement pill is open (expanded into its panel), and released when it closes or the run ends; the left-button binds marked "free pointer" exist only while the overview's pointer is outside the desktops. If the run dies with a pill open, the first of those keys pressed afterwards releases them all; if it dies with the free pointer out, the first click releases the left button and shows the cursor again. A run from an older build that died in the old placement menu's mouse mode is cleaned up the same way: its left-button bind still calls the bind helper (`xr_control.py` keeps the `menu_mouse_press` / `menu_mouse_release` op names for that cleanup only), which removes it.
 

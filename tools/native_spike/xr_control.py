@@ -5,9 +5,9 @@ Exits quietly with status 1 if no run is listening (binds only exist during a ru
 video_open (Ctrl+Alt+O) first leaves any playing video (video_exit, so the desktops and the picker are visible in the
 glasses), then shows a file picker (zenity) on the focused desktop and sends the chosen path; a cancelled picker sends
 nothing more. The run checks and opens the file itself (video.py).
-video_paste (Ctrl+Alt+U) reads the clipboard once (wl-paste): the "Play in VITURE" bookmarklet's JSON or a bare http(s)
-video link, and sends it as video_open. The run checks it, picks the stream and relays it (web_video.py,
-docs/delightxr.md). If the clipboard holds neither, a desktop notification says so and nothing is sent.
+video_paste (Ctrl+Alt+U) reads the clipboard once (wl-paste): an http(s) video or video page link, and sends it as
+video_open. The run checks it, resolves a page link with yt-dlp and relays the stream (web_video.py, docs/vr-video.md).
+If the clipboard holds no link, a desktop notification says so and nothing is sent.
 """
 import json
 import os
@@ -33,7 +33,6 @@ VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', '
 REMOVE_VIDEO_BINDS = ('for _, b in ipairs(xr_workspace_video_binds or {}) do '
                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_video_binds = nil')
 HELPER_OPS = ('video_paste',)  # handled here: becomes video_open with the clipboard's web video
-WEB_MARKER = 'viture_xr_video'  # web_video.MARKER
 MAX_CLIPBOARD = 16384  # web_video.MAX_CLIPBOARD (the control frame limit)
 VIDEO_FILTER = 'Videos | *.mp4 *.MP4 *.mkv *.MKV *.webm *.mov *.MOV *.m4v *.avi *.ts *.m2ts'
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
@@ -138,17 +137,13 @@ def read_clipboard(run=None):
 
 
 def clipboard_payload(text):
-    """The clipboard as a video_open payload ({"web": obj} or {"url": link}); (None, reason) if it holds neither.
-    Only the shape is checked here (stdlib, no imports); the run validates everything (web_video.validate_web)."""
+    """The clipboard as a video_open payload ({"url": link}); (None, reason) if it holds no link.
+    Only the shape is checked here (stdlib, no imports); the run validates everything (web_video.validate_url)."""
     t = (text or '').strip()
-    if not t: return None, 'The clipboard is empty. Click "Play in VITURE" on the video page first.'
+    if not t: return None, 'The clipboard is empty. Copy a video link first.'
     if len(t) > MAX_CLIPBOARD: return None, 'The clipboard holds too much text to be a video link.'
-    if t.startswith('{'):
-        try: obj = json.loads(t)
-        except ValueError: obj = None
-        if isinstance(obj, dict) and obj.get(WEB_MARKER) == 1: return {'web': obj}, None
-    elif re.match(r'https?://\S+\Z', t, re.IGNORECASE): return {'url': t}, None
-    return None, 'The clipboard holds no video link. Click "Play in VITURE" on the video page first.'
+    if re.match(r'https?://\S+\Z', t, re.IGNORECASE): return {'url': t}, None
+    return None, 'The clipboard holds no video link. Copy the video page or video link first.'
 
 
 def drop_stale_video_binds(environ=os.environ):

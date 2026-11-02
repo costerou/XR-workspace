@@ -70,7 +70,7 @@ class VideoControllerTests(unittest.TestCase):
         self.assertFalse(self.c.request(dict(op='video_open', path='/v.mp4'))['ok'])
 
     def test_web_videos_are_forwarded_without_new_consent(self):
-        # docs/delightxr.md: a link or the bookmarklet's object; the run probes and relays it (web_video.py).
+        # docs/vr-video.md: a link or a web request object; the run probes and relays it (web_video.py).
         spawns = self.run_session()
         consents = sorted(p.name for p in self.path.iterdir())
         page = {'viture_xr_video': 1, 'format': 'STEREO_180_LR', 'sources': [{'src': 'https://cdn.example.com/a.mp4'}]}

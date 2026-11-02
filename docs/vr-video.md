@@ -30,8 +30,8 @@ Start an XR session from the panel as usual. Then open a video in one of four wa
    plays. It is listed on the help card (Ctrl+Alt+H). Pressed during a video, it first returns to the desktops so the
    picker is visible.
 2. **Panel → VR video → Browse…** shows the same picker. Or type a path and press **Play**.
-3. A video on a web page (DelightXR or a stream link): **Ctrl+Alt+U** after the *Play in VITURE* bookmark; see
-   [delightxr.md](delightxr.md).
+3. A video on the web: copy a stream link or a video page link, then **Ctrl+Alt+U** (or the panel's *Paste from
+   browser*); see [Web video](#web-video).
 4. Any client of the controller socket can send `{"op":"video_open","path":"/abs/path.mp4"}`, optionally with
    `"format":{"projection":"180","stereo":"sbs","fov":180}` to skip detection.
 
@@ -66,6 +66,17 @@ At the end of the file the last frame stays and the card says *Ended*. Left/Righ
 that cannot be played shows *Cannot play this video* with the reason for 4 s, then the desktops come back. Files refused
 before playing (missing, not a regular file, empty, not a video, too large, unsupported projection) send nothing to the
 glasses; the panel shows why.
+
+### Web video
+
+The clipboard is read once. A direct stream link (`.mp4`, `.m3u8`, `.mpd`, …) is probed with ffprobe and relayed by
+ffmpeg (stream copy into NUT on a pipe, http(s)/tls/tcp only) to the same player, so the renderer never touches the
+network. A **video page link** is resolved with **yt-dlp** (no config, plugins, cache or cookies): it picks the best
+direct stream, and the VR format comes from the title and tags (`360`, `VR180`, `SBS`/`LR`, `TB`/`OU`, `fisheye`…),
+else the picture shape; Tab corrects it. Seeking restarts the relay at the new position. DRM-protected and
+login-gated links won't play; the panel and a notification say why, without showing the link. Without yt-dlp
+(`sudo pacman -S yt-dlp`), direct links still work and page links are refused with a message naming it. Code and
+tests: `tools/native_spike/web_video.py`, `tests/native_spike/test_web_video.py`.
 
 ## Design
 

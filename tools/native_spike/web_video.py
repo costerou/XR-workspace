@@ -1,19 +1,13 @@
-"""VR video from a web page: DelightXR players and plain <video> streams (docs/delightxr.md).
+"""VR video from the web: a direct stream link, or a video page link resolved with yt-dlp (docs/vr-video.md).
 
-DelightXR is a player that sites embed (`<dl8-video format="STEREO_180_LR">` with `<source>` children, also
-`<dl8-live-video>`). The page names the projection and the stream URLs, so nothing has to be guessed or downloaded:
+1. Ctrl+Alt+U in the glasses (or the panel's "Paste from browser") reads the clipboard once and sends the link to the
+   run as a `video_open` request (`{"url": "https://..."}`).
+2. The run (this module) checks the request, probes the stream with ffprobe and starts a relay: an ffmpeg process that
+   copies the stream (no re-encoding) into NUT on a pipe. The renderer gets the pipe's read end as the descriptor it
+   already accepts for local files, so the renderer is unchanged and still never touches the network or a path. Only
+   the relay's ffmpeg talks to the site, limited to http(s)/tls/tcp/crypto (no `file:`).
 
-1. The "Play in VITURE" bookmarklet (tools/delightxr/bookmarklet.js) reads the player's format, sources, title and
-   current time on the page Cody is watching, pauses it there, and copies a small JSON object to the clipboard. It has
-   no access to cookies and sends nothing anywhere.
-2. Ctrl+Alt+U in the glasses (or the panel's "Paste from browser") reads the clipboard once and sends it to the run as a
-   `video_open` request (`{"web": {...}}`, or `{"url": "https://..."}` for a bare media link).
-3. The run (this module) checks the request, picks the best source, probes it with ffprobe and starts a relay: an
-   ffmpeg process that copies the stream (no re-encoding) into NUT on a pipe. The renderer gets the pipe's read end as
-   the descriptor it already accepts for local files, so the renderer is unchanged and still never touches the network
-   or a path. Only the relay's ffmpeg talks to the site, limited to http(s)/tls/tcp/crypto (no `file:`).
-
-A video PAGE link (the address bar of a video site, or a page where the bookmarklet found no stream) is resolved with
+A video PAGE link (the address bar of a video site) is resolved with
 yt-dlp (`resolve_page`): no config, plugins, cache or cookies; the best direct stream (and separate audio) it lists is
 relayed with the request headers yt-dlp gives, minus any Cookie/Authorization. The VR format then comes from the title
 and tags (360, 180, VR180, SBS/LR, TB/OU, fisheye...), else the picture shape; Tab corrects it. Without yt-dlp the
@@ -40,7 +34,7 @@ YTDLP_TIMEOUT_S = 60
 YTDLP_MAX_OUTPUT = 32 << 20  # -J of a long page with many formats is a few MB
 MEDIA_EXT = ('.mp4', '.m4v', '.webm', '.mkv', '.mov', '.m3u8', '.mpd', '.ts', '.m2ts', '.avi', '.ogv', '.flv')
 PAGE_LINK = "that's a web page link, not a video link"
-PAGE_HELP = 'use the "Play in VITURE" bookmark on the page, or copy the video\'s own link'
+PAGE_HELP = "copy the video's own link instead"
 NO_YTDLP = ('yt-dlp, which finds the video on a page, is not installed (it is in the Arch repos: yt-dlp)')
 # yt-dlp request headers passed on to the relay; anything carrying a login is dropped (cookies-free by design).
 DROP_HEADERS = ('cookie', 'authorization', 'proxy-authorization')
@@ -70,14 +64,14 @@ SEEK_SETTLE_S = 0.4      # seek keys within this long are combined into one rela
 END_MARGIN_S = 3         # a seek never lands closer than this to the end
 # The relay's ffmpeg and ffprobe may use only these protocols: no file:, no pipes, no other schemes from a playlist.
 NET_PROTOCOLS = 'https,http,tls,tcp,crypto'
-MARKER = 'viture_xr_video'  # key of the bookmarklet's JSON object (version 1)
+MARKER = 'viture_xr_video'  # key of a {"web"} request object (version 1)
 
-# DelightXR `format` values (delight-vr.com/documentation/dl8-video): -> (projection, stereo).
+# Player `format` tokens a {"web"} request may carry (dl8-video style): -> (projection, stereo).
 DL8_FORMATS = {
     'MONO_360': ('360', 'mono'), 'STEREO_360_LR': ('360', 'sbs'), 'STEREO_360_TB': ('360', 'tb'),
     'MONO_180': ('180', 'mono'), 'STEREO_180_LR': ('180', 'sbs'), 'STEREO_180_TB': ('180', 'tb'),
     'STEREO_180_LR_SPHERICAL': ('180', 'sbs'), 'STEREO_180_TB_SPHERICAL': ('180', 'tb'),
-    'STEREO_FISHEYE_LR': ('fisheye', 'sbs'),  # base of DelightXR's custom fisheye formats (fov from the page)
+    'STEREO_FISHEYE_LR': ('fisheye', 'sbs'),  # fisheye base format (fov from the request)
 }
 DL8_FLAT = ('MONO_FLAT', 'STEREO_FLAT_LR', 'STEREO_FLAT_LR_SQUARE', 'STEREO_FLAT_TB', 'STEREO_FLAT_TB_SQUARE')
 HLS_TYPES = ('application/x-mpegurl', 'application/vnd.apple.mpegurl', 'audio/mpegurl')
@@ -100,8 +94,8 @@ def validate_url(url, *, allow_local=False):
     if not isinstance(url, str) or not url or len(url) > MAX_URL: raise VideoRejected('invalid video link')
     low = url[:8].lower()
     if low.startswith('blob:'):
-        raise VideoRejected('the page plays this video from a blob (in-page streaming); use the bookmarklet, which looks '
-                            'for the stream link')
+        raise VideoRejected('the page plays this video from a blob (in-page streaming); copy the page link or the '
+                            "video's own link instead")
     if not (low.startswith('http://') or low.startswith('https://')): raise VideoRejected('only http(s) video links can be played')
     if any(ord(c) <= 0x20 or ord(c) == 0x7f for c in url): raise VideoRejected('invalid video link')
     try: parts = urlsplit(url)
@@ -122,7 +116,7 @@ def validate_url(url, *, allow_local=False):
 
 
 def validate_web(obj, *, allow_local=False):
-    """The bookmarklet's object (version 1). Returns a normalised copy; raises VideoRejected with a user-facing reason."""
+    """A {"web"} request object (version 1). Returns a normalised copy; raises VideoRejected with a user-facing reason."""
     if not isinstance(obj, dict) or obj.get(MARKER) != 1 or set(obj) - WEB_KEYS: raise VideoRejected('not a VITURE browser-video link')
     out = {}
     page = obj.get('page')
@@ -165,22 +159,17 @@ def validate_web(obj, *, allow_local=False):
 
 
 def parse_clipboard(text, *, allow_local=False):
-    """Clipboard text -> a video_open payload ({"web": ...} or {"url": ...}). Raises VideoRejected (shown to Cody)."""
-    if not isinstance(text, str) or not text.strip(): raise VideoRejected('the clipboard is empty: click "Play in VITURE" on the video page first')
+    """Clipboard text -> a video_open payload ({"url": ...}). Raises VideoRejected (shown to Cody)."""
+    if not isinstance(text, str) or not text.strip(): raise VideoRejected('the clipboard is empty: copy a video link first')
     if len(text) > MAX_CLIPBOARD: raise VideoRejected('the clipboard holds too much text to be a video link')
     t = text.strip()
-    if t.startswith('{'):
-        try: obj = json.loads(t)
-        except ValueError: raise VideoRejected('the clipboard does not hold a video link') from None
-        validate_web(obj, allow_local=allow_local)
-        return {'web': obj}
     if '\n' in t or ' ' in t: raise VideoRejected('the clipboard does not hold a video link')
     validate_url(t, allow_local=allow_local)
     return {'url': t}
 
 
 def web_request(payload, *, allow_local=False):
-    """Normalise video_open's web forms ({"url"} or {"web"}) into the bookmarklet shape (validated)."""
+    """Normalise video_open's web forms ({"url"} or {"web"}) into one validated shape."""
     if 'url' in payload:
         url = validate_url(payload['url'], allow_local=allow_local)
         return validate_web({MARKER: 1, 'sources': [{'src': url, 'via': 'link'}]}, allow_local=allow_local)
@@ -190,7 +179,7 @@ def web_request(payload, *, allow_local=False):
 # --- formats and source choice ----------------------------------------------------------------------------------------
 
 def dl8_format(token, fov=None):
-    """DelightXR format token -> our format dict, None if unknown (detect from the stream). Refuses flat video."""
+    """Player format token -> our format dict, None if unknown (detect from the stream). Refuses flat video."""
     if not token: return None
     token = token.upper()
     if token in DL8_FLAT: raise VideoRejected('this is a flat (non-VR) video: watch it on a desktop instead')

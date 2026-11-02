@@ -5,7 +5,7 @@ A video is a mode of a running capture session, not a new run. It needs no new c
 the glasses display, and a video only changes what the renderer draws. Nothing is captured, journaled or created on the
 compositor for it, and recovery has nothing to undo. It is opened from a file the user picks: Ctrl+Alt+O (the bind
 helper xr_control.py shows a file picker on the focused desktop), the panel's Browse/Play, or a path sent to the
-controller. A web video (a DelightXR player or a stream link, docs/delightxr.md) comes from the clipboard with Ctrl+Alt+U
+controller. A web video (a stream or video page link, docs/vr-video.md) comes from the clipboard with Ctrl+Alt+U
 or the panel; web_video.py relays the stream through ffmpeg into a pipe, and the renderer gets that pipe's read end. This supervisor checks the path is a readable regular file, opens it, probes the opened file with ffprobe
 (never the path again, so the file cannot be swapped in between), detects the format, and hands the renderer that open
 descriptor over the run's private control socket (SCM_RIGHTS). The renderer never sees or opens a path.

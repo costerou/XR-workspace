@@ -1,7 +1,7 @@
-"""Web VR video (tools/native_spike/web_video.py, docs/delightxr.md): the bookmarklet's object, DelightXR formats, source
-choice, the clipboard helper, the ffmpeg relay end to end against a local HTTP server (generated clips, never
-downloaded), VideoControl with web streams (open, seek by relay restart, resume after a dropped link, close), and the
-bookmarklet itself in headless Chromium with a throwaway profile and every host unresolvable.
+"""Web VR video (tools/native_spike/web_video.py, docs/vr-video.md): request validation, formats, source choice, the
+clipboard helper, the ffmpeg relay end to end against a local HTTP server (generated clips, never downloaded),
+VideoControl with web streams (open, seek by relay restart, resume after a dropped link, close), and video page links
+resolved with yt-dlp.
 
 Offline: the only network is 127.0.0.1 inside this test (allow_local=True, which the run never sets)."""
 from functools import partial
@@ -16,13 +16,12 @@ import threading
 import time
 import unittest
 
-from tools.delightxr import build
 from tools.native_spike import video, view, web_video as wv, xr_control
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
-FFMPEG, FFPROBE, CHROMIUM = shutil.which('ffmpeg'), shutil.which('ffprobe'), shutil.which('chromium')
+FFMPEG, FFPROBE = shutil.which('ffmpeg'), shutil.which('ffprobe')
 
 
 def web(*sources, **kw):
@@ -54,7 +53,7 @@ class ValidationTests(unittest.TestCase):
         self.assertIn('blob', str(cm.exception))
         self.assertEqual(wv.validate_url('http://127.0.0.1:8080/a.mp4', allow_local=True), 'http://127.0.0.1:8080/a.mp4')
 
-    def test_bookmarklet_object(self):
+    def test_web_object(self):
         w = wv.validate_web(web())
         self.assertEqual(w['format'], 'STEREO_180_LR')
         self.assertEqual(w['sources'], [{'src': 'https://cdn.example.com/a.mp4', 'type': '', 'quality': '', 'format': None, 'via': 'dl8'}])
@@ -85,7 +84,7 @@ class ValidationTests(unittest.TestCase):
 
 
 class FormatAndSourceTests(unittest.TestCase):
-    def test_delightxr_formats(self):
+    def test_player_formats(self):
         self.assertEqual(wv.dl8_format('STEREO_180_LR'), {'projection': '180', 'stereo': 'sbs', 'fov': 180})
         self.assertEqual(wv.dl8_format('stereo_180_tb_spherical'), {'projection': '180', 'stereo': 'tb', 'fov': 180})
         self.assertEqual(wv.dl8_format('MONO_360'), {'projection': '360', 'stereo': 'mono', 'fov': 180})
@@ -116,19 +115,15 @@ class FormatAndSourceTests(unittest.TestCase):
         self.assertEqual(wv.source_kind({'src': 'https://a/x.mpd?t=1', 'type': ''}), 'dash')
 
     def test_clipboard(self):
-        payload = wv.parse_clipboard(json.dumps(web()))
-        self.assertEqual(set(payload), {'web'})
         self.assertEqual(wv.parse_clipboard('  https://cdn.example.com/a_360.mp4\n'), {'url': 'https://cdn.example.com/a_360.mp4'})
-        for bad in ('', '   ', 'hello world', '{"x":1}', '{not json', 'https://a.example/x.mp4 https://b', 'x' * 20000):
+        for bad in ('', '   ', 'hello world', '{"x":1}', json.dumps(web()), 'https://a.example/x.mp4 https://b', 'x' * 20000):
             with self.subTest(bad=bad[:20]), self.assertRaises(video.VideoRejected): wv.parse_clipboard(bad)
         # The bind helper's stdlib copy agrees on what it forwards.
-        self.assertEqual(xr_control.clipboard_payload(json.dumps(web()))[0], payload)
         self.assertEqual(xr_control.clipboard_payload('https://cdn.example.com/a_360.mp4')[0], {'url': 'https://cdn.example.com/a_360.mp4'})
-        for bad in ('', 'hello', '{"x":1}', 'x' * 20000):
+        for bad in ('', 'hello', '{"x":1}', json.dumps(web()), 'x' * 20000):
             with self.subTest(bad=bad[:20]):
                 payload, why = xr_control.clipboard_payload(bad)
                 self.assertIsNone(payload); self.assertTrue(why)
-        self.assertEqual(xr_control.WEB_MARKER, wv.MARKER)
         self.assertEqual(xr_control.MAX_CLIPBOARD, wv.MAX_CLIPBOARD)
 
     def test_failure_reasons_never_show_the_link(self):
@@ -285,7 +280,7 @@ class RelayTests(unittest.TestCase):
         self.assertIsNone(r.failure())  # stopped on purpose
 
     def test_the_run_end_to_end(self):
-        """VideoControl with the real probe and relay: the bookmarklet's object in, a NUT pipe for the renderer out."""
+        """VideoControl with the real probe and relay: a web request object in, a NUT pipe for the renderer out."""
         clock = Clock()
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
@@ -331,7 +326,7 @@ class RelayTests(unittest.TestCase):
         v.on_message({'op': 'video_open', 'payload': {'url': self.base + '/watch?v=SECRETID'}})
         self.assertIsNone(v.poll(clock()))
         err = v.snapshot()['error']
-        self.assertIn("that's a web page link, not a video link", err); self.assertIn('Play in VITURE', err)
+        self.assertIn("that's a web page link, not a video link", err); self.assertIn("copy the video's own link", err)
         self.assertNotIn('SECRETID', err); self.assertNotIn('127.0.0.1', err); self.assertNotIn('exit', err)
 
     def test_a_refused_stream_is_a_failure_with_a_reason(self):
@@ -506,7 +501,7 @@ class WebControlTests(unittest.TestCase):
 
 
 class WebVideoGatingTests(unittest.TestCase):
-    """A DelightXR / web stream is the same VR video mode: the same keys are ignored and the same overlays are off."""
+    """A web stream is the same VR video mode: the same keys are ignored and the same overlays are off."""
     setUp, op, poll = WebControlTests.setUp, WebControlTests.op, WebControlTests.poll
 
     def test_web_playback_uses_the_video_gating(self):
@@ -541,103 +536,14 @@ class BindHelperTests(unittest.TestCase):
         xr_control.send = lambda *a: sent.append(a)
         try:
             argv = ['x', '/run/c.sock', 'run1', 's1', 'video_paste']
-            self.assertEqual(xr_control.main(argv, clipboard=lambda: json.dumps(web()), tell=told.append), 0)
-            self.assertEqual(sent[-1][3:], ('video_open', {'web': web()}))
+            self.assertEqual(xr_control.main(argv, clipboard=lambda: 'https://www.example.com/watch?v=42', tell=told.append), 0)
+            self.assertEqual(sent[-1][3:], ('video_open', {'url': 'https://www.example.com/watch?v=42'}))
             self.assertEqual(xr_control.main(argv, clipboard=lambda: 'shopping list', tell=told.append), 0)
-            self.assertEqual(len(sent), 1); self.assertIn('Play in VITURE', told[-1])
+            self.assertEqual(len(sent), 1); self.assertIn('no video link', told[-1])
             self.assertEqual(xr_control.main(argv, clipboard=lambda: None, tell=told.append), 0)
             self.assertEqual(len(sent), 1)
         finally:
             xr_control.send = orig
-
-
-class BookmarkletTests(unittest.TestCase):
-    def test_build(self):
-        url = build.bookmark_url()
-        self.assertTrue(url.startswith('javascript:'))
-        for ch in ' #%\n':
-            self.assertNotIn(ch, url.replace('%', '') if ch == '%' else url)
-        self.assertNotIn('/*', build.code())
-        self.assertIn('viture_xr_video', build.code())
-
-    @unittest.skipUnless(CHROMIUM, 'chromium not installed')
-    def test_in_headless_chromium(self):
-        """The built bookmark's code, run on test pages in headless Chromium: a temporary profile, every host
-        unresolvable (no network), the clipboard replaced by a test sink."""
-        from urllib.parse import unquote
-        code = unquote(build.bookmark_url()[len('javascript:'):])
-        pages = {
-            'dl8': '''<dl8-video format="STEREO_180_LR" title="Sunset beach">
-                        <source src="https://cdn.example.com/beach_4k.mp4" type="video/mp4" quality="4K">
-                        <source src="/media/beach_8k.mp4" type="video/mp4" quality="8K">
-                        <source src="https://cdn.example.com/beach/master.m3u8" type="application/x-mpegurl"></dl8-video>''',
-            'custom': '''<meta name="dl8-custom-format" content="name:CANON_R5,base:STEREO_FISHEYE_LR,params:fov:190,magnification:1">
-                         <dl8-video format="CANON_R5"><source src="https://cdn.example.com/rf52.mp4"></dl8-video>''',
-            'plain': '<video src="https://cdn.example.com/plain_360.mp4" muted></video>',
-            'none': '<p>nothing here</p>',
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            for name, body in pages.items():
-                html = ('<!doctype html><html><head><base href="https://vr.example.com/"><title>Page title</title><script>'
-                        'window.__vitureXrTestSink = function (t) { window.__out = t; };</script></head><body>' + body +
-                        '<pre id="out"></pre><script>' + code.replace('</', '<\\/') + '</script><script>'
-                        'document.getElementById("out").textContent = window.__out || "NONE";</script></body></html>')
-                (Path(tmp) / f'{name}.html').write_text(html)
-            results = {}
-            for name in pages:
-                profile = Path(tmp) / f'profile-{name}'
-                r = subprocess.run([CHROMIUM, '--headless=new', f'--user-data-dir={profile}', '--no-first-run',
-                                    '--disable-background-networking', '--disable-component-update', '--disable-sync',
-                                    '--host-resolver-rules=MAP * ~NOTFOUND', '--virtual-time-budget=3000', '--dump-dom',
-                                    (Path(tmp) / f'{name}.html').as_uri()], capture_output=True, timeout=90, check=False)
-                import re
-                m = re.search(r'<pre id="out">(.*?)</pre>', r.stdout.decode('utf-8', 'replace'), re.S)
-                if not m: self.skipTest('headless chromium produced no DOM: ' + r.stderr.decode('utf-8', 'replace')[-300:])
-                import html as h
-                results[name] = h.unescape(m.group(1))
-        self.assertEqual(results['none'], 'NONE')
-        dl8 = json.loads(results['dl8'])
-        self.assertEqual(dl8['format'], 'STEREO_180_LR'); self.assertEqual(dl8['title'], 'Sunset beach')
-        self.assertEqual([s['src'] for s in dl8['sources']], ['https://cdn.example.com/beach_4k.mp4', 'https://vr.example.com/media/beach_8k.mp4',
-                                                              'https://cdn.example.com/beach/master.m3u8'])
-        w = wv.validate_web(dl8)  # what the run accepts
-        self.assertEqual(wv.choose_source(w)['src'], 'https://vr.example.com/media/beach_8k.mp4')
-        custom = json.loads(results['custom'])
-        self.assertEqual((custom['format'], custom['fov']), ('STEREO_FISHEYE_LR', 190))
-        self.assertEqual(wv.dl8_format(custom['format'], custom['fov']), {'projection': 'fisheye', 'stereo': 'sbs', 'fov': 190})
-        plain = json.loads(results['plain'])
-        self.assertIsNone(plain['format']); self.assertEqual(plain['title'], 'Page title')
-        self.assertEqual(plain['sources'][0]['src'], 'https://cdn.example.com/plain_360.mp4')
-        self.assertEqual(wv.parse_clipboard(results['plain']), {'web': plain})
-
-    @unittest.skipUnless(CHROMIUM, 'chromium not installed')
-    def test_a_page_without_a_stream_link_sends_the_page(self):
-        """A big video site streams from a blob with no manifest in the page: the bookmark copies the page link
-        (via 'page'), which the run resolves with yt-dlp. Served from 127.0.0.1 (http), every hostname unresolvable."""
-        import html as h, re
-        from urllib.parse import unquote
-        code = unquote(build.bookmark_url()[len('javascript:'):])
-        with tempfile.TemporaryDirectory() as tmp:
-            page = ('<!doctype html><html><head><title>Big site video</title><script>'
-                    'window.__vitureXrTestSink = function (t) { window.__out = t; };</script></head><body><p>player</p>'
-                    '<pre id="out"></pre><script>' + code.replace('</', '<\\/') + '</script><script>'
-                    'document.getElementById("out").textContent = window.__out || "NONE";</script></body></html>')
-            (Path(tmp) / 'watch.html').write_text(page)
-            server = ThreadingHTTPServer(('127.0.0.1', 0), partial(RangeHandler, directory=tmp))
-            threading.Thread(target=server.serve_forever, daemon=True).start()
-            self.addCleanup(server.server_close); self.addCleanup(server.shutdown)
-            url = f'http://127.0.0.1:{server.server_address[1]}/watch.html?v=abc'
-            r = subprocess.run([CHROMIUM, '--headless=new', f'--user-data-dir={Path(tmp) / "profile"}', '--no-first-run',
-                                '--disable-background-networking', '--disable-component-update', '--disable-sync',
-                                '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1', '--virtual-time-budget=3000', '--dump-dom', url],
-                               capture_output=True, timeout=90, check=False)
-            m = re.search(r'<pre id="out">(.*?)</pre>', r.stdout.decode('utf-8', 'replace'), re.S)
-            if not m: self.skipTest('headless chromium produced no DOM')
-            got = json.loads(h.unescape(m.group(1)))
-        self.assertEqual(got['sources'], [{'src': url, 'via': 'page'}])
-        self.assertEqual(got['title'], 'Big site video')
-        w = wv.validate_web(got, allow_local=True)
-        self.assertFalse(wv.looks_like_media(wv.choose_source(w)))  # goes to yt-dlp
 
 
 if __name__ == '__main__':
@@ -645,7 +551,7 @@ if __name__ == '__main__':
 
 
 class PageFailureTests(unittest.TestCase):
-    """Video PAGE links (docs/delightxr.md): yt-dlp resolution, format choice, and clear refusals."""
+    """Video PAGE links (docs/vr-video.md): yt-dlp resolution, format choice, and clear refusals."""
     YT = {'title': 'Mountain VR 180 3D SBS 8K', 'tags': ['vr180', 'travel'], 'duration': 600,
           'formats': [
               {'format_id': '18', 'url': 'https://media.example.net/18', 'protocol': 'https', 'vcodec': 'avc1.42001E',
@@ -774,7 +680,7 @@ class PageFailureTests(unittest.TestCase):
                 v.on_message({'op': 'video_open', 'payload': {'url': 'https://www.example.com/watch?v=SECRETID'}})
                 self.assertIsNone(v.poll(clock()))
                 err = v.snapshot()['error']
-                self.assertIn(part, err); self.assertIn('Play in VITURE', err); self.assertNotIn('SECRETID', err)
+                self.assertIn(part, err); self.assertIn("copy the video's own link", err); self.assertNotIn('SECRETID', err)
                 self.assertEqual(self.relays, [])
         # A media link that turns out to be HTML (a login page) is not called a page link: the extension says "video".
         v, clock = self.control(unsupported, html)
