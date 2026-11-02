@@ -64,11 +64,16 @@ float rounded_distance(float px, float py, float w, float h, float r) {
     return std::sqrt(ox * ox + oy * oy) + std::min(std::max(qx, qy), 0.f) - r;
 }
 struct LineBox { std::uint32_t width = 0, ascent = 0, descent = 0; };
+// Installed-font em size and pixel-font zoom of a line: from `px` when set, else from its scale step.
+std::uint32_t em_px(const HudLine& line) { return line.px ? std::clamp<std::uint32_t>(line.px, 6, 160) : std::clamp<std::uint32_t>(line.scale, 1, 8) * kEmPerScale; }
+std::uint32_t pixel_zoom(const HudLine& line) {
+    if (!line.px) return std::clamp<std::uint32_t>(line.scale, 1, 8) * kPixelFontZoom;
+    return std::max<std::uint32_t>(1, (em_px(line) * kPixelFontZoom + kEmPerScale / 2) / kEmPerScale);  // nearest; capitals match
+}
 LineBox box(const HudLine& line, const HudFont* font) {
-    const auto scale = std::clamp<std::uint32_t>(line.scale, 1, 8);
-    if (!font) return {hud_text_width(line.text, scale * kPixelFontZoom), kGlyphH * scale * kPixelFontZoom, 0};
-    const auto m = font->metrics(scale * kEmPerScale, line.bold);
-    return {font->measure(line.text, scale * kEmPerScale, line.bold), m.ascent, m.descent};
+    if (!font) { const auto z = pixel_zoom(line); return {hud_text_width(line.text, z), kGlyphH * z, 0}; }
+    const auto m = font->metrics(em_px(line), line.bold);
+    return {font->measure(line.text, em_px(line), line.bold), m.ascent, m.descent};
 }
 // Size `im` and paint the rounded translucent card with its accent border.
 void allocate_card(HudImage& im, std::uint32_t width, std::uint32_t height, std::array<float, 3> accent) {
@@ -104,13 +109,12 @@ void allocate_card(HudImage& im, std::uint32_t width, std::uint32_t height, std:
 }
 // Draw one line with its top edge at `top` and left edge at `left`.
 void draw_line(HudImage& im, const HudLine& line, const LineBox& b, int left, std::uint32_t top, const HudFont* font) {
-    const auto scale = std::clamp<std::uint32_t>(line.scale, 1, 8);
     if (font) {
-        font->draw(line.text, scale * kEmPerScale, line.bold, left, int(top + b.ascent),
+        font->draw(line.text, em_px(line), line.bold, left, int(top + b.ascent),
                    [&](int x, int y, float coverage) { over(im, x, y, line.color, coverage); });
         return;
     }
-    const auto z = scale * kPixelFontZoom;
+    const auto z = pixel_zoom(line);
     int x = left;
     for (char ch : line.text) {
         const auto& g = hud_glyph(ch);
@@ -190,35 +194,80 @@ void draw_divider(HudImage& im, std::uint32_t section_top, std::array<float, 3> 
 std::uint32_t card_size(std::uint32_t content) { return content + 2 * std::uint32_t(kHelpPad); }
 }
 
-HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font) {
-    const Cell title = cell(card_title("Keyboard shortcuts"), font),
-               footer = cell(card_footer("Ctrl+Alt+H to close. Help and menu close after " + std::to_string(kOverlayIdleCloseS) + " s idle."), font);
+namespace {
+// Help card text and gaps, roomiest first. The card's chrome (padding, border, radius, colours) is the menu's; its text
+// is smaller and its gaps tighter so every bind fits at 1920x1200 @1.25 with room for a few more rows. The layout takes
+// the first step that fits the output. Row text stays at least kHelpRowPxMin (capitals ~13 px) on the glasses.
+struct HelpStyle { std::uint32_t title_px, row_px, footer_px, row_gap, section_gap, column_gap; };
+constexpr HelpStyle kHelpStyles[] = {
+    {32, 30, 20, 8, 16, 36}, {30, 28, 19, 7, 15, 34}, {28, 26, 18, 6, 14, 32}, {26, 24, 17, 6, 12, 30},
+    {24, 22, 16, 5, 11, 28}, {22, 20, 15, 4, 10, 26}, {20, 18, 14, 4, 9, 24},
+};
+static_assert(kHelpStyles[0].row_px == kHelpRowPxMax && kHelpStyles[std::size(kHelpStyles) - 1].row_px == kHelpRowPxMin);
+
+struct HelpLayout {
+    HelpStyle style{};
+    Cell title, footer;
     std::vector<std::pair<Cell, Cell>> table;
-    std::uint32_t keys_w = 0, actions_w = 0, rows_h = 0;
+    std::uint32_t keys_w = 0, table_w = 0, content_w = 0, content_h = 0;
+};
+HelpLayout layout_help(const std::vector<HelpRow>& rows, const HudFont* font, const HelpStyle& st) {
+    HelpLayout L;
+    L.style = st;
+    L.title = cell({"Keyboard shortcuts", 1, kCardText, true, st.title_px}, font);
+    L.footer = cell({"Ctrl+Alt+H to close. Help and menu close after " + std::to_string(kOverlayIdleCloseS) + " s idle.", 1, kCardDim,
+                     false, st.footer_px}, font);
+    std::uint32_t actions_w = 0, rows_h = 0;
     for (const auto& r : rows) {
-        table.push_back({cell(card_key(r.keys), font), cell(card_detail(r.action), font)});
-        const auto& [k, a] = table.back();
-        keys_w = std::max(keys_w, k.box.width); actions_w = std::max(actions_w, a.box.width);
-        rows_h += row_ascent(k, a) + row_descent(k, a) + std::uint32_t(kRowGap);
+        L.table.push_back({cell({r.keys, 1, kCardText, true, st.row_px}, font), cell({r.action, 1, kCardDim, false, st.row_px}, font)});
+        const auto& [k, a] = L.table.back();
+        L.keys_w = std::max(L.keys_w, k.box.width); actions_w = std::max(actions_w, a.box.width);
+        rows_h += row_ascent(k, a) + row_descent(k, a) + (L.table.size() > 1 ? st.row_gap : 0);
     }
-    const std::uint32_t table_w = table.empty() ? 0 : keys_w + std::uint32_t(kColumnGap) + actions_w;
-    const std::uint32_t content_w = std::max({title.box.width, footer.box.width, table_w});
-    const std::uint32_t content_h = height(title.box) + std::uint32_t(kSectionGap) + rows_h + std::uint32_t(kSectionGap) + height(footer.box);
+    L.table_w = L.table.empty() ? 0 : L.keys_w + st.column_gap + actions_w;
+    L.content_w = std::max({L.title.box.width, L.footer.box.width, L.table_w});
+    L.content_h = height(L.title.box) + st.section_gap + rows_h + st.section_gap + height(L.footer.box);
+    return L;
+}
+bool help_fits(const HelpLayout& L, std::uint32_t max_w, std::uint32_t max_h) {
+    return (!max_w || card_size(L.content_w) + 2 * kHudFitMargin <= max_w) && (!max_h || card_size(L.content_h) + 2 * kHudFitMargin <= max_h);
+}
+HelpLayout choose_help_layout(const std::vector<HelpRow>& rows, const HudFont* font, std::uint32_t max_w, std::uint32_t max_h) {
+    HelpLayout L;
+    for (const auto& st : kHelpStyles) {
+        L = layout_help(rows, font, st);
+        if (help_fits(L, max_w, max_h)) break;
+    }
+    return L;  // nothing fits: the smallest text, centred
+}
+}
+
+HelpCardFit help_card_fit(const std::vector<HelpRow>& rows, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height) {
+    const auto L = choose_help_layout(rows, font, max_width, max_height);
+    return {card_size(L.content_w), card_size(L.content_h), L.style.row_px, help_fits(L, max_width, max_height)};
+}
+
+HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font, std::uint32_t max_width,
+                          std::uint32_t max_height) {
+    const auto L = choose_help_layout(rows, font, max_width, max_height);
+    const auto& st = L.style;
     HudImage im;
-    allocate_card(im, card_size(content_w), card_size(content_h), accent);
+    allocate_card(im, card_size(L.content_w), card_size(L.content_h), accent);
     std::uint32_t top = std::uint32_t(kHelpPad);
-    draw_centered(im, title, top, font);
-    top += height(title.box) + std::uint32_t(kSectionGap);
-    draw_divider(im, top, accent);
-    const int left = int((im.width - table_w) / 2);
-    for (const auto& [k, a] : table) {
+    draw_centered(im, L.title, top, font);
+    top += height(L.title.box) + st.section_gap;
+    for (std::uint32_t x = std::uint32_t(kHelpPad); x + std::uint32_t(kHelpPad) < im.width; ++x)  // rule in the gap's middle
+        over(im, int(x), int(top - st.section_gap / 2), accent, kDividerAlpha);
+    const int left = int((im.width - L.table_w) / 2);
+    for (const auto& [k, a] : L.table) {
         const std::uint32_t ascent = row_ascent(k, a);
         draw_cell(im, k, left, top, ascent, font);
-        draw_cell(im, a, left + int(keys_w + std::uint32_t(kColumnGap)), top, ascent, font);
-        top += ascent + row_descent(k, a) + std::uint32_t(kRowGap);
+        draw_cell(im, a, left + int(L.keys_w + st.column_gap), top, ascent, font);
+        top += ascent + row_descent(k, a) + st.row_gap;
     }
-    top += std::uint32_t(kSectionGap);
-    draw_centered(im, footer, top, font);
+    if (!L.table.empty()) top -= st.row_gap;  // no gap after the last row
+    top += st.section_gap;
+    draw_centered(im, L.footer, top, font);
     return im;
 }
 
@@ -662,12 +711,22 @@ bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now
                     !std::equal(rows.begin(), rows.end(), rows_.begin(),
                                 [](const HelpRow& a, const HelpRow& b) { return a.keys == b.keys && a.action == b.action; }))) {
         rows_ = rows;
-        image_ = render_help_card(rows_, kCardAccent, font_.get());
-        ++generation_;
+        render();
     }
     if (!fade_.set(visible, now_ms)) return false;
     if (visible) ++shown_; else ++hidden_;
     return true;
+}
+bool HelpOverlay::set_viewport(std::uint32_t width, std::uint32_t height) {
+    if (width == max_w_ && height == max_h_) return false;
+    max_w_ = width; max_h_ = height;
+    if (!generation_) return false;
+    render();
+    return true;
+}
+void HelpOverlay::render() {
+    image_ = render_help_card(rows_, kCardAccent, font_.get(), max_w_, max_h_);
+    ++generation_;
 }
 void HelpOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }
 float HelpOverlay::alpha(double now_ms) const { return generation_ ? fade_.alpha(now_ms) : 0.f; }

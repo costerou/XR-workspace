@@ -28,7 +28,7 @@ It is off while the placement menu is open, so the menu's mouse mode and a free-
 
 Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1/2/3 to XR-n, Ctrl+Alt+B back to the physical
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
-add no help card row (a 13th row does not fit); the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
+add no help card row; the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
 
 Typing mode (Ctrl+Alt+T, TYPING_OP): one chord that hands the keyboard back while the run keeps going. Entering it
 closes the placement menu and the help card, then reinstalls the run's bind table with only the Ctrl+Alt+T bind in
@@ -125,13 +125,13 @@ def chord_label(chord):
     return '+'.join(KEY_NAMES.get(part, part.upper() if len(part) == 1 else part) for part in chord.split(' + '))
 
 
-# Help card rows that are not key binds. Empty: a 13th row makes the card 1008 px tall with JetBrainsMono, past the
-# 960 px glasses surface, so the overview free pointer (free_pointer.py, mouse only) is named in the zoom_out row instead.
+# Help card rows that are not key binds. Empty: the overview free pointer (free_pointer.py, mouse only) is named in the
+# zoom_out row. The card sizes its text from the output (hud.cpp kHelpStyles); at 1920x1200 @1.25 (960 px) up to 15 rows
+# fit at full size (spike/tests/placement_menu_style_test.cpp).
 EXTRA_HELP_ROWS = ()
 
 
-# Bind pairs shown as one help-card row, so the card stays at 12 rows: a 13th row makes it 1008 px tall with
-# JetBrainsMono, past the 960 px glasses surface. first op -> (second op, action).
+# Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action).
 HELP_PAIRS = {'cursor_follow': ('prediction', 'Toggle cursor follow / prediction'),  # frees the row Ctrl+Alt+T uses
               'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               'video_open': ('video_paste', 'VR video: file / copied web link')}  # docs/delightxr.md

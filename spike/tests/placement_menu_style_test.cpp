@@ -8,7 +8,8 @@
 //     font is checked for fit and clipping when fontconfig finds it (wayland.cpp loads the same kHudFontFamily for both
 //     cards; tests/native_spike/test_placement_menu.py checks that).
 // Fit: the renderer draws cards 1:1 into the layer surface with no buffer scale and never shrinks them, so at
-// 1920x1200 @1.25 a card has 1536x960 logical pixels, less kHelpRisePx for the fade-in drop. The menu is laid out
+// 1920x1200 @1.25 a card has 1536x960 logical pixels, less kHelpRisePx for the fade-in drop. The help card is laid
+// out the same way (HelpOverlay::set_viewport) and must fit, with room for more rows, at every scale up to 2. The menu is laid out
 // for that surface the way the renderer does it (PlacementMenuOverlay::set_viewport, as wayland.cpp calls it on
 // configure). Every desktop/field selection with extreme values (longest strings) must fit, all seven rows plus the
 // desktop selector and every footer line must be drawn, and no ink may reach the card's padding (nothing clipped).
@@ -176,7 +177,43 @@ int main() {
     for (const HudFont* f : fonts) {
         const char* name = f ? "installed font" : "pixel font";
         std::uint32_t max_w = 0, max_h = 0;
-        check_fit(render_help_card(help_rows(), kAccent, f), std::string("help card (12 rows), ") + name, false);
+        // Help card: sized from the surface. At 1920x1200 @1.25 the 12 rows and three more use the roomiest text, leave
+        // the fit margin (so the fade-in drop stays on screen) and clip nothing; at any 1920x1200 scale up to 2 it fits.
+        auto twelve = help_rows();
+        auto more_rows = twelve;
+        for (int i = 0; i < 3; ++i) more_rows.push_back({"Ctrl+Alt+" + std::to_string(i + 1), "Send the focused window to XR-" + std::to_string(i + 1)});
+        for (const auto* rs : {&twelve, &more_rows}) {
+            const auto rows_name = std::string("help card (") + std::to_string(rs->size()) + " rows), " + name;
+            const auto fit = help_card_fit(*rs, f, kSurfaceW, kSurfaceH);
+            const auto hc = render_help_card(*rs, kAccent, f, kSurfaceW, kSurfaceH);
+            std::cout << rows_name << ": " << hc.width << "x" << hc.height << " of " << kSurfaceW << "x" << kSurfaceH << ", row text " << fit.row_px << " px\n";
+            CHECK(fit.fits && fit.row_px == kHelpRowPxMax && fit.width == hc.width && fit.height == hc.height);
+            CHECK(hc.height + 2 * kHudFitMargin <= kSurfaceH && hc.width + 2 * kHudFitMargin <= kSurfaceW);
+            check_fit(hc, rows_name);
+            check_pads_clean(hc, name);
+            if (!f) CHECK(ink_bands(hc).size() >= 1 + rs->size() + 1);  // title, every row, footer: each its own band
+        }
+        for (const float scale : {1.0f, 1.25f, 1.5f, 1.6f, 1.75f, 2.0f}) {
+            const auto w = std::uint32_t(1920 / scale), h = std::uint32_t(1200 / scale);
+            const auto fit = help_card_fit(help_rows(), f, w, h);
+            const auto hc = render_help_card(help_rows(), kAccent, f, w, h);
+            if (!fit.fits) std::cerr << "help card " << hc.width << "x" << hc.height << " does not fit " << w << "x" << h << " (" << name << ")\n";
+            CHECK(fit.fits && fit.row_px >= kHelpRowPxMin && hc.height + 2 * kHudFitMargin <= h && hc.width + 2 * kHudFitMargin <= w);
+            check_pads_clean(hc, name);
+            HelpOverlay overlay;  // as wayland.cpp drives it: viewport on configure, re-laid out when it changes
+            if (f) { std::string why_help; overlay.set_font(HudFont::load(kHudFontFamily, why_help)); }
+            overlay.set(true, help_rows(), 0);
+            const auto before = overlay.generation();
+            CHECK(overlay.set_viewport(w, h) && overlay.generation() > before);
+            CHECK(overlay.image().width == hc.width && overlay.image().height == hc.height);
+        }
+        // Text gets smaller only when it has to: the row size never grows as the surface shrinks.
+        std::uint32_t last_px = kHelpRowPxMax;
+        for (std::uint32_t h = 1200; h >= 500; h -= 20) {
+            const auto px_now = help_card_fit(help_rows(), f, 1920, h).row_px;
+            CHECK(px_now <= last_px && px_now >= kHelpRowPxMin);
+            last_px = px_now;
+        }
         for (int which = 0; which < 3; ++which)
             for (std::uint32_t d = 0; d < 3; ++d)
                 for (std::uint32_t field = 0; field <= 7; ++field) {

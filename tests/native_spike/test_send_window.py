@@ -342,7 +342,7 @@ class HelpCardTests(unittest.TestCase):
         row = dict(view.help_rows())['Ctrl+Alt+H']
         self.assertIn('Ctrl+Alt+G', row); self.assertIn('B', row)
         self.assertLessEqual(len(row), 48)  # ipc.hpp kMaxHelpText
-        self.assertEqual(len(view.help_rows()), 12)  # 945 px of 960; a 13th row does not fit
+        self.assertLessEqual(len(view.help_rows()), 15)  # 15 rows fit 960 px at full size (placement_menu_style_test)
         self.assertIn(row, (ROOT / 'spike/tests/placement_menu_style_test.cpp').read_text())  # the fit test uses the real row
 
 

@@ -464,6 +464,7 @@ struct Presentation::Impl : SurfaceRequests {
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
         s.menu.set_viewport(w, h);  // the placement menu card is laid out to fit the output
+        s.help.set_viewport(w, h);  // so is the help card: its text size comes from the output height
         if (s.gl) s.gl->resize(w, h);
         s.half_w = 0;  // recompute FOV split for the new aspect
     }

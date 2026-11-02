@@ -130,7 +130,7 @@ The mode is part of the renderer's `view` payload (`typing`). Each switch shows 
 1.5 s hold, fade out), drawn in the cards' dimmed colours and accent so nothing on it passes 191/255. Nothing stays
 on screen in either mode. The mode is never saved. Ctrl+Alt+T is free in Omarchy, which binds Super+Ctrl+Alt+T (a
 different chord), and in this project's binds; `python -m tools.native_spike.bind_check` checks it against your config.
-To fit the help card's 12 rows, Ctrl+Alt+F and Ctrl+Alt+P now share one row ("Ctrl+Alt+F / P").
+Ctrl+Alt+F and Ctrl+Alt+P share one help card row ("Ctrl+Alt+F / P").
 
 ### Head tracking from the command line
 
@@ -165,8 +165,8 @@ Stop and Recover still return every window, including the ones you sent, to the 
 flight when you press Stop finishes before recovery starts, and none starts after. If a run dies and leaves its binds
 behind, a send key shows "No XR session is running" and moves nothing.
 
-The help card has no room for a 13th row (12 rows are 945 px of the 960 px surface), so its Ctrl+Alt+H row reads
-"Help; Ctrl+Alt+G/B: window to glasses/back". The numbered keys are listed only here.
+The help card's Ctrl+Alt+H row reads "Help; Ctrl+Alt+G/B: window to glasses/back". The numbered keys are listed only
+here.
 
 ### The overview free pointer
 
@@ -265,7 +265,7 @@ it.
 
 ### Placement menu
 
-You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings as sliders with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
+You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and card chrome. The help card's text is smaller and its rows tighter: it sizes its text from the output height (row text 30 px at 1920x1200 @1.25, where 12 rows take 738 of 960 px and 15 would fit, stepping down to 18 px on smaller outputs), so it never clips at any scale up to 2. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings as sliders with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
 
 The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. Each is a row with its label, a slider and its current value. The slider's ends are the setting's limits, the same as the panel's sliders, and the stretch from the flat value to the knob is coloured. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. R puts every setting of the selected desktop back to flat.
 

@@ -83,13 +83,13 @@ class BindTests(unittest.TestCase):
 
 class HelpCardFitTests(unittest.TestCase):
     def test_the_fit_tested_help_card_is_the_real_one_and_the_free_pointer_is_on_it(self):
-        # placement_menu_style_test checks the help card fits 1920x1200 @1.25 (960 px tall). It must check the rows the
-        # run really sends: a 13th row (the corner-resize hint, as first merged) was 1008 px tall and went untested.
+        # placement_menu_style_test checks the help card fits 1920x1200 @1.25 (960 px tall), with three rows to spare, and
+        # at every scale up to 2. It must check the rows the run really sends (a row added only here once went untested).
         import re
         src = (Path(__file__).resolve().parents[2] / 'spike/tests/placement_menu_style_test.cpp').read_text()
         body = re.search(r'std::vector<HelpRow> help_rows\(\) \{.*?\n\}', src, re.S).group(0)
         self.assertEqual([list(r) for r in re.findall(r'\{"([^"]+)", "([^"]+)"\}', body)], view.help_rows())
-        self.assertLessEqual(len(view.help_rows()), 12)
+        self.assertLessEqual(len(view.help_rows()), 15)  # the style test fits 12 + 3 rows
         self.assertTrue(any('free mouse' in action and 'corner' in action for _, action in view.help_rows()))
 
 

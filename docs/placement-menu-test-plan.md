@@ -59,7 +59,8 @@ worktree was changed.
    drop, for every desktop and field selection at extreme values, in the pixel font and in JetBrainsMono when
    fontconfig finds it. `MenuStyleSourceTests` checks what pixels can't: the menu loads the same `kHudFontFamily` as
    the help card, and both cards get the same accent.
-5. Known warning, accepted: the style test prints that the 12-row help card (now including Ctrl+Alt+L) is 945 px tall
+5. Superseded (2026-11-02): the help card now sizes its text from the output height and is 738 px tall at 1.25, so this
+   warning no longer appears. Original note: the style test prints that the 12-row help card (now including Ctrl+Alt+L) is 945 px tall
    with JetBrainsMono. It fits at rest but starts its fade-in 18 px low, so its bottom 3 px are off-screen for the first
    frames of the fade, at low opacity. This is a warning, not a failure, because it isn't the menu and isn't visible at
    rest. Suggested fix for MENU-UI: limit the drop to the free margin (`min(kHelpRisePx, (height - card) / 2)`).
