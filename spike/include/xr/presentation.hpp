@@ -87,8 +87,10 @@ public:
     void video_seek(std::int32_t seconds);
     void video_format(const VideoFormat& format);
     void video_controls(bool visible);
-    // Keyboard help card (Ctrl+Alt+H): fades in/out in the middle of the view; rows are (keys, action).
-    void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows);
+    // Keyboard help card (Ctrl+Alt+H): fades in/out in the middle of the view; rows are (keys, action), `sections` their
+    // section sizes (empty: one section). `turn` -1 / +1 flips a shown card to the previous / next page (hud.hpp).
+    void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows,
+                  const std::vector<std::uint32_t>& sections = {}, std::int32_t turn = 0);
     // Placement panel (display only; placements are applied by set_placements): with `open`, desktop `desktop`'s glass
     // pill expands into its placement panel (glass.hpp) and any other collapses; closed, every pill is a pill again.
     // `desktop` 0..2, `field` 0..6 in WirePlacement order; `placements` for all three desktops in set_placements' units.
@@ -113,6 +115,12 @@ public:
     // call; the supervisor hit-tests the free pointer with them. GPU composition only.
     std::optional<std::string> take_overview_geometry();
     void resend_overview_geometry();  // the last take was not delivered
+    // Where the help card and its page controls lie on the overview's canvas (hud.hpp help_geometry_json), or
+    // {"help_geometry":null} when the card is not up in the overview, when that changed; a moving head re-sends it at
+    // most every kHelpGeometryMs. The supervisor hit-tests the free pointer with it. GPU composition only.
+    std::optional<std::string> take_help_geometry(double now_ms);
+    void resend_help_geometry();  // the last take was not delivered
+    static constexpr double kHelpGeometryMs = 40;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

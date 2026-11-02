@@ -51,6 +51,14 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
     debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
     on zoom-in and when a VR video opens.
+  * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is
+    up the renderer reports where it lies on the canvas under the current head rotation (`help_geometry`, the card and,
+    on a paged card, its previous / next arrows and page indicator; parse_help_geometry). It is the top layer for the
+    pointer: in desktop mode a cursor that comes onto the card, or that the card opens or moves over, turns into the
+    free dot there (the card hides the desktop under it, so a click must not reach the window), and in free mode the dot stays free over the card, entering a desktop only ENTER_PX clear of
+    it. A click on the previous arrow turns to the previous page, on the next arrow or the indicator to the next
+    (view.ViewControl.help_turn, the same frame as Ctrl+Alt+PgUp / PgDn); anywhere else on the card does nothing. A
+    click on the card never collapses an open placement panel.
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
     is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
@@ -119,6 +127,37 @@ def parse_overview_geometry(value):
         if tw <= 0 or th <= 0: raise ValueError('invalid overview geometry')
         out.append((x, y, tw, th))
     return {'w': w, 'h': h, 'half': half, 'tiles': out}
+
+
+HELP_RECTS = ('card', 'prev', 'indicator', 'next')
+
+
+def parse_help_geometry(value):
+    """The renderer's `help_geometry` status line (spike/include/xr/hud.hpp help_geometry_json) -> {'card': (x, y, w, h),
+    and 'prev' / 'indicator' / 'next' on a paged card} in canvas px, or None (no card up in the overview). ValueError if
+    bad."""
+    if value is None: return None
+    if not isinstance(value, dict) or 'card' not in value or not set(value) <= set(HELP_RECTS):
+        raise ValueError('invalid help geometry')
+    controls = set(value) - {'card'}
+    if controls and controls != {'prev', 'indicator', 'next'}: raise ValueError('invalid help geometry')
+    out = {}
+    for name, r in value.items():
+        if not isinstance(r, list) or len(r) != 4 or any(type(v) is not int or not -MAX_POINTER_PX <= v <= MAX_POINTER_PX for v in r) \
+                or r[2] <= 0 or r[3] <= 0:
+            raise ValueError('invalid help geometry')
+        out[name] = tuple(r)
+    return out
+
+
+def help_hit(help_, pointer, margin=0.0):
+    """('help', 'prev' | 'indicator' | 'next' | 'card') if canvas point `pointer` is on the help card (`help_`, from
+    parse_help_geometry; `margin` canvas px around the card counts too), else None."""
+    if not help_ or pointer is None: return None
+    def inside(r, m=0.0): return r[0] - m <= pointer[0] < r[0] + r[2] + m and r[1] - m <= pointer[1] < r[1] + r[3] + m
+    for name in ('prev', 'next', 'indicator'):
+        if name in help_ and inside(help_[name]): return ('help', name)
+    return ('help', 'card') if inside(help_['card'], margin) else None
 
 
 def place_point(g, tile, p, px, py):
@@ -330,6 +369,7 @@ class OverviewPointer:
         self._lock = threading.Lock()
         self._abs, self._motion, self._applied, self._outputs, self._fresh = None, [0.0, 0.0], 0, [], False
         self.geometry = None       # parse_overview_geometry, from the renderer
+        self.help_geometry = None  # parse_help_geometry, from the renderer: the help card while it is up in the overview
         self.outputs = []          # resize.outputs_from_monitors, from the sampler
         self.mode = 'off'          # off (not in the overview), away (cursor not on a desktop), desktop, free
         self.desktop = None        # desktop index the cursor is on (desktop mode) or left from (free mode)
@@ -349,7 +389,7 @@ class OverviewPointer:
         self.summoned = False         # Ctrl+Alt+Down: bring a cursor that is off the desktops into the selected one
         self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
-        self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = 0  # diagnostics
+        self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
         reader, writer = socket.socketpair()
         reader.setblocking(False); writer.setblocking(False)
         self.wake_reader, self._wake_writer = reader, writer
@@ -370,6 +410,10 @@ class OverviewPointer:
     # --- inputs ---------------------------------------------------------------------------------------------------
     def set_geometry(self, geometry):
         self.geometry = geometry
+        self._poke()
+
+    def set_help_geometry(self, geometry):
+        self.help_geometry = geometry
         self._poke()
 
     def summon(self):
@@ -413,8 +457,13 @@ class OverviewPointer:
         s = self.control.state
         return s.menu_desktop if s.menu_open else None
 
+    def _help(self):
+        """The help card's canvas geometry while the card is open (the renderer may still report a closing one)."""
+        return self.help_geometry if getattr(self.control, 'help_visible', False) else None
+
     def _hit(self):
-        return hit(self.geometry, self.control.state.placements, self.pointer, self._open())
+        """hit(), with the help card on top of everything while it is open."""
+        return help_hit(self._help(), self.pointer) or hit(self.geometry, self.control.state.placements, self.pointer, self._open())
 
     def _output(self, index):
         return next((o for o in self.outputs if o['index'] == index), None)
@@ -491,6 +540,8 @@ class OverviewPointer:
                 if motion[0] or motion[1]: out += self._move(motion[0] * self.gain, motion[1] * self.gain, now)
             elif fresh and cursor is not None and applied >= self._sync:
                 out += self._absolute(cursor, now)
+            else:
+                self._onto_help()  # no cursor motion: the card may have come over the cursor itself
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
         if idle:
             out += self._end_drag()
@@ -523,6 +574,7 @@ class OverviewPointer:
         if EDGE_PX <= lx <= w - 1 - EDGE_PX and EDGE_PX <= ly <= h - 1 - EDGE_PX:
             point = self._from_logical(self.desktop, lx, ly)
             if point is not None and point != self.pointer: self.pointer, self.last_move = point, now
+            self._onto_help()
             return out
         cx, cy = min(max(lx, 0), w - 1), min(max(ly, 0), h - 1)
         over = (lx - cx, ly - cy)
@@ -544,6 +596,18 @@ class OverviewPointer:
         self.hover = self._hit()
         return out
 
+    def _onto_help(self):
+        """Desktop mode with the pointer on the open help card (the cursor moved onto it, or the card opened or turned
+        with the head over a still cursor): the card is on top, so the pointer turns into the free dot right there and
+        the left button goes to the run, not to the window hidden under the card."""
+        o = self._output(self.desktop)
+        if self.mode != 'desktop' or o is None or help_hit(self._help(), self.pointer) is None: return
+        self.gain = self._gain(self.desktop)
+        self.mode = 'free'
+        self.exits += 1
+        self._set_want('free', (int(o['x'] + o['width'] / 2), int(o['y'] + o['height'] / 2)))
+        self.hover = self._hit()
+
     def _move(self, dx, dy, now):
         """Free mode: the pointer moves by the cursor's motion; a drag follows it, otherwise it may go into a desktop."""
         self.pointer = self._clamp((self.pointer[0] + dx, self.pointer[1] + dy))
@@ -551,7 +615,8 @@ class OverviewPointer:
         if self.control.state.menu_open: self.control.last_input = now  # moving over an open panel keeps it up
         if self.drag is not None: return self._apply_drag()
         self.hover = self._hit()
-        if self.hover is not None and self.hover[0] == 'desktop' and inside_by(self._tile(self.hover[1]), self.hover[2]) >= ENTER_PX:
+        if self.hover is not None and self.hover[0] == 'desktop' and inside_by(self._tile(self.hover[1]), self.hover[2]) >= ENTER_PX \
+                and help_hit(self._help(), self.pointer, ENTER_PX) is None:  # ENTER_PX clear of the help card too
             return self._enter(self.hover[1], self.hover[2])
         return b''
 
@@ -577,6 +642,10 @@ class OverviewPointer:
             out += self._end_drag()  # a press during a drag: its release was lost; finish that one first
             open_ = self._open()
             self.hover = h = self._hit()
+            if h is not None and h[0] == 'help':  # the help card is on top: its arrows and indicator turn pages
+                self.help_clicks += 1
+                if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
+                return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
             if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner')):
                 self.outside_closes += 1
                 out += self.control.pill_close()  # a click outside collapses the open panel; the press carries on (what

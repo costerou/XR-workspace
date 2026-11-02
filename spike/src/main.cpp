@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::help) {
                         const auto& h = std::get<xr::HelpPayload>(m->payload);
-                        presentation.set_help(h.visible, h.rows);
+                        presentation.set_help(h.visible, h.rows, h.sections, h.turn);
                     }
                     else if (m->op == xr::ControlOp::placement_menu) {
                         // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
@@ -217,6 +217,14 @@ int main(int argc, char** argv) {
                 if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
                     presentation.resend_overview_geometry();
             }
+        if (status_fd >= 0) {  // the help card on the overview's canvas: free-pointer clicks on its page arrows
+            timespec ts{}; clock_gettime(CLOCK_MONOTONIC, &ts);
+            if (const auto geometry = presentation.take_help_geometry(double(ts.tv_sec) * 1000 + double(ts.tv_nsec) / 1e6)) {
+                const auto line = *geometry + "\n";
+                if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
+                    presentation.resend_help_geometry();
+            }
+        }
         const auto now = std::chrono::steady_clock::now();
         if (status_fd >= 0 && now >= next_status) {
             next_status = now + std::chrono::seconds(1);

@@ -29,6 +29,8 @@ MODS = {'SUPER': 'SUPER', 'WIN': 'SUPER', 'LOGO': 'SUPER', 'MOD4': 'SUPER', 'MET
         'CONTROL': 'CTRL', 'ALT': 'ALT', 'MOD1': 'ALT', 'SHIFT': 'SHIFT'}
 # Digit keys by keysym and by keycode are one key: '1' is code:10 ... '0' is code:19.
 DIGIT_CODES = {str((i + 1) % 10): f'code:{10 + i}' for i in range(10)}
+# XKB keysym aliases that name one key (the help card's Ctrl+Alt+Page_Up / Page_Down is Prior / Next to XKB).
+KEY_ALIASES = {'prior': 'page_up', 'next': 'page_down'}
 # Omarchy state its Hyprland config reads at load (themes, toggles, layouts); copied, never linked.
 STATE_DIRS = ('current', 'toggles', 'settings', 'workspace-layouts', 'monitor-workspaces', 'monitor-workspaces-merged',
               'indicators')
@@ -41,6 +43,7 @@ def normalize(chord):
     parts = [p.strip() for p in str(chord).split('+')]
     if not parts or not parts[-1]: raise ValueError(f'unreadable chord: {chord!r}')
     key = parts[-1].lower()
+    key = KEY_ALIASES.get(key, key)
     return frozenset(MODS.get(p.upper(), p.upper()) for p in parts[:-1] if p), DIGIT_CODES.get(key, key)
 
 

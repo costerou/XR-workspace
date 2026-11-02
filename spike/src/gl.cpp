@@ -460,6 +460,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         }
     }
+    // The help card, then the free pointer on top of it: the pointer clicks the card's page arrows.
+    if (s.help_hud && s.help && s.help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
     if (s.free_pointer && s.free_level > 0.f) {
         // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots).
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
@@ -473,7 +475,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glDrawArrays(GL_TRIANGLE_FAN, 0, GLsizei(fan.size()));
         }
     }
-    if (s.help_hud && s.help && s.help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);

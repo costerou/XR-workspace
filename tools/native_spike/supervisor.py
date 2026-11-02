@@ -95,6 +95,13 @@ class Supervisor:
                         geometry = parse_overview_geometry(value['overview_geometry'])
                         handler = getattr(self.control, 'set_overview_geometry', None)
                         if handler is not None: handler(geometry)
+                    elif isinstance(value, dict) and set(value) == {'help_geometry'}:
+                        # The help card on the overview's canvas while it is up (free pointer clicks on its page arrows).
+                        from .free_pointer import parse_help_geometry
+                        handler = getattr(self.control, 'set_help_geometry', None)
+                        try: geometry = parse_help_geometry(value['help_geometry'])
+                        except ValueError: geometry = None  # never hit-test a stale card; the renderer sends it again
+                        if handler is not None: handler(geometry)
                     else:
                         if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video'}:
                             raise ValueError('invalid status')

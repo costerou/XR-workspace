@@ -663,7 +663,7 @@ class MenuBindTests(unittest.TestCase):
     def test_help_card_lists_the_menu_toggle(self):
         chord = next(c for c, op in view.BINDS if op == 'menu_toggle')
         self.assertIn(view.chord_label(chord), [k for k, _ in view.help_rows()])
-        self.assertLessEqual(len(view.help_rows()), 24)   # renderer limit kMaxHelpRows
+        self.assertLessEqual(len(view.help_rows()), 64)   # renderer limit kMaxHelpRows
 
     def test_readme_documents_the_real_toggle_chord(self):
         chord = view.chord_label(next(c for c, op in view.BINDS if op == 'menu_toggle'))

@@ -1,5 +1,6 @@
 #include "xr/hud.hpp"
 #include "xr/video.hpp"  // render_video_card: built from the help card parts below
+#include "xr/pose.hpp"   // help_geometry_json: the card mapped onto the overview canvas
 #include <algorithm>
 #include <cmath>
 
@@ -196,36 +197,102 @@ std::uint32_t card_size(std::uint32_t content) { return content + 2 * std::uint3
 namespace {
 // Help card text and gaps, roomiest first. The card's chrome (padding, border, radius, colours) is the menu's; its text
 // is smaller and its gaps tighter so every bind fits at 1920x1200 @1.25 with room for a few more rows. The layout takes
-// the first step that fits the output. Row text stays at least kHelpRowPxMin (capitals ~13 px) on the glasses.
+// the first step that fits every row on one page; when none does, the smallest step split into pages (hud.hpp). Row
+// text stays at least kHelpRowPxMin (capitals ~13 px) on the glasses.
 struct HelpStyle { std::uint32_t title_px, row_px, footer_px, row_gap, section_gap, column_gap; };
 constexpr HelpStyle kHelpStyles[] = {
     {32, 30, 20, 8, 16, 36}, {30, 28, 19, 7, 15, 34}, {28, 26, 18, 6, 14, 32}, {26, 24, 17, 6, 12, 30},
     {24, 22, 16, 5, 11, 28}, {22, 20, 15, 4, 10, 26}, {20, 18, 14, 4, 9, 24},
 };
 static_assert(kHelpStyles[0].row_px == kHelpRowPxMax && kHelpStyles[std::size(kHelpStyles) - 1].row_px == kHelpRowPxMin);
+constexpr float kSectionRuleAlpha = 0.22f;  // fainter accent rule between sections than under the title
 
 struct HelpLayout {
     HelpStyle style{};
-    Cell title, footer;
+    Cell title, footer, hint;
     std::vector<std::pair<Cell, Cell>> table;
+    std::vector<bool> starts;                               // row i starts a section (never row 0)
+    std::vector<std::pair<std::size_t, std::size_t>> pages;  // [begin, end) rows per page
     std::uint32_t keys_w = 0, table_w = 0, content_w = 0, content_h = 0;
+    std::uint32_t nav_h = 0, arrow = 0, nav_gap = 0;        // paged footer: indicator line height, arrow size, spacing
 };
-HelpLayout layout_help(const std::vector<HelpRow>& rows, const HudFont* font, const HelpStyle& st) {
+std::uint32_t row_height(const HelpLayout& L, std::size_t i) { return row_ascent(L.table[i].first, L.table[i].second) + row_descent(L.table[i].first, L.table[i].second); }
+std::uint32_t gap_before(const HelpLayout& L, std::size_t i) { return L.starts[i] ? L.style.section_gap : L.style.row_gap; }
+std::uint32_t rows_height(const HelpLayout& L, std::size_t b, std::size_t e) {
+    std::uint32_t h = 0;
+    for (std::size_t i = b; i < e; ++i) h += row_height(L, i) + (i > b ? gap_before(L, i) : 0);
+    return h;
+}
+Cell page_indicator(const HelpLayout& L, std::size_t page, const HudFont* font) {
+    return cell({std::to_string(page + 1) + " / " + std::to_string(L.pages.size()), 1, kCardText, true, L.style.footer_px}, font);
+}
+// Rows below the title and above the footer: one page if `avail` (0 = unbounded) holds them all, else greedy pages that
+// keep a section together when it fits a page; a section taller than a page is split row by row. Never an empty page.
+void paginate(HelpLayout& L, std::uint32_t avail) {
+    const std::size_t n = L.table.size();
+    L.pages.clear();
+    if (!avail || rows_height(L, 0, n) <= avail) { L.pages.push_back({0, n}); return; }
+    std::size_t i = 0;
+    while (i < n) {
+        const std::size_t b = i;
+        std::uint32_t used = 0;
+        while (i < n) {
+            std::size_t e = i + 1;
+            while (e < n && !L.starts[e]) ++e;  // the section (or its rest) from row i
+            const std::uint32_t add = (i > b ? gap_before(L, i) : 0) + rows_height(L, i, e);
+            if (used + add <= avail) { used += add; i = e; continue; }
+            if (i > b) break;  // the next page takes this section
+            while (i < n && (i == b || used + gap_before(L, i) + row_height(L, i) <= avail)) {  // too tall for any page
+                used += (i > b ? gap_before(L, i) : 0) + row_height(L, i);
+                ++i;
+            }
+            break;
+        }
+        L.pages.push_back({b, i});
+    }
+}
+// Fixed parts around the rows: title + gap above, gap + footer below (a paged card adds the indicator line and the hint).
+std::uint32_t head_height(const HelpLayout& L) { return height(L.title.box) + L.style.section_gap; }
+std::uint32_t foot_height(const HelpLayout& L, bool paged) {
+    std::uint32_t h = L.style.section_gap + height(L.footer.box);
+    if (paged) h += L.nav_h + L.style.row_gap + height(L.hint.box) + L.style.row_gap / 2;
+    return h;
+}
+HelpLayout layout_help(const std::vector<HelpRow>& rows, const HudFont* font, const HelpStyle& st, std::uint32_t max_h) {
     HelpLayout L;
     L.style = st;
     L.title = cell({"Keyboard shortcuts", 1, kCardText, true, st.title_px}, font);
     L.footer = cell({"Ctrl+Alt+H to close. Help and menu close after " + std::to_string(kOverlayIdleCloseS) + " s idle.", 1, kCardDim,
                      false, st.footer_px}, font);
-    std::uint32_t actions_w = 0, rows_h = 0;
-    for (const auto& r : rows) {
+    L.hint = cell({kHelpPageHint, 1, kCardDim, false, st.footer_px}, font);
+    std::uint32_t actions_w = 0;
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        const auto& r = rows[i];
         L.table.push_back({cell({r.keys, 1, kCardText, true, st.row_px}, font), cell({r.action, 1, kCardDim, false, st.row_px}, font)});
+        L.starts.push_back(i > 0 && r.section);
         const auto& [k, a] = L.table.back();
         L.keys_w = std::max(L.keys_w, k.box.width); actions_w = std::max(actions_w, a.box.width);
-        rows_h += row_ascent(k, a) + row_descent(k, a) + (L.table.size() > 1 ? st.row_gap : 0);
     }
     L.table_w = L.table.empty() ? 0 : L.keys_w + st.column_gap + actions_w;
+    // Paged footer line: "<  12 / 34  >" with drawn arrows sized to the indicator's capitals.
+    const Cell probe = cell({"0 / 0", 1, kCardText, true, st.footer_px}, font);
+    L.arrow = std::max<std::uint32_t>(10, probe.box.ascent * 4 / 5);
+    L.nav_h = std::max(height(probe.box), L.arrow);
+    L.nav_gap = st.column_gap;
+    const std::uint32_t chrome = 2 * kHudFitMargin + 2 * std::uint32_t(kHelpPad);
+    const std::uint32_t single = head_height(L) + rows_height(L, 0, L.table.size()) + foot_height(L, false);
+    const bool one_page = !max_h || single + chrome <= max_h;
+    const std::uint32_t fixed = head_height(L) + foot_height(L, true) + chrome;
+    paginate(L, one_page ? 0 : (max_h > fixed ? max_h - fixed : 1));
+    const bool paged = L.pages.size() > 1;
+    std::uint32_t tallest = 0;
+    for (const auto& [b, e] : L.pages) tallest = std::max(tallest, rows_height(L, b, e));
     L.content_w = std::max({L.title.box.width, L.footer.box.width, L.table_w});
-    L.content_h = height(L.title.box) + st.section_gap + rows_h + st.section_gap + height(L.footer.box);
+    if (paged) {
+        const std::uint32_t nav_w = 2 * L.arrow + 2 * L.nav_gap + page_indicator(L, L.pages.size() - 1, font).box.width;
+        L.content_w = std::max({L.content_w, L.hint.box.width, nav_w});
+    }
+    L.content_h = head_height(L) + tallest + foot_height(L, paged);
     return L;
 }
 bool help_fits(const HelpLayout& L, std::uint32_t max_w, std::uint32_t max_h) {
@@ -234,22 +301,42 @@ bool help_fits(const HelpLayout& L, std::uint32_t max_w, std::uint32_t max_h) {
 HelpLayout choose_help_layout(const std::vector<HelpRow>& rows, const HudFont* font, std::uint32_t max_w, std::uint32_t max_h) {
     HelpLayout L;
     for (const auto& st : kHelpStyles) {
-        L = layout_help(rows, font, st);
-        if (help_fits(L, max_w, max_h)) break;
+        L = layout_help(rows, font, st, max_h);
+        if (L.pages.size() == 1 && help_fits(L, max_w, max_h)) return L;
     }
-    return L;  // nothing fits: the smallest text, centred
+    return L;  // the smallest text, in pages (or, if a row alone is too big, centred and clipped: fits=false)
+}
+// Arrow pointing left (dir -1) or right (+1) in the square at (x, y) of side `size`, anti-aliased (4x4 samples).
+void draw_arrow(HudImage& im, int x, int y, std::uint32_t size, int dir, std::array<float, 3> color) {
+    const float s = float(size), half = s / 2, tip = dir < 0 ? 0.f : s, base = dir < 0 ? s * 0.8f : s * 0.2f;
+    for (std::uint32_t py = 0; py < size; ++py)
+        for (std::uint32_t px = 0; px < size; ++px) {
+            int inside = 0;
+            for (int sy = 0; sy < 4; ++sy)
+                for (int sx = 0; sx < 4; ++sx) {
+                    const float fx = float(px) + (float(sx) + 0.5f) / 4, fy = float(py) + (float(sy) + 0.5f) / 4;
+                    const float t = (fx - base) / (tip - base);  // 0 at the base, 1 at the tip
+                    if (t >= 0 && t <= 1 && std::fabs(fy - half) <= half * (1 - t)) ++inside;
+                }
+            if (inside) over(im, x + int(px), y + int(py), color, float(inside) / 16.f);
+        }
 }
 }
 
 HelpCardFit help_card_fit(const std::vector<HelpRow>& rows, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height) {
     const auto L = choose_help_layout(rows, font, max_width, max_height);
-    return {card_size(L.content_w), card_size(L.content_h), L.style.row_px, help_fits(L, max_width, max_height)};
+    HelpCardFit fit{card_size(L.content_w), card_size(L.content_h), L.style.row_px, help_fits(L, max_width, max_height), {}};
+    for (const auto& [b, e] : L.pages) fit.page_rows.push_back(std::uint32_t(e - b));
+    return fit;
 }
 
 HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font, std::uint32_t max_width,
-                          std::uint32_t max_height) {
+                          std::uint32_t max_height, std::uint32_t page, HelpCardControls* controls) {
     const auto L = choose_help_layout(rows, font, max_width, max_height);
     const auto& st = L.style;
+    const std::size_t pages = L.pages.size(), shown = page % pages;
+    const bool paged = pages > 1;
+    if (controls) *controls = {};
     HudImage im;
     allocate_card(im, card_size(L.content_w), card_size(L.content_h), accent);
     std::uint32_t top = std::uint32_t(kHelpPad);
@@ -258,16 +345,72 @@ HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3>
     for (std::uint32_t x = std::uint32_t(kHelpPad); x + std::uint32_t(kHelpPad) < im.width; ++x)  // rule in the gap's middle
         over(im, int(x), int(top - st.section_gap / 2), accent, kDividerAlpha);
     const int left = int((im.width - L.table_w) / 2);
-    for (const auto& [k, a] : L.table) {
+    const auto [b, e] = L.pages[shown];
+    for (std::size_t i = b; i < e; ++i) {
+        const auto& [k, a] = L.table[i];
+        if (i > b) {
+            top += gap_before(L, i);
+            if (L.starts[i])  // a faint rule between sections, across the table
+                for (std::uint32_t x = 0; x < L.table_w; ++x) over(im, left + int(x), int(top - st.section_gap / 2), accent, kSectionRuleAlpha);
+        }
         const std::uint32_t ascent = row_ascent(k, a);
         draw_cell(im, k, left, top, ascent, font);
         draw_cell(im, a, left + int(L.keys_w + st.column_gap), top, ascent, font);
-        top += ascent + row_descent(k, a) + st.row_gap;
+        top += ascent + row_descent(k, a);
     }
-    if (!L.table.empty()) top -= st.row_gap;  // no gap after the last row
-    top += st.section_gap;
+    // The footer sits at the bottom: on a short last page the rows end higher, the card keeps its size.
+    top = im.height - std::uint32_t(kHelpPad) - foot_height(L, paged) + st.section_gap;
+    if (paged) {
+        const Cell indicator = page_indicator(L, shown, font);
+        const std::uint32_t nav_w = 2 * L.arrow + 2 * L.nav_gap + indicator.box.width;
+        const int nav_left = int((im.width - nav_w) / 2);
+        const int arrow_top = int(top + (L.nav_h - L.arrow) / 2);
+        const int text_left = nav_left + int(L.arrow + L.nav_gap), next_left = text_left + int(indicator.box.width + L.nav_gap);
+        draw_arrow(im, nav_left, arrow_top, L.arrow, -1, kCardText);
+        draw_cell(im, indicator, text_left, top + (L.nav_h - height(indicator.box)) / 2, indicator.box.ascent, font);
+        draw_arrow(im, next_left, arrow_top, L.arrow, 1, kCardText);
+        if (controls) {  // generous click targets: each half of the gap, and the line's height plus half a gap either side
+            const int pad = int(L.nav_gap / 2), y = int(top) - int(st.row_gap), h = int(L.nav_h + 2 * st.row_gap);
+            controls->prev = {nav_left - pad, y, int(L.arrow) + 2 * pad, h};
+            controls->indicator = {text_left - pad / 2, y, int(indicator.box.width) + pad, h};
+            controls->next = {next_left - pad, y, int(L.arrow) + 2 * pad, h};
+        }
+        top += L.nav_h + st.row_gap;
+        draw_centered(im, L.hint, top, font);
+        top += height(L.hint.box) + st.row_gap / 2;
+    }
     draw_centered(im, L.footer, top, font);
     return im;
+}
+
+std::string help_geometry_json(const std::array<float, 9>& view, std::uint32_t width, std::uint32_t height, float half_w,
+                               float half_h, CardOrigin origin, std::uint32_t card_w, std::uint32_t card_h,
+                               const HelpCardControls& controls) {
+    if (!width || !height || half_w <= 0 || half_h <= 0) return {};
+    const Mat3 inverse = transpose(view);  // rotations: the inverse is the transpose
+    const float W = float(width), H = float(height);
+    std::string out = "{\"help_geometry\":{";
+    bool first = true;
+    auto rect = [&](const char* name, float x, float y, float w, float h) {
+        float lo_x = 1e9f, lo_y = 1e9f, hi_x = -1e9f, hi_y = -1e9f;
+        for (const auto& [cx, cy] : {std::pair{x, y}, std::pair{x + w, y}, std::pair{x, y + h}, std::pair{x + w, y + h}}) {
+            // Output px -> head-locked NDC -> the canvas plane (world, z = -1) -> canvas px.
+            const auto c = project(inverse, 2 * cx / W - 1, 1 - 2 * cy / H, half_w, half_h);
+            if (!c) return false;
+            const float px = ((*c)[0] + 1) / 2 * W, py = (1 - (*c)[1]) / 2 * H;
+            lo_x = std::min(lo_x, px); lo_y = std::min(lo_y, py); hi_x = std::max(hi_x, px); hi_y = std::max(hi_y, py);
+        }
+        const auto clamp = [](float v) { return long(std::lround(std::clamp(v, -8192.f, 8192.f))); };
+        const long l = clamp(lo_x), t = clamp(lo_y), r = clamp(hi_x), bo = clamp(hi_y);
+        out += std::string(first ? "" : ",") + "\"" + name + "\":[" + std::to_string(l) + "," + std::to_string(t) + "," +
+               std::to_string(std::max(1L, r - l)) + "," + std::to_string(std::max(1L, bo - t)) + "]";
+        first = false;
+        return true;
+    };
+    if (!rect("card", origin.x, origin.y, float(card_w), float(card_h))) return {};
+    for (const auto& [name, r] : {std::pair{"prev", controls.prev}, std::pair{"indicator", controls.indicator}, std::pair{"next", controls.next}})
+        if (!r.empty() && !rect(name, origin.x + float(r.x), origin.y + float(r.y), float(r.w), float(r.h))) return {};
+    return out + "}}";
 }
 
 namespace {
@@ -401,14 +544,22 @@ void CardFade::hold(double since_ms, double now_ms) {
     changed_ms_ = now_ms;
 }
 
-bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now_ms) {
-    if (visible && (!generation_ || rows.size() != rows_.size() ||
-                    !std::equal(rows.begin(), rows.end(), rows_.begin(),
-                                [](const HelpRow& a, const HelpRow& b) { return a.keys == b.keys && a.action == b.action; }))) {
-        rows_ = rows;
+bool HelpOverlay::set(bool visible, const std::vector<HelpRow>& rows, double now_ms, int turn) {
+    const bool showing = visible && !fade_.visible();
+    const bool new_rows = !generation_ || rows.size() != rows_.size() ||
+        !std::equal(rows.begin(), rows.end(), rows_.begin(),
+                    [](const HelpRow& a, const HelpRow& b) { return a.keys == b.keys && a.action == b.action && a.section == b.section; });
+    std::uint32_t page = page_;
+    if (showing) page = 0;  // reopening starts on page 1
+    else if (visible && turn && pages_ > 1) page = std::uint32_t((std::int64_t(page_) + (turn < 0 ? -1 : 1) + pages_) % pages_);
+    const bool turned = page != page_, redraw = visible && (new_rows || turned);
+    if (redraw) {
+        if (new_rows) rows_ = rows;
+        page_ = page;
         render();
+        if (turned && !showing) ++turns_;
     }
-    if (!fade_.set(visible, now_ms)) return false;
+    if (!fade_.set(visible, now_ms)) return redraw;  // a new page or new rows on a shown card: draw it
     if (visible) ++shown_; else ++hidden_;
     return true;
 }
@@ -420,7 +571,9 @@ bool HelpOverlay::set_viewport(std::uint32_t width, std::uint32_t height) {
     return true;
 }
 void HelpOverlay::render() {
-    image_ = render_help_card(rows_, kCardAccent, font_.get(), max_w_, max_h_);
+    pages_ = std::max<std::uint32_t>(1, help_card_fit(rows_, font_.get(), max_w_, max_h_).pages());
+    page_ %= pages_;  // a new viewport or new rows can have fewer pages
+    image_ = render_help_card(rows_, kCardAccent, font_.get(), max_w_, max_h_, page_, &controls_);
     ++generation_;
 }
 void HelpOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }

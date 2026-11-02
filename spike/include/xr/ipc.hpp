@@ -24,8 +24,13 @@ struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 
 struct StylePayload { std::uint8_t r = 0, g = 0, b = 0; };
 // Keyboard help card: {"visible":bool,"rows":[[keys,action],...]}; at most kMaxHelpRows rows,
 // each string 1..kMaxHelpText printable ASCII characters (the pixel-font fallback is ASCII-only).
-constexpr std::size_t kMaxHelpRows = 24, kMaxHelpText = 48;
-struct HelpPayload { bool visible = false; std::vector<std::pair<std::string, std::string>> rows; };
+// Optional "sections":[n,...]: the rows' section sizes in order (each >= 1, summing to the row count; the card keeps a
+// section on one page when it can). Optional "turn": -1 or 1, flip a shown card to the previous / next page.
+constexpr std::size_t kMaxHelpRows = 64, kMaxHelpText = 48;
+struct HelpPayload {
+    bool visible = false; std::vector<std::pair<std::string, std::string>> rows;
+    std::vector<std::uint32_t> sections; std::int32_t turn = 0;
+};
 // Per-desktop placement, absolute: {"desktops":[{x,y,distance,yaw,pitch,roll,curvature},...]}, 1..3 entries in managed-output
 // order, every field an integer inside kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch = 0, roll = 0, curvature = 0; };

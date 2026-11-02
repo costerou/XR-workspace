@@ -217,6 +217,9 @@ struct Presentation::Impl : SurfaceRequests {
     struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
     struct FreePointer { bool visible = false, held = false; std::int32_t x = 0, y = 0; std::uint64_t shown = 0; } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
+    std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
+    double help_geometry_ms = -1e9;      // when it was sent
+    Mat3 last_head{1, 0, 0, 0, 1, 0, 0, 0, 1};  // head rotation of the last desktop frame (help card hit testing)
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -577,7 +580,9 @@ std::string Presentation::capture_report() const {
                ",\"fallback\":\"" + c.fallback + "\",\"stopped\":" + (c.stopped ? "true" : "false") + "}";
     }
     out += "],\"help\":{\"visible\":" + std::string(impl_->help.visible() ? "true" : "false") +
-           ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) + "}";
+           ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) +
+           ",\"page\":" + std::to_string(impl_->help.page()) + ",\"pages\":" + std::to_string(impl_->help.pages()) +
+           ",\"turns\":" + std::to_string(impl_->help.turns()) + "}";
     out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
            ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
@@ -739,11 +744,17 @@ void Presentation::video_format(const VideoFormat& format) {
 void Presentation::video_controls(bool visible) {
     if (impl_ && impl_->video) { impl_->video->set_controls(visible, double(monotonic_ms())); impl_->cadence.invalidate(); }
 }
-void Presentation::set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows) {
+void Presentation::set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows,
+                            const std::vector<std::uint32_t>& sections, std::int32_t turn) {
     if (!impl_) return;
     std::vector<HelpRow> help;
     for (const auto& [keys, action] : rows) help.push_back({keys, action});
-    if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
+    std::size_t start = 0;
+    for (const auto n : sections) {  // ipc.cpp checked they add up to the rows
+        if (start < help.size()) help[start].section = true;
+        start += n;
+    }
+    if (impl_->help.set(visible, help, double(monotonic_ms()), turn)) impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
                                       const std::array<std::array<std::int32_t, 7>, 3>& placements,
@@ -789,6 +800,28 @@ std::optional<std::string> Presentation::take_overview_geometry() {
     return line;
 }
 void Presentation::resend_overview_geometry() { if (impl_) impl_->overview_geometry_sent.clear(); }
+std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
+    if (!impl_ || !impl_->gl) return std::nullopt;
+    auto& s = *impl_;
+    const bool up = s.help.visible() && s.help.generation() && s.view.zoom() < 0.01f && s.half_w > 0 &&
+                    !(s.video && s.video->active());  // the free pointer is overview-only and off during a video
+    std::string line = "{\"help_geometry\":null}";
+    if (up) {
+        const auto& im = s.help.image();
+        line = help_geometry_json(s.last_head, s.width, s.height, s.half_w, s.half_h,
+                                  centered_card_origin(s.width, s.height, im.width, im.height, 0.f), im.width, im.height,
+                                  s.help.controls());
+        if (line.empty()) line = "{\"help_geometry\":null}";
+    }
+    if (line == s.help_geometry_sent) return std::nullopt;
+    // While the card stays up, changes are rate-limited (head motion, mostly; a new page size is at most kHelpGeometryMs
+    // late, the main loop retries every pass). A show or hide goes out at once.
+    const bool still_up = up && s.help_geometry_sent.rfind("{\"help_geometry\":{", 0) == 0;
+    if (still_up && now_ms - s.help_geometry_ms < kHelpGeometryMs) return std::nullopt;
+    s.help_geometry_sent = line; s.help_geometry_ms = now_ms;
+    return line;
+}
+void Presentation::resend_help_geometry() { if (impl_) impl_->help_geometry_sent.clear(); }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
                             bool prediction, bool typing) {
@@ -898,6 +931,7 @@ Status Presentation::draw_test_pattern() {
         const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f;  // overview only; world-locked on the canvas
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel);
+        s.last_head = head;
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
