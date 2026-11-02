@@ -21,6 +21,25 @@ bool help_text(const Json& value) {
     return !s.empty() && s.size() <= kMaxHelpText && std::all_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; });
 }
 Error invalid() { return {"invalid_control", "Rejected malformed or unsupported control message"}; }
+struct Bound { const char* key; std::int32_t lo, hi; };
+// Same order and values as tools/native_spike/geometry.py PLACEMENT_BOUNDS (tests/native_spike/test_placement.py checks).
+constexpr Bound kPlacementBounds[] = {
+    {"x", -100, 100}, {"y", -100, 100}, {"distance", 50, 200}, {"yaw", -60, 60}, {"pitch", -45, 45}, {"roll", -45, 45}, {"curvature", 0, 120}};
+bool placement(const Json& value, WirePlacement& out) {
+    if (!value.is_object() || value.size() != std::size(kPlacementBounds)) return false;
+    std::int32_t* fields[] = {&out.x, &out.y, &out.distance, &out.yaw, &out.pitch, &out.roll, &out.curvature};
+    for (std::size_t i = 0; i < std::size(kPlacementBounds); ++i) {
+        const auto& b = kPlacementBounds[i];
+        if (!value.contains(b.key) || !value[b.key].is_number_integer()) return false;
+        const auto& n = value[b.key];
+        // Unsigned first: huge unsigned values must not wrap into range as int64.
+        if (n.is_number_unsigned() ? n.get<std::uint64_t>() > std::uint64_t(std::max(b.hi, 0)) : false) return false;
+        const auto v = n.get<std::int64_t>();
+        if (v < b.lo || v > b.hi) return false;
+        *fields[i] = std::int32_t(v);
+    }
+    return true;
+}
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
     if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid();
@@ -51,6 +70,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "recenter") op = ControlOp::recenter;
         else if (name == "style") op = ControlOp::style;
         else if (name == "help") op = ControlOp::help;
+        else if (name == "placement") op = ControlOp::placement;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
@@ -86,6 +106,17 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 help.rows.emplace_back(row[0].get<std::string>(), row[1].get<std::string>());
             }
             payload = std::move(help);
+        } else if (op == ControlOp::placement) {
+            const auto& p = j["payload"];
+            if (p.size() != 1 || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() || p["desktops"].size() > 3)
+                return invalid();
+            PlacementPayload placements;
+            for (const auto& d : p["desktops"]) {
+                WirePlacement w;
+                if (!placement(d, w)) return invalid();
+                placements.desktops.push_back(w);
+            }
+            payload = std::move(placements);
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

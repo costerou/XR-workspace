@@ -1,17 +1,21 @@
-"""Per-glasses profiles: view settings plus per-desktop geometry, tracking, mode switch and fallback output."""
+"""Per-glasses profiles: view settings plus per-desktop geometry and placement, tracking, mode switch and fallback output.
+
+`desktops` (pixels/scale) feed consent and the broker; `placements` (position, distance, rotation, curvature) are
+presentation-only and can change during a run. Profiles saved before placements existed load with flat defaults.
+"""
 import json
 import os
 from pathlib import Path
 import tempfile
 
 from . import view
-from .geometry import DEFAULT_DESKTOP, validate_desktop
+from .geometry import DEFAULT_DESKTOP, DEFAULT_PLACEMENT, validate_desktop, validate_placement, validate_placements
 from .ipc import token
 
 MODELS = ('beast', 'luma-ultra', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
-                   'tracking': True, 'mode_switch': True, 'fallback': None}
+                   'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'tracking': True, 'mode_switch': True, 'fallback': None}
 
 
 def profiles_path():
@@ -36,6 +40,11 @@ def _desktop(value):
     except ValueError: return dict(DEFAULT_DESKTOP)
 
 
+def _placement(value):
+    try: return validate_placement(value)
+    except ValueError: return dict(DEFAULT_PLACEMENT)
+
+
 def _fallback(value):
     if value is None: return None
     try: return token(value)
@@ -48,6 +57,9 @@ def _clean(data):
     desktops = data.get('desktops')
     out['desktops'] = [_desktop(desktops[i]) if isinstance(desktops, list) and len(desktops) == 3 else dict(DEFAULT_DESKTOP)
                        for i in range(3)]
+    placements = data.get('placements')
+    out['placements'] = [_placement(placements[i]) if isinstance(placements, list) and len(placements) == 3
+                         else dict(DEFAULT_PLACEMENT) for i in range(3)]
     for key in ('tracking', 'mode_switch'):
         out[key] = data[key] if type(data.get(key)) is bool else True
     out['fallback'] = _fallback(data.get('fallback'))
@@ -76,7 +88,7 @@ def _check(profile):
     if not view._valid({k: profile[k] for k in view.DEFAULT_SETTINGS}): raise ValueError('invalid profile')
     d = profile['desktops']
     if not isinstance(d, list) or len(d) != 3: raise ValueError('invalid profile')
-    out = {**profile, 'desktops': [validate_desktop(x) for x in d]}
+    out = {**profile, 'desktops': [validate_desktop(x) for x in d], 'placements': validate_placements(profile['placements'])}
     if any(type(profile[k]) is not bool for k in ('tracking', 'mode_switch')): raise ValueError('invalid profile')
     if profile['fallback'] is not None: token(profile['fallback'])
     return out
@@ -116,6 +128,18 @@ class ProfileStore:
         if not isinstance(view_settings, dict) or set(view_settings) != set(view.DEFAULT_SETTINGS) or not view._valid(view_settings):
             raise ValueError('invalid settings')
         save_profile(self.path, self.model, {**load_profile(self.path, self.model), **view_settings})
+
+
+class PlacementStore:
+    """Per-desktop placements of one glasses model's profile; every other profile field is preserved."""
+    def __init__(self, path, model):
+        self.path, self.model = Path(path), _model(model)
+
+    def load(self):
+        return load_profile(self.path, self.model)['placements']
+
+    def save(self, placements):
+        save_profile(self.path, self.model, {**load_profile(self.path, self.model), 'placements': validate_placements(placements)})
 
 
 class LayoutStore:

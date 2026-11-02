@@ -119,5 +119,89 @@ int main() {
     m.set_target(true, 1, 40, 5000); m.advance(5100); const float mid_pos = m.position();
     m.set_target(true, 1, 80, 5100); m.advance(5100); CHECK(near(m.position(), mid_pos, 1e-6f));
     m.advance(5300); CHECK(m.position() == 1);
+
+    {  // Per-desktop placement (position, distance, yaw/pitch/roll, curvature).
+    const Canvas cv{1920, 1200, 0.5f, 0.3125f};  // square canvas pixels: half_w/half_h == width/height
+    const FRect tile{240, 300, 960, 540};
+    auto plane = [&](float px, float py) { return Vec3{(2 * px / 1920 - 1) * 0.5f, (1 - 2 * py / 1200) * 0.3125f, -1}; };
+    auto close3 = [](Vec3 a, Vec3 b, float eps = 1e-5f) { return near(a.x, b.x, eps) && near(a.y, b.y, eps) && near(a.z, b.z, eps); };
+    auto dist = [](Vec3 a, Vec3 b) { return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z)); };
+    const float px_world = 2 * 0.5f / 1920;  // world units per canvas pixel
+    // Default placement is the old flat canvas plane, exactly (same vertices as the pre-placement quads), one column.
+    for (float px : {240.f, 720.f, 1200.f, 100.f}) for (float py : {300.f, 840.f, 10.f})
+        CHECK(close3(place_point(cv, tile, {}, px, py), plane(px, py)));
+    auto flat_mesh = tile_mesh(cv, tile, {}, tile);
+    CHECK(flat_mesh.size() == 4 && close3(flat_mesh[0].world, plane(240, 300)) && close3(flat_mesh[3].world, plane(1200, 840)));
+    CHECK(near(flat_mesh[0].u, 0, 1e-6f) && near(flat_mesh[0].v, 0, 1e-6f) && near(flat_mesh[3].u, 1, 1e-6f) && near(flat_mesh[3].v, 1, 1e-6f));
+    CHECK(near(flat_mesh[1].py, 840, 1e-4f) && near(flat_mesh[2].px, 1200, 1e-4f));  // top, bottom per column
+    // Curvature zero is flat; any curvature keeps the centre and its tangent frame in place.
+    const float half_pi = float(M_PI) / 2;
+    Placement curved; curved.curvature = half_pi;
+    const Vec3 c0 = place_point(cv, tile, curved, 720, 570);
+    CHECK(close3(c0, plane(720, 570)));
+    const Vec3 c1 = place_point(cv, tile, curved, 720.01f, 570);
+    CHECK(near((c1.x - c0.x) / (0.01f * px_world), 1, 1e-2f) && near(c1.z - c0.z, 0, 1e-6f));  // tangent along +x
+    // Edges bend toward the viewer symmetrically, aspect not stretched: arc length == flat width, height unchanged.
+    const Vec3 left = place_point(cv, tile, curved, 240, 570), right = place_point(cv, tile, curved, 1200, 570);
+    CHECK(left.z > -1 && near(left.z, right.z, 1e-6f) && near(left.x - c0.x, -(right.x - c0.x), 1e-6f));
+    const float tw = 960 * px_world;
+    CHECK(near(right.x - left.x, 2 * (tw / half_pi) * std::sin(half_pi / 2), 1e-5f));  // chord of a 90 degree arc
+    auto mesh = tile_mesh(cv, tile, curved, tile);
+    CHECK(mesh.size() > 4 && mesh.size() % 2 == 0);
+    float arc = 0;
+    for (std::size_t i = 2; i < mesh.size(); i += 2) arc += dist(mesh[i].world, mesh[i - 2].world);
+    CHECK(near(arc, tw, tw * 2e-3f));
+    CHECK(near(dist(mesh[0].world, mesh[1].world), 540 * px_world, 1e-5f));  // vertical edges stay straight and full height
+    for (std::size_t i = 2; i < mesh.size(); i += 2) CHECK(mesh[i].u > mesh[i - 2].u);  // texture runs monotonically along the arc
+    // A frame/halo rect past the tile continues on the same cylinder.
+    const Vec3 beyond = place_point(cv, tile, curved, 1240, 570);
+    CHECK(beyond.z > right.z && beyond.x > right.x);
+    // Position: offsets are fractions of the desktop's own size; the centre moves, the shape does not.
+    Placement moved; moved.x = 0.5f; moved.y = -0.25f;
+    const Vec3 m0 = place_point(cv, tile, moved, 720, 570);
+    CHECK(close3(m0, Vec3{c0.x + 0.5f * tw, c0.y - 0.25f * 540 * px_world, -1}));
+    CHECK(near(dist(place_point(cv, tile, moved, 240, 300), place_point(cv, tile, moved, 1200, 840)),
+               dist(plane(240, 300), plane(1200, 840)), 1e-5f));
+    // Distance: twice as far along the same direction, same physical size -> half the apparent size.
+    Placement far; far.distance = 2;
+    const Vec3 f0 = place_point(cv, tile, far, 720, 570), fr = place_point(cv, tile, far, 1200, 570);
+    CHECK(close3(f0, Vec3{2 * c0.x, 2 * c0.y, -2}));
+    CHECK(near((fr.x / -fr.z) - (f0.x / -f0.z), 0.5f * ((plane(1200, 570).x) - c0.x), 1e-5f));
+    // Yaw > 0 faces right: the left edge comes toward you, the right edge goes away; size is preserved.
+    Placement yawed; yawed.yaw = float(M_PI) / 6;
+    const Vec3 yl = place_point(cv, tile, yawed, 240, 570), yr = place_point(cv, tile, yawed, 1200, 570);
+    CHECK(yl.z > -1 && yr.z < -1 && near(dist(yl, yr), tw, 1e-5f) && close3(place_point(cv, tile, yawed, 720, 570), c0));
+    // Pitch > 0 tilts the top edge toward you.
+    Placement pitched; pitched.pitch = float(M_PI) / 8;
+    CHECK(place_point(cv, tile, pitched, 720, 300).z > -1 && place_point(cv, tile, pitched, 720, 840).z < -1);
+    // Roll > 0 is counter-clockwise: the right edge rises; still in the plane.
+    Placement rolled; rolled.roll = float(M_PI) / 12;
+    const Vec3 rr = place_point(cv, tile, rolled, 1200, 570);
+    CHECK(rr.y > c0.y && near(rr.z, -1, 1e-6f) && near(dist(rr, c0), tw / 2, 1e-5f));
+    // Combined placement: every corner keeps its distance from the centre (rigid motion).
+    Placement all{0.2f, 0.1f, 1.3f, 0.4f, -0.2f, 0.1f, 0};
+    const Vec3 ac = place_point(cv, tile, all, 720, 570);
+    CHECK(near(dist(place_point(cv, tile, all, 240, 300), ac), dist(plane(240, 300), c0), 1e-5f));
+    // Zooming into a desktop fades its placement to flat-in-front, keeping curvature; neighbours unaffected.
+    CHECK(near(zoom_weight(1, 1, 1), 1, 1e-6f) && near(zoom_weight(1, 1, 0), 0, 1e-6f) && near(zoom_weight(0, 1, 1), 0, 1e-6f));
+    CHECK(near(zoom_weight(1, 1.25f, 1), 0.75f, 1e-6f) && near(zoom_weight(0.5f, 1, 1), 0.5f, 1e-6f));
+    Placement mixed{0.4f, -0.2f, 1.6f, 0.3f, 0.2f, -0.1f, 1.f};
+    const Placement gone = faded(mixed, 1), half = faded(mixed, 0.5f), kept = faded(mixed, 0);
+    CHECK(gone.x == 0 && gone.y == 0 && gone.distance == 1 && gone.yaw == 0 && gone.pitch == 0 && gone.roll == 0 && gone.curvature == 1.f);
+    CHECK(near(half.x, 0.2f, 1e-6f) && near(half.distance, 1.3f, 1e-6f) && near(half.yaw, 0.15f, 1e-6f) && half.curvature == 1.f);
+    CHECK(kept.x == mixed.x && kept.distance == mixed.distance && kept.roll == mixed.roll);
+    // Draw order: farthest first; equal-distance ties keep layout order; missing placements are flat.
+    const FRect row3[] = {{0, 330, 600, 540}, {660, 330, 600, 540}, {1320, 330, 600, 540}};
+    const Placement pushed[] = {{}, {0, 0, 1.8f, 0, 0, 0, 0}};
+    auto order = draw_order(cv, row3, pushed);
+    CHECK(order.size() == 3 && order[0] == 1);
+    const FRect same[] = {{660, 330, 600, 540}, {660, 330, 600, 540}};
+    auto tied = draw_order(cv, same, std::span<const Placement>{});
+    CHECK(tied[0] == 0 && tied[1] == 1);
+    // Degenerate input yields nothing rather than NaNs.
+    CHECK(tile_mesh(cv, {0, 0, 0, 10}, {}, tile).empty() && tile_mesh(cv, tile, {}, {0, 0, 0, 0}).empty());
+    for (const auto& m : tile_mesh(cv, tile, Placement{0, 0, 1, 0, 0, 0, float(M_PI) * 2 / 3}, {190, 250, 1060, 640}))
+        CHECK(std::isfinite(m.world.x) && std::isfinite(m.world.y) && std::isfinite(m.world.z) && m.world.z < 0);
+    }
     std::cout << "view layout passed\n";
 }

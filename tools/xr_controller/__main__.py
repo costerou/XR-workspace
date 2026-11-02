@@ -40,7 +40,7 @@ class Units:
     def stop(self,run_id):
         # SIGINT reaches the runner's KeyboardInterrupt teardown, not its renderer child.
         subprocess.run(['systemctl','--user','kill','--kill-whom=main','--signal=SIGINT','viture-xr-'+token(run_id)],check=True,timeout=2)
-    def control(self,run_id,session,op):
+    def control(self,run_id,session,op,payload=None):
         directory=self.runtime/'xr-workspace-spike'/token(run_id)
         fd=private_dir(directory)
         try:
@@ -48,7 +48,8 @@ class Units:
                 conn.settimeout(.25); conn.connect(f'/proc/self/fd/{fd}/control.sock'); check_peer(conn,os.getuid())
                 if op is not None:
                     request_id=time.time_ns()
-                    conn.sendall((json.dumps(dict(schema=1,request_id=request_id,run_id=run_id,session=token(session),op=op,payload={}))+'\n').encode())
+                    frame=dict(schema=1,request_id=request_id,run_id=run_id,session=token(session),op=op,payload=payload or {})
+                    conn.sendall((json.dumps(frame,separators=(',',':'),allow_nan=False)+'\n').encode())
                     if op == 'status':
                         raw=bytearray(); deadline=time.monotonic()+.25
                         while len(raw)<MAX_FRAME:

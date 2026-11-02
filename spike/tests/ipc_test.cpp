@@ -104,5 +104,33 @@ int main() {
                                   std::string(R"({"visible":true,"rows":[],"x":1})"),
                                   std::string(R"({"visible":true,"rows":[[")") + std::string(xr::kMaxHelpText + 1, 'a') + R"(","b"]]})", many})
         require(std::holds_alternative<xr::Error>(xr::decode_control(help(bad))));
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help: PASS\n";
+    // Per-desktop placement: absolute, 1..3 desktops, exact integer fields inside the mirrored bounds.
+    auto placement = [](const std::string& payload) {
+        return std::string(R"({"schema":1,"request_id":10,"run_id":"run","session":"session","op":"placement","payload":)") + payload + "}\n";
+    };
+    const std::string flat = R"({"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0})";
+    const std::string edge = R"({"x":-100,"y":100,"distance":200,"yaw":-60,"pitch":45,"roll":-45,"curvature":120})";
+    auto pd = xr::decode_control(placement(R"({"desktops":[)" + flat + "," + edge + "]}"));
+    require(std::holds_alternative<xr::ControlMessage>(pd) && std::get<xr::ControlMessage>(pd).op == xr::ControlOp::placement);
+    const auto& pp = std::get<xr::PlacementPayload>(std::get<xr::ControlMessage>(pd).payload);
+    require(pp.desktops.size() == 2 && pp.desktops[0].distance == 100 && pp.desktops[1].x == -100 && pp.desktops[1].y == 100 &&
+            pp.desktops[1].distance == 200 && pp.desktops[1].yaw == -60 && pp.desktops[1].pitch == 45 && pp.desktops[1].roll == -45 &&
+            pp.desktops[1].curvature == 120);
+    auto with = [&](const std::string& key, const std::string& value) {
+        auto p = flat; const auto at = p.find("\"" + key + "\":") + key.size() + 3;
+        return p.substr(0, at) + value + p.substr(p.find_first_of(",}", at));
+    };
+    for (const std::string& bad : {std::string(R"({"desktops":[]})"), std::string(R"({"desktops":{}})"), std::string(R"({})"),
+                                  R"({"desktops":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
+                                  R"({"desktops":[)" + flat + R"(],"extra":1})",
+                                  R"({"desktops":[)" + with("x", "101") + "]}", R"({"desktops":[)" + with("distance", "49") + "]}",
+                                  R"({"desktops":[)" + with("yaw", "61") + "]}", R"({"desktops":[)" + with("pitch", "-46") + "]}",
+                                  R"({"desktops":[)" + with("roll", "46") + "]}", R"({"desktops":[)" + with("curvature", "-1") + "]}",
+                                  R"({"desktops":[)" + with("curvature", "121") + "]}", R"({"desktops":[)" + with("x", "1.5") + "]}",
+                                  R"({"desktops":[)" + with("x", "true") + "]}", R"({"desktops":[)" + with("x", "\"1\"") + "]}",
+                                  R"({"desktops":[)" + with("x", "18446744073709551615") + "]}",
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0,"z":0}]})")})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(placement(bad))));
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement: PASS\n";
 }

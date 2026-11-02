@@ -127,6 +127,32 @@ class StateTests(unittest.TestCase):
         self.units.control=lambda r,s,op: operations.append(op) or True
         reply=self.c.request(dict(op='set_settings',settings={'mode':'follow','spacing':60,'prediction':False}))
         self.assertTrue(reply['ok'],reply); self.assertEqual(operations,['mode_next','spacing_up','prediction'])
+    def test_idle_placements_saved_to_model_profile(self):
+        tilted=dict(x=10,y=0,distance=150,yaw=-20,pitch=0,roll=0,curvature=60)
+        reply=self.c.request(dict(op='set_settings',settings={'placements':[tilted]*3}))
+        self.assertTrue(reply['ok'],reply); self.assertEqual(self.c.store.profile['placements'],[tilted]*3)
+        self.assertFalse(self.c.request(dict(op='set_settings',settings={'placements':[dict(tilted,curvature=500)]*3}))['ok'])
+        self.assertEqual(self.c.store.profile['placements'],[tilted]*3)
+    def test_running_placements_forwarded_absolute(self):
+        self.journal(); self.units.active=True; self.c.tick(); sent=[]
+        self.units.control=lambda r,s,op,payload=None: sent.append((op,payload)) or True
+        tilted=dict(x=0,y=-10,distance=100,yaw=0,pitch=15,roll=-5,curvature=0)
+        reply=self.c.request(dict(op='set_settings',settings={'placements':[tilted]*3}))
+        self.assertTrue(reply['ok'],reply); self.assertTrue(reply['forwarded'])
+        self.assertEqual(sent,[('placement',{'desktops':[tilted]*3})])
+        self.assertEqual(self.c.store.profile['placements'],DEFAULT_PROFILE['placements'])  # the supervisor saves applied values
+        for bad in ({'placements':[tilted]*3,'mode':'follow'},{'placements':[dict(tilted,yaw=90)]*3},{'placements':[tilted]}):
+            with self.subTest(bad=bad): self.assertFalse(self.c.request(dict(op='set_settings',settings=bad))['ok'])
+        self.assertEqual(len(sent),1)
+        self.units.control=lambda r,s,op,payload=None: False
+        self.assertFalse(self.c.request(dict(op='set_settings',settings={'placements':[tilted]*3}))['ok'])
+    def test_running_snapshot_reports_live_placements(self):
+        self.journal(); self.units.active=True
+        live=[dict(x=1,y=2,distance=100,yaw=3,pitch=4,roll=5,curvature=6)]*3
+        self.units.control=lambda r,s,op,payload=None: dict(capabilities=['next'],view={},status={},placements=live) if op=='status' else True
+        self.c.tick(); self.assertEqual(self.c.snapshot()['placements'],live)
+        self.units.active=False; self.observation['journals']=[]; self.c.tick()
+        self.assertIsNone(self.c.snapshot()['placements'])
     def test_live_unit_without_journal_blocks_second_start(self):
         self.confirm(); self.units.active=True
         self.observation['journals']=[dict(run_id=self.c.run['run_id'],session=None,path=None,operations=[])]

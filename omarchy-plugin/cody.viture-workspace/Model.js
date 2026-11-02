@@ -103,3 +103,61 @@ function selectOperations(selected, target, capabilities) {
     if (capabilities.indexOf(operation) < 0) return [];
     return Array(Math.abs(target-selected)).fill(operation);
 }
+
+// Per-desktop placement: integer fields, mirrored from tools/native_spike/geometry.py PLACEMENT_BOUNDS
+// (tests/native_spike/test_placement.py compares the tables). Presentation only; editable while running.
+const PLACEMENT_BOUNDS = {x: [-100, 100], y: [-100, 100], distance: [50, 200], yaw: [-60, 60], pitch: [-45, 45], roll: [-45, 45], curvature: [0, 120]};
+const PLACEMENT_KEYS = ["x", "y", "distance", "yaw", "pitch", "roll", "curvature"];
+
+function placementBounds(key) { return (PLACEMENT_BOUNDS[key] || [0, 0]).slice(); }
+
+function defaultPlacement() { return {x:0, y:0, distance:100, yaw:0, pitch:0, roll:0, curvature:0}; }
+
+// A fresh, exact-key placement if every field is an in-range integer, else null.
+function placementEdit(p) {
+    if (!p || typeof p !== "object" || Object.keys(p).length !== PLACEMENT_KEYS.length) return null;
+    const out = {};
+    for (const key of PLACEMENT_KEYS) {
+        const v = p[key], b = PLACEMENT_BOUNDS[key];
+        if (!Number.isInteger(v) || v < b[0] || v > b[1]) return null;
+        out[key] = v;
+    }
+    return out;
+}
+
+function isFlat(p) {
+    const d = defaultPlacement();
+    return !!p && PLACEMENT_KEYS.every(function(k) { return p[k] === d[k]; });
+}
+
+// Three placements for the profile with entry `index` replaced; missing/invalid entries become flat.
+function withPlacement(placements, index, placement) {
+    const out = [0, 1, 2].map(function(i) {
+        return placementEdit((placements || [])[i]) || defaultPlacement();
+    });
+    if (Number.isInteger(index) && index >= 0 && index < 3 && placementEdit(placement)) out[index] = placementEdit(placement);
+    return out;
+}
+
+function placementSummary(p) {
+    if (!placementEdit(p) || isFlat(p)) return "flat, in line";
+    const parts = [];
+    if (p.x || p.y) parts.push("offset " + p.x + "%, " + p.y + "%");
+    if (p.distance !== 100) parts.push("distance " + p.distance + "%");
+    if (p.yaw || p.pitch || p.roll) parts.push("yaw " + p.yaw + "° pitch " + p.pitch + "° roll " + p.roll + "°");
+    if (p.curvature) parts.push("curved " + p.curvature + "°");
+    return parts.join(" · ");
+}
+
+// Approximate top-down preview of placed tiles: offset (y up), apparent size 100/distance, yaw as foreshortening,
+// roll as rotation (QML rotation is clockwise). Curvature is listed, not drawn. Flat placements return rects unchanged.
+function placedRects(rects, placements) {
+    return rects.map(function(r, i) {
+        const p = placementEdit((placements || [])[i]) || defaultPlacement();
+        const k = 100 / p.distance;
+        const w = r.width * k * Math.cos(p.yaw * Math.PI / 180), h = r.height * k * Math.cos(p.pitch * Math.PI / 180);
+        // The renderer scales the centre with distance, so the apparent offset does not shrink.
+        const cx = r.x + r.width / 2 + p.x / 100 * r.width, cy = r.y + r.height / 2 - p.y / 100 * r.height;
+        return {x: cx - w / 2, y: cy - h / 2, width: w, height: h, rotation: -p.roll};
+    });
+}

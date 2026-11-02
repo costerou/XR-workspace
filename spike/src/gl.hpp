@@ -25,11 +25,12 @@ public:
     void resize(std::uint32_t width, std::uint32_t height);
     // Upload one source frame (32-bit wl_shm XRGB/ARGB, little-endian B,G,R,X bytes).
     bool upload(std::size_t source, const void* pixels, std::uint32_t width, std::uint32_t height, std::uint32_t stride);
-    // Draw each uploaded source into its (possibly off-screen) rect, an optional highlight frame
-    // behind `highlight` with `highlight_alpha`, then eglSwapBuffers (which attaches and commits).
+    // Draw each uploaded source into its (possibly off-screen) rect, placed in space by `placements[i]`
+    // (view.hpp; missing entries are flat), back to front, with an optional highlight frame behind
+    // `highlight` with `highlight_alpha`, then eglSwapBuffers (which attaches and commits).
     // `view` rotates the world-anchored canvas (identity = head-locked); half_w/h = tan(half FOV).
-    bool draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha,
-                       const Mat3& view, float half_w, float half_h);
+    bool draw_and_swap(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
+                       float highlight_alpha, const Mat3& view, float half_w, float half_h);
     // Zero-copy (C2b): can EGL import this fourcc/modifier; import a capture slot's buffer once;
     // mark slot as the source's current frame (sampled without B/R swap); drop on reallocation.
     bool dmabuf_importable(std::uint32_t fourcc, std::uint64_t modifier) const;

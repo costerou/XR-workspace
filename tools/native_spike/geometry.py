@@ -33,3 +33,33 @@ def validate_desktop(d: object) -> dict:
 
 def logical_width(d) -> int:
     return int(d['width'] / d['scale'])
+
+
+# Per-desktop placement in the glasses view (presentation only: never sent to the broker or consent).
+# Integer fields, all relative to the desktop's slot in the overview/zoom layout:
+#   x, y       offset in percent of the desktop's own width / height (+x right, +y up)
+#   distance   percent of the layout plane distance (100 = in the plane; 200 = twice as far, half the apparent size)
+#   yaw        degrees; positive turns the desktop to face right (angles a left-hand desktop toward you)
+#   pitch      degrees; positive tilts the top edge toward you (the desktop faces down)
+#   roll       degrees; positive rotates counter-clockwise
+#   curvature  horizontal cylindrical arc in degrees subtended by the desktop's width; 0 = flat.
+#              Arc length equals the flat width, so desktop pixels are bent, never stretched.
+# Mirrored by spike/src/ipc.cpp (kPlacementBounds) and omarchy-plugin Model.js (PLACEMENT_BOUNDS); tests compare them.
+PLACEMENT_BOUNDS = {'x': (-100, 100), 'y': (-100, 100), 'distance': (50, 200), 'yaw': (-60, 60), 'pitch': (-45, 45),
+                    'roll': (-45, 45), 'curvature': (0, 120)}
+PLACEMENT_KEYS = ('x', 'y', 'distance', 'yaw', 'pitch', 'roll', 'curvature')
+DEFAULT_PLACEMENT = {'x': 0, 'y': 0, 'distance': 100, 'yaw': 0, 'pitch': 0, 'roll': 0, 'curvature': 0}
+
+
+def validate_placement(p: object) -> dict:
+    if not isinstance(p, dict) or set(p) != set(PLACEMENT_KEYS):
+        raise ValueError('placement must have exactly ' + ', '.join(PLACEMENT_KEYS))
+    for key in PLACEMENT_KEYS:
+        lo, hi = PLACEMENT_BOUNDS[key]
+        if type(p[key]) is not int or not lo <= p[key] <= hi: raise ValueError(f'placement {key} must be an integer {lo}..{hi}')
+    return {key: p[key] for key in PLACEMENT_KEYS}
+
+
+def validate_placements(value: object, count: int = 3) -> list:
+    if not isinstance(value, list) or len(value) != count: raise ValueError(f'exactly {count} placements required')
+    return [validate_placement(p) for p in value]

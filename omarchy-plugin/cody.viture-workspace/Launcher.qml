@@ -25,24 +25,26 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth:true; Layout.preferredHeight:125; color:Qt.darker(Commons.Color.background,1.2); radius:6
         Repeater {
-            model: Model.previewRects(root.settings.desktops || [], parent.width-24, 88, 10)
+            model: Model.placedRects(Model.previewRects(root.settings.desktops || [], parent.width-24, 88, 10), root.settings.placements)
             delegate: Rectangle {
                 id:tile
                 required property var modelData
                 required property int index
-                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
+                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height; rotation:modelData.rotation
                 color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.selected===index ? Commons.Color.accent : Commons.Color.muted
                 Label { anchors.centerIn:parent; text:"XR-"+(tile.index+1)+"\n"+root.settings.desktops[tile.index].width+"×"+root.settings.desktops[tile.index].height+"\n"+root.settings.desktops[tile.index].scale*100+"%"; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11 }
                 MouseArea { anchors.fill:parent; onClicked:root.selected=tile.index }
             }
         }
     }
-    Label { text:"Click a desktop to edit its startup geometry."; opacity:0.65 }
+    Label { text:"Click a desktop to edit its startup resolution, scale and placement."; opacity:0.65 }
     Loader {
         Layout.fillWidth:true; active:root.selected>=0 && !!root.settings.desktops
         sourceComponent: DesktopEditor {
             desktop:root.settings.desktops[root.selected]; index:root.selected; busy:root.busy
+            placement:(root.settings.placements || [])[root.selected] || Model.defaultPlacement()
             onSave: function(desktop) { const ds=root.settings.desktops.slice(); ds[root.selected]=desktop; root.request({op:"set_settings",settings:{desktops:ds}}) }
+            onSavePlacement: function(placement) { root.request({op:"set_settings",settings:{placements:Model.withPlacement(root.settings.placements,root.selected,placement)}}) }
         }
     }
     Label { visible:Model.largeLayoutWarning(root.settings.desktops || []); text:"Large desktops: 120 Hz with this layout has not been measured."; color:"#e7c78a"; Layout.fillWidth:true; wrapMode:Text.WordWrap }

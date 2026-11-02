@@ -15,25 +15,25 @@ namespace {
 std::uint64_t now_us() {
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
-// Canvas NDC -> world plane at z=-1 spanning the FOV -> head rotation -> perspective.
-// Identity rotation reproduces the head-locked NDC exactly.
+// World point (view.hpp place_point: canvas plane at z=-1 spanning the FOV, then per-desktop placement)
+// -> head rotation -> perspective. A default placement and identity rotation reproduce the head-locked NDC exactly.
 #define XR_PROJECT \
     "uniform mat3 view; uniform vec2 half_fov;\n" \
-    "vec4 project(vec2 p) { vec3 q = view * vec3(p.x * half_fov.x, p.y * half_fov.y, -1.0);\n" \
+    "vec4 project(vec3 p) { vec3 q = view * p;\n" \
     "  return vec4(q.x / half_fov.x, q.y / half_fov.y, 0.0, -q.z); }\n"
 const char* kVertex =
-    "attribute vec2 pos; attribute vec2 uv; varying vec2 v;\n" XR_PROJECT
+    "attribute vec3 pos; attribute vec2 uv; varying vec2 v;\n" XR_PROJECT
     "void main() { v = uv; gl_Position = project(pos); }\n";
 // SHM XRGB bytes upload as RGBA and need a B/R swap; imported dmabufs are sampled natively.
 const char* kFragment =
     "precision mediump float; varying vec2 v; uniform sampler2D tex; uniform float swizzle;\n"
     "void main() { vec4 c = texture2D(tex, v); gl_FragColor = vec4(mix(c.rgb, c.bgr, swizzle), 1.0); }\n";
-const char* kColorVertex = "attribute vec2 pos;\n" XR_PROJECT "void main() { gl_Position = project(pos); }\n";
+const char* kColorVertex = "attribute vec3 pos;\n" XR_PROJECT "void main() { gl_Position = project(pos); }\n";
 const char* kColorFragment = "precision mediump float; uniform vec4 color; void main() { gl_FragColor = color; }\n";
 // Ambient glow: canvas-pixel coordinates are interpolated perspective-correctly, so the falloff
 // stays even when the head rotation tilts the plane. Gaussian falloff outside the framed rect.
 const char* kGlowVertex =
-    "attribute vec2 pos; attribute vec2 px; varying vec2 p;\n" XR_PROJECT "void main() { p = px; gl_Position = project(pos); }\n";
+    "attribute vec3 pos; attribute vec2 px; varying vec2 p;\n" XR_PROJECT "void main() { p = px; gl_Position = project(pos); }\n";
 const char* kGlowFragment =
     "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n"
     "varying vec2 p; uniform vec4 rect; uniform vec3 color; uniform vec2 falloff;\n"
@@ -278,58 +278,64 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
     return t.valid;
 }
 
-bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, int highlight, float highlight_alpha,
-                                 const Mat3& view, float half_w, float half_h) {
+bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
+                                 float highlight_alpha, const Mat3& view, float half_w, float half_h) {
     auto& s = *impl_;
     const auto start = now_us();
     const Mat3 column_major = transpose(view);  // GLES2 has no transpose flag
     auto uniforms = [&](GLint view_loc, GLint fov_loc) {
         glUniformMatrix3fv(view_loc, 1, GL_FALSE, column_major.data()); glUniform2f(fov_loc, half_w, half_h);
     };
-    const float vw = float(s.width), vh = float(s.height);
-    auto quad = [&](const FRect& r, GLfloat* out) {
-        const float x0 = 2 * r.x / vw - 1, x1 = 2 * (r.x + r.width) / vw - 1, y0 = 1 - 2 * r.y / vh, y1 = 1 - 2 * (r.y + r.height) / vh;
-        const GLfloat v[] = {x0, y0, x1, y0, x0, y1, x1, y1};
-        std::memcpy(out, v, sizeof(v));
+    const Canvas canvas{float(s.width), float(s.height), half_w, half_h};
+    auto placement = [&](std::size_t i) { return i < placements.size() ? placements[i] : Placement{}; };
+    // Interleaved per vertex: world xyz, then u v (tiles) or canvas px py (glow).
+    std::vector<GLfloat> buffer;
+    auto mesh = [&](std::size_t i, const FRect& rect, bool pixels) {
+        const auto vertices = tile_mesh(canvas, tiles[i], placement(i), rect);
+        buffer.clear();
+        for (const auto& m : vertices) buffer.insert(buffer.end(), {m.world.x, m.world.y, m.world.z, pixels ? m.px : m.u, pixels ? m.py : m.v});
+        return GLsizei(vertices.size());
+    };
+    auto attrib = [&](GLint loc, int size, int offset) {
+        glVertexAttribPointer(static_cast<GLuint>(loc), size, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), buffer.data() + offset);
+        glEnableVertexAttribArray(static_cast<GLuint>(loc));
     };
     glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
     glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
     if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
-        // Drawn back to front over black, so no blending is needed: glow, then border, then tiles cover the interior.
-        const auto& t = tiles[std::size_t(highlight)];
+        // Drawn first over black, so no blending is needed: glow, then border, then the tiles (back to front) cover
+        // the interior. The frame lies on the highlighted desktop's own surface (same placement and curvature).
+        const auto h = std::size_t(highlight);
+        const auto& t = tiles[h];
         const FRect framed{t.x - kBorderPx, t.y - kBorderPx, t.width + 2 * kBorderPx, t.height + 2 * kBorderPx};
         const FRect halo{framed.x - kGlowRadiusPx, framed.y - kGlowRadiusPx, framed.width + 2 * kGlowRadiusPx, framed.height + 2 * kGlowRadiusPx};
-        GLfloat positions[8]; quad(halo, positions);
-        const GLfloat pixels[] = {halo.x, halo.y, halo.x + halo.width, halo.y, halo.x, halo.y + halo.height, halo.x + halo.width, halo.y + halo.height};
         glUseProgram(s.glow_program); uniforms(s.glow_view, s.glow_half_fov);
         glUniform4f(s.glow_rect, framed.x + framed.width / 2, framed.y + framed.height / 2, framed.width / 2, framed.height / 2);
         glUniform3f(s.glow_color, s.accent[0], s.accent[1], s.accent[2]);
         glUniform2f(s.glow_falloff, kGlowIntensity * highlight_alpha, kGlowSigmaPx);
-        glVertexAttribPointer(static_cast<GLuint>(s.glow_pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
-        glVertexAttribPointer(static_cast<GLuint>(s.glow_px), 2, GL_FLOAT, GL_FALSE, 0, pixels);
-        glEnableVertexAttribArray(static_cast<GLuint>(s.glow_pos)); glEnableVertexAttribArray(static_cast<GLuint>(s.glow_px));
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        GLsizei n = mesh(h, halo, true);
+        attrib(s.glow_pos, 3, 0); attrib(s.glow_px, 2, 3);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         glDisableVertexAttribArray(static_cast<GLuint>(s.glow_px));
-        quad(framed, positions);
         glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
         glUniform4f(s.color, s.accent[0] * highlight_alpha, s.accent[1] * highlight_alpha, s.accent[2] * highlight_alpha, 1.f);  // over black
-        glVertexAttribPointer(static_cast<GLuint>(s.color_pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
-        glEnableVertexAttribArray(static_cast<GLuint>(s.color_pos));
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        n = mesh(h, framed, false);
+        attrib(s.color_pos, 3, 0);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
     glUseProgram(s.program); uniforms(s.view, s.half_fov); glUniform1i(s.sampler, 0); glActiveTexture(GL_TEXTURE0);
-    for (std::size_t i = 0; i < tiles.size() && i < s.textures.size(); ++i) {
+    std::vector<Placement> resolved(tiles.size());
+    for (std::size_t i = 0; i < tiles.size(); ++i) resolved[i] = placement(i);
+    for (const std::size_t i : draw_order(canvas, tiles, resolved)) {
+        if (i >= s.textures.size()) continue;
         const auto& im = s.imported[i];
         const bool zero_copy = im.current >= 0;
         if (!zero_copy && !s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
         glUniform1f(s.swizzle, zero_copy ? 0.f : 1.f);
-        GLfloat positions[8]; quad(tiles[i], positions);
-        const GLfloat uvs[] = {0, 0, 1, 0, 0, 1, 1, 1};
         glBindTexture(GL_TEXTURE_2D, zero_copy ? im.tex[std::size_t(im.current)] : s.textures[i].id);
-        glVertexAttribPointer(static_cast<GLuint>(s.pos), 2, GL_FLOAT, GL_FALSE, 0, positions);
-        glVertexAttribPointer(static_cast<GLuint>(s.uv), 2, GL_FLOAT, GL_FALSE, 0, uvs);
-        glEnableVertexAttribArray(static_cast<GLuint>(s.pos)); glEnableVertexAttribArray(static_cast<GLuint>(s.uv));
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        const GLsizei n = mesh(i, tiles[i], false);
+        attrib(s.pos, 3, 0); attrib(s.uv, 2, 3);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
     if (s.help_hud && s.help) s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top

@@ -9,6 +9,7 @@ import tempfile
 import threading
 import unittest
 
+from tools.native_spike.geometry import DEFAULT_PLACEMENT
 from tools.native_spike import view
 from tools.native_spike.profiles import LayoutStore
 from tools.native_spike.ipc import decode_control
@@ -405,7 +406,9 @@ class ConfigReloadTests(unittest.TestCase):
 class StatusReplyTests(unittest.TestCase):
     def test_status_op_reply_shape(self):
         c = view.ViewControl(view.ViewState(['XR-1']), 'run', 'session', None, None, None)
-        self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=list(view.USER_OPS), view=c.state.view(), status={'missed':2}))
+        self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=list(view.USER_OPS), view=c.state.view(), status={'missed':2},
+                                                            placements=[dict(DEFAULT_PLACEMENT)]))
+        self.assertNotIn('placement', c.status_reply({})['capabilities'])  # the panel renders capabilities as buttons
         self.assertIsNone(c.on_message({'op':'status'}))
 
     def test_status_reply_over_real_private_socket(self):

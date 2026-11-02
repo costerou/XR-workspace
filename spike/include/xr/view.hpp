@@ -25,6 +25,33 @@ std::vector<FRect> blended_layout(std::span<const Size> sources, float view_w, f
 float smoothstep(float t);
 float smootherstep(float t);  // quintic: zero velocity and acceleration at both ends
 
+// Per-desktop placement in the glasses view (wire/profile units: tools/native_spike/geometry.py PLACEMENT_BOUNDS).
+// Relative to the desktop's slot in the overview/zoom layout; the default places it flat in the layout plane.
+//   x, y       offset as a fraction of the desktop's own width / height (+x right, +y up)
+//   distance   factor on the slot's distance (1 = in the plane, 2 = twice as far and half the apparent size)
+//   yaw/pitch/roll  radians about the desktop's centre: yaw > 0 faces right, pitch > 0 tilts the top toward you,
+//              roll > 0 counter-clockwise (applied roll, then pitch, then yaw)
+//   curvature  horizontal cylindrical arc (radians) subtended by the desktop's width; 0 = flat. The arc length equals the
+//              flat width and the centre tangent stays in place, so pixels bend toward the viewer and never stretch.
+struct Placement { float x = 0, y = 0, distance = 1, yaw = 0, pitch = 0, roll = 0, curvature = 0; };
+struct Vec3 { float x = 0, y = 0, z = 0; };
+// Canvas pixels map onto the plane z = -1 spanning tan(half FOV) (GL frame: +x right, +y up, -z forward).
+struct Canvas { float view_w = 0, view_h = 0, half_w = 0, half_h = 0; };
+// World position of canvas pixel (px, py) on the surface of a desktop laid out at `tile` with `placement`.
+// Points outside the tile (its highlight frame/halo) continue on the same plane or cylinder.
+Vec3 place_point(const Canvas& canvas, const FRect& tile, const Placement& placement, float px, float py);
+// Triangle-strip mesh drawing canvas rect `rect` on that surface: per column (left to right) a top then a bottom
+// vertex. One column when flat; more as curvature grows. u,v = position within `tile` (0..1 on the tile itself).
+struct MeshVertex { Vec3 world; float u = 0, v = 0, px = 0, py = 0; };
+std::vector<MeshVertex> tile_mesh(const Canvas& canvas, const FRect& tile, const Placement& placement, const FRect& rect);
+// Zooming into a desktop brings it flat in front of you: weight 1 removes its offset, distance and rotation
+// (curvature is part of its shape and is kept). zoom_weight is zoom times closeness of `position` to `index`.
+float zoom_weight(float zoom, float position, std::size_t index);
+Placement faded(const Placement& placement, float weight);
+// Back-to-front draw order by distance of each desktop's centre (painter's algorithm; intersecting desktops
+// are not split). `placements` shorter than `tiles` leaves the rest at the default.
+std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);
+
 // Time-based animation toward targets (no frame-rate dependence).
 // Zoom and spacing ease with smoothstep over `duration_ms`. Switching desktops (position) has its
 // own gentle ease-in/ease-out over `move_ms`; pressing again mid-move keeps the current speed

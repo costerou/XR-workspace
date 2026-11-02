@@ -2,6 +2,12 @@
 
 **The XR workspace app is not implemented.** This repository currently contains a local, read-only Linux/Hyprland diagnostic. It does not create virtual monitors, capture screens, initialize an SDK, track heads, route input, or change display modes. Beast and Luma Ultra support has not been established.
 
+## Per-desktop placement (offline-test-qualified only)
+
+Each XR desktop now has its own placement in the glasses view: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Implemented across the renderer (`spike/src/view.cpp` geometry, `gl.cpp` curved/rotated meshes, `placement` control op), supervisor (`tools/native_spike/view.py`), controller (`tools/xr_controller/state.py`) and panel (`PlacementEditor.qml`, in the startup desktop editor and live in the running view). Placements are saved per glasses model in `profiles.json` and can change during a run without new consent; desktop resolution and scale stay fixed while running.
+
+**Qualification: offline tests only.** Covered by CTest (`view`, `ipc`), the Python suites (`tests/native_spike/test_placement.py`, `tests/xr_controller/test_state.py`), `qmltestrunner` and offscreen panel renders. It has **not** been run in the isolated VM and **not** been accepted on physical glasses: the GPU mesh path, curved-desktop readability, comfort and any frame-time cost are unmeasured. The CPU fallback renderer (no GPU composition) ignores placements. Overlapping desktops are drawn back to front by centre distance and are not split where they intersect.
+
 ## Run the diagnostic
 
 Use Python 3.10+ from the repository root; the probe uses only the standard library. No dependency installation is required. Existing host tools may be missing: diagnostics preserve uncertainty rather than installing anything.

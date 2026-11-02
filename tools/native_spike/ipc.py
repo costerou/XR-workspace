@@ -46,11 +46,19 @@ def decode_control(raw):
     token(message["run_id"]); token(message["session"])
     op, payload = message["op"], message["payload"]
     if op not in ("status", "start", "stop", "select", "recover", "zoom_in", "zoom_out", "next", "prev",
-                  "spacing_up", "spacing_down", "recenter", "mode_next", "cursor_follow", "prediction", "help"): raise ValueError("invalid operation")
+                  "spacing_up", "spacing_down", "recenter", "mode_next", "cursor_follow", "prediction", "help",
+                  "placement"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")
         token(payload["output_id"])
+    elif op == "placement":
+        # Absolute per-desktop placements (1..3, one per managed output in order); presentation only.
+        from .geometry import validate_placement
+        desktops = payload.get("desktops")
+        if set(payload) != {"desktops"} or not isinstance(desktops, list) or not 1 <= len(desktops) <= 3:
+            raise ValueError("invalid placement")
+        payload["desktops"] = [validate_placement(d) for d in desktops]
     elif payload: raise ValueError("unexpected payload")
     return message
 

@@ -11,6 +11,7 @@ import secrets
 import subprocess
 from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE
 from tools.native_spike.profiles import _check
+from tools.native_spike.geometry import validate_placements
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MODES, SPACING_STEP
 from .detect import pick_fallback
 
@@ -35,7 +36,8 @@ class Controller:
             run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
             view=self.live.get('view',{}) if self.state=='running' else {},
-            status=self.live.get('status',{}) if self.state=='running' else {}))
+            status=self.live.get('status',{}) if self.state=='running' else {},
+            placements=self.live.get('placements') if self.state=='running' else None))
 
     def _state(self, state):
         if self.state != state: self.pending=None
@@ -51,7 +53,7 @@ class Controller:
         self.last_status=now
         try: reply=self.units.control(journal['run_id'],journal['session'],'status')
         except (OSError,ValueError): reply=None
-        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status') if k in reply} if isinstance(reply,dict) else {}
+        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements') if k in reply} if isinstance(reply,dict) else {}
 
     def tick(self):
         try: self._tick()
@@ -131,10 +133,17 @@ class Controller:
             settings=msg['settings']
             if not isinstance(settings,dict): raise ValueError('invalid settings')
             if self.state=='running':
-                # Existing view protocol only accepts operations, never absolute settings.
-                if set(settings)-set(DEFAULT_SETTINGS): raise ValueError('resolution/settings locked while running')
+                # View settings travel as relative operations; placements are the one absolute, presentation-only message.
+                if set(settings)-set(DEFAULT_SETTINGS)-{'placements'}: raise ValueError('resolution/settings locked while running')
                 current=self.store.load(self._consent(self.run)['model'])
                 target=_check({**current,**settings})
+                if 'placements' in settings:
+                    if set(settings)!={'placements'}: raise ValueError('send placements on their own')
+                    payload={'desktops':validate_placements(settings['placements'])}
+                    if not self.units.control(self.run['run_id'],self.run['session'],'placement',payload): raise ValueError('run control unavailable')
+                    # The supervisor applies and saves them; the next status poll reports what it holds.
+                    self.last_status=None
+                    return dict(forwarded=True)
                 operations=[]
                 if 'mode' in settings:
                     operations += ['mode_next']*((MODES.index(target['mode'])-MODES.index(current['mode']))%len(MODES))

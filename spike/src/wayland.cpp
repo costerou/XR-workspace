@@ -159,6 +159,23 @@ struct Presentation::Impl : SurfaceRequests {
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     ViewAnimator view{220.f};
+    // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
+    std::vector<std::array<std::int32_t, 7>> placements;
+    std::uint64_t placement_updates = 0;
+    std::vector<Placement> resolved_placements() const {
+        std::vector<Placement> out;
+        constexpr float rad = float(M_PI) / 180.f;
+        const float zoom = view.zoom(), position = view.position();
+        for (std::size_t i = 0; i < captures.size(); ++i) {
+            Placement p;
+            if (i < placements.size()) {
+                const auto& w = placements[i];
+                p = {w[0] / 100.f, w[1] / 100.f, w[2] / 100.f, w[3] * rad, w[4] * rad, w[5] * rad, w[6] * rad};
+            }
+            out.push_back(faded(p, zoom_weight(zoom, position, i)));  // the zoomed desktop comes flat in front of you
+        }
+        return out;
+    }
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
     std::string pose_prefix;
@@ -557,7 +574,14 @@ std::string Presentation::capture_report() const {
                ",\"max_deg\":" + std::to_string(Impl::kMaxPredictionDeg) + ",\"look_ahead_cfg\":" + cfg_json + "}}";
     }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
-           ",\"spacing\":" + std::to_string(impl_->view.spacing()) + "}";
+           ",\"spacing\":" + std::to_string(impl_->view.spacing()) + ",\"placement_updates\":" + std::to_string(impl_->placement_updates) +
+           ",\"placements\":[";
+    for (std::size_t i = 0; i < impl_->placements.size(); ++i) {
+        out += i ? ",[" : "[";
+        for (std::size_t k = 0; k < 7; ++k) out += (k ? "," : "") + std::to_string(impl_->placements[i][k]);
+        out += "]";
+    }
+    out += "]}";
     std::string font;  // bounded, JSON-escaped (font paths come from fontconfig)
     for (char c : impl_->popup_font.substr(0, 256)) {
         if (c == '"' || c == '\\') font += '\\';
@@ -661,6 +685,12 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     for (const auto& [keys, action] : rows) help.push_back({keys, action});
     if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
+void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>& placements) {
+    if (!impl_) return;
+    impl_->placements.assign(placements.begin(), placements.begin() + std::ptrdiff_t(std::min(placements.size(), impl_->captures.size())));
+    ++impl_->placement_updates;
+    impl_->cadence.invalidate();
+}
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
                             bool prediction) {
@@ -738,7 +768,7 @@ Status Presentation::draw_test_pattern() {
         const float help = s.help.alpha(help_now);
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
-        if (!s.gl->draw_and_swap(tiles, int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
+        if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};

@@ -11,6 +11,8 @@ TestCase {
     width:700; height:860
     Component { id:confirmationComponent; Workspace.ConfirmDialog {} }
     Component { id:desktopComponent; Workspace.DesktopEditor {} }
+    Component { id:placementComponent; Workspace.PlacementEditor {} }
+    SignalSpy { id:placementSpy; signalName:"save" }
     SignalSpy { id:confirmationSpy; signalName:"confirm" }
     function test_confirmationControls() {
         const dialog=createTemporaryObject(confirmationComponent,testCase,{width:640,pending:{action:"start",scope_id:"test",scope:{model:"luma-ultra",output:"DP-2",recovery_output:"DP-1",desktops:[{width:1920,height:1080,scale:1}],tracking:"xrlinuxdriver",mode_switch:{width:1920,height:1200,refresh_hz:120}}}});
@@ -119,5 +121,85 @@ TestCase {
         compare(Model.selectOperations(undefined,2,["next"]), []);
         compare(Model.selectOperations(0,2,[]), []);
         compare(Model.selectOperations(1,1,["next","prev"]), []);
+    }
+    function test_placementEdit() {
+        const flat = Model.defaultPlacement();
+        compare(Model.placementEdit(flat), flat);
+        verify(Model.isFlat(flat));
+        const edge = {x:-100, y:100, distance:200, yaw:-60, pitch:45, roll:-45, curvature:120};
+        compare(Model.placementEdit(edge), edge);
+        for (const key of ["x","y","distance","yaw","pitch","roll","curvature"]) {
+            const b = Model.placementBounds(key);
+            compare(Model.placementEdit(Object.assign({}, flat, {[key]:b[0]-1})), null);
+            compare(Model.placementEdit(Object.assign({}, flat, {[key]:b[1]+1})), null);
+            compare(Model.placementEdit(Object.assign({}, flat, {[key]:0.5})), null);
+        }
+        compare(Model.placementEdit(Object.assign({}, flat, {z:0})), null);
+        compare(Model.placementEdit(null), null);
+        compare(Model.placementBounds("distance"), [50, 200]);
+    }
+    function test_withPlacement() {
+        const tilt = {x:10, y:0, distance:100, yaw:20, pitch:0, roll:0, curvature:30};
+        compare(Model.withPlacement(undefined, 1, tilt), [Model.defaultPlacement(), tilt, Model.defaultPlacement()]);
+        compare(Model.withPlacement([tilt, {bad:1}], 2, tilt), [tilt, Model.defaultPlacement(), tilt]);
+        compare(Model.withPlacement([tilt, tilt, tilt], 0, {x:999}), [tilt, tilt, tilt]);
+        compare(Model.placementSummary(Model.defaultPlacement()), "flat, in line");
+        verify(Model.placementSummary(tilt).indexOf("curved 30°") >= 0);
+    }
+    function test_placedRects() {
+        const rects = [{x:0, y:0, width:100, height:50}];
+        compare(Model.placedRects(rects, []), [{x:0, y:0, width:100, height:50, rotation:-0}]);
+        const r = Model.placedRects(rects, [{x:50, y:20, distance:200, yaw:60, pitch:0, roll:10, curvature:0}])[0];
+        fuzzyCompare(r.width, 25, 0.001);   // half size at 200%, cos(60°) foreshortening
+        fuzzyCompare(r.height, 25, 0.001);
+        fuzzyCompare(r.x + r.width / 2, 100, 0.001);  // centre offset by half its width
+        fuzzyCompare(r.y + r.height / 2, 15, 0.001);  // +y is up
+        compare(r.rotation, -10);
+    }
+    function test_placementEditorIdle() {
+        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),index:1});
+        verify(editor !== null);
+        verify(waitForRendering(editor));
+        verify(!findChild(editor,"placementReset").enabled);
+        editor.setField("curvature", 45.4);
+        editor.setField("yaw", -20);
+        compare(editor.draft.curvature, 45);
+        verify(findChild(editor,"placementReset").enabled);
+        placementSpy.target=editor; placementSpy.clear();
+        const slider=findChild(editor,"placement_x");
+        mousePress(slider); mouseRelease(slider);  // idle: a release does not save on its own
+        compare(placementSpy.count,0);
+        mouseClick(findChild(editor,"placementSave"));
+        compare(placementSpy.count,1);
+        compare(placementSpy.signalArguments[0][0].curvature,45);
+        compare(placementSpy.signalArguments[0][0].yaw,-20);
+        editor.busy=true;
+        verify(!findChild(editor,"placementSave").enabled);
+        verify(!slider.enabled);
+        editor.placement={x:5, y:0, distance:100, yaw:0, pitch:0, roll:0, curvature:0};
+        compare(editor.draft.x,5);
+        placementSpy.target=null;
+    }
+    function test_placementEditorLive() {
+        const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),live:true});
+        verify(waitForRendering(editor));
+        placementSpy.target=editor; placementSpy.clear();
+        const slider=findChild(editor,"placement_distance");
+        mousePress(slider); mouseRelease(slider);  // live: release applies
+        compare(placementSpy.count,1);
+        verify(Model.placementEdit(placementSpy.signalArguments[0][0]) !== null);
+        editor.setField("roll", 12);
+        mouseClick(findChild(editor,"placementReset"));  // live: Flat applies immediately
+        compare(placementSpy.count,2);
+        verify(Model.isFlat(placementSpy.signalArguments[1][0]));
+        verify(!findChild(editor,"placementReset").enabled);
+        placementSpy.target=null;
+    }
+    function test_desktopEditorPlacement() {
+        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:1920,height:1080,scale:1},
+            placement:{x:0, y:0, distance:150, yaw:0, pitch:0, roll:0, curvature:20}});
+        verify(waitForRendering(editor));
+        compare(findChild(editor,"placement_distance").value,150);
+        compare(findChild(editor,"placement_curvature").value,20);
     }
 }

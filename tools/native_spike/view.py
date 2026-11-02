@@ -12,6 +12,9 @@ Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
 Mode, cursor follow, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
 in the glasses whenever the viewing mode, cursor follow or prediction changes (and the viewing mode at start).
+Per-desktop placement (position, distance, yaw/pitch/roll, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
+`placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
+It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
 """
 import json
 import os
@@ -81,13 +84,34 @@ SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
+def placement_frame(run_id, session, request_id, placements):
+    from .geometry import validate_placement
+    if not isinstance(placements, list) or not 1 <= len(placements) <= 3: raise ValueError('invalid placements')
+    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'placement',
+                        'payload': {'desktops': [validate_placement(p) for p in placements]}}, separators=(',', ':')) + '\n').encode()
+
+
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=True):
+    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=True, placements=None):
         if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if mode not in MODES or type(cursor_follow) is not bool or type(prediction) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.mode, self.cursor_follow, self.prediction = mode, cursor_follow, prediction
+        from .geometry import DEFAULT_PLACEMENT, validate_placement
+        # One per managed output, in order; a saved profile always holds three (extra entries are ignored).
+        placements = list(placements or [])[:len(self.names)]
+        self.placements = [validate_placement(p) for p in placements] + \
+            [dict(DEFAULT_PLACEMENT) for _ in range(len(self.names) - len(placements))]
+
+    def set_placements(self, placements):
+        """Absolute placements, one per managed output. True if anything changed."""
+        from .geometry import validate_placement
+        if not isinstance(placements, list) or len(placements) != len(self.names): raise ValueError('one placement per desktop required')
+        placements = [validate_placement(p) for p in placements]
+        if placements == self.placements: return False
+        self.placements = placements
+        return True
 
     def view(self):
         """Renderer payload. Cursor follow is acted on supervisor-side; the renderer only displays it."""
@@ -232,7 +256,8 @@ def remove_binds_lua():
 
 class ViewControl:
     """Supervisor-side handler: user op -> state, async focus, saved spacing, renderer view frame."""
-    def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None, on_reload=None):
+    def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None, on_reload=None,
+                 placements=None):
         self.state, self.run_id, self.session = state, run_id, session
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
@@ -245,9 +270,18 @@ class ViewControl:
         self.on_reload = on_reload  # optional () -> None, run off-loop after Hyprland config reloads
         self.reloads = 0
         self.help_visible = False  # Ctrl+Alt+H card; never saved, starts hidden each run
+        self.placements = placements  # optional store with save(list of 3); see profiles.PlacementStore
 
     def initial_frame(self):
-        return self._frame() + self._style_frame()
+        return self._frame() + self._placement_frame(initial=True) + self._style_frame()
+
+    def _placement_frame(self, initial=False):
+        from .geometry import DEFAULT_PLACEMENT
+        # The renderer starts flat; an all-default start needs no frame.
+        if initial and all(p == DEFAULT_PLACEMENT for p in self.state.placements): return b''
+        frame = placement_frame(self.run_id, self.session, self.next_id, self.state.placements)
+        self.next_id += 1
+        return frame
 
     def _style_frame(self):
         """Theme border colour for the highlight; empty if unknown or unchanged. Never fatal."""
@@ -266,9 +300,12 @@ class ViewControl:
         return frame
 
     def status_reply(self, status):
-        return dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status))
+        return dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
+                    placements=[dict(p) for p in self.state.placements])
 
     def on_message(self, message):
+        if isinstance(message, dict) and message.get('op') == 'placement':
+            return self._on_placement(message.get('payload'))
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
         if message['op'] == 'help':
             self.help_visible = not self.help_visible
@@ -290,6 +327,22 @@ class ViewControl:
             try: self.settings.save(self.state.settings())  # a settings store (profiles.LayoutStore/ProfileStore)
             except (OSError, ValueError): pass
         return self._frame() if self.state.view() != before else None
+
+    def _on_placement(self, payload):
+        """Absolute placements from the panel; applied live and saved to the glasses profile. Invalid: ignored."""
+        try:
+            if not isinstance(payload, dict) or not self.state.set_placements(payload.get('desktops')): return None
+        except ValueError:
+            return None
+        if self.placements is not None:
+            from .geometry import DEFAULT_PLACEMENT
+            try:  # a profile always holds three; keep any desktops beyond this run's outputs unchanged
+                saved = list(self.placements.load())
+                full = self.state.placements + saved[len(self.state.placements):]
+                full += [dict(DEFAULT_PLACEMENT)] * (3 - len(full))
+                self.placements.save(full[:3])
+            except (OSError, ValueError): pass
+        return self._placement_frame()
 
     def on_events(self, data):
         """Hyprland socket2 bytes; returns a renderer frame if cursor follow switched the view."""

@@ -1,6 +1,8 @@
 #pragma once
 #include "xr/types.hpp"
 #include "xr/metrics.hpp"
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -67,6 +69,9 @@ public:
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);
     void recenter();
+    // Per-desktop placement in capture order, each {x, y, distance, yaw, pitch, roll, curvature} in the validated wire
+    // units of ipc.hpp WirePlacement; entries beyond the captured outputs are ignored. GPU composition only.
+    void set_placements(const std::vector<std::array<std::int32_t, 7>>& placements);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
     // Keyboard help card (Ctrl+Alt+H): fades in/out in the middle of the view; rows are (keys, action).
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows);

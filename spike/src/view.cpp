@@ -61,6 +61,70 @@ std::vector<FRect> blended_layout(std::span<const Size> src, float view_w, float
     return a;
 }
 
+namespace {
+constexpr float kMinCurvature = 1e-4f;  // below this the arc is numerically flat
+}
+Vec3 place_point(const Canvas& c, const FRect& tile, const Placement& pl, float px, float py) {
+    if (c.view_w <= 0 || c.view_h <= 0) return {};
+    const float sx = 2 * c.half_w / c.view_w, sy = 2 * c.half_h / c.view_h;  // world units per canvas pixel
+    const float cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
+    const float tw = tile.width * sx, th = tile.height * sy;
+    const float d = pl.distance > 0 ? pl.distance : 1.f;
+    const Vec3 centre{((2 * cx / c.view_w - 1) * c.half_w + pl.x * tw) * d, ((1 - 2 * cy / c.view_h) * c.half_h + pl.y * th) * d, -d};
+    const float u = (px - cx) * sx, v = (cy - py) * sy;
+    Vec3 local{u, v, 0};
+    if (pl.curvature > kMinCurvature && tw > 0) {
+        const float r = tw / pl.curvature, phi = u / r;
+        local = {r * std::sin(phi), v, r * (1 - std::cos(phi))};  // toward the viewer at the edges
+    }
+    // R = Ry(yaw) * Rx(pitch) * Rz(roll)
+    const float cr = std::cos(pl.roll), sr = std::sin(pl.roll);
+    Vec3 a{cr * local.x - sr * local.y, sr * local.x + cr * local.y, local.z};
+    const float cp = std::cos(pl.pitch), sp = std::sin(pl.pitch);
+    Vec3 b{a.x, cp * a.y - sp * a.z, sp * a.y + cp * a.z};
+    const float cyaw = std::cos(pl.yaw), syaw = std::sin(pl.yaw);
+    Vec3 w{cyaw * b.x + syaw * b.z, b.y, -syaw * b.x + cyaw * b.z};
+    return {centre.x + w.x, centre.y + w.y, centre.z + w.z};
+}
+
+std::vector<MeshVertex> tile_mesh(const Canvas& c, const FRect& tile, const Placement& pl, const FRect& rect) {
+    if (tile.width <= 0 || tile.height <= 0 || rect.width <= 0 || rect.height <= 0) return {};
+    // ~3 degrees of arc per column across the tile; the strip covers `rect` with the same density.
+    const float span = rect.width / tile.width;
+    const int columns = pl.curvature > kMinCurvature
+        ? std::clamp(int(std::ceil(span * pl.curvature * 180.f / float(M_PI) / 3.f)), 4, 96) : 1;
+    std::vector<MeshVertex> out;
+    out.reserve(std::size_t(columns + 1) * 2);
+    for (int i = 0; i <= columns; ++i) {
+        const float px = rect.x + rect.width * float(i) / float(columns);
+        for (const float py : {rect.y, rect.y + rect.height})
+            out.push_back({place_point(c, tile, pl, px, py), (px - tile.x) / tile.width, (py - tile.y) / tile.height, px, py});
+    }
+    return out;
+}
+
+float zoom_weight(float zoom, float position, std::size_t index) {
+    return clampf(zoom, 0, 1) * std::max(0.f, 1 - std::abs(position - float(index)));
+}
+
+Placement faded(const Placement& p, float weight) {
+    const float k = 1 - clampf(weight, 0, 1);
+    return {p.x * k, p.y * k, lerp(1.f, p.distance, k), p.yaw * k, p.pitch * k, p.roll * k, p.curvature};
+}
+
+std::vector<std::size_t> draw_order(const Canvas& c, std::span<const FRect> tiles, std::span<const Placement> placements) {
+    std::vector<std::size_t> order(tiles.size());
+    std::vector<float> depth(tiles.size());
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        order[i] = i;
+        const auto& t = tiles[i];
+        const Vec3 p = place_point(c, t, i < placements.size() ? placements[i] : Placement{}, t.x + t.width / 2, t.y + t.height / 2);
+        depth[i] = p.x * p.x + p.y * p.y + p.z * p.z;
+    }
+    std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return depth[a] > depth[b]; });
+    return order;
+}
+
 void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {
     advance(now_ms);
     from_zoom_ = zoom(); from_spacing_ = this->spacing();

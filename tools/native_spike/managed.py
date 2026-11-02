@@ -95,11 +95,16 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
                 now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
                 if view.session_mode(now) != mode: client.apply_session_mode(output)
 
+        # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
+        from .profiles import PlacementStore, ProfileStore
+        placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
+        try: initial = placements.load() if placements is not None else None
+        except (OSError, ValueError): initial = None
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
-                                                   saved['prediction']), run_id, session,
+                                                   saved['prediction'], initial), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
-                                   on_reload=after_reload)
+                                   on_reload=after_reload, placements=placements)
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None

@@ -17,6 +17,7 @@ Cody wants his own full XR editor as an Omarchy shell plugin, not a third-party 
 5. While running: the controls that already work (prev/next, zoom, recenter, Anchor/Follow/Locked, spacing, cursor follow, pose prediction) plus measured status.
 6. Settings saved per glasses model (Beast, Luma Ultra).
 7. The editor only ever shows controls that really work. Future native features (per-desktop position, curvature, add/remove beyond three, live resize) appear greyed out and labelled "coming" until they land.
+   *Update 2026-11-01:* per-desktop position, distance (size in space), yaw/pitch/roll and curvature have landed as real controls (startup editor and live while running), saved per glasses model. Offline-test-qualified only; see the README. Add/remove beyond three and live resize remain "coming".
 
 ## Non-goals (this milestone)
 
