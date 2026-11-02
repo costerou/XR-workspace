@@ -497,16 +497,6 @@ float StatusPopups::alpha(double now_ms) const { return generation_ ? popup_alph
 namespace xr {
 void StatusPopups::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }
 
-OrbitOffset overlay_orbit(double now_ms) {
-    constexpr int r = kOrbitRadiusPx, side = 2 * kOrbitRadiusPx, n = 4 * side;  // n positions round the square's edge
-    if (r <= 0) return {};
-    int i = int(std::fmod(std::floor(std::max(0.0, now_ms) / kOrbitStepMs), double(n)));
-    if (i < side) return {-r + i, -r};  // top edge, left to right
-    i -= side; if (i < side) return {r, -r + i};   // right edge, down
-    i -= side; if (i < side) return {r - i, r};    // bottom edge, right to left
-    i -= side; return {-r, r - i};                 // left edge, up (the next step is the start again: one pixel)
-}
-
 bool CardFade::set(bool visible, double now_ms) {
     if (visible == visible_) return false;
     from_ = level(now_ms);  // reverse from wherever the fade is
