@@ -1,38 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <title>VITURE Workspace</title>
-  <!-- App icon. The mark (#vw-mark: three desktops floating in an arc above
-       XR glasses) is self-contained so a wider logo can reuse it with <use>
-       or by copying the group. Coordinates sit on a 16-unit grid so the
-       shapes land on whole pixels at 16, 32 and 64 px. -->
-  <defs>
-    <linearGradient id="vw-bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#101935"/>
-      <stop offset="1" stop-color="#1c1340"/>
-    </linearGradient>
-    <linearGradient id="vw-xr" x1="32" y1="48" x2="224" y2="208" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#22d3ee"/>
-      <stop offset="0.55" stop-color="#6d8bfa"/>
-      <stop offset="1" stop-color="#a855f7"/>
-    </linearGradient>
-    <linearGradient id="vw-lens" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.38"/>
-      <stop offset="1" stop-color="#a855f7" stop-opacity="0.16"/>
-    </linearGradient>
-  </defs>
-  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#vw-bg)"/>
-  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
-  <g id="vw-mark">
-    <!-- three virtual desktops, the side ones turned toward the viewer -->
-    <g fill="url(#vw-xr)" stroke="url(#vw-xr)" stroke-width="8" stroke-linejoin="round">
-      <path d="M28 60 L76 50 L76 102 L28 92 Z"/>
-      <rect x="100" y="48" width="56" height="56" rx="2"/>
-      <path d="M180 50 L228 60 L228 92 L180 102 Z"/>
-    </g>
-    <!-- glasses -->
-    <g fill="url(#vw-lens)" stroke="url(#vw-xr)" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
-      <path d="M40 136 H116 V160 C116 178 104 192 86 192 H72 C54 192 40 178 40 160 Z"/>
-      <path d="M140 136 H216 V160 C216 178 202 192 184 192 H170 C152 192 140 178 140 160 Z"/>
-      <path d="M116 146 C122 140 134 140 140 146" fill="none"/>
-    </g>
+<title>VITURE Workspace</title>
+<!-- App icon: the emblem of assets/logo.svg without the wordmark (same
+     shapes, gradients and colours), scaled from its 128 tile to 256. The viewer ring and dot are a little
+     heavier than in the logo (ring r 14 / 4 wide / 0.7 opacity, dot r 7.5) so
+     they survive 16-24 px. If the
+     logo's emblem changes, copy its <defs> and emblem group here again. -->
+<defs>
+  <linearGradient id="lb" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#151b3d"/>
+    <stop offset="1" stop-color="#0b0f24"/>
+  </linearGradient>
+  <linearGradient id="lp" gradientUnits="userSpaceOnUse" x1="10" y1="40" x2="118" y2="80">
+    <stop offset="0" stop-color="#2fe3e0"/>
+    <stop offset="0.5" stop-color="#5b8cff"/>
+    <stop offset="1" stop-color="#8a5cff"/>
+  </linearGradient>
+  <radialGradient id="lg" cx="64" cy="98" r="70" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#6f7dff" stop-opacity="0.45"/>
+    <stop offset="1" stop-color="#6f7dff" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<g transform="scale(2)">
+  <rect width="128" height="128" rx="30" fill="url(#lb)"/>
+  <rect width="128" height="128" rx="30" fill="url(#lg)"/>
+  <g>
+    <path d="M6.48,69.94 A64,64 0 0 1 37.97,39.53 L46.1,57.8 A44,44 0 0 0 24.45,78.71 Z" fill="url(#lp)" fill-opacity="0.82"/>
+    <path d="M44.22,37.13 A64,64 0 0 1 83.78,37.13 L77.6,56.15 A44,44 0 0 0 50.4,56.15 Z" fill="url(#lp)"/>
+    <path d="M90.03,39.53 A64,64 0 0 1 121.52,69.94 L103.55,78.71 A44,44 0 0 0 81.9,57.8 Z" fill="url(#lp)" fill-opacity="0.82"/>
   </g>
+  <circle cx="64" cy="98" r="14" fill="none" stroke="url(#lp)" stroke-width="4" stroke-opacity="0.7"/>
+  <circle cx="64" cy="98" r="7.5" fill="#ffffff"/>
+  <rect x="0.75" y="0.75" width="126.5" height="126.5" rx="29.25" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5"/>
+</g>
 </svg>

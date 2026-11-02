@@ -45,7 +45,7 @@ Ui.BarWidget {
             id:mark
             anchors.centerIn:parent
             height:Style.bar.iconSize+2
-            width:Math.round(height*4/3)
+            width:Math.round(height*120/84)
             sourceSize.width:width*2; sourceSize.height:height*2
             source:Qt.resolvedUrl("icon-symbolic.svg")
             fillMode:Image.PreserveAspectFit
