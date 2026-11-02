@@ -40,6 +40,11 @@ worktree was changed.
      fixed the existing bug where the reinstall after a config reload went over the 4096-byte eval cap.
 
    After that the suite must be fully OK, with every "needs MENU-WIRING" / "needs MENU-UI" test running.
+
+   Done on `feature/placement-menu-integrate` (2026-11-01, merging wiring `120b719`, UI `7df6c33`, tests `0bf1e4e`):
+   the three decorators are gone, and `test_menu_card_uses_the_help_card_accent` now requires both cards to pass the
+   shared `kAccent` constant. The style test needed one fix: UI `460fa86` renamed the hint-segment helper to
+   `placement_menu_hint_segments()`.
 3. `ctest` must show `placement_menu_ipc` and `placement_menu_style` as **Passed**. Skipped or "Not Run (Disabled)"
    means the build is missing MENU-UI. "Rejected" in the ipc test means either an `Error` or a decoded message with an
    empty payload: MENU-UI ignores a well-framed message with a bad payload rather than ending the session.

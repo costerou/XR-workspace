@@ -56,29 +56,24 @@ Head tracking must be running before a session starts:
 python -m tools.native_spike tracking start   # also: status, stop
 ```
 
-These keybinds exist only during a run:
+These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; if the run dies with the menu open, the first menu key pressed afterwards releases them.
 
-| Keys | Action |
-| --- | --- |
-| Ctrl+Alt+Up / Down | Zoom into the selected desktop / back to the overview |
-| Ctrl+Alt+Left / Right | Previous / next desktop |
-| Ctrl+Alt+[ / ] | Less / more space between desktops |
-| Ctrl+Alt+Space | Recenter |
-| Ctrl+Alt+V | Cycle viewing mode: anchor (3DoF), follow, locked (0DoF) |
-| Ctrl+Alt+F | Toggle cursor follow |
-| Ctrl+Alt+P | Toggle pose prediction (on by default) |
-| Ctrl+Alt+H | Show the help card in the glasses |
-| Ctrl+Alt+L | Open / close the placement menu in the glasses |
-
-While the placement menu is open, these keys belong to it (they are bound only while it is open, and released when it closes or the run ends; if the run dies with the menu open, the first menu key pressed afterwards releases them):
-
-| Keys | Action |
-| --- | --- |
-| Tab / Shift+Tab | Next / previous desktop |
-| Up / Down | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
-| Left / Right | Decrease / increase the field by a small step (Shift for a big step) |
-| R | Reset the desktop to flat |
-| Escape | Close the menu |
+| Keys | When | Action |
+| --- | --- | --- |
+| Ctrl+Alt+Up / Down | run | Zoom into the selected desktop / back to the overview |
+| Ctrl+Alt+Left / Right | run | Previous / next desktop |
+| Ctrl+Alt+[ / ] | run | Less / more space between desktops |
+| Ctrl+Alt+Space | run | Recenter |
+| Ctrl+Alt+V | run | Cycle viewing mode: anchor (3DoF), follow, locked (0DoF) |
+| Ctrl+Alt+F | run | Toggle cursor follow |
+| Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
+| Ctrl+Alt+H | run | Show the help card in the glasses |
+| Ctrl+Alt+L | run | Open / close the placement menu in the glasses |
+| Tab / Shift+Tab | menu open | Next / previous desktop |
+| Up / Down | menu open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
+| Left / Right | menu open | Decrease / increase the field by a small step (Shift for a big step) |
+| R | menu open | Reset the desktop to flat |
+| Escape | menu open | Close the menu |
 
 Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring is covered by offline tests only.
 
@@ -88,7 +83,7 @@ Settings, including placements, are saved per glasses model.
 
 ### Placement menu
 
-You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings with their current values, and the keys at the bottom. The menu keys are listed in the table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
+You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
 
 The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. Values stop at the same limits as the panel's sliders. R puts every setting of the selected desktop back to flat.
 

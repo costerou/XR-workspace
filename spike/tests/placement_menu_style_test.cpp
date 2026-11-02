@@ -154,7 +154,7 @@ int main() {
     for (std::size_t i : {std::size_t(3), std::size_t(4), std::size_t(5)}) CHECK(rows.size() == 7 && !rows[i].hint.empty());  // yaw, pitch, roll explained
     CHECK(!placement_menu_hints().empty());
     for (bool short_wording : {false, true})
-        for (const auto& h : placement_menu_hints(short_wording)) CHECK(!h.empty() && all_glyphs(h));
+        for (const auto& h : placement_menu_hint_segments(short_wording)) CHECK(!h.empty() && all_glyphs(h));
     // Title + desktop selector (one band if beside the title) + 7 rows + every footer line, each a separate ink band.
     for (const auto& [mw, mh] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {kSurfaceW, kSurfaceH}}) {
         const auto fit = placement_menu_fit(state(0, 7, 0), nullptr, mw, mh);

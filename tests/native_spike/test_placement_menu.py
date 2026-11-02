@@ -170,14 +170,12 @@ class Menu:
 
 
 class SentinelTests(unittest.TestCase):
-    @unittest.expectedFailure
     def test_menu_wiring_landed(self):
-        """Expected failure until MENU-WIRING merges; then remove this decorator (the skipped tests now run)."""
+        """MENU-WIRING is merged: the wiring-gated tests run instead of skipping."""
         self.assertTrue(WIRING)
 
-    @unittest.expectedFailure
     def test_menu_renderer_landed(self):
-        """Expected failure until MENU-UI merges ipc.cpp support; then remove this decorator."""
+        """MENU-UI is merged: the renderer accepts placement_menu frames."""
         self.assertTrue(RENDERER)
 
 
@@ -619,11 +617,10 @@ class BindSafetyTests(unittest.TestCase):
         the 11 current binds take ~4.0 KB, so one more global bind in the same eval makes every run fail at start."""
         self._evals('install_view_binds', 'remove_view_binds')
 
-    @unittest.expectedFailure
     def test_reload_bind_reinstall_fits_one_eval(self):
-        """PRE-EXISTING (f593574), not caused by the menu: remove+install in one eval is ~4.15 KB with live-sized
-        arguments, so after a Hyprland config reload (Omarchy theme switch) during a run the reinstall raises, on_reload
-        swallows it and the run's hotkeys are gone. Remove this decorator once bind commands are shortened or split."""
+        """After a Hyprland config reload (Omarchy theme switch) during a run, remove+install goes out in one eval. At
+        f593574 that was ~4.15 KB with live-sized arguments and raised, so the run lost its hotkeys; MENU-WIRING's
+        shorter bind commands brought it well under the 4096-byte cap."""
         self._evals('reinstall_view_binds')
 
 
@@ -679,11 +676,12 @@ class MenuStyleSourceTests(unittest.TestCase):
 
     def test_menu_card_uses_the_help_card_accent(self):
         hud = (ROOT / 'spike/src/hud.cpp').read_text()
-        # The accent argument: a literal {r, g, b} or a shared constant such as kAccent.
+        # Both cards take the one shared kAccent constant, so a colour change cannot reach only one of them.
+        self.assertEqual(len(re.findall(r'^constexpr std::array<float, 3> kAccent\{', hud, re.M)), 1, 'one kAccent definition')
         help_accent = re.findall(r'render_help_card\(rows_, (\{[^}]*\}|\w+)', hud)
         menu_accent = re.findall(r'render_placement_menu_card\(\w+, (\{[^}]*\}|\w+)', hud)
-        self.assertEqual(len(help_accent), 1, help_accent); self.assertEqual(len(menu_accent), 1, menu_accent)
-        self.assertEqual(menu_accent, help_accent)
+        self.assertEqual(help_accent, ['kAccent'])
+        self.assertEqual(menu_accent, ['kAccent'])
 
 
 HINT_KEYS = {'Up': 'up', 'Down': 'down', 'Left': 'left', 'Right': 'right', 'Tab': 'Tab', 'R': 'R', 'Esc': 'Escape',
