@@ -176,7 +176,11 @@ class Supervisor:
                             except (EOFError, OSError): valid = False
                             if not valid: self.disconnect(now)
                             else: deadline = now + GUARD_PERIOD + GUARD_DEADLINE
-                    for key, _ in selector.select(interval):
+                    # Mouse mode in the placement menu wants a faster tick for a smooth pointer.
+                    soon = getattr(self.control, 'poll_interval', None)
+                    soon = soon() if soon is not None else None
+                    wait = min(interval, soon) if isinstance(soon, (int, float)) and soon > 0 else interval
+                    for key, _ in selector.select(wait):
                         now = time.monotonic()
                         self.tick(now)
                         if self.finished: break

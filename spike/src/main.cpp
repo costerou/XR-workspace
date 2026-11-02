@@ -135,7 +135,8 @@ int main(int argc, char** argv) {
                                 const auto& w = menu->placements[i];
                                 placements[i] = {w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature};
                             }
-                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements);
+                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements, menu->pointer,
+                                                            menu->pointer_row, menu->pointer_x, menu->pointer_drag);
                         }
                     }
                     else if (m->op == xr::ControlOp::placement) {

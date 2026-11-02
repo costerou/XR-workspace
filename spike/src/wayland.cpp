@@ -695,9 +695,10 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                                      const std::array<std::array<std::int32_t, 7>, 3>& placements) {
+                                      const std::array<std::array<std::int32_t, 7>, 3>& placements, bool pointer,
+                                      std::int32_t pointer_row, std::uint32_t pointer_x, bool pointer_drag) {
     if (!impl_) return;
-    PlacementMenuState state{open, desktop, field, placements};
+    PlacementMenuState state{open, desktop, field, placements, {pointer, pointer_row, pointer_x, pointer_drag}};
     if (impl_->menu.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>& placements) {

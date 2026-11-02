@@ -100,6 +100,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
             if open_: client.install_menu_binds(*bind_args)
             else: client.remove_menu_binds()
 
+        def mouse_binds(on):
+            # Menu mouse mode: the left button and a hidden cursor exist only while it is on.
+            if on: client.install_mouse_binds(*bind_args)
+            else: client.remove_mouse_binds()
+
         # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
         from .profiles import PlacementStore, ProfileStore
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
@@ -109,7 +114,9 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
                                                    saved['prediction'], initial), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
-                                   on_reload=after_reload, placements=placements, menu_binds=menu_binds)
+                                   on_reload=after_reload, placements=placements, menu_binds=menu_binds,
+                                   mouse_binds=mouse_binds if hasattr(client, 'install_mouse_binds') else None,
+                                   cursor=lambda: client.query('cursorpos', timeout=0.25))
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None

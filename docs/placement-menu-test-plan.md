@@ -103,3 +103,62 @@ Before starting, give XR-2 a visible tilt in the panel (for example yaw 25), so 
 | 21 | Stop the session | Windows return to the physical output as usual. `profiles.json` is still mode 0600 and holds the placements. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Sliders and mouse mode
+
+Each setting in the menu is drawn as a slider. With the menu open, **Ctrl+Alt+M** turns on mouse mode: the mouse moves a
+ring pointer over the sliders in the glasses, a click jumps a slider, and a drag moves it live. Ctrl+Alt+M again or
+Escape leaves mouse mode.
+
+Automated coverage:
+
+- `tests/native_spike/test_placement_mouse.py`: the pointer state machine (on/off, Escape leaves mouse mode first,
+  Ctrl+Alt+L and the idle close end it), pointer motion (per mille along a slider, one row per `MOUSE_ROW_PX`, clamps,
+  warp-sized jumps only re-baseline), click-to-jump at both bounds of every field, live drag and release, the desktop
+  selector, debounced save, activity for the 30 s idle close (motion and clicks count, a still cursor does not), bind
+  order (menu keys, then mouse; mouse off first), the cursor sampler, cursor follow paused, the reload rate limit, the
+  supervisor's faster tick, the run wiring, the generated Lua (guarded, release bind, cursor hidden and restored on
+  every removal path, the 4096-byte cap) and the bind clash checker, including real `Hyprland --verify-config` runs on
+  throwaway configs when Hyprland is installed.
+- `spike/tests/placement_menu_ipc_test.cpp`: the optional `pointer` key, from the shared fixture's `pointer_valid` /
+  `pointer_invalid` cases (only on an open menu; row -1..6; x 0..1000; drag a bool).
+- `spike/tests/hud_test.cpp`: a knob at a field's low or high bound sits centred in the pointer ring at per mille 0 or
+  1000, for every field and both fonts; mouse mode never resizes the card; every pointer state stays at or below
+  `kCardMaxLevel` and (pixel font) uses only the help card's colours; the slider width stays within
+  `kSliderMinW..kSliderMaxW` and gives up width before anything else on smaller outputs.
+- `spike/tests/placement_menu_style_test.cpp`: the card with sliders still matches the help card's look and fits
+  1920×1200 @1.25 (1229×733 with JetBrainsMono). It now uses the help card's real menu row, "Placement menu
+  (Ctrl+Alt+M: mouse)": the help card is 1220×945.
+
+Bind check, run on this machine on 2026-11-01 (Hyprland 0.56.2, the live `~/.config/hypr` copied into a temporary HOME):
+
+```
+$ python -m tools.native_spike.bind_check
+Hyprland --verify-config: config ok (0)
+desktop config: 250 chords bound
+no clash: 12 run binds, menu binds (Ctrl+Alt+M, Down, Esc, Left, R, Right, Shift+Left, Shift+Right, Shift+Tab, Tab, Up) and the mouse-mode left button
+```
+
+Not checked offline: whether Hyprland 0.56.2 applies `cursor.invisible` and `hl.dsp.cursor.move` from a runtime
+`/eval` the way it does at config load, how the hidden cursor interacts with Omarchy's startup-cursor handling, and
+how the pointer feels at `MOUSE_TRACK_PX` / `MOUSE_ROW_PX`. The glasses steps below cover them.
+
+Glasses steps (continue after step 21, with a new run started the usual way):
+
+| # | Do | Expect |
+|---|----|--------|
+| 22 | Press Ctrl+Alt+L | Every setting shows a slider between its label and value. The knob sits at the value; the stretch from flat to the knob is tinted blue. Nothing is brighter than the text. |
+| 23 | Press Ctrl+Alt+M | A ring appears around the selected setting's knob. The desktop cursor disappears from every XR desktop. |
+| 24 | Move the mouse slowly sideways, then up and down | The ring slides along the slider (about 600 px of mouse travel end to end) and steps one row per ~48 px up or down, up to the XR-1/2/3 tabs. Nothing moves in space yet. Cursor follow does not switch desktops. |
+| 25 | On Yaw, click near the left end of the slider | The desktop turns at once; the value reads about −60°. The ring fills while the button is held. |
+| 26 | Hold the button and drag right, then release | The desktop turns continuously with the drag; the value updates. After release, moving the mouse moves only the ring. |
+| 27 | Move up to the tabs and click XR-3 | XR-3 is selected; the sliders show its values. |
+| 28 | Press Right, Shift+Right, Tab, R | The keyboard still adjusts, switches desktop and resets while mouse mode is on. |
+| 29 | Leave the mouse still for 30 s | The menu fades out; the cursor is visible again where it was before step 23. Left clicks reach windows again. |
+| 30 | Reopen the menu, Ctrl+Alt+M, move the mouse a little every 20 s for a minute | The menu stays open. |
+| 31 | Press Escape | Mouse mode ends: the ring goes, the cursor is back where it was, the menu stays open. Escape again closes the menu. |
+| 32 | Ctrl+Alt+M, then Ctrl+Alt+M again | Same as step 31's first Escape. |
+| 33 | Ctrl+Alt+M, then Ctrl+Alt+L | The menu closes and the cursor comes back. |
+| 34 | Ctrl+Alt+M, switch the Omarchy theme | Mouse mode still works after the reload: clicks still go to the menu and the cursor stays hidden. |
+| 35 | With the menu closed, press Ctrl+Alt+M in a terminal | Nothing happens in the glasses; the key reaches the terminal (it is bound only while the menu is open). |
+| 36 | Stop the session from mouse mode | The cursor is visible and clicks work after the run ends. |

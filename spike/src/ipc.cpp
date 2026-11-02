@@ -40,8 +40,19 @@ bool placement(const Json& value, WirePlacement& out) {
     }
     return true;
 }
+bool menu_pointer(const Json& p, PlacementMenuPayload& out) {
+    if (!p.is_object() || p.size() != 3 || !p.contains("row") || !p["row"].is_number_integer() || !p.contains("x") ||
+        !p["x"].is_number_unsigned() || !p.contains("drag") || !p["drag"].is_boolean()) return false;
+    // Unsigned first: huge unsigned values must not wrap into range as int64.
+    if (p["row"].is_number_unsigned() && p["row"].get<std::uint64_t>() >= std::size(kPlacementBounds)) return false;
+    const auto row = p["row"].get<std::int64_t>();
+    if (row < -1 || row >= std::int64_t(std::size(kPlacementBounds)) || p["x"].get<std::uint64_t>() > 1000) return false;
+    out.pointer = true; out.pointer_row = std::int32_t(row); out.pointer_x = p["x"].get<std::uint32_t>(); out.pointer_drag = p["drag"].get<bool>();
+    return true;
+}
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
-    if (!p.is_object() || p.size() != 4 || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
+    const bool pointer = p.is_object() && p.size() == 5 && p.contains("pointer");
+    if (!p.is_object() || p.size() != (pointer ? 5u : 4u) || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
         !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kPlacementMenuDesktops || !p.contains("field") ||
         !p["field"].is_string() || !p.contains("placements") || !p["placements"].is_array() || p["placements"].size() != kPlacementMenuDesktops)
         return false;
@@ -53,6 +64,8 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     out.field = std::uint32_t(named - std::begin(kPlacementBounds));
     for (std::size_t i = 0; i < kPlacementMenuDesktops; ++i)
         if (!placement(p["placements"][i], out.placements[i])) return false;
+    // Mouse mode only on an open menu (tools/native_spike/view.py placement_menu_frame checks the same).
+    if (pointer && (!out.open || !menu_pointer(p["pointer"], out))) return false;
     return true;
 }
 }
