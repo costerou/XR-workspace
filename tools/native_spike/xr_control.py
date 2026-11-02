@@ -5,6 +5,9 @@ Exits quietly with status 1 if no run is listening (binds only exist during a ru
 video_open (Ctrl+Alt+O) first leaves any playing video (video_exit, so the desktops and the picker are visible in the
 glasses), then shows a file picker (zenity) on the focused desktop and sends the chosen path; a cancelled picker sends
 nothing more. The run checks and opens the file itself (video.py).
+video_paste (Ctrl+Alt+U) reads the clipboard once (wl-paste): the "Play in VITURE" bookmarklet's JSON or a bare http(s)
+video link, and sends it as video_open. The run checks it, picks the stream and relays it (web_video.py,
+docs/delightxr.md). If the clipboard holds neither, a desktop notification says so and nothing is sent.
 """
 import json
 import os
@@ -25,6 +28,9 @@ VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', '
 # Same text as video.remove_video_binds_lua() (tests compare): a video key with no run listening gives the keys back.
 REMOVE_VIDEO_BINDS = ('for _, b in ipairs(xr_workspace_video_binds or {}) do '
                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_video_binds = nil')
+HELPER_OPS = ('video_paste',)  # handled here: becomes video_open with the clipboard's web video
+WEB_MARKER = 'viture_xr_video'  # web_video.MARKER
+MAX_CLIPBOARD = 16384  # web_video.MAX_CLIPBOARD (the control frame limit)
 VIDEO_FILTER = 'Videos | *.mp4 *.MP4 *.mkv *.MKV *.webm *.mov *.MOV *.m4v *.avi *.ts *.m2ts'
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
@@ -102,6 +108,43 @@ def pick_video(run=None, environ=os.environ):
     return path if path.startswith('/') and '\n' not in path and len(path.encode()) <= 4096 else None
 
 
+def notify(text, run=None):
+    """Best effort desktop notification (the focused desktop is in the glasses)."""
+    import subprocess
+    run = run or subprocess.run
+    exe = '/usr/bin/notify-send'
+    if not os.access(exe, os.X_OK): return
+    try: run([exe, '--app-name=VITURE XR', '--expire-time=8000', 'VR video', text], capture_output=True, timeout=5, check=False)
+    except (OSError, subprocess.SubprocessError): pass
+
+
+def read_clipboard(run=None):
+    """The clipboard's text (wl-paste, once), or None. Never more than MAX_CLIPBOARD characters are accepted."""
+    import subprocess
+    run = run or subprocess.run
+    exe = '/usr/bin/wl-paste'
+    if not os.access(exe, os.X_OK): return None
+    try: r = run([exe, '--no-newline', '--type', 'text'], capture_output=True, timeout=3, check=False)
+    except (OSError, subprocess.SubprocessError): return None
+    if r.returncode != 0 or len(r.stdout) > MAX_CLIPBOARD * 4: return None
+    try: return r.stdout.decode('utf-8', errors='strict')
+    except UnicodeDecodeError: return None
+
+
+def clipboard_payload(text):
+    """The clipboard as a video_open payload ({"web": obj} or {"url": link}); (None, reason) if it holds neither.
+    Only the shape is checked here (stdlib, no imports); the run validates everything (web_video.validate_web)."""
+    t = (text or '').strip()
+    if not t: return None, 'The clipboard is empty. Click "Play in VITURE" on the video page first.'
+    if len(t) > MAX_CLIPBOARD: return None, 'The clipboard holds too much text to be a video link.'
+    if t.startswith('{'):
+        try: obj = json.loads(t)
+        except ValueError: obj = None
+        if isinstance(obj, dict) and obj.get(WEB_MARKER) == 1: return {'web': obj}, None
+    elif re.match(r'https?://\S+\Z', t, re.IGNORECASE): return {'url': t}, None
+    return None, 'The clipboard holds no video link. Click "Play in VITURE" on the video page first.'
+
+
 def drop_stale_video_binds(environ=os.environ):
     """A video key with no run listening: the run ended with a video playing. Remove its modal binds (fixed Lua)."""
     runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
@@ -124,10 +167,10 @@ def send(path, run_id, session, op, payload):
         s.settimeout(0.5); s.connect(path); s.sendall(frame.encode())
 
 
-def main(argv, picker=pick_video):
+def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
     if len(argv) != 5: return 2
     path, run_id, session, op = argv[1:]
-    if op not in OPS + VIDEO_OPS or not TOKEN.match(run_id) or not TOKEN.match(session) or not path.startswith('/'): return 2
+    if op not in OPS + VIDEO_OPS + HELPER_OPS or not TOKEN.match(run_id) or not TOKEN.match(session) or not path.startswith('/'): return 2
     payload = {}
     if op == 'video_open':
         try: send(path, run_id, session, 'video_exit', {})  # a playing video hides the desktop the picker opens on
@@ -135,6 +178,11 @@ def main(argv, picker=pick_video):
         chosen = picker()
         if chosen is None: return 0  # cancelled
         payload = {'path': chosen}
+    elif op == 'video_paste':
+        payload, why = clipboard_payload(clipboard())
+        if payload is None:
+            tell(why); return 0
+        op = 'video_open'
     try:
         send(path, run_id, session, op, payload)
     except OSError:

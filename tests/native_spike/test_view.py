@@ -72,7 +72,7 @@ class BindTests(unittest.TestCase):
     def test_help_bind_and_rows_cover_every_bind(self):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
-        self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open'}, set(view.HELP_ACTIONS))  # video_open: video.py
+        self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste'}, set(view.HELP_ACTIONS))  # video.py, web_video.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 24 rows
@@ -264,7 +264,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         for chord, op in view.BINDS:
             with self.subTest(op=op): self.assertTrue(covered(view.chord_label(chord)))
         self.assertIn(['Ctrl+Alt+[ / ]', 'Less / more space between desktops'], rows)
-        self.assertIn(['Ctrl+Alt+O', 'Play a 180/360 VR video'], rows)
+        self.assertIn(['Ctrl+Alt+O / U', 'VR video: file / copied web link'], rows)
         self.assertIn(['Ctrl+Alt+H', 'Help; Ctrl+Alt+G/B: window to glasses/back'], shown['payload']['rows'])
         hidden = json.loads(c.on_message({'op': 'help'}))
         self.assertFalse(hidden['payload']['visible'])
