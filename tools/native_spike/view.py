@@ -73,7 +73,7 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + T', 'typing_toggle'),
          ('CTRL + ALT + L', 'menu_toggle'),
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
-         ('CTRL + ALT + U', 'video_paste'))  # video_paste: the helper sends the clipboard's web video link (docs/vr-video.md)
+         ('CTRL + ALT + U', 'video_paste'))  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
 # Typing mode (module docstring): the one run bind that stays while every other bind is released. Ctrl+Alt+T is free in
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
@@ -127,7 +127,7 @@ EXTRA_HELP_ROWS = ()
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action).
 HELP_PAIRS = {'cursor_follow': ('prediction', 'Toggle cursor follow / prediction'),  # frees the row Ctrl+Alt+T uses
               'spacing_down': ('spacing_up', 'Less / more space between desktops'),
-              'video_open': ('video_paste', 'VR video: file / copied web link')}  # docs/vr-video.md
+              'video_open': ('video_paste', 'VR video: file / copied web link')}  # docs/web-video.md
 
 
 def help_rows():

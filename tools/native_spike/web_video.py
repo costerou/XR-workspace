@@ -1,4 +1,4 @@
-"""VR video from the web: a direct stream link, or a video page link resolved with yt-dlp (docs/vr-video.md).
+"""VR video from the web: a direct stream link, or a video page link resolved with yt-dlp (docs/web-video.md).
 
 1. Ctrl+Alt+U in the glasses (or the panel's "Paste from browser") reads the clipboard once and sends the link to the
    run as a `video_open` request (`{"url": "https://..."}`).

@@ -190,7 +190,7 @@ While a video plays:
 | Esc | Back to your desktops |
 
 Videos with copy protection, or links that need you to be logged in, won't play. The panel or a notification will tell
-you why. See [docs/vr-video.md](docs/vr-video.md) for formats and limits.
+you why. See [docs/vr-video.md](docs/vr-video.md) and [docs/web-video.md](docs/web-video.md) for formats and limits.
 
 ## Stopping, recovering and troubleshooting
 
@@ -244,5 +244,5 @@ No. A session only starts when you press Start, and that approval covers only th
 
 - [docs/technical.md](docs/technical.md): test evidence, how it is built, the safety design, the full key rules, running
   the tests, and the host diagnostic tool.
-- [docs/vr-video.md](docs/vr-video.md): how VR video and web video work.
+- [docs/vr-video.md](docs/vr-video.md) and [docs/web-video.md](docs/web-video.md): how VR video and web video work.
 - [docs/placement-menu-test-plan.md](docs/placement-menu-test-plan.md): step-by-step checks to try in the glasses.

@@ -1,4 +1,4 @@
-"""Web VR video (tools/native_spike/web_video.py, docs/vr-video.md): request validation, formats, source choice, the
+"""Web VR video (tools/native_spike/web_video.py, docs/web-video.md): request validation, formats, source choice, the
 clipboard helper, the ffmpeg relay end to end against a local HTTP server (generated clips, never downloaded),
 VideoControl with web streams (open, seek by relay restart, resume after a dropped link, close), and video page links
 resolved with yt-dlp.
@@ -551,7 +551,7 @@ if __name__ == '__main__':
 
 
 class PageFailureTests(unittest.TestCase):
-    """Video PAGE links (docs/vr-video.md): yt-dlp resolution, format choice, and clear refusals."""
+    """Video PAGE links (docs/web-video.md): yt-dlp resolution, format choice, and clear refusals."""
     YT = {'title': 'Mountain VR 180 3D SBS 8K', 'tags': ['vr180', 'travel'], 'duration': 600,
           'formats': [
               {'format_id': '18', 'url': 'https://media.example.net/18', 'protocol': 'https', 'vcodec': 'avc1.42001E',

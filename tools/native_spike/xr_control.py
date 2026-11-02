@@ -6,7 +6,7 @@ video_open (Ctrl+Alt+O) first leaves any playing video (video_exit, so the deskt
 glasses), then shows a file picker (zenity) on the focused desktop and sends the chosen path; a cancelled picker sends
 nothing more. The run checks and opens the file itself (video.py).
 video_paste (Ctrl+Alt+U) reads the clipboard once (wl-paste): an http(s) video or video page link, and sends it as
-video_open. The run checks it, resolves a page link with yt-dlp and relays the stream (web_video.py, docs/vr-video.md).
+video_open. The run checks it, resolves a page link with yt-dlp and relays the stream (web_video.py, docs/web-video.md).
 If the clipboard holds no link, a desktop notification says so and nothing is sent.
 """
 import json

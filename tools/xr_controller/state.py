@@ -214,7 +214,7 @@ class Controller:
         if op=='video_open':
             # VR video (docs/vr-video.md): a mode of the running session, so no new consent. The run opens and checks the file.
             if self.state!='running': raise ValueError('start an XR session first')
-            # A web video (docs/vr-video.md) arrives as "url" (or a "web" request object) instead of "path".
+            # A web video (docs/web-video.md) arrives as "url" (or a "web" request object) instead of "path".
             payload=validate_video_request('video_open',{k:msg[k] for k in ('path','url','web','format') if k in msg})
             if not self.units.control(self.run['run_id'],self.run['session'],'video_open',payload): raise ValueError('run control unavailable')
             self.last_status=None
