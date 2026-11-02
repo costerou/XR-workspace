@@ -185,6 +185,14 @@ if(XR_ENABLE_PRESENTATION)
       target_compile_options(resize_handle_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME resize_handle COMMAND resize_handle_test)
+    # Overview free pointer: control frame, geometry status line, dot (shared fixture with tests/native_spike/test_free_pointer.py)
+    add_executable(free_pointer_test tests/free_pointer_test.cpp)
+    target_link_libraries(free_pointer_test PRIVATE xr_view xr_ipc nlohmann_json::nlohmann_json)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(free_pointer_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME free_pointer COMMAND free_pointer_test
+      "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/overview_pointer_payloads.json")
   endif()
   # Pop-up text: installed system font via fontconfig + FreeType (local libraries, no downloads;
   # approved 2026-10-31). Missing font at runtime -> built-in pixel font, reported.

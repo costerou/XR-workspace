@@ -20,10 +20,11 @@ While it is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab
 again on close. Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu`
 frame (the drawn overlay) and saved to the profile 500 ms after the last change, or at once when the menu closes.
 Menu ops are not in USER_OPS, so they are not panel capabilities either.
-Overview corner resize (resize.py): hovering a desktop's corner in the overview shows a handle; dragging it with the left
-button changes that desktop's `distance` placement live (apparent size), saved like a menu change. resize_press and
-resize_release come from modal mouse binds that exist only while the pointer is on a corner; they are not USER_OPS.
-It is off while the placement menu is open, so the menu's mouse mode and a corner drag never share a click.
+Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
+space as a small dim dot, to drag a desktop's bar (move), drag its corner (resize, the `distance` placement) or click a
+desktop to focus it; inside a desktop the real cursor works on windows as usual. resize_press and resize_release come
+from modal left-button binds that exist only while the pointer is outside the desktops; they are not USER_OPS.
+It is off while the placement menu is open, so the menu's mouse mode and a free-pointer drag never share a click.
 
 Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1/2/3 to XR-n, Ctrl+Alt+B back to the physical
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
@@ -31,8 +32,8 @@ add no help card row (a 13th row does not fit); the Ctrl+Alt+H row names Ctrl+Al
 
 Typing mode (Ctrl+Alt+T, TYPING_OP): one chord that hands the keyboard back while the run keeps going. Entering it
 closes the placement menu and the help card, then reinstalls the run's bind table with only the Ctrl+Alt+T bind in
-it: the view binds, the send-window binds, the menu and mouse-mode binds, the overview corner resize binds and a
-playing video's bare-key binds are all released, so arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach
+it: the view binds, the send-window binds, the menu and mouse-mode binds, the overview free pointer (its left-button binds, hidden cursor
+and dot) and a playing video's bare-key binds are all released, so arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach
 the focused window. Ctrl+Alt+T again puts every bind back (control mode). The mode is in the `view` payload, so the
 renderer shows a short, dimmed pop-up when it changes; it is never saved and every run starts in control mode. Config
 reloads keep the current mode (after_reload in managed.py reinstalls the matching set). Panel buttons keep working.
@@ -76,7 +77,7 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
 TYPING_OP = 'typing_toggle'
 TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview; drag a corner there to resize',
+HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, drag bars/corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction',
@@ -97,7 +98,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
 MOUSE_OPS = ('menu_mouse_press', 'menu_mouse_release')
 MOUSE_BINDS = (('mouse:272', 'menu_mouse_press'), ('mouse:272', 'menu_mouse_release'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
-# (Corner resize is off in typing mode: resize.CornerResize.overview.)
+# (The overview free pointer is off in typing mode: free_pointer.OverviewPointer.overview.)
 IGNORED_WHILE_TYPING = MENU_OPS + MOUSE_OPS + SEND_OPS
 # Pointer, in menu-card pixels (the card is drawn 1:1 in the glasses): free over the whole card.
 MOUSE_GAIN = 1.0           # card pixels per cursor pixel (the cursor's own speed and acceleration already apply)
@@ -125,7 +126,7 @@ def chord_label(chord):
 
 
 # Help card rows that are not key binds. Empty: a 13th row makes the card 1008 px tall with JetBrainsMono, past the
-# 960 px glasses surface, so the overview corner resize (resize.py, a mouse drag) is named in the zoom_out row instead.
+# 960 px glasses surface, so the overview free pointer (free_pointer.py, mouse only) is named in the zoom_out row instead.
 EXTRA_HELP_ROWS = ()
 
 
@@ -646,8 +647,8 @@ class ViewControl:
         self._menu_lock = threading.Lock()
         self._menu_binds_installed = False
         self._menu_threads = []
-        self.resize = None  # optional resize.CornerResize (overview corner drag); set by managed.view_controls
-        self.wake = None    # optional socket the supervisor loop also waits on (the resize pointer poller pokes it)
+        self.overview_pointer = None  # optional free_pointer.OverviewPointer (overview free pointer); set by managed.view_controls
+        self.wake = None    # optional socket the supervisor loop also waits on (the free pointer's sampler pokes it)
         self.mouse_binds = mouse_binds  # optional (on: bool) -> None: mouse mode's click binds and hidden cursor
         self.cursor = cursor            # optional () -> Hyprland cursorpos reply {'x', 'y'}; sampled off-loop in mouse mode
         self.warp = warp                # optional (x, y) -> None: put the hidden cursor back (warp_cursor_lua), off-loop
@@ -732,6 +733,10 @@ class ViewControl:
         frame = menu_pointer_frame(self.run_id, self.session, self.next_id, pointer)
         self.next_id += 1
         return frame
+
+    def set_overview_geometry(self, geometry):
+        """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""
+        if self.overview_pointer is not None: self.overview_pointer.set_geometry(geometry)
 
     def set_menu_geometry(self, geometry):
         """Supervisor: the renderer's menu layout (parse_menu_geometry). Places or clamps the pointer; the loop sends it."""
@@ -844,7 +849,7 @@ class ViewControl:
         """Supervisor loop tick: write a debounced menu placement save once it is due, and close the help card and the
         placement menu once they have been up OVERLAY_IDLE_CLOSE_S without input. Returns renderer frames or None."""
         now = self.clock() if now is None else now
-        out = self.resize.poll(now) if self.resize is not None else b''  # pointer hover / corner drag
+        out = self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # free pointer, bar / corner drags
         out += self._mouse_tick(now) if self.state.mouse is not None else b''
         if self.save_due is not None and now >= self.save_due: self.flush()
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
@@ -911,7 +916,7 @@ class ViewControl:
         if isinstance(message, dict) and message.get('op') in MENU_OPS + MOUSE_OPS:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
-            return self.resize.on_op(message['op']) if self.resize is not None else None
+            return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None
@@ -923,6 +928,8 @@ class ViewControl:
             self.next_id += 1
             return frame
         before = self.state.view()
+        if message['op'] == 'zoom_out' and self.state.zoomed and self.overview_pointer is not None:
+            self.overview_pointer.summon()  # a cursor off the desktops comes into the selected one
         target = self.state.apply(message['op'])
         if target is not None:
             import threading
@@ -959,7 +966,7 @@ class ViewControl:
         if reloaded:
             self.reloads += 1
             self._menu_binds_installed = False  # a reload drops runtime binds; the reload work re-adds an open menu's
-            if self.resize is not None: self.resize.binds_dropped = True  # the pointer poller re-adds them if still wanted
+            if self.overview_pointer is not None: self.overview_pointer.binds_dropped = True  # the sampler redoes them if wanted
             self._mouse_binds_installed = False
             if self.on_reload is not None:  # binds and session mode: compositor calls, never on the watchdog loop
                 import threading

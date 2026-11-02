@@ -185,6 +185,10 @@ int main(int argc, char** argv) {
                         if (const auto* h = std::get_if<xr::ResizeHandlePayload>(&m->payload))
                             presentation.set_resize_handle(h->visible, h->desktop, h->corner, h->active);
                     }
+                    else if (m->op == xr::ControlOp::overview_pointer) {  // display only; malformed ones were dropped above
+                        if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
+                            presentation.set_overview_pointer(p->visible, p->x, p->y, p->held);
+                    }
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
@@ -213,6 +217,12 @@ int main(int argc, char** argv) {
                 const auto line = *geometry + "\n";
                 if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
                     presentation.resend_menu_geometry();  // a full socket drops the datagram: try again next loop
+            }
+        if (status_fd >= 0)  // overview layout for the supervisor's free-pointer hit testing, only when it changes
+            if (const auto geometry = presentation.take_overview_geometry()) {
+                const auto line = *geometry + "\n";
+                if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
+                    presentation.resend_overview_geometry();
             }
         const auto now = std::chrono::steady_clock::now();
         if (status_fd >= 0 && now >= next_status) {

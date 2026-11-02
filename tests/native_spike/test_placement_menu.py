@@ -657,9 +657,11 @@ class MenuBindTests(unittest.TestCase):
 
     def test_readme_documents_the_real_toggle_chord(self):
         chord = view.chord_label(next(c for c, op in view.BINDS if op == 'menu_toggle'))
-        section = (ROOT / 'README.md').read_text().split('### Placement menu', 1)
-        self.assertEqual(len(section), 2, 'README needs a "### Placement menu" section')
-        self.assertIn(chord, section[1].split('\n## ', 1)[0])
+        # The README is the plain-language guide (its "## Placing desktops" section); docs/technical.md has the detail.
+        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement menu')):
+            section = (ROOT / doc).read_text().split(heading, 1)
+            self.assertEqual(len(section), 2, f'{doc} needs a "{heading}" section')
+            self.assertIn(chord, section[1].split('\n## ', 1)[0])
         self.assertEqual(chord, MENU_TOGGLE_LABEL)
 
 
@@ -724,10 +726,11 @@ class MenuToggleKeyTests(unittest.TestCase):
         self.assertEqual([op for chord, op in view.BINDS if chord == MENU_TOGGLE_CHORD and op != 'menu_toggle'], [])
 
     def test_readme_section_uses_ctrl_alt_l(self):
-        section = (ROOT / 'README.md').read_text().split('### Placement menu', 1)[1].split('\n## ', 1)[0]
-        self.assertIn(MENU_TOGGLE_LABEL, section)
-        self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+M\*\* during a run')  # Ctrl+Alt+M is mouse mode, not the toggle
-        self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+P')
+        for doc, heading in (('README.md', '## Placing desktops'), ('docs/technical.md', '### Placement menu')):
+            section = (ROOT / doc).read_text().split(heading, 1)[1].split('\n## ', 1)[0]
+            self.assertIn(MENU_TOGGLE_LABEL, section)
+            self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+M\*\* during a run')  # Ctrl+Alt+M is mouse mode, not the toggle
+            self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+P')
 
 
 class NoScopeChangeTests(unittest.TestCase):

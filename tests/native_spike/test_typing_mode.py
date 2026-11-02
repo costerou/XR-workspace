@@ -172,10 +172,10 @@ class ControlTests(unittest.TestCase):
         c.on_message({'op': view.TYPING_OP}); c.join_focus(2)
         self.assertEqual(self.typing, [])
 
-    def test_corner_resize_is_off_in_typing_mode(self):
-        from tools.native_spike import resize
+    def test_free_pointer_is_off_in_typing_mode(self):
+        from tools.native_spike import free_pointer
         c = self.control()
-        r = c.resize = resize.CornerResize(c); self.addCleanup(r.close)
+        r = c.overview_pointer = free_pointer.OverviewPointer(c); self.addCleanup(r.close)
         self.assertTrue(r.overview())
         self.send(c, view.TYPING_OP)
         self.assertFalse(r.overview())

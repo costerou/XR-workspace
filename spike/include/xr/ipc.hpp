@@ -9,7 +9,8 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, menu_pointer, resize_handle, video, move_handle };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, menu_pointer, resize_handle, video, move_handle,
+                       overview_pointer };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -61,8 +62,13 @@ struct VideoPayload { VideoAction action = VideoAction::close; VideoFormat forma
 // active = being dragged. Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.
 constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
 struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false; };
+// Overview free pointer (tools/native_spike/free_pointer.py), display only: {"visible":bool,"x":int,"y":int,"held":bool}, x and
+// y in canvas px, each -kMaxPointerPx..kMaxPointerPx (the pointer can go past the view's edge, beyond the desktops). held =
+// a bar or corner drag is in progress. Malformed: rejected with kInvalidOverviewPointerCode and dropped, like menu_pointer.
+constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
+struct OverviewPointerPayload { bool visible = false; std::int32_t x = 0, y = 0; bool held = false; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    MenuPointerPayload, ResizeHandlePayload, VideoPayload, MoveHandlePayload>;
+                                    MenuPointerPayload, ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -71,10 +77,12 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, menu_pointer, resize_handle or move_handle payload. It
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, menu_pointer, resize_handle, move_handle or
+// overview_pointer payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
-    return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode;
+    return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
+           e.code == kInvalidOverviewPointerCode;
 }
 class ControlQueue {
 public:

@@ -77,7 +77,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
     video = None  # VR video (video.py) wraps the view control
     server = PrivateServer(client.runtime_dir, run_id, session)
     installed = False
-    events = control = poller = resize = None
+    events = control = sampler = pointer = None
     try:
         saved = store.load()
         bind_args = (sys.executable, str(Path(view.__file__).with_name('xr_control.py')), str(server.path), run_id, session)
@@ -127,11 +127,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                    cursor=lambda: client.query('cursorpos', timeout=0.25),
                                    warp=getattr(client, 'warp_cursor', None),
                                    typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
-        # Overview corner resize: pointer reads and its modal mouse binds, off the supervisor loop (resize.py).
-        from .resize import CornerResize, PointerPoller
-        resize = control.resize = CornerResize(control)
-        control.wake = resize.wake_reader
-        if hasattr(client, 'install_resize_binds'): poller = PointerPoller(client, capture, resize, bind_args).start()
+        # Overview free pointer: cursor reads, its modal left-button binds and cursor hiding, off the supervisor loop.
+        from .free_pointer import OverviewPointer, PointerSampler
+        pointer = control.overview_pointer = OverviewPointer(control)
+        control.wake = pointer.wake_reader
+        if hasattr(client, 'grab_pointer'): sampler = PointerSampler(client, capture, pointer, bind_args).start()
         # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-3, B). Closed first at run end (below).
         if hasattr(client, 'mutate'):
             from .send import WindowSender
@@ -156,13 +156,13 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if control is not None:
             control.flush()  # a menu change still inside its save delay
             control.stop_menu_binds()  # no modal menu bind may land after the removal below
-        if poller is not None: poller.stop()  # removes the resize binds; none may be added after this
+        if sampler is not None: sampler.stop()  # removes the free pointer's binds and shows the cursor; none after this
         try:
             if installed: client.remove_view_binds()  # also removes an open menu's modal binds
         except (OSError, ValueError):
             pass  # never block recovery on bind removal; binds also vanish on config reload
         if events is not None: events.close()
-        if resize is not None: resize.close()
+        if pointer is not None: pointer.close()
         server.close()
 
 

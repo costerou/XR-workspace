@@ -1,6 +1,7 @@
 #include "xr/view.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace xr {
 namespace {
@@ -140,6 +141,34 @@ FRect grab_pill(const FRect& t) {
     if (t.width <= 0 || t.height <= 0) return {};
     const float w = std::min(clampf(kPillShare * t.width, kPillMinPx, kPillMaxPx), t.width);
     return {t.x + (t.width - w) / 2, t.y - kPillGapPx - kPillThicknessPx, w, kPillThicknessPx};
+}
+
+std::vector<Vec3> canvas_disc(const Canvas& c, float x, float y, float radius, int segments) {
+    if (c.view_w <= 0 || c.view_h <= 0 || !(radius > 0) || segments < 3) return {};
+    auto at = [&](float px, float py) { return Vec3{(2 * px / c.view_w - 1) * c.half_w, (1 - 2 * py / c.view_h) * c.half_h, -1.f}; };
+    std::vector<Vec3> out{at(x, y)};
+    for (int i = 0; i <= segments; ++i) {
+        const float a = 2.f * float(M_PI) * float(i % segments) / float(segments);
+        out.push_back(at(x + radius * std::cos(a), y + radius * std::sin(a)));
+    }
+    return out;
+}
+
+std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h) {
+    if (tiles.empty() || tiles.size() > 3 || !width || !height || width > 8192 || height > 8192 || !(half_w > 0) || !(half_h > 0) ||
+        !std::isfinite(half_w) || !std::isfinite(half_h)) return {};
+    char buf[96];
+    std::snprintf(buf, sizeof buf, "{\"overview_geometry\":{\"w\":%u,\"h\":%u,\"half\":[%.5f,%.5f],\"tiles\":[", width, height,
+                  double(half_w), double(half_h));
+    std::string out = buf;
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        const auto& t = tiles[i];
+        if (!std::isfinite(t.x) || !std::isfinite(t.y) || !(t.width > 0) || !(t.height > 0) || !std::isfinite(t.width) ||
+            !std::isfinite(t.height) || std::fabs(t.x) > 8192 || std::fabs(t.y) > 8192 || t.width > 8192 || t.height > 8192) return {};
+        std::snprintf(buf, sizeof buf, "%s[%.2f,%.2f,%.2f,%.2f]", i ? "," : "", double(t.x), double(t.y), double(t.width), double(t.height));
+        out += buf;
+    }
+    return out + "]}}";
 }
 
 Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms) {

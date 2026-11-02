@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace xr {
@@ -69,6 +70,20 @@ constexpr float kPillShare = 0.3f, kPillMinPx = 24.f, kPillMaxPx = 240.f, kPillT
 Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
 bool same_placement(const Placement& a, const Placement& b);
 constexpr float kPlacementEaseMs = 35.f;
+// Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
+// world-locked like the desktops' slots, drawn only while the mouse is outside the desktops (inside one, the captured
+// cursor shows). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at
+// or under the cards' 191/255 cap (micro-OLED retention); the supervisor hides it after 30 s without pointer movement.
+constexpr float kFreePointerLevel = 170.f / 255.f, kFreePointerHeldLevel = 184.f / 255.f;
+constexpr float kFreePointerRadiusPx = 6.f, kFreePointerRingPx = 2.f;
+constexpr int kFreePointerSegments = 20;
+// Triangle fan (centre, then segments + 1 rim points, closed) of a disc of `radius` canvas px around canvas (x, y), on the
+// canvas plane. Empty if the canvas is empty, radius <= 0 or segments < 3.
+std::vector<Vec3> canvas_disc(const Canvas& canvas, float x, float y, float radius, int segments = kFreePointerSegments);
+// The supervisor's free-pointer hit testing needs the overview's layout: one status line
+// {"overview_geometry":{"w":W,"h":H,"half":[half_w,half_h],"tiles":[[x,y,w,h],...]}} with canvas px to 2 decimals and the
+// half-FOV tangents to 5 (tools/native_spike/free_pointer.py parse_overview_geometry). Empty if anything is unusable.
+std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h);
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 
 // Time-based animation toward targets (no frame-rate dependence).
@@ -85,6 +100,7 @@ public:
     float position() const;  // eased current position
     float velocity() const;  // position units per ms
     float spacing() const;
+    float target_spacing() const { return to_spacing_; }  // where spacing() is heading (the overview's settled layout)
     std::uint32_t selected() const { return to_selected_; }
 private:
     float duration_, move_;

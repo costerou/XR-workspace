@@ -520,17 +520,17 @@ class WebVideoGatingTests(unittest.TestCase):
     setUp, op, poll = WebControlTests.setUp, WebControlTests.op, WebControlTests.poll
 
     def test_web_playback_uses_the_video_gating(self):
-        from tools.native_spike import resize
+        from tools.native_spike import free_pointer
         requests = []
         class Sender:
             def request(self, op, selected): requests.append(op)
         self.view.sender = Sender()
-        r = self.view.resize = resize.CornerResize(self.view, clock=self.clock); self.addCleanup(r.close)
+        r = self.view.overview_pointer = free_pointer.OverviewPointer(self.view, clock=self.clock); self.addCleanup(r.close)
         self.view.on_message({'op': 'help'}); self.view.on_message({'op': 'menu_toggle'})
         self.op('video_open', {'url': 'https://cdn.example.com/clips/Alps_360_TB.mp4'})
         self.poll()
         self.assertTrue(self.v.active); self.assertEqual(self.v.snapshot()['origin'], 'web')
-        self.assertTrue(self.view.video_active)  # corner resize and drag bars off
+        self.assertTrue(self.view.video_active)  # the overview free pointer (bars, corners) is off
         self.assertFalse(self.view.help_visible or self.view.state.menu_open)
         self.assertFalse(r.overview())
         for op in ('menu_toggle', 'menu_mouse_press', 'resize_press', 'send_glasses', 'send_glasses_1', 'zoom_in'):

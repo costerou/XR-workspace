@@ -75,7 +75,7 @@ When the session ends they go away, so they never get in the way of normal typin
 | Ctrl+Alt+H | Show or hide the help card |
 | Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
 | Ctrl+Alt+Up | Zoom into the selected desktop |
-| Ctrl+Alt+Down | Zoom out to see all desktops (the overview) |
+| Ctrl+Alt+Down | Zoom out to see all desktops (the overview). The mouse can then move anywhere around them |
 | Ctrl+Alt+Left / Right | Select the previous / next desktop |
 | Ctrl+Alt+[ / ] | Less / more space between desktops |
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
@@ -93,7 +93,7 @@ When the session ends they go away, so they never get in the way of normal typin
 **Typing mode.** Press **Ctrl+Alt+T** when you want to type or use an app's own shortcuts while the session runs.
 All of the keys in this list stop working until you press Ctrl+Alt+T again, so the arrow keys, Space, Tab, Esc and
 other apps' Ctrl+Alt shortcuts do their normal thing. Any open help card or placement menu closes, and a playing video
-gives its keys back too. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
+gives its keys back too. In the overview the mouse stays a normal cursor (no grey dot) until you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
 A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
 control. The panel's buttons work in both modes.
 
@@ -131,12 +131,24 @@ button.
 
 These menu keys only take over while the menu is open. After it closes, the arrows, Tab, R and Esc type normally again.
 
-**By dragging in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
+**With the mouse in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
+In the overview your mouse is no longer stuck inside the desktops:
 
-- **Resize:** move the mouse into a corner of a desktop until a small grey bracket appears. Drag outward to make it
-  bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
-- **Move:** move the mouse to the top middle of a desktop. The thin grey bar above it lights up. Drag it like a window
-  title bar. It snaps back into its slot if you drop it close by, and it won't overlap its neighbours by much.
+- **Inside a desktop** the mouse works as usual. Click, drag and resize windows like on any monitor.
+- **Push the mouse past the edge of a desktop** and it keeps going into the space around it. The normal cursor
+  disappears and a small grey dot takes its place. Move the dot back onto a desktop and the normal cursor comes back
+  right there.
+- **Move a desktop:** put the dot on the thin grey bar above a desktop. The bar lights up. Hold the left button and
+  drag; the desktop follows like a window by its title bar. It snaps back into its slot if you drop it close by, and it
+  won't overlap its neighbours by much.
+- **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
+  it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
+- **Focus a desktop:** click it with the dot. That desktop is selected (Ctrl+Alt+Up zooms into it) and the normal
+  cursor appears where you clicked. Moving the mouse into a desktop selects it too.
+
+If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
+Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, bars and bracket are off in typing mode (Ctrl+Alt+T), while the placement
+menu is open or a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back).
 
 Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
 edit the desktop in the panel.
@@ -194,7 +206,8 @@ and put your windows and display back. If the panel says "Needs CLI recovery", s
 
 **About ghost images on the glasses screens.** The glasses use tiny OLED screens. Bright text that stays still for a
 long time can leave a faint ghost image that fades after a while. To prevent that, the help card, placement menu and
-video controls are dimmed, and they close by themselves after 30 seconds without input. Don't leave a bright video
+video controls are dimmed, and they close by themselves after 30 seconds without input. The overview's dot, bars and
+corner bracket are dim grey and hide after 30 seconds without mouse movement. Don't leave a bright video
 paused for a long time either.
 
 ## FAQ

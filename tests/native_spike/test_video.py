@@ -459,23 +459,39 @@ if __name__ == '__main__':
 
 
 class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
-    """A video owns the input: the placement menu, its mouse mode and the overview corner resize are off while it plays."""
+    """A video owns the input: the placement menu, its mouse mode and the overview free pointer are off while it plays."""
     setUp_base, op, open, join_binds = ControlTests.setUp, ControlTests.op, ControlTests.open, ControlTests.join_binds
     OUTPUTS = [{'index': 0, 'x': 2560, 'y': 0, 'width': 1920, 'height': 1080},
                {'index': 1, 'x': 4480, 'y': 0, 'width': 1920, 'height': 1080}]
+    GEOMETRY = {'w': 1920, 'h': 1200, 'half': (0.36, 0.225), 'tiles': [(40.0, 435.0, 586.67, 330.0), (666.67, 435.0, 586.67, 330.0)]}
 
     def setUp(self):
-        from tools.native_spike import resize
+        from tools.native_spike import free_pointer
         self.setUp_base()
         self.mouse_binds = []
         self.view.mouse_binds = self.mouse_binds.append
-        self.r = self.view.resize = resize.CornerResize(self.view, clock=self.clock)
+        self.r = self.view.overview_pointer = free_pointer.OverviewPointer(self.view, clock=self.clock)
         self.addCleanup(self.r.close)
+        self.r.set_geometry(self.GEOMETRY)
+        self.cursor = (2560 + 960, 540)
 
     def at(self, x, y):
         self.clock.now += 0.02
-        self.r.feed((x, y), self.OUTPUTS)
+        self.cursor = (x, y)
+        self.r.feed((x, y), (0.0, 0.0), self.OUTPUTS, self.r.want[0])
         return frames(self.v.poll(self.clock()))
+
+    def move(self, dx, dy):
+        self.clock.now += 0.02
+        self.r.feed(self.cursor, (float(dx), float(dy)), self.OUTPUTS, self.r.want[0])
+        return frames(self.v.poll(self.clock()))
+
+    def grab_bar(self):
+        self.at(2560 + 960, 300); self.at(2560 + 960, 0)  # XR-1's top edge: the free pointer, just under the bar
+        self.move(0, -20)
+        self.assertEqual(self.r.hover, ('pill', 0))
+        self.view.on_message({'op': 'resize_press'})
+        self.assertIsNotNone(self.r.drag)
 
     def test_ignored_ops_cover_menu_mouse_mode_and_resize(self):
         from tools.native_spike import resize
@@ -493,30 +509,31 @@ class VideoWithMenuMouseAndResizeTests(unittest.TestCase):
             with self.subTest(op=op): self.assertIsNone(self.op(op))
         self.assertFalse(self.view.state.menu_open); self.assertIsNone(self.view.state.mouse)
 
-    def test_corner_resize_is_off_while_a_video_plays_and_back_after(self):
-        shown = self.at(2560 + 1915, 1075)
-        self.assertTrue(shown and shown[-1]['payload']['visible']); self.assertTrue(self.r.binds_wanted)
+    def test_the_free_pointer_is_off_while_a_video_plays_and_back_after(self):
+        self.at(2560 + 960, 300); shown = self.at(2560 + 960, 0)
+        self.assertEqual(self.r.mode, 'free'); self.assertEqual(self.r.want[1], 'free')
+        self.assertTrue([f for f in shown if f['op'] == 'overview_pointer'][-1]['payload']['visible'])
         self.open()
-        hidden = self.at(2560 + 1916, 1076)
-        self.assertEqual(hidden[-1]['payload']['visible'], False)
-        self.assertFalse(self.r.binds_wanted)  # the poller removes the left-button binds: clicks are untouched
+        hidden = self.move(0, -20)
+        self.assertEqual(self.r.mode, 'off'); self.assertEqual(self.r.want[1], 'off')  # binds removed, cursor shown
+        self.assertFalse([f for f in hidden if f['op'] == 'overview_pointer'][-1]['payload']['visible'])
         self.assertIsNone(self.op('resize_press')); self.assertIsNone(self.r.drag)
-        self.assertEqual(self.view.state.placements[0]['distance'], 100)
+        self.assertEqual(self.view.state.placements[0], dict(view.ViewState(['XR-1']).placements[0]))
         self.assertTrue(self.v.active)
         self.op('video_exit')
         self.assertFalse(self.view.video_active)
-        back = self.at(2560 + 1915, 1075)
-        self.assertTrue(back[-1]['payload']['visible']); self.assertTrue(self.r.binds_wanted)
+        self.at(2560 + 960, 540)
+        self.assertEqual(self.r.mode, 'desktop')
 
     def test_a_drag_in_progress_ends_and_is_saved_when_a_video_opens(self):
-        self.at(2560 + 1915, 1075); self.view.on_message({'op': 'resize_press'})
-        self.at(2560 + 1915 + 300, 1075)
-        size = self.view.state.placements[0]['distance']
-        self.assertLess(size, 100)
+        self.grab_bar()
+        self.move(300, -200)
+        moved = dict(self.view.state.placements[0])
+        self.assertNotEqual((moved['x'], moved['y']), (0, 0))
         self.open()
-        self.at(2560 + 1915 + 600, 1075)
+        self.move(300, 0)
         self.assertIsNone(self.r.drag)
-        self.assertEqual(self.view.state.placements[0]['distance'], size)
+        self.assertEqual(self.view.state.placements[0], moved)
 
 
 class VideoIgnoresSendWindowTests(unittest.TestCase):

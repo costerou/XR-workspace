@@ -269,7 +269,7 @@ class HyprlandClient:
         self._eval(remove_menu_binds_lua())
 
     def install_resize_binds(self, python, client, control_socket, run_id, session):
-        """Pointer on a desktop corner in the overview: the modal left-button press/release binds; generated Lua only."""
+        """Overview free pointer: the modal left-button press/release binds; generated Lua only."""
         from .resize import install_resize_binds_lua
         self._eval(install_resize_binds_lua(python, client, control_socket, run_id, session))
 
@@ -277,19 +277,15 @@ class HyprlandClient:
         from .resize import remove_resize_binds_lua
         self._eval(remove_resize_binds_lua())
 
-    def grab_cursor(self):
-        """Pill drag started: remember, centre and hide the cursor (fixed Lua, resize.GRAB_ENTER_LUA)."""
-        from .resize import GRAB_ENTER_LUA
-        self._eval(GRAB_ENTER_LUA)
+    def grab_pointer(self, python, client, control_socket, run_id, session, x, y):
+        """Overview free pointer, free mode: left-button binds, cursor hidden and parked at (x, y); generated Lua only."""
+        from .free_pointer import grab_pointer_lua
+        self._eval(grab_pointer_lua(python, client, control_socket, run_id, session, x, y))
 
-    def recentre_cursor(self):
-        from .resize import GRAB_RECENTRE_LUA
-        self._eval(GRAB_RECENTRE_LUA)
-
-    def release_cursor(self):
-        """Pill drag ended: the cursor's visibility and position back (no-op if it was never hidden)."""
-        from .resize import GRAB_LEAVE_LUA
-        self._eval(GRAB_LEAVE_LUA)
+    def release_pointer(self, x=None, y=None):
+        """Free pointer back in a desktop: binds removed, cursor shown and (if given) put at (x, y); generated Lua only."""
+        from .free_pointer import release_pointer_lua
+        self._eval(release_pointer_lua(x, y))
 
     def install_mouse_binds(self, python, client, control_socket, run_id, session):
         """Placement menu mouse mode on: left-button binds, cursor hidden (runtime only); generated Lua only."""

@@ -104,72 +104,56 @@ Before starting, give XR-2 a visible tilt in the panel (for example yaw 25), so 
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
-## Overview corner resize: automated coverage and glasses test script
+## Overview free pointer (move, resize, focus): automated coverage and glasses test script
+
+Since 2026-11-02 the overview's mouse can leave the desktops (`tools/native_spike/free_pointer.py`). This replaces the
+earlier corner-resize (R1–R15) and grab-bar (P1–P16) scripts: they assumed the pointer was stuck inside the desktops,
+with the bar's grab strip inside the desktop's top edge and corners only reachable from inside.
 
 Automated coverage (offline only):
 
-- `tests/native_spike/test_resize.py`: corner hit test, drag math and clamping, the modal left-button binds and their
-  removal (including after a dead run), the hover and drag state machine, the 30 s idle hide, the profile save, panel
-  sync through the status reply, the pointer poller thread, and the supervisor wake-up.
-- `spike/tests/resize_handle_test.cpp`: the renderer's `resize_handle` decoding (a malformed payload is dropped, never
-  fatal), the handle geometry in each corner (fixed, no orbit), and its grey levels at or under 191/255.
+- `tests/native_spike/test_free_pointer.py`: the `overview_geometry` / `overview_pointer` contract (shared fixture with
+  the renderer), projection and hit testing with the renderer's placement maths (offset, distance, yaw/pitch/roll,
+  curvature, front desktop first), corner and bar zones outside the desktops, drag maths (the bar stays under the
+  pointer, the corner follows its diagonal, clamps, snap, overlap guard), the desktop / free mode switch (edge, monitor
+  crossing, keyboard jumps, the 4 px return margin, samples before a hand-back), clicks (bar, corner, focus, empty
+  space, lost release), gates (zoom, menu, video, idle 30 s), the 250 Hz sampler (grab, re-centre, hand-back, errors,
+  reload, cleanup), the generated Lua run by a Lua interpreter against a stub `hl`, and the run wiring.
+- `tests/native_spike/test_resize.py`, `test_grab_pill.py`: the shared left-button binds, their removal after a dead
+  run, the overlap guard, and the help card row.
+- `spike/tests/free_pointer_test.cpp`: `overview_pointer` decoding (malformed payloads dropped, never fatal), the
+  `overview_geometry` line, the dot's shape and its levels at or under 191/255.
+  `spike/tests/resize_handle_test.cpp` still covers the bracket and the bars.
+- Not done: the new cursor Lua has not been loaded under `Hyprland --verify-config`, and nothing has run in the glasses.
 
-The steps below need your usual go-ahead for a live run, the same setup as above (any desktop shapes), and the
-renderer built from this branch. Note the controller worktree HEAD, the controller MainPID and the renderer sha256
-before and after. Start in the overview (Ctrl+Alt+Down) with every desktop at Distance 100.
-
-| # | Do | Expect |
-|---|----|--------|
-| R1 | Move the pointer around the middle of XR-1 and across its edges | No handle. Clicks in windows work as usual. |
-| R2 | Move the pointer into XR-1's bottom-right corner (the last few percent of its width and height) | A small grey L-bracket appears just inside that corner. It is dim, never white. |
-| R3 | Visit the other three corners of XR-1, then a corner of XR-2 and XR-3 | The bracket follows to the corner the pointer is in, on the right desktop. It disappears between corners. |
-| R4 | Rest the pointer in a corner without moving for 30 s | The bracket fades off by itself (OLED care). A left click there now reaches the window again. Moving the pointer brings the bracket back. |
-| R5 | Watch the bracket for 10 s while moving the pointer slightly inside the corner | It stays put on the same pixels (no drift or orbit) and stays dim. |
-| R6 | In XR-1's bottom-right corner, hold the left button and drag right and down | XR-1 grows smoothly while you drag, about its own centre, keeping its shape. The bracket is a little brighter while you drag. Nothing in the window under the corner gets the click. |
-| R7 | Keep dragging far outward, then far inward | It stops growing at twice its size and stops shrinking at half. Nothing jumps or flickers at a limit. |
-| R8 | Release, then open the panel's **Place** tab for XR-1 | Distance shows the new value (bigger = lower Distance, for example 67 % for 1.5× size). The other fields are unchanged. |
-| R9 | Drag XR-3 from its top-left corner inward | XR-3 shrinks. XR-1 and XR-2 do not change. |
-| R10 | Open the placement menu (Ctrl+Alt+L) on XR-1, move the pointer into XR-1's corner, then close the menu | While the menu is open there is no bracket and a corner click reaches the window (resize is off while the menu is open; its mouse mode owns the left button, and Distance is in the menu). After the menu closes, the bracket comes back at the corner. |
-| R11 | Zoom in (Ctrl+Alt+Up) with the pointer on a corner | No bracket while zoomed or zooming. Left clicks at the corner go to the window. |
-| R12 | Zoom back out, resize XR-2, stop the session, start a new one | XR-2 comes back at the size you left it (saved per glasses model, like the other placements). |
-| R13 | Resize a desktop, then switch the Omarchy theme and resize again | Resizing still works after the reload (the bind is reinstalled while the pointer is on a corner). |
-| R14 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: resizing never changes pixels or scale. Those still change only in the desktop editor, at the next start. |
-| R15 | Stop the session with the pointer resting in a corner, then left-click on DP-1 | The click works normally (the run removed its corner binds). |
-
-Record any failure with the step number and what you saw. Keep it apart from automated test results.
-
-## Overview grab pill (move): automated coverage and glasses test script
-
-Automated coverage (offline only):
-
-- `tests/native_spike/test_grab_pill.py`: the grab strip and its precedence below the corners, move math (direction,
-  gain, clamp, snap), the overlap guard and slide, the drag state machine (live frames, warp filtering, save, panel
-  sync), off while zoomed or with the menu open, idle hide, the hidden-cursor Lua and its cleanup (run end, dead run),
-  and the poller's re-centring.
-- `spike/tests/resize_handle_test.cpp`: `move_handle` decoding (malformed payloads dropped), pill geometry, its levels at
-  or under 191/255, and the renderer's placement easing.
-- The cursor Lua also loads under `Hyprland --verify-config`, run with this project's `bind_check` harness. That is not a live test.
-
-Same setup and go-ahead as the corner script. Start in the overview with every desktop flat (Place tab: all zero).
+The steps below need your usual go-ahead for a live run, the same setup as above, and the renderer built from this
+branch. Note the controller worktree HEAD, the controller MainPID and the renderer sha256 before and after. Start with
+every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 
 | # | Do | Expect |
 |---|----|--------|
-| P1 | Look at the overview | A thin, dim grey bar is centred just above each desktop. It never drifts. |
-| P2 | Move the pointer to the top centre of XR-1 | XR-1's bar gets brighter. The other bars stay dim. No corner bracket. |
-| P3 | Move along the top edge toward a corner | The bar dims again before the corner bracket appears; the two never show together. |
-| P4 | On XR-1's bar, hold the left button and drag down | The cursor disappears and XR-1 moves down smoothly with the mouse. The window under the bar gets no click. |
-| P5 | Keep holding: drag up a long way, then left | XR-1 follows up past where it started (the cursor never gets stuck at the top), then left. It stops at one desktop height up / width left. |
-| P6 | Release | The cursor reappears on XR-1's bar, where you grabbed. Place tab: Left/right and Down/up show the new values. |
-| P7 | Drag XR-1 right toward XR-2 at the same height | It stops when it just touches XR-2 (a small overlap at most). It never covers XR-2. |
-| P8 | Keep the button held, drag up until XR-1 is above the row, then right | XR-1 passes over XR-2 once it is clear of the row. |
-| P9 | Drag XR-1 back to roughly where it started | It snaps into its slot in the row when close. Place tab: 0 and 0. |
-| P10 | Hover the bar without moving for 30 s | All bars fade off; moving the pointer brings them back. |
-| P11 | Open the placement menu (Ctrl+Alt+L) | The bars disappear and a click on the top centre goes to the window. Close the menu: they return. |
-| P12 | Zoom in (Ctrl+Alt+Up) | No bars while zoomed or zooming. |
-| P13 | Move XR-3, stop the session, start a new one | XR-3 comes back where you left it. |
-| P14 | During a drag, press nothing else and stop the session from the panel | The cursor reappears where you grabbed, visible. A left click on DP-1 works. |
-| P15 | If VR video is merged: play a video, click the top centre of where a desktop was | Nothing moves (the video gate ignores the click ops). |
-| P16 | Resize a desktop by a corner, then move it by its bar | Each does only its own thing; a move never changes size and a resize never moves. |
+| F1 | Move the mouse around the middle of XR-1 | The normal cursor, on XR-1. No dot. Clicks, hover and window drags work as usual. |
+| F2 | Resize a tiled window by its border, and drag a window by its title with Super | Works like on a monitor. |
+| F3 | Push the mouse up past XR-1's top edge | The cursor disappears and a small grey dot with a dark ring carries on above XR-1 with no jump. It is dim, never white. |
+| F4 | Move the dot around above, beside and between the desktops, and past the outer edges | It goes everywhere smoothly, as fast as the cursor did on the desktop, with no lag you can see. |
+| F5 | Hold the dot still for 10 s | It stays on the same pixels (no drift or orbit). |
+| F6 | Move the dot onto the thin bar above XR-1 | That bar gets brighter. No corner bracket. |
+| F7 | Hold the left button on the bar and drag down, then up a long way, then left | XR-1 follows with the bar staying under the dot. It stops one desktop height up / width left of its slot. |
+| F8 | Release | Place tab: Left/right and Down/up show the new values. The dot stays where it is. |
+| F9 | Drag XR-1's bar right toward XR-2 at the same height | It stops when it just touches XR-2. Lift it above the row first and it passes over. Back near its slot it snaps in. |
+| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner. |
+| F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). |
+| F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
+| F13 | Highlight XR-1 (Ctrl+Alt+Left), then on XR-2 push the mouse just past its top edge so the dot shows on the edge, and click without moving | XR-2 is highlighted and the cursor appears there. That click does not reach the window; the next one does. |
+| F14 | Click with the dot in empty space | Nothing happens. No window gets the click. |
+| F15 | Leave the mouse still for 30 s with the dot showing | The dot, bars and bracket fade off. A click then does nothing but bring them back. |
+| F16 | With the dot showing, open the placement menu (Ctrl+Alt+L), then close it | The dot and bars go and the cursor shows again (the menu's mouse mode owns the left button). After closing, the overview works as before. |
+| F17 | With the dot showing, zoom in (Ctrl+Alt+Up) | The cursor is visible and normal again. Zoom out: the free pointer is back. |
+| F18 | With the mouse on DP-1, press Ctrl+Alt+Down | The cursor jumps into the middle of the highlighted desktop. |
+| F19 | Switch the Omarchy theme while the dot shows | Still free afterwards: the cursor stays hidden and the bar can still be dragged. |
+| F20 | Stop the session from the panel while the dot shows (or mid-drag), then left-click on DP-1 | The cursor is visible and the click works. Moves and sizes made are back next session. |
+| F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no bars; nothing moves (the video gate ignores the click ops). |
+| F22 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: moving and resizing never change pixels or scale. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
