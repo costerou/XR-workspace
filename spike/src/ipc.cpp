@@ -48,6 +48,23 @@ bool menu_pointer(const Json& p, MenuPointerPayload& out) {
     out = {p["visible"].get<bool>(), std::int32_t(p["x"].get<std::uint64_t>()), std::int32_t(p["y"].get<std::uint64_t>()), p["held"].get<bool>()};
     return true;
 }
+bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
+    if (!p.is_object() || p.size() != 4) return false;
+    for (const char* key : {"visible", "held"})
+        if (!p.contains(key) || !p[key].is_boolean()) return false;
+    std::int32_t xy[2];
+    for (int i = 0; i < 2; ++i) {
+        const char* key = i ? "y" : "x";
+        if (!p.contains(key) || !p[key].is_number_integer()) return false;
+        const auto& n = p[key];
+        if (n.is_number_unsigned() ? n.get<std::uint64_t>() > kMaxPointerPx : false) return false;  // never wrap into range
+        const auto v = n.get<std::int64_t>();
+        if (v < -std::int64_t(kMaxPointerPx) || v > std::int64_t(kMaxPointerPx)) return false;
+        xy[i] = std::int32_t(v);
+    }
+    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>()};
+    return true;
+}
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     if (!p.is_object() || p.size() != 4 || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
         !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kPlacementMenuDesktops || !p.contains("field") ||
@@ -119,6 +136,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "menu_pointer") op = ControlOp::menu_pointer;
         else if (name == "move_handle") op = ControlOp::move_handle;
+        else if (name == "overview_pointer") op = ControlOp::overview_pointer;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -185,6 +203,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             MoveHandlePayload pill;
             if (!move_handle(j["payload"], pill)) return Error{kInvalidMoveHandleCode, "Ignored malformed move_handle payload"};
             payload = pill;
+        } else if (op == ControlOp::overview_pointer) {
+            OverviewPointerPayload pointer;
+            if (!overview_pointer(j["payload"], pointer)) return Error{kInvalidOverviewPointerCode, "Ignored malformed overview_pointer payload"};
+            payload = pointer;
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

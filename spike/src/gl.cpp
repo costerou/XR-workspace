@@ -103,6 +103,7 @@ struct GlCompositor::Impl {
     const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0;
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     float pill_level = 0, pill_bright_level = 0; int pill_bright = -1;                 // grab pills
+    bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
@@ -274,6 +275,10 @@ void GlCompositor::set_grab_pills(float level, int bright, float bright_level) {
     impl_->pill_bright_level = std::min(bright_level, kPillLevelActive);
 }
 
+void GlCompositor::set_free_pointer(bool visible, float x, float y, float level) {
+    impl_->free_pointer = visible; impl_->free_x = x; impl_->free_y = y; impl_->free_level = std::min(level, kFreePointerHeldLevel);
+}
+
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
 
 void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
@@ -389,6 +394,19 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const GLsizei n = mesh(h, arm, false);
             attrib(s.color_pos, 3, 0);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+        }
+    }
+    if (s.free_pointer && s.free_level > 0.f) {
+        // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots).
+        if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
+        glUseProgram(s.color_program); uniforms(s.color_view, s.color_half_fov);
+        for (const auto& [radius, level] : {std::pair{kFreePointerRadiusPx + kFreePointerRingPx, 0.f}, std::pair{kFreePointerRadiusPx, s.free_level}}) {
+            const auto fan = canvas_disc(canvas, s.free_x, s.free_y, radius);
+            buffer.clear();
+            for (const auto& v : fan) buffer.insert(buffer.end(), {v.x, v.y, v.z, 0.f, 0.f});
+            glUniform4f(s.color, level, level, level, 1.f);
+            attrib(s.color_pos, 3, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, GLsizei(fan.size()));
         }
     }
     const bool menu = s.menu_hud && s.menu;

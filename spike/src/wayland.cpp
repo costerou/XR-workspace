@@ -218,6 +218,8 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint64_t menu_geometry_sent = 0;  // geometry generation last handed to the supervisor
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
     struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
+    struct FreePointer { bool visible = false, held = false; std::int32_t x = 0, y = 0; std::uint64_t shown = 0; } free_pointer;
+    std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -584,6 +586,7 @@ std::string Presentation::capture_report() const {
            ",\"fits\":" + (impl_->menu.fits() ? "true" : "false") + "}";
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
+    out += ",\"overview_pointer\":{\"shown\":" + std::to_string(impl_->free_pointer.shown) + "}";
     const auto mode = impl_->modes.mode();
     out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
@@ -781,6 +784,23 @@ void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hov
     p.visible = visible; p.desktop = desktop; p.hover = hover; p.active = active;
     impl_->cadence.invalidate();
 }
+void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held) {
+    if (!impl_) return;
+    auto& p = impl_->free_pointer;
+    if (visible && !p.visible) ++p.shown;
+    p.visible = visible; p.x = x; p.y = y; p.held = held;
+    impl_->cadence.invalidate();
+}
+std::optional<std::string> Presentation::take_overview_geometry() {
+    if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
+    auto& s = *impl_;
+    const auto tiles = overview_layout(s.capture_sizes(), float(s.width), float(s.height), s.view.target_spacing());
+    auto line = overview_geometry_json(tiles, s.width, s.height, s.half_w, s.half_h);
+    if (line.empty() || line == s.overview_geometry_sent) return std::nullopt;
+    s.overview_geometry_sent = line;
+    return line;
+}
+void Presentation::resend_overview_geometry() { if (impl_) impl_->overview_geometry_sent.clear(); }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
                             bool prediction) {
@@ -890,6 +910,9 @@ Status Presentation::draw_test_pattern() {
         const bool pills = s.pills.visible && s.view.zoom() < 0.01f;  // grab pills: overview only, never moving on their own
         s.gl->set_grab_pills(pills ? kPillLevelIdle : 0.f, s.pills.hover || s.pills.active ? int(s.pills.desktop) : -1,
                              s.pills.active ? kPillLevelActive : kPillLevelHover);
+        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f;  // overview only; world-locked on the canvas
+        s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
+                               s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel);
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();

@@ -1,0 +1,150 @@
+{
+  "_comment": "Overview free pointer contract, shared by spike/tests/free_pointer_test.cpp (renderer) and tests/native_spike/test_free_pointer.py (supervisor). overview_pointer: x/y canvas px, signed, |v| <= 8192. geometry: overview_geometry_json(tiles, w, h, half) must produce `line` exactly, and parse_overview_geometry must accept it.",
+  "valid": [
+    {
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "held": false
+    },
+    {
+      "visible": true,
+      "x": -8192,
+      "y": 8192,
+      "held": true
+    },
+    {
+      "visible": false,
+      "x": 960,
+      "y": 600,
+      "held": false
+    },
+    {
+      "visible": true,
+      "x": -40,
+      "y": -12,
+      "held": false
+    }
+  ],
+  "invalid": [
+    {
+      "why": "x past the limit",
+      "payload": {
+        "visible": true,
+        "x": 8193,
+        "y": 0,
+        "held": false
+      }
+    },
+    {
+      "why": "y past the negative limit",
+      "payload": {
+        "visible": true,
+        "x": 0,
+        "y": -8193,
+        "held": false
+      }
+    },
+    {
+      "why": "huge unsigned x",
+      "payload": {
+        "visible": true,
+        "x": 18446744073709551615,
+        "y": 0,
+        "held": false
+      }
+    },
+    {
+      "why": "fractional x",
+      "payload": {
+        "visible": true,
+        "x": 10.5,
+        "y": 0,
+        "held": false
+      }
+    },
+    {
+      "why": "string y",
+      "payload": {
+        "visible": true,
+        "x": 0,
+        "y": "3",
+        "held": false
+      }
+    },
+    {
+      "why": "held not a bool",
+      "payload": {
+        "visible": true,
+        "x": 0,
+        "y": 0,
+        "held": 1
+      }
+    },
+    {
+      "why": "visible not a bool",
+      "payload": {
+        "visible": "yes",
+        "x": 0,
+        "y": 0,
+        "held": false
+      }
+    },
+    {
+      "why": "missing held",
+      "payload": {
+        "visible": true,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "why": "extra key",
+      "payload": {
+        "visible": true,
+        "x": 0,
+        "y": 0,
+        "held": false,
+        "desktop": 1
+      }
+    },
+    {
+      "why": "not an object",
+      "payload": [
+        true,
+        0,
+        0,
+        false
+      ]
+    }
+  ],
+  "geometry": {
+    "w": 1920,
+    "h": 1200,
+    "half": [
+      0.36,
+      0.225
+    ],
+    "tiles": [
+      [
+        40,
+        435,
+        586.6667,
+        330
+      ],
+      [
+        666.6667,
+        435,
+        586.6667,
+        330
+      ],
+      [
+        1293.3333,
+        435,
+        586.6667,
+        330
+      ]
+    ],
+    "line": "{\"overview_geometry\":{\"w\":1920,\"h\":1200,\"half\":[0.36000,0.22500],\"tiles\":[[40.00,435.00,586.67,330.00],[666.67,435.00,586.67,330.00],[1293.33,435.00,586.67,330.00]]}}"
+  }
+}
