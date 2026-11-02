@@ -17,7 +17,7 @@ import struct
 import time
 import uuid
 from .ipc import strict_json, token
-from .geometry import DEFAULT_DESKTOP, logical_width, validate_desktop
+from .geometry import DEFAULT_DESKTOP, DEFAULT_DESKTOP_COUNT, MANAGED_NAME, logical_width, validate_desktops
 
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 NAME = r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}'
@@ -124,7 +124,7 @@ class HyprlandClient:
         # This host uses Lua config; legacy keyword monitor is not a fallback.
         patterns = [r'keyword input:follow_mouse [0-3]',
                     rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})',
-                    r'dispatch hl\.dsp\.focus\(\{monitor="XR-[1-3]"\}\)']  # glasses view focus, managed outputs only
+                    r'dispatch hl\.dsp\.focus\(\{monitor="' + MANAGED_NAME + r'"\}\)']  # glasses view focus, managed outputs only
         if not isinstance(command, str) or len(command) > 512: raise ValueError('invalid mutation')
         if not any(re.fullmatch(p, command) for p in patterns): raise ValueError('mutation not allowlisted')
         for word in re.split(r'[ ,]', command):
@@ -384,13 +384,14 @@ def plan_outputs(existing, workspaces, run_id, desktops=None):
         used.add(w['id'])
     right = max((math.ceil(m['x'] + (m['height'] if m['transform'] % 2 else m['width']) / m['scale']) for m in existing), default=0)
     y = min((m['y'] for m in existing), default=0)
-    desktops = [dict(DEFAULT_DESKTOP)] * 3 if desktops is None else desktops
-    if not isinstance(desktops, list) or len(desktops) != 3: raise ValueError('exactly three desktops required')
-    desktops = [validate_desktop(d) for d in desktops]
+    desktops = validate_desktops([dict(DEFAULT_DESKTOP)] * DEFAULT_DESKTOP_COUNT if desktops is None else desktops)
+    # Any XR-n left behind (a larger earlier run, an orphan after authority loss) needs recovery
+    # first, even when this run would not reuse its name.
+    leftover = sorted(m['name'] for m in existing if re.fullmatch(OWNED, m['name']))
+    if leftover: raise ValueError('output name already exists: ' + ', '.join(leftover) + ' (recover the earlier run first)')
     specs, x = [], right
     for index, d in enumerate(desktops):
         name = token(f'XR-{index + 1}')
-        if any(m['name'] == name for m in existing): raise ValueError('output name already exists')
         lw = logical_width(d)
         if x + lw > 2147483647: raise ValueError('layout overflow')
         specs.append({'id': str(uuid.uuid4()), 'name': name, 'index': index, 'width': d['width'],

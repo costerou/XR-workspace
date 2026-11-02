@@ -11,7 +11,8 @@ ColumnLayout {
     required property var settings
     property bool busy: false
     readonly property var view: snapshot.view || ({})
-    readonly property var desktops: snapshot.desktops || settings.desktops || []
+    // The consented layout of this run (controller snapshot), never the editable startup profile.
+    readonly property var desktops: snapshot.desktops || []
     signal request(var message)
     spacing:12
     RowLayout {
@@ -31,11 +32,11 @@ ColumnLayout {
                 color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.view.selected===index ? Commons.Color.accent : Commons.Color.muted
                 Label { anchors.centerIn:parent; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11; text:"XR-"+(tile.index+1)+"\n"+root.desktops[tile.index].width+"×"+root.desktops[tile.index].height+" · "+root.desktops[tile.index].scale*100+"%" }
                 // Use only advertised relative operations; the panel waits for each reply.
-                MouseArea { anchors.fill:parent; enabled:!root.busy && Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || []).length>0; onClicked:root.request(Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || []).map(op => ({op:"view_op",operation:op}))) }
+                MouseArea { anchors.fill:parent; enabled:!root.busy && Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || [],root.desktops.length).length>0; onClicked:root.request(Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || [],root.desktops.length).map(op => ({op:"view_op",operation:op}))) }
             }
         }
     }
-    Label { text:"Desktop geometry is fixed for this session."; opacity:0.65 }
+    Label { text:root.desktops.length + (root.desktops.length===1 ? " desktop" : " desktops") + " · count and geometry are fixed for this session; change them after Stop."; opacity:0.65; Layout.fillWidth:true; wrapMode:Text.WordWrap }
     Label { text:"View · " + (root.view.mode || "awaiting measured state") + (root.view.spacing !== undefined ? " · spacing " + root.view.spacing : ""); font.bold:true }
     RowLayout {
         visible:(root.snapshot.capabilities || []).indexOf("mode_next")>=0
@@ -70,5 +71,4 @@ ColumnLayout {
         }
     }
     Label { text:"Per-desktop position · size in space · curvature — coming"; enabled:false; opacity:0.45 }
-    Label { text:"Add / remove desktops — coming"; enabled:false; opacity:0.45 }
 }

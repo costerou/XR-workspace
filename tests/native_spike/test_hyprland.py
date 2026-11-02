@@ -242,8 +242,27 @@ class HyprlandTests(unittest.TestCase):
                          [(1920, 1080, 1.0), (3840, 1080, 1.0), (3440, 1440, 1.25)])
     def test_plan_rejects_wrong_count(self):
         d = {'width': 1920, 'height': 1080, 'scale': 1.0}
-        for n in (2, 4):
+        for n in (0, 7):
             with self.assertRaises(ValueError): h.plan_outputs(RawFixture().monitors, [], 'run', [d] * n)
+        with self.assertRaises(ValueError): h.plan_outputs(RawFixture().monitors, [], 'run', d)
+
+    def test_plan_any_count_one_to_six(self):
+        d = {'width': 1920, 'height': 1080, 'scale': 1.0}
+        for n in range(1, 7):
+            with self.subTest(n=n):
+                specs = h.plan_outputs(RawFixture().monitors, [], 'run', [d] * n)
+                self.assertEqual([s['name'] for s in specs], [f'XR-{i}' for i in range(1, n + 1)])
+                self.assertEqual([s['index'] for s in specs], list(range(n)))
+                self.assertEqual([s['x'] for s in specs], [1920 + 1920 * i for i in range(n)])  # contiguous row
+                self.assertEqual(len({s['id'] for s in specs}), n)
+
+    def test_plan_refuses_any_leftover_managed_output(self):
+        # A larger earlier run's XR-5 blocks a 3-desktop start: it needs recovery, not to be ignored.
+        d = {'width': 1920, 'height': 1080, 'scale': 1.0}
+        for name in ('XR-1', 'XR-5', 'XR-6'):
+            with self.subTest(name=name):
+                raw = RawFixture(); raw.monitors.append(dict(raw.monitors[0], id=9, name=name, x=3840))
+                with self.assertRaisesRegex(ValueError, name): h.plan_outputs(raw.monitors, [], 'run', [d] * 3)
     def test_rotated_output_reserves_transformed_logical_rectangle(self):
         raw = RawFixture(); raw.monitors[0].update(width=1080, height=1920, transform=1)
         self.assertEqual(h.plan_outputs(raw.monitors, [], 'run')[0]['x'], 1920)

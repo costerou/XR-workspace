@@ -9,7 +9,12 @@ int main() {
     auto ok = parse_capture_list("XR-1,XR-2,XR-3", "DP-2");
     CHECK(ok && *ok == std::vector<std::string>({"XR-1", "XR-2", "XR-3"}));
     CHECK(parse_capture_list("XR-2", "DP-2") == std::vector<std::string>{"XR-2"});
-    for (const char* bad : {"", "XR-1,", ",XR-1", "XR-1,XR-1", "XR-4", "XR-0", "XR-01", "DP-1", "DP-2", "XR-1,DP-1",
+    // Any count 1..kMaxDesktops, always in numeric XR-n order.
+    static_assert(kMaxDesktops == 6);
+    auto six = parse_capture_list("XR-6,XR-1,XR-5,XR-2,XR-4,XR-3", "DP-2");
+    CHECK(six && *six == std::vector<std::string>({"XR-1", "XR-2", "XR-3", "XR-4", "XR-5", "XR-6"}));
+    CHECK(parse_capture_list("XR-4", "DP-2") == std::vector<std::string>{"XR-4"});
+    for (const char* bad : {"", "XR-1,", ",XR-1", "XR-1,XR-1", "XR-7", "XR-10", "XR-1,XR-2,XR-3,XR-4,XR-5,XR-6,XR-7", "XR-0", "XR-01", "DP-1", "DP-2", "XR-1,DP-1",
                             "XR-1 ,XR-2", "XR-1,XR-2,XR-3,XR-1", "xr-1", "XR-SPIKE-run-0", "XR-1;XR-2"})
         CHECK(!parse_capture_list(bad, "DP-2"));
     CHECK(!parse_capture_list("XR-1", "XR-1"));  // never capture our own output

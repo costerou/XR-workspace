@@ -4,20 +4,21 @@
 
 namespace xr {
 std::optional<std::vector<std::string>> parse_capture_list(const std::string& csv, const std::string& own_output) {
-    static const std::regex name("XR-[1-3]");
+    static const std::regex name("XR-[1-9][0-9]?");
     std::vector<std::string> names;
     std::size_t start = 0;
     while (start <= csv.size()) {
         const auto end = csv.find(',', start);
         const auto item = csv.substr(start, end == std::string::npos ? std::string::npos : end - start);
-        if (!std::regex_match(item, name) || item == own_output ||
+        if (!std::regex_match(item, name) || std::stoul(item.substr(3)) > kMaxDesktops || item == own_output ||
             std::find(names.begin(), names.end(), item) != names.end()) return std::nullopt;
         names.push_back(item);
         if (end == std::string::npos) break;
         start = end + 1;
     }
-    if (names.empty() || names.size() > 3) return std::nullopt;
-    std::sort(names.begin(), names.end());
+    if (names.empty() || names.size() > kMaxDesktops) return std::nullopt;
+    // Numeric, not lexical, so tile order always follows XR-n order.
+    std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return std::stoul(a.substr(3)) < std::stoul(b.substr(3)); });
     return names;
 }
 

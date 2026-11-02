@@ -261,13 +261,14 @@ CAPTURE_ALLOW = ['headless-outputs', 'capture-managed-outputs']
 
 
 def capture_arguments(names, output):
-    """Renderer argv for capture of the run's own managed outputs only (XR-1..XR-3), never `output`."""
+    """Renderer argv for capture of the run's own managed outputs only (XR-1..XR-n), never `output`."""
     import re
+    from .geometry import MANAGED_NAME, MAX_DESKTOPS
     if names is None: return []
-    if (not isinstance(names, (list, tuple)) or not 1 <= len(names) <= 3 or len(set(names)) != len(names)
-            or any(not isinstance(n, str) or not re.fullmatch(r'XR-[1-3]', n) or n == output for n in names)):
+    if (not isinstance(names, (list, tuple)) or not 1 <= len(names) <= MAX_DESKTOPS or len(set(names)) != len(names)
+            or any(not isinstance(n, str) or not re.fullmatch(MANAGED_NAME, n) or n == output for n in names)):
         raise ValueError("capture is limited to the run's own managed outputs")
-    return ['--capture', ','.join(sorted(names))]
+    return ['--capture', ','.join(sorted(names, key=lambda n: int(n[3:])))]
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,

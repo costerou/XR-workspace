@@ -9,12 +9,14 @@ ColumnLayout {
     required property var desktop
     property int index: 0
     property bool busy: false
+    property bool removable: false
     property string shape: Model.shapeOf(desktop.width, desktop.height)
     property int draftWidth: desktop.width
     property int draftHeight: desktop.height
     property real draftScale: desktop.scale
     onDesktopChanged: { draftWidth=desktop.width; draftHeight=desktop.height; draftScale=desktop.scale; shape=Model.shapeOf(desktop.width,desktop.height) }
     signal save(var desktop)
+    signal remove()
     spacing: 8
     Label { text: "XR-" + (root.index+1); font.bold: true }
     RowLayout {
@@ -52,7 +54,9 @@ ColumnLayout {
         }
     }
     Label { text: "Disabled scales do not produce whole logical pixels. Custom sizes must be even, 640–7680 × 480–4320."; Layout.fillWidth:true; wrapMode:Text.WordWrap; opacity:0.65 }
-    Button { text:"Save desktop"; enabled: !root.busy && Model.desktopEdit(root.draftWidth,root.draftHeight,root.draftScale)!==null; onClicked:root.save(Model.desktopEdit(root.draftWidth,root.draftHeight,root.draftScale)) }
+    RowLayout {
+        Button { text:"Save desktop"; enabled: !root.busy && Model.desktopEdit(root.draftWidth,root.draftHeight,root.draftScale)!==null; onClicked:root.save(Model.desktopEdit(root.draftWidth,root.draftHeight,root.draftScale)) }
+        Button { objectName:"removeDesktop"; text:"Remove XR-" + (root.index+1); enabled:!root.busy && root.removable; onClicked:root.remove() }
+    }
     Label { text:"Position · size in space · curvature — coming"; enabled:false; opacity:0.45 }
-    Label { text:"Add / remove desktops — coming"; enabled:false; opacity:0.45 }
 }

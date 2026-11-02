@@ -137,6 +137,11 @@ int main(int argc,char** argv) {
     valid["payload"]={{"id","12345678-1234-4234-8234-123456789abc"},{"name","XR-1"},{"index",0},{"width",1920},{"height",1080},
         {"refresh_millihz",120000},{"scale",1.0},{"x",0},{"y",0}};
     CHECK(parse_request("xrspike "+valid.dump())==valid);
+    // Any managed count up to kMaxDesktops: index 5 is XR-6; index 6 is refused.
+    static_assert(kMaxDesktops==6);
+    { auto sixth=valid; sixth["payload"]["index"]=5; sixth["payload"]["name"]="XR-6"; CHECK(parse_request("xrspike "+sixth.dump())==sixth); }
+    { auto seventh=valid; seventh["payload"]["index"]=6; seventh["payload"]["name"]="XR-7";
+      bool rejected=false; try { parse_request("xrspike "+seventh.dump()); } catch(const std::exception& e) { rejected=std::string(e.what())=="geometry"; } CHECK(rejected); }
     // Per-desktop geometry: same rules as tools/native_spike/geometry.validate_desktop.
     for(auto [w,h,sc]:std::vector<std::tuple<int,int,double>>{{3840,1080,1},{3440,1440,1.25},{2560,1440,2},{640,480,1}}) {
         auto good=valid; good["payload"]["width"]=w; good["payload"]["height"]=h; good["payload"]["scale"]=sc;
