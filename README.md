@@ -8,6 +8,18 @@ Each XR desktop now has its own placement in the glasses view: left/right and do
 
 **Qualification: offline tests only.** Covered by CTest (`view`, `ipc`), the Python suites (`tests/native_spike/test_placement.py`, `tests/xr_controller/test_state.py`), `qmltestrunner` and offscreen panel renders. It has **not** been run in the isolated VM and **not** been accepted on physical glasses: the GPU mesh path, curved-desktop readability, comfort and any frame-time cost are unmeasured. The CPU fallback renderer (no GPU composition) ignores placements. Overlapping desktops are drawn back to front by centre distance and are not split where they intersect.
 
+### Installing a build into the live panel (and rolling back)
+
+Only with Cody's approval, with no XR session running (`systemctl --user list-units 'viture-xr-*'` empty, `hyprctl plugin list` shows none):
+
+1. Back up `~/.local/share/viture-workspace/installed.json`, `~/.config/systemd/user/viture-workspace-controller.service` and the target of `~/.config/omarchy/plugins/cody.viture-workspace`.
+2. Stage the new `xr-native-spike` with the currently pinned `libxr-ownership.so` (keeps the accepted plugin binary) and run, from the checkout the controller should use: `python3 -m tools.xr_controller install --build <stage>`. This pins both files and points the controller unit at that checkout; it never enables or starts a session.
+3. Point the panel symlink at that checkout's `omarchy-plugin/cody.viture-workspace`, then `systemctl --user restart viture-workspace-controller.service`.
+4. **Run `omarchy-restart-shell`.** `omarchy-shell shell rescanPlugins` does not reload QML the shell has already loaded, so without a shell restart the panel keeps showing the old UI.
+5. Record the pinned sha256s; check the controller's command line names the intended checkout.
+
+Rollback: restore the backed-up `installed.json` and unit file, `systemctl --user daemon-reload`, point the symlink back, restart the controller, then **run `omarchy-restart-shell`** again.
+
 ## Run the diagnostic
 
 Use Python 3.10+ from the repository root; the probe uses only the standard library. No dependency installation is required. Existing host tools may be missing: diagnostics preserve uncertainty rather than installing anything.
