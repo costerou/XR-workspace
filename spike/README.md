@@ -25,3 +25,20 @@ Tests never open a real display or device. Checks stay active in Release builds.
 
 Dependencies are listed in [dependencies.md](dependencies.md); the vendored
 protocol XML provenance is in [protocols/PROVENANCE.md](protocols/PROVENANCE.md).
+
+## Placement menu overlay
+
+The supervisor owns the in-glasses placement menu (toggled with **Ctrl+Alt+L** during a run; Ctrl+Alt+P is pose
+prediction) and sends its state as a `placement_menu` control frame whenever it changes:
+`{"open": bool, "desktop": 0..2, "field": "x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature", "placements": [3 placements]}`.
+The renderer only draws it; placements are applied by the separate `placement` frame.
+
+- Looks like the help card (same font, sizes, padding, colours, fade). It shows the desktop tabs, the seven
+  settings with values and units, the selected setting highlighted, and the in-menu keys: Up/Down, Left/Right,
+  Shift for a big step, Tab, R to reset to flat, Esc to close.
+- Laid out for the output size without scaling text. Smaller outputs first move the tabs beside the title and
+  shorten the key hints. On scale-2 outputs it shows a window of rows around the selected setting, with arrows
+  where rows are hidden.
+- A frame with a malformed payload is dropped (`invalid_menu`) and the run continues. Any other malformed or
+  replayed frame still ends the run.
+- `capture_report` includes `placement_menu` (`visible`, `shown`, `hidden`, `renders`, `fits`).

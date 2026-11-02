@@ -25,7 +25,8 @@ struct HelpPayload { bool visible = false; std::vector<std::pair<std::string, st
 // order, every field an integer inside kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch = 0, roll = 0, curvature = 0; };
 struct PlacementPayload { std::vector<WirePlacement> desktops; };
-// Keyboard placement menu, display only (the supervisor owns the state and applies placements with `placement`):
+// Keyboard placement menu (Ctrl+Alt+L toggles it in the supervisor; Ctrl+Alt+P is pose prediction), display only
+// (the supervisor owns the state and applies placements with `placement`):
 // {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]},
 // placements as above. `field` is the index into that key order. open=false hides the menu. A placement_menu frame
 // whose envelope is valid but whose payload is malformed is rejected with kInvalidMenuCode; the renderer drops that

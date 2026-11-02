@@ -211,6 +211,7 @@ constexpr MenuField kMenuFields[kPlacementMenuFields] = {
     {"Yaw", "turn left or right", false, true}, {"Pitch", "tilt up or down", false, true},
     {"Roll", "tilt sideways", false, true}, {"Curvature", "", false, false}};
 // Key hints (keys, action); must match the supervisor's modal menu binds (tools/native_spike/view.py MENU_BINDS).
+// The toggle chord (Ctrl+Alt+L) is on the help card; inside the menu Esc closes it, so the footer names Esc.
 // The short set is the last resort on small outputs; it keeps every key.
 const std::vector<std::pair<std::string, std::string>> kMenuHints{
     {"Up / Down", "choose a setting"}, {"Left / Right", "adjust"}, {"Shift", "bigger steps"},
