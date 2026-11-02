@@ -1,4 +1,5 @@
 #include "xr/ipc.hpp"
+#include "video_ipc.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <set>
@@ -77,6 +78,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         ControlOp op;
         const auto name = j["op"].get<std::string>();
         if (name == "status") op = ControlOp::status;
+        else if (name == "video") op = ControlOp::video;
         else if (name == "start") op = ControlOp::start;
         else if (name == "stop") op = ControlOp::stop;
         else if (name == "select") op = ControlOp::select;
@@ -89,7 +91,11 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "placement_menu") op = ControlOp::placement_menu;
         else return invalid();
         ControlPayload payload;
-        if (op == ControlOp::select) {
+        if (op == ControlOp::video) {
+            VideoPayload video;
+            if (!decode_video_payload(j["payload"], video)) return invalid();
+            payload = std::move(video);
+        } else if (op == ControlOp::select) {
             if (j["payload"].size() != 1 || !j["payload"].contains("output_id") || !token(j["payload"]["output_id"])) return invalid();
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
         } else if (op == ControlOp::view) {

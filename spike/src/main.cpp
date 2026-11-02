@@ -2,6 +2,7 @@
 #include "xr/presentation.hpp"
 #include "xr/capture.hpp"
 #include <cerrno>
+#include <cstring>
 #include <chrono>
 #include <time.h>
 #include <charconv>
@@ -13,6 +14,8 @@
 #include <string>
 #include <vector>
 #include <sys/socket.h>
+#include <deque>
+#include <fcntl.h>
 #include <unistd.h>
 
 namespace {
@@ -100,10 +103,29 @@ int main(int argc, char** argv) {
     xr::ControlQueue queue(args["--run-id"], args["--session"]);
     (void)queue.push(raw);  // the validated start frame sets the replay floor
     std::string pending;
+    // VR video files arrive as SCM_RIGHTS descriptors with their `video` open frame (docs/vr-video.md). Each open frame
+    // takes the oldest received one; at most two wait, extras are closed, and none is ever opened by path here.
+    std::deque<int> video_fds;
+    auto receive = [&](char* buffer, std::size_t size) -> ssize_t {
+        alignas(cmsghdr) char ancillary[CMSG_SPACE(sizeof(int) * 4)];
+        iovec io{buffer, size};
+        msghdr msg{}; msg.msg_iov = &io; msg.msg_iovlen = 1; msg.msg_control = ancillary; msg.msg_controllen = sizeof(ancillary);
+        const ssize_t n = recvmsg(control, &msg, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
+        if (n < 0) return n;
+        for (cmsghdr* c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
+            if (c->cmsg_level != SOL_SOCKET || c->cmsg_type != SCM_RIGHTS) continue;
+            const std::size_t count = (c->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+            for (std::size_t i = 0; i < count; ++i) {
+                int fd; std::memcpy(&fd, CMSG_DATA(c) + i * sizeof(int), sizeof(int));
+                if (video_fds.size() < 2) video_fds.push_back(fd); else ::close(fd);
+            }
+        }
+        return n;
+    };
     auto read_control = [&]() -> bool {
         char buffer[4096];
         for (;;) {
-            const ssize_t n = recv(control, buffer, sizeof(buffer), MSG_DONTWAIT);
+            const ssize_t n = receive(buffer, sizeof(buffer));
             if (n == 0) return false;  // supervisor gone
             if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
             pending.append(buffer, std::size_t(n));
@@ -117,6 +139,23 @@ int main(int argc, char** argv) {
                     continue;
                 }
                 while (auto m = queue.pop()) {
+                    if (m->op == xr::ControlOp::video) {  // VR video, display only (video_mode.hpp)
+                        const auto& v = std::get<xr::VideoPayload>(m->payload);
+                        switch (v.action) {
+                        case xr::VideoAction::open: {
+                            if (video_fds.empty()) { std::cerr << "control: video open without a file descriptor\n"; break; }
+                            const int fd = video_fds.front(); video_fds.pop_front();
+                            presentation.video_open(fd, v.format, v.title);
+                            break;
+                        }
+                        case xr::VideoAction::close: presentation.video_close(); break;
+                        case xr::VideoAction::pause: presentation.video_pause(); break;
+                        case xr::VideoAction::seek: presentation.video_seek(v.seconds); break;
+                        case xr::VideoAction::format: presentation.video_format(v.format); break;
+                        case xr::VideoAction::controls: presentation.video_controls(v.visible); break;
+                        }
+                        continue;
+                    }
                     if (m->op == xr::ControlOp::stop) stopping = 1;
                     else if (m->op == xr::ControlOp::recenter) presentation.recenter();
                     else if (m->op == xr::ControlOp::style) {
@@ -166,6 +205,7 @@ int main(int argc, char** argv) {
         }
         if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) { result = 1; break; }
     }
+    for (int fd : video_fds) ::close(fd);
     presentation.close(); // Pending feedback becomes abandoned, never invented discard.
     std::cerr << presentation.timing_report() << '\n';
     if (!capture.empty()) std::cerr << presentation.capture_report() << '\n';

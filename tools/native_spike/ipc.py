@@ -45,6 +45,10 @@ def decode_control(raw):
     if type(rid) is not int or not 0 < rid <= 2**64 - 1: raise ValueError("invalid request id")
     token(message["run_id"]); token(message["session"])
     op, payload = message["op"], message["payload"]
+    if isinstance(op, str) and op.startswith("video_"):  # VR video (video.py): its own payload rules
+        from .video import validate_request
+        message["payload"] = validate_request(op, payload)
+        return message
     if op not in ("status", "start", "stop", "select", "recover", "zoom_in", "zoom_out", "next", "prev",
                   "spacing_up", "spacing_down", "recenter", "mode_next", "cursor_follow", "prediction", "help",
                   "placement", "menu_toggle", "menu_desktop_next", "menu_desktop_prev", "menu_field_next", "menu_field_prev",

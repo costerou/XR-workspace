@@ -58,6 +58,8 @@ Head tracking must be running before a session starts:
 python -m tools.native_spike tracking start   # also: status, stop
 ```
 
+**VR video** (offline tests only, not yet run in the glasses): during a session, **Ctrl+Alt+O** (or the panel's *VR video* section) plays a 360° or 180° video, mono or 3D (side-by-side, top-bottom), equirectangular or fisheye, head-tracked around you in place of the desktops. Space pauses, the arrows seek, Tab changes the format, Ctrl+Alt+Space recenters and Esc returns to the desktops. The renderer decodes with libmpv (`mpv` package; without it the renderer builds without video). Design, formats, limits and performance: [docs/vr-video.md](docs/vr-video.md).
+
 These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; if the run dies with the menu open, the first menu key pressed afterwards releases them.
 
 | Keys | When | Action |

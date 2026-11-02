@@ -70,7 +70,7 @@ class BindTests(unittest.TestCase):
     def test_help_bind_and_rows_cover_every_bind(self):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
-        self.assertEqual(set(view.USER_OPS) | {'menu_toggle'}, set(view.HELP_ACTIONS))
+        self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open'}, set(view.HELP_ACTIONS))  # video_open: video.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 24 rows

@@ -55,3 +55,12 @@ this pattern does not qualify those paths or sustained cadence.
 
 No configuration path installs packages, fetches network content or changes the
 desktop. No real frame-rate or tracking measurements have been made.
+
+## VR video (docs/vr-video.md)
+
+`XR_ENABLE_VIDEO` (ON by default) links the local libmpv (`mpv` package, pkg-config `mpv` >= 0.38; verified here:
+mpv 0.41.0, client API 2.5, FFmpeg n9.0) into the renderer for decoding, hardware decode selection and audio. If
+libmpv is missing, CMake warns and the renderer builds with a stub that reports "built without libmpv"; the run keeps
+its desktops. No downloads. The `video_render` test also uses the local `ffmpeg` CLI (when present) to generate its
+sample clips at test time; nothing is fetched or committed. At run time the supervisor uses `/usr/bin/ffprobe` (if
+present) to read the chosen file's format, and the Ctrl+Alt+O bind uses `/usr/bin/zenity` as the file picker.

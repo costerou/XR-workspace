@@ -36,13 +36,14 @@ MODES = ('anchor', 'follow', 'locked')  # cycle order
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
-         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'))
+         ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'),
+         ('CTRL + ALT + O', 'video_open'))  # video_open: the bind helper shows a file picker first (video.py)
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Back to the overview',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction', 'help': 'Show / hide this help',
-                'menu_toggle': 'Placement menu (arrows adjust)'}
+                'menu_toggle': 'Placement menu (arrows adjust)', 'video_open': 'Play a 180/360 VR video'}
 # Placement menu: actions (shared contract with the renderer overlay and tests) and the modal binds present only while open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
             'menu_inc_big', 'menu_dec_big', 'menu_reset')
