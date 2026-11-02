@@ -135,7 +135,8 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = std::move(placements);
         } else if (op == ControlOp::placement_menu) {
             PlacementMenuPayload menu;
-            if (placement_menu(j["payload"], menu)) payload = menu;  // else monostate: ignored by the renderer
+            if (!placement_menu(j["payload"], menu)) return Error{kInvalidMenuCode, "Ignored malformed placement_menu payload"};
+            payload = menu;
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

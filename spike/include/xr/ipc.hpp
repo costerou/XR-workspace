@@ -27,9 +27,10 @@ struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch
 struct PlacementPayload { std::vector<WirePlacement> desktops; };
 // Keyboard placement menu, display only (the supervisor owns the state and applies placements with `placement`):
 // {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]},
-// placements as above. `field` is the index into that key order. open=false hides the menu. A well-framed
-// placement_menu message whose payload is malformed decodes with a std::monostate payload: the renderer ignores it
-// (a menu redraw is not worth stopping the session for). Framing, identity and replay stay strict.
+// placements as above. `field` is the index into that key order. open=false hides the menu. A placement_menu frame
+// whose envelope is valid but whose payload is malformed is rejected with kInvalidMenuCode; the renderer drops that
+// frame and keeps running (a menu redraw is not worth ending the session for). Every other rejection still stops it.
+constexpr const char* kInvalidMenuCode = "invalid_menu";
 constexpr std::size_t kPlacementMenuDesktops = 3;
 struct PlacementMenuPayload { bool open = false; std::uint32_t desktop = 0, field = 0; std::array<WirePlacement, kPlacementMenuDesktops> placements{}; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload>;
@@ -41,6 +42,9 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu payload. It carries no
+// action, so its identity and request id are not checked and it does not advance the replay floor.
+inline bool ignorable_control_error(const Error& e) { return e.code == kInvalidMenuCode; }
 class ControlQueue {
 public:
     ControlQueue(std::string run_id, std::string session);
