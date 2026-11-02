@@ -1,79 +1,110 @@
-# VITURE workspace feasibility
+# VITURE Workspace
 
-**The XR workspace app is not implemented.** This repository currently contains a local, read-only Linux/Hyprland diagnostic. It does not create virtual monitors, capture screens, initialize an SDK, track heads, route input, or change display modes. Beast and Luma Ultra support has not been established.
+A local XR desktop for Omarchy/Hyprland on VITURE Beast and Luma Ultra glasses. It creates independent virtual desktops (three 1080p outputs by default), captures only those outputs, and renders them in the glasses with 3DoF head tracking. You start and control a session from an Omarchy shell panel, or with Ctrl+Alt keybinds while a session runs.
 
-## Run the diagnostic
+## Status
 
-Use Python 3.10+ from the repository root; the probe uses only the standard library. No dependency installation is required. Existing host tools may be missing: diagnostics preserve uncertainty rather than installing anything.
+Every claim in this repo says whether it comes from offline tests, an isolated VM, or the physical glasses. Passing tests or a VM trial is not physical acceptance.
 
-```sh
-python -m tools.xr_probe --help
-python -m tools.xr_probe --list-sessions
-python -m tools.xr_probe --instance INSTANCE --output-dir docs/feasibility
-```
-
-Replace `INSTANCE` with the **literal observed identifier** from `--list-sessions`. Only a session classified `physical` may be selected. Without `--instance`, collection is permitted only when exactly one physical candidate exists and no unknown candidate makes selection ambiguous. Headless-only sessions are never selected. Session listing prints JSON with identifiers and classifications, does not collect USB/DRM/host metadata, and cannot be combined with collection options.
-
-Reports are `host-report.json` (schema version 1) and `host-report.md` (escaped human-readable inventory). The collection timestamp is actual UTC wall-clock time at report construction, not a performance measurement. Reports are sanitized: no window titles, serial-number fields, process/socket/instance identifiers, raw error output, or environment dump is persisted. Listing identifiers to the local terminal is intentional for explicit selection.
-
-### Exit codes
-
-| Code | Meaning |
+| Area | Evidence |
 | --- | --- |
-| `0` | Reports collected with successful top-level USB/DRM inventories, or session listing/help succeeded. Missing glasses and unknown optional metadata can still return 0. This is **not** a support or performance verdict. |
-| `2` | Invalid/missing arguments; ambiguous, absent, nonphysical, or unmatched session selection; existing report without `--overwrite`; unsafe report target; or existing writer/recovery lock. |
-| `3` | Session discovery failed, required top-level inventory failed, host collection raised an error, or output-directory/report writing failed. When an inventory returns a failure status, a sanitized partial report is still written and exit code is 3. Other failures may produce no reports. |
+| Managed virtual desktops, capture, rendering, viewing modes, zoom/switch controls, pose prediction, theme-reload survival | Physical runs on Luma Ultra through the `tools.native_spike` CLI. The `mod1` run presented ~119.9 Hz over 168 s on the zero-copy dmabuf path. The `trk1` run held ~119.8 Hz for 214 s with 0 tracking losses. These measure presentation cadence only, not latency or long-session comfort. |
+| Settings panel and controller service | VM-qualified. The first physical Luma panel sessions failed before the renderer launched (mode readback, then `Errno 11`). Fixes landed afterward (`8538468`, `4cfa04d`, `d9fbb28`), but physical panel acceptance has not passed yet. |
+| Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
+| Not built yet | Per-desktop position, curvature and rotation; more or fewer than three desktops; resizing while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
-Per-field unknown/missing/error statuses do not necessarily fail the top-level inventory: inspect the report, not just the exit code. Optional architecture/GPU/version probe failures stay unknown and do not by themselves change a successful collection exit code.
+## How it fits together
 
-### Preserve previous evidence
+- `spike/` is the C++20 renderer (`xr-native-spike`), a layer-shell client that draws the captured desktops in the glasses. `spike/ownership/` is a small Hyprland plugin (`libxr-ownership.so`). It creates and removes the managed `XR-n` outputs through object-bound handles and epochs, never by name alone.
+- `tools/native_spike/` holds the Python supervisor: consent, durable journal, managed output lifecycle, recovery, view controls and the tracking driver wrapper.
+- `tools/xr_controller/` is a `systemd --user` controller service. It owns glasses detection, per-glasses profiles, consent and the run lifecycle. Each run is a separate transient unit, so a shell restart cannot kill it.
+- `omarchy-plugin/cody.viture-workspace/` is the Quickshell panel and bar widget. It is a thin client of the controller socket.
+- `tools/xr_probe/` is the original read-only host diagnostic (see below).
 
-Existing reports are refused unless explicitly authorized:
+Head tracking comes from XRLinuxDriver (`/usr/bin/xrDriver`), run in an unprivileged network namespace in `external_only` mode so it cannot reach the network or move the mouse.
+
+## Build and install
+
+The ownership plugin is ABI-pinned to the installed Hyprland and Aquamarine. Rebuild it after either one updates.
 
 ```sh
-# Review and commit the old evidence in Git before replacement.
-python -m tools.xr_probe --instance INSTANCE --output-dir docs/feasibility --overwrite
+cmake -S spike -B build/release -DCMAKE_BUILD_TYPE=Release \
+  -DXR_ENABLE_HARDWARE=OFF -DXR_ENABLE_SDK=OFF -DXR_ENABLE_OWNERSHIP_PLUGIN=ON
+cmake --build build/release -j
+ctest --test-dir build/release --output-on-failure
+
+# Pin the renderer and plugin by hash under ~/.local/share/viture-workspace/bin/
+# and write the user unit. The controller only launches pinned copies.
+python -m tools.xr_controller install --build build/release
+
+ln -s "$PWD/omarchy-plugin/cody.viture-workspace" ~/.config/omarchy/plugins/
+omarchy-shell shell rescanPlugins
 ```
 
-Prefer separate directories for later pair-specific collections so the baseline remains intact. Only perform those collections after the user confirms which pair is connected; the baseline does not establish either pair's identity.
+`install` writes `viture-workspace-controller.service` but does not enable it. Start it with `systemctl --user start viture-workspace-controller.service`, or run `python -m tools.xr_controller serve` in the foreground. The service never starts an XR session by itself.
 
-Both new files are completely staged and fsynced before either destination is replaced. Each replacement is atomic; on ordinary write/rename failure the old pair is restored (or newly created partial output removed). A `.xr-probe.lock` directory serializes cooperating CLI writers. Report symlinks and non-regular targets are refused even with `--overwrite`. Use a local filesystem supporting hard links and atomic rename, and a trusted output directory.
+## Use
 
-**The pair is not a single filesystem transaction.** Readers should wait for the CLI to finish. Power loss, forced termination, external writers ignoring the lock, or a second failure during rollback can leave a mixed pair. The lock/staging directory retains backups when rollback fails; inspect/recover those before removing the lock or running again. Do not blindly delete recovery files. Git remains the durable history, not the temporary rollback mechanism.
+Open the VITURE Workspace panel with the glasses connected. Choose the shape, resolution and scale of each desktop, then press **Start XR session**. That confirmation click is the consent for one run, including any temporary display-mode switch (for example Luma 1920×1200@120). **Stop** returns every window to the physical fallback output. **Recover** appears if an earlier run left resources behind.
 
-## What the evidence means
+Head tracking must be running before a session starts:
 
-- USB discovery matches vendor `35ca` without guessing Beast/Luma Ultra from a product ID. Successful empty USB inventory means no matching USB device was observed, not proof that no glasses/display transport exists.
-- DRM lists connector status and mode names. Mode names without refresh information do not establish 120 Hz support.
-- Hyprland active width/height/refresh is compositor-reported state, **not measured presentation or sustained refresh**. A desktop monitor reporting a refresh rate is not attributed to glasses.
-- Available refresh-bearing modes and USB/DRM/output-to-glasses associations are not collected automatically by the current session probe; its report fields remain unknown. Separately collected, user-confirmed pair observations below supply supplemental mode tokens and pair attribution, not a general association algorithm.
-- Tracking quality and sustained 120 Hz always remain untested; no SDK or timing measurements occur.
-- Host metadata uses only existing allowlisted `uname -m`, filtered `lspci` GPU lines, selected-instance `hyprctl version -j`, and `pkg-config --modversion libdrm`. Hyprland's value is its runtime version; libdrm's is development metadata, not a package-manager release. Mesa, Linux package, and nvidia-utils versions remain unknown rather than guessed from unrelated sources.
+```sh
+python -m tools.native_spike tracking start   # also: status, stop
+```
 
-The versioned baseline in `docs/feasibility/host-report.{json,md}` was collected on **2026-10-31 at 15:09:31 UTC**. It observed one physical Samsung Odyssey G93SD output at compositor-reported 5120×1440 / 240 Hz, and no matching VITURE USB device. This is host-only evidence, not a Beast or Luma Ultra acceptance result. At baseline collection time, pair-specific enumeration was still pending; that historical snapshot remains unchanged.
+These keybinds exist only during a run:
 
-**Current stage: milestone A read-only pair enumeration and backend decision are complete; milestone B is a future, unapproved execution plan.** See:
+| Keys | Action |
+| --- | --- |
+| Ctrl+Alt+Up / Down | Zoom into the selected desktop / back to the overview |
+| Ctrl+Alt+Left / Right | Previous / next desktop |
+| Ctrl+Alt+[ / ] | Less / more space between desktops |
+| Ctrl+Alt+Space | Recenter |
+| Ctrl+Alt+V | Cycle viewing mode: anchor (3DoF), follow, locked (0DoF) |
+| Ctrl+Alt+F | Toggle cursor follow |
+| Ctrl+Alt+P | Toggle pose prediction (on by default) |
+| Ctrl+Alt+H | Show the help card in the glasses |
 
-- [Luma Ultra observations and report](docs/feasibility/luma-ultra/): active compositor-reported **1920×1080 at 60 Hz**; a separate explicit-session observation advertised `1920x1200@120.00Hz`, **not 1080p120**. The CLI did not collect those available-mode tokens.
-- [Connected Beast observations and report](docs/feasibility/beast-connected/): active compositor-reported **1920×1080 at 120 Hz**, not measured XR presentation cadence. Supplemental advertisements distinguish `120.00Hz` from `119.88Hz`.
-- [First, unsuccessful Beast enumeration](docs/feasibility/beast/): retained separately; no matching USB device or second display was observed in that attempt.
-- [Backend decision and outstanding gates](docs/feasibility/backend-decision.md) and [future native-spike plan](docs/superpowers/plans/2026-10-31-viture-native-spike.md).
-
-Tracking, sustained presentation/performance and runtime integration remain **untested and unapproved**. No native spike, SDK initialization, input monitoring or device/mode change is authorized by these documents or by passing the diagnostic tests.
+Settings are saved per glasses model.
 
 ## Tests
 
-Canonical full-suite command (root discovery does not find this suite):
+Bare `python -m unittest` from the root finds nothing. Run each suite explicitly:
 
 ```sh
 python -m unittest discover -s tests/probe -v
+python -m unittest discover -s tests/native_spike -v
+python -m unittest discover -s tests/xr_controller -v
+python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
+ctest --test-dir build/release --output-on-failure
 ```
 
-CLI-only tests:
+Tests use synthetic collectors, fake sockets and temporary directories. They never open a real display or device, and their output is never published as host evidence. Build and link success does not show that the plugin loads at runtime against the installed compositor.
+
+## Safety boundaries
+
+- Nothing touches the glasses or the live desktop without explicit consent for that run.
+- Intent is journaled before any mutation, and actual state is read back before a step counts as confirmed. Recovery keeps ambiguous or user-modified resources and reports incomplete recovery instead of deleting them.
+- Capture is limited to the run's own `XR-n` outputs and stays in memory. There is no general desktop capture, input injection or vendor SDK.
+- Display-mode switches are runtime only. Saved monitor configuration is never edited.
+- The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
+
+## Host diagnostic (`xr_probe`)
+
+The read-only probe from the feasibility phase. It needs Python 3.10+ and only the standard library, and it installs nothing.
 
 ```sh
-python -m unittest discover -s tests/probe -p 'test_cli.py' -v
-python -m compileall -q tools/xr_probe tests/probe
+python -m tools.xr_probe --list-sessions
+python -m tools.xr_probe --instance INSTANCE --output-dir OUTPUT_DIR
 ```
 
-Tests inject explicitly synthetic collectors and use temporary directories; their reports are never published as real host evidence. Live reports must be generated through the CLI. No package installation, udev edits, service shutdown, firmware update, display reconfiguration, screen capture, or hardware connection prompt is part of this baseline diagnostic.
+Pass the literal identifier from `--list-sessions`. Only a session classified `physical` can be selected. Without `--instance`, collection runs only when there is exactly one physical candidate and no unknown one. The probe writes sanitized `host-report.json` and `host-report.md`: no window titles, serial numbers, process or socket identifiers, raw errors or environment.
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Reports written with successful USB/DRM inventories, or listing/help succeeded. This is not a support or performance verdict, and missing glasses can still return 0. |
+| `2` | Bad arguments, ambiguous or nonphysical selection, an existing report without `--overwrite`, an unsafe target, or a held lock. |
+| `3` | Discovery, required inventory, host collection or report writing failed. A sanitized partial report may still be written. |
+
+Existing reports are refused unless you pass `--overwrite`. Commit the old evidence first, or write later collections to a separate directory. The two report files are replaced one at a time, not as one transaction, so an interrupted run can leave a mixed pair. If rollback fails, backups stay in the `.xr-probe.lock` directory; recover them before removing it.
