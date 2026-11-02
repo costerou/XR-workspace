@@ -71,6 +71,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "style") op = ControlOp::style;
         else if (name == "help") op = ControlOp::help;
         else if (name == "placement") op = ControlOp::placement;
+        else if (name == "placement_menu") op = ControlOp::placement_menu;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
@@ -117,6 +118,23 @@ Result<ControlMessage> decode_control(std::string_view frame) {
                 placements.desktops.push_back(w);
             }
             payload = std::move(placements);
+        } else if (op == ControlOp::placement_menu) {
+            const auto& p = j["payload"];
+            if (p.size() != 4 || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") || !p["desktop"].is_number_unsigned() ||
+                p["desktop"].get<std::uint64_t>() > 2 || !p.contains("field") || !p["field"].is_string() || !p.contains("placements") ||
+                !p["placements"].is_array() || p["placements"].size() != 3) return invalid();
+            PlacementMenuPayload menu{p["open"].get<bool>(), p["desktop"].get<std::uint32_t>(), 0, {}};
+            const auto& field = p["field"].get_ref<const std::string&>();
+            const auto* names = std::begin(kPlacementFieldNames);
+            const auto* found = std::find_if(names, std::end(kPlacementFieldNames), [&](const char* n) { return field == n; });
+            if (found == std::end(kPlacementFieldNames)) return invalid();
+            menu.field = std::uint8_t(found - names);
+            for (const auto& d : p["placements"]) {
+                WirePlacement w;
+                if (!placement(d, w)) return invalid();
+                menu.placements.push_back(w);
+            }
+            payload = std::move(menu);
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }
