@@ -58,7 +58,8 @@ class ViewStateTests(unittest.TestCase):
     def test_user_ops_decode_and_others_rejected(self):
         from tools.native_spike import xr_control
         from tools.native_spike import resize
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS)  # bind helper and supervisor agree
+        from tools.native_spike import send
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS)  # bind helper and supervisor agree
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()
@@ -177,7 +178,8 @@ class HyprlandViewRequestTests(unittest.TestCase):
         c.remove_view_binds()
         self.assertEqual(sent[0], '/dispatch hl.dsp.focus({monitor="XR-3"})')
         self.assertTrue(sent[1].startswith('/eval local c = "') and ' xr_workspace_binds = {' in sent[1])
-        self.assertEqual(sent[2], '/eval ' + view.remove_binds_lua())
+        self.assertIn(' xr_workspace_send_binds = {', sent[2])  # send-window binds: their own eval
+        self.assertEqual(sent[3], '/eval ' + view.remove_binds_lua())
         for bad in ('dispatch hl.dsp.focus({monitor="DP-1"})', 'dispatch hl.dsp.exec_cmd("x")', 'eval os.execute("x")'):
             with self.assertRaises(ValueError): c.mutate(bad)
         c._request = lambda wire: b'some lua error'
@@ -253,7 +255,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertTrue(shown['payload']['visible'])
         self.assertEqual([r[0] for r in shown['payload']['rows']],
                          [view.chord_label(ch) for ch, _ in view.BINDS] + [k for k, _ in view.EXTRA_HELP_ROWS])
-        self.assertIn(['Ctrl+Alt+H', 'Show / hide this help'], shown['payload']['rows'])
+        self.assertIn(['Ctrl+Alt+H', 'Help; Ctrl+Alt+G/B: window to glasses/back'], shown['payload']['rows'])
         hidden = json.loads(c.on_message({'op': 'help'}))
         self.assertFalse(hidden['payload']['visible'])
         self.assertGreater(hidden['request_id'], shown['request_id'])
@@ -401,12 +403,13 @@ class ConfigReloadTests(unittest.TestCase):
         client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
         client._eval = sent.append
         client.reinstall_view_binds('/usr/bin/python3', '/opt/x/xr_control.py', '/run/user/1000/x/control.sock', 'run', 'session')
-        self.assertEqual(len(sent), 1)
+        self.assertEqual(len(sent), 2)  # the view binds in one eval, then the send-window binds (send.py) in their own
         self.assertLess(sent[0].index('HL.Keybind(expired)'), sent[0].index('hl.bind('))
         self.assertLessEqual(len(sent[0]), 4096)
         self.assertEqual(sent[0].count('hl.bind('), len(view.BINDS))
+        self.assertLess(sent[1].index('HL.Keybind(expired)'), sent[1].index('hl.bind('))
         client.restore_session_mode(view.session_mode(self.MON))
-        self.assertIn('1920x1200@120', sent[1])
+        self.assertIn('1920x1200@120', sent[2])
 
 class StatusReplyTests(unittest.TestCase):
     def test_status_op_reply_shape(self):

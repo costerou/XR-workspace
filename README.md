@@ -72,6 +72,9 @@ These keybinds exist only during a run. The keys marked "menu open" are bound on
 | Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | run | Show the help card in the glasses |
 | Ctrl+Alt+L | run | Open / close the placement menu in the glasses |
+| Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
+| Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
+| Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
 | Tab / Shift+Tab | menu open | Next / previous desktop |
 | Up / Down | menu open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
 | Left / Right | menu open | Decrease / increase the field by a small step (Shift for a big step) |
@@ -87,6 +90,26 @@ Menu changes apply immediately and are saved to the glasses profile half a secon
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
+
+### Sending windows to the glasses
+
+During a run, focus a window on your monitor and press **Ctrl+Alt+G**. It moves to the desktop selected in the glasses
+view: the one you are zoomed into, or the one highlighted in the overview (Ctrl+Alt+Left / Right change it). **Ctrl+Alt+1**,
+**2** or **3** send it to XR-1, XR-2 or XR-3 instead, whichever is selected. The digits are bound by keycode, like
+Omarchy's workspace keys, so they work on any keyboard layout. **Ctrl+Alt+B** sends the focused window back from the
+glasses to the physical monitor, the same output Stop and Recover return windows to. In every case the window lands on
+the workspace that output is showing, and keyboard focus goes with it.
+
+Pinned windows are refused with a short desktop notification: a pinned window on an XR desktop would stop recovery from
+moving that desktop's windows back. Unpin it first. Pressing a send key for a desktop the session doesn't have
+(Ctrl+Alt+3 with two desktops), with no focused window, or Ctrl+Alt+B on a window that isn't in the glasses also only
+shows a notification. Like the other run keys, these are bound only while a session runs and are removed when it ends.
+Stop and Recover still return every window, including the ones you sent, to the physical monitor. A move already in
+flight when you press Stop finishes before recovery starts, and none starts after. If a run dies and leaves its binds
+behind, a send key shows "No XR session is running" and moves nothing.
+
+The help card has no room for a 13th row (12 rows are 945 px of the 960 px surface), so its Ctrl+Alt+H row reads
+"Help; Ctrl+Alt+G/B: window to glasses/back". The numbered keys are listed only here.
 
 ### Resizing desktops in the overview
 
@@ -149,13 +172,13 @@ python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
 ctest --test-dir build/release --output-on-failure
 ```
 
-Check that this project's run, menu and mouse-mode binds clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
+Check that this project's run, send-window, menu and mouse-mode binds clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
 ```sh
 python -m tools.native_spike.bind_check
 ```
 
-It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads.
+It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. A digit and its keycode (`1` and `code:10`, the way Omarchy binds workspace digits) count as the same key. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads.
 
 Tests use synthetic collectors, fake sockets and temporary directories. They never open a real display or device, and their output is never published as host evidence. Build and link success does not show that the plugin loads at runtime against the installed compositor.
 
@@ -165,6 +188,9 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 - Intent is journaled before any mutation, and actual state is read back before a step counts as confirmed. Recovery keeps ambiguous or user-modified resources and reports incomplete recovery instead of deleting them.
 - Capture is limited to the run's own `XR-n` outputs and stays in memory. There is no general desktop capture, input injection or vendor SDK.
 - Display-mode switches are runtime only. Saved monitor configuration is never edited.
+- The send-window keys (Ctrl+Alt+G, 1-3, B) move only the focused window, by address, onto the active regular workspace
+  of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
+  windows are refused, so recovery can always move the XR desktops' windows back.
 - Run binds use Ctrl+Alt chords. The only unmodified binds are modal: the placement menu's keys while it is open, and
   the left button while the pointer is on a desktop corner in the overview (corner resize). Both are removed when no
   longer needed.

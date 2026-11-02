@@ -14,7 +14,8 @@ import time
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back', 'menu_mouse_press',
-       'menu_mouse_release', 'resize_press', 'resize_release')  # view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS
+       'menu_mouse_release', 'resize_press', 'resize_release', 'send_glasses', 'send_glasses_1', 'send_glasses_2',
+       'send_glasses_3', 'send_back')  # view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS + send.SEND_OPS
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 # Same text as view.remove_menu_binds_lua() (tests compare); duplicated because this helper is stdlib-only under -I.
@@ -48,6 +49,25 @@ def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
         return False
 
 
+# A send key (send.SEND_OPS) with no run listening: say so; nothing moves. Stdlib only, like the rest of this helper.
+NO_SESSION = 'No XR session is running; the window stays where it is.'
+
+
+def notify_no_session(environ=os.environ, run=None):
+    """Best-effort desktop notification; fixed argv, no shell, never raises."""
+    import shutil
+    import subprocess
+    binary = shutil.which('notify-send', path=environ.get('PATH') or '/usr/bin:/bin')
+    if not binary: return False
+    try:
+        (run or subprocess.run)([binary, '--app-name', 'VITURE Workspace', '--expire-time', '4000', 'VITURE Workspace',
+                                 NO_SESSION], timeout=2, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, check=False)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def main(argv):
     if len(argv) != 5: return 2
     path, run_id, session, op = argv[1:]
@@ -60,6 +80,7 @@ def main(argv):
     except OSError:
         if op.startswith('menu_'): drop_stale_menu_binds()  # incl. Escape (menu_toggle); harmless if none are left
         if op.startswith('resize_'): drop_stale_menu_binds(code=REMOVE_RESIZE_BINDS)  # give the left button back
+        if op.startswith('send_'): notify_no_session()  # nothing moves
         return 1
     return 0
 
