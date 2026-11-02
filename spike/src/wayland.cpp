@@ -460,6 +460,7 @@ struct Presentation::Impl : SurfaceRequests {
         zwlr_layer_surface_v1_ack_configure(layer, serial);
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
+        s.help.set_viewport(w, h);  // the help card's text size comes from the output height
         if (s.gl) s.gl->resize(w, h);
         s.half_w = 0;  // recompute FOV split for the new aspect
     }

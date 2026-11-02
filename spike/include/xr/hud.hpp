@@ -14,8 +14,11 @@
 namespace xr {
 // Premultiplied RGBA8, row 0 at the top, one texel per output pixel.
 struct HudImage { std::uint32_t width = 0, height = 0; std::vector<std::uint8_t> rgba; };
-// `scale` is a relative size step (1 small, 2 normal, 4 large); `bold` uses the font's bold face.
-struct HudLine { std::string text; std::uint32_t scale = 1; std::array<float, 3> color{1, 1, 1}; bool bold = false; };
+// `scale` is a relative size step (1 small, 2 normal, 4 large); `bold` uses the font's bold face. `px`, when set,
+// is the exact em size in pixels instead (the pixel font takes the nearest whole zoom, at least 1).
+struct HudLine {
+    std::string text; std::uint32_t scale = 1; std::array<float, 3> color{1, 1, 1}; bool bold = false; std::uint32_t px = 0;
+};
 
 // Installed scalable font, looked up by exact family name. Not thread-safe; one per renderer.
 class HudFont {
@@ -85,8 +88,18 @@ private:
 // Keyboard help (Ctrl+Alt+H): a centred card listing every bind, toggled by the supervisor.
 // Fades in/out with an eased curve and a small rise; toggling mid-fade reverses from the
 // current opacity instead of jumping.
+// Fit: the card keeps the menu's chrome (padding, border, radius, colours) but has its own, more compact text sizes and
+// gaps. Given the output surface (`max_width` x `max_height`, 0 = unbounded) it takes the largest text size (row em
+// kHelpRowPxMax down to kHelpRowPxMin) whose card leaves kHudFitMargin free on every side, so it never clips at any
+// output scale; if even the smallest does not fit, the smallest is used (fits=false).
 struct HelpRow { std::string keys, action; };
-HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font = nullptr);
+constexpr std::uint32_t kHudFitMargin = 34;  // free space the help card leaves on every side of the output (= its padding)
+constexpr std::uint32_t kHelpRowPxMax = 30, kHelpRowPxMin = 18;  // row text em size in pixels, roomiest / smallest
+struct HelpCardFit { std::uint32_t width = 0, height = 0, row_px = 0; bool fits = false; };
+HelpCardFit help_card_fit(const std::vector<HelpRow>& rows, const HudFont* font = nullptr, std::uint32_t max_width = 0,
+                          std::uint32_t max_height = 0);
+HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3> accent, const HudFont* font = nullptr,
+                          std::uint32_t max_width = 0, std::uint32_t max_height = 0);
 constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
 // Image-retention protection for the centred help card and the placement panels (glass.hpp) on the glasses' micro-OLED panels:
 // dimmed text and accent (see hud.cpp kCardText) and an idle auto-close. The cards never move while shown.
@@ -128,6 +141,8 @@ public:
     // Returns true if visibility changed.
     bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms);
     void set_font(std::unique_ptr<HudFont> font);
+    // Output surface size the card must fit (0 = unbounded); a rendered card is laid out again when it changes.
+    bool set_viewport(std::uint32_t width, std::uint32_t height);
     bool visible() const { return fade_.visible(); }
     std::uint64_t shown_count() const { return shown_; }
     std::uint64_t hidden_count() const { return hidden_; }
@@ -139,7 +154,9 @@ public:
 private:
     CardFade fade_{kHelpFadeInMs, kHelpFadeOutMs};
     std::uint64_t shown_ = 0, hidden_ = 0;  // actual visibility changes, diagnostic only
+    void render();                           // rows_ for the viewport, bumps generation_
     std::vector<HelpRow> rows_;
+    std::uint32_t max_w_ = 0, max_h_ = 0;
     std::uint64_t generation_ = 0;
     HudImage image_;
     std::unique_ptr<HudFont> font_;

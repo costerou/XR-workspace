@@ -202,6 +202,13 @@ if(XR_ENABLE_PRESENTATION)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
   add_test(NAME hud COMMAND hud_test)
+  # Help card fit (Ctrl+Alt+H): sized from the output so it never clips, at every scale up to 2.
+  add_executable(help_card_test tests/help_card_test.cpp)
+  target_link_libraries(help_card_test PRIVATE xr_hud)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(help_card_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME help_card COMMAND help_card_test)
   # Glass pills (glass.hpp): geometry, look, panel content, animation.
   add_executable(glass_test tests/glass_test.cpp)
   target_link_libraries(glass_test PRIVATE xr_hud)

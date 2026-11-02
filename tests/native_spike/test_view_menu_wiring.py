@@ -251,7 +251,7 @@ class OverlayIdleCloseTests(unittest.TestCase):
         import re
         found = re.findall(r'constexpr std::uint32_t kOverlayIdleCloseS = (\d+);', (root / 'spike/include/xr/hud.hpp').read_text())
         self.assertEqual([int(v) for v in found], [self.IDLE])
-        footer = re.search(r'render_help_card\(.*?draw_centered\(im, footer', (root / 'spike/src/hud.cpp').read_text(), re.S).group(0)
+        footer = re.search(r'HelpLayout layout_help\(.*?L\.footer = cell\(.*?;', (root / 'spike/src/hud.cpp').read_text(), re.S).group(0)
         self.assertIn('std::to_string(kOverlayIdleCloseS)', footer)
 
     def test_supervisor_sends_idle_close_frames_to_the_renderer(self):

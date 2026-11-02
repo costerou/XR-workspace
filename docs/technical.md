@@ -131,7 +131,7 @@ The mode is part of the renderer's `view` payload (`typing`). Each switch shows 
 1.5 s hold, fade out), drawn in the cards' dimmed colours and accent so nothing on it passes 191/255. Nothing stays
 on screen in either mode. The mode is never saved. Ctrl+Alt+T is free in Omarchy, which binds Super+Ctrl+Alt+T (a
 different chord), and in this project's binds; `python -m tools.native_spike.bind_check` checks it against your config.
-To fit the help card's 12 rows, Ctrl+Alt+F and Ctrl+Alt+P now share one row ("Ctrl+Alt+F / P").
+Ctrl+Alt+F and Ctrl+Alt+P share one help card row ("Ctrl+Alt+F / P").
 
 ### Head tracking from the command line
 
@@ -166,8 +166,8 @@ Stop and Recover still return every window, including the ones you sent, to the 
 flight when you press Stop finishes before recovery starts, and none starts after. If a run dies and leaves its binds
 behind, a send key shows "No XR session is running" and moves nothing.
 
-The help card has no room for a 13th row (12 rows are 945 px of the 960 px surface), so its Ctrl+Alt+H row reads
-"Help; Ctrl+Alt+G/B: window to glasses/back". The numbered keys are listed only here.
+The help card's Ctrl+Alt+H row reads "Help; Ctrl+Alt+G/B: window to glasses/back". The numbered keys are listed only
+here.
 
 ### The overview free pointer
 
@@ -282,6 +282,11 @@ Until 2026-11-02 the move handle was a thin grey bar 4 px tall, drawn above each
 desktop replaced it. The wire op (`move_handle`) and the move maths (snap, overlap guard, reach) are unchanged; only
 the 4 px click threshold is new.
 
+The help card (Ctrl+Alt+H) sizes its text from the output height: row text 30 px at 1920x1200 @1.25, where 12 rows
+take 738 of 960 px and 15 would fit, stepping down to 18 px on smaller outputs, so it never clips at any scale up to 2.
+It keeps the card chrome (padding, border, radius, dimmed colours) and is laid out again whenever the output is
+reconfigured.
+
 ### Placement pills
 
 You can also place desktops from inside the glasses, without the settings panel. In the overview, each desktop has a
@@ -384,7 +389,9 @@ animation, held until the overview is reached, the draw order and a held slider'
 against its CPU mirror over black and over a bright desktop, and the cap over black, on a surfaceless EGL context; it
 reports skipped, exit 77, where EGL or GLES is missing) and `glass_contract` (runs `glass_geometry_dump` and checks that
 `tools/native_spike/free_pointer.py` uses the same pill and panel geometry). `menu_geometry_contract` and
-`placement_menu_style` were removed with the head-locked menu card.
+`placement_menu_style` were removed with the head-locked menu card. `help_card` (`spike/tests/help_card_test.cpp`) took over the help card's fit checks: the real rows and three more fit
+1920×1200 @1.25 at full size with nothing clipped, the card fits at every scale from 1 to 2, its text only shrinks as the
+output gets shorter, and it is laid out again when the output size changes.
 
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 

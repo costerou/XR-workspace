@@ -45,10 +45,10 @@ class ChordTests(unittest.TestCase):
             decode_control((json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': view.TYPING_OP,
                                         'payload': {'on': True}}) + '\n').encode())
 
-    def test_help_card_lists_it_and_still_has_twelve_rows(self):
+    def test_help_card_lists_it_and_fits(self):
         rows = view.help_rows()
         self.assertIn(['Ctrl+Alt+T', 'Typing mode: XR keys off / on'], rows)
-        self.assertLessEqual(len(rows), 12)  # a 13th row does not fit the 960 px surface
+        self.assertLessEqual(len(rows), 15)  # 15 rows fit the 960 px surface at full size (spike/tests/help_card_test.cpp)
         self.assertIn(['Ctrl+Alt+F / P', 'Toggle cursor follow / prediction'], rows)  # the pair that made room
 
     def test_readme_and_technical_docs_name_the_key(self):
