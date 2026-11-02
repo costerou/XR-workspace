@@ -1,4 +1,4 @@
-![VITURE Workspace: three virtual desktops, XR-1 to XR-3, floating in a curved arc in front of a pair of XR glasses](assets/hero.svg)
+<p align="center"><img src="assets/logo.svg" width="420" alt="VITURE Workspace logo"></p>
 
 # VITURE Workspace
 
