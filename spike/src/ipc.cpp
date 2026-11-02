@@ -55,6 +55,18 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
         if (!placement(p["placements"][i], out.placements[i])) return false;
     return true;
 }
+constexpr const char* kHandleCorners[] = {"tl", "tr", "bl", "br"};
+bool resize_handle(const Json& p, ResizeHandlePayload& out) {
+    if (!p.is_object() || p.size() != 4 || !p.contains("visible") || !p["visible"].is_boolean() || !p.contains("active") ||
+        !p["active"].is_boolean() || !p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() > 2 ||
+        !p.contains("corner") || !p["corner"].is_string())
+        return false;
+    const auto& corner = p["corner"].get_ref<const std::string&>();
+    const auto* named = std::find(std::begin(kHandleCorners), std::end(kHandleCorners), corner);
+    if (named == std::end(kHandleCorners)) return false;
+    out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), std::uint32_t(named - std::begin(kHandleCorners)), p["active"].get<bool>()};
+    return true;
+}
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
     if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid();
@@ -87,6 +99,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "help") op = ControlOp::help;
         else if (name == "placement") op = ControlOp::placement;
         else if (name == "placement_menu") op = ControlOp::placement_menu;
+        else if (name == "resize_handle") op = ControlOp::resize_handle;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::select) {
@@ -137,6 +150,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             PlacementMenuPayload menu;
             if (!placement_menu(j["payload"], menu)) return Error{kInvalidMenuCode, "Ignored malformed placement_menu payload"};
             payload = menu;
+        } else if (op == ControlOp::resize_handle) {
+            ResizeHandlePayload handle;
+            if (!resize_handle(j["payload"], handle)) return Error{kInvalidHandleCode, "Ignored malformed resize_handle payload"};
+            payload = handle;
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

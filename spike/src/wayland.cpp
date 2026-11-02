@@ -198,7 +198,8 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     PlacementMenuOverlay menu; // keyboard placement menu (supervisor-owned state)
     bool menu_drawn = false;   // last frame showed the menu: draw once more so it clears
-    OrbitOffset drawn_orbit;   // pixel-orbit offset of the last drawn help card / menu
+    OrbitOffset drawn_orbit;   // pixel-orbit offset of the last drawn help card / menu / resize handle
+    struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
     bool fov_from_driver = false;
@@ -554,6 +555,7 @@ std::string Presentation::capture_report() const {
            ",\"shown\":" + std::to_string(impl_->menu.shown_count()) + ",\"hidden\":" + std::to_string(impl_->menu.hidden_count()) +
            ",\"renders\":" + std::to_string(impl_->menu.render_count()) +
            ",\"fits\":" + (impl_->menu.fits() ? "true" : "false") + "}";
+    out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     const auto mode = impl_->modes.mode();
     out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
@@ -706,6 +708,13 @@ void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>
     ++impl_->placement_updates;
     impl_->cadence.invalidate();
 }
+void Presentation::set_resize_handle(bool visible, std::uint32_t desktop, std::uint32_t corner, bool active) {
+    if (!impl_) return;
+    auto& h = impl_->handle;
+    if (visible && !h.visible) ++h.shown;
+    h.visible = visible; h.desktop = desktop; h.corner = corner; h.active = active;
+    impl_->cadence.invalidate();
+}
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
                             bool prediction) {
@@ -722,7 +731,8 @@ Status Presentation::draw_test_pattern() {
     if (!impl_ || !impl_->configured || impl_->closed) return Error{"state", "surface not configured"};
     auto& s = *impl_;
     // A shown card moves one pixel every kOrbitStepMs even in a still scene (no tracking, no new captures).
-    if ((s.help.visible() || s.menu.visible()) && overlay_orbit(double(monotonic_ms())) != s.drawn_orbit) s.cadence.invalidate();
+    if ((s.help.visible() || s.menu.visible() || s.handle.visible) && overlay_orbit(double(monotonic_ms())) != s.drawn_orbit)
+        s.cadence.invalidate();
     if (!s.cadence.ready(monotonic_ms(), true, s.metrics.can_submit())) return {};
     if (s.gl) {
         for (std::size_t i = 0; i < s.captures.size(); ++i) {
@@ -790,6 +800,9 @@ Status Presentation::draw_test_pattern() {
         const float menu = s.menu.alpha(help_now);
         s.gl->set_menu(menu > 0.f ? &s.menu.image() : nullptr, s.menu.generation(), menu, s.menu.offset_px(help_now), orbit);
         s.menu_drawn = menu > 0.f;
+        // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop).
+        const bool handle = s.handle.visible && s.view.zoom() < 0.01f;
+        s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle, orbit);
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();

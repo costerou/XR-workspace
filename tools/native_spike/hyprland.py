@@ -244,6 +244,15 @@ class HyprlandClient:
         from .view import remove_menu_binds_lua
         self._eval(remove_menu_binds_lua())
 
+    def install_resize_binds(self, python, client, control_socket, run_id, session):
+        """Pointer on a desktop corner in the overview: the modal left-button press/release binds; generated Lua only."""
+        from .resize import install_resize_binds_lua
+        self._eval(install_resize_binds_lua(python, client, control_socket, run_id, session))
+
+    def remove_resize_binds(self):
+        from .resize import remove_resize_binds_lua
+        self._eval(remove_resize_binds_lua())
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

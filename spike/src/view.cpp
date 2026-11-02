@@ -125,6 +125,17 @@ std::vector<std::size_t> draw_order(const Canvas& c, std::span<const FRect> tile
     return order;
 }
 
+CornerHandle corner_handle(const FRect& t, std::uint32_t corner, float dx, float dy) {
+    if (t.width <= 0 || t.height <= 0 || corner > 3) return {};
+    const float arm = clampf(kHandleArmShare * std::min(t.width, t.height), kHandleMinArmPx, kHandleMaxArmPx);
+    const bool right = corner == 1 || corner == 3, bottom = corner >= 2;
+    const float x0 = right ? t.x + t.width - kHandleInsetPx - arm : t.x + kHandleInsetPx;          // horizontal arm's left
+    const float y0 = bottom ? t.y + t.height - kHandleInsetPx - arm : t.y + kHandleInsetPx;        // vertical arm's top
+    const float hy = bottom ? t.y + t.height - kHandleInsetPx - kHandleThicknessPx : t.y + kHandleInsetPx;
+    const float vx = right ? t.x + t.width - kHandleInsetPx - kHandleThicknessPx : t.x + kHandleInsetPx;
+    return {{x0 + dx, hy + dy, arm, kHandleThicknessPx}, {vx + dx, y0 + dy, kHandleThicknessPx, arm}};
+}
+
 void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {
     advance(now_ms);
     from_zoom_ = zoom(); from_spacing_ = this->spacing();

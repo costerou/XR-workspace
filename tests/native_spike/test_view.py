@@ -57,7 +57,8 @@ class ViewStateTests(unittest.TestCase):
 
     def test_user_ops_decode_and_others_rejected(self):
         from tools.native_spike import xr_control
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS)  # bind helper and supervisor agree
+        from tools.native_spike import resize
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS)  # bind helper and supervisor agree
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()
@@ -250,7 +251,8 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         shown = json.loads(c.on_message({'op': 'help'}))
         self.assertEqual(shown['op'], 'help')
         self.assertTrue(shown['payload']['visible'])
-        self.assertEqual([r[0] for r in shown['payload']['rows']], [view.chord_label(ch) for ch, _ in view.BINDS])
+        self.assertEqual([r[0] for r in shown['payload']['rows']],
+                         [view.chord_label(ch) for ch, _ in view.BINDS] + [k for k, _ in view.EXTRA_HELP_ROWS])
         self.assertIn(['Ctrl+Alt+H', 'Show / hide this help'], shown['payload']['rows'])
         hidden = json.loads(c.on_message({'op': 'help'}))
         self.assertFalse(hidden['payload']['visible'])

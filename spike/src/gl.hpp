@@ -46,6 +46,8 @@ public:
     // Placement menu card: same place and rules as the help card, drawn over it; while the menu
     // shows, the help card fades out by the menu's opacity so the two never stack.
     void set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px, OrbitOffset orbit = {});
+    // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop`, grey `level` (0..1); desktop < 0: none.
+    void set_corner_handle(int desktop, std::uint32_t corner, float level, OrbitOffset orbit = {});
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:

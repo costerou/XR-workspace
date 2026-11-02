@@ -20,6 +20,9 @@ While it is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab
 again on close. Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu`
 frame (the drawn overlay) and saved to the profile 500 ms after the last change, or at once when the menu closes.
 Menu ops are not in USER_OPS, so they are not panel capabilities either.
+Overview corner resize (resize.py): hovering a desktop's corner in the overview shows a handle; dragging it with the left
+button changes that desktop's `distance` placement live (apparent size), saved like a menu change. resize_press and
+resize_release come from modal mouse binds that exist only while the pointer is on a corner; they are not USER_OPS.
 """
 import json
 import os
@@ -66,8 +69,12 @@ def chord_label(chord):
     return '+'.join(KEY_NAMES.get(part, part.upper() if len(part) == 1 else part) for part in chord.split(' + '))
 
 
+# Help card rows that are not key binds: the overview corner resize (resize.py) is a mouse drag.
+EXTRA_HELP_ROWS = (('Drag a corner', 'Resize desktop (overview)'),)
+
+
 def help_rows():
-    return [[chord_label(chord), HELP_ACTIONS[op]] for chord, op in BINDS]
+    return [[chord_label(chord), HELP_ACTIONS[op]] for chord, op in BINDS] + [list(row) for row in EXTRA_HELP_ROWS]
 
 
 def help_frame(run_id, session, request_id, visible):
@@ -374,6 +381,8 @@ class ViewControl:
         self._menu_lock = threading.Lock()
         self._menu_binds_installed = False
         self._menu_threads = []
+        self.resize = None  # optional resize.CornerResize (overview corner drag); set by managed.view_controls
+        self.wake = None    # optional socket the supervisor loop also waits on (the resize pointer poller pokes it)
 
     def initial_frame(self):
         return self._frame() + self._placement_frame(initial=True) + self._style_frame()
@@ -444,9 +453,9 @@ class ViewControl:
         """Supervisor loop tick: write a debounced menu placement save once it is due, and close the help card and the
         placement menu once they have been up OVERLAY_IDLE_CLOSE_S without input. Returns renderer frames or None."""
         now = self.clock() if now is None else now
+        out = self.resize.poll(now) if self.resize is not None else b''  # pointer hover / corner drag
         if self.save_due is not None and now >= self.save_due: self.flush()
-        if now - self.last_input < OVERLAY_IDLE_CLOSE_S: return None
-        out = b''
+        if now - self.last_input < OVERLAY_IDLE_CLOSE_S: return out or None
         if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the menu keys
         if self.help_visible: out += self._help_toggle()
         return out or None
@@ -480,6 +489,8 @@ class ViewControl:
             return self._on_placement(message.get('payload'))
         if isinstance(message, dict) and message.get('op') in MENU_OPS:
             return self._on_menu(message['op'])
+        if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
+            return self.resize.on_op(message['op']) if self.resize is not None else None
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
         if message['op'] == 'help': return self._help_toggle()
         if message['op'] == 'recenter':
@@ -524,6 +535,7 @@ class ViewControl:
         if reloaded:
             self.reloads += 1
             self._menu_binds_installed = False  # a reload drops runtime binds; the reload work re-adds an open menu's
+            if self.resize is not None: self.resize.binds_dropped = True  # the pointer poller re-adds them if still wanted
             if self.on_reload is not None:  # binds and session mode: compositor calls, never on the watchdog loop
                 import threading
                 t = threading.Thread(target=self._reload_work, daemon=True); t.start(); self._threads.append(t)

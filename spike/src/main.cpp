@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
                 const auto pushed = queue.push(frame);
                 if (const auto* error = std::get_if<xr::Error>(&pushed)) {
                     if (!xr::ignorable_control_error(*error)) return false;  // malformed/replayed: stop
-                    std::cerr << "control: ignored malformed placement_menu payload\n";
+                    std::cerr << "control: " << error->detail << "\n";
                     continue;
                 }
                 while (auto m = queue.pop()) {
@@ -137,6 +137,10 @@ int main(int argc, char** argv) {
                             }
                             presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements);
                         }
+                    }
+                    else if (m->op == xr::ControlOp::resize_handle) {  // display only; malformed ones were dropped above
+                        if (const auto* h = std::get_if<xr::ResizeHandlePayload>(&m->payload))
+                            presentation.set_resize_handle(h->visible, h->desktop, h->corner, h->active);
                     }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 7>> placements;
