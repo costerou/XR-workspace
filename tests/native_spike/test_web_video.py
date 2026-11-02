@@ -475,6 +475,31 @@ class WebControlTests(unittest.TestCase):
         self.assertEqual([f['payload'] for f in frames(self.op('video_seek_fwd'))][-1], {'action': 'seek', 'seconds': 10})
 
 
+class WebVideoGatingTests(unittest.TestCase):
+    """A DelightXR / web stream is the same VR video mode: the same keys are ignored and the same overlays are off."""
+    setUp, op, poll = WebControlTests.setUp, WebControlTests.op, WebControlTests.poll
+
+    def test_web_playback_uses_the_video_gating(self):
+        from tools.native_spike import resize
+        requests = []
+        class Sender:
+            def request(self, op, selected): requests.append(op)
+        self.view.sender = Sender()
+        r = self.view.resize = resize.CornerResize(self.view, clock=self.clock); self.addCleanup(r.close)
+        self.view.on_message({'op': 'help'}); self.view.on_message({'op': 'menu_toggle'})
+        self.op('video_open', {'url': 'https://cdn.example.com/clips/Alps_360_TB.mp4'})
+        self.poll()
+        self.assertTrue(self.v.active); self.assertEqual(self.v.snapshot()['origin'], 'web')
+        self.assertTrue(self.view.video_active)  # corner resize and drag bars off
+        self.assertFalse(self.view.help_visible or self.view.state.menu_open)
+        self.assertFalse(r.overview())
+        for op in ('menu_toggle', 'menu_mouse_press', 'resize_press', 'send_glasses', 'send_glasses_1', 'zoom_in'):
+            with self.subTest(op=op): self.assertIsNone(self.op(op))
+        self.assertEqual(requests, []); self.assertFalse(self.view.state.menu_open)
+        self.op('video_exit')
+        self.assertFalse(self.view.video_active); self.assertTrue(r.overview())
+
+
 class BindHelperTests(unittest.TestCase):
     def test_ctrl_alt_u(self):
         self.assertIn(('CTRL + ALT + U', 'video_paste'), view.BINDS)
