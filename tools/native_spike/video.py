@@ -368,16 +368,18 @@ class VideoControl:
 
     `binds`: optional (on: bool) -> None installing/removing VIDEO_BINDS (a compositor call, run off the supervisor loop).
     `probe`: (fd) -> info dict or None (probe_fd). `threads=False` runs file checks inline (tests).
-    Web videos (web_video.py): `web_probe` (url, headers, ua) -> info, `relay_factory` (argv) -> StreamRelay,
+    Web videos (web_video.py): `web_probe` (url, headers, ua) -> info, `web_resolve` (page url) -> yt-dlp info,
+    `relay_factory` (argv) -> StreamRelay,
     `allow_local` (tests only: local test servers). `notify`: optional (text) -> None telling Cody why an open was
     refused while he is in the glasses (a desktop notification), run off the supervisor loop.
     """
     def __init__(self, view_control, *, binds=None, probe=probe_fd, threads=True, clock=None, web_probe=None,
-                 relay_factory=None, allow_local=False, notify=None):
+                 relay_factory=None, allow_local=False, notify=None, web_resolve=None):
         self.view = view_control
         self.clock = clock or view_control.clock
         self.binds, self.probe, self.threads = binds, probe, threads
         self.web_probe, self.relay_factory, self.allow_local, self.notify = web_probe, relay_factory, allow_local, notify
+        self.web_resolve = web_resolve  # (page url) -> yt-dlp info (web_video.resolve_page); tests pass a stand-in
         self.stream = None   # web_video.WebStream while a web video plays
         self.origin = None   # 'file' or 'web'
         self.opening = False
@@ -480,16 +482,18 @@ class VideoControl:
             web = wv.web_request(payload, allow_local=self.allow_local)
             src = wv.choose_source(web)
             fmt, source = wv.dl8_format(src['format'] or web['format'], web['fov']), 'player'
-            probe = self.web_probe or wv.probe_url
-            info = probe(src['src'], wv.request_headers(web), web['ua'])
-            if fmt is None: fmt, source = detect_format(wv.name_from_url(src['src']), info)
+            # A stream link is probed as is; a video page link is resolved with yt-dlp first (web_video.prepare_target).
+            target, info = wv.prepare_target(web, src, probe=self.web_probe, resolve=self.web_resolve, allow_local=self.allow_local)
+            if fmt is None:
+                fmt, source = detect_format(target['hint'], info)
+                if source == 'filename' and target['via'] == 'yt-dlp': source = 'title'  # the page's title and tags
             if chosen: fmt, source = validate_format(chosen), 'chosen'
             warnings = check_limits(info)
-            stream = wv.WebStream(web, src, info, relay_factory=self.relay_factory)
+            stream = wv.WebStream(target, info, relay_factory=self.relay_factory)
             if not stream.seekable: warnings.append('live stream: no seeking')
             start = web['start'] if web['start'] >= 2 and (not stream.duration or web['start'] < stream.duration - 5) else 0.0
             fd = stream.start(start)
-            self._results.put(('open', fd, ascii_text(wv.web_title(web, src)), fmt, source, warnings, stream))
+            self._results.put(('open', fd, ascii_text(target['title']), fmt, source, warnings, stream))
         except (VideoRejected, OSError, ValueError) as exc:
             if stream is not None: stream.stop()
             self._results.put(('refused', str(exc) or 'cannot open the web video'))

@@ -108,6 +108,9 @@
     setTimeout(function () { d.remove(); }, 4000);
   }
 
+  /* No stream link in the page (a big video site, in-page streaming): send the page itself; the run asks yt-dlp. */
+  var pageOnly = !sources.length;
+  if (pageOnly) add(location.href, null, null, null, 'page');
   if (!sources.length) {
     note('Play in VITURE: no video link on this page. DRM-protected or in-page-only video cannot be sent.');
     return;
@@ -123,7 +126,10 @@
   while (text.length > MAX_JSON && out.sources.length > 1) { out.sources.pop(); text = JSON.stringify(out); }
   if (out[MARK] !== 1) return;
 
-  var done = function () { note('Copied for VITURE: press Ctrl+Alt+U in the glasses (or "Paste from browser" in the panel).'); };
+  var done = function () {
+    note((pageOnly ? 'Copied this page for VITURE (yt-dlp will look for the video): ' : 'Copied for VITURE: ') +
+         'press Ctrl+Alt+U in the glasses (or "Paste from browser" in the panel).');
+  };
   if (typeof window.__vitureXrTestSink === 'function') { window.__vitureXrTestSink(text); done(); return; }
   function fallback() {
     var t = document.createElement('textarea');

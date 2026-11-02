@@ -13,6 +13,12 @@ DelightXR is a player that sites embed (`<dl8-video format="STEREO_180_LR">` wit
    the descriptor it already accepts for local files, so the renderer is unchanged and still never touches the network
    or a path. Only the relay's ffmpeg talks to the site, limited to http(s)/tls/tcp/crypto (no `file:`).
 
+A video PAGE link (the address bar of a video site, or a page where the bookmarklet found no stream) is resolved with
+yt-dlp (`resolve_page`): no config, plugins, cache or cookies; the best direct stream (and separate audio) it lists is
+relayed with the request headers yt-dlp gives, minus any Cookie/Authorization. The VR format then comes from the title
+and tags (360, 180, VR180, SBS/LR, TB/OU, fisheye...), else the picture shape; Tab corrects it. Without yt-dlp the
+refusal says so. Reasons never contain the link (it may hold a signed token) or a video id.
+
 Seeking restarts the relay at the new position (a pipe cannot seek). The run estimates the position from the renderer's
 playing state, so it can seek, resume after the end, and show the position in the panel.
 """
@@ -28,7 +34,28 @@ import threading
 import time
 from urllib.parse import unquote, urlsplit
 
-from .video import FFPROBE_MAX_OUTPUT, VideoRejected, parse_probe, validate_format
+from .video import FFPROBE_MAX_OUTPUT, HW_DECODE_MAX_WIDTH, MAX_SIDE, VideoRejected, parse_probe, validate_format
+
+YTDLP_TIMEOUT_S = 60
+YTDLP_MAX_OUTPUT = 32 << 20  # -J of a long page with many formats is a few MB
+MEDIA_EXT = ('.mp4', '.m4v', '.webm', '.mkv', '.mov', '.m3u8', '.mpd', '.ts', '.m2ts', '.avi', '.ogv', '.flv')
+PAGE_LINK = "that's a web page link, not a video link"
+PAGE_HELP = 'use the "Play in VITURE" bookmark on the page, or copy the video\'s own link'
+NO_YTDLP = ('yt-dlp, which finds the video on a page, is not installed (it is in the Arch repos: yt-dlp)')
+# yt-dlp request headers passed on to the relay; anything carrying a login is dropped (cookies-free by design).
+DROP_HEADERS = ('cookie', 'authorization', 'proxy-authorization')
+RELAY_PROTOCOLS = ('https', 'http', 'm3u8', 'm3u8_native')  # yt-dlp format protocols ffmpeg can read directly
+
+
+class ProbeFailed(VideoRejected):
+    """The stream could not be probed; `kind` is 'invalid' (not a media file: often a web page), 'http' or 'other'."""
+    def __init__(self, message, kind='other'):
+        super().__init__(message)
+        self.kind = kind
+
+
+class PageUnsupported(VideoRejected):
+    """yt-dlp found no video on the page (or does not know the site)."""
 
 MAX_URL = 4096
 MAX_SOURCES = 8
@@ -57,7 +84,7 @@ HLS_TYPES = ('application/x-mpegurl', 'application/vnd.apple.mpegurl', 'audio/mp
 DASH_TYPES = ('application/dash+xml',)
 WEB_KEYS = {'page', 'title', 'format', 'fov', 'start', 'sources', 'ua', MARKER}
 SOURCE_KEYS = {'src', 'type', 'quality', 'format', 'via'}
-VIA = ('dl8', 'video', 'resource', 'link')  # where the bookmarklet found the source (rank: player first)
+VIA = ('dl8', 'video', 'resource', 'link', 'page')  # where the source came from (rank: player first; 'page': a page link)
 TOKEN_RE = re.compile(r'[A-Za-z0-9_]{1,64}\Z')
 
 
@@ -231,8 +258,32 @@ def _net_args(headers, ua):
     return args
 
 
-def explain_failure(stderr, returncode=None):
-    """ffmpeg/ffprobe stderr -> a short reason for Cody (never the URL, which may hold a signed token)."""
+URL_RE = re.compile(r'(?i)\b(?:https?|ftp|file|blob|data)://\S+|\bwww\.\S+')
+PREFIX_RE = re.compile(r'^(?:ERROR:\s*)?(?:\[[^\]]*\]\s*)*(?:[\w.-]{4,}:\s+)?')
+
+
+def sanitize(text, limit=140):
+    """The last meaningful stderr line, safe to show: no links, no `[https @ 0x...]` or `[site] <video id>:` prefix."""
+    text = text.decode('utf-8', errors='replace') if isinstance(text, bytes) else str(text or '')
+    for line in reversed([l.strip() for l in text.splitlines()]):
+        line = PREFIX_RE.sub('', URL_RE.sub('<link>', line))
+        line = re.sub(r'^(?:<link>\s*:?\s*)+', '', line).strip(' :.')
+        line = re.sub(r'\s+', ' ', ''.join(c if c.isprintable() else ' ' for c in line))
+        if line and line not in ('<link>',) and not line.lower().startswith(('conversion failed', 'error opening input')):
+            return line[:limit - 3].rstrip() + '...' if len(line) > limit else line
+    return ''
+
+
+def failure_kind(stderr):
+    low = (stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else str(stderr or '')).lower()
+    if 'invalid data found' in low: return 'invalid'
+    if re.search(r'http error \d{3}|server returned \d|\b[45]xx\b', low): return 'http'
+    return 'other'
+
+
+def explain_failure(stderr, returncode=None, tool='ffmpeg'):
+    """ffmpeg/ffprobe stderr -> a short reason for Cody (never the URL, which may hold a signed token). Unknown errors
+    show ffmpeg's own last line (links removed), not just an exit code."""
     text = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else str(stderr or '')
     low = text.lower()
     if 'cenc' in low or 'drm' in low or 'widevine' in low or ('encrypt' in low and 'aes' not in low):
@@ -240,15 +291,22 @@ def explain_failure(stderr, returncode=None):
     for code, why in (('401', 'the site wants a login for this stream (HTTP 401)'),
                       ('403', 'the site refused the stream (HTTP 403): the link may have expired or need your browser login'),
                       ('404', 'the stream was not found (HTTP 404): the link may have expired'),
-                      ('410', 'the stream is gone (HTTP 410)')):
+                      ('410', 'the stream is gone (HTTP 410)'),
+                      ('429', 'the site is rate-limiting requests (HTTP 429): try again in a minute')):
         if f'http error {code}' in low or f'server returned {code}' in low: return why
+    m = re.search(r'http error (\d{3})', low)
+    if m: return f'the site answered HTTP {m.group(1)}'
+    if 'server returned 4xx' in low: return 'the site refused the request (HTTP 4xx)'
+    if 'server returned 5xx' in low: return 'the site had an error (HTTP 5xx): try again later'
     if 'not on whitelist' in low: return 'the stream refers to something other than web links, which is not played'
     if 'timed out' in low or 'connection timed out' in low: return 'the site did not answer in time'
     if 'name or service not known' in low or 'failed to resolve' in low or 'temporary failure in name' in low:
         return 'could not look up the site (offline?)'
     if 'connection refused' in low: return 'the site refused the connection'
     if 'invalid data found' in low: return 'the link does not lead to a playable video'
-    return 'the stream could not be opened' + (f' (ffmpeg exit {returncode})' if returncode else '')
+    detail = sanitize(text)
+    if detail: return f'{tool} could not open the stream: {detail}'
+    return f'the stream could not be opened ({tool} exit {returncode})' if returncode else 'the stream could not be opened'
 
 
 def probe_url(url, headers=None, ua=None, *, run=subprocess.run, ffprobe=None, timeout=WEB_PROBE_TIMEOUT_S):
@@ -263,7 +321,8 @@ def probe_url(url, headers=None, ua=None, *, run=subprocess.run, ffprobe=None, t
                 env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'})
     except subprocess.TimeoutExpired: raise VideoRejected('the site took too long to answer') from None
     except OSError: return None
-    if r.returncode != 0 or len(r.stdout) > FFPROBE_MAX_OUTPUT: raise VideoRejected(explain_failure(r.stderr, r.returncode))
+    if r.returncode != 0 or len(r.stdout) > FFPROBE_MAX_OUTPUT:
+        raise ProbeFailed(explain_failure(r.stderr, r.returncode, 'ffprobe'), failure_kind(r.stderr))
     try: data = json.loads(r.stdout)
     except ValueError: raise VideoRejected('the link does not lead to a playable video') from None
     if isinstance(data, dict) and isinstance(data.get('streams'), list):
@@ -281,16 +340,21 @@ def probe_url(url, headers=None, ua=None, *, run=subprocess.run, ffprobe=None, t
     return info
 
 
-def relay_argv(url, headers=None, ua=None, start=0.0, ffmpeg=None):
+def relay_argv(url, headers=None, ua=None, start=0.0, ffmpeg=None, audio=None):
     """ffmpeg copying the stream (video + audio, no re-encoding) as NUT to stdout. NUT carries every codec mpv plays
     (H.264, HEVC, VP9, AV1, AAC, Opus), streams without an index, and starts cleanly mid-way in HLS (Matroska cannot
-    take ADTS AAC from a seek into a TS segment)."""
+    take ADTS AAC from a seek into a TS segment). `audio`: a separate audio stream (sites that list video and audio
+    apart, resolved by yt-dlp); both inputs get the same headers and start, and one stream of each is mapped."""
     exe = ffmpeg or ffmpeg_path()
     if not exe: raise VideoRejected('ffmpeg is not installed')
-    argv = [exe, '-nostdin', '-hide_banner', '-loglevel', 'error', *_net_args(headers, ua)]
-    argv += ['-reconnect', '1', '-reconnect_on_network_error', '1', '-reconnect_delay_max', '5']  # http: resume a dropped link
-    if start > 0: argv += ['-ss', f'{start:.3f}']
-    argv += ['-i', url, '-sn', '-dn', '-c', 'copy', '-f', 'nut', 'pipe:1']
+    argv = [exe, '-nostdin', '-hide_banner', '-loglevel', 'error']
+    for i, u in enumerate([url] + ([audio] if audio else [])):
+        argv += _net_args(headers, ua)
+        argv += ['-reconnect', '1', '-reconnect_on_network_error', '1', '-reconnect_delay_max', '5']  # http: resume a dropped link
+        if start > 0: argv += ['-ss', f'{start:.3f}']
+        argv += ['-i', u]
+    if audio: argv += ['-map', '0:v:0', '-map', '1:a:0']
+    argv += ['-sn', '-dn', '-c', 'copy', '-f', 'nut', 'pipe:1']
     return argv
 
 
@@ -399,14 +463,14 @@ class StreamRelay:
     def failure(self):
         """A reason if ffmpeg ended with an error, else None."""
         if self.returncode in (None, 0) or self._stop.is_set(): return None
-        return explain_failure(self.stderr_tail, self.returncode)
+        return explain_failure(self.stderr_tail, self.returncode, 'ffmpeg')
 
 
 class WebStream:
     """The playing web stream: what to relay, and a position estimate (renderer playing time since the last restart)."""
-    def __init__(self, web, source, info, *, relay_factory=None, ffmpeg=None):
-        self.web, self.source, self.info = web, source, info or {}
-        self.url, self.headers, self.ua = source['src'], request_headers(web), web.get('ua')
+    def __init__(self, target, info, *, relay_factory=None, ffmpeg=None):
+        self.target, self.info = target, info or {}
+        self.url, self.audio, self.headers, self.ua = target['url'], target.get('audio'), target['headers'], target['ua']
         self.duration = self.info.get('duration') if self.info.get('duration') and self.info['duration'] > 0 else None
         self.ffmpeg = ffmpeg
         self.relay_factory = relay_factory or (lambda argv: StreamRelay(argv))
@@ -430,7 +494,7 @@ class WebStream:
         if self.relay is not None: self.relay.stop()
         if self.duration: at = max(0.0, min(at, self.duration - END_MARGIN_S))
         at = max(0.0, at)
-        self.relay = self.relay_factory(relay_argv(self.url, self.headers, self.ua, at, self.ffmpeg))
+        self.relay = self.relay_factory(relay_argv(self.url, self.headers, self.ua, at, self.ffmpeg, self.audio))
         fd = self.relay.start()
         self.base, self.played, self.restarts = at, 0.0, self.restarts + 1
         return fd
@@ -457,6 +521,162 @@ class WebStream:
         return self.relay.failure() if self.relay is not None else None
 
     def snapshot(self):
-        return {'kind': source_kind(self.source), 'site': urlsplit(self.url).hostname, 'position': round(self.position(), 1),
+        return {'kind': self.target['kind'], 'site': self.target['site'], 'resolved': self.target['via'] == 'yt-dlp',
+                'position': round(self.position(), 1),
                 'duration': round(self.duration, 1) if self.duration else None, 'seekable': self.seekable,
                 'seeking': self.pending_seek is not None}
+
+
+# --- video pages: yt-dlp ----------------------------------------------------------------------------------------------
+
+def looks_like_media(source):
+    """A stream link (by its type or file extension), as opposed to a page to resolve."""
+    typ = source.get('type') or ''
+    if typ.startswith(('video/', 'audio/')) or typ in HLS_TYPES or typ in DASH_TYPES: return True
+    return urlsplit(source['src']).path.lower().endswith(MEDIA_EXT)
+
+
+def ytdlp_path():
+    return '/usr/bin/yt-dlp' if os.access('/usr/bin/yt-dlp', os.X_OK) else shutil.which('yt-dlp')
+
+
+def ytdlp_argv(url, exe):
+    """No config files, plugins, cache, cookies or downloads; one video (no playlists); JSON on stdout."""
+    return [exe, '--ignore-config', '--no-plugin-dirs', '--no-cache-dir', '--no-cookies', '--no-cookies-from-browser',
+            '--no-playlist', '--skip-download', '--no-warnings', '--no-progress', '--socket-timeout', '15',
+            '--dump-single-json', '--', url]
+
+
+def resolve_page(url, *, run=subprocess.run, ytdlp=None, timeout=YTDLP_TIMEOUT_S):
+    """yt-dlp's info for a video page. Raises VideoRejected (yt-dlp missing: NO_YTDLP in the text), PageUnsupported
+    (no video found / unknown site) or VideoRejected with yt-dlp's reason (private, removed, age-gated...)."""
+    exe = ytdlp if ytdlp is not None else ytdlp_path()
+    if not exe: raise VideoRejected(f'{PAGE_LINK}, and {NO_YTDLP}; {PAGE_HELP}')
+    env = {'PATH': '/usr/bin:/bin', 'LC_ALL': 'C.UTF-8'}
+    if os.environ.get('HOME', '').startswith('/'): env['HOME'] = os.environ['HOME']  # its JS runtime (deno) wants one
+    try:
+        r = run(ytdlp_argv(url, exe), stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout, check=False, env=env)
+    except subprocess.TimeoutExpired: raise VideoRejected('yt-dlp took too long to read the page') from None
+    except OSError: raise VideoRejected(f'{PAGE_LINK}, and {NO_YTDLP}; {PAGE_HELP}') from None
+    err = r.stderr.decode('utf-8', errors='replace') if isinstance(r.stderr, bytes) else str(r.stderr or '')
+    low = err.lower()
+    if r.returncode != 0 or len(r.stdout) > YTDLP_MAX_OUTPUT:
+        if 'unsupported url' in low or 'no video formats found' in low or 'no video could be found' in low:
+            raise PageUnsupported('no video found on that page')
+        if 'drm' in low: raise VideoRejected('the video is DRM-protected and plays only inside the browser')
+        detail = sanitize(err)
+        raise VideoRejected('yt-dlp could not get the video' + (f': {detail}' if detail else ''))
+    try: data = json.loads(r.stdout)
+    except ValueError: raise VideoRejected('yt-dlp gave no readable answer') from None
+    if not isinstance(data, dict): raise VideoRejected('yt-dlp gave no readable answer')
+    if data.get('_type') == 'playlist':
+        entries = [e for e in data.get('entries') or [] if isinstance(e, dict)]
+        if not entries: raise PageUnsupported('no video found on that page')
+        data = entries[0]
+    return data
+
+
+def _codec(vcodec):
+    v = str(vcodec or '').lower()
+    for prefix, name in (('avc', 'h264'), ('h264', 'h264'), ('hev', 'hevc'), ('hvc', 'hevc'), ('h265', 'hevc'),
+                         ('vp09', 'vp9'), ('vp9', 'vp9'), ('av01', 'av1'), ('av1', 'av1')):
+        if v.startswith(prefix): return name
+    return v.split('.')[0] or 'unknown'
+
+
+def _num(v):
+    return v if type(v) in (int, float) and v == v else 0
+
+
+def _usable(f):
+    return (isinstance(f, dict) and isinstance(f.get('url'), str) and f.get('protocol', 'https') in RELAY_PROTOCOLS
+            and not f.get('has_drm') and not f.get('fragments'))
+
+
+def pick_formats(data):
+    """(video format, separate audio format or None) from yt-dlp's list. Best = decodes in hardware here at its size,
+    then the most pixels, then frame rate, then bitrate (for VR, resolution is the quality limit)."""
+    formats = [f for f in data.get('formats') or [data] if _usable(f)]
+    # vcodec 'none' is audio only; None means unknown (yt-dlp's generic extractor on a plain <video>): maybe video.
+    videos = [f for f in formats if f.get('vcodec') != 'none']
+    videos = [f for f in videos if max(_num(f.get('width')), _num(f.get('height'))) <= MAX_SIDE]
+    if not videos:
+        if any(isinstance(f, dict) and f.get('has_drm') for f in data.get('formats') or []):
+            raise VideoRejected('the video is DRM-protected and plays only inside the browser')
+        raise VideoRejected('yt-dlp found no stream that can be played outside the browser')
+
+    def rank(f):
+        w, h = _num(f.get('width')), _num(f.get('height'))
+        limit = HW_DECODE_MAX_WIDTH.get(_codec(f.get('vcodec')))
+        return (1 if limit and w <= limit else 0, 1 if f.get('vcodec') else 0, w * h, _num(f.get('fps')),
+                _num(f.get('tbr')) or _num(f.get('vbr')))
+    video = max(videos, key=rank)
+    if video.get('acodec') != 'none': return video, None  # has (or may have) its own audio
+    audios = [f for f in formats if f.get('vcodec') == 'none' and f.get('acodec') not in (None, 'none')]
+    audio = max(audios, key=lambda f: (_num(f.get('abr')) or _num(f.get('tbr')), _num(f.get('asr')))) if audios else None
+    return video, audio
+
+
+def relay_headers(fmt):
+    """yt-dlp's per-format request headers, cookie-free and printable ASCII only: (headers, user agent)."""
+    headers, ua = {}, None
+    for k, v in (fmt.get('http_headers') or {}).items():
+        if not isinstance(k, str) or not re.fullmatch(r'[A-Za-z0-9-]{1,64}', k) or not _printable(v, 1024) or not v: continue
+        if k.lower() in DROP_HEADERS: continue
+        if k.lower() == 'user-agent': ua = v[:MAX_UA]
+        elif len(headers) < 12: headers[k] = v
+    return headers, ua
+
+
+def vr_hint(data):
+    """Words that may name the VR format: the title and tags (detect_format reads tokens like 360, VR180, SBS, TB)."""
+    words = [str(data.get('title') or '')]
+    words += [str(t) for t in (data.get('tags') or [])[:40] if isinstance(t, str)]
+    return ' '.join(words)[:2000]
+
+
+def _target(url, headers, ua, kind, site, via, title, hint, audio=None):
+    return {'url': url, 'audio': audio, 'headers': headers, 'ua': ua, 'kind': kind, 'site': site, 'via': via,
+            'title': title, 'hint': hint}
+
+
+def prepare_target(web, src, *, probe=None, resolve=None, allow_local=False):
+    """What to relay for the chosen source, and its probe: (target, info).
+
+    A stream link is probed directly. A page link (no media type or extension) goes to yt-dlp; if yt-dlp does not
+    know the page, the link is tried as a stream after all, and an HTML answer gives a clear "web page" refusal."""
+    probe = probe or probe_url
+    resolve = resolve or resolve_page
+    url, site = src['src'], urlsplit(src['src']).hostname
+    headers, ua = request_headers(web), web.get('ua')
+    title = web_title(web, src)
+
+    def direct(page_like):
+        try: info = probe(url, headers, ua)
+        except ProbeFailed as exc:
+            if exc.kind == 'invalid' and page_like: raise VideoRejected(f'{PAGE_LINK}: {PAGE_HELP}') from None
+            raise
+        return _target(url, headers, ua, source_kind(src), site, 'direct', title, name_from_url(url)), info
+
+    if looks_like_media(src): return direct(False)
+    try:
+        data = resolve(url)
+    except PageUnsupported:
+        try: return direct(True)
+        except VideoRejected as exc:
+            if PAGE_LINK in str(exc): raise VideoRejected(f'{PAGE_LINK}, and yt-dlp found no video on it: {PAGE_HELP}') from None
+            raise
+    except VideoRejected as exc:
+        if NO_YTDLP not in str(exc): raise
+        try: return direct(True)
+        except VideoRejected as inner:
+            if PAGE_LINK in str(inner): raise VideoRejected(str(exc)) from None  # say yt-dlp is missing
+            raise
+    video, audio = pick_formats(data)
+    for f in (video, audio):
+        if f is not None: validate_url(f['url'], allow_local=allow_local)
+    vh, vua = relay_headers(video)
+    kind = 'hls' if str(video.get('protocol', '')).startswith('m3u8') else 'progressive'
+    info = probe(video['url'], vh, vua)
+    page_title = str(data.get('title') or '').strip() or title
+    return _target(video['url'], vh, vua, kind, site, 'yt-dlp', page_title, vr_hint(data), audio and audio['url']), info

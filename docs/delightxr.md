@@ -83,9 +83,20 @@ remove it. Nothing is installed in Chromium or its profile beyond the bookmark C
 3. Press **Ctrl+Alt+U** in the glasses. (Or: panel → VR video → **Paste from browser**.) The video opens around you
    where the page was. It resumes at the page's position if more than 5 s remain.
 
-A bare link works too: copy a direct `.mp4`/`.m3u8`/`.mpd` link and press Ctrl+Alt+U, or type it into the panel's
-path field and press Play. Then the format is detected from the link's name and the picture shape, as for files. Tab
-corrects it.
+A bare link works too: copy it and press Ctrl+Alt+U, or type it into the panel's path field and press Play.
+
+- **A stream link** (`.mp4`, `.m3u8`, `.mpd`…) plays directly. The format comes from the link's name and the picture
+  shape, as for files.
+- **A video page link** (the address bar of a video site, e.g. `https://www.<site>/watch?v=…`) is resolved with
+  **yt-dlp**: it finds the page's best direct stream, and the run relays that one. The VR format comes from the
+  video's **title and tags** (`360`, `180`/`VR180`, `SBS`/`LR`/`3D`, `TB`/`OU`, `fisheye`…), else from the picture
+  shape. **Tab** corrects it. The panel says *detected from title*. The bookmark does the same when a page has no
+  stream link of its own (a big site playing from a `blob:`): it copies the page link, and its note says so.
+
+If yt-dlp is not installed, a page link is refused with *that's a web page link, not a video link, and yt-dlp, which
+finds the video on a page, is not installed…*. A page where yt-dlp finds no video gets *that's a web page link, not a
+video link, and yt-dlp found no video on it: use the "Play in VITURE" bookmark on the page, or copy the video's own
+link*.
 
 While it plays, every [VR video key](vr-video.md#using-it) works the same way: Space, Tab, Up/Down, Esc, Ctrl+Alt+Space.
 **Left/Right and Shift+Left/Right** seek by restarting the stream at the new position. Presses within 0.4 s are
@@ -145,6 +156,21 @@ Ctrl+Alt+U ─ xr_control.py: wl-paste once ─┐       (panel: "Paste from bro
   at the estimate ± the step, clamped to [0, length − 3 s]. Seeking back after *Ended* works the same way. A relay that
   dies with an error after ffmpeg's own reconnects is resumed at the estimate up to twice, then the video closes with
   the reason.
+- **Video pages** (`web_video.prepare_target`, `resolve_page`, `pick_formats`): a link whose type and extension are
+  not media goes to `yt-dlp --ignore-config --no-plugin-dirs --no-cache-dir --no-cookies --no-cookies-from-browser
+  --no-playlist --skip-download --dump-single-json -- <link>`. That means no user config, plugins, cache, cookie files,
+  browser cookies or downloads, and a minimal environment (PATH, locale, HOME for its JavaScript runtime). From its
+  format list the run takes formats ffmpeg can read directly (http(s), HLS; no DASH fragment lists, no DRM). The
+  best is the one that decodes in hardware here at its size, then the most pixels, then frame rate, then bitrate.
+  For resolution-limited VR that is the highest-quality one. If it has no audio, the best audio-only format becomes a
+  second relay input (`-map 0:v:0 -map 1:a:0`, both seek together). yt-dlp's per-format request headers go to the
+  relay with any `Cookie`/`Authorization` dropped. Its stream URL passes the same `validate_url` checks. If yt-dlp
+  does not know the page, the link is probed as a stream after all. If ffprobe then finds HTML ("invalid data"), the
+  refusal says it is a web page link.
+- **Failure reasons**: known ffmpeg/ffprobe/yt-dlp errors map to plain sentences (HTTP 401/403/404/410/429/4xx/5xx,
+  DRM, timeouts, DNS, web page). Anything else shows the tool's own last stderr line, with every link,
+  `[https @ 0x…]` prefix and `[site] <video id>:` prefix removed. A bare exit code appears only when the tool printed
+  nothing.
 - **Session and consent**: as for local VR video, a web video is a mode of the running session. It needs no new
   consent, journal entry or recovery step, and the controller only forwards. Compared with a local file it adds one
   outgoing connection to the site of a link Cody chose, made by a child process of the run. The link may carry a
@@ -166,7 +192,12 @@ Ctrl+Alt+U ─ xr_control.py: wl-paste once ─┐       (panel: "Paste from bro
 - **Long pauses**: if the site drops the idle connection, ffmpeg reconnects with a range request. If that fails, the
   run resumes at the estimated position (twice at most).
 - **Live streams** (`<dl8-live-video>`, no length) play but do not seek.
-- **YouTube 360** uses the equi-angular cubemap, which VR video refuses, and needs yt-dlp. It is not handled.
+- **Video sites through yt-dlp** work only as far as yt-dlp supports the site *without a login*: no cookies are ever
+  passed, so members-only, age-gated or private videos are refused with yt-dlp's reason. Sites change often, and an
+  old yt-dlp fails first. Keep the package current (`pacman -Syu`).
+- **YouTube 360** is usually an equi-angular cubemap or mesh projection. The stream's own metadata says so, and VR
+  video refuses it (*cubemap projection is not supported*). Equirectangular uploads play.
+- **The format from a title** is a guess: a title with "360" plays as 360°, and so on. Tab fixes a wrong guess.
 - **The bookmark** must be clicked on the page each time. It cannot run by itself. A small companion extension
   could add a button to DelightXR players, but that means installing something in Chromium.
 
@@ -186,8 +217,10 @@ Ctrl+Alt+U ─ xr_control.py: wl-paste once ─┐       (panel: "Paste from bro
 
 ## What needs installing
 
-Nothing beyond what is installed now: Chromium, ffmpeg/ffprobe, mpv/libmpv, wl-clipboard and libnotify are all
-present. Cody adds one bookmark himself ([Using it](#using-it)). Going live means only updating the Python in the
+Nothing beyond what is installed now: Chromium, ffmpeg/ffprobe, mpv/libmpv, wl-clipboard, libnotify and **yt-dlp**
+(2026.08.19, `/usr/bin/yt-dlp`, needed only for video *page* links) are all present. Without yt-dlp, stream links
+and DelightXR pages still work, and page links are refused with a message naming yt-dlp (`sudo pacman -S yt-dlp`;
+nothing here installs it). Cody adds one bookmark himself ([Using it](#using-it)). Going live means only updating the Python in the
 controller's worktree when no session runs. The renderer and plugin pins are unchanged.
 
 ## Evidence
@@ -206,6 +239,13 @@ Offline only: no glasses, no compositor, no real website.
     resume then give-up, live streams, replacing and closing stop the relay, local files unchanged.
   - The built bookmark run in **headless Chromium 155** on test pages (temporary profile, every host unresolvable):
     DelightXR element with three sources, a custom fisheye format, a plain `<video>`, and a page with no video.
+- Page links (`PageFailureTests`, and `RelayTests` with the **installed yt-dlp** against local pages): format choice
+  on a YouTube-like list (8K AV1 over 8K H.264, which this decoder cannot do; DASH fragments and DRM skipped; best
+  Opus audio), cookie-free headers, the locked-down yt-dlp command, its errors without the link or video id, the
+  separate-audio relay, the format from the title (`VR 180 3D SBS` → 180° side-by-side), shape and Tab fallback, and
+  the refusals: no video on the page, yt-dlp missing, and a media link that turns out to be HTML. A real local page
+  embedding a clip plays through yt-dlp, ffprobe and the relay. A page without video gives the "web page link" reason,
+  not an exit code. The bookmark copies the page link in headless Chromium when a page has no stream link.
 - `spike/tests/video_render_test.cpp` (`ctest -R video_render`): the **unchanged renderer's VideoPlayer** plays the
   relay's container from a pipe (`ffmpeg -c copy -f nut pipe:1`). On the Ryzen iGPU: `vaapi-copy`, 1024×512, upright,
   pause, held at the end.

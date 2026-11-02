@@ -32,6 +32,13 @@ def web(*sources, **kw):
     return out
 
 
+def close_wake(ctl):
+    """ViewControl's mouse-mode wake socketpair (view.py); closed so tests leave no sockets behind."""
+    for name in ('mouse_wake', '_mouse_wake_writer'):
+        sock = getattr(ctl, name, None)
+        if sock is not None: sock.close()
+
+
 def frames(data):
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
@@ -136,7 +143,9 @@ class FormatAndSourceTests(unittest.TestCase):
         for stderr, part in ((f'[https @ 0x1] HTTP error 403 Forbidden\n{url}: Server returned 403 Forbidden', '403'),
                              ('Server returned 404 Not Found', '404'), ('Protocol \'file\' not on whitelist', 'other than web'),
                              ('Failed to resolve hostname cdn.example.com: Name or service not known', 'offline'),
-                             ('[mov] stream 0: cenc encrypted', 'DRM'), ('Connection timed out', 'in time'), ('weird', 'could not be opened')):
+                             ('[mov] stream 0: cenc encrypted', 'DRM'), ('Connection timed out', 'in time'),
+                             (f'{url}: Server returned 4XX Client Error, but not one of 40{{0,1,3,4}}', 'HTTP 4xx'),
+                             ('HTTP error 429 Too Many Requests', '429'), (f'[tls @ 0x5] {url}: weird thing', 'ffmpeg could not open the stream: weird thing')):
             with self.subTest(part=part):
                 why = wv.explain_failure(stderr.encode(), 1)
                 self.assertIn(part, why); self.assertNotIn('SECRET', why); self.assertNotIn('cdn.example.com', why)
@@ -223,6 +232,9 @@ class RelayTests(unittest.TestCase):
         (d / 'hls').mkdir()
         subprocess.run([FFMPEG, '-v', 'error', '-y', '-i', str(d / 'beach_180_LR.mp4'), '-c', 'copy', '-f', 'hls', '-hls_time', '2',
                         '-hls_playlist_type', 'vod', str(d / 'hls' / 'index.m3u8')], check=True)
+        (d / 'watch').write_text('<!doctype html><html><head><title>Talk show</title></head><body><p>' + 'x' * 2000 + '</p></body></html>')
+        (d / 'vrpage').write_text('<!doctype html><html><head><title>Alps VR180 3D SBS</title></head><body>'
+                                  '<video controls src="beach_180_LR.mp4"></video></body></html>')
         RangeHandler.hits = []
         cls.server = ThreadingHTTPServer(('127.0.0.1', 0), partial(RangeHandler, directory=str(d)))
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True); cls.thread.start()
@@ -285,6 +297,7 @@ class RelayTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
                                clock=clock, menu_binds=lambda on: None)
+        self.addCleanup(close_wake, ctl)
         v = video.VideoControl(ctl, probe=lambda fd: None, threads=False, clock=clock, allow_local=True)
         self.addCleanup(v.close)
         page = web({'src': self.base + '/hls/index.m3u8', 'type': 'application/x-mpegurl'}, {'src': self.base + '/beach_180_LR.mp4', 'quality': '1080p'},
@@ -303,6 +316,32 @@ class RelayTests(unittest.TestCase):
         self.assertEqual(v.snapshot()['stream']['duration'], 6.0)
         v.on_message({'op': 'video_exit', 'payload': {}})
         self.assertIsNone(v.stream)
+
+    @unittest.skipUnless(wv.ytdlp_path(), 'yt-dlp not installed')
+    def test_page_links_with_the_real_yt_dlp(self):
+        """The installed yt-dlp and ffprobe against local pages: one embedding a 180° SBS clip (format from the
+        page title), one with no video (the "web page link" refusal, not an exit code)."""
+        clock = Clock()
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
+                               clock=clock, menu_binds=lambda on: None)
+        self.addCleanup(close_wake, ctl)
+        v = video.VideoControl(ctl, probe=lambda fd: None, threads=False, clock=clock, allow_local=True)
+        self.addCleanup(v.close)
+        v.on_message({'op': 'video_open', 'payload': {'url': self.base + '/vrpage'}})
+        out = v.poll(clock())
+        self.assertIsInstance(out, video.FdFrame, v.snapshot())
+        [f] = frames(out)
+        self.assertEqual(f['payload'], {'action': 'open', 'projection': '180', 'stereo': 'sbs', 'fov': 180, 'title': 'Alps VR180 3D SBS (1)'})  # yt-dlp numbers generic entries
+        self.assertEqual(v.snapshot()['source'], 'title')
+        p = probe_bytes(drain(out.fds.pop()), self.tmp.name)
+        self.assertEqual(next(s for s in p['streams'] if s['codec_type'] == 'video')['width'], 1024)
+        v.on_message({'op': 'video_exit', 'payload': {}})
+        v.on_message({'op': 'video_open', 'payload': {'url': self.base + '/watch?v=SECRETID'}})
+        self.assertIsNone(v.poll(clock()))
+        err = v.snapshot()['error']
+        self.assertIn("that's a web page link, not a video link", err); self.assertIn('Play in VITURE', err)
+        self.assertNotIn('SECRETID', err); self.assertNotIn('127.0.0.1', err); self.assertNotIn('exit', err)
 
     def test_a_refused_stream_is_a_failure_with_a_reason(self):
         r, fd = self.relay(self.base + '/forbidden.mp4')
@@ -337,6 +376,7 @@ class WebControlTests(unittest.TestCase):
         self.clock = Clock()
         self.view = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(self.tmp.name) / 'l.json'),
                                      None, clock=self.clock, menu_binds=lambda on: None)
+        self.addCleanup(close_wake, self.view)
         self.relays, self.probed, self.told = [], [], []
         self.info = {'width': 8192, 'height': 4096, 'codec': 'hevc', 'fps': 30.0, 'duration': 600.0, 'projection': None,
                      'coverage': None, 'stereo': None}
@@ -580,6 +620,175 @@ class BookmarkletTests(unittest.TestCase):
         self.assertEqual(plain['sources'][0]['src'], 'https://cdn.example.com/plain_360.mp4')
         self.assertEqual(wv.parse_clipboard(results['plain']), {'web': plain})
 
+    @unittest.skipUnless(CHROMIUM, 'chromium not installed')
+    def test_a_page_without_a_stream_link_sends_the_page(self):
+        """A big video site streams from a blob with no manifest in the page: the bookmark copies the page link
+        (via 'page'), which the run resolves with yt-dlp. Served from 127.0.0.1 (http), every hostname unresolvable."""
+        import html as h, re
+        from urllib.parse import unquote
+        code = unquote(build.bookmark_url()[len('javascript:'):])
+        with tempfile.TemporaryDirectory() as tmp:
+            page = ('<!doctype html><html><head><title>Big site video</title><script>'
+                    'window.__vitureXrTestSink = function (t) { window.__out = t; };</script></head><body><p>player</p>'
+                    '<pre id="out"></pre><script>' + code.replace('</', '<\\/') + '</script><script>'
+                    'document.getElementById("out").textContent = window.__out || "NONE";</script></body></html>')
+            (Path(tmp) / 'watch.html').write_text(page)
+            server = ThreadingHTTPServer(('127.0.0.1', 0), partial(RangeHandler, directory=tmp))
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            self.addCleanup(server.server_close); self.addCleanup(server.shutdown)
+            url = f'http://127.0.0.1:{server.server_address[1]}/watch.html?v=abc'
+            r = subprocess.run([CHROMIUM, '--headless=new', f'--user-data-dir={Path(tmp) / "profile"}', '--no-first-run',
+                                '--disable-background-networking', '--disable-component-update', '--disable-sync',
+                                '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1', '--virtual-time-budget=3000', '--dump-dom', url],
+                               capture_output=True, timeout=90, check=False)
+            m = re.search(r'<pre id="out">(.*?)</pre>', r.stdout.decode('utf-8', 'replace'), re.S)
+            if not m: self.skipTest('headless chromium produced no DOM')
+            got = json.loads(h.unescape(m.group(1)))
+        self.assertEqual(got['sources'], [{'src': url, 'via': 'page'}])
+        self.assertEqual(got['title'], 'Big site video')
+        w = wv.validate_web(got, allow_local=True)
+        self.assertFalse(wv.looks_like_media(wv.choose_source(w)))  # goes to yt-dlp
+
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PageFailureTests(unittest.TestCase):
+    """Video PAGE links (docs/delightxr.md): yt-dlp resolution, format choice, and clear refusals."""
+    YT = {'title': 'Mountain VR 180 3D SBS 8K', 'tags': ['vr180', 'travel'], 'duration': 600,
+          'formats': [
+              {'format_id': '18', 'url': 'https://media.example.net/18', 'protocol': 'https', 'vcodec': 'avc1.42001E',
+               'acodec': 'mp4a.40.2', 'width': 640, 'height': 320, 'tbr': 500},
+              {'format_id': 'sb0', 'url': 'https://media.example.net/sb', 'protocol': 'mhtml', 'vcodec': 'none', 'acodec': 'none'},
+              {'format_id': '137', 'url': 'https://media.example.net/137', 'protocol': 'https', 'vcodec': 'avc1.640033',
+               'acodec': 'none', 'width': 7680, 'height': 3840, 'tbr': 60000},  # H.264 beyond the hardware decoder
+              {'format_id': '315', 'url': 'https://media.example.net/315', 'protocol': 'https', 'vcodec': 'vp09.00.51.08',
+               'acodec': 'none', 'width': 3840, 'height': 1920, 'fps': 60, 'tbr': 25000},
+              {'format_id': '571', 'url': 'https://media.example.net/571', 'protocol': 'https', 'vcodec': 'av01.0.16M.08',
+               'acodec': 'none', 'width': 7680, 'height': 3840, 'fps': 30, 'tbr': 50000,
+               'http_headers': {'User-Agent': 'Mozilla/5.0 yt', 'Accept': '*/*', 'Cookie': 'SID=secret', 'Authorization': 'x',
+                                'Sec-Fetch-Mode': 'navigate', 'Bad\nName': 'v'}},
+              {'format_id': 'dash', 'url': 'https://media.example.net/dash', 'protocol': 'http_dash_segments', 'vcodec': 'av01',
+               'acodec': 'none', 'width': 15360, 'height': 7680, 'fragments': [{'path': 'x'}]},
+              {'format_id': 'drm', 'url': 'https://media.example.net/drm', 'protocol': 'https', 'vcodec': 'av01', 'acodec': 'none',
+               'width': 15360, 'height': 7680, 'has_drm': True},
+              {'format_id': '140', 'url': 'https://media.example.net/140', 'protocol': 'https', 'vcodec': 'none', 'acodec': 'mp4a.40.2', 'abr': 129},
+              {'format_id': '251', 'url': 'https://media.example.net/251', 'protocol': 'https', 'vcodec': 'none', 'acodec': 'opus', 'abr': 160},
+          ]}
+
+    def test_media_or_page(self):
+        for url in ('https://cdn.example.com/a.mp4', 'https://cdn.example.com/x/master.m3u8?t=1', 'https://cdn.example.com/a.MPD'):
+            self.assertTrue(wv.looks_like_media({'src': url, 'type': ''}), url)
+        self.assertTrue(wv.looks_like_media({'src': 'https://cdn.example.com/stream', 'type': 'video/mp4'}))
+        for url in ('https://www.example.com/watch?v=abc', 'https://vr.example.com/video/12345/alps-in-vr', 'https://example.com/'):
+            self.assertFalse(wv.looks_like_media({'src': url, 'type': ''}), url)
+
+    def test_best_format_and_cookie_free_headers(self):
+        video_fmt, audio = wv.pick_formats(self.YT)
+        self.assertEqual(video_fmt['format_id'], '571')  # 8K AV1 decodes in hardware; 8K H.264 would not; DRM/DASH skipped
+        self.assertEqual(audio['format_id'], '251')
+        headers, ua = wv.relay_headers(video_fmt)
+        self.assertEqual(ua, 'Mozilla/5.0 yt')
+        self.assertEqual(headers, {'Accept': '*/*', 'Sec-Fetch-Mode': 'navigate'})  # no Cookie, Authorization or bad names
+        combined, none = wv.pick_formats({'formats': [self.YT['formats'][0]]})
+        self.assertEqual((combined['format_id'], none), ('18', None))
+        with self.assertRaises(video.VideoRejected) as cm: wv.pick_formats({'formats': [self.YT['formats'][6]]})
+        self.assertIn('DRM', str(cm.exception))
+        with self.assertRaises(video.VideoRejected): wv.pick_formats({'formats': [self.YT['formats'][1]]})
+
+    def test_relay_with_separate_audio(self):
+        argv = wv.relay_argv('https://media.example.net/571', {'Accept': '*/*'}, 'UA', 30, ffmpeg='/usr/bin/ffmpeg',
+                             audio='https://media.example.net/251')
+        self.assertEqual([argv[i + 1] for i, a in enumerate(argv) if a == '-i'], ['https://media.example.net/571', 'https://media.example.net/251'])
+        self.assertEqual(argv.count('-ss'), 2); self.assertEqual(argv.count('-protocol_whitelist'), 2)
+        self.assertEqual(argv[argv.index('-map'):argv.index('-map') + 4], ['-map', '0:v:0', '-map', '1:a:0'])
+
+    def test_yt_dlp_runs_locked_down_and_its_errors_are_clear(self):
+        calls = []
+        def run(out=b'', err=b'', rc=0):
+            def f(argv, **kw):
+                calls.append((argv, kw)); return subprocess.CompletedProcess(argv, rc, out, err)
+            return f
+        page = 'https://www.example.com/watch?v=SECRETID'
+        data = wv.resolve_page(page, run=run(json.dumps(self.YT).encode()), ytdlp='/usr/bin/yt-dlp')
+        self.assertEqual(data['title'], self.YT['title'])
+        argv, kw = calls[0]
+        for flag in ('--ignore-config', '--no-plugin-dirs', '--no-cache-dir', '--no-cookies', '--no-cookies-from-browser',
+                     '--no-playlist', '--skip-download', '--dump-single-json'):
+            self.assertIn(flag, argv)
+        self.assertEqual(argv[-2:], ['--', page])
+        self.assertNotIn('cookies-from-browser', ' '.join(a for a in argv if a != '--no-cookies-from-browser'))
+        self.assertEqual(set(kw['env']) - {'HOME'}, {'PATH', 'LC_ALL'})
+        playlist = {'_type': 'playlist', 'entries': [dict(self.YT, title='first')]}
+        self.assertEqual(wv.resolve_page(page, run=run(json.dumps(playlist).encode()), ytdlp='y')['title'], 'first')
+        with self.assertRaises(wv.PageUnsupported):
+            wv.resolve_page(page, run=run(err=f'ERROR: Unsupported URL: {page}'.encode(), rc=1), ytdlp='y')
+        with self.assertRaises(video.VideoRejected) as cm:
+            wv.resolve_page(page, run=run(err=b'ERROR: [youtube] SECRETID: Private video. Sign in if you have access', rc=1), ytdlp='y')
+        self.assertEqual(str(cm.exception), 'yt-dlp could not get the video: Private video. Sign in if you have access')
+        with self.assertRaises(video.VideoRejected) as cm: wv.resolve_page(page, ytdlp='')
+        self.assertIn('yt-dlp', str(cm.exception)); self.assertIn('not installed', str(cm.exception))
+        self.assertIn("web page link, not a video link", str(cm.exception))
+
+    def control(self, resolve, probe):
+        clock = Clock()
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        ctl = view.ViewControl(view.ViewState(NAMES), 'run1', 's1', lambda name: None, LayoutStore(Path(tmp.name) / 'l.json'), None,
+                               clock=clock, menu_binds=lambda on: None)
+        self.addCleanup(close_wake, ctl)
+        self.relays = []
+        v = video.VideoControl(ctl, probe=lambda fd: None, threads=False, clock=clock, web_probe=probe, web_resolve=resolve,
+                               relay_factory=lambda argv: FakeRelay(argv, self.relays))
+        self.addCleanup(v.close)
+        return v, clock
+
+    def test_a_page_link_plays_its_best_stream_with_the_format_from_its_title(self):
+        probed = []
+        def probe(url, headers, ua):
+            probed.append((url, headers, ua))
+            return {'width': 7680, 'height': 3840, 'codec': 'av1', 'fps': 30.0, 'duration': 600.0, 'projection': None, 'coverage': None, 'stereo': None}
+        v, clock = self.control(lambda url: dict(self.YT), probe)
+        v.on_message({'op': 'video_open', 'payload': {'url': 'https://www.example.com/watch?v=SECRETID'}})
+        out = v.poll(clock()); self.addCleanup(out.close_fds)
+        [f] = frames(out)
+        self.assertEqual(f['payload'], {'action': 'open', 'projection': '180', 'stereo': 'sbs', 'fov': 180, 'title': 'Mountain VR 180 3D SBS 8K'})
+        self.assertEqual(probed, [('https://media.example.net/571', {'Accept': '*/*', 'Sec-Fetch-Mode': 'navigate'}, 'Mozilla/5.0 yt')])
+        argv = self.relays[0].argv
+        self.assertEqual([argv[i + 1] for i, a in enumerate(argv) if a == '-i'], ['https://media.example.net/571', 'https://media.example.net/251'])
+        self.assertNotIn('SID=secret', ' '.join(argv))
+        snap = v.snapshot()
+        self.assertEqual((snap['source'], snap['stream']['site'], snap['stream']['resolved']), ('title', 'www.example.com', True))
+        self.assertNotIn('SECRETID', json.dumps(snap)); self.assertNotIn('media.example.net', json.dumps(snap))
+
+    def test_an_untitled_page_falls_back_to_the_shape_and_tab(self):
+        probe = lambda url, h, ua: {'width': 4096, 'height': 2048, 'codec': 'hevc', 'fps': 30.0, 'duration': 60.0, 'projection': None,
+                                    'coverage': None, 'stereo': None}
+        v, clock = self.control(lambda url: {'title': 'Holiday', 'formats': [self.YT['formats'][0]]}, probe)
+        v.on_message({'op': 'video_open', 'payload': {'url': 'https://www.example.com/v/9'}})
+        out = v.poll(clock()); self.addCleanup(out.close_fds)
+        self.assertEqual((frames(out)[0]['payload']['projection'], v.snapshot()['source']), ('360', 'shape'))
+        tab = v.on_message({'op': 'video_format', 'payload': {}})
+        self.assertEqual(frames(tab)[-1]['payload']['action'], 'format')
+
+    def test_refusals_for_pages(self):
+        def unsupported(url): raise wv.PageUnsupported('no video found on that page')
+        def missing(url): wv.resolve_page(url, ytdlp='')
+        def html(url, h, ua): raise wv.ProbeFailed('the link does not lead to a playable video', 'invalid')
+        cases = ((unsupported, html, "web page link, not a video link, and yt-dlp found no video on it"),
+                 (missing, html, 'yt-dlp, which finds the video on a page, is not installed'))
+        for resolve, probe, part in cases:
+            with self.subTest(part=part):
+                told = []
+                v, clock = self.control(resolve, probe)
+                v.notify = told.append
+                v.on_message({'op': 'video_open', 'payload': {'url': 'https://www.example.com/watch?v=SECRETID'}})
+                self.assertIsNone(v.poll(clock()))
+                err = v.snapshot()['error']
+                self.assertIn(part, err); self.assertIn('Play in VITURE', err); self.assertNotIn('SECRETID', err)
+                self.assertEqual(self.relays, [])
+        # A media link that turns out to be HTML (a login page) is not called a page link: the extension says "video".
+        v, clock = self.control(unsupported, html)
+        v.on_message({'op': 'video_open', 'payload': {'url': 'https://cdn.example.com/a_360.mp4'}})
+        v.poll(clock())
+        self.assertEqual(v.snapshot()['error'], 'the link does not lead to a playable video')
