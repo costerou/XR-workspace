@@ -105,6 +105,15 @@ if(XR_ENABLE_IPC)
     target_compile_options(ipc_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endif()
   add_test(NAME ipc COMMAND ipc_test)
+  # Placement-menu contract (shared fixture with tests/native_spike/test_placement_menu.py); exit 77 = renderer lacks the op.
+  add_executable(placement_menu_ipc_test tests/placement_menu_ipc_test.cpp)
+  target_link_libraries(placement_menu_ipc_test PRIVATE xr_ipc nlohmann_json::nlohmann_json)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(placement_menu_ipc_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME placement_menu_ipc COMMAND placement_menu_ipc_test
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/placement_menu_payloads.json")
+  set_tests_properties(placement_menu_ipc PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 if(XR_ENABLE_PRESENTATION)

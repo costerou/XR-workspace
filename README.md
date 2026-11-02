@@ -68,10 +68,29 @@ These keybinds exist only during a run:
 | Ctrl+Alt+F | Toggle cursor follow |
 | Ctrl+Alt+P | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | Show the help card in the glasses |
+| Ctrl+Alt+M | Open / close the placement menu in the glasses |
 
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
+
+### Placement menu
+
+You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+M** during a run to open the placement menu. It looks like the help card. Press Ctrl+Alt+M again to close it. (Ctrl+Alt+P was already taken by pose prediction.)
+
+While the menu is open:
+
+| Keys | Action |
+| --- | --- |
+| Tab / Shift+Tab | Next / previous desktop (XR-1, XR-2, XR-3, wrapping round) |
+| Down / Up | Next / previous setting, wrapping round |
+| Right / Left | Increase / decrease the setting by a small step |
+| Shift+Right / Shift+Left | Increase / decrease by a big step |
+| R | Reset the selected desktop to flat (all settings back to default) |
+
+The settings are, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. Values stop at the same limits as the panel's sliders.
+
+Each key press moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's profile a moment after you stop pressing keys, and again when you close the menu. The menu keys only work while the menu is open, so the arrows, Tab and R type normally once it is closed. The menu changes placement only. It does not change the run's consent, capture or what the panel shows as buttons.
 
 ## Tests
 
