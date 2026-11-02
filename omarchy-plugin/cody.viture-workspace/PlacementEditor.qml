@@ -13,8 +13,19 @@ ColumnLayout {
     property int index: 0
     property bool busy: false
     property bool live: false
-    property var draft: Model.placementEdit(placement) || Model.defaultPlacement()
-    onPlacementChanged: draft = Model.placementEdit(placement) || Model.defaultPlacement()
+    // `placement` is re-delivered as a new object on every settings reload/state push (about 1 Hz while running).
+    // Only a changed saved value or a different desktop replaces the draft, and never mid-drag, so unsaved edits
+    // survive until Save/Apply.
+    property var saved: Model.placementEdit(placement) || Model.defaultPlacement()
+    property var draft: saved
+    property bool dragging: false
+    onPlacementChanged: {
+        const p = Model.placementEdit(placement) || Model.defaultPlacement()
+        if (Model.samePlacement(p, saved)) return
+        saved = p
+        if (!dragging) draft = p
+    }
+    onIndexChanged: { saved = Model.placementEdit(placement) || Model.defaultPlacement(); draft = saved }
     signal save(var placement)
     spacing: 6
     function setField(key, value) { const d = Object.assign({}, draft); d[key] = Math.round(value); draft = d }
@@ -45,7 +56,7 @@ ColumnLayout {
                 value: root.draft[row.modelData.key]
                 enabled: !root.busy
                 onMoved: root.setField(row.modelData.key, value)
-                onPressedChanged: if (!pressed && root.live) root.apply()
+                onPressedChanged: { root.dragging = pressed; if (!pressed && root.live) root.apply() }
             }
             Label { text: root.draft[row.modelData.key] + row.modelData.unit; Layout.preferredWidth: 52; horizontalAlignment: Text.AlignRight }
         }

@@ -125,6 +125,10 @@ function placementEdit(p) {
     return out;
 }
 
+function samePlacement(a, b) {
+    return !!a && !!b && PLACEMENT_KEYS.every(function(k) { return a[k] === b[k]; });
+}
+
 function isFlat(p) {
     const d = defaultPlacement();
     return !!p && PLACEMENT_KEYS.every(function(k) { return p[k] === d[k]; });
