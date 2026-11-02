@@ -69,6 +69,22 @@ class VideoControllerTests(unittest.TestCase):
         self.units.reply = False
         self.assertFalse(self.c.request(dict(op='video_open', path='/v.mp4'))['ok'])
 
+    def test_web_videos_are_forwarded_without_new_consent(self):
+        # docs/delightxr.md: a link or the bookmarklet's object; the run probes and relays it (web_video.py).
+        spawns = self.run_session()
+        consents = sorted(p.name for p in self.path.iterdir())
+        page = {'viture_xr_video': 1, 'format': 'STEREO_180_LR', 'sources': [{'src': 'https://cdn.example.com/a.mp4'}]}
+        self.assertTrue(self.c.request(dict(op='video_open', web=page))['ok'])
+        self.assertEqual(self.units.sent[-1], ('video_open', {'web': page}))
+        self.assertTrue(self.c.request(dict(op='video_open', url='https://cdn.example.com/b_360.mp4'))['ok'])
+        self.assertEqual(self.units.sent[-1], ('video_open', {'url': 'https://cdn.example.com/b_360.mp4'}))
+        self.assertEqual(len(self.spawns), spawns)
+        self.assertEqual(sorted(p.name for p in self.path.iterdir()), consents)
+        for bad in (dict(url='file:///etc/passwd'), dict(url='https://a.example/x.mp4', path='/x.mp4'), dict(web={'sources': []}),
+                    dict(web=dict(page, cookie='x'))):
+            with self.subTest(bad=bad): self.assertFalse(self.c.request(dict(op='video_open', **bad))['ok'])
+        self.assertEqual(len(self.units.sent), 2)
+
     def test_video_keys_and_snapshot(self):
         self.run_session()
         for op in KEY_OPS:

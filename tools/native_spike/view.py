@@ -49,13 +49,15 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
          ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + L', 'menu_toggle'),
-         ('CTRL + ALT + O', 'video_open'))  # video_open: the bind helper shows a file picker first (video.py)
+         ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
+         ('CTRL + ALT + U', 'video_paste'))  # video_paste: the helper sends the clipboard's web video (docs/delightxr.md)
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview; drag a corner there to resize',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction', 'help': 'Show / hide this help',
-                'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)', 'video_open': 'Play a 180/360 VR video'}
+                'menu_toggle': 'Placement menu (Ctrl+Alt+M: mouse)', 'video_open': 'Play a 180/360 VR video',
+                'video_paste': 'Play the browser video you copied'}
 # Placement menu: actions (shared contract with the renderer overlay and tests) and the modal binds present only while open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
             'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back')
@@ -97,7 +99,8 @@ EXTRA_HELP_ROWS = ()
 
 # Bind pairs shown as one help-card row, so the card stays at 12 rows: a 13th row makes it 1008 px tall with
 # JetBrainsMono, past the 960 px glasses surface. first op -> (second op, action).
-HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops')}
+HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+              'video_open': ('video_paste', 'VR video: file / copied web link')}  # docs/delightxr.md
 
 
 def help_rows():

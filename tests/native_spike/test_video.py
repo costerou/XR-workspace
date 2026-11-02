@@ -401,7 +401,7 @@ class TransportTests(unittest.TestCase):
 class BindTests(unittest.TestCase):
     def test_ctrl_alt_o_and_the_modal_keys(self):
         self.assertIn(('CTRL + ALT + O', 'video_open'), view.BINDS)
-        self.assertIn(['Ctrl+Alt+O', 'Play a 180/360 VR video'], view.help_rows())
+        self.assertIn(['Ctrl+Alt+O / U', 'VR video: file / copied web link'], view.help_rows())
         lua = view.install_binds_lua('/usr/bin/python3', '/repo/tools/native_spike/xr_control.py', '/run/user/1000/x/control.sock', 'run1', 's1')
         self.assertLess(len(lua), 4096)
         modal = video.install_video_binds_lua('/usr/bin/python3', '/repo/tools/native_spike/xr_control.py', '/run/user/1000/x/control.sock', 'run1', 's1')

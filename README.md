@@ -61,6 +61,8 @@ python -m tools.native_spike tracking start   # also: status, stop
 
 **VR video** (offline tests only, not yet run in the glasses): during a session, **Ctrl+Alt+O** (or the panel's *VR video* section) plays a 360° or 180° video, mono or 3D (side-by-side, top-bottom), equirectangular or fisheye, head-tracked around you in place of the desktops. Space pauses, the arrows seek, Tab changes the format, Ctrl+Alt+Space recenters and Esc returns to the desktops. While a video plays, the placement menu, its mouse mode and the overview corner resize are off. The renderer decodes with libmpv (`mpv` package; without it the renderer builds without video). Design, formats, limits and performance: [docs/vr-video.md](docs/vr-video.md).
 
+**Web VR video / DelightXR** (offline tests only): click the *Play in VITURE* bookmark (built by `python -m tools.delightxr.build`) on a DelightXR or other video page, then press **Ctrl+Alt+U** in the glasses (or the panel's *Paste from browser*). The run streams the page's own video link through an ffmpeg relay into the same VR video player; no download, no browser changes, renderer unchanged. Findings, options and limits (no DRM, no cookie-gated links): [docs/delightxr.md](docs/delightxr.md).
+
 These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; the left-button binds marked "mouse mode" exist only while mouse mode is on. If the run dies with the menu open, the first menu key (or, in mouse mode, the first click) pressed afterwards releases them and shows the cursor again.
 
 | Keys | When | Action |

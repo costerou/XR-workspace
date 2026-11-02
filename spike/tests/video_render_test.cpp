@@ -3,7 +3,9 @@
 //     and a turned head, on a gradient texture;
 //  2. the controls card drawn by the real GlHud never exceeds the OLED limit;
 //  3. with libmpv and ffmpeg: clips generated here (never downloaded) in several codecs and layouts are decoded by the
-//     real VideoPlayer, checked for orientation, pause, seek and end, and projected through VideoSphere.
+//     real VideoPlayer, checked for orientation, pause, seek and end, and projected through VideoSphere;
+//  4. a web video as the run relays it (tools/native_spike/web_video.py, docs/delightxr.md): ffmpeg copying a clip into
+//     NUT on a pipe, whose read end goes to the same VideoPlayer (no seeking on a pipe: the run restarts the relay).
 // Exit 77 (skipped) without EGL/GLES. argv: [ffmpeg path] [scratch dir].
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -14,6 +16,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
+#include <spawn.h>
+#include <sys/wait.h>
 #include <filesystem>
 #include <string>
 #include <thread>
@@ -244,6 +248,47 @@ void decode(const std::string& ffmpeg, const std::string& dir) {
         CHECK(wait_for(*player, [&] { return player->position_s() < 1.0 && player->state() != VideoState::ended; }, 10));
         std::printf("decode %s: %dx%d -> %dx%d texture, %s\n", c.name, c.w, c.h, tw, th, player->report().c_str());
         ++decoded;
+    }
+    // A web video as the run relays it: `ffmpeg -i <stream> -c copy -f nut pipe:1` (web_video.relay_argv) into a pipe.
+    {
+        const std::string clip = dir + "/h264-360-mono.mp4";
+        int p[2];
+        CHECK(::pipe2(p, O_CLOEXEC) == 0);
+        posix_spawn_file_actions_t fa; posix_spawn_file_actions_init(&fa);
+        posix_spawn_file_actions_adddup2(&fa, p[1], 1);
+        posix_spawn_file_actions_addopen(&fa, 2, "/dev/null", O_WRONLY, 0);
+        const char* argv[] = {ffmpeg.c_str(), "-nostdin", "-hide_banner", "-loglevel", "error", "-i", clip.c_str(), "-sn", "-dn",
+                              "-c", "copy", "-f", "nut", "pipe:1", nullptr};
+        pid_t pid = -1;
+        const bool spawned = std::filesystem::exists(clip) &&
+                             posix_spawn(&pid, ffmpeg.c_str(), &fa, nullptr, const_cast<char* const*>(argv), environ) == 0;
+        posix_spawn_file_actions_destroy(&fa);
+        ::close(p[1]);
+        if (!spawned) { ::close(p[0]); std::puts("decode relay-pipe: SKIP (no clip or ffmpeg)"); }
+        else {
+            std::string why;
+            auto player = VideoPlayer::open(p[0], {false, true, nullptr}, why);  // the player owns the read end now
+            CHECK(player);
+            if (player) {
+                const bool playing = wait_for(*player, [&] { return player->texture() && player->state() == VideoState::playing; }, 20);
+                CHECK(playing);
+                CHECK(player->width() == 1024 && player->height() == 512);
+                GLuint fb = 0; glGenFramebuffers(1, &fb); glBindFramebuffer(GL_FRAMEBUFFER, fb);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, player->texture(), 0);
+                std::uint8_t px[4]{};
+                glReadPixels(256, 128, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+                CHECK(classify(px) == yellow);  // upright: the picture's top-left quadrant
+                glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &fb);
+                player->toggle_pause();
+                CHECK(wait_for(*player, [&] { return player->state() == VideoState::paused; }, 5));
+                player->toggle_pause();
+                CHECK(wait_for(*player, [&] { return player->state() == VideoState::ended; }, 15));  // end of the pipe: held
+                CHECK(player->texture() != 0 && player->position_s() > 2.0);
+                std::printf("decode relay-pipe (nut): %s\n", player->report().c_str());
+            }
+            int status = 0; ::waitpid(pid, &status, 0);
+            CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        }
     }
     // Not a video: reported as an error, never a crash.
     {

@@ -5,7 +5,8 @@ A video is a mode of a running capture session, not a new run. It needs no new c
 the glasses display, and a video only changes what the renderer draws. Nothing is captured, journaled or created on the
 compositor for it, and recovery has nothing to undo. It is opened from a file the user picks: Ctrl+Alt+O (the bind
 helper xr_control.py shows a file picker on the focused desktop), the panel's Browse/Play, or a path sent to the
-controller. This supervisor checks the path is a readable regular file, opens it, probes the opened file with ffprobe
+controller. A web video (a DelightXR player or a stream link, docs/delightxr.md) comes from the clipboard with Ctrl+Alt+U
+or the panel; web_video.py relays the stream through ffmpeg into a pipe, and the renderer gets that pipe's read end. This supervisor checks the path is a readable regular file, opens it, probes the opened file with ffprobe
 (never the path again, so the file cannot be swapped in between), detects the format, and hands the renderer that open
 descriptor over the run's private control socket (SCM_RIGHTS). The renderer never sees or opens a path.
 
@@ -101,7 +102,14 @@ def validate_request(op, payload):
     if op != 'video_open':
         if payload: raise ValueError('unexpected payload')
         return {}
-    if set(payload) - {'path', 'format'} or 'path' not in payload: raise ValueError('invalid video_open')
+    if set(payload) - {'path', 'url', 'web', 'format'} or len(set(payload) & {'path', 'url', 'web'}) != 1:
+        raise ValueError('invalid video_open')
+    if 'path' not in payload:  # a web video (web_video.py): its shape here; local addresses are refused when it opens
+        from .web_video import web_request
+        web_request(payload, allow_local=True)
+        out = {k: payload[k] for k in ('url', 'web') if k in payload}
+        if 'format' in payload: out['format'] = validate_format(payload['format'])
+        return out
     path = payload['path']
     if not isinstance(path, str) or not path.startswith('/') or not 1 < len(path.encode('utf-8', 'surrogatepass')) <= MAX_PATH or '\0' in path:
         raise ValueError('video_open needs an absolute path')
@@ -137,7 +145,10 @@ def video_frame(run_id, session, request_id, payload):
 
 def ascii_title(path):
     """The file name as the card shows it: printable ASCII only (the pixel font), at most MAX_TITLE characters."""
-    name = Path(str(path)).name
+    return ascii_text(Path(str(path)).name)
+
+
+def ascii_text(name):
     text = re.sub(r'\s+', ' ', ''.join(c if 0x20 <= ord(c) < 0x7f else '?' for c in name)).strip()
     if len(text) > MAX_TITLE: text = text[:MAX_TITLE - 3].rstrip() + '...'
     return text or 'VR video'
@@ -319,6 +330,19 @@ def check_limits(info):
     return warnings
 
 
+def _quiet(fn, *args):
+    try: fn(*args)
+    except (OSError, ValueError, subprocess.SubprocessError): pass
+
+
+def notify_send(text, *, run=subprocess.run):
+    """A desktop notification (mako on Omarchy). The focused desktop is in the glasses, so Cody sees it there."""
+    exe = '/usr/bin/notify-send'
+    if not os.access(exe, os.X_OK): return
+    run([exe, '--app-name=VITURE XR', '--expire-time=8000', 'VR video', str(text)[:300]], stdin=subprocess.DEVNULL,
+        capture_output=True, timeout=5, check=False)
+
+
 # --- Hyprland binds ----------------------------------------------------------------------------------------------------
 
 def install_video_binds_lua(python, client, control_socket, run_id, session):
@@ -342,11 +366,21 @@ class VideoControl:
 
     `binds`: optional (on: bool) -> None installing/removing VIDEO_BINDS (a compositor call, run off the supervisor loop).
     `probe`: (fd) -> info dict or None (probe_fd). `threads=False` runs file checks inline (tests).
+    Web videos (web_video.py): `web_probe` (url, headers, ua) -> info, `relay_factory` (argv) -> StreamRelay,
+    `allow_local` (tests only: local test servers). `notify`: optional (text) -> None telling Cody why an open was
+    refused while he is in the glasses (a desktop notification), run off the supervisor loop.
     """
-    def __init__(self, view_control, *, binds=None, probe=probe_fd, threads=True, clock=None):
+    def __init__(self, view_control, *, binds=None, probe=probe_fd, threads=True, clock=None, web_probe=None,
+                 relay_factory=None, allow_local=False, notify=None):
         self.view = view_control
         self.clock = clock or view_control.clock
         self.binds, self.probe, self.threads = binds, probe, threads
+        self.web_probe, self.relay_factory, self.allow_local, self.notify = web_probe, relay_factory, allow_local, notify
+        self.stream = None   # web_video.WebStream while a web video plays
+        self.origin = None   # 'file' or 'web'
+        self.opening = False
+        self.last_poll = None
+        self.stream_retries = 0
         self.active = False
         self.title = self.format = self.source = None
         self.warnings, self.error = [], None
@@ -398,18 +432,23 @@ class VideoControl:
         if op == 'video_open':
             if self._worker is not None and self._worker.is_alive():
                 self.error = 'still opening the previous video'; return None
-            path, chosen = payload.get('path'), payload.get('format')
+            chosen = payload.get('format')
+            if 'path' in payload: target, args = self._prepare, (payload.get('path'), chosen)
+            else: target, args = self._prepare_web, ({k: payload[k] for k in ('url', 'web') if k in payload}, chosen)
+            self.opening, self.error = True, None
             if self.threads:
-                self._worker = threading.Thread(target=self._prepare, args=(path, chosen), daemon=True)
+                self._worker = threading.Thread(target=target, args=args, daemon=True)
                 self._worker.start()
             else:
-                self._prepare(path, chosen)
+                target(*args)
             return None  # poll() sends the open frame with the descriptor
         if not self.active: return None
         if op == 'video_exit': return self._close() or None
         if op == 'video_controls': return self._controls_frame(not self.controls) or None
         out = self._controls_frame(True)
         if op == 'video_pause': out += self._frame({'action': 'pause'})
+        elif op in SEEK_S and self.stream is not None:  # a pipe cannot seek: poll() restarts the relay once the keys settle
+            if not self.stream.request_seek(SEEK_S[op], self.clock()): self.error = 'a live stream cannot seek'
         elif op in SEEK_S: out += self._frame({'action': 'seek', 'seconds': SEEK_S[op]})
         elif op == 'video_format':
             self.format, self.source = next_format(self.format), 'chosen'
@@ -427,15 +466,39 @@ class VideoControl:
                 warnings = check_limits(info)
             except BaseException:
                 os.close(fd); raise
-            self._results.put(('open', fd, path, fmt, source, warnings))
+            self._results.put(('open', fd, ascii_title(path), fmt, source, warnings, None))
         except (VideoRejected, OSError, ValueError) as exc:
             self._results.put(('refused', str(exc) or 'cannot open the video'))
 
-    def _open(self, fd, path, fmt, source, warnings):
+    def _prepare_web(self, payload, chosen):
+        """Worker: check the web request, pick the source, probe it over the network, start the relay (web_video.py)."""
+        from . import web_video as wv
+        stream = None
+        try:
+            web = wv.web_request(payload, allow_local=self.allow_local)
+            src = wv.choose_source(web)
+            fmt, source = wv.dl8_format(src['format'] or web['format'], web['fov']), 'player'
+            probe = self.web_probe or wv.probe_url
+            info = probe(src['src'], wv.request_headers(web), web['ua'])
+            if fmt is None: fmt, source = detect_format(wv.name_from_url(src['src']), info)
+            if chosen: fmt, source = validate_format(chosen), 'chosen'
+            warnings = check_limits(info)
+            stream = wv.WebStream(web, src, info, relay_factory=self.relay_factory)
+            if not stream.seekable: warnings.append('live stream: no seeking')
+            start = web['start'] if web['start'] >= 2 and (not stream.duration or web['start'] < stream.duration - 5) else 0.0
+            fd = stream.start(start)
+            self._results.put(('open', fd, ascii_text(wv.web_title(web, src)), fmt, source, warnings, stream))
+        except (VideoRejected, OSError, ValueError) as exc:
+            if stream is not None: stream.stop()
+            self._results.put(('refused', str(exc) or 'cannot open the web video'))
+
+    def _open(self, fd, title, fmt, source, warnings, stream=None):
         out = b''
         if self.view.state.menu_open: out += self.view._on_menu('menu_toggle') or b''  # saves; releases the menu keys
         if self.view.help_visible: out += self.view._help_toggle()
-        self.title = ascii_title(path)
+        if self.stream is not None and self.stream is not stream: self.stream.stop()
+        self.stream, self.origin, self.opening, self.stream_retries = stream, 'web' if stream else 'file', False, 0
+        self.title = title
         out += self._frame({'action': 'open', **fmt, 'title': self.title})
         now = self.clock()
         self.active, self.format, self.source, self.warnings, self.error = True, fmt, source, list(warnings), None
@@ -447,7 +510,17 @@ class VideoControl:
         self._sync_binds()
         return FdFrame(out, [fd])
 
+    def _restart_stream(self, at, now):
+        """Seek or resume a web video: a new relay from `at`, handed to the renderer as a fresh open (same format)."""
+        try: fd = self.stream.start(at)
+        except (VideoRejected, OSError, ValueError) as exc:
+            return self._close(str(exc) or 'the stream could not be restarted')
+        self.controls = True  # the renderer shows the card on open
+        self.opened_at, self.error_seen_at, self.last_input = now, None, now
+        return FdFrame(self._frame({'action': 'open', **self.format, 'title': self.title}), [fd])
+
     def _close(self, error=None):
+        if self.stream is not None: self.stream.stop(); self.stream = None
         if not self.active: return b''
         self.active, self.controls = False, False
         self.view.video_active = False
@@ -464,11 +537,33 @@ class VideoControl:
             except queue.Empty: break
             if result[0] == 'open':
                 if self.supervisor is not None and self.supervisor.stopping_at is not None:
-                    os.close(result[1]); continue
+                    os.close(result[1])
+                    if result[-1] is not None: result[-1].stop()
+                    continue
                 frame = self._open(*result[1:])
                 out += bytes(frame); fds += frame.fds
             else:
-                self.error = result[1]
+                self.opening, self.error = False, result[1]
+                self._tell(result[1])
+        dt = now - self.last_poll if self.last_poll is not None else 0.0
+        self.last_poll = now
+        if self.active and self.stream is not None:
+            state = self.renderer_state()
+            self.stream.advance(dt, state)
+            target = self.stream.due_seek(now)
+            failure = self.stream.failure()
+            frame = None
+            if target is not None: frame = self._restart_stream(target, now)
+            elif failure and state in ('ended', 'error'):
+                # The connection broke for good (ffmpeg's own reconnects failed): resume once or twice, then give up.
+                if self.stream_retries < 2 and self.stream.position() > 0:
+                    self.stream_retries += 1
+                    frame = self._restart_stream(self.stream.position(), now)
+                else:
+                    self.error = failure; self._tell(failure)
+                    out += self._close(failure)
+            if frame:
+                out += bytes(frame); fds += getattr(frame, 'fds', [])
         if self.active:
             if self.controls and now - self.last_input >= OVERLAY_IDLE_CLOSE_S: out += self._controls_frame(False)
             state = self.renderer_state()
@@ -498,13 +593,20 @@ class VideoControl:
             self._sync_binds(force=True)
         return out
 
+    def _tell(self, text):
+        """Best effort: say why an open failed where Cody looks (a desktop notification), off the supervisor loop."""
+        if self.notify is None: return
+        threading.Thread(target=lambda: _quiet(self.notify, text), daemon=True).start()
+
     def snapshot(self):
-        """Panel state ('video' in the status reply)."""
+        """Panel state ('video' in the status reply). `stream`: web videos only (web_video.WebStream.snapshot)."""
         state = self.renderer_state() if self.active else 'off'
         return {'active': self.active, 'title': self.title, 'format': dict(self.format) if self.format else None,
                 'label': format_label(self.format) if self.format else None, 'source': self.source,
                 'state': state or ('loading' if self.active else 'off'), 'controls': self.controls,
-                'warnings': list(self.warnings), 'error': self.error, 'ops': list(KEY_OPS)}
+                'warnings': list(self.warnings), 'error': self.error, 'ops': list(KEY_OPS), 'opening': self.opening,
+                'origin': self.origin if self.active else None,
+                'stream': self.stream.snapshot() if self.active and self.stream is not None else None}
 
     def status_reply(self, status):
         reply = self.view.status_reply(status)
@@ -537,7 +639,10 @@ class VideoControl:
                 except (OSError, ValueError, TypeError, KeyError): pass
                 self._binds_installed = False
         if self._worker is not None: self._worker.join(max(0.0, deadline - time.monotonic()))
+        if self.stream is not None: self.stream.stop(); self.stream = None
         while True:
             try: result = self._results.get_nowait()
             except queue.Empty: break
-            if result[0] == 'open': os.close(result[1])
+            if result[0] == 'open':
+                os.close(result[1])
+                if result[-1] is not None: result[-1].stop()

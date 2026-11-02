@@ -24,13 +24,15 @@ has run in the glasses yet.
 
 ## Using it
 
-Start an XR session from the panel as usual. Then open a video in one of three ways:
+Start an XR session from the panel as usual. Then open a video in one of four ways:
 
 1. **Ctrl+Alt+O** in the glasses opens a file picker (zenity) on the desktop you are looking at. Pick a file and it
    plays. It is listed on the help card (Ctrl+Alt+H). Pressed during a video, it first returns to the desktops so the
    picker is visible.
 2. **Panel → VR video → Browse…** shows the same picker. Or type a path and press **Play**.
-3. Any client of the controller socket can send `{"op":"video_open","path":"/abs/path.mp4"}`, optionally with
+3. A video on a web page (DelightXR or a stream link): **Ctrl+Alt+U** after the *Play in VITURE* bookmark; see
+   [delightxr.md](delightxr.md).
+4. Any client of the controller socket can send `{"op":"video_open","path":"/abs/path.mp4"}`, optionally with
    `"format":{"projection":"180","stereo":"sbs","fov":180}` to skip detection.
 
 While a video plays, these keys exist (bare keys, like the placement menu's; they are removed when you exit):

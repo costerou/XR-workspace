@@ -128,13 +128,13 @@ def view_controls(client, run_id, session, capture, output=None, store=None):
         except (OSError, ValueError): events = None
         client.install_view_binds(*bind_args)
         installed = True
-        from .video import VideoControl
+        from .video import VideoControl, notify_send
         video_binds = None
         if hasattr(client, 'install_video_binds'):
             def video_binds(on):  # modal Space/arrows/Tab/Escape exist only while a video plays
                 if on: client.install_video_binds(*bind_args)
                 else: client.remove_video_binds()
-        video = VideoControl(control, binds=video_binds)
+        video = VideoControl(control, binds=video_binds, notify=notify_send)
         yield video
     finally:
         if video is not None: video.close()  # removes the video keys if a video was playing; none are added after this

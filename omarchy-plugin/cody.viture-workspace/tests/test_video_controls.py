@@ -20,6 +20,11 @@ ShellRoot {
     property var sent: []
     property int step: 0
     function fail(message) { console.error("FAIL " + message); Qt.quit(); }
+    function findText(item, name) {
+        if (item.objectName === name) return item.text;
+        for (const c of item.children) { const t = findText(c, name); if (t !== null) return t; }
+        return null;
+    }
     FloatingWindow {
         visible: true; implicitWidth: 640; implicitHeight: 400
         VideoControls {
@@ -27,6 +32,7 @@ ShellRoot {
             anchors.fill: parent
             snapshot: ({})
             pickerCommand: ["/bin/sh", "-c", "printf '%s\\\\n' /tmp/picked_180_LR.mp4"]
+            pasteCommand: ["/bin/sh", "-c", "printf '%s' '{\\"viture_xr_video\\":1,\\"format\\":\\"STEREO_180_LR\\",\\"sources\\":[{\\"src\\":\\"https://cdn.example.com/a.mp4\\"}]}'"]
             onRequest: message => shell.sent.push(message)
         }
     }
@@ -49,6 +55,20 @@ ShellRoot {
                 controls.snapshot = {video: {active: false, error: "file not found"}};
                 shell.step = 3;
             } else if (shell.step === 3) {
+                // Web videos: a typed link, the clipboard (stand-in wl-paste) and refusals of anything else.
+                controls.play("https://cdn.example.com/b_360.mp4");
+                controls.playClipboard("shopping list");
+                if (!controls.pasteError) { shell.fail("paste error"); return; }
+                controls.playClipboard("");
+                controls.paste();
+                shell.step = 4;
+            } else if (shell.step === 4 && shell.sent.length >= 13) {
+                controls.snapshot = {video: {active: true, title: "Sunset beach", label: "180° side-by-side 3D", state: "playing", source: "player",
+                                             stream: {site: "cdn.example.com", kind: "progressive", position: 3725.4, duration: 5400, seeking: false}}};
+                shell.step = 5;
+            } else if (shell.step === 5) {
+                const text = shell.findText(controls, "videoStream");
+                if (text !== "Streaming from cdn.example.com (progressive) · 1:02:05 / 1:30:00") { shell.fail("stream label " + text); return; }
                 console.log("SENT " + JSON.stringify(shell.sent));
                 console.log("PASS video controls");
                 Qt.quit();
@@ -80,12 +100,17 @@ class VideoControlsTests(unittest.TestCase):
             sent = json.loads(line[line.index("SENT ") + 5:])
             self.assertEqual(sent[0], {"op": "video_open", "path": "/home/me/Videos/a_360.mp4"})
             self.assertEqual(sent[1], {"op": "video_open", "path": "/tmp/picked_180_LR.mp4"})  # from the picker
-            self.assertEqual([m["operation"] for m in sent[2:]],
+            self.assertEqual([m["operation"] for m in sent[2:11]],
                              ["video_pause", "video_seek_back_big", "video_seek_back", "video_seek_fwd", "video_seek_fwd_big",
                               "video_format", "video_controls", "recenter", "video_exit"])
-            self.assertTrue(all(m["op"] == "view_op" for m in sent[2:]))
-            self.assertEqual(len(sent), 11)
+            self.assertTrue(all(m["op"] == "view_op" for m in sent[2:11]))
+            self.assertEqual(sent[11], {"op": "video_open", "url": "https://cdn.example.com/b_360.mp4"})
+            self.assertEqual(sent[12], {"op": "video_open", "web": {"viture_xr_video": 1, "format": "STEREO_180_LR",
+                                                                    "sources": [{"src": "https://cdn.example.com/a.mp4"}]}})
+            self.assertEqual(len(sent), 13)  # "shopping list" and an empty clipboard send nothing
+            from tools.native_spike.web_video import validate_web
+            validate_web(sent[12]["web"])  # the run accepts what the panel forwards
             from tools.native_spike.video import KEY_OPS  # every button is an op the controller forwards
             from tools.native_spike.view import USER_OPS
-            self.assertTrue({m["operation"] for m in sent[2:]} <= set(KEY_OPS) | set(USER_OPS))
-            self.assertEqual({m["operation"] for m in sent[2:]} - {"recenter"}, set(KEY_OPS))
+            self.assertTrue({m["operation"] for m in sent[2:11]} <= set(KEY_OPS) | set(USER_OPS))
+            self.assertEqual({m["operation"] for m in sent[2:11]} - {"recenter"}, set(KEY_OPS))
