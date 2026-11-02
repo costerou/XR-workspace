@@ -6,12 +6,13 @@ SHARED CONTRACT (feature/placement-menu, base f593574)
   * Hotkey actions: menu_toggle, menu_desktop_next/prev, menu_field_next/prev, menu_inc, menu_dec, menu_inc_big,
     menu_dec_big, menu_reset. They reach the supervisor like every other bind: xr_control.py -> run control socket ->
     ViewControl.on_message.
+  * menu_toggle is bound to Ctrl+Alt+L (Ctrl+Alt+P is pose prediction), agreed by all three threads.
   * Changes apply live through the existing 'placement' renderer frame, inside geometry.PLACEMENT_BOUNDS, and are saved
     to the glasses profile through PlacementStore, debounced and on close.
 
 Only the contract and existing public API are used here (ViewControl, ViewState, decode_control, xr_control, BINDS,
-install_binds_lua, PlacementStore). Step sizes, the initial desktop/field and the chords are implementation choices
-and are measured or looked up, never hard-coded.
+install_binds_lua, PlacementStore). Step sizes, the initial desktop/field and the in-menu chords are implementation
+choices and are measured or looked up; only the toggle chord is fixed by the contract.
 
 Tests that need MENU-WIRING skip until it lands (feature-detected: the control socket accepts 'menu_toggle'). The
 sentinel test `test_menu_wiring_landed` is an expected failure; once wiring lands it becomes an unexpected success and
@@ -43,6 +44,7 @@ MENU_FIELDS = ('x', 'y', 'distance', 'yaw', 'pitch', 'roll', 'curvature')  # con
 MENU_ACTIONS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
                 'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset')
 MENU_PAYLOAD_KEYS = {'open', 'desktop', 'field', 'placements'}
+MENU_TOGGLE_CHORD, MENU_TOGGLE_LABEL = 'CTRL + ALT + L', 'Ctrl+Alt+L'  # contract; Ctrl+Alt+P is pose prediction
 # Baselines at f593574: the menu must not widen any of these.
 BASE_CONTROL_OPS = {'status', 'start', 'stop', 'select', 'recover', 'zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up',
                     'spacing_down', 'recenter', 'mode_next', 'cursor_follow', 'prediction', 'help', 'placement'}
@@ -633,6 +635,8 @@ class MenuBindTests(unittest.TestCase):
         self.assertEqual(len(toggles), 1, 'menu_toggle needs exactly one always-installed chord')
         self.assertIn(('CTRL + ALT + P', 'prediction'), view.BINDS)   # Ctrl+Alt+P is taken: pose prediction
         self.assertNotEqual(toggles[0], 'CTRL + ALT + P')
+        self.assertEqual(toggles[0], MENU_TOGGLE_CHORD)
+        self.assertEqual(view.chord_label(toggles[0]), MENU_TOGGLE_LABEL)
         self.assertEqual([op for c, op in installed if c == toggles[0]], ['menu_toggle'])
 
     def test_every_menu_action_has_a_chord(self):
@@ -659,6 +663,7 @@ class MenuBindTests(unittest.TestCase):
         section = (ROOT / 'README.md').read_text().split('### Placement menu', 1)
         self.assertEqual(len(section), 2, 'README needs a "### Placement menu" section')
         self.assertIn(chord, section[1].split('\n## ', 1)[0])
+        self.assertEqual(chord, MENU_TOGGLE_LABEL)
 
 
 @unittest.skipUnless(RENDERER and 'PlacementMenuOverlay' in (ROOT / 'spike/src/wayland.cpp').read_text(),
@@ -711,6 +716,19 @@ class MenuHintAgreementTests(unittest.TestCase):
         for key in self.hint_keys():
             with self.subTest(key=key):
                 self.assertTrue(key in readme or HINT_KEYS[key] in readme or HINT_KEYS[key].title() in readme, key)
+
+
+class MenuToggleKeyTests(unittest.TestCase):
+    """Runs now: the agreed toggle key is free today and documented."""
+    def test_ctrl_alt_l_is_free_and_ctrl_alt_p_stays_prediction(self):
+        self.assertIn(('CTRL + ALT + P', 'prediction'), view.BINDS)
+        self.assertEqual([op for chord, op in view.BINDS if chord == MENU_TOGGLE_CHORD and op != 'menu_toggle'], [])
+
+    def test_readme_section_uses_ctrl_alt_l(self):
+        section = (ROOT / 'README.md').read_text().split('### Placement menu', 1)[1].split('\n## ', 1)[0]
+        self.assertIn(MENU_TOGGLE_LABEL, section)
+        self.assertNotIn('Ctrl+Alt+M', section)
+        self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+P')
 
 
 class NoScopeChangeTests(unittest.TestCase):
