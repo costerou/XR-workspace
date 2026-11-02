@@ -140,26 +140,49 @@ Record any failure with the step number and what you saw. Keep it apart from aut
 
 ## Sliders and mouse mode
 
-Each setting in the menu is drawn as a slider. With the menu open, **Ctrl+Alt+M** turns on mouse mode: the mouse moves a
-ring pointer over the sliders in the glasses, a click jumps a slider, and a drag moves it live. Ctrl+Alt+M again or
-Escape leaves mouse mode.
+Each setting in the menu is drawn as a slider. With the menu open, **Ctrl+Alt+M** turns on mouse mode: a round pointer
+moves freely over the whole menu card, 1:1 with the mouse, a click snaps the slider under it, and a drag moves it live.
+Ctrl+Alt+M again or Escape leaves mouse mode.
+
+How the pointer gets to the glasses (rebuilt 2026-11-02 after the first glasses trial felt laggy and jumpy):
+
+- A sampler thread reads Hyprland's `cursorpos` every 4 ms (250 Hz) while mouse mode is on, adds up the motion, and
+  wakes the supervisor loop through a socket. The hidden cursor is put back where mouse mode started whenever it strays
+  200 px, so no screen edge ever stops the pointer.
+- The loop moves the pointer in card pixels and sends one small `menu_pointer` frame per wake with the latest position.
+- The renderer draws the pointer as its own 26×26 overlay on the next frame. It wakes on the control socket instead of
+  waiting out its 50 ms Wayland poll. Moving the pointer never re-renders the menu card.
+- The renderer reports the card's layout (tab and slider rectangles, in card pixels) on its status socket
+  (`menu_geometry`, only when it changes). The supervisor hit-tests clicks against it, so only a click or drag on a
+  slider changes a value.
+- A drag changes values, and so the card: that is rasterised at most once per displayed frame (lazily), in about 2 ms.
+  The first version took about 24 ms per pointer move, on the render thread.
 
 Automated coverage:
 
 - `tests/native_spike/test_placement_mouse.py`: the pointer state machine (on/off, Escape leaves mouse mode first,
-  Ctrl+Alt+L and the idle close end it), pointer motion (per mille along a slider, one row per `MOUSE_ROW_PX`, clamps,
-  warp-sized jumps only re-baseline), click-to-jump at both bounds of every field, live drag and release, the desktop
-  selector, debounced save, activity for the 30 s idle close (motion and clicks count, a still cursor does not), bind
-  order (menu keys, then mouse; mouse off first), the cursor sampler, cursor follow paused, the reload rate limit, the
-  supervisor's faster tick, the run wiring, the generated Lua (guarded, release bind, cursor hidden and restored on
-  every removal path, the 4096-byte cap) and the bind clash checker, including real `Hyprland --verify-config` runs on
-  throwaway configs when Hyprland is installed.
-- `spike/tests/placement_menu_ipc_test.cpp`: the optional `pointer` key, from the shared fixture's `pointer_valid` /
-  `pointer_invalid` cases (only on an open menu; row -1..6; x 0..1000; drag a bool).
-- `spike/tests/hud_test.cpp`: a knob at a field's low or high bound sits centred in the pointer ring at per mille 0 or
-  1000, for every field and both fonts; mouse mode never resizes the card; every pointer state stays at or below
-  `kCardMaxLevel` and (pixel font) uses only the help card's colours; the slider width stays within
-  `kSliderMinW..kSliderMaxW` and gives up width before anything else on smaller outputs.
+  Ctrl+Alt+L and the idle close end it, nothing shows before the layout is known); free 1:1 motion in card pixels
+  (sub-pixel motion adds up, every corner of the card is reachable, clamped to the card with no build-up past an
+  edge); hovering changes nothing; one pointer frame per tick; a click on a slider snaps it (both bounds of every
+  field, with a pointer-radius slop at the ends), a click elsewhere does nothing; live drag, clamp and release; the
+  desktop tabs; debounced save; activity for the 30 s idle close (motion and clicks count, a still cursor does not);
+  bind order; the sampler (motion summed, the loop woken, more than 120 samples a second, stops with mouse mode); the
+  hidden-cursor re-centring (nothing lost to the warps); bad cursor replies; cursor follow paused; the reload rate limit;
+  the supervisor woken by motion within 30 ms and routing `menu_geometry` (malformed lines ignored, run status
+  untouched); the run wiring; the wire formats; the generated Lua and the bind clash checker, including real
+  `Hyprland --verify-config` runs on throwaway configs when Hyprland is installed.
+- `spike/tests/placement_menu_ipc_test.cpp`: the `menu_pointer` op from the shared fixture's `menu_pointer_valid` /
+  `menu_pointer_invalid` cases (x and y 0..8192 card pixels; a malformed object is dropped without ending the run), and
+  that `placement_menu` no longer accepts a pointer.
+- `spike/tests/hud_test.cpp`: the geometry matches the card for both fonts and four output sizes (one slider per visible
+  row, bands stacked, tabs above, independent of values); a knob at a field's low or high bound is centred on that
+  slider's reported ends; the pointer image is round, hard-edged, in the text grey only, at most `kCardMaxLevel`; the
+  card origin formula; pointer moves never re-render the card; several card changes in one frame cost one render.
+- `spike/tests/overlay_residue_test.cpp` (real GLES on a surfaceless EGL context): the pointer lands exactly on the card
+  pixel it names (a 1 px error fails), moves 1:1 with no card re-render, stays under the brightness cap, and leaves
+  nothing behind when hidden or when the menu closes.
+- `menu_geometry_contract` (ctest): the renderer's real `menu_geometry` lines for six layouts parse in the supervisor,
+  and its hit test maps both ends of a slider to the field's bounds.
 - `spike/tests/placement_menu_style_test.cpp`: the card with sliders still matches the help card's look and fits
   1920×1200 @1.25 (1229×733 with JetBrainsMono). It now uses the help card's real menu row, "Placement menu
   (Ctrl+Alt+M: mouse)": the help card is 1220×945.
@@ -174,8 +197,9 @@ no clash: 12 run binds, menu binds (Ctrl+Alt+M, Down, Esc, Left, R, Right, Shift
 ```
 
 Not checked offline: whether Hyprland 0.56.2 applies `cursor.invisible` and `hl.dsp.cursor.move` from a runtime
-`/eval` the way it does at config load, how the hidden cursor interacts with Omarchy's startup-cursor handling, and
-how the pointer feels at `MOUSE_TRACK_PX` / `MOUSE_ROW_PX`. The glasses steps below cover them.
+`/eval` the way it does at config load (the re-centring depends on the latter), how the hidden cursor interacts with
+Omarchy's startup-cursor handling, the end-to-end latency in the glasses, and how the 1:1 speed feels. The glasses
+steps below cover them.
 
 Glasses steps (continue after step 21, with a new run started the usual way):
 
@@ -183,9 +207,9 @@ Glasses steps (continue after step 21, with a new run started the usual way):
 |---|----|--------|
 | 22 | Press Ctrl+Alt+L | Every setting shows a slider between its label and value. The knob sits at the value; the stretch from flat to the knob is tinted blue. Nothing is brighter than the text. |
 | 23 | Press Ctrl+Alt+M | A ring appears around the selected setting's knob. The desktop cursor disappears from every XR desktop. |
-| 24 | Move the mouse slowly sideways, then up and down | The ring slides along the slider (about 600 px of mouse travel end to end) and steps one row per ~48 px up or down, up to the XR-1/2/3 tabs. Nothing moves in space yet. Cursor follow does not switch desktops. |
-| 25 | On Yaw, click near the left end of the slider | The desktop turns at once; the value reads about −60°. The ring fills while the button is held. |
-| 26 | Hold the button and drag right, then release | The desktop turns continuously with the drag; the value updates. After release, moving the mouse moves only the ring. |
+| 24 | Move the mouse slowly, then quickly, in circles and diagonals all over the menu | The ring follows the hand smoothly with no visible lag, stutter or jumps, glides between rows (no snapping) and reaches the title, labels, values and every corner of the card. It never sticks at a screen edge, however far the mouse travels. Nothing moves in space and no value changes. Cursor follow does not switch desktops. |
+| 25 | On Yaw, click near the left end of the slider | The desktop turns at once; the value reads about −60°. The ring fills while the button is held. A click on a label or empty space changes nothing. |
+| 26 | Hold the button and drag right, then release | The desktop turns continuously with the drag and the knob stays under the ring; the value updates. Dragging past the end stops at +60°. After release, moving the mouse moves only the ring. |
 | 27 | Move up to the tabs and click XR-3 | XR-3 is selected; the sliders show its values. |
 | 28 | Press Right, Shift+Right, Tab, R | The keyboard still adjusts, switches desktop and resets while mouse mode is on. |
 | 29 | Leave the mouse still for 30 s | The menu fades out; the cursor is visible again where it was before step 23. Left clicks reach windows again. |

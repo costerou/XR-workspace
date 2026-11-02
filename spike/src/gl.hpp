@@ -47,6 +47,9 @@ public:
     // Placement menu card: same place and rules as the help card, drawn over it; while the menu
     // shows, the help card fades out by the menu's opacity so the two never stack.
     void set_menu(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
+    // Mouse-mode pointer over the menu: `image` with its top-left at (left, top) output pixels from the view's
+    // top-left, at `alpha` (the menu's fade); nullptr hides it. Its own small texture: moving it re-uploads nothing.
+    void set_menu_pointer(const HudImage* image, std::uint64_t generation, float alpha, float left, float top);
     // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop`, grey `level` (0..1); desktop < 0: none.
     void set_corner_handle(int desktop, std::uint32_t corner, float level);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)

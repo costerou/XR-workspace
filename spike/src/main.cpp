@@ -166,6 +166,10 @@ int main(int argc, char** argv) {
                         const auto& h = std::get<xr::HelpPayload>(m->payload);
                         presentation.set_help(h.visible, h.rows);
                     }
+                    else if (m->op == xr::ControlOp::menu_pointer) {
+                        const auto& ptr = std::get<xr::MenuPointerPayload>(m->payload);
+                        presentation.set_menu_pointer(ptr.visible, ptr.x, ptr.y, ptr.held);
+                    }
                     else if (m->op == xr::ControlOp::placement_menu) {
                         // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
                         if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
@@ -174,8 +178,7 @@ int main(int argc, char** argv) {
                                 const auto& w = menu->placements[i];
                                 placements[i] = {w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature};
                             }
-                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements, menu->pointer,
-                                                            menu->pointer_row, menu->pointer_x, menu->pointer_drag);
+                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements);
                         }
                     }
                     else if (m->op == xr::ControlOp::resize_handle) {  // display only; malformed ones were dropped above
@@ -198,8 +201,15 @@ int main(int argc, char** argv) {
     };
     auto next_status = std::chrono::steady_clock::now();
     while (!stopping && !result && !presentation.finished()) {
-        if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50))) { result = 1; break; }
+        // Wake on a control frame too: a mouse-mode pointer move is drawn on the next frame, not after the 50 ms wait.
+        if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50, control))) { result = 1; break; }
         if (!read_control()) { std::cerr << "control: supervisor channel closed or invalid\n"; result = 1; break; }
+        if (status_fd >= 0)  // menu layout for the supervisor's mouse-mode hit testing, only when it changes
+            if (const auto geometry = presentation.take_menu_geometry()) {
+                const auto line = *geometry + "\n";
+                if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
+                    presentation.resend_menu_geometry();  // a full socket drops the datagram: try again next loop
+            }
         const auto now = std::chrono::steady_clock::now();
         if (status_fd >= 0 && now >= next_status) {
             next_status = now + std::chrono::seconds(1);

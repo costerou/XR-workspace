@@ -98,6 +98,8 @@ struct GlCompositor::Impl {
     std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
     std::unique_ptr<GlHud> menu_hud;      // placement menu card (own texture); absent if its shaders failed
+    std::unique_ptr<GlHud> pointer_hud;   // mouse-mode pointer over the menu (own small texture)
+    const HudImage* pointer = nullptr; std::uint64_t pointer_generation = 0; float pointer_alpha = 0, pointer_left = 0, pointer_top = 0;
     const HudImage* menu = nullptr; std::uint64_t menu_generation = 0; float menu_alpha = 0, menu_drop = 0;
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     ~Impl() {
@@ -105,7 +107,7 @@ struct GlCompositor::Impl {
             eglMakeCurrent(display, surface, surface, context);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
-            hud.reset(); help_hud.reset(); menu_hud.reset();
+            hud.reset(); help_hud.reset(); menu_hud.reset(); pointer_hud.reset();
             video_hud.reset();
             if (program) glDeleteProgram(program);
             if (color_program) glDeleteProgram(color_program);
@@ -174,6 +176,7 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     s.hud = GlHud::create();  // optional: composition works without pop-ups
     s.help_hud = GlHud::create();
     s.menu_hud = GlHud::create();
+    s.pointer_hud = GlHud::create();
     s.textures.resize(sources);
     s.imported.resize(sources);
     const char* extensions = eglQueryString(s.display, EGL_EXTENSIONS);
@@ -257,6 +260,10 @@ void GlCompositor::set_menu(const HudImage* image, std::uint64_t generation, flo
     impl_->menu = image; impl_->menu_generation = generation; impl_->menu_alpha = alpha; impl_->menu_drop = drop_px;
 }
 
+void GlCompositor::set_menu_pointer(const HudImage* image, std::uint64_t generation, float alpha, float left, float top) {
+    impl_->pointer = image; impl_->pointer_generation = generation; impl_->pointer_alpha = alpha;
+    impl_->pointer_left = left; impl_->pointer_top = top;
+}
 void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level) {
     impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive);
 }
@@ -369,6 +376,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     const float help_alpha = s.help_alpha * (menu ? 1.f - s.menu_alpha : 1.f);  // the menu replaces the help card
     if (s.help_hud && s.help && help_alpha > 0.f) s.help_hud->draw(*s.help, s.help_generation, help_alpha, s.width, s.height, true, s.help_drop);
     if (menu) s.menu_hud->draw(*s.menu, s.menu_generation, s.menu_alpha, s.width, s.height, true, s.menu_drop);
+    if (menu && s.pointer_hud && s.pointer)
+        s.pointer_hud->draw_at(*s.pointer, s.pointer_generation, s.pointer_alpha, s.width, s.height, s.pointer_left, s.pointer_top);
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
     const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
     s.draw_stat.add(now_us() - start);

@@ -45,6 +45,16 @@ GlHud::~GlHud() {
 
 void GlHud::draw(const HudImage& image, std::uint64_t generation, float alpha, std::uint32_t width, std::uint32_t height,
                  bool centered, float drop_px) {
+    if (!height) return;
+    // Bottom-anchored pop-ups: bottom edge kBottomFraction up the view. Centred cards: the shared card origin.
+    const float h = float(image.height);
+    const auto origin = centered_card_origin(width, height, image.width, image.height, drop_px);
+    const float top = centered ? origin.y : float(height) - std::floor(float(height) * kBottomFraction - drop_px) - h;
+    draw_at(image, generation, alpha, width, height, origin.x, top);
+}
+
+void GlHud::draw_at(const HudImage& image, std::uint64_t generation, float alpha, std::uint32_t width, std::uint32_t height,
+                    float left, float top) {
     if (alpha <= 0.f || !image.width || !image.height || !width || !height) return;
     if (image.rgba.size() != std::size_t(image.width) * image.height * 4) return;
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, texture_);
@@ -53,9 +63,8 @@ void GlHud::draw(const HudImage& image, std::uint64_t generation, float alpha, s
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(image.width), GLsizei(image.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.rgba.data());
         uploaded_ = generation; tex_w_ = image.width; tex_h_ = image.height;
     }
-    const float w = float(tex_w_), h = float(tex_h_);  // 1:1: the card is rasterised at output size
-    const float x0 = std::floor((float(width) - w) / 2);
-    const float y_bottom = std::floor((centered ? (float(height) - h) / 2 : float(height) * kBottomFraction) - drop_px);
+    const float w = float(tex_w_), h = float(tex_h_);  // 1:1: the image is rasterised at output size
+    const float x0 = std::floor(left), y_bottom = float(height) - std::floor(top) - h;
     // Pixel rect -> NDC (y up). Whole-pixel placement keeps the pixel font crisp.
     const float l = 2 * x0 / float(width) - 1, r = 2 * (x0 + w) / float(width) - 1;
     const float b = 2 * y_bottom / float(height) - 1, t = 2 * (y_bottom + h) / float(height) - 1;

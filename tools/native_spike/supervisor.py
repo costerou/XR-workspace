@@ -89,15 +89,22 @@ class Supervisor:
             if not self._status_discard:
                 try:
                     value = strict_json(self._status_buffer)
-                    if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video'}:
-                        raise ValueError('invalid status')
-                    for k,v in value.items():
-                        if k == 'capture_path': valid = v in ('dmabuf','shm')
-                        elif k == 'video': valid = v in ('off','loading','playing','paused','ended','error')  # video.VIDEO_STATES
-                        elif k == 'missed': valid = type(v) is int and v >= 0
-                        else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
-                        if not valid: raise ValueError('invalid measured value')
-                    self.status = value
+                    if isinstance(value, dict) and set(value) == {'menu_geometry'}:
+                        # The menu card's layout, sent when it changes (mouse-mode hit testing); not run status.
+                        from .view import parse_menu_geometry
+                        geometry = parse_menu_geometry(value['menu_geometry'])
+                        handler = getattr(self.control, 'set_menu_geometry', None)
+                        if handler is not None: handler(geometry)
+                    else:
+                        if not isinstance(value, dict) or set(value)-{'presented_hz','missed','capture_path','pose_age_ms','video'}:
+                            raise ValueError('invalid status')
+                        for k,v in value.items():
+                            if k == 'capture_path': valid = v in ('dmabuf','shm')
+                            elif k == 'video': valid = v in ('off','loading','playing','paused','ended','error')  # video.VIDEO_STATES
+                            elif k == 'missed': valid = type(v) is int and v >= 0
+                            else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
+                            if not valid: raise ValueError('invalid measured value')
+                        self.status = value
                 except (ValueError, TypeError): pass
             self._status_buffer = b''; self._status_discard = False
 
@@ -173,6 +180,10 @@ class Supervisor:
                 wake = getattr(self.control, 'wake', None)  # resize pointer poller: run poll() now, not at the next tick
                 if not isinstance(wake, socket.socket): wake = None
                 if wake is not None: selector.register(wake, selectors.EVENT_READ)
+                # Placement-menu mouse mode: the cursor sampler pokes this so poll() moves the pointer at once.
+                mouse_wake = getattr(self.control, 'mouse_wake', None)
+                if not isinstance(mouse_wake, socket.socket) or mouse_wake.fileno() < 0: mouse_wake = None
+                if mouse_wake is not None: selector.register(mouse_wake, selectors.EVENT_READ)
                 while not self.finished:
                     now = time.monotonic()
                     # Expiry precedes reading queued heartbeats: delayed bytes
@@ -187,11 +198,7 @@ class Supervisor:
                             except (EOFError, OSError): valid = False
                             if not valid: self.disconnect(now)
                             else: deadline = now + GUARD_PERIOD + GUARD_DEADLINE
-                    # Mouse mode in the placement menu wants a faster tick for a smooth pointer.
-                    soon = getattr(self.control, 'poll_interval', None)
-                    soon = soon() if soon is not None else None
-                    wait = min(interval, soon) if isinstance(soon, (int, float)) and soon > 0 else interval
-                    for key, _ in selector.select(wait):
+                    for key, _ in selector.select(interval):
                         now = time.monotonic()
                         self.tick(now)
                         if self.finished: break
@@ -203,6 +210,9 @@ class Supervisor:
                             continue
                         if wake is not None and key.fileobj is wake:
                             self.control.resize.drain()  # poll() below applies the new pointer sample
+                            continue
+                        if mouse_wake is not None and key.fileobj is mouse_wake:
+                            self.control.drain_mouse_wake()  # poll() below moves the menu pointer
                             continue
                         if key.fileobj is status_socket:
                             try: data = status_socket.recv(16385)

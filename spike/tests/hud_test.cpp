@@ -1,5 +1,7 @@
 #include "xr/hud.hpp"
 #include <algorithm>
+#include <cmath>
+#include <tuple>
 #include <iostream>
 #include <set>
 #include <string>
@@ -341,10 +343,7 @@ int main() {
         CHECK(kOverlayIdleCloseS >= 10 && kOverlayIdleCloseS <= 300);  // the footer note's value (tests/native_spike pins it)
 
     }
-    // Sliders and the mouse pointer. A knob at a field's low or high bound sits exactly where the pointer is drawn at
-    // per mille 0 or 1000 (the supervisor's hit test relies on that), mouse mode never resizes the card, the pointer
-    // re-renders an open menu without restarting its fade, and every pointer state keeps to the card's palette and
-    // brightness cap.
+    // Sliders, the geometry the supervisor hit-tests with, and the mouse-mode pointer overlay.
     {
         std::string why;
         const auto real = HudFont::load(kHudFontFamily, why);
@@ -366,53 +365,95 @@ int main() {
             }
             return runs;
         };
-        for (const HudFont* f : fonts) {
+        for (const HudFont* f : fonts)
+            for (auto [w, h] : {std::pair<std::uint32_t, std::uint32_t>{0, 0}, {1536, 960}, {1280, 720}, {960, 540}}) {
+                PlacementMenuState st; st.open = true; st.desktop = 1; st.field = 3;
+                const auto g = placement_menu_geometry(st, f, w, h);
+                const auto fit = placement_menu_fit(st, f, w, h);
+                const auto card = render_placement_menu_card(st, accent, f, w, h);
+                CHECK(g.width == card.width && g.height == card.height);
+                // One slider per visible row, in order, bands stacked without overlap, knob travel inside the card.
+                CHECK(g.sliders.size() == fit.visible_rows);
+                for (std::size_t i = 0; i < g.sliders.size(); ++i) {
+                    const auto& sl = g.sliders[i];
+                    CHECK(sl.field == fit.first_row + i && sl.top < sl.bottom && sl.lo_x < sl.hi_x);
+                    CHECK(sl.lo_x > 0 && sl.hi_x < float(g.width) && sl.top >= 0 && sl.bottom <= std::int32_t(g.height));
+                    CHECK(sl.hi_x - sl.lo_x >= float(kSliderMinW) - 2 * 12 - 1);  // the knob's travel: the slider less the pointer radius each end
+                    if (i) CHECK(g.sliders[i - 1].bottom <= sl.top);
+                }
+                // Three tabs, left to right, above the first slider, inside the card.
+                for (std::size_t d = 0; d < 3; ++d) {
+                    const auto& t = g.tabs[d];
+                    CHECK(t[0] < t[2] && t[1] < t[3] && t[0] >= 0 && t[2] <= std::int32_t(g.width) && t[3] <= g.sliders.front().top);
+                    if (d) CHECK(g.tabs[d - 1][2] <= t[0]);
+                }
+                // The layout never depends on values: extreme values give the same geometry.
+                PlacementMenuState extreme = st;
+                for (auto& pl : extreme.placements) pl = {-100, -100, 200, -60, -45, -45, 120};
+                CHECK(placement_menu_geometry(extreme, f, w, h) == g);
+                const auto json = menu_geometry_json(g);
+                CHECK(json.rfind("{\"menu_geometry\":{\"w\":" + std::to_string(g.width) + ",\"h\":" + std::to_string(g.height) + ",\"tabs\":[[", 0) == 0);
+                CHECK(json.find("\"sliders\":[[" + std::to_string(g.sliders.front().field) + ",") != std::string::npos && json.back() == '}');
+            }
+        // A knob at a field's low or high bound is centred on that slider's lo_x / hi_x (what the supervisor maps
+        // clicks with), for every field and both fonts.
+        for (const HudFont* f : fonts)
             for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
                 PlacementMenuState lo; lo.open = true; lo.desktop = 1; lo.field = field;
                 PlacementMenuState hi = lo;
                 lo.placements[1][field] = bounds[field].first; hi.placements[1][field] = bounds[field].second;
-                PlacementMenuState left = lo, right = lo;
-                left.pointer = {true, std::int32_t(field), 0, false}; right.pointer = {true, std::int32_t(field), 1000, false};
+                const auto g = placement_menu_geometry(lo, f, 1536, 960);
+                const auto sl = *std::find_if(g.sliders.begin(), g.sliders.end(), [&](const auto& x) { return x.field == field; });
                 const auto knobs = changed_columns(render_placement_menu_card(lo, accent, f, 1536, 960), render_placement_menu_card(hi, accent, f, 1536, 960));
-                const auto ptrs = changed_columns(render_placement_menu_card(left, accent, f, 1536, 960), render_placement_menu_card(right, accent, f, 1536, 960));
-                CHECK(knobs.size() >= 2 && ptrs.size() == 2);  // knob travel + filled track, then the value text; two pointer rings
-                const int in_left = int(knobs[0].first) - int(ptrs[0].first), in_right = int(ptrs[1].second) - int(knobs[0].second);
-                CHECK(in_left == in_right && in_left >= 3 && in_left <= 7);  // both ends: the knob centred in the pointer ring
-                CHECK(placement_menu_fit(left, f, 1536, 960).width == placement_menu_fit(lo, f, 1536, 960).width &&
-                      placement_menu_fit(left, f, 1536, 960).height == placement_menu_fit(lo, f, 1536, 960).height);
+                CHECK(knobs.size() >= 2);  // knob travel + filled track, then the value text
+                const float left_centre = float(knobs[0].first) + 7, right_centre = float(knobs[0].second) + 1 - 7;  // kKnobR 7
+                CHECK(std::abs(left_centre - sl.lo_x) <= 1.f && std::abs(right_centre - sl.hi_x) <= 1.f);
             }
+        // The pointer: a small image of its own, in the card's text colour only (nothing above kCardMaxLevel), with a
+        // clear middle as a ring and a filled one while a slider is held.
+        for (bool held : {false, true}) {
+            const auto im = render_menu_pointer(held);
+            CHECK(im.width == im.height && im.width >= 16 && im.width <= 40 && premultiplied(im));
+            std::uint8_t top = 0;
+            for (std::size_t i = 0; i < im.rgba.size(); i += 4) {
+                for (int c = 0; c < 3; ++c) top = std::max(top, im.rgba[i + std::size_t(c)]);
+                if (im.rgba[i + 3]) CHECK(im.rgba[i + 3] == 255 && im.rgba[i] == im.rgba[i + 1] && im.rgba[i] == im.rgba[i + 2]);  // hard-edged grey
+            }
+            CHECK(top <= kCardMaxLevel && top >= 140);
+            CHECK(!lit(im, 0, 0) && lit(im, im.width / 2, 2));  // round, not a square; the ring reaches the top middle
+            CHECK(lit(im, im.width / 2, im.height / 2) == held);
         }
-        // Palette and brightness with the pointer on every row, held or not (pixel font: no anti-aliasing to blend).
-        const auto help_card = render_help_card({{"Ctrl+Alt+H", "Show / hide this help"}}, accent);
-        std::set<std::array<std::uint8_t, 4>> palette;
-        for (std::size_t i = 0; i < help_card.rgba.size(); i += 4)
-            if (help_card.rgba[i + 3] == 255) palette.insert({help_card.rgba[i], help_card.rgba[i + 1], help_card.rgba[i + 2], 255});
-        PlacementMenuState st; st.open = true; st.desktop = 0;
-        st.placements[0] = {-100, 37, 200, -60, 12, 45, 120};
-        for (std::int32_t row = -1; row < std::int32_t(kPlacementMenuFields); ++row)
-            for (bool drag : {false, true})
-                for (std::uint32_t x : {0u, 333u, 1000u}) {
-                    st.field = std::uint32_t(std::max(row, 0)); st.pointer = {true, row, x, drag};
-                    for (const HudFont* f : fonts) {
-                        const auto im = render_placement_menu_card(st, accent, f, 1536, 960);
-                        std::uint8_t top = 0;
-                        for (std::size_t i = 0; i < im.rgba.size(); i += 4) {
-                            for (int c = 0; c < 3; ++c) top = std::max(top, im.rgba[i + std::size_t(c)]);
-                            if (!f && im.rgba[i + 3] == 255) CHECK(palette.count({im.rgba[i], im.rgba[i + 1], im.rgba[i + 2], 255}));
-                        }
-                        CHECK(top <= kCardMaxLevel && premultiplied(im));
-                    }
-                }
-        // The overlay redraws for pointer motion without a new fade, and a pointer change while closed draws nothing.
+        // Card origin: the formula GlHud draws centred cards with (bottom edge floor((H - h) / 2 - drop) from below).
+        for (auto [W, H, w, h, drop] : {std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t, float>{1536, 960, 1229, 733, 0},
+                                        {1536, 960, 1228, 734, 18}, {1536, 960, 1229, 733, 7.5f}, {1280, 720, 1212, 640, 3}}) {
+            const auto o = centered_card_origin(W, H, w, h, drop);
+            CHECK(o.x == std::floor((float(W) - float(w)) / 2));
+            CHECK(float(H) - o.y - float(h) == std::floor((float(H) - float(h)) / 2 - drop));
+            if (drop == 0) CHECK(std::abs(o.y - (float(H) - float(h)) / 2) <= 1);
+        }
+        // Overlay: pointer moves never touch the card; card changes are rasterised once however many arrive before
+        // the next frame; the geometry generation moves only when the layout does.
         PlacementMenuOverlay overlay;
-        PlacementMenuState open; open.open = true; open.pointer = {true, 2, 100, false};
-        CHECK(overlay.set(open, 0) && overlay.generation() == 1);
-        open.pointer.x = 900;
-        CHECK(overlay.set(open, kHelpFadeInMs + 10) && overlay.generation() == 2 && overlay.alpha(kHelpFadeInMs + 10) == 1);
-        PlacementMenuState shut = open; shut.open = false;
-        CHECK(overlay.set(shut, 1000));
-        shut.pointer.x = 10;
-        CHECK(!overlay.set(shut, 1100) && overlay.generation() == 2);
+        overlay.set_viewport(1536, 960);
+        PlacementMenuState st; st.open = true;
+        CHECK(overlay.set(st, 0));
+        const auto renders = (overlay.image(), overlay.render_count());
+        const auto generation = overlay.generation(), geometry = overlay.geometry_generation();
+        CHECK(renders == 1 && geometry == 1);
+        for (int i = 0; i < 50; ++i) CHECK(overlay.set_pointer(true, 10 + i, 20 + i, i % 2 == 0));
+        CHECK(!overlay.set_pointer(true, 59, 69, false));  // the same place again: nothing to redraw
+        CHECK(overlay.render_count() == renders && overlay.generation() == generation && overlay.pointer_x() == 59 && overlay.pointer_y() == 69);
+        CHECK(overlay.pointer_visible() && &overlay.pointer_image() != nullptr && overlay.pointer_generation() == 1);
+        overlay.set_pointer(true, 59, 69, true);
+        CHECK(overlay.pointer_generation() == 2 && lit(overlay.pointer_image(), overlay.pointer_image().width / 2, overlay.pointer_image().height / 2));
+        for (int v = -50; v < -40; ++v) { st.placements[0][3] = v; CHECK(overlay.set(st, 1)); }  // a drag: ten values in one frame
+        CHECK(overlay.render_count() == renders);  // nothing rasterised yet
+        overlay.image();
+        CHECK(overlay.render_count() == renders + 1 && overlay.geometry_generation() == geometry);
+        CHECK(overlay.set_viewport(1280, 720) && overlay.geometry_generation() == geometry + 1 && overlay.image().width <= 1280);
+        PlacementMenuState shut = st; shut.open = false;
+        CHECK(overlay.set(shut, 2));
+        CHECK(!overlay.set_pointer(true, 59, 69, true));  // unchanged; the renderer draws no pointer without the menu anyway
     }
     std::cout << "hud ok\n";
 }

@@ -194,6 +194,14 @@ if(XR_ENABLE_PRESENTATION)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
   add_test(NAME hud COMMAND hud_test)
+  # The menu geometry status line, renderer side to supervisor side (tools/native_spike/view.py parse_menu_geometry).
+  add_executable(menu_geometry_dump tests/menu_geometry_dump.cpp)
+  target_link_libraries(menu_geometry_dump PRIVATE xr_hud)
+  find_package(Python3 COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME menu_geometry_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/menu_geometry_contract_test.py"
+      "$<TARGET_FILE:menu_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+  endif()
   # Placement menu card vs help card style and 1920x1200 @1.25 fit; needs MENU-UI (render_placement_menu_card, placement_menu_fit).
   file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/xr/hud.hpp" XR_HUD_HEADER)
   string(FIND "${XR_HUD_HEADER}" "placement_menu_fit" XR_HAS_MENU_CARD)

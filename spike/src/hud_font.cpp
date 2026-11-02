@@ -6,6 +6,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <algorithm>
+#include <map>
+#include <tuple>
 
 namespace xr {
 namespace {
@@ -55,6 +57,14 @@ struct HudFont::Impl {
         if (library) FT_Done_FreeType(library);
     }
     FT_Face face(bool b) const { return b && bold ? bold : regular; }
+    // Rasterised glyphs and advances, per (code point, pixel size, bold). Cards are re-rendered whenever a value
+    // changes (a mouse-mode drag: up to once per frame), and FreeType hinting and rasterising is most of that cost.
+    // Exactly what FreeType returned is kept, so cached text draws byte for byte the same. Bounded: cleared when full.
+    struct Glyph { bool ok = false; std::vector<unsigned char> coverage; unsigned width = 0, rows = 0; int left = 0, top = 0; FT_Pos advance = 0; };
+    using Key = std::tuple<char32_t, std::uint32_t, bool>;
+    std::map<Key, Glyph> glyphs;
+    std::map<Key, std::pair<bool, FT_Pos>> advances;
+    static constexpr std::size_t kMaxCached = 4096;
 };
 
 std::unique_ptr<HudFont> HudFont::load(const std::string& family, std::string& why) {
@@ -88,28 +98,51 @@ HudFont::Metrics HudFont::metrics(std::uint32_t px, bool bold) const {
 
 std::uint32_t HudFont::measure(std::string_view text, std::uint32_t px, bool bold) const {
     FT_Face f = impl_->face(bold);
-    if (FT_Set_Pixel_Sizes(f, 0, px)) return 0;
+    auto& cache = impl_->advances;
+    if (cache.size() > Impl::kMaxCached) cache.clear();
+    bool sized = false;
     FT_Pos x = 0;
-    for (char32_t cp : decode(text)) if (!FT_Load_Char(f, cp, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT)) x += f->glyph->advance.x;
+    for (char32_t cp : decode(text)) {
+        auto [it, fresh] = cache.try_emplace({cp, px, bold});
+        if (fresh) {
+            if (!sized) { if (FT_Set_Pixel_Sizes(f, 0, px)) { cache.erase(it); return 0; } sized = true; }
+            it->second = {!FT_Load_Char(f, cp, FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT), f->glyph->advance.x};
+        }
+        if (it->second.first) x += it->second.second;
+    }
     return std::uint32_t((x + 63) >> 6);
 }
 
 void HudFont::draw(std::string_view text, std::uint32_t px, bool bold, int left, int baseline, const Plot& plot) const {
     FT_Face f = impl_->face(bold);
-    if (FT_Set_Pixel_Sizes(f, 0, px)) return;
+    auto& cache = impl_->glyphs;
+    if (cache.size() > Impl::kMaxCached) cache.clear();
+    bool sized = false;
     FT_Pos pen = FT_Pos(left) << 6;
     for (char32_t cp : decode(text)) {
-        if (FT_Load_Char(f, cp, FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT)) continue;
-        const FT_Bitmap& bm = f->glyph->bitmap;
-        if (bm.pixel_mode == FT_PIXEL_MODE_GRAY) {
-            const int x0 = int(pen >> 6) + f->glyph->bitmap_left, y0 = baseline - f->glyph->bitmap_top;
-            for (unsigned row = 0; row < bm.rows; ++row)
-                for (unsigned col = 0; col < bm.width; ++col) {
-                    const unsigned char cov = bm.buffer[std::ptrdiff_t(row) * bm.pitch + col];
-                    if (cov) plot(x0 + int(col), y0 + int(row), float(cov) / 255.f);
+        auto [it, fresh] = cache.try_emplace({cp, px, bold});
+        auto& g = it->second;
+        if (fresh) {
+            if (!sized) { if (FT_Set_Pixel_Sizes(f, 0, px)) { cache.erase(it); return; } sized = true; }
+            if (!FT_Load_Char(f, cp, FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT)) {
+                const FT_Bitmap& bm = f->glyph->bitmap;
+                g.ok = true; g.advance = f->glyph->advance.x; g.left = f->glyph->bitmap_left; g.top = f->glyph->bitmap_top;
+                if (bm.pixel_mode == FT_PIXEL_MODE_GRAY) {
+                    g.width = bm.width; g.rows = bm.rows;
+                    g.coverage.resize(std::size_t(bm.width) * bm.rows);
+                    for (unsigned row = 0; row < bm.rows; ++row)
+                        for (unsigned col = 0; col < bm.width; ++col) g.coverage[std::size_t(row) * bm.width + col] = bm.buffer[std::ptrdiff_t(row) * bm.pitch + col];
                 }
+            }
         }
-        pen += f->glyph->advance.x;
+        if (!g.ok) continue;
+        const int x0 = int(pen >> 6) + g.left, y0 = baseline - g.top;
+        for (unsigned row = 0; row < g.rows; ++row)
+            for (unsigned col = 0; col < g.width; ++col) {
+                const unsigned char cov = g.coverage[std::size_t(row) * g.width + col];
+                if (cov) plot(x0 + int(col), y0 + int(row), float(cov) / 255.f);
+            }
+        pen += g.advance;
     }
 }
 }

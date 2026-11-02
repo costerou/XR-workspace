@@ -48,25 +48,30 @@ int main(int argc, char** argv) {
         return 77;
     }
     if (ok != valid.size()) { std::cerr << ok << "/" << valid.size() << " valid payloads accepted\n"; ++failures; }
-    // Mouse mode: the optional "pointer" of an open menu decodes exactly; every malformed one is rejected.
-    for (const auto& p : cases.value("pointer_valid", nlohmann::json::array())) {
-        const auto r = xr::decode_control(frame(p, id++));
+    // Mouse mode's pointer is its own op, "menu_pointer": valid payloads decode exactly, malformed ones are dropped
+    // (ignorable, like a malformed placement_menu) and never reach the renderer.
+    auto pointer_frame = [](const nlohmann::json& payload, unsigned rid) {
+        nlohmann::json j = {{"schema", 1}, {"request_id", rid}, {"run_id", "run"}, {"session", "session"}, {"op", "menu_pointer"}, {"payload", payload}};
+        return j.dump() + "\n";
+    };
+    for (const auto& p : cases.value("menu_pointer_valid", nlohmann::json::array())) {
+        const auto r = xr::decode_control(pointer_frame(p, id++));
         const auto* m = std::get_if<xr::ControlMessage>(&r);
-        const auto* menu = m ? std::get_if<xr::PlacementMenuPayload>(&m->payload) : nullptr;
-        const auto& ptr = p.at("pointer");
-        if (!menu || !menu->pointer || menu->pointer_row != ptr.at("row").get<int>() || menu->pointer_x != ptr.at("x").get<unsigned>() ||
-            menu->pointer_drag != ptr.at("drag").get<bool>()) { ++failures; std::cerr << "pointer payload not decoded: " << p.dump() << "\n"; }
+        const auto* ptr = m ? std::get_if<xr::MenuPointerPayload>(&m->payload) : nullptr;
+        if (!ptr || ptr->visible != p.at("visible").get<bool>() || ptr->x != p.at("x").get<int>() || ptr->y != p.at("y").get<int>() ||
+            ptr->held != p.at("held").get<bool>()) { ++failures; std::cerr << "menu_pointer payload not decoded: " << p.dump() << "\n"; }
     }
-    for (const auto& c : cases.value("pointer_invalid", nlohmann::json::array()))
-        if (accepted(frame(c.at("payload"), id++))) { ++failures; std::cerr << "accepted invalid pointer (" << c.at("why") << ")\n"; }
-    {  // no pointer key: no pointer
-        const auto r = xr::decode_control(frame(valid.at(0), id++));
-        const auto* menu = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(r).payload);
-        if (!menu || menu->pointer) { ++failures; std::cerr << "pointer without a pointer key\n"; }
+    for (const auto& c : cases.value("menu_pointer_invalid", nlohmann::json::array())) {
+        const auto r = xr::decode_control(pointer_frame(c.at("payload"), id++));
+        const auto* e = std::get_if<xr::Error>(&r);
+        // A well-framed object is dropped and the run goes on; a non-object payload fails the envelope like any op.
+        if (!e || (c.at("payload").is_object() && !xr::ignorable_control_error(*e))) {
+            ++failures; std::cerr << "menu_pointer not dropped (" << c.at("why") << ")\n";
+        }
     }
     if (failures) return 1;
     std::cout << "placement_menu: " << ok << " valid accepted, " << cases.at("invalid").size() << " invalid rejected, "
-              << cases.value("pointer_valid", nlohmann::json::array()).size() << " + "
-              << cases.value("pointer_invalid", nlohmann::json::array()).size() << " pointer cases\n";
+              << cases.value("menu_pointer_valid", nlohmann::json::array()).size() << " + "
+              << cases.value("menu_pointer_invalid", nlohmann::json::array()).size() << " menu_pointer cases\n";
     return 0;
 }

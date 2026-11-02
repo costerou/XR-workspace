@@ -15,6 +15,9 @@ public:
     // down by `drop_px`, blended over what is already drawn.
     void draw(const HudImage& image, std::uint64_t generation, float alpha, std::uint32_t width, std::uint32_t height,
               bool centered = false, float drop_px = 0);
+    // Draw `image` with its top-left corner at (`left`, `top`) output pixels, counted from the top-left of the view.
+    void draw_at(const HudImage& image, std::uint64_t generation, float alpha, std::uint32_t width, std::uint32_t height,
+                 float left, float top);
 private:
     GlHud() = default;
     unsigned program_ = 0, texture_ = 0;

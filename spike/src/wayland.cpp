@@ -200,6 +200,7 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     PlacementMenuOverlay menu; // keyboard placement menu (supervisor-owned state)
     bool menu_drawn = false;   // last frame showed the menu: draw once more so it clears
+    std::uint64_t menu_geometry_sent = 0;  // geometry generation last handed to the supervisor
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
     std::string popup_font = "none";  // reported: loaded family, or why the pixel font is used
     float half_w = 0, half_h = 0, fov_deg = 0;
@@ -463,14 +464,16 @@ struct Presentation::Impl : SurfaceRequests {
     inline static const wl_buffer_listener buffer_listener{released};
     static void sync_done(void* data, wl_callback*, uint32_t) { *static_cast<bool*>(data) = true; }
     inline static const wl_callback_listener sync_listener{sync_done};
-    bool pump(int timeout) {
+    bool pump(int timeout, int wake_fd = -1) {
         if (!display || closed) return false;
         while (wl_display_prepare_read(display) != 0)
             if (wl_display_dispatch_pending(display) < 0) return false;
         const int flushed = wl_display_flush(display);
         if (flushed < 0 && errno != EAGAIN) { wl_display_cancel_read(display); return false; }
-        pollfd fd{wl_display_get_fd(display), static_cast<short>(POLLIN | (flushed < 0 ? POLLOUT : 0)), 0};
-        int result = poll(&fd, 1, timeout);
+        pollfd fds[2] = {{wl_display_get_fd(display), static_cast<short>(POLLIN | (flushed < 0 ? POLLOUT : 0)), 0}, {wake_fd, POLLIN, 0}};
+        auto& fd = fds[0];
+        // A readable wake fd only ends the wait; the caller reads it. Its errors are the caller's to notice too.
+        int result = poll(fds, wake_fd >= 0 ? 2 : 1, timeout);
         if (result < 0 && errno == EINTR) { wl_display_cancel_read(display); return true; }
         if (result < 0 || (fd.revents & (POLLERR | POLLHUP | POLLNVAL))) { wl_display_cancel_read(display); return false; }
         if (fd.revents & POLLIN) {
@@ -682,10 +685,21 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
     }
     impl_ = std::move(s); return {};
 }
-Status Presentation::dispatch(int timeout_ms) {
-    if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms)) return Error{"dispatch", "closed, removed or disconnected"};
+Status Presentation::dispatch(int timeout_ms, int wake_fd) {
+    if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms, wake_fd)) return Error{"dispatch", "closed, removed or disconnected"};
     return {};
 }
+void Presentation::set_menu_pointer(bool visible, std::int32_t x, std::int32_t y, bool held) {
+    if (impl_ && impl_->menu.set_pointer(visible, x, y, held) && impl_->menu.visible()) impl_->cadence.invalidate();
+}
+std::optional<std::string> Presentation::take_menu_geometry() {
+    if (!impl_ || !impl_->menu.visible()) return std::nullopt;
+    const auto generation = impl_->menu.geometry_generation();  // lays the card out if it changed
+    if (generation == impl_->menu_geometry_sent) return std::nullopt;
+    impl_->menu_geometry_sent = generation;
+    return menu_geometry_json(impl_->menu.geometry());
+}
+void Presentation::resend_menu_geometry() { if (impl_) impl_->menu_geometry_sent = 0; }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
         return Error{"pattern", "animation requires configured surface, finite 1..60000 ms, before submission"};
@@ -725,10 +739,9 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     if (impl_->help.set(visible, help, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                                      const std::array<std::array<std::int32_t, 7>, 3>& placements, bool pointer,
-                                      std::int32_t pointer_row, std::uint32_t pointer_x, bool pointer_drag) {
+                                      const std::array<std::array<std::int32_t, 7>, 3>& placements) {
     if (!impl_) return;
-    PlacementMenuState state{open, desktop, field, placements, {pointer, pointer_row, pointer_x, pointer_drag}};
+    PlacementMenuState state{open, desktop, field, placements};
     if (impl_->menu.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>& placements) {
@@ -840,6 +853,12 @@ Status Presentation::draw_test_pattern() {
         const float menu = s.menu.alpha(help_now);
         s.gl->set_menu(menu > 0.f ? &s.menu.image() : nullptr, s.menu.generation(), menu, s.menu.offset_px(help_now));
         s.menu_drawn = menu > 0.f;
+        if (menu > 0.f && s.menu.pointer_visible()) {  // hot spot on the card point, through the card's own origin
+            const auto& card = s.menu.image(); const auto& p = s.menu.pointer_image();
+            const auto o = centered_card_origin(s.width, s.height, card.width, card.height, s.menu.offset_px(help_now));
+            s.gl->set_menu_pointer(&p, s.menu.pointer_generation(), menu, o.x + float(s.menu.pointer_x()) - float(p.width / 2),
+                                   o.y + float(s.menu.pointer_y()) - float(p.height / 2));
+        } else s.gl->set_menu_pointer(nullptr, 0, 0, 0, 0);
         // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
         const bool handle = s.handle.visible && s.view.zoom() < 0.01f;
         s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);

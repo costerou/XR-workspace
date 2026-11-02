@@ -679,7 +679,8 @@ class MenuStyleSourceTests(unittest.TestCase):
         # Both cards take the one shared (dimmed) kCardAccent constant, so a colour change cannot reach only one of them.
         self.assertEqual(len(re.findall(r'^constexpr std::array<float, 3> kCardAccent\{', hud, re.M)), 1, 'one kCardAccent definition')
         help_accent = re.findall(r'render_help_card\(rows_, (\{[^}]*\}|\w+)', hud)
-        menu_accent = re.findall(r'render_placement_menu_card\(\w+, (\{[^}]*\}|\w+)', hud)
+        # The overlay's own card render (it may call the shared render_menu helper, which also reports the layout).
+        menu_accent = re.findall(r'render_(?:placement_menu_card|menu)\(rendered_, (\{[^}]*\}|\w+)', hud)
         self.assertEqual(help_accent, ['kCardAccent'])
         self.assertEqual(menu_accent, ['kCardAccent'])
 

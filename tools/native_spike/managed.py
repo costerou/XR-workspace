@@ -119,7 +119,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
                                    mouse_binds=mouse_binds if hasattr(client, 'install_mouse_binds') else None,
-                                   cursor=lambda: client.query('cursorpos', timeout=0.25))
+                                   cursor=lambda: client.query('cursorpos', timeout=0.25),
+                                   warp=getattr(client, 'warp_cursor', None))
         # Overview corner resize: pointer reads and its modal mouse binds, off the supervisor loop (resize.py).
         from .resize import CornerResize, PointerPoller
         resize = control.resize = CornerResize(control)

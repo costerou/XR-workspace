@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -58,7 +59,9 @@ public:
     bool finished() const;
     Status draw_test_pattern();
     // Bounded dispatch; suitable for an independently supervised heartbeat loop.
-    Status dispatch(int timeout_ms = 50);
+    // Wait up to `timeout_ms` for Wayland events, or until `wake_fd` (the supervisor's control socket, if given) is
+    // readable, so a control frame such as a pointer move is handled at once rather than after the timeout.
+    Status dispatch(int timeout_ms = 50, int wake_fd = -1);
     void close();
     std::string timing_report() const;
     std::string status_json(double now_ms) const;
@@ -87,11 +90,16 @@ public:
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows);
     // Keyboard placement menu (display only; placements are applied by set_placements): fades in/out in the
     // middle of the view like the help card, which it replaces while shown. `desktop` 0..2, `field` 0..6 in
-    // WirePlacement order; `placements` for all three desktops in the same units as set_placements. Mouse mode:
-    // `pointer` with its row (-1 desktop selector, 0..6 fields), per-mille position along the slider and drag state.
+    // WirePlacement order; `placements` for all three desktops in the same units as set_placements.
     void set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                            const std::array<std::array<std::int32_t, 7>, 3>& placements, bool pointer = false,
-                            std::int32_t pointer_row = 0, std::uint32_t pointer_x = 0, bool pointer_drag = false);
+                            const std::array<std::array<std::int32_t, 7>, 3>& placements);
+    // Mouse-mode pointer over the menu, in card pixels from the card's top-left (hud.hpp MenuGeometry). It is its own
+    // small overlay, redrawn the next frame; the card is not re-rendered.
+    void set_menu_pointer(bool visible, std::int32_t x, std::int32_t y, bool held);
+    // The menu card's geometry as one status line (hud.hpp menu_geometry_json), when it changed since the last call
+    // and the menu is open; the supervisor hit-tests mouse-mode clicks with it.
+    std::optional<std::string> take_menu_geometry();
+    void resend_menu_geometry();  // the last take was not delivered
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.

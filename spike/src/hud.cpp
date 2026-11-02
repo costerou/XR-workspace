@@ -75,9 +75,22 @@ void allocate_card(HudImage& im, std::uint32_t width, std::uint32_t height, std:
     im.width = width; im.height = height;
     im.rgba.assign(std::size_t(im.width) * im.height * 4, 0);
     const float w = float(im.width), h = float(im.height);
+    // Most of the card is plain translucent background. Outside the corner squares the signed distance is minus the
+    // distance to the nearest edge, so a pixel at least kBorder + 0.5 inside is exactly the background: fill it
+    // directly instead of evaluating the rounded rectangle (the same bytes; ~20x faster on a menu-sized card).
+    std::array<std::uint8_t, 4> fill{};
+    for (int i = 0; i < 3; ++i) fill[std::size_t(i)] = std::uint8_t(std::lround(kBackground[std::size_t(i)] * kBackgroundAlpha * 255));
+    fill[3] = std::uint8_t(std::lround(kBackgroundAlpha * 255));
     for (std::uint32_t y = 0; y < im.height; ++y)
         for (std::uint32_t x = 0; x < im.width; ++x) {
-            const float d = rounded_distance(float(x) + 0.5f, float(y) + 0.5f, w, h, kRadius);
+            const float cx = float(x) + 0.5f, cy = float(y) + 0.5f;
+            const float edge = std::min({cx, cy, w - cx, h - cy});
+            const bool band = (cx >= kRadius && cx <= w - kRadius) || (cy >= kRadius && cy <= h - kRadius);
+            if (band && edge >= kBorder + 0.5f) {
+                std::copy(fill.begin(), fill.end(), &im.rgba[(std::size_t(y) * im.width + x) * 4]);
+                continue;
+            }
+            const float d = rounded_distance(cx, cy, w, h, kRadius);
             const float outer = std::clamp(0.5f - d, 0.f, 1.f);          // anti-aliased card edge
             const float inner = std::clamp(0.5f - (d + kBorder), 0.f, 1.f);  // inside the border
             if (outer <= 0) continue;
@@ -247,9 +260,10 @@ constexpr MenuArrangement kArrangements[] = {
 // Scroll cue: a small accent triangle, sized from the card's gaps.
 constexpr std::uint32_t kCueH = std::uint32_t(kRowGap) * 3 / 4, kCueW = 2 * kCueH;
 // Sliders, in the card's palette: a dim track, the stretch from the flat value to the current one in accent (part
-// coverage, so never brighter than the accent), a knob in the text colour. The mouse pointer is a text-colour ring
-// round the knob (a disc while dragging). Sizes come from the card's spacing.
-constexpr float kTrackH = 4, kKnobR = 7, kPointerR = 12, kPointerRing = 2.5f, kDragKnobR = 9;
+// coverage, so never brighter than the accent), a knob in the text colour. The mouse pointer (render_menu_pointer) is a
+// separate small image, a text-colour ring (a disc while a slider is held); the knob's travel stops kPointerR in from
+// each end so the ring fits on the slider. Sizes come from the card's spacing.
+constexpr float kTrackH = 4, kKnobR = 7, kPointerR = 12, kPointerRing = 2.5f;
 constexpr float kFillAlpha = 0.7f;
 
 struct MenuLayout {
@@ -439,33 +453,37 @@ PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFo
             std::uint32_t(L.rows.size()), L.first_row, L.arrangement.hint_column, L.slider_w};
 }
 
-HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font,
-                                    std::uint32_t max_width, std::uint32_t max_height) {
+namespace {
+// The menu card and, as it is drawn, where its tabs and sliders are (one code path, so they cannot disagree).
+HudImage render_menu(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font, std::uint32_t max_width,
+                     std::uint32_t max_height, MenuGeometry* geometry, bool* fit = nullptr) {
     const auto L = choose_layout(state, font, max_width, max_height);
+    if (fit) *fit = fits(L, max_width, max_height);
     HudImage im;
     allocate_card(im, card_size(L.content_w), card_size(L.content_h), accent);
+    MenuGeometry g;
+    g.width = im.width; g.height = im.height;
     std::uint32_t top = std::uint32_t(kHelpPad);
-    int tabs_left = 0;
-    float tabs_cy = 0;  // where the pointer sits on the desktop selector (row -1)
+    auto tabs = [&](int tabs_left, std::uint32_t tabs_top, std::uint32_t ascent, std::uint32_t rule_top) {
+        draw_tabs(im, L, state.desktop, tabs_left, tabs_top, ascent, rule_top, accent, font);
+        int x = tabs_left;  // each tab's box reaches half the gap to its neighbours, so the selector has no dead space
+        for (std::size_t d = 0; d < L.tabs.size() && d < g.tabs.size(); ++d) {
+            const int w = int(L.tabs[d].box.width), half = int(kColumnGap) / 2;
+            g.tabs[d] = {x - half, int(tabs_top) - int(kLineGap) / 2, x + w + half, int(rule_top + tab_rule()) + int(kLineGap) / 2};
+            x += w + int(kColumnGap);
+        }
+    };
     if (L.arrangement.tabs_beside_title) {
         const std::uint32_t ascent = std::max(L.title.box.ascent, L.tabs_ascent), descent = std::max(L.title.box.descent, L.tabs_descent);
         const int left = int((im.width - (L.title.box.width + std::uint32_t(kColumnGap) + L.tabs_w)) / 2);
         draw_cell(im, L.title, left, top, ascent, font);
-        tabs_left = left + int(L.title.box.width + std::uint32_t(kColumnGap));
-        tabs_cy = float(top + ascent - kCapHalf);
-        draw_tabs(im, L, state.desktop, tabs_left, top, ascent, top + ascent + descent + std::uint32_t(kLineGap) / 2, accent, font);
+        tabs(left + int(L.title.box.width + std::uint32_t(kColumnGap)), top, ascent, top + ascent + descent + std::uint32_t(kLineGap) / 2);
     } else {
         draw_centered(im, L.title, top, font);
         const std::uint32_t tabs_top = top + height(L.title.box) + std::uint32_t(kLineGap);
-        tabs_left = int((im.width - L.tabs_w) / 2);
-        tabs_cy = float(tabs_top + L.tabs_ascent - kCapHalf);
-        draw_tabs(im, L, state.desktop, tabs_left, tabs_top, L.tabs_ascent,
-                  tabs_top + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) / 2, accent, font);
+        tabs(int((im.width - L.tabs_w) / 2), tabs_top, L.tabs_ascent, tabs_top + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) / 2);
     }
     const auto& placement = state.placements[std::min<std::size_t>(state.desktop, kPlacementMenuDesktopCount - 1)];
-    const auto& ptr = state.pointer;
-    float pointer_x = -1, pointer_y = -1;  // set when the pointer's row is drawn
-    if (ptr.on && ptr.row < 0) { pointer_x = float(tabs_left) + float(std::min(ptr.x, 1000u)) / 1000.f * float(L.tabs_w); pointer_y = tabs_cy; }
     top += L.header_h + std::uint32_t(kSectionGap);
     draw_divider(im, top, accent);
     const int left = int((im.width - L.table_w) / 2);
@@ -498,9 +516,8 @@ HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<
             const float knob = at(placement[r.index]);
             draw_bar(im, x0, x0 + float(L.slider_w), cy, kCardDim, 0.85f);  // part coverage: no opaque blends at the knob edge
             draw_bar(im, at(f.flat), knob, cy, accent, kFillAlpha);
-            const bool held = ptr.on && ptr.drag && ptr.row == std::int32_t(r.index);
-            draw_disc(im, knob, cy, held ? kDragKnobR : kKnobR, kCardText);
-            if (ptr.on && ptr.row == std::int32_t(r.index)) { pointer_x = lo_x + span * float(std::min(ptr.x, 1000u)) / 1000.f; pointer_y = cy; }
+            draw_disc(im, knob, cy, kKnobR, kCardText);
+            g.sliders.push_back({r.index, int(top) - int(kRowGap) / 2, int(top + h) + int(kRowGap) / 2, lo_x, lo_x + span});
         }
         if (i == 0 && L.first_row > 0) cue(top, h, true);
         if (i + 1 == L.rows.size() && L.first_row + L.rows.size() < L.total_rows) cue(top, h, false);
@@ -508,12 +525,53 @@ HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<
     }
     top += std::uint32_t(kSectionGap);
     for (const auto& f : L.footer) { draw_centered(im, f, top, font); top += height(f.box) + std::uint32_t(kLineGap); }
-    // Mouse pointer last, on top: a ring round where it points, filled while a slider is held.
-    if (pointer_y >= 0) {
-        if (ptr.drag && ptr.row >= 0) draw_disc(im, pointer_x, pointer_y, kPointerR - kPointerRing, kCardText);
-        draw_ring(im, pointer_x, pointer_y, kPointerR - kPointerRing / 2, kPointerRing, kCardText);
-    }
+    if (geometry) *geometry = std::move(g);
     return im;
+}
+}
+
+HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font,
+                                    std::uint32_t max_width, std::uint32_t max_height) {
+    return render_menu(state, accent, font, max_width, max_height, nullptr);
+}
+
+MenuGeometry placement_menu_geometry(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height) {
+    MenuGeometry g;
+    render_menu(state, kCardAccent, font, max_width, max_height, &g);
+    return g;
+}
+
+std::string menu_geometry_json(const MenuGeometry& g) {
+    std::string out = "{\"menu_geometry\":{\"w\":" + std::to_string(g.width) + ",\"h\":" + std::to_string(g.height) + ",\"tabs\":[";
+    for (std::size_t i = 0; i < g.tabs.size(); ++i) {
+        out += i ? ",[" : "[";
+        for (std::size_t k = 0; k < 4; ++k) out += (k ? "," : "") + std::to_string(g.tabs[i][k]);
+        out += "]";
+    }
+    out += "],\"sliders\":[";
+    for (std::size_t i = 0; i < g.sliders.size(); ++i) {
+        const auto& s = g.sliders[i];
+        out += (i ? ",[" : "[") + std::to_string(s.field) + "," + std::to_string(s.top) + "," + std::to_string(s.bottom) + "," +
+               std::to_string(std::lround(s.lo_x)) + "," + std::to_string(std::lround(s.hi_x)) + "]";
+    }
+    return out + "]}}";
+}
+
+HudImage render_menu_pointer(bool held) {
+    HudImage im;
+    const auto side = std::uint32_t(2 * kPointerR + 2);
+    im.width = im.height = side;
+    im.rgba.assign(std::size_t(side) * side * 4, 0);
+    const float c = float(side) / 2;  // hot spot: the image's middle
+    if (held) draw_disc(im, c, c, kPointerR - kPointerRing, kCardText);
+    draw_ring(im, c, c, kPointerR - kPointerRing / 2, kPointerRing, kCardText);
+    return im;
+}
+
+CardOrigin centered_card_origin(std::uint32_t output_w, std::uint32_t output_h, std::uint32_t card_w, std::uint32_t card_h, float drop_px) {
+    // GlHud works bottom-up: bottom edge at floor((H - h) / 2 - drop). From the top that is H - bottom - h.
+    const float bottom = std::floor((float(output_h) - float(card_h)) / 2 - drop_px);
+    return {std::floor((float(output_w) - float(card_w)) / 2), float(output_h) - bottom - float(card_h)};
 }
 
 float popup_alpha(double t) {
@@ -608,7 +666,7 @@ bool PlacementMenuOverlay::set(const PlacementMenuState& state, double now_ms) {
     bool changed = false;
     if (state.open && (!generation_ || !(state == rendered_))) {
         rendered_ = state;
-        render(); changed = true;
+        dirty_ = true; ++generation_; changed = true;  // rasterised on the next image() (once per displayed frame)
     }
     if (fade_.set(state.open, now_ms)) {  // closing keeps the last card for the fade-out
         if (state.open) ++shown_; else ++hidden_;
@@ -616,16 +674,24 @@ bool PlacementMenuOverlay::set(const PlacementMenuState& state, double now_ms) {
     }
     return changed;
 }
-void PlacementMenuOverlay::render() {
-    image_ = render_placement_menu_card(rendered_, kCardAccent, font_.get(), max_w_, max_h_);
-    fits_ = placement_menu_fit(rendered_, font_.get(), max_w_, max_h_).fits;
-    ++generation_;
+void PlacementMenuOverlay::ensure() const {
+    if (!dirty_) return;
+    dirty_ = false;
+    MenuGeometry g;
+    image_ = render_menu(rendered_, kCardAccent, font_.get(), max_w_, max_h_, &g, &fits_);
+    ++renders_;
+    if (!(g == geometry_) || !geometry_generation_) { geometry_ = std::move(g); ++geometry_generation_; }
 }
 bool PlacementMenuOverlay::set_viewport(std::uint32_t width, std::uint32_t height) {
     if (width == max_w_ && height == max_h_) return false;
     max_w_ = width; max_h_ = height;
     if (!generation_) return false;
-    render();
+    dirty_ = true; ++generation_;
+    return true;
+}
+bool PlacementMenuOverlay::set_pointer(bool visible, std::int32_t x, std::int32_t y, bool held) {
+    if (visible == pointer_on_ && x == pointer_x_ && y == pointer_y_ && held == pointer_held_) return false;
+    pointer_on_ = visible; pointer_x_ = x; pointer_y_ = y; pointer_held_ = held;
     return true;
 }
 void PlacementMenuOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); }

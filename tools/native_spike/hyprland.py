@@ -286,6 +286,11 @@ class HyprlandClient:
         from .view import remove_mouse_binds_lua
         self._eval(remove_mouse_binds_lua())
 
+    def warp_cursor(self, x, y):
+        """Mouse mode: put the hidden cursor back at integer layout pixel (x, y); generated Lua only."""
+        from .view import warp_cursor_lua
+        self._eval(warp_cursor_lua(x, y))
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

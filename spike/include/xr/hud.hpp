@@ -135,24 +135,15 @@ private:
 // Keyboard placement menu (supervisor-owned state, ipc.hpp PlacementMenuPayload): a centred card in the
 // help card's style showing the selected desktop, the seven placement fields, each with its label, a slider and
 // its value with units (highlighting the selected field), and a key-hint footer. Fades like the help card; value
-// changes while open re-render the card without a fade. In mouse mode a pointer is drawn on the sliders.
+// changes while open re-render the card without a fade. In mouse mode a pointer is drawn over the card, as its own
+// small overlay: moving it never re-renders the card.
 constexpr std::size_t kPlacementMenuFields = 7, kPlacementMenuDesktopCount = 3;
 // {x, y, distance, yaw, pitch, roll, curvature} in the wire units of ipc.hpp WirePlacement.
 using MenuPlacement = std::array<std::int32_t, kPlacementMenuFields>;
-// Mouse mode pointer (tools/native_spike/view.py owns it and does the hit testing): `row` -1 is the desktop selector,
-// 0..6 a field's slider; `x` is per mille along that slider (or across the three desktop tabs); `drag` while held.
-struct MenuPointer {
-    bool on = false;
-    std::int32_t row = 0;
-    std::uint32_t x = 0;
-    bool drag = false;
-    bool operator==(const MenuPointer&) const = default;
-};
 struct PlacementMenuState {
     bool open = false;
     std::uint32_t desktop = 0, field = 0;  // 0..2, 0..6 (out of range: drawn with nothing selected)
     std::array<MenuPlacement, kPlacementMenuDesktopCount> placements{};
-    MenuPointer pointer{};
     bool operator==(const PlacementMenuState&) const = default;
 };
 // Slider range of each field, {lo, hi}: the same bounds the renderer accepts (ipc.cpp kPlacementBounds, tested).
@@ -188,33 +179,75 @@ struct PlacementMenuFit {
 PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height);
 HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font = nullptr,
                                     std::uint32_t max_width = 0, std::uint32_t max_height = 0);
+// Where things are on that card, in card pixels from its top-left: the supervisor hit-tests mouse-mode clicks with it
+// (tools/native_spike/view.py MenuGeometry). Depends on the layout only (font, output, which rows show), never on values.
+struct MenuGeometry {
+    std::uint32_t width = 0, height = 0;
+    std::array<std::array<std::int32_t, 4>, kPlacementMenuDesktopCount> tabs{};  // x0, y0, x1, y1 of each desktop tab
+    struct Slider {
+        std::uint32_t field = 0;
+        std::int32_t top = 0, bottom = 0;  // the row's band, half a row gap above and below its text
+        float lo_x = 0, hi_x = 0;          // knob centre at the field's low / high bound
+        bool operator==(const Slider&) const = default;
+    };
+    std::vector<Slider> sliders;           // the rows shown, top to bottom
+    bool operator==(const MenuGeometry&) const = default;
+};
+MenuGeometry placement_menu_geometry(const PlacementMenuState& state, const HudFont* font = nullptr, std::uint32_t max_width = 0,
+                                     std::uint32_t max_height = 0);
+// One status line for the supervisor: {"menu_geometry":{"w":..,"h":..,"tabs":[[x0,y0,x1,y1]x3],"sliders":[[field,top,bottom,lo_x,hi_x],..]}}
+// (integers; lo_x/hi_x rounded).
+std::string menu_geometry_json(const MenuGeometry& geometry);
+// Mouse-mode pointer: a ring in the card's text colour (a filled disc while a slider is held), hard-edged, with its
+// hot spot in the middle of the image. Nothing brighter than the card's text.
+HudImage render_menu_pointer(bool held);
+// Top-left (from the top of the output) of a card drawn centred, lowered by `drop_px` while it fades in: the one
+// formula GlHud uses, so the pointer lands on the card exactly.
+struct CardOrigin { float x = 0, y = 0; };
+CardOrigin centered_card_origin(std::uint32_t output_w, std::uint32_t output_h, std::uint32_t card_w, std::uint32_t card_h, float drop_px);
 
 class PlacementMenuOverlay {
 public:
-    // Apply the latest state. Re-renders when open and the state differs from the last rendered one.
-    // Returns true if anything to draw changed (visibility or card).
+    // Apply the latest state. A new card is due when open and the state differs from the last one; it is rasterised
+    // lazily, on the first image()/fits()/geometry() after the change, so several updates between two displayed
+    // frames (a slider drag) cost one render. Returns true if anything to draw changed (visibility or card).
     bool set(const PlacementMenuState& state, double now_ms);
     void set_font(std::unique_ptr<HudFont> font);
-    // Output surface size the card must fit (0 = unbounded); re-renders a shown card when it changes.
+    // Output surface size the card must fit (0 = unbounded); a shown card is laid out again when it changes.
     bool set_viewport(std::uint32_t width, std::uint32_t height);
-    bool fits() const { return fits_; }  // last rendered card fits the viewport
+    bool fits() const { ensure(); return fits_; }  // last card fits the viewport
     bool visible() const { return fade_.visible(); }
     std::uint64_t shown_count() const { return shown_; }
     std::uint64_t hidden_count() const { return hidden_; }
-    std::uint64_t render_count() const { return generation_; }
+    std::uint64_t render_count() const { return renders_; }  // cards actually rasterised
     float alpha(double now_ms) const;
     float offset_px(double now_ms) const;
     bool animating(double now_ms) const;
-    const HudImage& image() const { return image_; }
-    std::uint64_t generation() const { return generation_; }
+    const HudImage& image() const { ensure(); return image_; }
+    std::uint64_t generation() const { return generation_; }  // bumps when the card changes
+    // Layout of the current card; geometry_generation() bumps only when it actually moves.
+    const MenuGeometry& geometry() const { ensure(); return geometry_; }
+    std::uint64_t geometry_generation() const { ensure(); return geometry_generation_; }
+    // Mouse-mode pointer in card pixels (supervisor-owned). Moving it never touches the card. True if it changed.
+    bool set_pointer(bool visible, std::int32_t x, std::int32_t y, bool held);
+    bool pointer_visible() const { return pointer_on_; }
+    std::int32_t pointer_x() const { return pointer_x_; }
+    std::int32_t pointer_y() const { return pointer_y_; }
+    const HudImage& pointer_image() const { return pointer_held_ ? pointer_held_image_ : pointer_image_; }
+    std::uint64_t pointer_generation() const { return pointer_held_ ? 2 : 1; }  // which of the two images
 private:
     CardFade fade_{kHelpFadeInMs, kHelpFadeOutMs};
     std::uint64_t shown_ = 0, hidden_ = 0, generation_ = 0;
     PlacementMenuState rendered_;
     std::uint32_t max_w_ = 0, max_h_ = 0;
-    bool fits_ = true;
-    void render();
-    HudImage image_;
+    void ensure() const;
+    mutable bool dirty_ = false, fits_ = true;
+    mutable std::uint64_t renders_ = 0, geometry_generation_ = 0;
+    mutable HudImage image_;
+    mutable MenuGeometry geometry_;
     std::unique_ptr<HudFont> font_;
+    bool pointer_on_ = false, pointer_held_ = false;
+    std::int32_t pointer_x_ = 0, pointer_y_ = 0;
+    HudImage pointer_image_ = render_menu_pointer(false), pointer_held_image_ = render_menu_pointer(true);
 };
 }

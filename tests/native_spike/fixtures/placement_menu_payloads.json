@@ -1417,752 +1417,169 @@
      }
     ]
    }
+  },
+  {
+   "why": "pointer inside placement_menu (the pointer is its own op, menu_pointer)",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "yaw",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0,
+      "curvature": 0
+     }
+    ],
+    "pointer": {
+     "row": 0,
+     "x": 1000,
+     "drag": false
+    }
+   }
   }
  ],
- "_comment_pointer": "pointer_valid / pointer_invalid: mouse mode adds an optional \"pointer\" key to an open menu (row -1..6, x 0..1000 per mille, drag bool). Checked by test_placement_mouse.py (view.placement_menu_frame) and placement_menu_ipc_test.cpp.",
- "pointer_valid": [
+ "_comment_menu_pointer": "menu_pointer_valid / menu_pointer_invalid: payloads of the supervisor->renderer op \"menu_pointer\" (mouse mode: visible, x and y in card pixels 0..8192, held). Checked by test_placement_mouse.py (view.menu_pointer_frame) and placement_menu_ipc_test.cpp.",
+ "menu_pointer_valid": [
   {
-   "open": true,
-   "desktop": 1,
-   "field": "yaw",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ],
-   "pointer": {
-    "row": -1,
+   "visible": true,
+   "x": 0,
+   "y": 0,
+   "held": false
+  },
+  {
+   "visible": true,
+   "x": 8192,
+   "y": 8192,
+   "held": true
+  },
+  {
+   "visible": false,
+   "x": 614,
+   "y": 366,
+   "held": false
+  },
+  {
+   "visible": true,
+   "x": 1228,
+   "y": 1,
+   "held": false
+  }
+ ],
+ "menu_pointer_invalid": [
+  {
+   "why": "x past the limit",
+   "payload": {
+    "visible": true,
+    "x": 8193,
+    "y": 0,
+    "held": false
+   }
+  },
+  {
+   "why": "negative y",
+   "payload": {
+    "visible": true,
     "x": 0,
-    "drag": false
-   }
-  },
-  {
-   "open": true,
-   "desktop": 1,
-   "field": "yaw",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ],
-   "pointer": {
-    "row": 0,
-    "x": 1000,
-    "drag": false
-   }
-  },
-  {
-   "open": true,
-   "desktop": 1,
-   "field": "yaw",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ],
-   "pointer": {
-    "row": 6,
-    "x": 500,
-    "drag": true
-   }
-  },
-  {
-   "open": true,
-   "desktop": 2,
-   "field": "curvature",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ],
-   "pointer": {
-    "row": 3,
-    "x": 250,
-    "drag": true
-   }
-  }
- ],
- "pointer_invalid": [
-  {
-   "why": "pointer on a closed menu",
-   "payload": {
-    "open": false,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 0,
-     "drag": false
-    }
-   }
-  },
-  {
-   "why": "row below the selector",
-   "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": -2,
-     "x": 0,
-     "drag": false
-    }
-   }
-  },
-  {
-   "why": "row past the last field",
-   "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 7,
-     "x": 0,
-     "drag": false
-    }
-   }
-  },
-  {
-   "why": "huge row",
-   "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 18446744073709551615,
-     "x": 0,
-     "drag": false
-    }
-   }
-  },
-  {
-   "why": "x past 1000",
-   "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 1001,
-     "drag": false
-    }
-   }
-  },
-  {
-   "why": "negative x",
-   "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": -1,
-     "drag": false
-    }
+    "y": -1,
+    "held": false
    }
   },
   {
    "why": "fractional x",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 0.5,
-     "drag": false
-    }
+    "visible": true,
+    "x": 10.5,
+    "y": 0,
+    "held": false
    }
   },
   {
-   "why": "string row",
+   "why": "string x",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": "1",
-     "x": 0,
-     "drag": false
-    }
+    "visible": true,
+    "x": "10",
+    "y": 0,
+    "held": false
    }
   },
   {
-   "why": "drag not a bool",
+   "why": "held not a bool",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 0,
-     "drag": 1
-    }
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "held": 1
    }
   },
   {
-   "why": "missing drag",
+   "why": "visible not a bool",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 0
-    }
+    "visible": "yes",
+    "x": 0,
+    "y": 0,
+    "held": false
    }
   },
   {
-   "why": "extra pointer key",
+   "why": "missing held",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 0,
-     "drag": false,
-     "button": 1
-    }
+    "visible": true,
+    "x": 0,
+    "y": 0
    }
   },
   {
-   "why": "pointer null",
+   "why": "extra key",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": null
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "held": false,
+    "field": "x"
    }
   },
   {
-   "why": "pointer list",
+   "why": "huge x",
    "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": [
-     0,
-     0,
-     false
-    ]
+    "visible": true,
+    "x": 18446744073709551615,
+    "y": 0,
+    "held": false
    }
   },
   {
-   "why": "sixth payload key",
-   "payload": {
-    "open": true,
-    "desktop": 1,
-    "field": "yaw",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     }
-    ],
-    "pointer": {
-     "row": 0,
-     "x": 0,
-     "drag": false
-    },
-    "mouse": true
-   }
+   "why": "null payload",
+   "payload": null
+  },
+  {
+   "why": "list payload",
+   "payload": [
+    0,
+    0
+   ]
   }
  ]
 }
