@@ -1,6 +1,7 @@
 #include "xr/hud.hpp"
 #include <algorithm>
 #include <iostream>
+#include <set>
 #include <string>
 #include <stdexcept>
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(#x); } while (0)
@@ -220,7 +221,9 @@ int main() {
             CHECK(band_height(im) == band);  // text and row spacing unchanged
             if (o.must_fit) CHECK(fit.fits);
             if (fit.fits) CHECK(fit.width + 2 * kHudFitMargin <= o.w && fit.height + 2 * kHudFitMargin <= o.h);
-            CHECK(fit.width >= roomy.width || fit.footer_lines < roomy.footer_lines || fit.wide_footer || fit.visible_rows < kPlacementMenuFields);
+            CHECK(fit.width >= roomy.width || fit.footer_lines < roomy.footer_lines || fit.wide_footer || fit.visible_rows < kPlacementMenuFields ||
+                  fit.slider_w < roomy.slider_w);  // the sliders give up width before anything else changes
+            CHECK(fit.slider_w >= kSliderMinW && fit.slider_w <= kSliderMaxW);
             if (o.w >= 1280 && o.h >= 720) CHECK(fit.visible_rows == kPlacementMenuFields && fit.hint_column);  // everything at once
         }
         // Scale 2 (960x540): a window of at least three rows; every field, when selected, is in the window and
@@ -337,6 +340,79 @@ int main() {
         CHECK(kCardMaxLevel <= 0.75 * 255);
         CHECK(kOverlayIdleCloseS >= 10 && kOverlayIdleCloseS <= 300);  // the footer note's value (tests/native_spike pins it)
 
+    }
+    // Sliders and the mouse pointer. A knob at a field's low or high bound sits exactly where the pointer is drawn at
+    // per mille 0 or 1000 (the supervisor's hit test relies on that), mouse mode never resizes the card, the pointer
+    // re-renders an open menu without restarting its fade, and every pointer state keeps to the card's palette and
+    // brightness cap.
+    {
+        std::string why;
+        const auto real = HudFont::load(kHudFontFamily, why);
+        std::vector<const HudFont*> fonts{nullptr};  // pixel fallback, and the installed font when present
+        if (real) fonts.push_back(real.get());
+        const auto bounds = placement_menu_bounds();
+        CHECK(bounds[0] == std::make_pair(-100, 100) && bounds[1] == std::make_pair(-100, 100) && bounds[2] == std::make_pair(50, 200) &&
+              bounds[3] == std::make_pair(-60, 60) && bounds[4] == std::make_pair(-45, 45) && bounds[5] == std::make_pair(-45, 45) &&
+              bounds[6] == std::make_pair(0, 120));
+        const std::array<float, 3> accent{0.36f, 0.48f, 0.7275f};  // the cards' dimmed accent
+        auto changed_columns = [](const HudImage& a, const HudImage& b) {  // contiguous runs of columns that differ
+            std::vector<std::pair<std::uint32_t, std::uint32_t>> runs;
+            for (std::uint32_t x = 0; x < a.width; ++x) {
+                bool diff = false;
+                for (std::uint32_t y = 0; y < a.height && !diff; ++y)
+                    for (int c = 0; c < 4; ++c) diff |= a.rgba[(std::size_t(y) * a.width + x) * 4 + std::size_t(c)] != b.rgba[(std::size_t(y) * b.width + x) * 4 + std::size_t(c)];
+                if (!diff) continue;
+                if (!runs.empty() && runs.back().second + 1 == x) runs.back().second = x; else runs.push_back({x, x});
+            }
+            return runs;
+        };
+        for (const HudFont* f : fonts) {
+            for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
+                PlacementMenuState lo; lo.open = true; lo.desktop = 1; lo.field = field;
+                PlacementMenuState hi = lo;
+                lo.placements[1][field] = bounds[field].first; hi.placements[1][field] = bounds[field].second;
+                PlacementMenuState left = lo, right = lo;
+                left.pointer = {true, std::int32_t(field), 0, false}; right.pointer = {true, std::int32_t(field), 1000, false};
+                const auto knobs = changed_columns(render_placement_menu_card(lo, accent, f, 1536, 960), render_placement_menu_card(hi, accent, f, 1536, 960));
+                const auto ptrs = changed_columns(render_placement_menu_card(left, accent, f, 1536, 960), render_placement_menu_card(right, accent, f, 1536, 960));
+                CHECK(knobs.size() >= 2 && ptrs.size() == 2);  // knob travel + filled track, then the value text; two pointer rings
+                const int in_left = int(knobs[0].first) - int(ptrs[0].first), in_right = int(ptrs[1].second) - int(knobs[0].second);
+                CHECK(in_left == in_right && in_left >= 3 && in_left <= 7);  // both ends: the knob centred in the pointer ring
+                CHECK(placement_menu_fit(left, f, 1536, 960).width == placement_menu_fit(lo, f, 1536, 960).width &&
+                      placement_menu_fit(left, f, 1536, 960).height == placement_menu_fit(lo, f, 1536, 960).height);
+            }
+        }
+        // Palette and brightness with the pointer on every row, held or not (pixel font: no anti-aliasing to blend).
+        const auto help_card = render_help_card({{"Ctrl+Alt+H", "Show / hide this help"}}, accent);
+        std::set<std::array<std::uint8_t, 4>> palette;
+        for (std::size_t i = 0; i < help_card.rgba.size(); i += 4)
+            if (help_card.rgba[i + 3] == 255) palette.insert({help_card.rgba[i], help_card.rgba[i + 1], help_card.rgba[i + 2], 255});
+        PlacementMenuState st; st.open = true; st.desktop = 0;
+        st.placements[0] = {-100, 37, 200, -60, 12, 45, 120};
+        for (std::int32_t row = -1; row < std::int32_t(kPlacementMenuFields); ++row)
+            for (bool drag : {false, true})
+                for (std::uint32_t x : {0u, 333u, 1000u}) {
+                    st.field = std::uint32_t(std::max(row, 0)); st.pointer = {true, row, x, drag};
+                    for (const HudFont* f : fonts) {
+                        const auto im = render_placement_menu_card(st, accent, f, 1536, 960);
+                        std::uint8_t top = 0;
+                        for (std::size_t i = 0; i < im.rgba.size(); i += 4) {
+                            for (int c = 0; c < 3; ++c) top = std::max(top, im.rgba[i + std::size_t(c)]);
+                            if (!f && im.rgba[i + 3] == 255) CHECK(palette.count({im.rgba[i], im.rgba[i + 1], im.rgba[i + 2], 255}));
+                        }
+                        CHECK(top <= kCardMaxLevel && premultiplied(im));
+                    }
+                }
+        // The overlay redraws for pointer motion without a new fade, and a pointer change while closed draws nothing.
+        PlacementMenuOverlay overlay;
+        PlacementMenuState open; open.open = true; open.pointer = {true, 2, 100, false};
+        CHECK(overlay.set(open, 0) && overlay.generation() == 1);
+        open.pointer.x = 900;
+        CHECK(overlay.set(open, kHelpFadeInMs + 10) && overlay.generation() == 2 && overlay.alpha(kHelpFadeInMs + 10) == 1);
+        PlacementMenuState shut = open; shut.open = false;
+        CHECK(overlay.set(shut, 1000));
+        shut.pointer.x = 10;
+        CHECK(!overlay.set(shut, 1100) && overlay.generation() == 2);
     }
     std::cout << "hud ok\n";
 }

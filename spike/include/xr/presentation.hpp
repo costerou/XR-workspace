@@ -77,9 +77,11 @@ public:
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows);
     // Keyboard placement menu (display only; placements are applied by set_placements): fades in/out in the
     // middle of the view like the help card, which it replaces while shown. `desktop` 0..2, `field` 0..6 in
-    // WirePlacement order; `placements` for all three desktops in the same units as set_placements.
+    // WirePlacement order; `placements` for all three desktops in the same units as set_placements. Mouse mode:
+    // `pointer` with its row (-1 desktop selector, 0..6 fields), per-mille position along the slider and drag state.
     void set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                            const std::array<std::array<std::int32_t, 7>, 3>& placements);
+                            const std::array<std::array<std::int32_t, 7>, 3>& placements, bool pointer = false,
+                            std::int32_t pointer_row = 0, std::uint32_t pointer_x = 0, bool pointer_drag = false);
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.

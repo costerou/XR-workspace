@@ -15,7 +15,8 @@ Design (decided for the zoom-out resize feature, 2026-11-01):
 
 How it is wired (supervisor side; the renderer only draws the handle):
   * PointerPoller, a background thread, reads the pointer with the allowlisted read-only `cursorpos` query about 30
-    times a second while the overview is shown (never while zoomed) and the XR-n output geometry every 2 s.
+    times a second while the overview is shown (never while zoomed, and never while the placement menu is open, whose
+    mouse mode owns the left button) and the XR-n output geometry every 2 s.
   * CornerResize, on the supervisor loop, hit-tests the pointer against each desktop's corner zones. On hover it
     shows a subtle corner handle (renderer op `resize_handle`) and asks for two modal left-button binds: press runs
     `resize_press`, release runs `resize_release`, through the same xr_control.py helper as every run key. These binds
@@ -141,7 +142,9 @@ class CornerResize:
         self.wake_reader.close(); self._wake_writer.close()
 
     def overview(self):
-        return not self.control.state.zoomed
+        # Off while the placement menu is open: its mouse mode binds the same left button, and the menu has its own
+        # Distance slider. Opening the menu ends a drag (saved) and removes the resize binds; closing it brings them back.
+        return not self.control.state.zoomed and not self.control.state.menu_open
 
     def feed(self, pointer, outputs):
         """Poller thread: latest pointer (global logical px, or None) and output rectangles; wakes the loop on change."""

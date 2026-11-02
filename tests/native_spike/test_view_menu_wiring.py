@@ -355,7 +355,8 @@ class MenuBindLuaTests(unittest.TestCase):
         self.assertLess(lua.index('HL.Keybind(expired)'), lua.index('hl.bind('))  # replaces a surviving set
         for chord, op in view.MENU_BINDS:
             self.assertIn(f'hl.bind("{chord}", hl.dsp.exec_cmd(c .. "{op}"))', lua)
-        self.assertEqual({op for _, op in view.MENU_BINDS}, set(view.MENU_OPS))
+        # Every menu op has a key: Ctrl+Alt+L (menu_toggle) is a run bind, the rest are modal; Escape is menu_back.
+        self.assertEqual({op for _, op in view.MENU_BINDS} | {op for _, op in view.BINDS if op in view.MENU_OPS}, set(view.MENU_OPS))
         self.assertLessEqual(len(lua), 4096)
         self.assertLessEqual(len(view.remove_binds_lua() + ' ' + view.install_binds_lua(*self.ARGS)), 4096)
         self.assertIn('xr_workspace_menu_binds = nil', view.remove_binds_lua())  # run end clears an open menu's binds

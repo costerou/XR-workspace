@@ -59,7 +59,7 @@ Head tracking must be running before a session starts:
 python -m tools.native_spike tracking start   # also: status, stop
 ```
 
-These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; if the run dies with the menu open, the first menu key pressed afterwards releases them.
+These keybinds exist only during a run. The keys marked "menu open" are bound only while the placement menu is open, and released when it closes or the run ends; the left-button binds marked "mouse mode" exist only while mouse mode is on. If the run dies with the menu open, the first menu key (or, in mouse mode, the first click) pressed afterwards releases them and shows the cursor again.
 
 | Keys | When | Action |
 | --- | --- | --- |
@@ -76,10 +76,13 @@ These keybinds exist only during a run. The keys marked "menu open" are bound on
 | Up / Down | menu open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
 | Left / Right | menu open | Decrease / increase the field by a small step (Shift for a big step) |
 | R | menu open | Reset the desktop to flat |
-| Escape | menu open | Close the menu |
-| Left-drag a desktop corner | overview, pointer on a corner | Resize that desktop: outward is bigger, inward is smaller |
+| Ctrl+Alt+M | menu open | Turn mouse mode on / off |
+| Escape | menu open | Leave mouse mode; otherwise close the menu |
+| Left click | mouse mode | Jump the slider under the pointer there, or pick the desktop under it |
+| Left drag | mouse mode | Drag that slider; the desktop follows live |
+| Left-drag a desktop corner | overview, menu closed, pointer on a corner | Resize that desktop: outward is bigger, inward is smaller |
 
-Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring is covered by offline tests only.
+Menu changes apply immediately and are saved to the glasses profile half a second after the last change, or as soon as the menu closes. The menu wiring and mouse mode are covered by offline tests only.
 
 Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
@@ -113,7 +116,9 @@ How clicks are handled: while the pointer is on a corner, or during a drag, the 
 resize (press and release), so the window under that corner does not get the click. Everywhere else, and whenever the
 bracket is hidden, clicks go to windows as usual. The pointer is read about 30 times a second, only in the overview,
 with the read-only `cursorpos` query. The binds go away when the pointer leaves the corner, after 30 s without pointer
-movement, on zoom-in and at run end. If the run dies while they are bound, the first left click afterwards removes them.
+movement, on zoom-in, when the placement menu opens, and at run end. If the run dies while they are bound, the first left click afterwards removes them.
+Corner resize is off while the placement menu is open. The menu's mouse mode uses the left button, and the menu has its own
+Distance setting. A drag in progress ends and is saved when the menu opens.
 
 The bracket protects the micro-OLED the way the cards do, by dimming and auto-closing. It is grey at about 55%
 brightness, and 72% while you drag (184/255, under the cards' 191 cap). It hides after 30 s without pointer movement
@@ -122,9 +127,11 @@ The CPU fallback renderer draws no bracket.
 
 ### Placement menu
 
-You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
+You can also place desktops from inside the glasses, without the panel. Press **Ctrl+Alt+L** during a run to open the placement menu, and Ctrl+Alt+L or Escape to close it. (Ctrl+Alt+P was already taken by pose prediction.) The menu uses the help card's font, colours and spacing. It shows the desktop selector (XR-1, XR-2, XR-3), the seven settings as sliders with their current values, and the keys at the bottom. The menu keys are listed in the keybind table above. They work only while the menu is open, so the arrows, Tab, R and Escape type normally once it is closed.
 
-The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. Values stop at the same limits as the panel's sliders. R puts every setting of the selected desktop back to flat.
+The settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or down), **Roll** (tilt sideways) and **Curvature**. Each is a row with its label, a slider and its current value. The slider's ends are the setting's limits, the same as the panel's sliders, and the stretch from the flat value to the knob is coloured. The menu opens on the desktop you are looking at. Desktop and setting selection wrap round. R puts every setting of the selected desktop back to flat.
+
+**Mouse mode.** With the menu open, press **Ctrl+Alt+M** to use the mouse on the sliders in the glasses. A ring pointer appears on the selected slider's knob and the desktop cursor is hidden. Moving the mouse sideways moves the pointer along a slider. Moving it up or down steps one row at a time, up to the XR-1/XR-2/XR-3 selector above the sliders. Click anywhere on a slider to jump it there, hold the button and drag to move it, and the desktop follows live. Clicking a desktop tab selects that desktop. While mouse mode is on, left clicks go to the menu, not to your windows, and cursor follow is paused. The keyboard keeps working: the arrows, Shift, Tab and R act as usual. Press Ctrl+Alt+M again or Escape to leave mouse mode. The cursor comes back where it was when mouse mode started, and the menu stays open. Escape again closes the menu; Ctrl+Alt+L closes it at once, mouse mode included. Any mouse movement or click in mouse mode counts as input for the 30 s idle close described below. The sliders and the pointer use only the cards' dimmed colours, nothing brighter than their text. Ctrl+Alt+M is bound only while the menu is open. It clashes with none of Omarchy's binds or this project's; `python -m tools.native_spike.bind_check` checks that against your Hyprland config with `Hyprland --verify-config` (see Tests).
 
 Each key press moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's profile shortly after the last key press, and again when the menu closes. The menu changes placement only. It does not change the run's consent, capture or the panel's buttons.
 
@@ -141,6 +148,14 @@ python -m unittest discover -s tests/xr_controller -v
 python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
 ctest --test-dir build/release --output-on-failure
 ```
+
+Check that this project's run, menu and mouse-mode binds clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
+
+```sh
+python -m tools.native_spike.bind_check
+```
+
+It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads.
 
 Tests use synthetic collectors, fake sockets and temporary directories. They never open a real display or device, and their output is never published as host evidence. Build and link success does not show that the plugin loads at runtime against the installed compositor.
 

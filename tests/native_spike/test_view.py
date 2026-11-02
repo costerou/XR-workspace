@@ -58,7 +58,7 @@ class ViewStateTests(unittest.TestCase):
     def test_user_ops_decode_and_others_rejected(self):
         from tools.native_spike import xr_control
         from tools.native_spike import resize
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS)  # bind helper and supervisor agree
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS)  # bind helper and supervisor agree
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()

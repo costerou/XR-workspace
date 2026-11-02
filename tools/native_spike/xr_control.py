@@ -13,13 +13,20 @@ import time
 
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
-       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset',
-       'resize_press', 'resize_release')  # view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS
+       'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_mouse', 'menu_back', 'menu_mouse_press',
+       'menu_mouse_release', 'resize_press', 'resize_release')  # view.USER_OPS + view.MENU_OPS + view.MOUSE_OPS + resize.RESIZE_OPS
 TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
 # Same text as view.remove_menu_binds_lua() (tests compare); duplicated because this helper is stdlib-only under -I.
+# It also leaves menu mouse mode: the left-button binds go and the cursor is shown and put back.
 REMOVE_MENU_BINDS = ('for _, b in ipairs(xr_workspace_menu_binds or {}) do '
-                     'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_menu_binds = nil')
+                     'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_menu_binds = nil '
+                     'for _, b in ipairs(xr_workspace_mouse_binds or {}) do '
+                     'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_mouse_binds = nil '
+                     'do local s = xr_workspace_mouse xr_workspace_mouse = nil if s then '
+                     'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
+                     'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
+                     'end end')
 # Same text as resize.remove_resize_binds_lua() (tests compare). A left click with no run listening must not stay bound.
 REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
                        'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_resize_binds = nil')
@@ -27,7 +34,7 @@ REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
 
 def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
     """A menu key with no run listening: the supervisor died with the menu open. Remove its modal binds so the arrows,
-    Tab, R and Escape work again. Fixed Lua only, on the compositor that ran this bind (its own environment)."""
+    Tab, R and Escape work again (and, in mouse mode, the left button and the cursor). Fixed Lua only, on the compositor that ran this bind (its own environment)."""
     runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
     if not runtime.startswith('/') or not INSTANCE.match(instance): return False
     try:

@@ -210,17 +210,22 @@ HudImage render_help_card(const std::vector<HelpRow>& rows, std::array<float, 3>
 
 namespace {
 // Placement menu: field order matches ipc.hpp WirePlacement / geometry.py PLACEMENT_KEYS.
-struct MenuField { const char* label; const char* hint; bool percent, is_signed; };
+// lo/hi: the slider's ends (ipc.cpp kPlacementBounds); flat: the flat-default value the slider fills from.
+struct MenuField { const char* label; const char* hint; bool percent, is_signed; std::int32_t lo, hi, flat; };
 constexpr MenuField kMenuFields[kPlacementMenuFields] = {
-    {"Left / right", "", true, true}, {"Down / up", "", true, true}, {"Distance", "", true, false},
-    {"Yaw", "turn left or right", false, true}, {"Pitch", "tilt up or down", false, true},
-    {"Roll", "tilt sideways", false, true}, {"Curvature", "", false, false}};
+    {"Left / right", "", true, true, -100, 100, 0}, {"Down / up", "", true, true, -100, 100, 0},
+    {"Distance", "", true, false, 50, 200, 100}, {"Yaw", "turn left or right", false, true, -60, 60, 0},
+    {"Pitch", "tilt up or down", false, true, -45, 45, 0}, {"Roll", "tilt sideways", false, true, -45, 45, 0},
+    {"Curvature", "", false, false, 0, 120, 0}};
 // Key hints (keys, action); must match the supervisor's modal menu binds (tools/native_spike/view.py MENU_BINDS).
 // The toggle chord (Ctrl+Alt+L) is on the help card; inside the menu Esc closes it, so the footer names Esc.
 // The short set is the last resort on small outputs; it keeps every key.
+// Ctrl+Alt+M (mouse mode: click or drag the sliders) is bound only while the menu is open; Esc leaves mouse mode first.
+// The short set leaves it out: with it, 1280x720 outputs lose a row to a second footer line. The help card's menu row
+// and the README still name it.
 const std::vector<std::pair<std::string, std::string>> kMenuHints{
     {"Up / Down", "choose a setting"}, {"Left / Right", "adjust"}, {"Shift", "bigger steps"},
-    {"Tab", "next desktop"}, {"R", "reset to flat"}, {"Esc", "close"}};
+    {"Tab", "next desktop"}, {"R", "reset to flat"}, {"Ctrl+Alt+M", "mouse"}, {"Esc", "close"}};
 const std::vector<std::pair<std::string, std::string>> kMenuHintsShort{
     {"Up/Down", "setting"}, {"Left/Right", "adjust"}, {"Shift", "big step"}, {"Tab", "desktop"}, {"R", "flat"}, {"Esc", "close"}};
 constexpr const char* kHintKeyGap = "  ";      // between a key and its action
@@ -240,16 +245,21 @@ constexpr MenuArrangement kArrangements[] = {
 };
 // Scroll cue: a small accent triangle, sized from the card's gaps.
 constexpr std::uint32_t kCueH = std::uint32_t(kRowGap) * 3 / 4, kCueW = 2 * kCueH;
+// Sliders, in the card's palette: a dim track, the stretch from the flat value to the current one in accent (part
+// coverage, so never brighter than the accent), a knob in the text colour. The mouse pointer is a text-colour ring
+// round the knob (a disc while dragging). Sizes come from the card's spacing.
+constexpr float kTrackH = 4, kKnobR = 7, kPointerR = 12, kPointerRing = 2.5f, kDragKnobR = 9;
+constexpr float kFillAlpha = 0.7f;
 
 struct MenuLayout {
     MenuArrangement arrangement{};
     Cell title;
     std::vector<Cell> tabs;
     std::uint32_t tabs_w = 0, tabs_ascent = 0, tabs_descent = 0;
-    struct Row { Cell label, hint, value; bool selected; };
+    struct Row { Cell label, hint, value; bool selected; std::uint32_t index; };
     std::vector<Row> rows;                   // the visible rows
     std::uint32_t first_row = 0, total_rows = 0;
-    std::uint32_t label_w = 0, hint_w = 0, value_w = 0, table_w = 0, rows_h = 0;
+    std::uint32_t label_w = 0, hint_w = 0, value_w = 0, slider_w = 0, table_w = 0, rows_h = 0;
     std::vector<Cell> footer;
     std::uint32_t footer_w = 0, footer_h = 0;
     std::uint32_t header_h = 0, content_w = 0, content_h = 0;
@@ -288,7 +298,7 @@ MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, Men
     for (std::uint32_t i = 0; i < L.total_rows; ++i) {  // columns measured over every row: scrolling never resizes the card
         const auto& r = all[i];
         MenuLayout::Row row{cell(card_key(r.label), font), cell(card_detail(a.hint_column ? r.hint : ""), font), cell(card_key(r.value), font),
-                            r.selected};
+                            r.selected, i};
         L.label_w = std::max(L.label_w, row.label.box.width); L.hint_w = std::max(L.hint_w, row.hint.box.width);
         L.value_w = std::max(L.value_w, row.value.box.width);
         if (i < L.first_row || i >= L.first_row + window) continue;
@@ -299,8 +309,16 @@ MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, Men
     // resizes the card or re-wraps the footer.
     for (const char* widest : {"-000%", font ? "-000\xc2\xb0" : "-000 deg"})
         L.value_w = std::max(L.value_w, box(card_key(widest), font).width);
-    // Columns: label, hint, value (right-aligned); the selected-row band reaches kRowGap past the text on each side.
-    L.table_w = L.label_w + (L.hint_w ? std::uint32_t(kColumnGap) / 2 + L.hint_w : 0) + std::uint32_t(kColumnGap) + L.value_w + 2 * std::uint32_t(kRowGap);
+    // Columns: label, hint, slider, value (right-aligned); the selected-row band reaches kRowGap past the text on each
+    // side. The slider takes the room the output leaves, between kSliderMinW and kSliderMaxW.
+    const bool clipped = L.rows.size() < L.total_rows;
+    const std::uint32_t cues = clipped ? 2 * (kCueW + std::uint32_t(kRowGap)) : 0;
+    // Half a column gap on each side of the slider: the same spacing the table had before it had sliders.
+    const std::uint32_t text_w = L.label_w + (L.hint_w ? std::uint32_t(kColumnGap) / 2 + L.hint_w : 0) + std::uint32_t(kColumnGap) +
+                                 L.value_w + 2 * std::uint32_t(kRowGap);
+    L.slider_w = kSliderMaxW;
+    if (avail_content_w) L.slider_w = std::clamp(avail_content_w > text_w + cues ? avail_content_w - text_w - cues : 0, kSliderMinW, kSliderMaxW);
+    L.table_w = text_w + L.slider_w;
     std::uint32_t header_w;
     if (a.tabs_beside_title) {
         header_w = L.title.box.width + std::uint32_t(kColumnGap) + L.tabs_w;
@@ -310,8 +328,7 @@ MenuLayout layout_menu(const PlacementMenuState& state, const HudFont* font, Men
         L.header_h = height(L.title.box) + std::uint32_t(kLineGap) + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) + tab_rule();
     }
     // Hidden rows: room for the scroll cues on both sides of the table.
-    const bool clipped = L.rows.size() < L.total_rows;
-    const std::uint32_t body_w = std::max(header_w, L.table_w + (clipped ? 2 * (kCueW + std::uint32_t(kRowGap)) : 0));
+    const std::uint32_t body_w = std::max(header_w, L.table_w + cues);
     L.footer = footer_lines(a.short_hints ? kMenuHintsShort : kMenuHints, a.wide_footer ? std::max(body_w, avail_content_w) : body_w, font);
     for (std::size_t i = 0; i < L.footer.size(); ++i) {
         L.footer_w = std::max(L.footer_w, L.footer[i].box.width);
@@ -359,6 +376,35 @@ void draw_tabs(HudImage& im, const MenuLayout& L, std::uint32_t desktop, int lef
 }
 }
 
+namespace {
+// Disc / ring centred on (cx, cy), hard-edged like the pixel font: every pixel is fully `c` (one of the card's colours)
+// or untouched. Anti-aliased edges over the near-opaque track would round to opaque in-between greys.
+void draw_disc(HudImage& im, float cx, float cy, float r, std::array<float, 3> c) {
+    for (int y = int(std::floor(cy - r - 1)); y <= int(std::ceil(cy + r + 1)); ++y)
+        for (int x = int(std::floor(cx - r - 1)); x <= int(std::ceil(cx + r + 1)); ++x)
+            if (std::hypot(float(x) + 0.5f - cx, float(y) + 0.5f - cy) <= r) over(im, x, y, c, 1.f);
+}
+void draw_ring(HudImage& im, float cx, float cy, float r, float width, std::array<float, 3> c) {
+    for (int y = int(std::floor(cy - r - width)); y <= int(std::ceil(cy + r + width)); ++y)
+        for (int x = int(std::floor(cx - r - width)); x <= int(std::ceil(cx + r + width)); ++x)
+            if (std::fabs(std::hypot(float(x) + 0.5f - cx, float(y) + 0.5f - cy) - r) <= width / 2) over(im, x, y, c, 1.f);
+}
+// Horizontal bar [x0, x1) of kTrackH centred on cy.
+void draw_bar(HudImage& im, float x0, float x1, float cy, std::array<float, 3> c, float alpha) {
+    if (x1 < x0) std::swap(x0, x1);
+    for (int y = int(std::lround(cy - kTrackH / 2)); y < int(std::lround(cy + kTrackH / 2)); ++y)
+        for (int x = int(std::lround(x0)); x < int(std::lround(x1)); ++x) over(im, x, y, c, alpha);
+}
+// Centre line of a scale-2 text row: half a capital (capitals are kGlyphH * zoom * 2 tall in both fonts) above the baseline.
+constexpr std::uint32_t kCapHalf = kGlyphH * kPixelFontZoom;
+}
+
+std::array<std::pair<std::int32_t, std::int32_t>, kPlacementMenuFields> placement_menu_bounds() {
+    std::array<std::pair<std::int32_t, std::int32_t>, kPlacementMenuFields> out{};
+    for (std::size_t i = 0; i < kPlacementMenuFields; ++i) out[i] = {kMenuFields[i].lo, kMenuFields[i].hi};
+    return out;
+}
+
 std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& state, bool ascii_units) {
     const auto& p = state.placements[std::min<std::size_t>(state.desktop, kPlacementMenuDesktopCount - 1)];
     std::vector<PlacementMenuRow> rows;
@@ -389,7 +435,7 @@ PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFo
     const auto L = choose_layout(state, font, max_width, max_height);
     return {card_size(L.content_w), card_size(L.content_h), L.arrangement.tabs_beside_title, L.arrangement.wide_footer,
             L.arrangement.short_hints, std::uint32_t(L.footer.size()), fits(L, max_width, max_height),
-            std::uint32_t(L.rows.size()), L.first_row, L.arrangement.hint_column};
+            std::uint32_t(L.rows.size()), L.first_row, L.arrangement.hint_column, L.slider_w};
 }
 
 HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font,
@@ -398,18 +444,27 @@ HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<
     HudImage im;
     allocate_card(im, card_size(L.content_w), card_size(L.content_h), accent);
     std::uint32_t top = std::uint32_t(kHelpPad);
+    int tabs_left = 0;
+    float tabs_cy = 0;  // where the pointer sits on the desktop selector (row -1)
     if (L.arrangement.tabs_beside_title) {
         const std::uint32_t ascent = std::max(L.title.box.ascent, L.tabs_ascent), descent = std::max(L.title.box.descent, L.tabs_descent);
         const int left = int((im.width - (L.title.box.width + std::uint32_t(kColumnGap) + L.tabs_w)) / 2);
         draw_cell(im, L.title, left, top, ascent, font);
-        draw_tabs(im, L, state.desktop, left + int(L.title.box.width + std::uint32_t(kColumnGap)), top, ascent,
-                  top + ascent + descent + std::uint32_t(kLineGap) / 2, accent, font);
+        tabs_left = left + int(L.title.box.width + std::uint32_t(kColumnGap));
+        tabs_cy = float(top + ascent - kCapHalf);
+        draw_tabs(im, L, state.desktop, tabs_left, top, ascent, top + ascent + descent + std::uint32_t(kLineGap) / 2, accent, font);
     } else {
         draw_centered(im, L.title, top, font);
         const std::uint32_t tabs_top = top + height(L.title.box) + std::uint32_t(kLineGap);
-        draw_tabs(im, L, state.desktop, int((im.width - L.tabs_w) / 2), tabs_top, L.tabs_ascent,
+        tabs_left = int((im.width - L.tabs_w) / 2);
+        tabs_cy = float(tabs_top + L.tabs_ascent - kCapHalf);
+        draw_tabs(im, L, state.desktop, tabs_left, tabs_top, L.tabs_ascent,
                   tabs_top + L.tabs_ascent + L.tabs_descent + std::uint32_t(kLineGap) / 2, accent, font);
     }
+    const auto& placement = state.placements[std::min<std::size_t>(state.desktop, kPlacementMenuDesktopCount - 1)];
+    const auto& ptr = state.pointer;
+    float pointer_x = -1, pointer_y = -1;  // set when the pointer's row is drawn
+    if (ptr.on && ptr.row < 0) { pointer_x = float(tabs_left) + float(std::min(ptr.x, 1000u)) / 1000.f * float(L.tabs_w); pointer_y = tabs_cy; }
     top += L.header_h + std::uint32_t(kSectionGap);
     draw_divider(im, top, accent);
     const int left = int((im.width - L.table_w) / 2);
@@ -434,12 +489,29 @@ HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<
         draw_cell(im, r.label, col, top, ascent, font);
         if (!r.hint.line.text.empty()) draw_cell(im, r.hint, col + int(L.label_w + std::uint32_t(kColumnGap) / 2), top, ascent, font);
         draw_cell(im, r.value, left + int(L.table_w) - int(kRowGap) - int(r.value.box.width), top, ascent, font);  // right-aligned
+        {  // the slider: its ends are the field's bounds; the knob travels between kPointerR in from each end
+            const auto& f = kMenuFields[r.index];
+            const float x0 = float(col) + float(L.label_w + (L.hint_w ? std::uint32_t(kColumnGap) / 2 + L.hint_w : 0) + std::uint32_t(kColumnGap) / 2);
+            const float lo_x = x0 + kPointerR, span = float(L.slider_w) - 2 * kPointerR, cy = float(top + ascent - std::min(ascent, kCapHalf));
+            auto at = [&](std::int32_t v) { return lo_x + span * float(std::clamp(v, f.lo, f.hi) - f.lo) / float(f.hi - f.lo); };
+            const float knob = at(placement[r.index]);
+            draw_bar(im, x0, x0 + float(L.slider_w), cy, kCardDim, 0.85f);  // part coverage: no opaque blends at the knob edge
+            draw_bar(im, at(f.flat), knob, cy, accent, kFillAlpha);
+            const bool held = ptr.on && ptr.drag && ptr.row == std::int32_t(r.index);
+            draw_disc(im, knob, cy, held ? kDragKnobR : kKnobR, kCardText);
+            if (ptr.on && ptr.row == std::int32_t(r.index)) { pointer_x = lo_x + span * float(std::min(ptr.x, 1000u)) / 1000.f; pointer_y = cy; }
+        }
         if (i == 0 && L.first_row > 0) cue(top, h, true);
         if (i + 1 == L.rows.size() && L.first_row + L.rows.size() < L.total_rows) cue(top, h, false);
         top += h + std::uint32_t(kRowGap);
     }
     top += std::uint32_t(kSectionGap);
     for (const auto& f : L.footer) { draw_centered(im, f, top, font); top += height(f.box) + std::uint32_t(kLineGap); }
+    // Mouse pointer last, on top: a ring round where it points, filled while a slider is held.
+    if (pointer_y >= 0) {
+        if (ptr.drag && ptr.row >= 0) draw_disc(im, pointer_x, pointer_y, kPointerR - kPointerRing, kCardText);
+        draw_ring(im, pointer_x, pointer_y, kPointerR - kPointerRing / 2, kPointerRing, kCardText);
+    }
     return im;
 }
 

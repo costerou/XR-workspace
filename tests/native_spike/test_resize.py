@@ -265,12 +265,14 @@ class CornerResizeTests(unittest.TestCase):
         self.assertEqual(self.store.saves, 1)
         self.assertFalse(self.r.binds_wanted)
 
-    def test_open_menu_follows_the_drag(self):
-        self.control.on_message({'op': 'menu_toggle', 'payload': {}})
+    def test_the_menu_opens_on_the_size_a_corner_drag_left(self):
+        # Corner resize is off while the menu is open (see the test below), so the two meet only through the placement.
         self.at(2560 + 1915, 1075); self.op('resize_press')
-        out = self.at(2560 + 1915 + 300, 1075)
-        self.assertEqual([f['op'] for f in out], ['placement', 'placement_menu'])
-        self.assertEqual(out[1]['payload']['placements'][0]['distance'], out[0]['payload']['desktops'][0]['distance'])
+        out = self.at(2560 + 1915 + 300, 1075); self.op('resize_release')
+        size = out[0]['payload']['desktops'][0]['distance']
+        opened = self.op('menu_toggle')
+        self.assertEqual(opened[-1]['op'], 'placement_menu')
+        self.assertEqual(opened[-1]['payload']['placements'][0]['distance'], size)
 
     def test_a_press_counts_as_input_for_the_overlays(self):
         self.control.on_message({'op': 'help', 'payload': {}})
@@ -296,6 +298,38 @@ class CornerResizeTests(unittest.TestCase):
         self.assertEqual(self.r.wake_reader.recv(16), b'.')
         self.r.feed((2, 2), OUTPUTS); self.r.drain()
         with self.assertRaises(BlockingIOError): self.r.wake_reader.recv(16)
+
+    def test_off_while_the_placement_menu_is_open_so_mouse_mode_owns_the_left_button(self):
+        # Mouse mode binds the same left button; with both bound, one click could drag a slider and a corner together.
+        self.at(2560 + 1915, 1075); self.op('resize_press')
+        self.at(2560 + 1915 + 300, 1075)
+        size = self.control.state.placements[0]['distance']
+        self.assertLess(size, 100)
+        self.op('menu_toggle')  # Ctrl+Alt+L
+        out = self.at(2560 + 1915 + 600, 1075)
+        self.assertIsNone(self.r.drag)  # the drag ended and was saved, without the move made after the menu opened
+        self.assertEqual(self.store.saved[0]['distance'], size)
+        self.assertEqual(out[-1]['payload']['visible'], False)
+        self.assertFalse(self.r.binds_wanted)  # the poller removes the resize binds
+        self.at(2560 + 5, 5)  # on a corner while the menu is open: no handle, no binds, a press does nothing
+        self.assertEqual(self.op('resize_press'), [])
+        self.assertIsNone(self.r.drag); self.assertFalse(self.r.binds_wanted)
+        self.op('menu_toggle')  # closed again: the corner works as before
+        shown = self.at(2560 + 6, 6)
+        self.assertEqual(shown[-1]['payload'], {'visible': True, 'desktop': 0, 'corner': 'tl', 'active': False})
+        self.assertTrue(self.r.binds_wanted)
+
+
+class HelpCardFitTests(unittest.TestCase):
+    def test_the_fit_tested_help_card_is_the_real_one_and_the_corner_resize_is_on_it(self):
+        # placement_menu_style_test checks the help card fits 1920x1200 @1.25 (960 px tall). It must check the rows the
+        # run really sends: a 13th row (the corner-resize hint, as first merged) was 1008 px tall and went untested.
+        import re
+        src = (Path(__file__).resolve().parents[2] / 'spike/tests/placement_menu_style_test.cpp').read_text()
+        body = re.search(r'std::vector<HelpRow> help_rows\(\) \{.*?\n\}', src, re.S).group(0)
+        self.assertEqual([list(r) for r in re.findall(r'\{"([^"]+)", "([^"]+)"\}', body)], view.help_rows())
+        self.assertLessEqual(len(view.help_rows()), 12)
+        self.assertTrue(any('corner' in action for _, action in view.help_rows()))
 
 
 class FakeClient:
@@ -353,6 +387,15 @@ class PointerPollerTests(unittest.TestCase):
         poller.stop()
         self.assertEqual(client.count('cursorpos'), 0)
         self.assertEqual(client.count('remove'), 0)  # never installed, nothing to remove
+
+    def test_no_pointer_reads_while_the_placement_menu_is_open(self):
+        client = FakeClient()
+        self.control.state.menu_open = True
+        poller = resize.PointerPoller(client, NAMES, self.r, LIVE_BIND_ARGS, period=0.005).start()
+        time.sleep(0.15)
+        poller.stop()
+        self.assertEqual(client.count('cursorpos'), 0)
+        self.assertEqual(client.count(('install', LIVE_BIND_ARGS)), 0)
 
     def test_read_errors_and_rejected_installs_are_survived(self):
         client = FakeClient(pointer=None)

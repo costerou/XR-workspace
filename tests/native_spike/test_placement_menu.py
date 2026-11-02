@@ -685,7 +685,7 @@ class MenuStyleSourceTests(unittest.TestCase):
 
 
 HINT_KEYS = {'Up': 'up', 'Down': 'down', 'Left': 'left', 'Right': 'right', 'Tab': 'Tab', 'R': 'R', 'Esc': 'Escape',
-             'Escape': 'Escape', 'Shift': 'SHIFT'}
+             'Escape': 'Escape', 'Shift': 'SHIFT', 'Ctrl+Alt+M': 'M'}  # Ctrl+Alt+M: mouse mode, a menu bind
 
 
 @unittest.skipUnless(WIRING and 'kMenuHints' in (ROOT / 'spike/src/hud.cpp').read_text(),
@@ -725,7 +725,7 @@ class MenuToggleKeyTests(unittest.TestCase):
     def test_readme_section_uses_ctrl_alt_l(self):
         section = (ROOT / 'README.md').read_text().split('### Placement menu', 1)[1].split('\n## ', 1)[0]
         self.assertIn(MENU_TOGGLE_LABEL, section)
-        self.assertNotIn('Ctrl+Alt+M', section)
+        self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+M\*\* during a run')  # Ctrl+Alt+M is mouse mode, not the toggle
         self.assertNotRegex(section, r'Press \*\*Ctrl\+Alt\+P')
 
 

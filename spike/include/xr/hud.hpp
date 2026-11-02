@@ -133,18 +133,32 @@ private:
 };
 
 // Keyboard placement menu (supervisor-owned state, ipc.hpp PlacementMenuPayload): a centred card in the
-// help card's style showing the selected desktop, the seven placement fields with values and units
-// (highlighting the selected field) and a key-hint footer. Fades like the help card; value changes
-// while open re-render the card without a fade.
+// help card's style showing the selected desktop, the seven placement fields, each with its label, a slider and
+// its value with units (highlighting the selected field), and a key-hint footer. Fades like the help card; value
+// changes while open re-render the card without a fade. In mouse mode a pointer is drawn on the sliders.
 constexpr std::size_t kPlacementMenuFields = 7, kPlacementMenuDesktopCount = 3;
 // {x, y, distance, yaw, pitch, roll, curvature} in the wire units of ipc.hpp WirePlacement.
 using MenuPlacement = std::array<std::int32_t, kPlacementMenuFields>;
+// Mouse mode pointer (tools/native_spike/view.py owns it and does the hit testing): `row` -1 is the desktop selector,
+// 0..6 a field's slider; `x` is per mille along that slider (or across the three desktop tabs); `drag` while held.
+struct MenuPointer {
+    bool on = false;
+    std::int32_t row = 0;
+    std::uint32_t x = 0;
+    bool drag = false;
+    bool operator==(const MenuPointer&) const = default;
+};
 struct PlacementMenuState {
     bool open = false;
     std::uint32_t desktop = 0, field = 0;  // 0..2, 0..6 (out of range: drawn with nothing selected)
     std::array<MenuPlacement, kPlacementMenuDesktopCount> placements{};
+    MenuPointer pointer{};
     bool operator==(const PlacementMenuState&) const = default;
 };
+// Slider range of each field, {lo, hi}: the same bounds the renderer accepts (ipc.cpp kPlacementBounds, tested).
+std::array<std::pair<std::int32_t, std::int32_t>, kPlacementMenuFields> placement_menu_bounds();
+// Slider width in pixels: as wide as the output allows, between these (text sizes never change).
+constexpr std::uint32_t kSliderMinW = 96, kSliderMaxW = 260;
 struct PlacementMenuRow { std::string label, hint, value; bool selected = false; };
 // Label, plain-English hint and formatted value ("+12%", "100%", "-5°"; " deg" with the pixel font,
 // which is ASCII-only) for each field of the selected desktop.
@@ -169,6 +183,7 @@ struct PlacementMenuFit {
     bool fits = false;
     std::uint32_t visible_rows = kPlacementMenuFields, first_row = 0;  // small outputs show a window of rows
     bool hint_column = true;
+    std::uint32_t slider_w = 0;  // kSliderMinW..kSliderMaxW
 };
 PlacementMenuFit placement_menu_fit(const PlacementMenuState& state, const HudFont* font, std::uint32_t max_width, std::uint32_t max_height);
 HudImage render_placement_menu_card(const PlacementMenuState& state, std::array<float, 3> accent, const HudFont* font = nullptr,
