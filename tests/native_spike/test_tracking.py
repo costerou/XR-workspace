@@ -87,6 +87,18 @@ class DriverLifecycleTests(unittest.TestCase):
                         patch.object(tracking, 'DRIVER_CONFIG', self.config)]
         for p in self.patches: p.start(); self.addCleanup(p.stop)
 
+    def test_cancel_during_calibration_stops_owned_driver(self):
+        with (
+            patch.object(tracking, '_ours', return_value=False),
+            patch.object(tracking, '_other_drivers', return_value=[]),
+            patch.object(tracking, '_start_tick', return_value='1'),
+            patch.object(tracking.subprocess, 'Popen', return_value=type('Child', (), {'pid':123})()),
+            patch.object(tracking, 'status', side_effect=KeyboardInterrupt),
+            patch.object(tracking, 'stop') as stop,
+        ):
+            with self.assertRaises(KeyboardInterrupt): tracking.start(self.runtime)
+            stop.assert_called_once_with(self.runtime)
+
     def test_disconnect_invalidates_previous_calibration(self):
         data = {'pid': os.getpid(), 'start_tick': tracking._start_tick(os.getpid()), 'log_offset': 0}
         tracking._state(self.runtime).write_text(json.dumps(data))

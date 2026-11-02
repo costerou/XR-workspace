@@ -44,7 +44,7 @@ def _write_result(state_dir, name, result):
         os.close(fd)
 
 
-def execute(consent_path, data_home):
+def execute(consent_path, data_home, progress=None):
     result = {'run_id': None, 'phase': 'verify', 'complete': False,
               'renderer_returncode': None, 'remaining': None, 'error': None}
     errors, client, plugin, attempted = [], None, None, False
@@ -62,14 +62,17 @@ def execute(consent_path, data_home):
             if consent[key] != installed[key]: raise ValueError(f'consent {key} is not the pinned install')
             verify_pinned(installed[key])
         plugin = installed['plugin']['path']
+        if progress: progress(result['run_id'], 'verify')
         result['phase'] = 'plugin'
         if not os.environ.get('XDG_RUNTIME_DIR'): raise ValueError('XDG_RUNTIME_DIR not set')
         runtime = Path(os.environ['XDG_RUNTIME_DIR'])
         if consent['tracking'] == 'xrlinuxdriver':
             from tools.native_spike import tracking
             result['phase'] = 'tracking'
+            if progress: progress(result['run_id'], 'tracking')
             tracking.ensure_ready(runtime)
         result['phase'] = 'plugin'
+        if progress: progress(result['run_id'], 'plugin')
         client = HyprlandClient(consent['instance'], runtime)
         if client.plugins_loaded(): raise ValueError('ownership plugin already loaded')
         verify_pinned(installed['plugin'])
@@ -116,9 +119,13 @@ def main(argv=None):
     ap.add_argument('--state-dir', required=True, type=Path)
     args = ap.parse_args(argv)
     data_home = Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')
-    result = execute(args.consent, data_home)
+    def progress(run_id, phase):
+        _write_result(args.state_dir, run_id+'.progress.json', dict(run_id=run_id, phase=phase))
+    result = execute(args.consent, data_home, progress=progress)
     try:
         _write_result(args.state_dir, f"{result['run_id'] or 'invalid'}.result.json", result)
+        if result['run_id']:
+            (args.state_dir/(result['run_id']+'.progress.json')).unlink(missing_ok=True)
     except (OSError, ValueError) as exc:
         print(f'result not written: {exc}', file=sys.stderr); return 2
     if result['error']: print(f"blocked: {result['error']}", file=sys.stderr)

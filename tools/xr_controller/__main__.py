@@ -86,11 +86,16 @@ class Host:
         # or between completed recovery and plugin unload. Both still own a unit.
         known={j['run_id'] for j in result['journals']}
         for path in sorted(self.state_dir.glob('*.json')):
-            if path.name.endswith('.result.json'): continue
+            if path.name.endswith(('.result.json', '.progress.json')): continue
             raw=read_private_json(path)
             run_id=raw.get('run_id')
             if run_id and path.name==run_id+'.json' and run_id not in known and Units(self.runtime).alive(run_id):
-                result['journals'].append(dict(run_id=run_id,session=None,path=None,operations=[]))
+                phase=None
+                try:
+                    progress=read_private_json(self.state_dir/(run_id+'.progress.json'))
+                    if progress.get('run_id')==run_id: phase=progress.get('phase')
+                except FileNotFoundError: pass
+                result['journals'].append(dict(run_id=run_id,session=None,path=None,operations=[],phase=phase))
         try:
             client=HyprlandClient(instance,self.runtime)
             monitors=client.query('monitors')
