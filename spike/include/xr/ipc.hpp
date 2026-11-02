@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement };
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -24,7 +24,14 @@ struct HelpPayload { bool visible = false; std::vector<std::pair<std::string, st
 // order, every field an integer inside kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch = 0, roll = 0, curvature = 0; };
 struct PlacementPayload { std::vector<WirePlacement> desktops; };
-using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload>;
+// In-glasses placement menu (supervisor-owned state, sent whenever it changes; open=false hides it):
+// {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]}.
+// `field` is decoded to its index in that order (kPlacementFieldNames). Values are display-only; the live geometry
+// still arrives as a separate `placement` frame.
+constexpr const char* kPlacementFieldNames[] = {"x", "y", "distance", "yaw", "pitch", "roll", "curvature"};
+struct PlacementMenuPayload { bool open = false; std::uint32_t desktop = 0; std::uint8_t field = 0; std::vector<WirePlacement> placements; };
+using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload,
+                                    PlacementMenuPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;

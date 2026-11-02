@@ -128,6 +128,10 @@ int main(int argc, char** argv) {
                             placements.push_back({w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature});
                         presentation.set_placements(placements);
                     }
+                    else if (m->op == xr::ControlOp::placement_menu) {
+                        // Accepted (an unknown op would end the run). Drawing the overlay is the MENU-UI work:
+                        // it hooks in here, e.g. presentation.set_placement_menu(std::get<xr::PlacementMenuPayload>(m->payload)).
+                    }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
                         presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction);

@@ -57,7 +57,7 @@ class ViewStateTests(unittest.TestCase):
 
     def test_user_ops_decode_and_others_rejected(self):
         from tools.native_spike import xr_control
-        self.assertEqual(xr_control.OPS, view.USER_OPS)  # bind helper and supervisor agree
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS)  # bind helper and supervisor agree
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()
@@ -70,7 +70,7 @@ class BindTests(unittest.TestCase):
     def test_help_bind_and_rows_cover_every_bind(self):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
-        self.assertEqual(set(view.USER_OPS), set(view.HELP_ACTIONS))
+        self.assertEqual(set(view.USER_OPS) | {'menu_toggle'}, set(view.HELP_ACTIONS))
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 24 rows
@@ -82,7 +82,9 @@ class BindTests(unittest.TestCase):
         lua = view.install_binds_lua('/usr/bin/python3', '/opt/app/tools/native_spike/xr_control.py',
                                      '/run/user/1000/xr-workspace-spike/run/control.sock', 'run', 'session')
         for chord, op in view.BINDS:
-            self.assertIn(f'hl.bind("{chord}"', lua); self.assertIn(f' {op}")', lua)
+            self.assertIn(f'hl.bind("{chord}", hl.dsp.exec_cmd(c .. "{op}"))', lua)
+        self.assertTrue(lua.startswith('local c = "/usr/bin/python3 -I /opt/app/tools/native_spike/xr_control.py '
+                                       '/run/user/1000/xr-workspace-spike/run/control.sock run session " xr_workspace_binds = {'))
         self.assertIn('xr_workspace_binds', lua)
         remove = view.remove_binds_lua()
         self.assertIn('HL.Keybind(expired)', remove)   # never remove an expired handle (0.56 segfault)
@@ -173,7 +175,8 @@ class HyprlandViewRequestTests(unittest.TestCase):
         c.install_view_binds('/usr/bin/python3', '/opt/a/xr_control.py', '/run/user/1000/xr-workspace-spike/run/control.sock', 'run', 's')
         c.remove_view_binds()
         self.assertEqual(sent[0], '/dispatch hl.dsp.focus({monitor="XR-3"})')
-        self.assertTrue(sent[1].startswith('/eval xr_workspace_binds = {') and sent[2] == '/eval ' + view.remove_binds_lua())
+        self.assertTrue(sent[1].startswith('/eval local c = "') and ' xr_workspace_binds = {' in sent[1])
+        self.assertEqual(sent[2], '/eval ' + view.remove_binds_lua())
         for bad in ('dispatch hl.dsp.focus({monitor="DP-1"})', 'dispatch hl.dsp.exec_cmd("x")', 'eval os.execute("x")'):
             with self.assertRaises(ValueError): c.mutate(bad)
         c._request = lambda wire: b'some lua error'

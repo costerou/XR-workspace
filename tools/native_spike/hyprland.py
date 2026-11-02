@@ -226,6 +226,15 @@ class HyprlandClient:
         from .view import remove_binds_lua
         self._eval(remove_binds_lua())
 
+    def install_menu_binds(self, python, client, control_socket, run_id, session):
+        """Placement menu opened: its modal bare-key binds (replacing any surviving set); generated Lua only."""
+        from .view import install_menu_binds_lua
+        self._eval(install_menu_binds_lua(python, client, control_socket, run_id, session))
+
+    def remove_menu_binds(self):
+        from .view import remove_menu_binds_lua
+        self._eval(remove_menu_binds_lua())
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

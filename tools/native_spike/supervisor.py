@@ -200,6 +200,8 @@ class Supervisor:
                             self.disconnect(now)
                             selector.unregister(heartbeat_socket)
                     self.tick(time.monotonic())
+                    poll = getattr(self.control, 'poll', None)  # debounced placement-menu save
+                    if poll is not None: poll(time.monotonic())
             return self.result
         finally:
             # Reaping the renderer is never delayed by waiting on IPC. Once this
