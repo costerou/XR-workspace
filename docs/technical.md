@@ -113,7 +113,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
-Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop zooms into it where it is: it keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, and keeps its curvature; the other desktops follow it as its row, keeping their distance and curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
+Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop in anchor mode zooms into it where it is when it is within 60° of straight ahead: it keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, and keeps its curvature. Dragged farther (far to the side, high or low, or behind you), and always in locked and follow modes, it comes flat in front of you instead (straight ahead of the anchor in anchor mode, of the view in locked and follow modes). The other desktops follow it as its row, keeping their distance and curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
 
@@ -263,7 +263,8 @@ The size has limits and is saved like the other placements:
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
-- Zooming into a desktop brings it full size where it is (its dragged place round you). The bracket and the pills only show in
+- Zooming into a desktop brings it full size where it is (its dragged place round you) in anchor mode within 60° of
+  straight ahead, and flat in front of you otherwise. The bracket and the pills only show in
   the overview.
 
 Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
@@ -349,7 +350,8 @@ this way, in float, and `tools/native_spike/orbit.py` `place_point` mirrors it e
 
 So `x = y = 0` is no longer the flat canvas plane for a desktop off the middle of the view: the side desktops of the
 default row now turn to face you. A centred desktop at Distance 100 is still exactly in the plane z = −1, and zooming
-brings the zoomed desktop to that distance in the direction it was dragged to (`zoomed_placements`). Moving a desktop from its slot is the rigid
+brings the zoomed desktop to that distance in the direction it was dragged to in anchor mode within 60° of straight ahead,
+else straight ahead (`zoomed_placements`). Moving a desktop from its slot is the rigid
 rotation about the eye Az(a0 + x) · El(y) · Az(−a0) (`orbit.rotation`), which hit testing (`orbit.unorbit_pointer`)
 and the guard's footprints use. The yaw, pitch and roll settings, which used to turn a desktop in place, were removed
 on 2026-11-02 from the settings panel, the glass panel, the wire and the profiles.

@@ -127,7 +127,7 @@ Dir blend(Dir a, Dir b, float t) { return {a.az + t * std::remainder(b.az - a.az
 }
 
 std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect> overview, std::span<const FRect> tiles,
-                                         std::span<const Placement> placements, float zoom, float position) {
+                                         std::span<const Placement> placements, float zoom, float position, bool keep_place) {
     const std::size_t n = tiles.size();
     std::vector<Placement> out(n);
     for (std::size_t i = 0; i < n && i < placements.size(); ++i) out[i] = placements[i];
@@ -136,13 +136,19 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
     auto own = [&](std::size_t i) { return i < placements.size() ? placements[i] : Placement{}; };
     // Where desktop i is in the overview (slot plus orbit), and where its slot is now.
     auto placed = [&](std::size_t i) { const Dir s = slot_direction(c, overview[i]); return Dir{s.az + own(i).x, s.el + own(i).y}; };
+    // Where zooming into desktop i takes it: where it is when kept, else straight ahead (its centred zoomed slot).
+    auto goal = [&](std::size_t i) {
+        const Dir d = placed(i);
+        const bool near_ahead = std::cos(d.el) * std::cos(d.az) >= std::cos(kZoomInPlaceMaxRad);
+        return keep_place && near_ahead ? d : Dir{};
+    };
     auto now = [&](std::size_t i) { return slot_direction(c, tiles[i]); };
     const std::size_t last = n - 1;
     const float p = clampf(position, 0, float(last));
     const std::size_t lo = std::size_t(std::floor(p)), hi = std::min(lo + 1, last);
     const float t = p - float(lo);
-    // The orbit that puts the zoom target's slot where the target is in the overview.
-    const Dir target = blend(placed(lo), placed(hi), t), slot = blend(now(lo), now(hi), t);
+    // The orbit that puts the zoom target's slot at its goal.
+    const Dir target = blend(goal(lo), goal(hi), t), slot = blend(now(lo), now(hi), t);
     const Dir delta{std::remainder(target.az - slot.az, 2 * float(M_PI)), target.el - slot.el};
     for (std::size_t i = 0; i < n; ++i) {
         // Each desktop's own direction held still (orbit corrected for its slot's motion), blended into the row by the zoom.

@@ -55,14 +55,19 @@ std::vector<MeshVertex> tile_mesh(const Canvas& canvas, const FRect& tile, const
 float zoom_weight(float zoom, float position, std::size_t index);
 Placement faded(const Placement& placement, float weight);
 // The placements the desktops are drawn with at `zoom` / `position` (ViewAnimator's eased values), `overview` being the
-// settled overview layout (where the orbits were dragged) and `tiles` the blended layout being drawn. Zooming goes to the
-// desktop where it is: the zoomed desktop keeps the direction round you it has in the overview (its slot plus its orbit)
-// all the way in, while its distance fades to 1 (faded(placement, zoom_weight(...))) so it grows to fill the view there.
-// The others follow it as its row: at full zoom each is at its zoomed-row slot turned by the zoomed desktop's direction,
-// keeping its distance and curvature. Between two desktops (fractional position) the direction blends the short way round.
-// zoom 0 (the overview): `placements` unchanged. `placements` shorter than `tiles` leaves the rest at the default.
+// overview layout (where the orbits were dragged) and `tiles` the blended layout being drawn. The zoomed desktop's distance
+// fades to 1 (faded(placement, zoom_weight(...))) so it fills the view, and it goes to one of two places:
+//   - where it is: with `keep_place` (anchor mode) and its overview direction (slot plus orbit) within
+//     kZoomInPlaceMaxRad of straight ahead, it keeps that direction round you all the way in and grows there;
+//   - straight ahead: otherwise (dragged far to the side, above / below or behind you in anchor mode; always in locked
+//     and follow modes) it moves from where it is to flat in front of you, the canvas centre.
+// The others follow it as its row: at full zoom each is at its zoomed-row slot turned by the zoomed desktop's direction
+// (none when it is straight ahead), keeping its distance and curvature. Between two desktops (fractional position) the
+// direction blends the short way round. zoom 0 (the overview): `placements` unchanged. `placements` shorter than `tiles`
+// leaves the rest at the default.
+constexpr float kZoomInPlaceMaxRad = 60.f * 3.14159265f / 180.f;
 std::vector<Placement> zoomed_placements(const Canvas& canvas, std::span<const FRect> overview, std::span<const FRect> tiles,
-                                         std::span<const Placement> placements, float zoom, float position);
+                                         std::span<const Placement> placements, float zoom, float position, bool keep_place);
 // Back-to-front draw order by distance of each desktop's centre (painter's algorithm; intersecting desktops
 // are not split). `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);

@@ -185,9 +185,11 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<Placement> resolved_placements(std::span<const FRect> tiles) const {
         std::vector<Placement> own;
         for (std::size_t i = 0; i < captures.size(); ++i) own.push_back(i < eased.size() ? eased[i] : target_placement(i));
-        // The zoomed desktop stays where it is round you (its dragged place) and grows there; the rest follow as its row.
+        // Anchor mode: the zoomed desktop grows where it is round you (its dragged place) unless that is far from straight
+        // ahead. Locked and follow modes: it always comes straight ahead. The rest follow as its row.
         const auto overview = overview_layout(capture_sizes(), float(width), float(height), view.spacing());
-        return zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position());
+        return zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position(),
+                                 modes.mode() == ViewMode::anchor);
     }
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
