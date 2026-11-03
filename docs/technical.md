@@ -108,7 +108,6 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
-| Ctrl+Alt+A | run | Anchor mode: a cursor switch (push past an edge) pans to and centres the desktop (default) or cuts with no camera move (`ViewControl.cursor_switch_flags`); saved as `cursor_switch_animate` |
 | Ctrl+Alt+D | run | Privacy mode: main physical display off / on (DPMS), so only the glasses show content (see [Privacy mode](#privacy-mode-main-display-off)) |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
@@ -479,17 +478,20 @@ you at the end of the row.
 **Maximized and the overview: the viewing modes.** Since 2026-11-03 (maximize-follow, after the INAIR Pod) the viewing
 mode is no longer a setting of its own: it follows from the view (`ViewState.mode`, a property of `zoomed`). The
 overview is always anchor (3DoF, the desktops fixed in the room). Maximizing (the `zoomed` state; Ctrl+Alt+Up or a
-free-pointer click on a desktop) switches to follow, every time, and Ctrl+Alt+V while maximized toggles follow and
-locked (`MAXIMIZED_MODES`); in the overview Ctrl+Alt+V changes nothing and `MODE_OVERVIEW_TOAST` says why.
+free-pointer click on a desktop) switches to follow or locked: `ViewState.maximized_mode`, which Ctrl+Alt+V toggles
+while maximized (`MAXIMIZED_MODES`). The choice sticks for the session: every later maximize uses it until Ctrl+Alt+V
+changes it again. It is never saved, so each XR start (a new `ViewState`) maximizes in follow. In the overview
+Ctrl+Alt+V changes nothing and `MODE_OVERVIEW_TOAST` says why.
 Un-maximizing (Ctrl+Alt+Down, Ctrl+Alt+L, a pill click) returns to anchor. Every run starts in the overview, anchored:
 `managed.view_controls` no longer passes the saved mode, and `ViewState.settings()` always saves `mode: "anchor"` (the
-key stays for the profile schema and an installed panel; it is never read at start). Spacing, prediction, Ctrl+Alt+A's
-choice and the VR video quality are still saved and restored. The renderer (`Presentation::set_view`) recognises a
+key stays for the profile schema and an installed panel; it is never read at start). Spacing, prediction and the VR
+video quality are still saved and restored. The renderer (`Presentation::set_view`) recognises a
 maximize and an un-maximize by the `zoomed` change that comes with the mode change (`ModeController::Change`):
 - maximize: the room (`pinned_`, where anchor holds the canvas) is kept, and the canvas is held exactly there while the
   desktop zooms in (`holding`), so it grows in place. Once the zoom has landed (`land_maximize`) follow starts from that
   pose (`follow_ * aim = here`), with no jump, and its spring brings the desktop in front of the head. Without the hold
   the aim moves faster than the spring, so the desktop swung toward the room's centre and back (`focus_center_test`).
+  A maximize straight into locked (the sticky choice) holds the same way, then blends (300 ms) onto the head's view.
 - un-maximize: the canvas blends (300 ms) back to the room as it was left, instead of being pinned where it is, so in
   the overview every desktop is exactly where it was before the maximize, wherever the head turned meanwhile, from
   follow or from locked. A recentre while maximized moves the room as any recentre does: the overview comes back with
@@ -499,9 +501,11 @@ maximize and an un-maximize by the `zoomed` change that comes with the mode chan
   overview, where it would make a desktop resized bigger than the view jump to its size as the zoom out starts).
 The panel's View row shows "Overview · anchor" or "Maximized · follow / locked", and its follow / locked buttons work
 while maximized only (the controller sends one `mode_next` from the live view, and refuses otherwise). Ctrl+Alt+A
-(`cursor_switch_animate`) only ever shaped an anchor-mode cursor switch; with no maximized anchor mode it changes no
-switch now, and is kept, saved, as it was. This replaces overview-anchor-only (2026-11-03), where follow and locked had
-no overview and Ctrl+Alt+Down there moved to the next desktop.
+(`cursor_switch_animate`, anchor-mode cursor switch animation) was removed with this change: it only ever shaped an
+anchor-mode cursor switch, and a maximized desktop is never anchor. Its bind, help row, toasts, op and saved setting
+are gone; a `cursor_switch_animate` still in a saved layout.json or profile is ignored without an error, and the next
+save drops it. This replaces overview-anchor-only (2026-11-03), where follow and locked had no overview and
+Ctrl+Alt+Down there moved to the next desktop.
 
 **Zoom.** Since 2026-11-02 zooming never moves a desktop round you, in any viewing mode (`zoomed_placements`). Each
 desktop's orbit is corrected for its slot's move between the overview and the zoomed layout, so its centre keeps its

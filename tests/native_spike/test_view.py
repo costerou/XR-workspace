@@ -61,7 +61,7 @@ class ViewStateTests(unittest.TestCase):
         from tools.native_spike import send
         # Bind helper and supervisor agree; the helper also keeps the old menu mouse mode's op names, for cleanup only.
         self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS
-                         + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.CURSOR_ANIM_OP, view.PLAYBACK_MENU_OP)
+                         + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP)
                          + xr_control.LEGACY_OPS)
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
@@ -76,7 +76,7 @@ class BindTests(unittest.TestCase):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
         self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste', view.TYPING_OP, view.PRIVACY_OP,
-                                               view.CURSOR_ANIM_OP, view.PLAYBACK_MENU_OP} | set(view.HELP_PAGE_OPS),
+                                               view.PLAYBACK_MENU_OP} | set(view.HELP_PAGE_OPS),
                          set(view.HELP_ACTIONS))  # video.py, web_video.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
@@ -232,9 +232,13 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         modes = [json.loads(c.on_message({'op': 'mode_next'}))['payload']['mode'] for _ in range(3)]
         self.assertEqual(modes, ['locked', 'follow', 'locked'])
         self.assertEqual(len(told), 1)  # no toast while maximized: the renderer's pop-up shows the new mode
+        # Sticky for the session: the overview is anchor, the next maximize is locked again (not saved, see below).
+        self.assertEqual(json.loads(c.on_message({'op': 'zoom_out'}))['payload']['mode'], 'anchor')
+        self.assertEqual(json.loads(c.on_message({'op': 'zoom_in'}))['payload']['mode'], 'locked')
         c.on_message({'op': 'spacing_up'})
         self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'anchor', 'prediction': True,
-                                                             'cursor_switch_animate': True, 'video_quality': {'filter': 'catmull-rom', 'deband': False}})
+                                                             'video_quality': {'filter': 'catmull-rom', 'deband': False}})
+        self.assertEqual(view.ViewState(NAMES).maximized_mode, 'follow')  # a fresh XR start: follow again
         self.assertEqual(view.MAXIMIZED_MODES, ('follow', 'locked'))
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
         self.assertIn(('CTRL + ALT + V', 'mode_next'), view.BINDS)
@@ -254,44 +258,43 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertFalse(view.ViewState(NAMES, prediction=False).view()['prediction'])
         with self.assertRaises(ValueError): view.ViewState(NAMES, prediction='yes')
 
-    def test_cursor_anim_toggle_is_saved_with_a_toast_and_no_frame(self):
-        # Ctrl+Alt+A (2026-11-03): anchor-mode cursor switches animate (default) or jump; saved, so it survives XR restarts.
-        self.assertIn(('CTRL + ALT + A', view.CURSOR_ANIM_OP), view.BINDS)
-        self.assertTrue(view.DEFAULT_SETTINGS['cursor_switch_animate'])
-        told = []
-        c = self.control(); c.notify = told.append
-        before = c.state.view()
-        self.assertIsNone(c.on_message({'op': view.CURSOR_ANIM_OP}))  # nothing for the renderer until a cursor switch
-        c.join_focus()
-        self.assertEqual(c.state.view(), before)
-        self.assertFalse(view.load_settings(self.settings)['cursor_switch_animate'])
-        self.assertFalse(view.ViewState(NAMES, **{'cursor_switch_animate': view.load_settings(self.settings)['cursor_switch_animate']})
-                         .cursor_switch_animate)  # a restart reads it back
-        c.on_message({'op': view.CURSOR_ANIM_OP}); c.join_focus()
-        self.assertTrue(view.load_settings(self.settings)['cursor_switch_animate'])
-        self.assertEqual(told, [view.CURSOR_ANIM_TOASTS[False], view.CURSOR_ANIM_TOASTS[True]])
-        self.assertIn('Ctrl+Alt+A', told[0])
-        self.assertIn(['Ctrl+Alt+V / A', 'Maximized: follow / locked; anchor anim'], view.help_rows())
-        c.state.typing = True  # its bind is gone in typing mode: a stale key does nothing
-        self.assertIsNone(c.on_message({'op': view.CURSOR_ANIM_OP}))
-        self.assertTrue(c.state.cursor_switch_animate)
-        with self.assertRaises(ValueError): view.ViewState(NAMES, cursor_switch_animate='off')
-        frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': view.CURSOR_ANIM_OP,
+    def test_ctrl_alt_a_is_gone_and_its_saved_setting_ignored(self):
+        # Ctrl+Alt+A (anchor-mode cursor switch animation, 2026-11-03) was removed with maximize-follow: no bind, no help
+        # row, no op, no saved setting. A layout.json that still has `cursor_switch_animate` loads without it, no error,
+        # and the next save drops it.
+        self.assertNotIn('CTRL + ALT + A', [chord for chord, _ in view.BINDS])
+        self.assertNotIn('cursor_anim_toggle', [op for _, op in view.BINDS])
+        self.assertFalse(hasattr(view, 'CURSOR_ANIM_OP') or hasattr(view, 'CURSOR_ANIM_TOASTS'))
+        self.assertFalse(any('Ctrl+Alt+A' in key or '/ A' in key for key, _ in view.help_rows()))
+        self.assertIn(['Ctrl+Alt+V', 'Maximized: follow / locked'], view.help_rows())
+        self.assertNotIn('cursor_switch_animate', view.DEFAULT_SETTINGS)
+        frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': 'cursor_anim_toggle',
                              'payload': {}}) + '\n').encode()
-        self.assertEqual(decode_control(frame)['op'], view.CURSOR_ANIM_OP)
+        with self.assertRaises(ValueError): decode_control(frame)  # the run no longer accepts it
+        from tools.native_spike import xr_control
+        self.assertNotIn('cursor_anim_toggle', xr_control.OPS)
+        self.settings.parent.mkdir(parents=True)
+        self.settings.write_text('{"spacing": 60, "mode": "follow", "prediction": false, "cursor_switch_animate": false}')
+        loaded = view.load_settings(self.settings)
+        self.assertEqual(loaded, {'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': {'filter': 'catmull-rom', 'deband': False}})
+        c = self.control(view.ViewState(NAMES, spacing=loaded['spacing'], prediction=loaded['prediction']))
+        self.assertIsNone(c.on_message({'op': 'cursor_anim_toggle'}))  # a stale op: nothing
+        c.on_message({'op': 'spacing_up'})
+        self.assertNotIn('cursor_switch_animate', json.loads(self.settings.read_text()))
+        with self.assertRaises(TypeError): view.ViewState(NAMES, cursor_switch_animate=False)
 
     def test_settings_fields_fall_back_independently(self):
         self.settings.parent.mkdir(parents=True)
         self.settings.write_text('{"spacing": 80}')  # file written before modes existed
         self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'prediction': True,
-                                                             'cursor_switch_animate': True, 'video_quality': {'filter': 'catmull-rom', 'deband': False}})
+                                                             'video_quality': {'filter': 'catmull-rom', 'deband': False}})
         self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1, "prediction": "on", '
                                  '"cursor_switch_animate": 0}')
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)
         for bad in ({'spacing': 40, 'mode': 'orbit', 'cursor_follow': False, 'prediction': True}, {'spacing': 40, 'mode': 'anchor'},
-                    {'spacing': 40, 'mode': 'anchor', 'prediction': 'yes', 'cursor_switch_animate': True},
+                    {'spacing': 40, 'mode': 'anchor', 'prediction': 'yes', 'video_quality': dict(view.DEFAULT_SETTINGS['video_quality'])},
                     {'spacing': 40, 'mode': 'anchor', 'prediction': True},
-                    {'spacing': 40, 'mode': 'anchor', 'prediction': True, 'cursor_switch_animate': 'no'}):
+                    {**view.DEFAULT_SETTINGS, 'cursor_switch_animate': True}):  # the removed Ctrl+Alt+A key is not saved
             with self.subTest(bad), self.assertRaises(ValueError): view.save_settings(self.settings, bad)
         with self.assertRaises(TypeError): view.ViewState(NAMES, mode='follow')  # no saved mode to start in any more
 

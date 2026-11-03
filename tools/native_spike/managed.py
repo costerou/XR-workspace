@@ -147,11 +147,10 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
         # Every start is flat: the profile's saved placements are not restored (the run still saves its own to it).
         initial = [dict(DEFAULT_PLACEMENT) for _ in capture] if placements is not None else None
-        # Every start is in the overview, anchored (maximize-follow): the saved mode is not read; spacing, prediction,
-        # Ctrl+Alt+A's choice and the VR video quality still are.
+        # Every start is in the overview, anchored, and a maximize follows until Ctrl+Alt+V picks locked (maximize-follow):
+        # no saved mode is read; spacing, prediction and the VR video quality still are.
         control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'],
                                                    placements=_initial_placements(initial, capture),
-                                                   cursor_switch_animate=saved.get('cursor_switch_animate', True),
                                                    video_quality=video_quality(saved)), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),

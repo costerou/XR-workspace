@@ -452,7 +452,6 @@ class CursorFollowRemovedTests(unittest.TestCase):
             path = Path(tmp) / 'layout.json'
             path.write_text('{"spacing": 60, "mode": "follow", "cursor_follow": true, "prediction": false}')
             self.assertEqual(view.load_settings(path), {'spacing': 60, 'mode': 'follow', 'prediction': False,
-                                                        'cursor_switch_animate': True,
                                                         'video_quality': {'filter': 'catmull-rom', 'deband': False}})
 
 

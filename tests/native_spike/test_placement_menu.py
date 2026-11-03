@@ -59,7 +59,7 @@ BASE_QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 
 BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
 BASE_PROFILE_KEYS = {'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'spacing',
-                     'tracking', 'cursor_switch_animate', 'video_quality'}  # cursor_switch_animate: Ctrl+Alt+A (2026-11-03)
+                     'tracking', 'video_quality'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
 # video_quality: the VR video quality menu (quality.py, 2026-11-03)
 # Real-shaped bind arguments (2026-11-01): the live controller's checkout path, a token_hex(16) run id (state.py) and a
 # sha256-hex session id (HyprlandClient.verified_session).
@@ -805,7 +805,6 @@ class NoScopeChangeTests(unittest.TestCase):
         self.assertEqual(set(profiles.DEFAULT_PROFILE), BASE_PROFILE_KEYS)
         self.assertNotIn('menu', json.dumps(profiles.DEFAULT_PROFILE))
         self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'prediction': True,  # cursor_follow removed
-                                                 'cursor_switch_animate': True,
                                                  'video_quality': {'filter': 'catmull-rom', 'deband': False}})
 
     def test_placement_bounds_unchanged(self):

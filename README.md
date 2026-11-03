@@ -94,7 +94,6 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
 | Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
-| Ctrl+Alt+A | Anchor mode: pushing the mouse to another desktop pans there and centres it (on by default) or jumps there at once, the view staying where you look. Remembered between sessions. A maximized desktop is never in anchor mode now, so for the moment this changes nothing you can see |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
@@ -117,7 +116,8 @@ what you are looking at, as on the INAIR Pod:
   look at a different one. Every session starts here.
 - **Maximized:** click a desktop in the overview (or select it and press Ctrl+Alt+Up) and it fills your view and
   **follows** your head: it eases back in front of you when you turn. Press **Ctrl+Alt+V** to **lock** it to your view
-  instead, like a normal screen glued to your face, and again to go back to follow. Every maximize starts in follow.
+  instead, like a normal screen glued to your face, and again to go back to follow. Your choice sticks: every desktop
+  you maximize after that uses it, until you press Ctrl+Alt+V again. Each new XR start begins with follow.
 - **Back to the overview** (Ctrl+Alt+Down, Ctrl+Alt+L or a pill): the desktops are fixed in the room again, exactly
   where they were before you maximized, wherever you turned meanwhile. Ctrl+Alt+Space (recenter) while maximized
   brings the overview back centred on the desktop you had maximized.

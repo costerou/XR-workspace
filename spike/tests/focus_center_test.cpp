@@ -430,6 +430,46 @@ int main() {
                 CHECK(quat_angle(last, room) < 1e-5f && m.settled());  // exactly the room: every desktop where it was
                 CHECK(quat_angle(frame(head, t += 8), room) < 1e-5f);    // and world-locked there again
             }
+    // The follow / locked choice sticks for the session (the supervisor's maximized_mode), so a maximize can go straight
+    // into locked: held in place while the desktop zooms in like any maximize, then a blend (no jump) onto the head's
+    // view with the desktop dead centre; un-maximized, the room is exactly as it was.
+    for (const std::size_t focus : {std::size_t{0}, std::size_t{2}}) {
+        ViewAnimator v(220, 300);
+        ModeController m;
+        double t = 0;
+        m.turn_anchor(axis_angle(0, 0, 1, -25));
+        v.set_target(false, std::uint32_t(focus), 40, t);
+        const Quat room = m.update(Quat{}, t);
+        const Quat head = quat_mul(quat_mul(room, quat_conj(aim_for(focus, 1))), axis_angle(0, 0, 1, 7));  // 7 deg off it
+        auto frame = [&](const Quat& h, double now) {
+            v.advance(now);
+            m.set_aim(aim_for(v.focus(), focus_weight(v)));
+            if (m.holding() && !(v.zoom() < 1.f)) m.land_maximize(now);
+            return m.update(h, now);
+        };
+        for (; t < 300; t += 1) frame(head, t);
+        v.set_target(true, std::uint32_t(focus), 40, t);
+        m.set_mode(ViewMode::locked, t, ModeController::Change::maximize);
+        CHECK(m.holding() && m.mode() == ViewMode::locked);
+        Quat last = room;
+        float worst = 0;
+        for (const double end = t + 800; t < end; t += 1) {
+            const bool held = m.holding();
+            const Quat a = frame(head, t);
+            if (held && m.holding()) CHECK(quat_angle(a, room) < 1e-5f);  // in place while it zooms in
+            worst = std::max(worst, quat_angle(a, last));
+            last = a;
+        }
+        CHECK(!m.holding() && m.settled());
+        CHECK(worst < rad(0.5f));  // per ms: the blend onto the head, never a jump
+        CHECK(off_centre(view_from(head, last), focus, 1) < 0.05f);  // locked: dead centre
+        const Quat away = quat_mul(head, axis_angle(0, 0, 1, 35));
+        CHECK(off_centre(view_from(away, frame(away, t += 1)), focus, 1) < 0.05f);  // and rigidly so
+        v.set_target(false, std::uint32_t(focus), 40, t);
+        m.set_mode(ViewMode::anchor, t, ModeController::Change::restore);
+        for (const double end = t + 600; t < end; t += 1) last = frame(away, t);
+        CHECK(quat_angle(last, room) < 1e-5f);
+    }
     // A recentre while maximized moves the room as any recentre does: un-maximized, the overview comes back with that
     // desktop straight ahead of the new reference. A maximize again mid-way back starts from where the canvas is.
     {
