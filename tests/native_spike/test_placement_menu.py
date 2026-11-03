@@ -58,8 +58,9 @@ BASE_CAPABILITIES = ['zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spaci
 BASE_QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
-BASE_PROFILE_KEYS = {'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'spacing',
+BASE_PROFILE_KEYS = {'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'rolls', 'spacing',
                      'tracking', 'video_quality'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
+# rolls: each desktop's levelling roll, saved with the monitor setup since remember-layout-reset-bind (2026-11-03)
 # video_quality: the VR video quality menu (quality.py, 2026-11-03)
 # Real-shaped bind arguments (2026-11-01): the live controller's checkout path, a token_hex(16) run id (state.py) and a
 # sha256-hex session id (HyprlandClient.verified_session).

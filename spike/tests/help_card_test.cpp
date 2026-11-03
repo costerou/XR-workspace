@@ -98,7 +98,7 @@ std::vector<HelpRow> help_rows() {  // exactly view.help_rows(), sections marked
             {"Ctrl+Alt+Left", "Previous desktop"},
             {"Ctrl+Alt+Right", "Next desktop"},
             {"Ctrl+Alt+[ / ]", "Less / more space between desktops"},
-            {"Ctrl+Alt+Space", "Recenter the view"},
+            {"Ctrl+Alt+Space / R", "Recenter / reset to 3 flat desktops"},
             {"Ctrl+Alt+V", "Maximized: follow / locked", true},
             {"Ctrl+Alt+P", "Toggle pose prediction"},
             {"Ctrl+Alt+T", "Typing mode: XR keys off / on"},

@@ -321,7 +321,7 @@ class ManagedAdoptionTests(unittest.TestCase):
         return seen
 
     def test_capture_run_keeps_its_three_desktops_whatever_the_workspace_count(self):
-        # Six occupied workspaces: still the run's own three (profiles.startup_desktops); the rest go to XR-3 (below).
+        # Six occupied workspaces: still the run's own three (its restored setup, profiles.load_setup); the rest go to XR-3.
         from tools.native_spike.supervisor import CAPTURE_SCOPE
         three = [{'width': 1920, 'height': 1080, 'scale': 1.0}] * 2 + [{'width': 2560, 'height': 1440, 'scale': 1.25}]
         seen = self.specs_for(self.consent(capture=CAPTURE_SCOPE), three)

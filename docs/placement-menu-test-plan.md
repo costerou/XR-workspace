@@ -95,6 +95,23 @@ Before the glasses run, run `python -m tools.native_spike.bind_check`. It must r
 longer name Ctrl+Alt+M or a mouse-mode left button. Then rebuild the renderer and record its sha256 (other sessions
 rebuild in shared worktrees).
 
+## Remembered layout and Ctrl+Alt+R: glasses test script (Cody)
+
+Automated coverage (offline only): `tests/native_spike/test_remember_setup.py`, `test_layout_reset.py`,
+`tests/xr_controller/test_state.py`, ctest `help_card`. Needs your usual go-ahead for a live run; nothing here has been
+tried in the glasses.
+
+| # | Do | Expect |
+|---|----|--------|
+| M1 | In a session, add a fourth desktop, make XR-2 ultrawide, set XR-3's scale to 125%, move XR-1 up and to the left, curve XR-4, roll XR-2 a few degrees with its roll arrow. Wait 2 s, stop the session and start a new one | Four desktops come back with the same sizes and scales, XR-1 up and left, XR-4 curved, XR-2 rolled. The panel's **Startup options** preview shows four desktops before you start. |
+| M2 | Maximize a desktop, press Ctrl+Alt+V (locked), stop and start again, then maximize | The layout comes back; the maximized desktop follows your head again (follow / locked is not remembered). |
+| M3 | Open a pill, maximize nothing, press **Ctrl+Alt+R** | The pill closes. Every desktop glides back into the flat row in about half a second, level, then XR-4 disappears (its windows go to DP-1) and XR-2 / XR-3 change back to 1920×1080 at 100%. A notification says the desktops were reset. |
+| M4 | Press Ctrl+Alt+H | The recenter row reads "Ctrl+Alt+Space / R  Recenter / reset to 3 flat desktops". |
+| M5 | Stop and start again | Three flat 1920×1080 desktops. |
+| M6 | Maximize a desktop and press Ctrl+Alt+R | Back to the overview first, then the reset as in M3. |
+| M7 | Play a VR video and press Ctrl+Alt+R; press Ctrl+Alt+T (typing mode) and press Ctrl+Alt+R | During the video nothing changes and a notification says to close it first. In typing mode the key reaches the focused app. |
+| M8 | Note anything that looks wrong | How the glide looks, whether the reshape flickers, how long the desktops take to come back, where the notification shows. |
+
 ## Glass pills: glasses test script (Cody)
 
 This needs your usual go-ahead for a live run. Note the controller worktree HEAD, `git status`, the controller MainPID

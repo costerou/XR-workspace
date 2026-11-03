@@ -122,3 +122,18 @@ def validate_desktops(value: object) -> list:
     if not isinstance(value, list) or not 1 <= len(value) <= MAX_DESKTOPS:
         raise ValueError(f'1 to {MAX_DESKTOPS} desktops required')
     return [validate_desktop(d) for d in value]
+
+
+# Each desktop's levelling roll (the overview's roll arrows, free_pointer.py): hundredths of a degree about the line of
+# sight, counter-clockwise as you see it. Saved with the desktops and placements in the profile (profiles.py) so the next
+# start restores it; not a placement key (the `placement` wire carries none). Mirrors free_pointer.MAX_ROLL and the
+# renderer's ipc.hpp kMaxRoll (tests compare them).
+MAX_ROLL = 9000
+
+
+def validate_rolls(value: object, count: int) -> list:
+    """Exactly `count` levelling rolls, each an integer -MAX_ROLL..MAX_ROLL."""
+    if not isinstance(value, list) or len(value) != count: raise ValueError(f'exactly {count} rolls required')
+    for r in value:
+        if type(r) is not int or not -MAX_ROLL <= r <= MAX_ROLL: raise ValueError(f'roll must be an integer -{MAX_ROLL}..{MAX_ROLL}')
+    return list(value)
