@@ -2,18 +2,19 @@
 
 Keyboard binds exist only while a run is active (user preference: Ctrl+Alt+arrows stay free for
 text navigation otherwise). They run xr_control.py, which sends one frame to this run's private
-control socket. Focus moves with Hyprland's monitor focus (the cursor follows).
+control socket. The selected desktop's monitor gets Hyprland's focus (and the cursor with it).
 
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
 dead zone, eases back in front) and locked (0DoF, head-locked). Ctrl+Alt+H toggles a help card in
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
-click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. Optional cursor follow (Ctrl+Alt+F):
-when the pointer crosses onto another managed output, the view switches to it (Hyprland focusedmon).
+click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor never switches
+desktops: it stays on the selected desktop's monitor (unified_cursor.py), and the view changes desktop only by key or by
+a click on a desktop in the overview (cursor follow, Ctrl+Alt+F, was removed on 2026-11-02).
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
-Mode, cursor follow, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
-in the glasses whenever the viewing mode, cursor follow or prediction changes (and the viewing mode at start).
+Mode, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
+in the glasses whenever the viewing mode or prediction changes (and the viewing mode at start).
 Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
@@ -65,13 +66,13 @@ import time
 from .send import SEND_OPS
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
-USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
+USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next',
             'prediction', 'help')
 MODES = ('anchor', 'follow', 'locked')  # cycle order
 # Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
-         ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'), ('CTRL + ALT + F', 'cursor_follow'),
+         ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'),
          ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + T', 'typing_toggle'),
          ('CTRL + ALT + L', 'menu_toggle'),
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
@@ -88,7 +89,7 @@ TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
-                'mode_next': 'Cycle viewing mode', 'cursor_follow': 'Toggle cursor follow', 'prediction': 'Toggle pose prediction',
+                'mode_next': 'Cycle viewing mode', 'prediction': 'Toggle pose prediction',
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'typing_toggle': 'Typing mode: XR keys off / on',
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
@@ -134,14 +135,13 @@ EXTRA_HELP_ROWS = ()
 # Help card sections, in order: the op naming each row (a pair's first op). The renderer keeps a section on one page when
 # it fits one and draws a faint rule between sections. An op in BINDS but in no section lands in the last one.
 HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recenter'),  # moving around the desktops
-                 ('mode_next', 'cursor_follow', 'typing_toggle'),                       # modes
+                 ('mode_next', 'prediction', 'typing_toggle'),                          # modes
                  ('menu_toggle', 'video_open'),                                          # placement and VR video
                  ('help', 'help_prev'))                                                  # this card
 
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action).
-HELP_PAIRS = {'cursor_follow': ('prediction', 'Toggle cursor follow / prediction'),  # frees the row Ctrl+Alt+T uses
-              'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               'video_open': ('video_paste', 'VR video: file / copied web link'),  # docs/web-video.md
               'help_prev': ('help_next', 'Help: previous / next page')}
 
@@ -183,7 +183,6 @@ def help_frame(run_id, session, request_id, visible, turn=0):
     if turn: payload['turn'] = turn
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'help',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
-FOCUSEDMON = re.compile(r'focusedmon>>(XR-[1-3]),')
 CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
 COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
 
@@ -249,12 +248,12 @@ def warp_cursor_lua(x, y):
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', cursor_follow=False, prediction=True, placements=None):
+    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', prediction=True, placements=None):
         if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
-        if mode not in MODES or type(cursor_follow) is not bool or type(prediction) is not bool: raise ValueError('invalid view mode')
+        if mode not in MODES or type(prediction) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
-        self.mode, self.cursor_follow, self.prediction = mode, cursor_follow, prediction
+        self.mode, self.prediction = mode, prediction
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order; a saved profile always holds three (extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
@@ -354,20 +353,13 @@ class ViewState:
         return True
 
     def view(self):
-        """Renderer payload. Cursor follow is acted on supervisor-side; the renderer only displays it."""
+        """Renderer payload. `cursor_follow` is always false: the feature is gone, but the renderer's view decoder
+        (spike/src/ipc.cpp) still requires the key, so an installed renderer keeps working."""
         return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode,
-                'cursor_follow': self.cursor_follow, 'prediction': self.prediction, 'typing': self.typing}
+                'cursor_follow': False, 'prediction': self.prediction, 'typing': self.typing}
 
     def settings(self):
-        return {'spacing': self.spacing, 'mode': self.mode, 'cursor_follow': self.cursor_follow, 'prediction': self.prediction}
-
-    def cursor_entered(self, name):
-        """Pointer focus moved to `name`; with cursor follow on, select it. True if the view changed."""
-        if not self.cursor_follow or name not in self.names: return False
-        index = self.names.index(name)
-        if index == self.selected: return False
-        self.selected = index
-        return True
+        return {'spacing': self.spacing, 'mode': self.mode, 'prediction': self.prediction}
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
@@ -375,9 +367,6 @@ class ViewState:
         if op in ('recenter', 'help'): return None  # head-tracking reference / overlay only; the view layout is unchanged
         if op == 'mode_next':
             self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
-            return None
-        if op == 'cursor_follow':
-            self.cursor_follow = not self.cursor_follow
             return None
         if op == 'prediction':
             self.prediction = not self.prediction
@@ -402,11 +391,12 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True}
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True}
 
 
 def load_settings(path):
-    """Each field validated on its own; anything invalid or missing falls back to its default."""
+    """Each field validated on its own; anything invalid or missing falls back to its default. A `cursor_follow`
+    saved before 2026-11-02 is ignored (the feature was removed)."""
     out = dict(DEFAULT_SETTINGS)
     try:
         data = json.loads(Path(path).read_text())
@@ -415,7 +405,6 @@ def load_settings(path):
     if not isinstance(data, dict): return out
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in MODES: out['mode'] = data['mode']
-    if type(data.get('cursor_follow')) is bool: out['cursor_follow'] = data['cursor_follow']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
     return out
 
@@ -433,7 +422,7 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
-            and type(settings.get('cursor_follow')) is bool and type(settings.get('prediction')) is bool)
+            and type(settings.get('prediction')) is bool)
 
 
 def load_spacing(path):
@@ -555,9 +544,8 @@ class ViewControl:
         self.focus, self.settings, self.server = focus, settings, server
         self.next_id = first_request_id
         self._threads = []
-        self.events = None       # optional Hyprland event socket (cursor follow); owned by the caller
+        self.events = None       # optional Hyprland event socket (config reloads); owned by the caller
         self._event_buffer = b''
-        self.cursor_switches = 0
         self.border = border     # optional () -> Hyprland getoption reply for general:col.active_border
         self.accent = None       # last theme colour sent to the renderer
         self.on_reload = on_reload  # optional () -> None, run off-loop after Hyprland config reloads
@@ -816,7 +804,7 @@ class ViewControl:
         if target is not None:
             # Never block the watchdog loop on a compositor reply.
             t = threading.Thread(target=self._focus, args=(target,), daemon=True); t.start(); self._threads.append(t)
-        if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'cursor_follow', 'prediction'):
+        if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'prediction'):
             try: self.settings.save(self.state.settings())  # a settings store (profiles.LayoutStore/ProfileStore)
             except (OSError, ValueError): pass
         if self.state.view() != before: out += self._frame()
@@ -834,25 +822,21 @@ class ViewControl:
         return self._placement_frame() + (self._menu_frame() if self.state.menu_open else b'')
 
     def on_events(self, data):
-        """Hyprland socket2 bytes; returns a renderer frame if cursor follow switched the view."""
+        """Hyprland socket2 bytes: a config reload re-applies the run's binds and style. Monitor focus never switches
+        the view (cursor follow was removed)."""
         self._event_buffer += data
         if len(self._event_buffer) > 65536: self._event_buffer = self._event_buffer[-4096:]  # bounded; resync on newline
         *lines, self._event_buffer = self._event_buffer.split(b'\n')
-        changed = reloaded = False
+        reloaded = False
         for line in lines:
-            text = line.decode('utf-8', errors='replace')
-            m = FOCUSEDMON.match(text)
-            if m and self.state.cursor_entered(m.group(1)):
-                changed = True; self.cursor_switches += 1
-            if CONFIGRELOADED.match(text): reloaded = True
+            if CONFIGRELOADED.match(line.decode('utf-8', errors='replace')): reloaded = True
         if reloaded:
             self.reloads += 1
             self._menu_binds_installed = False  # a reload drops runtime binds; the reload work re-adds an open panel's
             if self.overview_pointer is not None: self.overview_pointer.binds_dropped = True  # the sampler redoes them if wanted
             if self.on_reload is not None:  # binds and session mode: compositor calls, never on the watchdog loop
                 t = threading.Thread(target=self._reload_work, daemon=True); t.start(); self._threads.append(t)
-        out = (self._frame() if changed else b'') + (self._style_frame() if reloaded else b'')
-        return out or None
+        return (self._style_frame() if reloaded else b'') or None
 
     def _reload_work(self):
         with self._menu_lock:  # ordered with a typing-mode swap in flight

@@ -71,8 +71,7 @@ def _view_part(data):
     out = dict(view.DEFAULT_SETTINGS)
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= view.MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in view.MODES: out['mode'] = data['mode']
-    for key in ('cursor_follow', 'prediction'):
-        if type(data.get(key)) is bool: out[key] = data[key]
+    if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']  # an old cursor_follow is dropped
     return out
 
 

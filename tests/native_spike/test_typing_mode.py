@@ -49,7 +49,7 @@ class ChordTests(unittest.TestCase):
         rows = view.help_rows()
         self.assertIn(['Ctrl+Alt+T', 'Typing mode: XR keys off / on'], rows)
         # No row cap: the card splits rows it cannot fit into pages (spike/tests/help_card_test.cpp).
-        self.assertIn(['Ctrl+Alt+F / P', 'Toggle cursor follow / prediction'], rows)  # the pair that made room
+        self.assertIn(['Ctrl+Alt+P', 'Toggle pose prediction'], rows)  # cursor follow (Ctrl+Alt+F) was removed
 
     def test_readme_and_technical_docs_name_the_key(self):
         readme = (ROOT / 'README.md').read_text()

@@ -45,9 +45,9 @@ def fixture(state):
     if state in ('confirming','recover-confirming'):
         snap['pending'] = dict(action='recover' if state=='recover-confirming' else 'start',scope=scope,scope_id='offline-scope')
     if state == 'running':
-        snap.update(desktops=profile['desktops'], placements=profile['placements'], view=dict(selected=1,mode='anchor',spacing=40,cursor_follow=False,prediction=True),
+        snap.update(desktops=profile['desktops'], placements=profile['placements'], view=dict(selected=1,mode='anchor',spacing=40,prediction=True),
                     display_mode='1920×1200@120',uptime=840,
-                    capabilities=['prev','next','zoom_out','zoom_in','recenter','mode_next','spacing_down','spacing_up','cursor_follow','prediction'],
+                    capabilities=['prev','next','zoom_out','zoom_in','recenter','mode_next','spacing_down','spacing_up','prediction'],
                     status=dict(presented_hz=119.8,missed=3,capture_path='dmabuf',pose_age_ms=4))
     if state == 'failed': snap['reason']='Pinned binary changed; reinstall before starting.'
     if state == 'cli-recovery': snap['journal']='/scratch/xr-workspace-spike/cli-run/journal.json'

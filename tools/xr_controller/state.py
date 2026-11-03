@@ -162,8 +162,7 @@ class Controller:
                     delta=target['spacing']-current['spacing']
                     if delta%SPACING_STEP: raise ValueError('live spacing must use 20 pixel steps')
                     operations += ['spacing_up' if delta>0 else 'spacing_down']*(abs(delta)//SPACING_STEP)
-                for key in ('cursor_follow','prediction'):
-                    if key in settings and target[key]!=current[key]: operations.append(key)
+                if 'prediction' in settings and target['prediction']!=current['prediction']: operations.append('prediction')
                 if len(operations)>8: raise ValueError('too many live operations; use smaller steps')
                 for operation in operations:
                     if not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')

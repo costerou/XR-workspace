@@ -13,7 +13,7 @@ descriptor over the run's private control socket (SCM_RIGHTS). The renderer neve
 While a video plays, modal bare-key binds (VIDEO_BINDS: Space, arrows, Shift+arrows, Tab, Up/Down, Escape) exist, as an
 open placement panel's do; they are removed on exit, at run end, and by the bind helper if a key finds no run. The help
 card closes and an open placement panel collapses when a video opens. Desktop view keys (zoom, switch, spacing, viewing
-mode, cursor follow, the placement pills) are ignored while it plays; Ctrl+Alt+Space recenters the video, Ctrl+Alt+P
+mode, the placement pills) are ignored while it plays; Ctrl+Alt+Space recenters the video, Ctrl+Alt+P
 toggles prediction and Ctrl+Alt+H shows the controls card.
 
 The controls card follows the OLED rules of the help card: dimmed (nothing above 191/255), never moved, and closed after
@@ -48,7 +48,7 @@ VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 
 # when it opens, and the free pointer is off while it plays (free_pointer.OverviewPointer.overview), so these can only
 # arrive from stale or racing binds. Send-window keys (Ctrl+Alt+G, 1/2/3, B) are ignored too: the desktops are hidden,
 # so a window (and focus) would move somewhere unseen.
-IGNORED_WHILE_PLAYING = (('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'mode_next', 'cursor_follow')
+IGNORED_WHILE_PLAYING = (('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'mode_next')
                          + MENU_OPS + RESIZE_OPS + SEND_OPS)
 
 PROJECTIONS = ('360', '180', 'fisheye')

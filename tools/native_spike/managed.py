@@ -113,7 +113,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
         try: initial = placements.load() if placements is not None else None
         except (OSError, ValueError): initial = None
-        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
+        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'],
                                                    saved['prediction'], initial), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
@@ -132,7 +132,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if hasattr(client, 'mutate'):
             from .send import WindowSender
             control.sender = WindowSender(client, capture, fallback)
-        stream = getattr(client, 'event_stream', None)  # cursor follow; optional
+        stream = getattr(client, 'event_stream', None)  # config reloads; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
         client.install_view_binds(*bind_args)

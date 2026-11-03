@@ -360,6 +360,12 @@ class HyprlandClient:
         from .unified_cursor import enter_desktop_lua
         self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y))
 
+    def confine_cursor(self, x, y, name):
+        """Unified cursor, zoomed in: the cursor back at (x, y) on the selected desktop's monitor `name`, which gets the
+        monitor focus again; one eval of generated Lua."""
+        from .unified_cursor import confine_lua
+        self._eval(confine_lua(x, y, name))
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

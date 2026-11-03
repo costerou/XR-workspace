@@ -50,7 +50,7 @@ While a video plays, these keys exist (bare keys, like an open placement pill's;
 | Ctrl+Alt+P | Pose prediction on/off (the existing bind) |
 | Ctrl+Alt+O | Open another video: the desktops come back so you can see the picker |
 
-The desktop keys (zoom, switch, spacing, viewing mode, cursor follow, placement pill) do nothing while a video plays.
+The desktop keys (zoom, switch, spacing, viewing mode, placement pill) do nothing while a video plays.
 Opening a video closes an open placement pill and turns the overview free pointer, its dot and the pills off until you
 return to the desktops. The panel shows the title, the detected format and how it was detected, the state, any
 warnings, and buttons for the same actions.

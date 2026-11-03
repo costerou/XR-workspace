@@ -23,7 +23,7 @@ import time
 # these. The run no longer accepts them (ipc.decode_control); they stay in OPS so a bind left behind by an older run that
 # died in that mode still runs, finds no run listening and removes itself (drop_stale_menu_binds: cursor shown again).
 LEGACY_OPS = ('menu_mouse', 'menu_mouse_press', 'menu_mouse_release')
-OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next', 'cursor_follow',
+OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'resize_press', 'resize_release',
        'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_back', 'typing_toggle', 'help_prev', 'help_next'
