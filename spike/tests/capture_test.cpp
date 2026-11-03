@@ -10,7 +10,10 @@ int main() {
     auto ok = parse_capture_list("XR-1,XR-2,XR-3", "DP-2");
     CHECK(ok && *ok == std::vector<std::string>({"XR-1", "XR-2", "XR-3"}));
     CHECK(parse_capture_list("XR-2", "DP-2") == std::vector<std::string>{"XR-2"});
-    for (const char* bad : {"", "XR-1,", ",XR-1", "XR-1,XR-1", "XR-4", "XR-0", "XR-01", "DP-1", "DP-2", "XR-1,DP-1",
+    // Desktops come and go during a run: up to kMaxDesktops, any of XR-1..XR-4, sorted.
+    CHECK(parse_capture_list("XR-4,XR-1", "DP-2") == std::vector<std::string>({"XR-1", "XR-4"}));
+    CHECK(parse_capture_list("XR-1,XR-2,XR-3,XR-4", "DP-2")->size() == kMaxDesktops);
+    for (const char* bad : {"", "XR-1,", ",XR-1", "XR-1,XR-1", "XR-5", "XR-0", "XR-1,XR-2,XR-3,XR-4,XR-5", "XR-01", "DP-1", "DP-2", "XR-1,DP-1",
                             "XR-1 ,XR-2", "XR-1,XR-2,XR-3,XR-1", "xr-1", "XR-SPIKE-run-0", "XR-1;XR-2"})
         CHECK(!parse_capture_list(bad, "DP-2"));
     CHECK(!parse_capture_list("XR-1", "XR-1"));  // never capture our own output

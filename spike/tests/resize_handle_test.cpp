@@ -34,7 +34,7 @@ int main() {
     CHECK(std::holds_alternative<ControlMessage>(hidden));
     const auto* hp = std::get_if<ResizeHandlePayload>(&std::get<ControlMessage>(hidden).payload);
     CHECK(hp && !hp->visible && hp->active && hp->corner == 3);
-    for (const char* bad : {R"({})", R"({"visible":true,"desktop":3,"corner":"br","active":false})",
+    for (const char* bad : {R"({})", R"({"visible":true,"desktop":4,"corner":"br","active":false})",
                             R"({"visible":true,"desktop":-1,"corner":"br","active":false})",
                             R"({"visible":true,"desktop":0,"corner":"center","active":false})",
                             R"({"visible":1,"desktop":0,"corner":"br","active":false})",
@@ -97,7 +97,7 @@ int main() {
         CHECK(std::holds_alternative<ControlMessage>(d) && std::get<ControlMessage>(d).op == ControlOp::move_handle);
         const auto* p = std::get_if<MoveHandlePayload>(&std::get<ControlMessage>(d).payload);
         CHECK(p && p->visible && p->desktop == 1 && p->hover && !p->active);
-        for (const char* bad : {R"({})", R"({"visible":true,"desktop":3,"hover":false,"active":false})",
+        for (const char* bad : {R"({})", R"({"visible":true,"desktop":4,"hover":false,"active":false})",
                                 R"({"visible":true,"desktop":-1,"hover":false,"active":false})",
                                 R"({"visible":"yes","desktop":0,"hover":false,"active":false})",
                                 R"({"visible":true,"desktop":0,"hover":false})",

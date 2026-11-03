@@ -255,7 +255,7 @@ class WiringTests(unittest.TestCase):
         import inspect
         from tools.native_spike import managed
         src = inspect.getsource(managed._run_owned)
-        self.assertRegex(src, r'view_controls\(client, journal\.run_id, session, capture, output, store,\s+fallback\)')
+        self.assertRegex(src, r'view_controls\(client, journal\.run_id, session, capture, output, store,\s+fallback, manager\)')
         self.assertLess(src.index('view_controls('), src.index('result = recover('))  # recovery after the with block
 
 
@@ -300,7 +300,7 @@ class LuaTests(unittest.TestCase):
 
     def test_labels(self):
         self.assertEqual([view.chord_label(c) for c, _ in send.SEND_BINDS],
-                         ['Ctrl+Alt+G', 'Ctrl+Alt+1', 'Ctrl+Alt+2', 'Ctrl+Alt+3', 'Ctrl+Alt+B'])
+                         ['Ctrl+Alt+G', 'Ctrl+Alt+1', 'Ctrl+Alt+2', 'Ctrl+Alt+3', 'Ctrl+Alt+4', 'Ctrl+Alt+B'])
 
 
 class NoSessionTests(unittest.TestCase):
@@ -370,7 +370,7 @@ class BindCheckTests(unittest.TestCase):
             cfg.write_text('hl.bind("SUPER + Q", hl.dsp.exec_cmd("true"))\n')
             status, lines = bind_check.check(cfg, HYPRLAND, home)
             self.assertEqual(status, 0, lines)
-            self.assertIn('Ctrl+Alt+G, Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3, Ctrl+Alt+B', lines[-1])
+            self.assertIn('Ctrl+Alt+G, Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3, Ctrl+Alt+4, Ctrl+Alt+B', lines[-1])
             cfg.write_text('hl.bind("CTRL + ALT + 3", hl.dsp.exec_cmd("true"))\n')
             status, lines = bind_check.check(cfg, HYPRLAND, home)
             self.assertEqual(status, 1, lines)

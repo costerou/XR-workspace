@@ -26,7 +26,7 @@ namespace xr {
 constexpr float kGlassPillShare = 0.24f, kGlassPillMinW = 64.f, kGlassPillMaxW = 160.f, kGlassPillH = 14.f, kGlassPillGap = 10.f;
 FRect glass_pill(const FRect& tile);
 // Expanded panel: kPanelW x kPanelH, centred under the desktop, its top where the pill's top is.
-constexpr float kPanelW = 480.f, kPanelH = 220.f, kPanelRadius = 18.f;
+constexpr float kPanelW = 480.f, kPanelH = 258.f, kPanelRadius = 18.f;
 FRect glass_panel(const FRect& tile);
 // The shape `t` (eased 0..1) of the way from pill to panel, and its corner radius (the pill is fully rounded).
 FRect glass_morph(const FRect& tile, float t);
@@ -37,8 +37,22 @@ float glass_radius(const FRect& tile, float t);
 constexpr float kPanelHeaderH = 42.f, kPanelRowsTop = 46.f, kPanelRowH = 34.f, kPanelPad = 22.f;
 constexpr float kPanelTrackX0 = 184.f, kPanelTrackX1 = 374.f, kPanelKnobR = 7.f;
 constexpr float kPanelKnobLo = kPanelTrackX0 + kPanelKnobR, kPanelKnobHi = kPanelTrackX1 - kPanelKnobR;
-constexpr float kPanelFooterTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH + 8.f;  // 190
-constexpr std::uint32_t kPanelTextPx = 24, kPanelHintPx = 18;  // em sizes with the system font
+// Under the sliders, the desktop row: kPanelActions buttons side by side, button i spanning
+// [kPanelPad + i * (kPanelActionW + kPanelActionGap), + kPanelActionW) x [kPanelActionsTop, + kPanelActionH) (glass_panel_action):
+// Ultrawide (toggles the desktop between 16:9 and ultrawide), Add (a new desktop), Remove (this desktop; asks for a second
+// click). tools/native_spike/desktops.py does the work; free_pointer.py mirrors the geometry (glass_contract compares).
+constexpr std::size_t kPanelActions = 3;
+constexpr float kPanelActionsTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH + 6.f;  // 188
+constexpr float kPanelActionH = 32.f, kPanelActionW = 138.f, kPanelActionGap = 11.f;
+static_assert(kPanelPad * 2 + kPanelActionW * float(kPanelActions) + kPanelActionGap * float(kPanelActions - 1) == kPanelW,
+              "the desktop row spans the panel between its paddings");
+constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 228
+constexpr std::uint32_t kPanelTextPx = 24, kPanelHintPx = 18, kPanelActionPx = 20;  // em sizes with the system font
+FRect glass_panel_action(std::size_t action);  // panel px; empty for action >= kPanelActions
+// Button labels as drawn (the pixel font is ASCII; so are these). Remove reads "Remove?" while armed.
+const char* glass_panel_action_label(std::size_t action, bool armed);
+// Whether a button does anything now: nothing while busy; Add below kMaxDesktops desktops, Remove above one.
+bool glass_panel_action_enabled(std::size_t action, const PlacementMenuState& state);
 // A small grabber capsule at the top centre of an open panel (where the pill was).
 constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
@@ -88,7 +102,8 @@ const char* glass_fragment_shader();
 // --- Panel content -----------------------------------------------------------------------------------------------------
 // The open panel's text and sliders for the selected desktop (state.desktop), kPanelW x kPanelH, premultiplied, on a
 // transparent background (the glass is drawn under it): header "XR-n" / "Placement", one row per field (label, slider
-// filled from the flat value, value with units; the selected row on a faint accent band), and a key-hint footer.
+// filled from the flat value, value with units; the selected row on a faint accent band), the desktop row (Ultrawide lit
+// while the desktop is ultrawide, Remove lit while armed, buttons that do nothing now dimmed), and a key-hint footer.
 // Text in the help card's dimmed colours, the band and the fills in `accent`'s (glass_theme_highlight), so nothing
 // passes kCardMaxLevel.
 HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font = nullptr,
@@ -116,7 +131,7 @@ struct GlassFrame {
     int surface_desktop = -1; std::optional<Placement> surface;
     // Roll-level icons (drawn with the pills: `pills` true): per desktop -1 none, else the side (roll_icon); the hovered
     // or dragged one is drawn at `roll_level`.
-    std::array<int, kPlacementMenuDesktopCount> roll_icon{-1, -1, -1};
+    std::array<int, kPlacementMenuDesktopCount> roll_icon{-1, -1, -1, -1};
     int roll_hover = -1; float roll_level = kGlassIdle;
 };
 // Renderer placement from wire units (ipc.hpp WirePlacement: x / y the orbit round you in tenths of a degree, distance in
@@ -155,7 +170,8 @@ public:
 private:
     void ensure() const;
     std::array<CardFade, kPlacementMenuDesktopCount> fades_{CardFade{kGlassExpandMs, kGlassCollapseMs}, CardFade{kGlassExpandMs, kGlassCollapseMs},
-                                                            CardFade{kGlassExpandMs, kGlassCollapseMs}};
+                                                            CardFade{kGlassExpandMs, kGlassCollapseMs}, CardFade{kGlassExpandMs, kGlassCollapseMs}};
+    static_assert(kPlacementMenuDesktopCount == 4, "one fade per desktop");
     PlacementMenuState rendered_;
     std::optional<MenuPlacement> surface_;  // only while open
     double hidden_ms_ = -1;                 // the last frame drawn outside the overview (-1: the last one was in it)

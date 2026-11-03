@@ -266,7 +266,8 @@ class UnifiedSampler(il.LockedSampler):
         while not self._stop.is_set():
             now = time.monotonic()
             try:
-                if refreshed is None or now - refreshed >= fp.OUTPUTS_REFRESH:
+                if refreshed is None or self.names_changed or now - refreshed >= fp.OUTPUTS_REFRESH:
+                    self.names_changed = False  # a pill's Add / Remove (set_names): read the monitors again at once
                     outputs = resize.outputs_from_monitors(self.client.query('monitors', timeout=0.5), self.names)
                     refreshed = now
             except (OSError, ValueError, TypeError, KeyError):

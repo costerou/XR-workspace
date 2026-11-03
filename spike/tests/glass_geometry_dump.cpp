@@ -17,12 +17,16 @@ int main() {
         {"pill_share", kGlassPillShare}, {"pill_min_w", kGlassPillMinW}, {"pill_max_w", kGlassPillMaxW}, {"pill_h", kGlassPillH},
         {"pill_gap", kGlassPillGap}, {"panel_w", kPanelW}, {"panel_h", kPanelH}, {"header_h", kPanelHeaderH},
         {"rows_top", kPanelRowsTop}, {"row_h", kPanelRowH}, {"knob_lo", kPanelKnobLo}, {"knob_hi", kPanelKnobHi},
-        {"roll_icon_px", kRollIconPx}, {"roll_icon_gap", kRollIconGap}};
+        {"roll_icon_px", kRollIconPx}, {"roll_icon_gap", kRollIconGap},
+        {"actions_top", kPanelActionsTop}, {"action_h", kPanelActionH}, {"action_w", kPanelActionW}, {"action_gap", kPanelActionGap},
+        {"actions", float(kPanelActions)}, {"max_desktops", float(kMaxDesktops)}};
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
     }
-    out += "},\"cases\":[";
+    out += "},\"actions\":[";
+    for (std::size_t a = 0; a < kPanelActions; ++a) out += std::string(a ? "," : "") + rect(glass_panel_action(a));
+    out += "],\"cases\":[";
     const FRect tiles[] = {{100, 300, 459, 258}, {0, 0, 4000, 2000}, {10, 20, 120, 60}, {5, 5, 40, 30}, {-200.5f, 410.25f, 812, 457}};
     first = true;
     for (const auto& t : tiles) {

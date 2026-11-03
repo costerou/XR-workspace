@@ -45,11 +45,14 @@ class PlacementRuleTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 g.validate_placement(bad)
 
-    def test_list_of_three(self):
-        self.assertEqual(g.validate_placements([TILTED] * 3), [TILTED] * 3)
-        for bad in ([TILTED] * 2, [TILTED] * 4, TILTED, None):
+    def test_one_per_desktop(self):
+        # 1..MAX_DESKTOPS (desktops are added and removed in the glasses), or exactly `count`.
+        for n in range(1, g.MAX_DESKTOPS + 1): self.assertEqual(g.validate_placements([TILTED] * n), [TILTED] * n)
+        for bad in ([], [TILTED] * (g.MAX_DESKTOPS + 1), TILTED, None):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 g.validate_placements(bad)
+        self.assertEqual(g.validate_placements([TILTED] * 2, 2), [TILTED] * 2)
+        with self.assertRaises(ValueError): g.validate_placements([TILTED] * 2, 3)
 
     def test_mirrored_bounds_match(self):
         """Renderer (ipc.cpp) and panel (Model.js) carry the same table; drift would reject or clip valid values."""
@@ -138,7 +141,7 @@ class PlacementWireTests(unittest.TestCase):
         self.assertEqual(msg['payload']['desktops'], [TILTED, g.DEFAULT_PLACEMENT])
 
     def test_control_socket_rejects_bad_placements(self):
-        for payload in ({}, {'desktops': []}, {'desktops': [TILTED] * 4}, {'desktops': [TILTED], 'extra': 1},
+        for payload in ({}, {'desktops': []}, {'desktops': [TILTED] * 5}, {'desktops': [TILTED], 'extra': 1},
                         {'desktops': [{**TILTED, 'distance': 201}]}, {'desktops': [{**TILTED, 'x': 1.5}]}, {'desktops': TILTED}):
             with self.subTest(payload=payload), self.assertRaises(ValueError):
                 decode_control(frame('placement', payload))
@@ -190,11 +193,17 @@ class PlacementControlTests(unittest.TestCase):
         self.assertEqual((store.saved, c.state.placements), ([], [g.DEFAULT_PLACEMENT] * 3))
 
     def test_fewer_outputs_keep_saved_tail(self):
-        store = MemoryStore([dict(g.DEFAULT_PLACEMENT), dict(g.DEFAULT_PLACEMENT), TILTED])
-        c = self.control(names=['XR-1'], initial=store.load(), store=store)
-        self.assertEqual(c.state.placements, [g.DEFAULT_PLACEMENT])
-        c.on_message({'op': 'placement', 'payload': {'desktops': [TILTED]}})
-        self.assertEqual(store.value, [TILTED, g.DEFAULT_PLACEMENT, TILTED])
+        # The run saves its own desktops' placements; the profile's PlacementStore keeps the saved tail beyond them.
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'profiles.json'
+            profile = profiles.load_profile(path, 'beast')
+            profiles.save_profile(path, 'beast', {**profile, 'placements': [dict(g.DEFAULT_PLACEMENT), dict(g.DEFAULT_PLACEMENT), TILTED]})
+            store = profiles.PlacementStore(path, 'beast')
+            c = self.control(names=['XR-1'], initial=store.load(), store=store)
+            self.assertEqual(c.state.placements, [g.DEFAULT_PLACEMENT])
+            c.on_message({'op': 'placement', 'payload': {'desktops': [TILTED]}})
+            self.assertEqual(store.load(), [TILTED, g.DEFAULT_PLACEMENT, TILTED])
 
     def test_save_failure_still_applies(self):
         class Broken(MemoryStore):

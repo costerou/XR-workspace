@@ -242,8 +242,10 @@ class HyprlandTests(unittest.TestCase):
                          [(1920, 1080, 1.0), (3840, 1080, 1.0), (3440, 1440, 1.25)])
     def test_plan_rejects_wrong_count(self):
         d = {'width': 1920, 'height': 1080, 'scale': 1.0}
-        for n in (2, 4):
+        for n in (0, 5):  # 1..MAX_DESKTOPS (desktops are added and removed in the glasses)
             with self.assertRaises(ValueError): h.plan_outputs(RawFixture().monitors, [], 'run', [d] * n)
+        self.assertEqual([s['name'] for s in h.plan_outputs(RawFixture().monitors, [], 'run', [d] * 4)], ['XR-1', 'XR-2', 'XR-3', 'XR-4'])
+        self.assertEqual([s['name'] for s in h.plan_outputs(RawFixture().monitors, [], 'run', [d])], ['XR-1'])
     def test_rotated_output_reserves_transformed_logical_rectangle(self):
         raw = RawFixture(); raw.monitors[0].update(width=1080, height=1920, transform=1)
         self.assertEqual(h.plan_outputs(raw.monitors, [], 'run')[0]['x'], 1920)

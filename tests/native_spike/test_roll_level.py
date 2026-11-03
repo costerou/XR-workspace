@@ -50,16 +50,17 @@ class PureTests(unittest.TestCase):
 
     def test_roll_geometry_line(self):
         self.assertEqual(fp.parse_roll_geometry({'tilt': [120, None, -18000]}), [120, None, -18000])
-        for bad in ({'tilt': []}, {'tilt': [1, 2, 3, 4]}, {'tilt': [1.5]}, {'tilt': [18001]}, {'tilt': [True]}, {'tilt': 1},
+        self.assertEqual(fp.parse_roll_geometry({'tilt': [1, 2, 3, 4]}), [1, 2, 3, 4])  # up to MAX_DESKTOPS
+        for bad in ({'tilt': []}, {'tilt': [1, 2, 3, 4, 5]}, {'tilt': [1.5]}, {'tilt': [18001]}, {'tilt': [True]}, {'tilt': 1},
                     {'tilt': [1], 'x': 1}, None, []):
             with self.assertRaises(ValueError): fp.parse_roll_geometry(bad)
 
     def test_roll_frame(self):
-        state = {'roll': [-300, 0, 9000], 'icons': ['cw', 'none', 'ccw'], 'hover': 0, 'active': True}
+        state = {'roll': [-300, 0, 9000, 0], 'icons': ['cw', 'none', 'ccw', 'none'], 'hover': 0, 'active': True}
         f = json.loads(fp.roll_frame('run', 's', 9, state))
         self.assertEqual((f['op'], f['request_id'], f['payload']), ('roll', 9, state))
-        for bad in ({**state, 'roll': [0, 0]}, {**state, 'roll': [0, 0, 9001]}, {**state, 'icons': ['up', 'none', 'none']},
-                    {**state, 'hover': 3}, {**state, 'active': 1}, {**state, 'x': 1}):
+        for bad in ({**state, 'roll': [0, 0, 0]}, {**state, 'roll': [0, 0, 0, 9001]}, {**state, 'icons': ['up', 'none', 'none', 'none']},
+                    {**state, 'hover': 4}, {**state, 'active': 1}, {**state, 'x': 1}):
             with self.assertRaises(ValueError): fp.roll_frame('run', 's', 9, bad)
 
     def test_a_rolled_desktop_is_hit_where_it_is_drawn(self):
@@ -90,10 +91,22 @@ class PointerTests(Base):
     def test_icons_show_only_on_a_tilted_desktop_and_hide_when_idle(self):
         self.free()
         r = self.p.roll_sent  # went out with the first overview frames
-        self.assertEqual(r, {'roll': [0, 0, 0], 'icons': ['cw', 'none', 'none'], 'hover': -1, 'active': False})
+        self.assertEqual(r, {'roll': [0, 0, 0, 0], 'icons': ['cw', 'none', 'none', 'none'], 'hover': -1, 'active': False})
         self.clock.now += 31
         r = self.roll(frames(self.control.poll()))
-        self.assertEqual(r['icons'], ['none', 'none', 'none'])
+        self.assertEqual(r['icons'], ['none'] * 4)
+
+    def test_a_removed_desktop_takes_its_roll_with_it_and_the_others_keep_theirs(self):
+        # Regression (merge of roll-level icons with live Add / Remove, 2026-11-02): rolls were per index, so removing
+        # XR-2 handed its roll to XR-3. They are kept by name now, and the tilts wait for the renderer's new layout.
+        self.p.rolls = [-300, 200, 150, 0]
+        self.state.set_desktops(['XR-1', 'XR-3'], [FLAT, FLAT], [False, False])
+        self.p.desktops_changed()
+        self.assertEqual(self.p.rolls, [-300, 150, 0, 0])
+        self.assertEqual(self.p.tilts, [])
+        self.state.set_desktops(['XR-1', 'XR-2', 'XR-3'], [FLAT] * 3, [False] * 3)  # added back: level, as a new desktop
+        self.p.desktops_changed()
+        self.assertEqual(self.p.rolls, [-300, 0, 150, 0])
 
     def test_a_click_levels_it_at_once(self):
         self.free()
@@ -101,8 +114,8 @@ class PointerTests(Base):
         self.assertEqual((hover['hover'], hover['active']), (0, False))
         self.assertEqual(self.p.hover, ('roll', 0, 'cw'))
         r = self.roll(self.press() + self.release())
-        self.assertEqual(r['roll'], [-300, 0, 0])
-        self.assertEqual(r['icons'], ['none', 'none', 'none'])  # level now: no icon
+        self.assertEqual(r['roll'], [-300, 0, 0, 0])
+        self.assertEqual(r['icons'], ['none'] * 4)  # level now: no icon
         self.assertEqual(self.p.roll_clicks, 1)
         self.assertEqual(self.state.placements, [FLAT] * 3)  # a session roll, never a saved placement
         self.assertEqual(self.store.saves, 0)
@@ -145,7 +158,7 @@ class PointerTests(Base):
         self.press(); self.release()
         self.control.set_roll_geometry([300, -250, 0])  # XR-2 now measured: tilted clockwise
         r = self.roll(self.by(1, 0))
-        self.assertEqual(r['icons'], ['none', 'ccw', 'none'])
+        self.assertEqual(r['icons'], ['none', 'ccw', 'none', 'none'])
 
 
 class StatusLineTests(unittest.TestCase):

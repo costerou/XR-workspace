@@ -1,5 +1,5 @@
 {
- "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders. Placements have exactly x, y, distance, curvature (the facing settings yaw, pitch, roll were removed: every desktop faces you).",
+ "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders. Placements have exactly x, y, distance, curvature (the facing settings yaw, pitch, roll were removed: every desktop faces you). \"placements\" has one entry per desktop of the run (1..4). Optional \"names\" (each desktop's XR-n number, increasing), \"wide\", \"armed\" and \"busy\" describe the open panel's desktop row (Ultrawide / Add / Remove).",
  "valid": [
   {
    "open": true,
@@ -181,6 +181,165 @@
     "distance": 100,
     "curvature": 0
    }
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 3,
+   "field": "y",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "names": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "wide": true
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "names": [
+    1,
+    3
+   ],
+   "armed": true,
+   "busy": false
+  },
+  {
+   "open": false,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "names": [
+    2,
+    3,
+    4
+   ],
+   "wide": false,
+   "armed": false,
+   "busy": true
   }
  ],
  "invalid": [
@@ -399,7 +558,7 @@
    }
   },
   {
-   "why": "desktop 3 out of range",
+   "why": "desktop 3 out of range for three placements",
    "payload": {
     "open": true,
     "desktop": 3,
@@ -685,62 +844,6 @@
     "desktop": 0,
     "field": "Left/right",
     "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "curvature": 0
-     }
-    ]
-   }
-  },
-  {
-   "why": "two placements",
-   "payload": {
-    "open": true,
-    "desktop": 0,
-    "field": "x",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "curvature": 0
-     }
-    ]
-   }
-  },
-  {
-   "why": "four placements",
-   "payload": {
-    "open": true,
-    "desktop": 0,
-    "field": "x",
-    "placements": [
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "curvature": 0
-     },
      {
       "x": 0,
       "y": 0,
@@ -1541,6 +1644,409 @@
       "pitch": 0,
       "roll": 0
      },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "five placements",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "names shorter than placements",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "why": "names longer than placements",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     1,
+     2,
+     3,
+     4
+    ]
+   }
+  },
+  {
+   "why": "names not increasing",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     1,
+     3,
+     2
+    ]
+   }
+  },
+  {
+   "why": "names repeat",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     1,
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "why": "names zero",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     0,
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "why": "names past the most desktops",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     1,
+     2,
+     5
+    ]
+   }
+  },
+  {
+   "why": "names are strings",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": [
+     "XR-1",
+     "XR-2",
+     "XR-3"
+    ]
+   }
+  },
+  {
+   "why": "names not a list",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "names": 7
+   }
+  },
+  {
+   "why": "wide not a bool",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "wide": 1
+   }
+  },
+  {
+   "why": "armed not a bool",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "armed": "yes"
+   }
+  },
+  {
+   "why": "busy is null",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "busy": null
+   }
+  },
+  {
+   "why": "desktop past the placements",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "x",
+    "placements": [
      {
       "x": 0,
       "y": 0,

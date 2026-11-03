@@ -7,7 +7,7 @@
 
 namespace xr {
 std::optional<std::vector<std::string>> parse_capture_list(const std::string& csv, const std::string& own_output) {
-    static const std::regex name("XR-[1-3]");
+    static const std::regex name("XR-[1-" + std::to_string(kMaxDesktops) + "]");
     std::vector<std::string> names;
     std::size_t start = 0;
     while (start <= csv.size()) {
@@ -19,7 +19,7 @@ std::optional<std::vector<std::string>> parse_capture_list(const std::string& cs
         if (end == std::string::npos) break;
         start = end + 1;
     }
-    if (names.empty() || names.size() > 3) return std::nullopt;
+    if (names.empty() || names.size() > kMaxDesktops) return std::nullopt;
     std::sort(names.begin(), names.end());
     return names;
 }

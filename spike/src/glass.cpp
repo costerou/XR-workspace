@@ -119,6 +119,27 @@ std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level) 
     return {std::min(h[0] * k, kGlassCap), std::min(h[1] * k, kGlassCap), std::min(h[2] * k, kGlassCap)};
 }
 
+FRect glass_panel_action(std::size_t action) {
+    if (action >= kPanelActions) return {};
+    return {kPanelPad + float(action) * (kPanelActionW + kPanelActionGap), kPanelActionsTop, kPanelActionW, kPanelActionH};
+}
+
+const char* glass_panel_action_label(std::size_t action, bool armed) {
+    switch (action) {
+    case 0: return "Ultrawide";
+    case 1: return "Add new";
+    case 2: return armed ? "Remove?" : "Remove";
+    default: return "";
+    }
+}
+
+bool glass_panel_action_enabled(std::size_t action, const PlacementMenuState& state) {
+    if (state.busy || action >= kPanelActions) return false;
+    if (action == 1) return state.count < kPlacementMenuDesktopCount;
+    if (action == 2) return state.count > 1;
+    return true;
+}
+
 FRect glass_morph(const FRect& t, float k) {
     k = clamp01(k);
     const FRect a = glass_pill(t), b = glass_panel(t);
@@ -227,7 +248,7 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     const std::uint32_t desktop = std::min<std::uint32_t>(state.desktop, kPlacementMenuDesktopCount - 1);
     // Header: the desktop on the left, what this is on the right; the grabber (drawn by the GPU) sits between them.
     const float header_cy = (kGrabberTop + kGrabberH + kPanelHeaderH) / 2;
-    text(im, font, "XR-" + std::to_string(desktop + 1), kPanelTextPx, true, kPanelPad, header_cy, kText);
+    text(im, font, "XR-" + std::to_string(unsigned(state.numbers[desktop])), kPanelTextPx, true, kPanelPad, header_cy, kText);
     const std::string title = "Placement";
     text(im, font, title, kPanelTextPx, false, W - kPanelPad - float(text_width(font, title, kPanelTextPx, false)), header_cy, kMuted);
     for (int x = int(kPanelPad); x < int(W - kPanelPad); ++x) over(im, x, int(kPanelHeaderH) - 1, kRule, kRuleAlpha);
@@ -249,6 +270,19 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
         fill_disc(im, b, cy, kPanelKnobR, kText);
         const auto& value = rows[i].value;
         text(im, font, value, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, value, kPanelTextPx, selected)), cy, selected ? kText : kMuted);
+    }
+    // Desktop row: a faint button each; lit (the theme's band) while on (Ultrawide) or armed (Remove); dimmed when it can
+    // do nothing now.
+    for (std::size_t a = 0; a < kPanelActions; ++a) {
+        const FRect r = glass_panel_action(a);
+        const bool lit = (a == 0 && state.wide) || (a == 2 && state.armed);
+        const bool enabled = glass_panel_action_enabled(a, state);
+        fill_rounded(im, r.x, r.y, r.x + r.width, r.y + r.height, kBandRadius, lit && enabled ? highlight : kDim,
+                     lit && enabled ? kBandAlpha * 2 : (enabled ? kBandAlpha : kBandAlpha / 2));
+        const std::string label = glass_panel_action_label(a, state.armed);
+        const auto px = font ? kPanelActionPx : 0u;
+        const float w = float(text_width(font, label, px, lit));
+        text(im, font, label, px, lit, r.x + std::max(0.f, (r.width - w) / 2), r.y + r.height / 2, enabled ? (lit ? kText : kMuted) : kDim);
     }
     // Footer: the keys that work while a panel is open (Esc and the pill itself close it).
     const std::string hint = glass_panel_hint(font == nullptr);

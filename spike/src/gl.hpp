@@ -48,6 +48,11 @@ public:
     bool hold_dmabuf(std::size_t source);
     void release_held(std::size_t source);
     bool holding(std::size_t source) const;
+    // A desktop added or removed during the run (Presentation::set_desktops): a new, empty source at `at` (later sources
+    // move up one), or source `at` dropped with its texture and imported images (later ones move down). Context current.
+    void insert_source(std::size_t at);
+    void remove_source(std::size_t at);
+    std::size_t sources() const;
     // Status pop-up drawn head-locked over the next frames (nullptr or alpha 0: none). `image`
     // must outlive the calls; it is re-uploaded only when `generation` changes.
     void set_popup(const HudImage* image, std::uint64_t generation, float alpha);

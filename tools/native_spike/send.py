@@ -4,8 +4,9 @@ Run binds (SEND_BINDS), installed and removed with the run's other Ctrl+Alt bind
 
     Ctrl+Alt+G        the focused window -> the desktop selected in the glasses view (the one zoomed into, or
                       highlighted in the overview; Ctrl+Alt+Left/Right change it)
-    Ctrl+Alt+1/2/3    the focused window -> XR-1 / XR-2 / XR-3 (bound by keycode, code:10..12, like Omarchy's
-                      workspace digits, so they work on any keyboard layout)
+    Ctrl+Alt+1..4     the focused window -> XR-1 .. XR-4 (bound by keycode, code:10..13, like Omarchy's
+                      workspace digits, so they work on any keyboard layout); a number with no such desktop in this
+                      session (desktops come and go with the pills' Add and Remove) says so and moves nothing
     Ctrl+Alt+B        the focused window, if it is on an XR desktop -> back to the run's physical fallback monitor
                       (the output Stop and Recover return every window to)
 
@@ -31,10 +32,11 @@ import shutil
 import subprocess
 import threading
 
-SEND_OPS = ('send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_back')
+SEND_OPS = ('send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back')
 # Digits by keycode (code:10 is the 1 key), as Omarchy binds its workspace digits.
 SEND_BINDS = (('CTRL + ALT + G', 'send_glasses'), ('CTRL + ALT + code:10', 'send_glasses_1'),
               ('CTRL + ALT + code:11', 'send_glasses_2'), ('CTRL + ALT + code:12', 'send_glasses_3'),
+              ('CTRL + ALT + code:13', 'send_glasses_4'),
               ('CTRL + ALT + B', 'send_back'))
 ADDRESS = re.compile(r'0x[0-9a-f]{1,16}\Z')
 APP = 'VITURE Workspace'
@@ -82,6 +84,10 @@ class WindowSender:
         self.closed = False
         self._threads = []
         self.moves = 0                  # diagnostic: moves Hyprland accepted
+
+    def set_names(self, names):
+        """The run's desktops changed (a pill's Add / Remove): later sends go by the new set."""
+        self.names = list(names)
 
     def request(self, op, selected):
         """From the supervisor loop: never blocks on the compositor."""

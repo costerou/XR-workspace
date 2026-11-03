@@ -181,7 +181,10 @@ int main() {
           placement_menu_rows(ms, false)[2].value == "200%" && placement_menu_rows(ms, false)[3].value == "120\xc2\xb0");
     ms.desktop = 0;
     CHECK(placement_menu_rows(ms, false)[2].value == "100%" && placement_menu_rows(ms, false)[3].value == "0\xc2\xb0");
-    ms.desktop = 9; CHECK(placement_menu_rows(ms, true)[0].value == "-180deg");  // out of range: clamped, no crash
+    {  // out of range: clamped to the last of kPlacementMenuDesktopCount, no crash
+        PlacementMenuState last = ms; last.desktop = std::uint32_t(kPlacementMenuDesktopCount - 1);
+        ms.desktop = 9; CHECK(placement_menu_rows(ms, true)[0].value == placement_menu_rows(last, true)[0].value);
+    }
     ms.field = 4; for (const auto& r : placement_menu_rows(ms, true)) CHECK(!r.selected);  // past the last field: none
     ms.desktop = 1; ms.field = 3;
     const auto flat = placement_menu_flat();

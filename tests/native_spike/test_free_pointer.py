@@ -81,7 +81,7 @@ class ContractTests(unittest.TestCase):
     def test_malformed_geometry_is_refused(self):
         good = json.loads(FIXTURE['geometry']['line'])['overview_geometry']
         bad = [None, [], {}, dict(good, w=0), dict(good, h=9000), dict(good, w=1.5), dict(good, half=[0.3]),
-               dict(good, half=[0, 0.2]), dict(good, half=['0.3', 0.2]), dict(good, tiles=[]), dict(good, tiles=[[0, 0, 1, 1]] * 4),
+               dict(good, half=[0, 0.2]), dict(good, half=['0.3', 0.2]), dict(good, tiles=[]), dict(good, tiles=[[0, 0, 1, 1]] * (fp.MAX_DESKTOPS + 1)),
                dict(good, tiles=[[0, 0, -5, 10]]), dict(good, tiles=[[0, 0, 5]]), dict(good, tiles=[[0, 0, 5, float('nan')]]),
                dict(good, tiles=[[0, 0, True, 5]]), dict(good, extra=1)]
         for value in bad:

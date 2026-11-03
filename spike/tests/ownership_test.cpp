@@ -36,6 +36,12 @@ struct Fake : Backend {
     bool cleanup(const Handle&,const Json&) override { return rule; }
     std::vector<Handle> released;
     void release(const Handle& o) override { released.push_back(o); }
+    int reshapes=0; bool reshapeOk=true; Json reshapedTo;
+    bool reshape(const Handle& o,const Json&,const Json& after) override { ++reshapes; reshapedTo=after; return reshapeOk && o->live; }
+};
+// A backend that never implemented reshape (the boundary doubles): refused, the entry is no longer trusted.
+struct NoReshape : Fake {
+    bool reshape(const Handle& o,const Json& before,const Json& after) override { return Backend::reshape(o,before,after); }
 };
 Json spec(int index=0) { return {{"id", "uuid"+std::to_string(index)}, {"name","output"+std::to_string(index)}}; }
 int main(int argc,char** argv) {
@@ -159,6 +165,45 @@ int main(int argc,char** argv) {
         if(fault==2) bad["payload"]["workspace"]=1;
         if(fault==3) bad["payload"]["name"]="XR-01";
         bool rejected=false; try { parse_request("xrspike "+bad.dump()); } catch(...) {rejected=true;} CHECK(rejected);
+    }
+    {   // XR-4: a fourth desktop added during a run (index 3); never a fifth.
+        auto fourth=valid; fourth["payload"]["name"]="XR-4"; fourth["payload"]["index"]=3;
+        CHECK(parse_request("xrspike "+fourth.dump())==fourth);
+        auto fifth=valid; fifth["payload"]["name"]="XR-5"; fifth["payload"]["index"]=4;
+        bool rejected=false; try { parse_request("xrspike "+fifth.dump()); } catch(...) {rejected=true;} CHECK(rejected);
+    }
+    {   // reshape: the create payload's exact shape and rules (an Ultrawide toggle, or a neighbour sliding along the row).
+        auto wide=valid; wide["op"]="reshape"; wide["payload"]["width"]=2560; wide["payload"]["x"]=1920;
+        CHECK(parse_request("xrspike "+wide.dump())==wide);
+        for(int fault=0;fault<4;++fault) {
+            auto bad=wide; auto& q=bad["payload"];
+            if(fault==0) q["width"]=2561;
+            if(fault==1) q.erase("index");
+            if(fault==2) q["name"]="XR-2";
+            if(fault==3) q["extra"]=1;
+            bool rejected=false; try { parse_request("xrspike "+bad.dump()); } catch(...) {rejected=true;} CHECK(rejected);
+        }
+        Fake f; Registry registry(f);
+        Json one={{"id","uuid-r"},{"name","XR-1"},{"index",0},{"width",1920},{"height",1080},{"refresh_millihz",120000},{"scale",1.0},{"x",0},{"y",0}};
+        CHECK(registry.create("s","run",one)=="live");
+        auto to=one; to["width"]=2560; to["x"]=40;
+        CHECK(registry.reshape("s","run",to)=="live" && f.reshapes==1 && f.reshapedTo==to);
+        CHECK(registry.entry("uuid-r").spec==to);
+        CHECK(registry.reshape("s","run",to)=="live" && f.reshapes==1);  // nothing to change: no compositor call
+        // The id is known and its spec moved on: replaying the old create collides instead of creating anything.
+        bool collided=false; try { registry.create("s","run",one); } catch(...) {collided=true;} CHECK(collided);
+        for(auto key:{"name","index","refresh_millihz"}) {  // never another output's identity
+            auto other=to; other[key]= std::string(key)=="name" ? Json("XR-2") : Json(std::string(key)=="index" ? 1 : 60000);
+            bool refused=false; try { registry.reshape("s","run",other); } catch(...) {refused=true;} CHECK(refused);
+        }
+        bool foreign=false; try { registry.reshape("s","other-run",to); } catch(...) {foreign=true;} CHECK(foreign);
+        f.reshapeOk=false; auto back=to; back["width"]=1920;
+        CHECK(registry.reshape("s","run",back)=="invalid");  // a failed reshape is not trusted again ...
+        CHECK(registry.reshape("s","run",to)=="invalid" && f.reshapes==2);
+        CHECK(registry.remove("s","run","uuid-r",f.fallback)=="dead");  // ... but recovery still removes it
+        NoReshape n; Registry plain(n);
+        CHECK(plain.create("s","run",one)=="live");
+        CHECK(plain.reshape("s","run",to)=="invalid");
     }
     valid["payload"]["x"]=18446744073709551615ULL;
     bool overflow=false; try { parse_request("xrspike "+valid.dump()); } catch(...) {overflow=true;} CHECK(overflow);

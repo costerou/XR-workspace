@@ -405,6 +405,8 @@ class VideoControl:
 
     def attach_supervisor(self, supervisor):
         self.supervisor = supervisor  # for the renderer's measured status (its "video" state)
+        attach = getattr(self.view, 'attach_supervisor', None)  # the view's desktop row pauses / replaces the run's guard
+        if callable(attach): attach(supervisor)
 
     def initial_frame(self):
         return self.view.initial_frame()

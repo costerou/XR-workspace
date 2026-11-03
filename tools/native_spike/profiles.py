@@ -3,6 +3,10 @@
 `desktops` (pixels/scale) feed consent and the broker; `placements` (position round you, distance, curvature) are
 presentation-only and can change during a run. Profiles saved before placements existed load with flat defaults; those
 saved with the removed yaw / pitch / roll settings keep everything else (geometry.legacy_placement).
+
+A profile holds 1..geometry.MAX_DESKTOPS desktops and one placement each. A run saves its live desktops back (a pill's Add,
+Remove or Ultrawide: desktops.py), so the next session starts with them. Placements missing for a desktop are flat; extra
+ones are dropped.
 """
 import json
 import os
@@ -10,7 +14,8 @@ from pathlib import Path
 import tempfile
 
 from . import view
-from .geometry import DEFAULT_DESKTOP, DEFAULT_PLACEMENT, legacy_placement, validate_desktop, validate_placement, validate_placements
+from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, legacy_placement, validate_desktop, validate_desktops,
+                       validate_placement, validate_placements)
 from .ipc import token
 
 MODELS = ('beast', 'luma-ultra', 'unknown')
@@ -56,11 +61,11 @@ def _clean(data):
     """Each field validated on its own; anything invalid or missing falls back to its default."""
     out = _view_part(data)
     desktops = data.get('desktops')
-    out['desktops'] = [_desktop(desktops[i]) if isinstance(desktops, list) and len(desktops) == 3 else dict(DEFAULT_DESKTOP)
-                       for i in range(3)]
+    if not isinstance(desktops, list) or not 1 <= len(desktops) <= MAX_DESKTOPS: desktops = [None] * 3
+    out['desktops'] = [_desktop(d) for d in desktops]
     placements = data.get('placements')
-    out['placements'] = [_placement(placements[i]) if isinstance(placements, list) and len(placements) == 3
-                         else dict(DEFAULT_PLACEMENT) for i in range(3)]
+    placements = placements if isinstance(placements, list) and len(placements) == len(desktops) else []
+    out['placements'] = [_placement(placements[i]) if i < len(placements) else dict(DEFAULT_PLACEMENT) for i in range(len(desktops))]
     for key in ('tracking', 'mode_switch'):
         out[key] = data[key] if type(data.get(key)) is bool else True
     out['fallback'] = _fallback(data.get('fallback'))
@@ -86,9 +91,8 @@ def load_profile(path, model):
 def _check(profile):
     if not isinstance(profile, dict) or set(profile) != set(DEFAULT_PROFILE): raise ValueError('invalid profile')
     if not view._valid({k: profile[k] for k in view.DEFAULT_SETTINGS}): raise ValueError('invalid profile')
-    d = profile['desktops']
-    if not isinstance(d, list) or len(d) != 3: raise ValueError('invalid profile')
-    out = {**profile, 'desktops': [validate_desktop(x) for x in d], 'placements': validate_placements(profile['placements'])}
+    desktops = validate_desktops(profile['desktops'])
+    out = {**profile, 'desktops': desktops, 'placements': validate_placements(profile['placements'], len(desktops))}
     if any(type(profile[k]) is not bool for k in ('tracking', 'mode_switch')): raise ValueError('invalid profile')
     if profile['fallback'] is not None: token(profile['fallback'])
     return out
@@ -139,7 +143,20 @@ class PlacementStore:
         return load_profile(self.path, self.model)['placements']
 
     def save(self, placements):
-        save_profile(self.path, self.model, {**load_profile(self.path, self.model), 'placements': validate_placements(placements)})
+        """One per desktop of the profile; more are dropped, missing ones kept as saved."""
+        profile = load_profile(self.path, self.model)
+        placements = validate_placements(placements)
+        saved = profile['placements']
+        full = (placements + saved[len(placements):])[:len(profile['desktops'])]
+        full += [dict(DEFAULT_PLACEMENT) for _ in range(len(profile['desktops']) - len(full))]
+        save_profile(self.path, self.model, {**profile, 'placements': full})
+
+    def save_desktops(self, desktops, placements):
+        """A run's desktops changed (desktops.py): the profile takes them and their placements, so the next session
+        starts with them. Every other profile field is preserved."""
+        desktops = validate_desktops(desktops)
+        save_profile(self.path, self.model, {**load_profile(self.path, self.model), 'desktops': desktops,
+                                             'placements': validate_placements(placements, len(desktops))})
 
 
 class LayoutStore:

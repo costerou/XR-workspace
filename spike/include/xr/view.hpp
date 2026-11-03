@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include "xr/desktops.hpp"
 
 namespace xr {
 struct FRect { float x = 0, y = 0, width = 0, height = 0; };

@@ -162,29 +162,29 @@ int main() {
         for (int c = 0; c < 3; ++c) CHECK(near(hot[c], std::min(h[c], kGlassCap), 1e-5f));
     }
 
-    // The `roll` frame: three rolls, three icons, a hover and active; anything else is dropped without stopping.
+    // The `roll` frame: kMaxDesktops (four) rolls and icons, a hover and active; anything else is dropped without stopping.
     {
-        const auto good = decode_control(frame("{\"roll\":[-300,0,9000],\"icons\":[\"cw\",\"none\",\"ccw\"],\"hover\":0,\"active\":true}"));
+        const auto good = decode_control(frame("{\"roll\":[-300,0,9000,-9000],\"icons\":[\"cw\",\"none\",\"ccw\",\"cw\"],\"hover\":0,\"active\":true}"));
         CHECK(std::holds_alternative<ControlMessage>(good));
         if (const auto* m = std::get_if<ControlMessage>(&good)) {
             CHECK(m->op == ControlOp::roll);
             const auto& r = std::get<RollPayload>(m->payload);
-            CHECK(r.roll[0] == -300 && r.roll[1] == 0 && r.roll[2] == 9000);
-            CHECK(r.icons[0] == 1 && r.icons[1] == -1 && r.icons[2] == 0 && r.hover == 0 && r.active);
+            CHECK(r.roll[0] == -300 && r.roll[1] == 0 && r.roll[2] == 9000 && r.roll[3] == -9000);
+            CHECK(r.icons[0] == 1 && r.icons[1] == -1 && r.icons[2] == 0 && r.icons[3] == 1 && r.hover == 0 && r.active);
         }
-        const auto none = decode_control(frame("{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}"));
+        const auto none = decode_control(frame("{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}"));
         CHECK(std::holds_alternative<ControlMessage>(none));
         for (const char* bad : {
-                 "{\"roll\":[0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,9001],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,18446744073709551615],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0.5,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"left\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":3,\"active\":false}",
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-2,\"active\":false}",
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":0}",
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1}",
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false,\"x\":1}"}) {
+                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
+                 "{\"roll\":[0,0,0,9001],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
+                 "{\"roll\":[0,0,0,18446744073709551615],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
+                 "{\"roll\":[0,0.5,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"left\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":4,\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-2,\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":0}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false,\"x\":1}"}) {
             const auto r = decode_control(frame(bad));
             const auto* e = std::get_if<Error>(&r);
             CHECK(e && e->code == kInvalidRollCode && ignorable_control_error(*e));

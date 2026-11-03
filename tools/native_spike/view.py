@@ -37,7 +37,14 @@ desktop the real cursor works on windows as usual (a click there goes to the win
 open). resize_press and resize_release come from modal left-button binds that exist only while the pointer is outside
 the desktops; they are not USER_OPS.
 
-Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1/2/3 to XR-n, Ctrl+Alt+B back to the physical
+Desktop row (desktops.py): an open panel also has Ultrawide, Add new and Remove buttons (free-pointer presses; keys U, N
+and Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
+renderer the new desktop set (`desktops` frame) and hands the broker steps to desktops.DesktopManager's worker; poll()
+collects the result, sends the view, placement and panel frames for the new set, restarts the guard and saves the
+profile. Remove asks for a second press within desktops.REMOVE_ARM_S. The run then has 1..geometry.MAX_DESKTOPS desktops,
+any of XR-1..XR-4 (a removed one leaves a gap in the numbers until Add fills it).
+
+Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1..4 to XR-n, Ctrl+Alt+B back to the physical
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
 add no help card row; the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
 
@@ -63,6 +70,7 @@ import re
 import threading
 import time
 
+from .geometry import MAX_DESKTOPS
 from .send import SEND_OPS
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
@@ -98,11 +106,14 @@ HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overvi
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
-            'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back')
+            'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'menu_ultrawide', 'menu_add', 'menu_delete')
+# The open panel's desktop row on keys (desktops.ACTIONS): the same as pressing its buttons.
+MENU_DESKTOP_OPS = {'menu_ultrawide': 'ultrawide', 'menu_add': 'add', 'menu_delete': 'remove'}
 # menu_back (Escape) collapses the open panel; Tab / Shift+Tab move it to the next / previous desktop (only one is open).
 MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', 'menu_dec'), ('right', 'menu_inc'),
               ('SHIFT + left', 'menu_dec_big'), ('SHIFT + right', 'menu_inc_big'), ('Tab', 'menu_desktop_next'),
-              ('SHIFT + Tab', 'menu_desktop_prev'), ('R', 'menu_reset'), ('Escape', 'menu_back'))
+              ('SHIFT + Tab', 'menu_desktop_prev'), ('R', 'menu_reset'), ('Escape', 'menu_back'),
+              ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
 IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS
@@ -210,32 +221,58 @@ def style_frame(run_id, session, request_id, rgb):
     if len(rgb) != 3 or any(type(c) is not int or not 0 <= c <= 255 for c in rgb): raise ValueError('invalid colour')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'style',
                         'payload': {'border': list(rgb)}}, separators=(',', ':')) + '\n').encode()
-MANAGED = re.compile(r'XR-[1-3]\Z')
+MANAGED = re.compile(r'XR-[1-4]\Z')  # geometry.MAX_DESKTOPS
 SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
+def desktops_frame(run_id, session, request_id, names, renew=()):
+    """Renderer `desktops` frame (spike/include/xr/ipc.hpp DesktopsPayload): the managed outputs to capture from now on,
+    and the ones whose capture restarts (reshaped)."""
+    names, renew = list(names), list(renew)
+    if (not 1 <= len(names) <= MAX_DESKTOPS or len(set(names)) != len(names) or any(not MANAGED.match(n) for n in names)
+            or len(set(renew)) != len(renew) or any(n not in names for n in renew)):
+        raise ValueError('invalid desktops')
+    payload = {'outputs': sorted(names)}
+    if renew: payload['renew'] = sorted(renew)
+    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'desktops',
+                        'payload': payload}, separators=(',', ':')) + '\n').encode()
+
+
 def placement_frame(run_id, session, request_id, placements):
     from .geometry import validate_placement
-    if not isinstance(placements, list) or not 1 <= len(placements) <= 3: raise ValueError('invalid placements')
+    if not isinstance(placements, list) or not 1 <= len(placements) <= MAX_DESKTOPS: raise ValueError('invalid placements')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'placement',
                         'payload': {'desktops': [validate_placement(p) for p in placements]}}, separators=(',', ':')) + '\n').encode()
 
 
 def placement_menu_frame(run_id, session, request_id, menu):
     """Renderer `placement_menu` frame: open + desktop = that desktop's pill is expanded into its placement panel (open
-    false: every pill collapsed), field = the highlighted setting, placements = what the panel shows (always three).
+    false: every pill collapsed), field = the highlighted setting, placements = what the panel shows (one per desktop).
     Optional `surface`, open panels only: while the free pointer holds one of its sliders, the placement the panel is
-    drawn on (its desktop's at the press; spike/include/xr/ipc.hpp PlacementMenuPayload)."""
+    drawn on (its desktop's at the press; spike/include/xr/ipc.hpp PlacementMenuPayload). Optional desktop row: `names`
+    (each desktop's XR-n number, increasing), `wide` (the open desktop is ultrawide), `armed` (Remove asks for a second
+    press), `busy` (a desktop change is in progress)."""
     from .geometry import PLACEMENT_KEYS, validate_placement, validate_placements
     keys = {'open', 'desktop', 'field', 'placements'}
-    if not isinstance(menu, dict) or set(menu) - {'surface'} != keys: raise ValueError('invalid menu')
-    if type(menu['open']) is not bool or type(menu['desktop']) is not int or not 0 <= menu['desktop'] <= 2 \
+    if not isinstance(menu, dict) or not keys <= set(menu) or set(menu) - keys - {'surface', 'names', 'wide', 'armed', 'busy'}:
+        raise ValueError('invalid menu')
+    placements = validate_placements(menu['placements'])
+    if type(menu['open']) is not bool or type(menu['desktop']) is not int or not 0 <= menu['desktop'] < len(placements) \
             or menu['field'] not in PLACEMENT_KEYS or ('surface' in menu and menu['open'] is not True):
         raise ValueError('invalid menu')
-    payload = {'open': menu['open'], 'desktop': menu['desktop'], 'field': menu['field'],
-               'placements': validate_placements(menu['placements'])}
+    payload = {'open': menu['open'], 'desktop': menu['desktop'], 'field': menu['field'], 'placements': placements}
     if 'surface' in menu: payload['surface'] = validate_placement(menu['surface'])
+    if 'names' in menu:
+        names = menu['names']
+        if (not isinstance(names, list) or len(names) != len(placements) or any(type(n) is not int for n in names)
+                or any(not 1 <= n <= MAX_DESKTOPS for n in names) or names != sorted(set(names))):
+            raise ValueError('invalid menu')
+        payload['names'] = list(names)
+    for key in ('wide', 'armed', 'busy'):
+        if key in menu:
+            if type(menu[key]) is not bool: raise ValueError('invalid menu')
+            payload[key] = menu[key]
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'placement_menu',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
 
@@ -249,13 +286,13 @@ def warp_cursor_lua(x, y):
 
 class ViewState:
     def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', prediction=True, placements=None):
-        if not names or len(names) > 3 or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
+        if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if mode not in MODES or type(prediction) is not bool: raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.mode, self.prediction = mode, prediction
         from .geometry import DEFAULT_PLACEMENT, validate_placement
-        # One per managed output, in order; a saved profile always holds three (extra entries are ignored).
+        # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
         self.placements = [validate_placement(p) for p in placements] + \
             [dict(DEFAULT_PLACEMENT) for _ in range(len(self.names) - len(placements))]
@@ -267,13 +304,48 @@ class ViewState:
         # While the free pointer holds one of the open panel's sliders: the desktop's placement at the press, which the
         # renderer draws the panel on (hold_surface). None otherwise; any collapse or switch of the open panel drops it.
         self.menu_surface = None
+        # The panel's desktop row (desktops.py): which desktops are ultrawide (one per name), Remove armed (a second press
+        # removes; any collapse or switch of the open panel disarms it), a desktop change in progress.
+        self.wide = [False] * len(self.names)
+        self.remove_armed = False
+        self.desktops_busy = False
+
+    def numbers(self):
+        """Each desktop's XR-n number, in order."""
+        return [int(n.split('-', 1)[1]) for n in self.names]
+
+    def set_desktops(self, names, placements, wide, focus=None):
+        """The run's desktops changed (desktops.py). The selection stays on its desktop if it is still there (else the
+        nearest one left); `focus` (an index into `names` or None): the panel opens there, else it stays on its desktop
+        if that is still there, else it collapses. Remove is disarmed."""
+        from .geometry import validate_placement
+        names = list(names)
+        if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
+        if len(placements) != len(names) or len(wide) != len(names): raise ValueError('one placement per desktop required')
+        before = self.names
+        selected = before[self.selected] if self.selected < len(before) else None
+        open_on = before[self.menu_desktop] if self.menu_open and self.menu_desktop < len(before) else None
+        self.names = names
+        self.placements = [validate_placement(p) for p in placements]
+        self.wide = [bool(w) for w in wide]
+        self.selected = names.index(selected) if selected in names else min(self.selected, len(names) - 1)
+        if focus is not None and 0 <= focus < len(names):
+            self.menu_open, self.menu_desktop = True, focus
+        elif open_on in names:
+            self.menu_desktop = names.index(open_on)
+        else:
+            self.menu_open, self.menu_desktop = False, min(self.menu_desktop, len(names) - 1)
+        self.menu_surface = None
+        self.remove_armed = False
 
     def menu(self):
-        """`placement_menu` payload: always three placements (desktops beyond this run's outputs are shown flat), plus
+        """`placement_menu` payload: one placement per desktop and the desktop row (names, wide, armed, busy), plus
         `surface` while a slider of the open panel is held."""
-        from .geometry import DEFAULT_PLACEMENT
-        placements = [dict(p) for p in self.placements] + [dict(DEFAULT_PLACEMENT) for _ in range(3 - len(self.placements))]
-        out = {'open': self.menu_open, 'desktop': self.menu_desktop, 'field': self.menu_field, 'placements': placements}
+        desktop = min(self.menu_desktop, len(self.names) - 1)
+        out = {'open': self.menu_open, 'desktop': desktop, 'field': self.menu_field,
+               'placements': [dict(p) for p in self.placements], 'names': self.numbers(),
+               'wide': bool(self.wide[desktop]) if desktop < len(self.wide) else False,
+               'armed': self.menu_open and self.remove_armed, 'busy': self.desktops_busy}
         if self.menu_open and self.menu_surface is not None: out['surface'] = dict(self.menu_surface)
         return out
 
@@ -281,6 +353,7 @@ class ViewState:
         """Expand `desktop`'s pill into its panel; an open one on another desktop collapses (only one is ever open)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.names): raise ValueError('invalid desktop')
         self.menu_open, self.menu_desktop, self.menu_surface = True, desktop, None
+        self.remove_armed = False
 
     def hold_surface(self, placement):
         """The free pointer pressed one of the open panel's sliders: draw the panel on `placement` (the desktop's at the
@@ -313,15 +386,17 @@ class ViewState:
         """
         from .geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
         if op not in MENU_OPS: raise ValueError('unsupported menu operation')
+        if op in MENU_DESKTOP_OPS: return False  # the desktop row: ViewControl.desktop_action, never a placement change
         if op == 'menu_back': op = 'menu_toggle' if self.menu_open else None
         if op == 'menu_toggle':
-            if self.menu_open: self.menu_open, self.menu_surface = False, None
+            if self.menu_open: self.menu_open, self.menu_surface, self.remove_armed = False, None, False
             else: self.open_menu(self.selected)  # the pill of the desktop being looked at
             return False
         if not self.menu_open: return False
         if op in ('menu_desktop_next', 'menu_desktop_prev'):  # the open panel moves to the next / previous desktop's pill
             self.menu_desktop = (self.menu_desktop + (1 if op == 'menu_desktop_next' else -1)) % len(self.names)
             self.menu_surface = None
+            self.remove_armed = False
             return False
         if op in ('menu_field_next', 'menu_field_prev'):
             i = PLACEMENT_KEYS.index(self.menu_field) + (1 if op == 'menu_field_next' else -1)
@@ -553,7 +628,7 @@ class ViewControl:
         self.help_visible = False  # Ctrl+Alt+H card; never saved, starts hidden each run
         self.video_active = False  # a VR video plays in place of the desktops (video.VideoControl sets it)
         self.last_input = clock()  # monotonic time of the last run key / click / panel change (overlay idle close)
-        self.placements = placements  # optional store with save(list of 3); see profiles.PlacementStore
+        self.placements = placements  # optional store with save(one per desktop); see profiles.PlacementStore
         self.menu_binds = menu_binds  # optional (open: bool) -> None: install/remove the panel's modal binds (compositor call)
         self.clock = clock
         self.save_due = None          # monotonic deadline of a pending debounced placement save
@@ -562,11 +637,23 @@ class ViewControl:
         self._menu_threads = []
         self.overview_pointer = None  # optional free_pointer.OverviewPointer (overview free pointer); set by managed.view_controls
         self.wake = None    # optional socket the supervisor loop also waits on (the free pointer's sampler pokes it)
-        self.sender = None  # optional send.WindowSender (Ctrl+Alt+G/1-3/B); set by managed.view_controls
+        self.sender = None  # optional send.WindowSender (Ctrl+Alt+G/1-4/B); set by managed.view_controls
+        # The open panel's desktop row (desktops.py): the run's DesktopManager (managed runs only), the supervisor whose
+        # guard a change pauses and replaces (attach_supervisor), callbacks told the new output names once a change is
+        # done (the free pointer's sampler), and `notify` (text) -> None for a refusal (a desktop notification).
+        self.desktops = None
+        self.supervisor = None
+        self.desktop_listeners = []
+        self.notify = None
+        self.remove_armed_at = None
+        self._desktops_before = None  # names and placements when the change in flight started
         # optional (typing: bool) -> None: swap the run's bind table between the full set and the Ctrl+Alt+T toggle alone
         # (a compositor call, run off the loop under _menu_lock so it is ordered with the panel's own bind changes).
         self.typing_binds = typing_binds
         self._typing_installed = False  # the bind set last put in place (False: the full set from install_view_binds)
+
+    def attach_supervisor(self, supervisor):
+        self.supervisor = supervisor
 
     def initial_frame(self):
         return self._frame() + self._placement_frame(initial=True) + self._style_frame()
@@ -596,8 +683,10 @@ class ViewControl:
         return frame
 
     def status_reply(self, status):
-        return dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
-                    placements=[dict(p) for p in self.state.placements])
+        reply = dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
+                     placements=[dict(p) for p in self.state.placements], names=list(self.state.names))
+        if self.desktops is not None: reply['desktops'] = self.desktops.desktops()  # live sizes (Ultrawide, Add)
+        return reply
 
     def _menu_frame(self):
         frame = placement_menu_frame(self.run_id, self.session, self.next_id, self.state.menu())
@@ -627,6 +716,8 @@ class ViewControl:
 
     def _on_menu(self, op):
         """Panel key op. Ctrl+Alt+L while zoomed in zooms out first, so the expanding pill is seen."""
+        if op in MENU_DESKTOP_OPS:  # U / N / Delete: the open panel's desktop row
+            return (self.desktop_action(self.state.menu_desktop, MENU_DESKTOP_OPS[op]) if self.state.menu_open else b'') or None
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
         return (out + self._menu_update(lambda: self.state.apply_menu(op))) or None
 
@@ -668,6 +759,88 @@ class ViewControl:
         if self.state.menu_surface is None: return b''
         return self._menu_update(lambda: self.state.hold_surface(None) or False)
 
+    # --- the open panel's desktop row (desktops.py) -----------------------------------------------------------------
+    def desktop_action(self, desktop, action):
+        """Ultrawide / Add / Remove pressed on `desktop`'s open panel (or U / N / Delete). Remove's first press only arms
+        it. Starts the change (module docstring) and returns the frames that go before it: the panel showing it busy and,
+        for a removal, the renderer's new desktop set (its capture stops before the output goes). b'' if nothing starts."""
+        from .desktops import ACTIONS, REMOVE_ARM_S, plan
+        s = self.state
+        if self.desktops is None or action not in ACTIONS or type(desktop) is not int or not 0 <= desktop < len(s.names): return b''
+        if s.typing or self.video_active or not s.menu_open or s.menu_desktop != desktop: return b''
+        now = self.last_input = self.clock()
+        if s.desktops_busy or self.desktops.busy(): return b''
+        if action == 'remove' and not (s.remove_armed and self.remove_armed_at is not None and now - self.remove_armed_at < REMOVE_ARM_S):
+            s.remove_armed, self.remove_armed_at = True, now  # "Remove?": a second press removes
+            return self._menu_frame()
+        s.remove_armed = False
+        try: change = plan(self.desktops.specs, s.placements, action, desktop)
+        except ValueError as exc:
+            self._tell(str(exc))
+            return self._menu_frame()
+        self.flush()  # a pending panel change is saved first
+        self._desktops_before = (list(s.names), [dict(p) for p in s.placements], list(s.wide))
+        out = b''
+        if change.remove is not None:  # the renderer lets go of that output before the broker removes it
+            gone = s.names.index(change.remove['name'])
+            keep = [n for n in s.names if n != change.remove['name']]
+            out += self._desktops_frame(keep)
+            s.set_desktops(keep, [p for i, p in enumerate(s.placements) if i != gone], [w for i, w in enumerate(s.wide) if i != gone])
+            self._sync_menu_binds()  # its panel collapsed
+            out += self._frame() + self._placement_frame()
+            self._desktops_changed()
+        if self.supervisor is not None: self.supervisor.pause_guard()
+        s.desktops_busy = True
+        if not self.desktops.start(change):
+            s.desktops_busy = False
+            if self.supervisor is not None: self.supervisor.replace_guard(self.desktops.guard())
+        return out + self._menu_frame()
+
+    def _desktops_frame(self, names, renew=()):
+        frame = desktops_frame(self.run_id, self.session, self.next_id, names, renew)
+        self.next_id += 1
+        return frame
+
+    def _desktops_changed(self):
+        names = list(self.state.names)
+        if self.overview_pointer is not None: self.overview_pointer.desktops_changed()
+        if self.sender is not None: self.sender.set_names(names)
+        for listener in self.desktop_listeners:
+            try: listener(names)
+            except (OSError, ValueError, TypeError, KeyError): pass
+
+    def _desktops_done(self, change, error, done):
+        """The worker finished `change` (error: why it stopped early, None if it all went through). The run's outputs are
+        what the broker reports now: the renderer, the view, the panel, the guard and the profile follow them."""
+        from .geometry import DEFAULT_PLACEMENT
+        s, manager = self.state, self.desktops
+        names_before, placements_before, _ = self._desktops_before or (list(s.names), list(s.placements), list(s.wide))
+        self._desktops_before = None
+        by_name = dict(zip(names_before, placements_before))
+        if error is None: by_name.update(zip([x['name'] for x in change.specs], change.placements))
+        names = manager.names()
+        placements = [dict(by_name.get(n, DEFAULT_PLACEMENT)) for n in names]
+        focus = None
+        if error is None and change.focus is not None: focus = names.index(change.specs[change.focus]['name'])
+        was_open = s.menu_open
+        s.set_desktops(names, placements, manager.wide(), focus)
+        s.desktops_busy = False
+        resized = {n for n in change.resized if n in names}  # a slide along the row keeps its capture
+        out = self._desktops_frame(names, sorted(resized)) + self._frame() + self._placement_frame() + self._menu_frame()
+        if was_open != s.menu_open: self._sync_menu_binds()
+        if self.supervisor is not None: self.supervisor.replace_guard(manager.guard())
+        manager.save(s.placements)
+        self._desktops_changed()
+        if error is not None: self._tell(error)
+        return out
+
+    def _tell(self, text):
+        if self.notify is None: return
+        def work():
+            try: self.notify(text)
+            except (OSError, ValueError, TypeError): pass
+        t = threading.Thread(target=work, daemon=True); t.start(); self._threads.append(t)
+
     def focus_desktop(self, desktop):
         """A circle-cursor (free pointer) click on `desktop` in the overview: select it and zoom into it, leaving the
         overview, exactly as Ctrl+Alt+Up does on the selected desktop (an open panel collapses first, saved; its output
@@ -708,6 +881,13 @@ class ViewControl:
         now = self.clock() if now is None else now
         out = self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
         if self.save_due is not None and now >= self.save_due: self.flush()
+        if self.desktops is not None:  # a desktop change done; Remove disarms after a while
+            from .desktops import REMOVE_ARM_S
+            result = self.desktops.take_result()
+            if result is not None: out += self._desktops_done(*result)
+            if self.state.remove_armed and (self.remove_armed_at is None or now - self.remove_armed_at >= REMOVE_ARM_S):
+                self.state.remove_armed = False
+                out += self._menu_frame()
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
@@ -767,12 +947,7 @@ class ViewControl:
 
     def _save_placements(self):
         if self.placements is None: return
-        from .geometry import DEFAULT_PLACEMENT
-        try:  # a profile always holds three; keep any desktops beyond this run's outputs unchanged
-            saved = list(self.placements.load())
-            full = self.state.placements + saved[len(self.state.placements):]
-            full += [dict(DEFAULT_PLACEMENT)] * (3 - len(full))
-            self.placements.save(full[:3])
+        try: self.placements.save([dict(p) for p in self.state.placements])  # one per desktop (profiles.PlacementStore)
         except (OSError, ValueError): pass
 
     def on_message(self, message):

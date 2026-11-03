@@ -100,7 +100,8 @@ class BindTests(unittest.TestCase):
 
     def test_focus_command_allowlisted(self):
         self.assertEqual(view.focus_command('XR-2'), 'dispatch hl.dsp.focus({monitor="XR-2"})')
-        for bad in ('DP-1', 'XR-4', 'XR-1"})', ''):
+        self.assertEqual(view.focus_command('XR-4'), 'dispatch hl.dsp.focus({monitor="XR-4"})')  # a desktop added in XR
+        for bad in ('DP-1', 'XR-5', 'XR-1"})', ''):
             with self.assertRaises(ValueError): view.focus_command(bad)
 
 
@@ -427,7 +428,7 @@ class StatusReplyTests(unittest.TestCase):
     def test_status_op_reply_shape(self):
         c = view.ViewControl(view.ViewState(['XR-1']), 'run', 'session', None, None, None)
         self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=list(view.USER_OPS), view=c.state.view(), status={'missed':2},
-                                                            placements=[dict(DEFAULT_PLACEMENT)]))
+                                                            placements=[dict(DEFAULT_PLACEMENT)], names=['XR-1']))
         self.assertNotIn('placement', c.status_reply({})['capabilities'])  # the panel renders capabilities as buttons
         self.assertIsNone(c.on_message({'op':'status'}))
 

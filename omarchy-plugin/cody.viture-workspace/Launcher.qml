@@ -15,7 +15,7 @@ ColumnLayout {
     spacing: 12
     Label { text: "Not running · " + (root.snapshot.model || "VITURE") + " · " + (root.snapshot.output || "no presentation output"); font.bold:true }
     Button { text:"Start XR session"; highlighted:true; enabled:!root.busy; onClicked:root.request({op:"begin_start"}) }
-    Label { text: (root.settings.desktops || []).length + " desktops · " + root.settings.mode + " · spacing " + root.settings.spacing + " · tracking " + (root.settings.tracking ? "on" : "off"); Layout.fillWidth:true; wrapMode:Text.WordWrap }
+    Label { text: (root.settings.desktops || []).length + " desktops · head tracking " + (root.settings.tracking ? "on" : "off"); Layout.fillWidth:true; wrapMode:Text.WordWrap }
     RowLayout {
         visible: root.snapshot.fallback === "choose" || (root.snapshot.fallback_candidates || []).length > 1
         Label { text:"Return windows to" }
@@ -39,31 +39,23 @@ ColumnLayout {
             }
         }
     }
-    Label { text:"Click a desktop to edit its startup resolution, scale and placement."; opacity:0.65 }
+    Label { text:"Click a desktop to edit its startup resolution and scale."; opacity:0.65 }
+    // Everything else about the desktops is done in the glasses (README "Placing desktops"): open a desktop's glass pill
+    // (Ctrl+Alt+L) for its placement, Ultrawide, Add new and Remove; Ctrl+Alt+V, [ / ], F and P set the view.
+    Label { text:"Placement, ultrawide, adding or removing desktops, view mode, spacing, cursor follow and pose prediction are set in the glasses: open a desktop's glass pill (Ctrl+Alt+L), or press Ctrl+Alt+H for the keys."; opacity:0.65; Layout.fillWidth:true; wrapMode:Text.WordWrap }
     Loader {
         Layout.fillWidth:true; active:root.selected>=0 && !!root.settings.desktops
         sourceComponent: DesktopEditor {
             desktop:root.settings.desktops[root.selected]; index:root.selected; busy:root.busy
-            placement:(root.settings.placements || [])[root.selected] || Model.defaultPlacement()
             onSave: function(desktop) { const ds=root.settings.desktops.slice(); ds[root.selected]=desktop; root.request({op:"set_settings",settings:{desktops:ds}}) }
-            onSavePlacement: function(placement) { root.request({op:"set_settings",settings:{placements:Model.withPlacement(root.settings.placements,root.selected,placement)}}) }
         }
     }
     Label { visible:Model.largeLayoutWarning(root.settings.desktops || []); text:"Large desktops: 120 Hz with this layout has not been measured."; color:"#e7c78a"; Layout.fillWidth:true; wrapMode:Text.WordWrap }
-    Label { text:"Startup view"; font.bold:true }
-    RowLayout {
-        Repeater {
-            model:["anchor","follow","locked"]
-            delegate: Button { required property string modelData; text:modelData; highlighted:root.settings.mode===modelData; enabled:!root.busy; onClicked:root.request({op:"set_settings",settings:{mode:modelData}}) }
-        }
-        Label { text:"Spacing" }
-        SpinBox { from:0; to:400; stepSize:20; value:root.settings.spacing || 0; enabled:!root.busy; onValueModified:root.request({op:"set_settings",settings:{spacing:value}}) }
-    }
+    Label { text:"Before starting"; font.bold:true }
     Flow {
         Layout.fillWidth:true
         Layout.preferredHeight:childrenRect.height
         spacing:8
-        CheckBox { text:"Pose prediction"; checked:!!root.settings.prediction; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{prediction:checked}}) }
         CheckBox { text:"Head tracking"; checked:!!root.settings.tracking; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{tracking:checked}}) }
         CheckBox { visible:root.snapshot.model==="luma-ultra"; text:"120 Hz mode switch"; checked:!!root.settings.mode_switch; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{mode_switch:checked}}) }
     }

@@ -40,6 +40,9 @@ class Controller:
             view=self.live.get('view',{}) if self.state=='running' else {},
             status=self.live.get('status',{}) if self.state=='running' else {},
             placements=self.live.get('placements') if self.state=='running' else None,
+            # The running session's desktops (a glass pill's Ultrawide / Add / Remove change them live): sizes and XR-n names.
+            desktops=self.live.get('desktops') if self.state=='running' else None,
+            names=self.live.get('names') if self.state=='running' else None,
             video=self.live.get('video') if self.state=='running' else None))
 
     def _state(self, state):
@@ -56,7 +59,7 @@ class Controller:
         self.last_status=now
         try: reply=self.units.control(journal['run_id'],journal['session'],'status')
         except (OSError,ValueError): reply=None
-        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements','video') if k in reply} if isinstance(reply,dict) else {}
+        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements','video','desktops','names') if k in reply} if isinstance(reply,dict) else {}
 
     def tick(self):
         try: self._tick()

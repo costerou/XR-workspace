@@ -47,7 +47,7 @@ NAMES = ['XR-1', 'XR-2', 'XR-3']
 TILTED = {'x': -20, 'y': 10, 'distance': 120, 'curvature': 40}
 MENU_FIELDS = ('x', 'y', 'distance', 'curvature')  # contract order = menu order
 MENU_ACTIONS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
-                'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset')
+                'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_ultrawide', 'menu_add', 'menu_delete')
 MENU_PAYLOAD_KEYS = {'open', 'desktop', 'field', 'placements'}
 MENU_TOGGLE_CHORD, MENU_TOGGLE_LABEL = 'CTRL + ALT + L', 'Ctrl+Alt+L'  # contract; Ctrl+Alt+P is pose prediction
 # Baselines at f593574: the menu must not widen any of these.
@@ -81,18 +81,30 @@ RENDERER = 'placement_menu' in (ROOT / 'spike/src/ipc.cpp').read_text()
 NEEDS_WIRING = unittest.skipUnless(WIRING, 'needs MENU-WIRING: the control socket does not accept menu_* hotkey ops yet')
 
 
+MENU_ROW_KEYS = {'names', 'wide', 'armed', 'busy'}  # the open panel's desktop row (desktops.py), all optional
+
+
 def check_menu_payload(p):
     """Reference validator for the 'placement_menu' payload, straight from the shared contract. Since the glass pills an
-    open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders)."""
-    if not isinstance(p, dict) or set(p) - {'surface'} != MENU_PAYLOAD_KEYS:
-        raise ValueError('payload must have exactly open, desktop, field, placements (and an optional surface)')
+    open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders).
+    Since desktops can be added and removed in XR: one placement per desktop (1..MAX_DESKTOPS), and the desktop row:
+    'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'."""
+    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS:
+        raise ValueError('payload must have exactly open, desktop, field, placements (and the optional surface and row keys)')
     if type(p['open']) is not bool: raise ValueError('open must be a bool')
-    if type(p['desktop']) is not int or not 0 <= p['desktop'] <= 2: raise ValueError('desktop must be an integer 0..2')
+    g.validate_placements(p['placements'])
+    n = len(p['placements'])
+    if type(p['desktop']) is not int or not 0 <= p['desktop'] < n: raise ValueError('desktop must index the placements')
     if not isinstance(p['field'], str) or p['field'] not in MENU_FIELDS: raise ValueError('unknown field')
-    g.validate_placements(p['placements'], 3)
     if 'surface' in p:
         if p['open'] is not True: raise ValueError('surface only with an open panel')
         g.validate_placement(p['surface'])
+    if 'names' in p:
+        names = p['names']
+        if (not isinstance(names, list) or len(names) != n or any(type(x) is not int or not 1 <= x <= g.MAX_DESKTOPS for x in names)
+                or names != sorted(set(names))): raise ValueError('names must be increasing XR numbers, one per desktop')
+    for key in ('wide', 'armed', 'busy'):
+        if key in p and type(p[key]) is not bool: raise ValueError(f'{key} must be a bool')
     return p
 
 
@@ -106,11 +118,11 @@ def frames_of(raw):
 
 
 class MemoryStore:
-    """PlacementStore stand-in: load() -> 3 placements, save(list of 3)."""
+    """PlacementStore stand-in: load() -> one placement per desktop, save(one per desktop)."""
     def __init__(self, value=None): self.value, self.saved = copy.deepcopy(value) if value else [dict(g.DEFAULT_PLACEMENT) for _ in range(3)], []
     def load(self): return copy.deepcopy(self.value)
     def save(self, value):
-        g.validate_placements(value, 3)  # same contract as PlacementStore.save
+        g.validate_placements(value)  # same contract as PlacementStore.save
         self.value = copy.deepcopy(value); self.saved.append(copy.deepcopy(value))
 
 
@@ -207,7 +219,8 @@ class MenuSchemaTests(unittest.TestCase):
     def test_fixture_covers_every_field_and_bound(self):
         valid = self.cases['valid']
         self.assertEqual({p['field'] for p in valid}, set(MENU_FIELDS))
-        self.assertEqual({p['desktop'] for p in valid}, {0, 1, 2})
+        self.assertEqual({p['desktop'] for p in valid}, set(range(g.MAX_DESKTOPS)))
+        self.assertEqual({len(p['placements']) for p in valid}, set(range(1, g.MAX_DESKTOPS + 1)))  # 1..4 desktops
         self.assertEqual({p['open'] for p in valid}, {True, False})
         flat = [pl for p in valid for pl in p['placements']]
         for key, (lo, hi) in g.PLACEMENT_BOUNDS.items():
@@ -459,17 +472,18 @@ class MenuLiveApplyTests(unittest.TestCase):
         m = Menu(self); m.goto(desktop=0, field='distance'); m.send('menu_inc_big')
         self.assertEqual(m.c.status_reply({})['placements'], m.c.state.placements)
 
-    def test_fewer_outputs_still_three_in_menu_and_only_live_ones_in_frames(self):
+    def test_fewer_outputs_one_placement_each_in_menu_and_frames(self):
         store = MemoryStore([g.DEFAULT_PLACEMENT, g.DEFAULT_PLACEMENT, TILTED])
         m = Menu(self, names=['XR-1'], store=store)
         menu = m.open()
-        self.assertEqual(len(menu['placements']), 3)
+        self.assertEqual(len(menu['placements']), 1)  # one per desktop of the run (desktops come and go in XR)
+        self.assertEqual(menu['names'], [1])
         m.goto(desktop=0, field='x')
         frames = m.send('menu_inc')
         self.assertEqual([len(d) for d in m.placement_frames(frames)], [1])  # renderer frame matches the run's outputs
         m.send('menu_toggle')
-        self.assertTrue(m.wait_saved([m.c.state.placements[0], g.DEFAULT_PLACEMENT, TILTED]),
-                        f'saved {store.value}: the profile tail beyond this run must be kept')
+        # The run saves its own desktops' placements; the profile store keeps any saved tail (test_placement).
+        self.assertTrue(m.wait_saved([m.c.state.placements[0]]), f'saved {store.value}')
 
 
 @NEEDS_WIRING

@@ -397,6 +397,28 @@ void GlCompositor::release_held(std::size_t source) { if (source < impl_->import
 
 bool GlCompositor::holding(std::size_t source) const { return source < impl_->imported.size() && impl_->imported[source].held_tex; }
 
+void GlCompositor::insert_source(std::size_t at) {
+    auto& s = *impl_;
+    at = std::min(at, s.textures.size());
+    Impl::Texture t;
+    glGenTextures(1, &t.id); glBindTexture(GL_TEXTURE_2D, t.id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    s.textures.insert(s.textures.begin() + std::ptrdiff_t(at), t);
+    s.imported.insert(s.imported.begin() + std::ptrdiff_t(std::min(at, s.imported.size())), Impl::Imported{});
+}
+
+void GlCompositor::remove_source(std::size_t at) {
+    auto& s = *impl_;
+    if (at < s.imported.size()) { s.drop(s.imported[at]); s.drop_held(s.imported[at]); s.imported.erase(s.imported.begin() + std::ptrdiff_t(at)); }
+    if (at < s.textures.size()) {
+        if (s.textures[at].id) glDeleteTextures(1, &s.textures[at].id);
+        s.textures.erase(s.textures.begin() + std::ptrdiff_t(at));
+    }
+}
+
+std::size_t GlCompositor::sources() const { return impl_->textures.size(); }
+
 void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->accent[0] = r / 255.f; impl_->accent[1] = g / 255.f; impl_->accent[2] = b / 255.f;
 }

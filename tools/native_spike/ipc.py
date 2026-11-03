@@ -53,18 +53,19 @@ def decode_control(raw):
                   "spacing_up", "spacing_down", "recenter", "mode_next", "prediction", "help",
                   "placement", "menu_toggle", "menu_desktop_next", "menu_desktop_prev", "menu_field_next", "menu_field_prev",
                   "menu_inc", "menu_dec", "menu_inc_big", "menu_dec_big", "menu_reset", "menu_back",
+                  "menu_ultrawide", "menu_add", "menu_delete",
                   "resize_press", "resize_release", "send_glasses", "send_glasses_1",
-                  "send_glasses_2", "send_glasses_3", "send_back", "typing_toggle", "help_prev",
+                  "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
                   "help_next"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")
         token(payload["output_id"])
     elif op == "placement":
-        # Absolute per-desktop placements (1..3, one per managed output in order); presentation only.
-        from .geometry import validate_placement
+        # Absolute per-desktop placements (1..MAX_DESKTOPS, one per managed output in order); presentation only.
+        from .geometry import MAX_DESKTOPS, validate_placement
         desktops = payload.get("desktops")
-        if set(payload) != {"desktops"} or not isinstance(desktops, list) or not 1 <= len(desktops) <= 3:
+        if set(payload) != {"desktops"} or not isinstance(desktops, list) or not 1 <= len(desktops) <= MAX_DESKTOPS:
             raise ValueError("invalid placement")
         payload["desktops"] = [validate_placement(d) for d in desktops]
     elif payload: raise ValueError("unexpected payload")

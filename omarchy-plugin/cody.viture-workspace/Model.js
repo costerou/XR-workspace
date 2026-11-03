@@ -1,5 +1,9 @@
 .pragma library
 
+// Most desktops a session can have: a glass pill's Add button stops there (tools/native_spike/geometry.py MAX_DESKTOPS;
+// tests/native_spike/test_desktops.py compares them).
+const MAX_DESKTOPS = 4;
+
 function validScales(w, h) {
     if (typeof w !== "number" || typeof h !== "number"
             || !Number.isInteger(w) || !Number.isInteger(h) || w <= 0 || h <= 0)
@@ -76,13 +80,15 @@ function scopeLines(scope, action) {
     function required(text) { lines.push({text:text, optional:false, key:""}); }
     if (action === "recover") {
         required("Move windows back to " + scope.recovery_output + ".");
-        required("Remove this run's XR outputs: " + (scope.desktops || []).map((d,i) => "XR-" + (i+1)).join(", ") + ".");
+        // Desktops may have been added or removed in the glasses: the journal, not the start scope, lists the outputs.
+        required("Remove this run's XR outputs (XR-1 to XR-" + MAX_DESKTOPS + ", whichever it still has).");
         required("Unload this run's ownership plugin.");
         return lines;
     }
     required("Show on " + scope.model + " (" + scope.output + "). Windows return to " + scope.recovery_output + " on stop or failure.");
     required("Create XR desktops and capture only those, in memory.");
     (scope.desktops || []).forEach((d,i) => required("XR-" + (i+1) + ": " + d.width + " × " + d.height + " · " + d.scale*100 + "%"));
+    required("In the glasses, a desktop's glass pill can make it ultrawide, add one (up to " + MAX_DESKTOPS + ") or remove it; its windows then return to " + scope.recovery_output + ".");
     required("Load the pinned ownership plugin for this session.");
     lines.push({text:scope.tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).", optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
     if (scope.mode_switch) {
@@ -98,7 +104,7 @@ function scopeLines(scope, action) {
 // serializes replies, stops on refusal/disconnect, and never changes view locally.
 function selectOperations(selected, target, capabilities) {
     if (!Number.isInteger(selected) || !Number.isInteger(target)
-            || selected < 0 || selected > 2 || target < 0 || target > 2) return [];
+            || selected < 0 || selected >= MAX_DESKTOPS || target < 0 || target >= MAX_DESKTOPS) return [];
     const operation = target > selected ? "next" : "prev";
     if (capabilities.indexOf(operation) < 0) return [];
     return Array(Math.abs(target-selected)).fill(operation);
@@ -149,13 +155,21 @@ function isFlat(p) {
     return !!p && PLACEMENT_KEYS.every(function(k) { return p[k] === d[k]; });
 }
 
-// Three placements for the profile with entry `index` replaced; missing/invalid entries become flat.
-function withPlacement(placements, index, placement) {
-    const out = [0, 1, 2].map(function(i) {
-        return placementEdit((placements || [])[i]) || defaultPlacement();
-    });
-    if (Number.isInteger(index) && index >= 0 && index < 3 && placementEdit(placement)) out[index] = placementEdit(placement);
+// One placement per desktop (`count`, default: as many as given, else 3) with entry `index` replaced; missing/invalid
+// entries become flat.
+function withPlacement(placements, index, placement, count) {
+    const n = Number.isInteger(count) && count >= 1 && count <= MAX_DESKTOPS ? count
+            : Math.min(Math.max((placements || []).length, 3), MAX_DESKTOPS);
+    const out = [];
+    for (let i = 0; i < n; ++i) out.push(placementEdit((placements || [])[i]) || defaultPlacement());
+    if (Number.isInteger(index) && index >= 0 && index < n && placementEdit(placement)) out[index] = placementEdit(placement);
     return out;
+}
+
+// A desktop's tile label: its XR-n name (`names` from a running session, where a removed desktop leaves a gap), else
+// XR-(index+1).
+function desktopName(names, index) {
+    return (names && typeof names[index] === "string") ? names[index] : "XR-" + (index + 1);
 }
 
 function placementSummary(p) {

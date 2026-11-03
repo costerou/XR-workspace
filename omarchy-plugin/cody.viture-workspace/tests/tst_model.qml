@@ -107,6 +107,10 @@ TestCase {
         verify(lines.some(l => l.text.indexOf("3840 × 1080 · 125%") >= 0));
         verify(lines.some(l => l.text.indexOf("DP-1") >= 0));
         verify(Model.scopeLines(scope, "recover").every(l => !l.optional));
+        // The pills can change the desktops during the session: the start scope says so, the recover scope does not
+        // list the start's desktops (the run may have others by then).
+        verify(lines.some(l => !l.optional && l.text.indexOf("ultrawide") >= 0 && l.text.indexOf("up to " + Model.MAX_DESKTOPS) >= 0));
+        verify(Model.scopeLines(scope, "recover").some(l => l.text.indexOf("XR-" + Model.MAX_DESKTOPS) >= 0));
         compare(Model.scopeLines(Object.assign({}, scope, {model:"beast", mode_switch:false}), "start").filter(l => l.key === "mode_switch").length, 0);
     }
     function test_desktopEdit() {
@@ -116,6 +120,8 @@ TestCase {
         compare(Model.desktopEdit(3440,1440,1.25), {width:3440,height:1440,scale:1.25});
     }
     function test_selectOperations() {
+        compare(Model.selectOperations(0,3,["next","prev"]), ["next","next","next"]);  // a fourth desktop added in XR
+        compare(Model.selectOperations(0,Model.MAX_DESKTOPS,["next"]), []);
         compare(Model.selectOperations(0,2,["next","prev"]), ["next","next"]);
         compare(Model.selectOperations(2,0,["next","prev"]), ["prev","prev"]);
         compare(Model.selectOperations(undefined,2,["next"]), []);
@@ -184,6 +190,16 @@ TestCase {
         compare(Model.placementValueText("z", 5), "");
         compare(Model.placementValueText("toString", 5), "");
         compare(Model.placementValueText(undefined, 5), "");
+    }
+    function test_withPlacementKeepsTheDesktopCount() {
+        const tilt = {x:10, y:0, distance:100, curvature:30}, flat = Model.defaultPlacement();
+        compare(Model.withPlacement([flat, flat], 1, tilt, 2), [flat, tilt]);              // two desktops left in XR
+        compare(Model.withPlacement([flat, flat, flat, flat], 3, tilt, 4), [flat, flat, flat, tilt]);
+        compare(Model.withPlacement([flat, flat, flat, flat], 3, tilt), [flat, flat, flat, tilt]);
+        compare(Model.withPlacement([flat], 3, tilt, 1), [flat]);                            // index past the desktops
+        compare(Model.desktopName(["XR-1", "XR-3"], 1), "XR-3");
+        compare(Model.desktopName([], 1), "XR-2");
+        compare(Model.desktopName(undefined, 0), "XR-1");
     }
     function test_withPlacement() {
         const tilt = {x:10, y:0, distance:100, curvature:30};
@@ -326,12 +342,14 @@ TestCase {
         verify(!findChild(editor,"placementReset").enabled);
         placementSpy.target=null;
     }
-    function test_desktopEditorPlacement() {
-        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:1920,height:1080,scale:1},
-            placement:{x:0, y:0, distance:150, curvature:20}});
+    function test_desktopEditorIsStartupResolutionOnly() {
+        // Placement (and ultrawide, adding and removing desktops) is done in the glasses now: the pre-start editor keeps
+        // only what cannot change once a session runs, the resolution and scale.
+        const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:1920,height:1080,scale:1}});
         verify(waitForRendering(editor));
-        compare(findChild(editor,"placement_distance").value,150);
-        compare(findChild(editor,"placement_curvature").value,20);
+        for (const key of ["x","y","distance","curvature"]) compare(findChild(editor,"placement_" + key), null);
+        verify(findChild(editor,"scale1.25") !== null);
+        verify(!("placement" in editor) && !("savePlacement" in editor));
     }
     function test_placementLabels() {
         compare(Model.placementLabel("x"), "Left / right");

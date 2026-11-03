@@ -106,7 +106,7 @@ class GeometryTests(unittest.TestCase):
     def test_the_mirror_holds_the_renderers_numbers(self):
         # glass.hpp; the ctest glass_contract compares them with the renderer's own dump.
         self.assertEqual((fp.PILL_SHARE, fp.PILL_MIN, fp.PILL_MAX, fp.PILL_THICKNESS, fp.PILL_GAP), (0.24, 64.0, 160.0, 14.0, 10.0))
-        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 220.0, 42.0))  # four setting rows
+        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 258.0, 42.0))  # four setting rows, the desktop row
         self.assertEqual((fp.PANEL_ROWS_TOP, fp.PANEL_ROW_H, fp.PANEL_KNOB_LO, fp.PANEL_KNOB_HI), (46.0, 34.0, 191.0, 367.0))
         self.assertEqual((fp.PILL_PAD_X, fp.PILL_PAD_Y, fp.PANEL_SLOP_PX, fp.CLICK_PX), (10.0, 10.0, 12.0, 4.0))
         # Seven rows and the footer fit the panel (glass.hpp kPanelFooterTop + kPanelHintPx + 6 <= kPanelH).
@@ -130,7 +130,7 @@ class GeometryTests(unittest.TestCase):
         for tile in G['tiles'] + [(0.0, 100.0, 60.0, 40.0)]:
             with self.subTest(tile=tile):
                 x, y, w, h = fp.panel_rect(tile)
-                self.assertEqual((w, h), (480.0, 220.0))
+                self.assertEqual((w, h), (480.0, 258.0))
                 self.assertAlmostEqual(x + w / 2, tile[0] + tile[2] / 2)
                 self.assertEqual(y, fp.pill_rect(tile)[1])
 
@@ -1150,7 +1150,8 @@ class WireTests(unittest.TestCase):
         s.open_menu(2)
         frame = json.loads(view.placement_menu_frame('run', 's', 4, s.menu()))
         self.assertEqual(frame['op'], 'placement_menu')
-        self.assertEqual(set(frame['payload']), {'open', 'desktop', 'field', 'placements'})  # unchanged shape, no pointer
+        # No pointer; since desktops change in XR, also the panel's desktop row (desktops.py).
+        self.assertEqual(set(frame['payload']), {'open', 'desktop', 'field', 'placements', 'names', 'wide', 'armed', 'busy'})
         self.assertEqual((frame['payload']['open'], frame['payload']['desktop']), (True, 2))
 
     def test_move_handle_drives_the_pills(self):
