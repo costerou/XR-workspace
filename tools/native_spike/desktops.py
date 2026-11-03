@@ -32,6 +32,13 @@ its new desktop set (`desktops` frame: spike/include/xr/ipc.hpp DesktopsPayload;
 before its output goes), and once the worker is done restarts the guard on the outputs as they now are. The profile
 takes the new desktops and placements, so the next session starts with them.
 
+Ctrl+Alt+R (view.RESET_OP) is one more plan, RESET: every desktop back to the default three, 1920x1080 at 100% and flat
+(profiles.default_setup). The three lowest-numbered desktops stay and are reshaped, and missing ones are added with the
+lowest free numbers; one plan, the same broker steps in the same safe order. A fourth desktop goes, and its windows go to
+the last desktop that stays (normally XR-3), not to the fallback as Remove's do: just before the removal the worker calls
+`move_windows` (adopt.adopt: whole workspaces, each still its own workspace there, Omarchy's block renumbering included).
+Anything that could not move is still evacuated to the fallback by the removal itself, the safety net of every removal.
+
 Nothing here widens what the session may do: the outputs are the run's own managed outputs (the consent's capture
 scope), created and removed only through the broker, and the windows a removal moves go where Stop would move them.
 """
@@ -40,11 +47,13 @@ import threading
 import time
 import uuid
 
-from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide, validate_desktop,
-                       with_scale)
+from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide,
+                       validate_desktop, with_scale)
 
 ACTIONS = ('ultrawide', 'add', 'remove')  # the panel's desktop row (its buttons, free_pointer.PANEL_ACTIONS)
 SCALE = 'scale'  # the panel's Scale dropdown: plan(..., SCALE, index, scale=s)
+RESET = 'reset'  # Ctrl+Alt+R: every desktop back to the default (module docstring): plan(..., RESET, 0)
+RESET_COUNT = 3  # profiles.DEFAULT_SETUP_DESKTOPS
 REMOVE_ARM_S = 4.0  # the Remove button's second press must come this soon after the first
 REFRESH_MILLIHZ = 120000
 
@@ -71,6 +80,7 @@ class Plan:
     placements: list = field(default_factory=list)
     focus: int | None = None
     resized: list = field(default_factory=list)  # names whose pixel size changes (their capture restarts)
+    windows_to: str | None = None  # RESET: where the removed desktop's windows go first (DesktopManager.move_windows)
 
     def steps(self):
         out = [('remove', self.remove)] if self.remove is not None else []
@@ -94,8 +104,8 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
     `placements`: one per spec. `held`: names Add must not take besides those of `specs` (DesktopManager.held: a failed
     create's journal record holds its name until recovery). `scale`: the new output scale for SCALE (geometry.with_scale).
     ValueError if the action cannot be done (Add at MAX_DESKTOPS or with no free name, Remove of the last one, a scale
-    that does not divide the desktop exactly)."""
-    if action not in ACTIONS + (SCALE,): raise ValueError('unknown desktop action')
+    that does not divide the desktop exactly). RESET ignores `index` beyond checking it."""
+    if action not in ACTIONS + (SCALE, RESET): raise ValueError('unknown desktop action')
     if not specs or type(index) is not int or not 0 <= index < len(specs): raise ValueError('no such desktop')
     if len(placements) != len(specs): raise ValueError('one placement per desktop required')
     specs = sorted(specs, key=lambda s: number(s['name']))
@@ -104,11 +114,23 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
     placed = {s['name']: dict(p) for s, p in zip(specs, placements)}
     desktops = {s['name']: desktop_of(s) for s in specs}
     target = specs[index]['name']
-    removed = None
+    removed = windows_to = None
     if action == 'ultrawide':
         desktops[target] = toggle_ultrawide(desktops[target])
     elif action == SCALE:
         desktops[target] = with_scale(desktops[target], scale)
+    elif action == RESET:
+        names = sorted(desktops, key=number)
+        extra = names[RESET_COUNT:]
+        if len(extra) > 1: raise ValueError(f'a reset removes one desktop at most ({len(extra)} over {RESET_COUNT})')
+        if extra:
+            removed, windows_to = by_name[extra[0]], names[RESET_COUNT - 1]
+            del desktops[extra[0]], placed[extra[0]]
+        while len(desktops) < RESET_COUNT:
+            free = next((n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops and f'XR-{n}' not in held), None)
+            if free is None: raise ValueError('no free desktop name until the session restarts')
+            desktops[f'XR-{free}'] = None
+        for name in desktops: desktops[name], placed[name] = dict(DEFAULT_DESKTOP), dict(DEFAULT_PLACEMENT)
     elif action == 'add':
         if len(specs) >= MAX_DESKTOPS: raise ValueError(f'at most {MAX_DESKTOPS} desktops')
         free = next((n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops and f'XR-{n}' not in held), None)
@@ -139,8 +161,9 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
     first = sorted([(o, n) for o, n in moves if n['x'] <= o['x'] and right(n) <= right(o)], key=lambda m: m[1]['x'])
     rest = sorted([(o, n) for o, n in moves if (o, n) not in first], key=lambda m: -m[1]['x'])
     names = [s['name'] for s in after]
-    focus = names.index(target) if action != 'remove' else None
-    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized)
+    focus = names.index(target) if action not in ('remove', RESET) else None
+    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized,
+                windows_to)
 
 
 class DesktopManager:
@@ -148,9 +171,12 @@ class DesktopManager:
 
     `broker`: ownership.OwnershipBrokerClient of the run; `journal`: its journal; `specs`: the outputs the run created
     (managed.plan_outputs). `guard_factory(specs)`: the run's guard for a set of outputs (managed.ManagedGuard).
-    `store`: optional profiles.PlacementStore (save_desktops). `threads=False` runs the steps inline (tests)."""
+    `store`: optional profiles.PlacementStore (save_desktops). `move_windows(source, target)`: optional, moves one output's
+    windows to another before a RESET removal (managed.view_controls; off the supervisor loop, on the worker). `threads=False`
+    runs the steps inline (tests)."""
     def __init__(self, broker, journal, specs, *, guard_factory=None, store=None, threads=True):
         self.broker, self.journal, self.guard_factory, self.store, self.threads = broker, journal, guard_factory, store, threads
+        self.move_windows = None
         self.specs = sorted((dict(s) for s in specs), key=lambda s: number(s['name']))
         if not self.specs: raise ValueError('a run has at least one desktop')
         self.origin = (self.specs[0]['x'], self.specs[0]['y'])
@@ -201,6 +227,8 @@ class DesktopManager:
             for kind, spec in change.steps():
                 if self._stop: raise ValueError('the session is ending')
                 if kind == 'remove':
+                    if change.windows_to is not None and self.move_windows is not None:
+                        self.move_windows(spec['name'], change.windows_to)  # best effort: the removal evacuates what stays
                     if not self.broker.remove_live(spec['id'], spec['name'], self.journal):
                         raise ValueError(f"{spec['name']} could not be removed (a pinned window, or a window that would "
                                          f"not move); it stays")
@@ -229,10 +257,13 @@ class DesktopManager:
         else: self.failures += 1
         return result
 
-    def save(self, placements):
-        """The profile takes the run's desktops now and their placements (best effort)."""
+    def save(self, placements, rolls=None):
+        """The profile takes the run's desktops now, their placements and (if known) their levelling rolls (best
+        effort)."""
         if self.store is None or len(placements) != len(self.specs): return
-        try: self.store.save_desktops(self.desktops(), [dict(p) for p in placements])
+        if rolls is not None and len(rolls) != len(self.specs): rolls = None
+        args = (self.desktops(), [dict(p) for p in placements]) + (() if rolls is None else (list(rolls),))
+        try: self.store.save_desktops(*args)
         except (OSError, ValueError, AttributeError): pass
 
     def close(self, timeout=None):

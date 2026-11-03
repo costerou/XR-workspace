@@ -60,7 +60,7 @@ class ViewStateTests(unittest.TestCase):
         from tools.native_spike import resize
         from tools.native_spike import send
         # Bind helper and supervisor agree; the helper also keeps the old menu mouse mode's op names, for cleanup only.
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS + view.SUPER_OPS + send.SEND_OPS
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + (view.RESET_OP,) + resize.RESIZE_OPS + view.SUPER_OPS + send.SEND_OPS
                          + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP,
                                                                            view.BINDS_PANEL_OP)
                          + xr_control.LEGACY_OPS)
@@ -77,7 +77,7 @@ class BindTests(unittest.TestCase):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
         self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste', view.TYPING_OP, view.PRIVACY_OP,
-                                               view.PLAYBACK_MENU_OP, view.BINDS_PANEL_OP} | set(view.HELP_PAGE_OPS),
+                                               view.RESET_OP, view.PLAYBACK_MENU_OP, view.BINDS_PANEL_OP} | set(view.HELP_PAGE_OPS),
                          set(view.HELP_ACTIONS))  # video.py, web_video.py, keybinds.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')

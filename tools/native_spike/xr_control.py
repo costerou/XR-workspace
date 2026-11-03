@@ -30,7 +30,8 @@ LEGACY_OPS = ('menu_mouse', 'menu_mouse_press', 'menu_mouse_release')
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'menu_ultrawide', 'menu_add',
-       'menu_delete', 'resize_press', 'resize_release', 'super_left_press', 'super_right_press', 'super_release',
+       'menu_delete', 'layout_reset', 'resize_press', 'resize_release',  # layout_reset: view.RESET_OP after MENU_OPS
+       'super_left_press', 'super_right_press', 'super_release',
        'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back', 'typing_toggle',
        'help_prev', 'help_next', 'privacy_display', 'playback_menu_toggle', 'binds_toggle'
        ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + view.SUPER_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS

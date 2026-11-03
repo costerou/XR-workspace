@@ -138,8 +138,10 @@ struct RollPayload {
 // distinct XR-1..XR-kMaxDesktops names (never the presentation output; parse_capture_list rules), in any order: a name
 // not captured yet starts a capture once Hyprland advertises that output, a captured name left out stops its capture
 // (before the supervisor removes the output, so its going is expected). `renew` (optional, names from `outputs`): restart
-// those captures (the supervisor reshaped the output). Malformed: rejected like any malformed frame (the renderer stops).
-struct DesktopsPayload { std::vector<std::string> outputs, renew; };
+// those captures (the supervisor reshaped the output). `ease` (optional bool; Ctrl+Alt+R): the tiles ease to the layout
+// this change leads to, instead of jumping (view.hpp TileEase). Malformed: rejected like any malformed frame (the renderer
+// stops).
+struct DesktopsPayload { std::vector<std::string> outputs, renew; bool ease = false; };
 // The key bind panel (tools/native_spike/keybinds.py), display only: binds_panel.hpp BindPanelState, whose comment has the
 // wire form. Malformed: rejected with kInvalidBindsCode and dropped, like placement_menu (a redraw is not worth a session).
 constexpr const char* kInvalidBindsCode = "invalid_binds";

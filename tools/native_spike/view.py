@@ -67,6 +67,21 @@ click opens its list, a click on a step picks it: ViewControl.scale_box / scale_
 scale through the same path (desktops.SCALE). The run then has 1..geometry.MAX_DESKTOPS desktops,
 any of XR-1..XR-4 (a removed one leaves a gap in the numbers until Add fills it).
 
+Remembered setup and Ctrl+Alt+R (remember-layout-reset-bind, 2026-11-03). Every XR start restores the last session's
+monitor setup: the desktops (count, resolution, scale), each one's placement and its levelling roll (profiles.py
+load_setup; three flat desktops when nothing is saved or the save is unusable). The run saves it on every change and at
+its end (ViewControl.save_setup). Ctrl+Alt+R (RESET_OP, a run bind in BINDS like the others) resets every desktop live to
+the default three flat 1920x1080 desktops at 100%, with the default spacing. It asks first: the first press only shows a
+toast, and a second one within RESET_ARM_S resets (otherwise nothing happens). Then an open panel collapses, a maximized
+desktop goes back to the overview, the saved setup is replaced by the default at once, keeping the layout it replaces as
+a one-step backup (profiles.PlacementStore.reset), and every desktop eases flat and level over RESET_ANIM_S while a fourth
+one drops away out of the view (RESET_LEAVING_PLACEMENT). One desktops.RESET plan then reshapes, removes or adds desktops
+through the same path as the pill's buttons (the removed desktop's windows go to the last one that stays), its `desktops`
+frames carrying `ease`, so the renderer takes the tiles to their new layout along the same curve (view.hpp TileEase), and
+a toast says it is done. The maximized follow / locked choice is untouched (it is never saved). Ignored while a VR video
+plays or a desktop change is still running (a toast says so); off in typing mode (its bind is released, and a stale one
+does nothing: layout_reset).
+
 Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1..4 to XR-n, Ctrl+Alt+B back to the physical
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
 add no help card row; the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
@@ -114,6 +129,7 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + space', 'recenter'), ('CTRL + ALT + V', 'mode_next'),
          ('CTRL + ALT + P', 'prediction'), ('CTRL + ALT + H', 'help'), ('CTRL + ALT + T', 'typing_toggle'),
          ('CTRL + ALT + L', 'menu_toggle'),
+         ('CTRL + ALT + R', 'layout_reset'),  # every desktop back to three flat ones, the save too (RESET_OP)
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
          ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
          ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
@@ -155,6 +171,20 @@ BINDS_PANEL_OP = 'binds_toggle'
 PLAYBACK_MENU_OP = 'playback_menu_toggle'
 PLAYBACK_MENU_TOASTS = {True: 'VR video menu hidden: it no longer pops up on play or seek. Ctrl+Alt+C shows it again.',
                         False: 'VR video menu shown: it pops up on play and seek. Ctrl+Alt+C hides it.'}
+# Ctrl+Alt+R: reset every desktop to the default three flat ones and replace the saved setup with them (module docstring,
+# ViewControl.layout_reset). R for reset, as the open panel's bare R puts one desktop back flat. The help card shows it on
+# the recenter row (HELP_PAIRS). Ctrl+Alt+R is free in
+# Omarchy (its Ctrl+Alt binds are Delete, Tab and Shift+Tab; Super+Ctrl+R, Super+Ctrl+Alt+R and Super+Shift+Ctrl+R are
+# its reminder keys, other chords) and in this run's binds; bind_check.py checks the real config.
+RESET_OP = 'layout_reset'
+RESET_ARM_S = 3.0   # the reset's second press must come this soon after the first (like desktops.REMOVE_ARM_S)
+RESET_ANIM_S = 0.45  # each stage of the reset eases this long (smootherstep; spike/include/xr/view.hpp kTileEaseMs too)
+RESET_TOASTS = {'confirm': 'Press Ctrl+Alt+R again to reset all monitors',
+                'done': 'All monitors reset to three flat 1920x1080 desktops at 100%.',
+                'moved': " {source}'s windows are now on {target}.",
+                'video': 'Close the VR video first (Esc), then Ctrl+Alt+R resets the desktops.',
+                'busy': 'A desktop change is still running; press Ctrl+Alt+R again in a moment.',
+                'failed': 'Desktop reset stopped: {error}'}
 # Ctrl+Alt+V in the overview (maximize-follow): nothing to change, the overview is always anchored. Says why, once per press.
 MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (select it, then Ctrl+Alt+Up), '
                        'then Ctrl+Alt+V switches it between follow and locked; your choice is kept until XR restarts.')
@@ -162,6 +192,7 @@ MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Ma
 HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: use any desktop; pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
+                RESET_OP: 'Reset to 3 flat desktops (press twice)',
                 'mode_next': 'Maximized: follow / locked', 'prediction': 'Toggle pose prediction',
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'typing_toggle': 'Typing mode: XR keys off / on',
@@ -230,6 +261,8 @@ HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recent
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action); the second may be a
 # tuple of ops, all on the one row ('Ctrl+Alt+O / U / C').
 HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+              # Ctrl+Alt+R shares the recenter row (both put things back) for the same reason as Ctrl+Alt+C below
+              'recenter': (RESET_OP, 'Recenter / reset to 3 flat desktops'),
               # docs/web-video.md; Ctrl+Alt+C shares the row, so the card keeps its row count (help_card_test: roomiest text)
               'video_open': (('video_paste', PLAYBACK_MENU_OP), 'VR video: file / web link / hide controls'),
               'help_prev': ('help_next', 'Help: previous / next page'),
@@ -338,15 +371,16 @@ SAFE_PATH = re.compile(r'/[A-Za-z0-9_./:-]+\Z')
 SAFE_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
 
 
-def desktops_frame(run_id, session, request_id, names, renew=()):
+def desktops_frame(run_id, session, request_id, names, renew=(), ease=False):
     """Renderer `desktops` frame (spike/include/xr/ipc.hpp DesktopsPayload): the managed outputs to capture from now on,
-    and the ones whose capture restarts (reshaped)."""
+    the ones whose capture restarts (reshaped) and, for Ctrl+Alt+R, `ease`: the tiles ease to their new layout."""
     names, renew = list(names), list(renew)
     if (not 1 <= len(names) <= MAX_DESKTOPS or len(set(names)) != len(names) or any(not MANAGED.match(n) for n in names)
             or len(set(renew)) != len(renew) or any(n not in names for n in renew)):
         raise ValueError('invalid desktops')
     payload = {'outputs': sorted(names)}
     if renew: payload['renew'] = sorted(renew)
+    if ease: payload['ease'] = True
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'desktops',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
 
@@ -363,6 +397,32 @@ def placement_frame(run_id, session, request_id, placements, glide=None):
         payload['glide'] = glide
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'placement',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
+
+
+DEFAULT_RESET_PLACEMENT = {'x': 0, 'y': 0, 'distance': 100, 'curvature': 0}  # geometry.DEFAULT_PLACEMENT (a test compares)
+# Where a desktop the reset will remove eases to: down under your feet at half size, out of the view, so it leaves rather
+# than vanishes (geometry.PLACEMENT_BOUNDS' limits).
+RESET_LEAVING_PLACEMENT = {'x': 0, 'y': -900, 'distance': 200, 'curvature': 0}
+
+
+def smootherstep(t):
+    """0..1 -> 0..1, eased in and out (the renderer's view animations use the same curve, spike/src/view.cpp)."""
+    t = min(max(float(t), 0.0), 1.0)
+    return t * t * t * (t * (6 * t - 15) + 10)
+
+
+def eased_to(p, to, e):
+    """Placement `p` a fraction `e` (0..1) of the way to placement `to`, whole units: Ctrl+Alt+R's ease. The turn round
+    you (x) goes the short way, as the renderer's own easing does (a desktop behind you comes round)."""
+    out = {}
+    for key, b in to.items():
+        a = p[key]
+        if key == 'x':
+            turn = (b - a + 1800) % 3600 - 1800  # shortest signed turn, tenths of a degree (orbit._diff)
+            v = int(round(a + turn * e))
+            out[key] = (v + 1800) % 3600 - 1800 if not -1800 <= v <= 1800 else v  # orbit.wrap
+        else: out[key] = int(round(a + (b - a) * e))
+    return out
 
 
 # The Scale dropdown's steps in percent: geometry.SCALES (mirrored by spike/include/xr/glass.hpp kScalePercents and the
@@ -890,6 +950,12 @@ class ViewControl:
         self.notify = None
         self.remove_armed_at = None
         self._desktops_before = None  # names and placements when the change in flight started
+        # Ctrl+Alt+R in progress (layout_reset): {'at', 'names', 'from', 'to' (placements), 'rolls', 'stage': 'ease' |
+        # 'desktops', 'moved': (source, target) of the removed desktop's windows, or None}.
+        self.reset = None
+        self.reset_armed_at = None  # the first Ctrl+Alt+R press: a second one within RESET_ARM_S resets
+        self.resets = 0  # diagnostics
+        self._rolls_seen = None  # (names, rolls) poll last saw: a roll arrow's change is saved like a placement change
         # optional (typing: bool) -> None: swap the run's bind table between the full set and the Ctrl+Alt+T toggle alone
         # (a compositor call, run off the loop under _menu_lock so it is ordered with the panel's own bind changes).
         self.typing_binds = typing_binds
@@ -1129,6 +1195,11 @@ class ViewControl:
         except ValueError as exc:
             self._tell(str(exc))
             return self._menu_frame()
+        return self._start_change(change)
+
+    def _start_change(self, change):
+        """Start the desktops.Plan `change` (a panel button, or Ctrl+Alt+R's RESET): the frames that go before it."""
+        s = self.state
         self.flush()  # a pending panel change is saved first
         self._desktops_before = (list(s.names), [dict(p) for p in s.placements], list(s.wide))
         out = b''
@@ -1149,7 +1220,7 @@ class ViewControl:
         return out + self._menu_frame()
 
     def _desktops_frame(self, names, renew=()):
-        frame = desktops_frame(self.run_id, self.session, self.next_id, names, renew)
+        frame = desktops_frame(self.run_id, self.session, self.next_id, names, renew, ease=self.reset is not None)
         self.next_id += 1
         return frame
 
@@ -1181,10 +1252,152 @@ class ViewControl:
         out = self._desktops_frame(names, sorted(resized)) + self._frame() + self._placement_frame() + self._menu_frame()
         if was_open != s.menu_open: self._sync_menu_binds()
         if self.supervisor is not None: self.supervisor.replace_guard(manager.guard())
-        manager.save(s.placements)
+        manager.save(s.placements, self._rolls())
         self._desktops_changed()
+        from .desktops import RESET
+        if change.action == RESET and self.reset is not None: return out + self._reset_done(error)  # it says how it went
         if error is not None: self._tell(error)
         return out
+
+    # --- Ctrl+Alt+R: every desktop back to the default three flat ones (module docstring) ----------------------------
+    def layout_reset(self):
+        """Ctrl+Alt+R. The first press only asks (a toast); a second within RESET_ARM_S resets: an open panel collapses, a
+        maximized desktop goes back to the overview (its follow / locked choice stays), the saved setup is replaced by
+        the default with the layout it replaces kept as a backup, the spacing goes back to its default (the renderer eases
+        it), then every desktop eases flat and level (poll, RESET_ANIM_S), one the plan will remove dropping away, before
+        the desktops change (_reset_desktops). Frames (bytes), b'' when it only asks or is ignored (a toast says why)."""
+        s = self.state
+        if self.reset is not None or s.typing: return b''  # one at a time; in typing mode its key is released (stale)
+        if self.video_active:
+            self._tell(RESET_TOASTS['video'])
+            return b''
+        if s.desktops_busy or (self.desktops is not None and self.desktops.busy()):
+            self._tell(RESET_TOASTS['busy'])
+            return b''
+        now = self.clock()
+        if self.reset_armed_at is None or now - self.reset_armed_at >= RESET_ARM_S:
+            self.reset_armed_at = now
+            self._tell(RESET_TOASTS['confirm'])
+            return b''
+        self.reset_armed_at = None
+        out = (self._on_menu('menu_toggle') or b'') if s.menu_open else b''  # saved first, panel keys released
+        if s.zoomed: out += self._zoom_out()  # the reset is seen in the overview
+        from .desktops import RESET_COUNT, number
+        self.save_due = None  # the default replaces anything pending
+        rolls = self._rolls() or [0] * len(s.names)
+        leaving = sorted(s.names, key=number)[RESET_COUNT:] if self.desktops is not None else []
+        self.reset = {'at': now, 'names': list(s.names), 'from': [dict(p) for p in s.placements], 'rolls': rolls, 'stage': 'ease',
+                      'to': [RESET_LEAVING_PLACEMENT if n in leaving else DEFAULT_RESET_PLACEMENT for n in s.names], 'moved': None}
+        self.resets += 1
+        reset_store = getattr(self.placements, 'reset', None)  # profiles.PlacementStore: the saved setup replaced now
+        if reset_store is not None:
+            live = self.desktops.desktops() if self.desktops is not None else None
+            previous = {'desktops': live, 'placements': self.reset['from'], 'rolls': rolls, 'spacing': s.spacing}
+            try: reset_store(previous)
+            except (OSError, ValueError): pass
+        if s.spacing != DEFAULT_SPACING:
+            s.spacing = DEFAULT_SPACING
+            out += self._frame()
+            try:
+                if self.settings is not None: self.settings.save(s.settings())
+            except (OSError, ValueError): pass
+        s.desktops_busy = self.desktops is not None  # the panel's desktop row waits for it
+        return out + self._reset_tick(now)
+
+    def _reset_tick(self, now):
+        """poll(): the reset's ease, every desktop's placement and roll RESET_ANIM_S along a smootherstep to flat and
+        level (the renderer's own easing smooths between ticks); at its end the desktops change."""
+        r, s = self.reset, self.state
+        if r is None or r['stage'] != 'ease': return b''
+        t = 1.0 if s.names != r['names'] or RESET_ANIM_S <= 0 else (now - r['at']) / RESET_ANIM_S
+        e = smootherstep(t)
+        out = b''
+        if s.names == r['names']:
+            placements = [eased_to(p, to, e) for p, to in zip(r['from'], r['to'])]
+            if placements != s.placements:
+                s.placements = placements
+                out += self._placement_frame() + (self._menu_frame() if s.menu_open else b'')
+            self._set_rolls([int(round(x * (1 - e))) for x in r['rolls']])  # the free pointer's `roll` frame sends them
+        if t >= 1: out += self._reset_desktops()
+        return out
+
+    def _reset_desktops(self):
+        """The ease is done: the desktops themselves become the default three (desktops.RESET: one plan through the
+        panel buttons' path), or the reset is done if they already are."""
+        from .desktops import RESET, plan
+        s = self.state
+        self.reset['stage'] = 'desktops'
+        self._set_rolls([0] * len(s.names))
+        if self.desktops is None: return self._reset_done(None)
+        if self.video_active: return self._reset_done('a VR video opened')
+        try: change = plan(self.desktops.specs, s.placements, RESET, 0, held=self.desktops.held())
+        except ValueError as exc: return self._reset_done(str(exc))
+        if not change.steps(): return self._reset_done(None)
+        if change.remove is not None and change.windows_to is not None:
+            self.reset['moved'] = (change.remove['name'], change.windows_to)
+        s.desktops_busy = False  # _start_change sets it while the change runs
+        out = self._start_change(change)
+        return out if s.desktops_busy else out + self._reset_done('the desktops could not be changed now')
+
+    def _reset_done(self, error):
+        """The reset finished (error: why it stopped short, None if it all went through): the live setup is saved for
+        the next start (the default, or what a failed step left) and a toast says how it went."""
+        s = self.state
+        moved, self.reset = self.reset['moved'], None
+        s.desktops_busy = False
+        self._set_rolls([0] * len(s.names))
+        self._rolls_seen = None
+        flat = [dict(DEFAULT_RESET_PLACEMENT) for _ in s.names]  # also a desktop left underfoot by a refused removal
+        out = b''
+        if s.placements != flat:
+            s.placements = flat
+            out += self._placement_frame()
+        self.save_setup()
+        if error is not None: self._tell(RESET_TOASTS['failed'].format(error=error))
+        elif moved is None: self._tell(RESET_TOASTS['done'])
+        else: self._tell(RESET_TOASTS['done'] + RESET_TOASTS['moved'].format(source=moved[0], target=moved[1]))
+        return out + (self._menu_frame() if s.menu_open else b'')
+
+    # --- the levelling rolls (the overview pointer's roll arrows own them, free_pointer.py) --------------------------
+    def _rolls(self):
+        """Each desktop's levelling roll in state.names order, or None without an overview pointer."""
+        p = self.overview_pointer
+        if p is None or not hasattr(p, 'rolls'): return None
+        by_name = dict(zip(getattr(p, 'roll_names', self.state.names), p.rolls))
+        return [int(by_name.get(n, 0)) for n in self.state.names]
+
+    def _set_rolls(self, rolls):
+        p = self.overview_pointer
+        if p is None or not hasattr(p, 'rolls'): return
+        index = {n: i for i, n in enumerate(getattr(p, 'roll_names', self.state.names))}
+        for name, roll in zip(self.state.names, rolls):
+            if name in index and index[name] < len(p.rolls): p.rolls[index[name]] = roll
+
+    def _watch_rolls(self, now):
+        """poll(): a roll arrow click or drag changed a levelling roll: saved MENU_SAVE_DELAY after the last change, like
+        a placement (flush: at once when a drag ends). A desktop change only takes the new names in (it saved them)."""
+        rolls = self._rolls()
+        if rolls is None: return
+        seen, self._rolls_seen = self._rolls_seen, (list(self.state.names), rolls)
+        if seen is not None and seen[0] == self.state.names and seen[1] != rolls: self.save_due = now + MENU_SAVE_DELAY
+
+    def save_setup(self):
+        """The whole monitor setup for the next start (profiles.py): the run's desktops as the broker has them, their
+        placements and rolls. At the run's end (managed.view_controls) and after Ctrl+Alt+R; a reset still running at the
+        end saves the default it was going to. Best effort, never raises."""
+        store = self.placements
+        if store is None: return
+        try:
+            if self.reset is not None:
+                if hasattr(store, 'reset'): store.reset()
+                return
+            placements, rolls = [dict(p) for p in self.state.placements], self._rolls()
+            live = self.desktops.desktops() if self.desktops is not None else None
+            if live is not None and len(live) == len(placements) and hasattr(store, 'save_desktops'):
+                store.save_desktops(live, placements, rolls)
+            elif rolls is not None and hasattr(store, 'save_layout'): store.save_layout(placements, rolls)
+            else: store.save(placements)
+        except (OSError, ValueError): pass
 
     def _tell(self, text):
         if self.notify is None: return
@@ -1258,7 +1471,10 @@ class ViewControl:
         """Supervisor loop tick: the overview free pointer, a debounced panel placement save once it is due, and closing
         the help card and an open panel once they have been up OVERLAY_IDLE_CLOSE_S without input. Frames or None."""
         now = self.clock() if now is None else now
-        out = self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
+        out = self._reset_tick(now) if self.reset is not None else b''  # Ctrl+Alt+R easing every desktop flat (its rolls
+        # go out with the pointer's `roll` frame just below)
+        out += self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
+        if self.reset is None: self._watch_rolls(now)  # a roll arrow's change is saved like a placement
         if self.save_due is not None and now >= self.save_due: self.flush()
         if self.desktops is not None:  # a desktop change done; Remove disarms after a while
             from .desktops import REMOVE_ARM_S
@@ -1329,8 +1545,12 @@ class ViewControl:
         self._save_placements()
 
     def _save_placements(self):
-        if self.placements is None: return
-        try: self.placements.save([dict(p) for p in self.state.placements])  # one per desktop (profiles.PlacementStore)
+        if self.placements is None or self.reset is not None: return  # a reset saves its own result (_reset_done)
+        placements, rolls = [dict(p) for p in self.state.placements], self._rolls()
+        save_layout = getattr(self.placements, 'save_layout', None) if rolls is not None else None
+        try:
+            if save_layout is not None: save_layout(placements, rolls)  # with the rolls (profiles.PlacementStore)
+            else: self.placements.save(placements)  # one per desktop
         except (OSError, ValueError): pass
 
     def on_message(self, message):
@@ -1345,6 +1565,8 @@ class ViewControl:
         if isinstance(message, dict) and self.state.typing and message.get('op') in IGNORED_WHILE_TYPING: return None
         if isinstance(message, dict) and message.get('op') in MENU_OPS:
             return self._on_menu(message['op'])
+        if isinstance(message, dict) and message.get('op') == RESET_OP:  # Ctrl+Alt+R (typing mode: layout_reset ignores it)
+            return self.layout_reset() or None
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SUPER_OPS:  # unified_cursor.py: Super drags

@@ -10,7 +10,7 @@ from pathlib import Path
 import secrets
 import subprocess
 from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE
-from tools.native_spike.profiles import _check, startup_desktops
+from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
@@ -119,6 +119,16 @@ class Controller:
         self.run=None
         if self.state!='confirming': self._state('idle' if o.get('model') else 'no-glasses')
 
+    def _startup_desktops(self,model,profile):
+        """The desktops this start creates: the last session's (count, resolution, scale; profiles.load_setup), or the
+        default three when nothing is saved yet or the saved setup is unusable. The reason is logged."""
+        setup_of=getattr(self.store,'setup',None)  # the real store reads profiles.json strictly; a test store has none
+        setup,reason=setup_of(model) if setup_of else setup_from(profile)
+        if reason is None: log(f'start: restoring the saved monitor setup ({describe_setup(setup)})')
+        elif reason==NOTHING_SAVED: log('start: no saved monitor setup yet; three flat desktops')
+        else: log(f'start: saved monitor setup not used: {reason}; three flat desktops instead')
+        return setup['desktops']
+
     def _consent(self,j):
         path=Path('/proc/self/fd')/str(self.consent_fd)/(j['run_id']+'.json')
         from tools.native_spike.ipc import read_private_json
@@ -188,7 +198,7 @@ class Controller:
             if ownership_plugin_count(o.get('plugins') or []): raise ValueError('ownership plugin already loaded')
             scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
                 tracking='xrlinuxdriver' if p['tracking'] else False,mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
-                desktops=startup_desktops(p['desktops']),**o['installed'])  # always three (profiles.py)
+                desktops=self._startup_desktops(o['model'],p),**o['installed'])
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
             self.last_failure=None

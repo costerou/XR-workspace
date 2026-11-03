@@ -127,6 +127,8 @@ public:
     // stop, new names start once Hyprland advertises them, `renew` restarts those captures. Captures stay in name order,
     // which is the order of every per-desktop list (placements, the overview's tiles).
     void set_desktops(const std::vector<std::string>& outputs, const std::vector<std::string>& renew = {});
+    // The tiles ease to the layout the next set_desktops leads to, instead of jumping (view.hpp TileEase): call it first.
+    void ease_tiles();
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.

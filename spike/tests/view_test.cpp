@@ -8,7 +8,92 @@ using namespace xr;
 bool near(float a, float b, float eps = 0.5f) { return std::fabs(a - b) <= eps; }
 bool same(const FRect& r, FRect e) { return near(r.x, e.x, 1e-3f) && near(r.y, e.y, 1e-3f) && near(r.width, e.width, 1e-3f) && near(r.height, e.height, 1e-3f); }
 
+// Ctrl+Alt+R's tiles (TileEase): the same layouts the renderer draws, through a remove, a new aspect and an add.
+void tile_ease_tests() {
+    const Size four[] = {{2560, 1080}, {1920, 1080}, {1920, 1080}, {2560, 1080}}, three[] = {{2560, 1080}, {1920, 1080}, {1920, 1080}},
+               even[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}}, two[] = {{1920, 1080}, {1920, 1080}};
+    const auto from = overview_layout(four, 1920, 1200, 40), mid = overview_layout(three, 1920, 1200, 40), to = overview_layout(even, 1920, 1200, 40);
+    const auto one = [&](const std::vector<FRect>& v, std::size_t i) { return v[i]; };
+
+    {  // Unarmed: the layout itself, the very same vector, whatever changes (a pill's Add / Remove / Ultrawide jump as before).
+        TileEase e;
+        CHECK(&e.tiles(three, mid, true, 1000) == &mid);
+        CHECK(&e.tiles(four, from, true, 1016) == &from);
+        CHECK(!e.active() && !e.armed(1016));
+    }
+    {  // Armed, nothing changed yet: the layout as it is; a change after the arm has run out jumps.
+        TileEase e;
+        e.arm(three, mid, 1000);
+        CHECK(e.armed(1000 + double(kTileEaseArmMs)) && !e.active());
+        CHECK(&e.tiles(three, mid, true, 1100) == &mid);
+        CHECK(&e.tiles(even, to, true, 1000 + double(kTileEaseArmMs) + 1) == &to);
+        CHECK(!e.active());
+    }
+    {  // Remove the last of four: the three left go from their tiles to the wider ones, along one smootherstep.
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        const auto& start = e.tiles(three, mid, true, 2000);  // the first frame after the change: not moved at all
+        CHECK(start.size() == 3 && &start != &mid && e.active());
+        for (std::size_t i = 0; i < 3; ++i) CHECK(same(one(start, i), from[i]));
+        const auto half = e.tiles(three, mid, true, 2000 + double(kTileEaseMs) / 2);  // t 0.5: halfway on the curve
+        for (std::size_t i = 0; i < 3; ++i) {
+            CHECK(near(half[i].x, (from[i].x + mid[i].x) / 2, 1e-2f) && near(half[i].width, (from[i].width + mid[i].width) / 2, 1e-2f));
+            CHECK(near(half[i].y, (from[i].y + mid[i].y) / 2, 1e-2f) && near(half[i].height, (from[i].height + mid[i].height) / 2, 1e-2f));
+        }
+        const auto early = e.tiles(three, mid, true, 2000 + double(kTileEaseMs) * 0.1);  // eased in: still slow at 10%
+        CHECK(std::fabs(early[0].width - from[0].width) < 0.02f * std::fabs(mid[0].width - from[0].width));
+        CHECK(&e.tiles(three, mid, true, 2000 + double(kTileEaseMs)) == &mid);  // lands exactly, and stops asking for frames
+        CHECK(!e.active());
+    }
+    {  // A second change on the way (a new frame's aspect) starts from where the tiles are, never from a jump.
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        e.tiles(three, mid, true, 2000);
+        const auto at = e.tiles(three, mid, true, 2200);
+        const auto again = e.tiles(even, to, true, 2200);
+        for (std::size_t i = 0; i < 3; ++i) CHECK(same(again[i], at[i]));
+        CHECK(e.active());
+        CHECK(&e.tiles(even, to, true, 2200 + double(kTileEaseMs)) == &to);
+    }
+    {  // Add: a new desktop grows out of the middle of its slot; the others go from their tiles, by name, not by index.
+        const auto before = overview_layout(two, 1920, 1200, 40);
+        TileEase e;
+        e.arm(two, before, 1000);
+        e.reindex(std::array<int, 3>{-1, 0, 1});  // XR-1 is new: XR-2 and XR-3 were indices 0 and 1
+        const auto start = e.tiles(even, to, true, 1100);
+        CHECK(same(start[1], before[0]) && same(start[2], before[1]));
+        CHECK(start[0].width > 0 && near(start[0].width, to[0].width * kTileEaseBornScale, 1e-2f));
+        CHECK(near(start[0].x + start[0].width / 2, to[0].x + to[0].width / 2, 1e-2f));
+        CHECK(near(start[0].y + start[0].height / 2, to[0].y + to[0].height / 2, 1e-2f));
+    }
+    {  // A frame re-arming mid-way keeps following the tiles (the removal's frame, then the finished change's).
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        e.tiles(three, mid, true, 1000);
+        const auto at = e.tiles(three, mid, true, 1200);
+        e.arm(three, mid, 1200);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        const auto on = e.tiles(three, mid, true, 1200);
+        for (std::size_t i = 0; i < 3; ++i) CHECK(same(on[i], at[i]));
+        // The same desktops again: the ease goes on on its own clock, it does not start over (no stutter mid-glide).
+        CHECK(e.active());
+        CHECK(&e.tiles(three, mid, true, 1000 + double(kTileEaseMs)) == &mid);
+    }
+    {  // Overview only: a zoom drops the ease and the arm.
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        e.tiles(three, mid, true, 1000);
+        CHECK(&e.tiles(three, mid, false, 1100) == &mid);
+        CHECK(!e.active() && !e.armed(1100));
+    }
+}
+
 int main() {
+    tile_ease_tests();
     const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
     // Overview: 3 x 16:9 desktops in 1920x1200 with 40 px gaps and margins.
     auto o = overview_layout(eq, 1920, 1200, 40);

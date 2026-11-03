@@ -124,6 +124,34 @@ void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>
 Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
 bool same_placement(const Placement& a, const Placement& b);
 constexpr float kPlacementEaseMs = 35.f;
+// Overview tiles through a desktop change the supervisor asks to ease (the `desktops` frame's `ease`, ipc.hpp): today only
+// Ctrl+Alt+R (tools/native_spike/view.py). The overview fits its row to the view, so a desktop more or less, or one new
+// aspect, changes every tile at once, and without this they jump. Armed for kTileEaseArmMs from the last such frame, any
+// change of the captures or their sizes takes every tile from where it is drawn to the new layout along one smootherstep
+// over kTileEaseMs (view.py RESET_ANIM_S, a test compares); a further change starts again from where they are. A new
+// desktop grows out of its slot from kTileEaseBornScale of its size. Overview only: a zoom drops it, and an expired arm
+// leaves a later change to jump as usual. Unarmed it costs one comparison a frame.
+constexpr float kTileEaseMs = 450.f, kTileEaseArmMs = 2000.f, kTileEaseBornScale = 0.02f;
+class TileEase {
+public:
+    // The next changes ease. `sizes` and `drawn`: the captures' sizes and tiles now, before the change.
+    void arm(std::span<const Size> sizes, std::span<const FRect> drawn, double now_ms);
+    bool armed(double now_ms) const { return now_ms <= armed_until_ms_; }
+    // The captures changed: `before`[i] is new capture i's index before the change, -1 for a new desktop.
+    void reindex(std::span<const int> before);
+    // This frame's tiles: `target` (the layout) unless they are on their way to it.
+    const std::vector<FRect>& tiles(std::span<const Size> sizes, const std::vector<FRect>& target, bool overview, double now_ms);
+    bool active() const { return start_ms_ >= 0; }  // on the way: the renderer keeps drawing
+private:
+    void keep(std::span<const Size> sizes);
+    bool kept(std::span<const Size> sizes) const;
+    std::array<FRect, kMaxDesktops> from_{}, shown_{};  // by capture index; width 0: none yet (a new desktop)
+    std::array<Size, kMaxDesktops> sizes_{};
+    std::vector<FRect> out_;
+    std::size_t count_ = 0;
+    bool changed_ = false;
+    double armed_until_ms_ = -1, start_ms_ = -1;
+};
 // Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
 // or in its direction round you when the frame gives one (direction_disc; the supervisor always does), world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
 // the real one). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at

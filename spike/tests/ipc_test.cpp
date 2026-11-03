@@ -242,10 +242,15 @@ int main() {
         require(dp && dp->outputs == std::vector<std::string>({"XR-1", "XR-4"}) && dp->renew == std::vector<std::string>({"XR-4"}));
         auto plain = xr::decode_control(set(R"({"outputs":["XR-2"]})"));
         require(std::holds_alternative<xr::ControlMessage>(plain) && std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(plain).payload).renew.empty());
+        require(!std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(plain).payload).ease);  // only when asked
+        auto eased = xr::decode_control(set(R"({"outputs":["XR-2"],"renew":["XR-2"],"ease":true})"));  // Ctrl+Alt+R
+        require(std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(eased).payload).ease);
+        require(!std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(xr::decode_control(set(R"({"outputs":["XR-2"],"ease":false})"))).payload).ease);
         for (const char* bad : {R"({})", R"({"outputs":[]})", R"({"outputs":["XR-5"]})", R"({"outputs":["XR-0"]})", R"({"outputs":["XR-1","XR-1"]})",
                                 R"({"outputs":["DP-1"]})", R"({"outputs":["XR-1","XR-2","XR-3","XR-4","XR-1"]})", R"({"outputs":"XR-1"})",
                                 R"({"outputs":["XR-1"],"renew":["XR-2"]})", R"({"outputs":["XR-1"],"extra":1})", R"({"outputs":["xr-1"]})",
-                                R"({"outputs":["XR-10"]})", R"({"outputs":[1]})"}) {
+                                R"({"outputs":["XR-10"]})", R"({"outputs":[1]})", R"({"outputs":["XR-1"],"ease":1})",
+                                R"({"outputs":["XR-1"],"ease":"true"})", R"({"ease":true})"}) {
             auto rejected = xr::decode_control(set(bad));
             require(std::holds_alternative<xr::Error>(rejected) && !xr::ignorable_control_error(std::get<xr::Error>(rejected)));
         }

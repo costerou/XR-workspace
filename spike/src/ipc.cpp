@@ -186,8 +186,12 @@ bool desktop_names(const Json& value, std::vector<std::string>& out, std::size_t
     return true;
 }
 bool desktops(const Json& p, DesktopsPayload& out) {
-    if (!p.is_object() || p.size() != 1u + p.contains("renew") || !p.contains("outputs")) return false;
+    if (!p.is_object() || p.size() != 1u + p.contains("renew") + p.contains("ease") || !p.contains("outputs")) return false;
     if (!desktop_names(p["outputs"], out.outputs, 1)) return false;
+    if (p.contains("ease")) {
+        if (!p["ease"].is_boolean()) return false;
+        out.ease = p["ease"].get<bool>();
+    }
     if (p.contains("renew")) {
         if (!desktop_names(p["renew"], out.renew, 0)) return false;
         for (const auto& name : out.renew)

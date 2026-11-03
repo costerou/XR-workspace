@@ -117,7 +117,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     icons above the corners until 2026-11-03): in anchor mode the renderer reports how far each desktop is from level as
     you see it, gravity from the head tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted,
     or a pitched one seen off to the side, leaves desktops rolled). This class owns each desktop's levelling roll
-    (`rolls`, hundredths of a degree, for this run only) and sends it with the brackets (the wire's `icons`) in the `roll`
+    (`rolls`, hundredths of a degree, saved with the layout) and sends it with the brackets (the wire's `icons`) in the `roll`
     frame. Every desktop shows both in the overview, level or not, measured or not ('both'): an arrow bracket hugging its
     top-left corner from outside, turning counter-clockwise, and one round its top-right, clockwise. Each runs ROLL_GAP
     outside the edge from roll_arm in along the top, round the corner and roll_arm down the side to its arrowhead, all in

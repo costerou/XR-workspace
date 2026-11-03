@@ -58,7 +58,9 @@ If the panel says "controller not running", click **Start / restart controller**
 2. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
 3. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
 
-Your three desktops now appear in the glasses. They are called XR-1, XR-2 and XR-3.
+Your desktops now appear in the glasses, set up the way you left them last session (see
+[Your layout comes back](#placing-desktops)). The very first time there are three, called XR-1, XR-2 and XR-3, flat in a
+row.
 
 The windows on your normal monitor move into the glasses as the session starts, one workspace per desktop: your first
 workspace with windows goes to XR-1, the next to XR-2, and so on. If you have more workspaces with windows than
@@ -105,6 +107,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
+| Ctrl+Alt+R, twice | Reset every desktop to three flat 1920×1080 desktops at 100%, and save that as your layout (see [Placing desktops](#placing-desktops)) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
@@ -158,6 +161,31 @@ sent, a small notification tells you why.
 You can move, curve and resize each desktop in space, and put it anywhere around you: beside you, behind you,
 above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
 it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
+
+**Your layout comes back** (new, not yet tried in the glasses). Each XR session starts the way the last one ended: the
+same number of desktops, each with its resolution and scale, where it sat round you, its size, its curve and its roll.
+The layout is saved for your glasses model every time you change it and once more when the session stops. If nothing is
+saved yet, or the saved layout can't be used (a damaged file, a value out of range, or desktops the system refuses to
+create), the session starts with three flat desktops instead, and the reason is written to the log (`journalctl --user
+-u viture-workspace-controller`). Follow or locked for a maximized desktop is not part of the layout: every session
+still starts in follow.
+
+**Start over: Ctrl+Alt+R** (new, not yet tried in the glasses). Puts every desktop back to the default: three flat
+1920×1080 desktops at 100%, level, in a row, with the default space between them. It asks first: the first press shows
+a small notification, "Press Ctrl+Alt+R again to reset all monitors", and a second press within three seconds resets. If
+you don't press it again, nothing happens. An open pill closes and a maximized desktop goes back to the overview first.
+
+The whole reset glides. The desktops move back into the row in about half a second while a fourth desktop drops away
+below your view, then the row settles along the same smooth curve as the desktops change size and resolution, and a
+desktop that was missing grows out of its place. The windows on a fourth desktop move to XR-3, each workspace still its
+own, so XR-3 may show one of them afterwards, with its own windows one workspace away. Anything that can't move goes to
+your normal monitor, as with the pill's Remove.
+
+Your saved layout is replaced by the default at the same time, so the next session starts that way too. The layout you
+had is kept as a backup in `~/.config/viture-workspace/profiles.json` (`previous_setup`), one step back: the next reset
+replaces it. There is no key to bring it back yet. A small notification confirms the reset. Ctrl+Alt+R does nothing while
+a VR video plays or another desktop change is still running (a notification says so), and in typing mode. The help card
+lists it on the recenter row, as Ctrl+Alt+Space / R.
 
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
@@ -274,7 +302,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   in anchor mode), else 2° further. A desktop's picture, and any desktop covering a bracket, keeps its clicks. Press R
   in its open pill to put the desktop back flat in its slot and level.
   Or hold either bracket and drag the dot round the desktop to roll it either
-  way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
+  way, up to 90°; it rests at level as you pass it. The roll is saved with the rest of your layout.
 - **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
   (and its panel when open), the two roll arrows above its top corners, and the resize handles just outside its edges
   and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
@@ -407,8 +435,8 @@ a web video you choose to play.
 Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a desktop's glass pill: under its sliders are
 **Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
 that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
-your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. Every new
-session starts with three desktops again. Above those buttons, **Scale** sets that desktop's scale: click the box and pick
+your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. The next
+session starts with the same desktops; Ctrl+Alt+R goes back to three. Above those buttons, **Scale** sets that desktop's scale: click the box and pick
 a step from 100% to 300% (steps that would not give whole pixels are greyed out). It applies at once and the next
 session keeps it (new, not yet tried in the glasses). Other resolutions are set under **Startup options** in the panel
 before starting.
