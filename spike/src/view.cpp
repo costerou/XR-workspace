@@ -137,7 +137,7 @@ Dir slot_direction(const Canvas& c, const FRect& t) {
 }
 
 std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect> overview, std::span<const FRect> tiles,
-                                         std::span<const Placement> placements, float zoom, float position) {
+                                         std::span<const Placement> placements, float zoom, float position, bool keep_size) {
     const std::size_t n = tiles.size();
     std::vector<Placement> out(n);
     for (std::size_t i = 0; i < n && i < placements.size(); ++i) out[i] = placements[i];
@@ -158,7 +158,7 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
         const float d = own.distance > 0 ? own.distance : 1.f;
         const float rigid = d * (now.height / was.height) * radius(was) / radius(now);
         out[i] = {std::remainder(own.x + ov.az - cur.az, 2 * float(M_PI)), own.y + ov.el - cur.el,
-                  lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature, own.roll};
+                  keep_size ? rigid : lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature, own.roll};
     }
     return out;
 }

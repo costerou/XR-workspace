@@ -265,9 +265,11 @@ struct Presentation::Impl : SurfaceRequests {
     const std::vector<Placement>& resolved_placements(std::span<const FRect> tiles) {
         own.clear();  // keeps its capacity
         for (std::size_t i = 0; i < captures.size(); ++i) own.push_back(i < eased.size() ? eased[i] : target_placement(i));
-        // Every mode: zooming never moves a desktop round you. The zoomed one grows where it was dragged; the rest stay put.
+        // Every mode: zooming never moves a desktop round you. Follow / locked: the zoomed one grows to fit the glasses where
+        // it was dragged. Anchor: it keeps the size it was resized to (keep_size); the rest stay put in every mode.
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
-        resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position());
+        resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position(),
+                                     modes.mode() == ViewMode::anchor);
         return resolved;
     }
     // Follow and locked modes centre the view on the focused desktop wherever it was dragged (view.hpp focus_direction /
