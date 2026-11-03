@@ -2,6 +2,7 @@
 #include "xr/material_draw.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <string>
 
@@ -72,36 +73,77 @@ FRect glass_panel(const FRect& t) {
     return {t.x + (t.width - kPanelW) / 2, t.y + t.height + kGlassPillGap, kPanelW, kPanelH};
 }
 
-FRect roll_icon(const FRect& t, std::uint32_t side, float distance) {
-    if (t.width <= 0 || t.height <= 0 || side > 1) return {};
-    const float d = distance > 0 ? distance : 1.f, size = kRollIconPx * d;
-    return {side ? t.x + t.width - size : t.x, t.y - kRollIconGap * d - size, size, size};
+float roll_arm(const FRect& t) {
+    if (!(t.width > 0) || !(t.height > 0)) return 0.f;
+    const float m = std::min(t.width, t.height);
+    return std::min(std::max(kRollArmShare * m, kRollArmMin), kRollArmMaxShare * m);
 }
 
-RollArrow roll_arrow(const FRect& icon, std::uint32_t side) {
-    RollArrow out;
-    if (!(icon.width > 0) || !(icon.height > 0) || side > 1) return out;
-    // One plain curved arrow, readable at a glance and filling the 22 px square with nothing behind it: a thick half-turn
-    // arc over the top and a large head. Clockwise (side 1): from the left (210 degrees, y up) over the top to the right
-    // (20 degrees), the head pointing on down the right side. Its centre sits low so the glyph is centred in the square.
-    const float s = std::min(icon.width, icon.height), cx = icon.x + icon.width / 2, cy = icon.y + icon.height / 2 + 0.12f * s;
-    const float ra = 0.29f * s, half = 0.075f * s, head_len = 0.27f * s, head_half = 0.18f * s;
-    const float from = 210.f * float(std::numbers::pi) / 180.f, to = 20.f * float(std::numbers::pi) / 180.f;
-    const float mirror = side ? 1.f : -1.f;  // side 0: the mirror image, counter-clockwise
-    auto at = [&](float theta, float r) { return std::array<float, 2>{cx + mirror * r * std::cos(theta), cy - r * std::sin(theta)}; };
-    constexpr int kSteps = 16;
-    for (int i = 0; i <= kSteps; ++i) {
-        const float theta = from + (to - from) * float(i) / float(kSteps);
-        out.band.push_back(at(theta, ra + half));
-        out.band.push_back(at(theta, ra - half));
+float roll_scale(const FRect& t) {
+    const float arm = roll_arm(t);
+    return arm > 0 ? std::min(1.f, arm / kRollArmMin) : 0.f;
+}
+
+namespace {
+// The bracket's own frame: tile px from its corner, x outward past the side (mirrored for side 0, the top-left), y down.
+// In it the centre line is the top arm (x in [-arm, 0], y = -gap), the arc about the corner from (0, -gap) to (gap, 0)
+// and the side arm (x = gap, y in [0, arm]).
+struct BracketFrame { float cx, cy, mirror; };
+BracketFrame bracket_frame(const FRect& t, std::uint32_t side) { return {side ? t.x + t.width : t.x, t.y, side ? 1.f : -1.f}; }
+}
+
+float roll_distance(const FRect& t, std::uint32_t side, float px, float py) {
+    const float arm = roll_arm(t);
+    if (!(arm > 0) || side > 1) return std::numeric_limits<float>::infinity();
+    const auto f = bracket_frame(t, side);
+    const float gap = kRollGap * roll_scale(t), x = (px - f.cx) * f.mirror, y = py - f.cy;
+    const float top = std::hypot(x - std::clamp(x, -arm, 0.f), y + gap);
+    const float down = std::hypot(x - gap, y - std::clamp(y, 0.f, arm));
+    const float arc = x >= 0 && y <= 0 ? std::fabs(std::hypot(x, y) - gap) : std::numeric_limits<float>::infinity();
+    return std::min({top, down, arc});
+}
+
+bool on_roll_bracket(const FRect& t, std::uint32_t side, float px, float py) {
+    const float s = roll_scale(t), e = kRollEdgeClear * s;
+    if (t.x - e < px && px < t.x + t.width + e && t.y - e < py && py < t.y + t.height + e) return false;  // content, edge band
+    return roll_distance(t, side, px, py) <= (kRollHeadHalf + kRollPad) * s;
+}
+
+RollBracket roll_bracket(const FRect& t, std::uint32_t side) {
+    RollBracket out;
+    const float arm = roll_arm(t);
+    if (!(arm > 0) || side > 1) return out;
+    const auto f = bracket_frame(t, side);
+    const float s = roll_scale(t), gap = kRollGap * s, half = kRollStroke * s / 2, head_len = kRollHeadLen * s, head_half = kRollHeadHalf * s;
+    auto at = [&](float x, float y) { return std::array<float, 2>{f.cx + f.mirror * x, f.cy + y}; };
+    // The stroke: the top arm from its end, the quarter circle over the corner, the side arm down to the head's base. The
+    // arms are cut in kArmSteps so they follow a curved desktop's surface (place_point bends each point, not the lines).
+    constexpr int kArmSteps = 4, kArcSteps = 8;
+    for (int i = 0; i < kArmSteps; ++i) {
+        const float x = -arm * float(kArmSteps - i) / float(kArmSteps);
+        out.band.push_back(at(x, -gap - half));
+        out.band.push_back(at(x, -gap + half));
     }
-    // The head: its base across the band's end, its tip along the clockwise tangent (sin t, -cos t) (y up).
-    const auto base = at(to, ra);
-    const float tx = mirror * std::sin(to), ty = std::cos(to);  // canvas px (y down)
-    const float nx = mirror * std::cos(to), ny = -std::sin(to);
-    out.head = {std::array<float, 2>{base[0] + nx * head_half, base[1] + ny * head_half},
-                std::array<float, 2>{base[0] - nx * head_half, base[1] - ny * head_half},
-                std::array<float, 2>{base[0] + tx * head_len, base[1] + ty * head_len}};
+    for (int i = 0; i <= kArcSteps; ++i) {
+        const float a = float(std::numbers::pi) / 2 * float(i) / float(kArcSteps), dx = std::sin(a), dy = -std::cos(a);
+        out.band.push_back(at((gap + half) * dx, (gap + half) * dy));
+        out.band.push_back(at((gap - half) * dx, (gap - half) * dy));
+    }
+    for (int i = 1; i <= kArmSteps; ++i) {
+        const float y = (arm - head_len) * float(i) / float(kArmSteps);
+        out.band.push_back(at(gap + half, y));
+        out.band.push_back(at(gap - half, y));
+    }
+    // The arrowhead, pointing down the side (the way the corner moves), and the round cap at the top arm's end (M3 strokes
+    // have round caps).
+    out.head = {at(gap - head_half, arm - head_len), at(gap + head_half, arm - head_len), at(gap, arm)};
+    constexpr int kCapSteps = 6;
+    for (int i = 0; i < kCapSteps; ++i) {
+        const float a0 = float(std::numbers::pi) * float(i) / float(kCapSteps), a1 = float(std::numbers::pi) * float(i + 1) / float(kCapSteps);
+        out.head.push_back(at(-arm, -gap));
+        out.head.push_back(at(-arm - half * std::sin(a0), -gap - half * std::cos(a0)));
+        out.head.push_back(at(-arm - half * std::sin(a1), -gap - half * std::cos(a1)));
+    }
     return out;
 }
 
@@ -253,7 +295,7 @@ const char* glass_fragment_shader() {
 }
 
 std::string glass_panel_hint(bool ascii) {
-    return ascii ? "UP/DN FIELD  L/R ADJUST  TAB  R FLAT" : "\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust  Tab next  R flat";
+    return ascii ? "U/D FIELD  L/R ADJUST  TAB  R RESET" : "\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust  Tab next  R reset";
 }
 
 PanelButtonStyle glass_panel_button_style(std::size_t action, const PlacementMenuState& state, std::array<float, 3> accent) {

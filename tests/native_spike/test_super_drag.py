@@ -210,8 +210,8 @@ class SuperSuppressesTests(Base):
         self.carrying()
         x, y, w, h = fp.pill_rect(T1)
         points = [fp.project_glass(G, T1, DEFAULT_PLACEMENT, x + w / 2, y + h / 2)]
-        rx, ry, rw, rh = fp.roll_icon_rect(T1, 'ccw')
-        points.append(fp.project(G, T1, DEFAULT_PLACEMENT, rx + rw / 2, ry + rh / 2))
+        arm, gap, z = fp.roll_arm(T1), fp.ROLL_GAP * fp.roll_scale(T1), fp.corner_zone(T1)
+        points.append(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] - gap, T1[1] + (z + arm) / 2))  # a bracket's side arm
         points.append(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] - 4, T1[1] - 4))  # a corner
         points.append(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 100, T1[1] - 4))  # an edge
         for point in points:

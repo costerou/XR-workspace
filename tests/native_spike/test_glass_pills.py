@@ -1187,10 +1187,10 @@ class WireTests(unittest.TestCase):
         import re
         src = (ROOT / 'spike/src/glass.cpp').read_text()
         ascii_hint = re.search(r'glass_panel_hint\(bool ascii\) \{\s*return ascii \? "([^"]+)"', src).group(1)
-        # "UP/DN FIELD  L/R ADJUST  TAB  R FLAT": each part's keys and what they do
-        expected = {'UP/DN FIELD': (('up', 'menu_field_prev'), ('down', 'menu_field_next')),
+        # "U/D FIELD  L/R ADJUST  TAB  R RESET": each part's keys and what they do (R: flat in its slot, and level)
+        expected = {'U/D FIELD': (('up', 'menu_field_prev'), ('down', 'menu_field_next')),
                     'L/R ADJUST': (('left', 'menu_dec'), ('right', 'menu_inc')),
-                    'TAB': (('Tab', 'menu_desktop_next'),), 'R FLAT': (('R', 'menu_reset'),)}
+                    'TAB': (('Tab', 'menu_desktop_next'),), 'R RESET': (('R', 'menu_reset'),)}
         parts = [part.strip() for part in ascii_hint.split('  ') if part.strip()]
         self.assertEqual(parts, list(expected))
         for part, binds in expected.items():
@@ -1200,11 +1200,11 @@ class WireTests(unittest.TestCase):
 
 class HelpCardTextTests(unittest.TestCase):
     def test_the_rows_name_the_pills_and_stay_short(self):
-        self.assertEqual(view.HELP_ACTIONS['menu_toggle'], 'Placement pill of the selected desktop')
+        self.assertEqual(view.HELP_ACTIONS['menu_toggle'], 'Placement pill; R in it resets, levels')
         self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: use any desktop; pills, corners')
         self.assertLessEqual(max(len(a) for a in view.HELP_ACTIONS.values()), 42)  # the card's width is another thread's
         rows = dict(view.help_rows())
-        self.assertEqual(rows['Ctrl+Alt+L'], 'Placement pill of the selected desktop')
+        self.assertEqual(rows['Ctrl+Alt+L'], 'Placement pill; R in it resets, levels')
         self.assertNotIn('Ctrl+Alt+M', ' '.join(k + ' ' + a for k, a in view.help_rows()))
         self.assertFalse(any('menu' in a.lower() or 'bars' in a.lower() for _, a in view.help_rows()))
 

@@ -103,7 +103,7 @@ std::vector<HelpRow> help_rows() {  // exactly view.help_rows(), sections marked
             {"Ctrl+Alt+P", "Toggle pose prediction"},
             {"Ctrl+Alt+T", "Typing mode: XR keys off / on"},
             {"Ctrl+Alt+D", "Privacy: main display off / on"},
-            {"Ctrl+Alt+L", "Placement pill of the selected desktop", true},
+            {"Ctrl+Alt+L", "Placement pill; R in it resets, levels", true},
             {"Ctrl+Alt+O / U / C", "VR video: file / web link / hide controls"},
             {"Ctrl+Alt+H", "Help; Ctrl+Alt+G/B: window to glasses/back", true},
             {"Ctrl+Alt+PgUp / PgDn", "Help: previous / next page"}};

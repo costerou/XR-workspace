@@ -11,7 +11,8 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
-pointer script (F1–F22) or the round-you script (O1–O19) has run in an isolated VM or been tried in the glasses.
+pointer script (F1–F22), the round-you script (O1–O19) or the roll bracket script (B1–B16) has run in an isolated VM or
+been tried in the glasses.
 
 ## Placement pills: automated coverage
 
@@ -144,7 +145,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G33 | Change XR-1 and close its pill at once (Escape). Stop the session and start a new one | XR-1 comes back where you left it (saved on close). |
 | G34 | With a pill open, move a slider in the settings panel's **Place** tab | The desktop and the open panel's value both update. The next arrow press continues from the Place tab's value. |
 | G35 | With a pill open, press Ctrl+Alt+H, then Ctrl+Alt+P | The help card shows in front as usual and the panel stays open behind it. Its Ctrl+Alt+L row names the placement pill. Ctrl+Alt+P toggles prediction (its pop-up shows) and opens nothing. |
-| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the roll arrows, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
+| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the roll brackets, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
 
@@ -343,5 +344,56 @@ Glasses steps (a new run started the usual way, three desktops, a terminal and a
 | S10 | With windows sent to XR-1 and XR-3, stop the session | Every window, including the sent ones, is back on DP-1. Recovery reports complete. |
 | S11 | After the session ends, press Ctrl+Alt+G and Ctrl+Alt+B in a terminal | Nothing moves; the keys reach the terminal (no run, no binds). |
 | S12 | Start a session, send a window to XR-2, kill the run unit (as in the Recover test), press Ctrl+Alt+G, then Recover from the panel | The key shows "No XR session is running" and moves nothing. Recover returns the window on XR-2 to DP-1. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Roll brackets: automated coverage and glasses test script
+
+On 2026-11-03 (`rotate-bracket-arrows`) the two small roll arrows above each desktop's top corners became arrow brackets
+hugging the corners from just outside the border: counter-clockwise round the top-left, clockwise round the top-right,
+each an arm along the top edge, a bend round the corner and an arm down the side ending in an arrowhead that points down.
+They are tile px on the desktop, so they move, scale and roll with it. Clicks and drags work as the arrows did (2° a
+click, straight to level when level lies that way, a drag either way up to 90°). See
+[Roll brackets](technical.md#roll-brackets).
+
+Automated (offline):
+- ctest `roll_level`: the arm (a share of the shorter side, clamped), the shape (outside the desktop, clear of the 6 px
+  border, inside the hit region, mirror images, turning the right way, the head pointing down the side), the hit
+  region's edges, and the tip keeping its share of the desktop through resize, move, curvature and roll.
+- ctest `glass_contract`: the constants (the 6 px edge band too), the arms and 9610 probes of the distance and hit
+  region round both corners of five layouts, renderer against `free_pointer.py`.
+- `tests/native_spike/test_roll_level.py` also covers R: flat and level (against a measured tilt, or no roll),
+  re-levelled by the tilts of the next half second, a bracket press taking over; the footer and help card text.
+- ctest `gl_frame`: the brackets in the frame cache check (curved, rolled and orbited desktops), drawn at a desktop's
+  live corners, not its held panel's press-time ones, while a held Distance slider resizes it, and hidden under another
+  desktop's content.
+- `tests/native_spike/test_roll_level.py`: hits through resize, move and roll (and not where the bracket was), the corner
+  winning on the bend; on dense grids round every bracket (a resized desktop over its neighbours, rolled desktops, no
+  spacing) showing the brackets never changes a press on any desktop's content, corner or pill; every bracket reachable
+  with no spacing and with 20 px; a real corner-drag resize and pill move then clicks; `test_window_drag.py`: a bracket
+  press lifts no window.
+- Not done: nothing here has run in an isolated VM or in the glasses.
+
+The steps need your usual go-ahead for a live run, the renderer and the Python supervisor installed from this branch
+(the wire did not change), and the overview (Ctrl+Alt+Down). Use anchor mode unless a step says otherwise.
+
+| # | Do | Expect |
+|---|----|--------|
+| B1 | Look at the top corners of every desktop | Each has two brackets in the theme colour wrapped round its top corners just outside its edge, a small gap from the selected desktop's border, each arrowhead pointing down the side. Every desktop has them, level or not. Nothing glares. |
+| B2 | Put the dot on the left bracket's side arm, below the corner, then on its top arm | Only that bracket brightens. No resize handle shows. |
+| B3 | Put the dot on the bend round the top-right corner | The corner's grey resize handle shows inside the corner; the bracket does not brighten. Drag: the desktop resizes. |
+| B4 | On a level desktop (or in follow mode), click the left bracket's arm three times, then the right one's three times | Each left click turns it 2° counter-clockwise, each right click 2° clockwise: back where it started. |
+| B5 | Recentre (Ctrl+Alt+Space) with your head tipped to one side, so desktops look rolled. Click the bracket on the higher corner's side | That desktop goes straight to level. The other bracket turns it 2° away. |
+| B6 | Hold a bracket and drag the dot round the desktop's centre, one way then the other | The desktop rolls with the dot both ways, past level, and rests at level as you pass it. |
+| B7 | Drag XR-2's bottom-right corner outward slowly, then back inward | The brackets stay on XR-2's top corners the whole time, growing with it and shrinking back (a little thicker when bigger, like its border). Then click a bracket: it rolls. |
+| B8 | Open XR-2's pill and drag the Distance slider | The brackets follow the desktop live as it grows and shrinks, while the panel stays put until you let go. |
+| B9 | Drag XR-2's pill around, also out past the edge of the view | The brackets travel with XR-2, on its corners, all the way. |
+| B10 | Make XR-2 big enough to reach over XR-1 and XR-3. Click and scroll on XR-2's picture where their inner brackets were | XR-2 covers their inner brackets: no bracket floats on XR-2's picture, and the clicks and scrolling go to XR-2's apps. Their outer brackets still work. Reset XR-2 (Ctrl+Alt+L, R). |
+| B11 | Lower the spacing (Ctrl+Alt+[) to the minimum | The side arms facing a neighbour are hidden under its picture (a click there goes to that desktop), but each bracket still lights up and works on its top arm. Put the spacing back (Ctrl+Alt+]). |
+| B12 | Roll XR-1 about 30° with a bracket, then hover and click its brackets | They are on its turned corners, and work there. |
+| B13 | Switch the Omarchy theme | The brackets recolour with the border and the pills. |
+| B14 | Leave the mouse alone for 30 s | The brackets hide with the pills, and come back on the next mouse move. |
+| B15 | Roll XR-2 about 20° with a bracket and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
+| B16 | Move the dot slowly outward from XR-2's left edge, beside its bracket's side arm | Right at the edge (the first few pixels) the bracket does not light up; from just past the border it does. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.

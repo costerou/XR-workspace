@@ -316,8 +316,8 @@ class HandleTests(Base):
     def test_a_roll_arrow_turns_its_desktop(self):
         self.free()
         serial = self.p.want[0]
-        x, y, w, h = fp.roll_icon_rect(T1, 'cw')
-        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, x + w / 2, y + h / 2))
+        arm, gap, z = fp.roll_arm(T1), fp.ROLL_GAP * fp.roll_scale(T1), fp.corner_zone(T1)
+        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + T1[2] + gap, T1[1] + (z + arm) / 2))  # its side arm
         self.assertEqual(self.p.hover, ('roll', 1, 'cw'))
         self.op('resize_press'); self.op('resize_release')
         self.assertNotEqual(self.p.rolls[1], 0)

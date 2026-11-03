@@ -38,7 +38,8 @@ Ctrl+Alt+L expands the selected desktop's pill (back to the overview first if ma
 is open; the overview free pointer clicks a pill to expand it (collapsing any other) and the pill, or anything outside
 the panel, to collapse it. While a panel is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R,
 Escape) is installed and it is removed again on close: Up/Down pick the setting, Left/Right adjust it (Shift: big step),
-Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that desktop back flat, Escape collapses.
+Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that desktop back flat in its slot and
+levels it (no roll, free_pointer.OverviewPointer.level), Escape collapses.
 Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu` frame
 (open + desktop = the expanded pill; while the free pointer holds a slider, also `surface`, the press-time placement the
 renderer keeps the panel on) and saved to the profile 500 ms after the last change, or at once when the panel
@@ -150,7 +151,7 @@ HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overvie
                 'mode_next': 'Maximized: follow / locked', 'prediction': 'Toggle pose prediction',
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'typing_toggle': 'Typing mode: XR keys off / on',
-                'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
+                'menu_toggle': 'Placement pill; R in it resets, levels', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
                 PLAYBACK_MENU_OP: 'VR video: hide / show playback controls'}
@@ -878,7 +879,11 @@ class ViewControl:
         if op in MENU_DESKTOP_OPS:  # U / N / Delete: the open panel's desktop row
             return (self.desktop_action(self.state.menu_desktop, MENU_DESKTOP_OPS[op]) if self.state.menu_open else b'') or None
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
-        return (out + self._menu_update(lambda: self.state.apply_menu(op))) or None
+        level = self.state.menu_desktop if op == 'menu_reset' and self.state.menu_open else None
+        out += self._menu_update(lambda: self.state.apply_menu(op))
+        if level is not None and self.overview_pointer is not None:
+            out += self.overview_pointer.level(level)  # R: its rotation back to level too, not only its placement
+        return out or None
 
     # --- the overview free pointer's pill clicks and sliders (free_pointer.OverviewPointer) ------------------------------
     def pill_click(self, desktop):

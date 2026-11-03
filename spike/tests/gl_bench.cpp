@@ -95,6 +95,8 @@ struct Scenario {
     int drag_target = -1; bool ghost = false;  // overview window drag: the ghost round the dot, the target desktop framed
     PointerLook look = PointerLook::plain;     // the dot's look: marks round it
     bool upload_each_frame = false;
+    bool roll = false;                         // both roll brackets on every desktop, desktop 1's left one hovered
+    bool surface = false;                      // desktop 1's held panel on its press-time placement (Placement{})
 };
 
 std::vector<Scenario> scenarios() {
@@ -122,6 +124,13 @@ std::vector<Scenario> scenarios() {
     }
     { Scenario s{"window_drag"}; s.pills = true; s.pointer = true; s.ghost = true; s.drag_target = 2; s.placements = {tilted_left, curved, tilted_right};
       out.push_back(s); }
+    Placement rolled = tilted_right; rolled.roll = 0.14f;
+    { Scenario s{"roll_brackets"}; s.pills = true; s.pointer = true; s.roll = true; s.placements = {tilted_left, curved, rolled}; out.push_back(s); }
+    // A Distance slider held on desktop 1: the desktop is resized live (0.6, bigger) while its panel stays on the
+    // press-time surface; its brackets go with the desktop.
+    Placement resized{}; resized.distance = 0.6f;
+    { Scenario s{"roll_brackets_resized"}; s.pills = true; s.expand = 1; s.panel = true; s.pointer = true; s.roll = true; s.surface = true;
+      s.placements[1] = resized; out.push_back(s); }
     { Scenario s{"video_card"}; s.kind = Kind::video; s.popup = true; out.push_back(s); }
     return out;
 }
@@ -173,6 +182,8 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     glass.expand[1] = s.expand;
     if (s.expand > 0) glass.top = 1;
     if (s.panel) { glass.content = 1; glass.image = &panel_image(r, s, frame, glass.generation); glass.content_alpha = 1.f; }
+    if (s.roll) { glass.roll_icon = {2, 2, 2, -1}; glass.roll_hover = 1; glass.roll_hover_side = 0; glass.roll_level = kGlassHover; }
+    if (s.surface) { glass.surface_desktop = 1; glass.surface = Placement{}; }
     gl.set_glass(glass);
     gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, s.ghost ? kFreePointerHeldLevel : kFreePointerLevel, false, 0, 0, s.look);
     gl.set_window_drag(s.ghost ? 72.f : 0.f, s.ghost ? 45.f : 0.f, s.drag_target);
@@ -328,6 +339,53 @@ int check(std::uint32_t w, std::uint32_t h) {
         auto fresh = make(w / 2, h / 2, r, why);
         draw_frame(*fresh, r, list[5], 0, w / 2, h / 2, false);
         CHECK(read_rgb(w / 2, h / 2) == small);
+    }
+    {  // (After the long-lived compositor: a new one makes its own context current.) Roll brackets ride on their
+       // desktop's live placement, not on a held panel's press-time surface: with desktop 1 resized (bigger) under a held
+       // slider, its brackets' side arms are drawn where its live corners are. And every desktop's content covers the
+       // brackets (they are drawn first, so they show only where a press can reach them): desktop 0's inner bracket,
+       // now under desktop 1, is not seen, while its outer one, in empty space, is.
+        const auto at = std::size_t(std::find_if(list.begin(), list.end(), [](const Scenario& s) { return !std::strcmp(s.name, "roll_brackets_resized"); }) - list.begin());
+        CHECK(at < list.size());
+        if (at < list.size()) {
+            Scenario bare = list[at]; bare.roll = false;
+            auto fresh = make(w, h, r, why);
+            draw_frame(*fresh, r, bare, 0, w, h, false);
+            const auto without = read_rgb(w, h);
+            const auto& with = ref[at][0];
+            const double d = std::tan(46.0 * M_PI / 360.0), a = double(w) / h;
+            const float half_w = float(d * a / std::sqrt(1 + a * a)), half_h = float(d / std::sqrt(1 + a * a));
+            const Canvas canvas{float(w), float(h), half_w, half_h};
+            const std::vector<Size> sizes(3, Size{float(kDesktopW), float(kDesktopH)});
+            const auto tiles = blended_layout(sizes, float(w), float(h), 40.f, 0.f, 1.f);
+            // Pixels within 2 px of where desktop k's bracket side arm (side -1 left, 1 right), 60% of the way down it,
+            // lands with placement p that the brackets changed.
+            auto changed = [&](std::size_t k, float side, const Placement& p) {
+                const FRect& t = tiles[k];
+                const float x = (side > 0 ? t.x + t.width : t.x) + side * kRollGap * roll_scale(t), y = t.y + 0.6f * roll_arm(t);
+                const Vec3 v = place_point(canvas, t, p, x, y);
+                const long gx = std::lround((v.x / -v.z / half_w + 1) * float(w) / 2), gy = long(h) - 1 - std::lround((1 - v.y / -v.z / half_h) * float(h) / 2);
+                int n = 0;
+                for (long y2 = gy - 2; y2 <= gy + 2; ++y2)
+                    for (long x2 = gx - 2; x2 <= gx + 2; ++x2) {
+                        if (x2 < 0 || y2 < 0 || x2 >= long(w) || y2 >= long(h)) continue;
+                        const std::size_t i = (std::size_t(y2) * w + std::size_t(x2)) * 3;
+                        n += with[i] != without[i] || with[i + 1] != without[i + 1] || with[i + 2] != without[i + 2];
+                    }
+                return n;
+            };
+            Placement live{}; live.distance = 0.6f;
+            for (const float side : {-1.f, 1.f}) {
+                const int on_live = changed(1, side, live), on_press = changed(1, side, Placement{});
+                CHECK(on_live >= 5);
+                CHECK(on_press == 0);
+                if (on_live < 5 || on_press) std::fprintf(stderr, "roll bracket side %g: %d px at the live corner, %d at the press-time one\n", double(side), on_live, on_press);
+            }
+            const int covered = changed(0, 1.f, Placement{}), open = changed(0, -1.f, Placement{});
+            CHECK(covered == 0);
+            CHECK(open >= 5);
+            if (covered || open < 5) std::fprintf(stderr, "desktop 0's brackets: %d px under desktop 1, %d px in the open\n", covered, open);
+        }
     }
     if (failures) { std::fprintf(stderr, "%d failures\n", failures); return 1; }
     std::printf("gl frame check passed: %zu scenarios, %zu frames vs fresh compositors\n", list.size(), order.size() + 2);

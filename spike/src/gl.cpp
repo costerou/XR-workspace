@@ -135,7 +135,7 @@ struct GlCompositor::Impl {
     GLsizei build_ghost(Mesh& m, const Canvas& canvas, float x, float y, float w, float h, bool directed, float az, float el);
     GLsizei build_marks(Mesh& m, const Canvas& canvas, float x, float y, PointerLook look, float grow, bool directed, float az, float el);
     static std::pair<float, float> dot_direction(const Canvas& c, float x, float y, bool directed, float az, float el);
-    // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll-level arrow; `shape` keys the points.
+    // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll bracket; `shape` keys the points.
     GLsizei build_points(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& shape, float tag,
                          std::span<const std::array<float, 2>> points);
     void drop_meshes() {
@@ -636,10 +636,39 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         attrib(s.color_pos, 3, 5, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
-    program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
     // Zoomed in (highlight_alpha = 1 - zoom), the zoomed desktop is drawn on top of any desktop dragged nearer.
     auto order = highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
                                 : draw_order(canvas, tiles, s.resolved);
+    const auto& g = s.glass;
+    const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
+    if (g.pills) {
+        // Roll brackets: an arrow bracket round each top corner (counter-clockwise left, clockwise right), shown with the
+        // pills (overview only). Drawn before every desktop (over the border and glow, back to front), so any desktop's
+        // content covers them and the glass goes over them: a bracket shows only where nothing else is, which is where the
+        // supervisor lets it take a press (free_pointer.hit: never on a desktop's content, a corner or a pill). Tile px on
+        // the desktop's own live surface (s.resolved), never a held panel's press-time one (GlassFrame::surface): a resize,
+        // by a corner or by the Distance slider, carries them with the desktop. Opaque, in the theme's M3 primary
+        // (roll_arrow_color), following the live accent; the hovered or dragged one lifted.
+        if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
+        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+        for (const std::size_t i : order) {
+            if (i >= s.textures.size() || i >= g.roll_icon.size()) continue;
+            for (std::uint32_t side = 0; side < 2; ++side) {
+                if (!roll_icon_shows(g.roll_icon[i], side)) continue;
+                const float level = int(i) == g.roll_hover && int(side) == g.roll_hover_side ? g.roll_level : kGlassIdle;
+                const auto colour = roll_arrow_color(accent, level);
+                glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
+                const auto bracket = roll_bracket(tiles[i], side);
+                GLsizei n = s.build_points(s.band_meshes[2 * i + side], canvas, tiles[i], s.resolved[i], tiles[i], float(side), bracket.band);
+                attrib(s.color_pos, 3, 3, 0);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+                n = s.build_points(s.head_meshes[2 * i + side], canvas, tiles[i], s.resolved[i], tiles[i], float(side) + 2, bracket.head);
+                attrib(s.color_pos, 3, 3, 0);
+                glDrawArrays(GL_TRIANGLES, 0, n);
+            }
+        }
+    }
+    program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
     float swizzle = -1;  // the value set this frame (-1: none yet)
     for (const std::size_t i : order) {
         if (i >= s.textures.size()) continue;
@@ -661,7 +690,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         // glass. While a slider is held the open panel stays on its press-time surface (GlassFrame::surface). Glass keeps
         // its size whatever the desktop's (view.hpp glass_mesh): a resize moves a pill with the desktop, never scales it.
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        const auto& g = s.glass;
         glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         auto glass_on = [&](std::size_t i) -> const Placement& { return int(i) == g.surface_desktop && g.surface ? *g.surface : s.resolved[i]; };
         auto shape = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, float radius, const GlassLook& look, float opacity, float margin) {
@@ -675,7 +703,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             attrib(s.glass_loc.pos, 3, 5, 0); attrib(s.glass_loc.px, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         };
-        const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
         for (const std::size_t i : glass_draw_order(std::move(order), g.top)) {  // the tiles are drawn: hand their order over
             if (i >= s.textures.size() || i >= g.expand.size()) continue;
             const float e = std::clamp(g.expand[i], 0.f, 1.f);
@@ -683,25 +710,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
             const FRect r = glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
-            for (std::uint32_t side = 0; g.pills && i < g.roll_icon.size() && side < 2; ++side) {
-                // Roll-level icons: a curved arrow above each top corner (counter-clockwise left, clockwise right).
-                if (!roll_icon_shows(g.roll_icon[i], side)) continue;
-                const float roll_level = int(i) == g.roll_hover && int(side) == g.roll_hover_side ? g.roll_level : kGlassIdle;
-                // Just the arrow, no button behind it, on the desktop's surface (surface px, where the supervisor's hit
-                // box is), in the monitor border's and glow's colour: the live theme accent.
-                const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);
-                glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
-                const auto arrow = roll_arrow(icon, side);
-                const auto colour = roll_arrow_color(accent, roll_level);
-                program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
-                glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
-                GLsizei n = s.build_points(s.band_meshes[2 * i + side], canvas, tiles[i], glass_on(i), icon, float(side), arrow.band);
-                attrib(s.color_pos, 3, 3, 0);
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
-                n = s.build_points(s.head_meshes[2 * i + side], canvas, tiles[i], glass_on(i), icon, float(side) + 2, arrow.head);
-                attrib(s.color_pos, 3, 3, 0);
-                glDrawArrays(GL_TRIANGLES, 0, n);
-            }
             if (e <= 0.f) continue;
             // The grabber where the pill was, fading in with the panel.
             const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};

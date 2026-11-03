@@ -1,7 +1,7 @@
 """The dot is one cursor, and the zone contract says what it does where (anchor-no-click-maximize; Cody, 2026-11-03
 2:51 PM; the contract is shared with the sibling branches: rotate brackets sit on the borders, resize at edges and corners,
 content goes to apps). Most important first, on a desktop's own surface (free_pointer.hit, zone_of, border_handle): an open
-panel, a rotate bracket, a corner, a pill, an edge, content; else empty space. The dot's look shows it (look_for, the
+panel, a corner, a pill, content, a rotate bracket, an edge; else empty space. The dot's look shows it (look_for, the
 `overview_pointer` frame's `look`, drawn by the renderer as marks round the dot: spike/tests/free_pointer_test.cpp): a
 resize direction on an edge or corner, move on a pill, rotate on a rotate bracket, plain over content and space.
 
@@ -46,6 +46,12 @@ def rim(tile, out):
     mx, my = tx + tw / 2, ty + th / 2
     return {'t': (mx + 90, ty - out), 'b': (tx + 40, ty + th + out), 'l': (tx - out, my), 'r': (tx + tw + out, my),
             'tl': (tx - out, ty - out), 'tr': (tx + tw + out, ty - out), 'bl': (tx - out, ty + th + out), 'br': (tx + tw + out, ty + th + out)}
+
+
+def on_bracket(tile, side):
+    """A tile point on a rotate bracket's side arm, below the corner's zone."""
+    arm, gap, z = fp.roll_arm(tile), fp.ROLL_GAP * fp.roll_scale(tile), fp.corner_zone(tile)
+    return (tile[0] + tile[2] + gap if side == 'cw' else tile[0] - gap, tile[1] + (z + arm) / 2)
 
 
 class BorderTests(unittest.TestCase):
@@ -115,13 +121,23 @@ class ZoneTests(unittest.TestCase):
                 far = fp.project(g, T1, p, tx + tw / 2, ty - fp.corner_zone(T1) - 12)
                 self.assertEqual(fp.zone_of(fp.hit(g, [p], far)), 'space')
 
-    def test_a_rotate_bracket_wins_over_a_corner_and_an_edge(self):
-        x, y, w, h = fp.roll_icon_rect(T1, 'cw')
-        q = (x + w / 2, y + h - 1)  # low in the bracket: in the corner's square too
-        self.assertEqual(fp.border_handle(T1, q)[0], 'corner')
+    def test_a_corner_wins_over_a_rotate_bracket(self):
+        gap = fp.ROLL_GAP * fp.roll_scale(T1)
+        q = (T1[0] + T1[2] + gap * 0.7, T1[1] - gap * 0.7)  # on the bracket's bend round the corner
+        self.assertTrue(fp.on_roll(T1, 'cw', q))
+        self.assertEqual(fp.border_handle(T1, q), ('corner', 'tr'))
         pointer = fp.project(G, T1, DEFAULT_PLACEMENT, *q)
-        self.assertEqual(fp.hit(G, FLAT, pointer)[:2], ('corner', 1))  # with no icons shown
-        self.assertEqual(fp.hit(G, FLAT, pointer, icons=self.ICONS), ('roll', 1, 'cw'))
+        self.assertEqual(fp.hit(G, FLAT, pointer, icons=self.ICONS), ('corner', 1, 'tr'))
+
+    def test_a_rotate_bracket_takes_an_edges_border_from_its_clear_band_out(self):
+        _, y = on_bracket(T1, 'cw')
+        right = T1[0] + T1[2]
+        for out, want in ((fp.ROLL_EDGE_CLEAR - 2, ('edge', 1, 'r')), (fp.ROLL_EDGE_CLEAR + 2, ('roll', 1, 'cw')),
+                          (fp.EDGE_OUT_PX - 1, ('roll', 1, 'cw'))):
+            with self.subTest(out=out):
+                pointer = fp.project(G, T1, DEFAULT_PLACEMENT, right + out, y)
+                self.assertEqual(fp.hit(G, FLAT, pointer)[:3], ('edge', 1, 'r'))  # with no brackets shown
+                self.assertEqual(fp.hit(G, FLAT, pointer, icons=self.ICONS), want)
 
     def test_a_corner_wins_over_a_pill_and_a_pill_over_an_edge(self):
         x, y, w, h = fp.pill_rect(T1)
@@ -174,8 +190,7 @@ class LookTests(Base):
         x, y, w, h = fp.pill_rect(T1)
         out = self.dot_to(fp.project_glass(G, T1, DEFAULT_PLACEMENT, x + w / 2, y + h / 2))
         self.assertEqual(self.looks(out), (True, 'move'))
-        x, y, w, h = fp.roll_icon_rect(T1, 'ccw')
-        out = self.onto((x + w / 2, y + h / 2))
+        out = self.onto(on_bracket(T1, 'ccw'))
         self.assertEqual(self.looks(out), (True, 'rotate'))
         out = self.dot_to((T1[0] + 100, T1[1] - 120))  # above everything
         self.assertEqual(self.p.hover, None)
@@ -219,8 +234,7 @@ class LookTests(Base):
 
     def test_a_roll_drag_keeps_the_rotate_look(self):
         self.free()
-        x, y, w, h = fp.roll_icon_rect(T1, 'cw')
-        self.onto((x + w / 2, y + h / 2))
+        self.onto(on_bracket(T1, 'cw'))
         self.op('resize_press')
         self.move_canvas(0, 90)
         self.assertEqual(self.p.sent['look'], 'rotate')

@@ -1,11 +1,13 @@
-// Roll-level icons, renderer side: the levelling roll (view.hpp Placement::roll) turns a desktop about its own line of
+// Roll brackets, renderer side: the levelling roll (view.hpp Placement::roll) turns a desktop about its own line of
 // sight and keeps it facing you; desktop_tilt measures a desktop's roll from the world's up (pose.hpp canvas_up); the
-// icon (glass.hpp roll_icon / roll_arrow) is a lone arrow, a fixed size as you see it, above the higher top corner, in
-// the theme's M3 primary; the `roll` control frame (ipc.hpp RollPayload) and its malformed-frame handling.
+// brackets (glass.hpp roll_arm / roll_bracket / roll_distance / on_roll_bracket) hug the top corners from outside, a
+// share of the desktop in tile px, so they move, scale and roll with it; they turn the way they point, in the theme's M3
+// primary; the `roll` control frame (ipc.hpp RollPayload) and its malformed-frame handling.
 #include "xr/glass.hpp"
 #include "xr/ipc.hpp"
 #include "xr/pose.hpp"
 #include "xr/view.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -141,61 +143,115 @@ int main() {
         CHECK(z.size() == 2 && z[0].roll == to.roll && z[1].roll == 0);
     }
 
-    // The icon: kRollIconPx square, kRollIconGap above the top edge, flush with the left (side 0) or right (side 1)
-    // corner; the same size for a small and a big desktop; scaled by distance (so it looks the same size at any distance).
-    for (const FRect& t : {FRect{100, 300, 459, 258}, FRect{0, 0, 4000, 2000}, FRect{10, 40, 120, 60}}) {
-        const FRect l = roll_icon(t, 0, 1.f), r = roll_icon(t, 1, 1.f);
-        CHECK(near(l.width, kRollIconPx) && near(l.height, kRollIconPx) && near(r.width, kRollIconPx));
-        CHECK(near(l.x, t.x) && near(r.x + r.width, t.x + t.width));
-        CHECK(near(l.y + l.height, t.y - kRollIconGap) && near(r.y, l.y));
-        const FRect far = roll_icon(t, 1, 2.f);
-        CHECK(near(far.width, 2 * kRollIconPx) && near(far.y + far.height, t.y - 2 * kRollIconGap) && near(far.x + far.width, t.x + t.width));
-    }
-    CHECK(roll_icon(FRect{}, 0, 1.f).width == 0 && roll_icon(FRect{0, 0, 10, 10}, 2, 1.f).width == 0);
-
-    // Just the arrow, no button: it fills most of its fixed-size square (the hit box), at any distance, in surface px
-    // (the square's own), so it stays kRollIconPx across as you see it and sits where the supervisor hit-tests.
-    for (const float d : {0.5f, 1.f, 1.7f, 3.f})
-        for (std::uint32_t side = 0; side < 2; ++side) {
-            const FRect icon = roll_icon(FRect{300, 400, 430, 242}, side, d);
-            const auto a = roll_arrow(icon, side);
-            float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
-            auto grow = [&](const std::array<float, 2>& p) { x0 = std::min(x0, p[0]); x1 = std::max(x1, p[0]); y0 = std::min(y0, p[1]); y1 = std::max(y1, p[1]); };
-            for (const auto& p : a.band) grow(p);
-            for (const auto& p : a.head) grow(p);
-            CHECK(x0 >= icon.x - 1e-3f && x1 <= icon.x + icon.width + 1e-3f && y0 >= icon.y - 1e-3f && y1 <= icon.y + icon.height + 1e-3f);
-            CHECK(x1 - x0 >= 0.7f * icon.width && y1 - y0 >= 0.5f * icon.height);
-        }
-
-    // The arrow: one plain curved arrow inside its icon, the two sides mirror images of each other; side 1 turns
-    // clockwise as you see it (its band runs clockwise, about half a turn, and its head points on that way), side 0
-    // counter-clockwise.
+    // The bracket's size: arms kRollArmShare of the desktop's shorter side, at least kRollArmMin, never past
+    // kRollArmMaxShare of it (the two brackets never meet). The stroke, gap and head keep their size down to kRollArmMin
+    // arms and shrink with the arms below that. All tile px: nothing depends on the desktop's distance.
     {
-        const FRect icon{200, 100, 22, 22};
-        const float cx = icon.x + 11, cy = icon.y + 11;
-        for (std::uint32_t s = 0; s < 2; ++s) {
-            const auto a = roll_arrow(icon, s);
-            CHECK(a.band.size() >= 8 && a.band.size() % 2 == 0);
-            for (const auto& p : a.band) CHECK(std::hypot(p[0] - cx, p[1] - cy) <= 11.f);
-            for (const auto& p : a.head) CHECK(std::hypot(p[0] - cx, p[1] - cy) <= 11.f);
-            // Signed sweep (y up) along the band's outer edge: negative = clockwise.
-            float sweep = 0;
-            for (std::size_t i = 2; i < a.band.size(); i += 2) {
-                const float a0 = std::atan2(cy - a.band[i - 2][1], a.band[i - 2][0] - cx), a1 = std::atan2(cy - a.band[i][1], a.band[i][0] - cx);
-                sweep += std::remainder(a1 - a0, 2 * kPi);
+        const FRect usual{40, 435, 586.67f, 330}, small{10, 40, 120, 60}, tiny{5, 5, 40, 30};
+        CHECK(near(roll_arm(usual), kRollArmShare * 330, 1e-3f) && roll_scale(usual) == 1.f);
+        CHECK(near(roll_arm(FRect{0, 0, 4000, 2000}), kRollArmShare * 2000, 1e-2f));
+        CHECK(near(roll_arm(FRect{0, 0, 300, 160}), kRollArmMin) && roll_scale(FRect{0, 0, 300, 160}) == 1.f);  // 35.2 -> 36
+        CHECK(near(roll_arm(small), kRollArmMaxShare * 60) && near(roll_scale(small), kRollArmMaxShare * 60 / kRollArmMin));
+        CHECK(near(roll_arm(tiny), kRollArmMaxShare * 30) && roll_scale(tiny) < 1.f);
+        CHECK(roll_arm(FRect{}) == 0 && roll_scale(FRect{}) == 0 && roll_bracket(FRect{}, 0).band.empty());
+        CHECK(roll_bracket(usual, 2).band.empty() && roll_bracket(usual, 2).head.empty());
+        CHECK(std::isinf(roll_distance(FRect{}, 0, 0, 0)) && std::isinf(roll_distance(usual, 2, 0, 0)) && !on_roll_bracket(usual, 2, 30, 430));
+    }
+
+    // Drawn: one stroke hugging its top corner from outside, over the top edge, round the corner and down the side to its
+    // arrowhead. Every point is outside the desktop and the kRollEdgeClear band along its edges (the selected desktop's
+    // 6 px border, the edge's resize zone), and inside the hit region; it spans from `arm` in along the top (the round cap) to `arm` down the side (the tip), kRollGap out; side 0
+    // is side 1's mirror image; side 1 turns clockwise as you see it, side 0 counter-clockwise; the head points down the
+    // side, the way that corner goes.
+    for (const FRect& t : {FRect{40, 435, 586.67f, 330}, FRect{0, 0, 4000, 2000}, FRect{10, 40, 120, 60}, FRect{1400, 300, 459, 258},
+                           FRect{-200.5f, 410.25f, 812, 457}}) {
+        const float arm = roll_arm(t), s = roll_scale(t), gap = kRollGap * s, half = kRollStroke * s / 2, head = kRollHeadHalf * s;
+        CHECK(2 * arm < t.width && arm < t.height);
+        const float mid = t.x + t.width / 2, cy = t.y + t.height / 2;
+        const auto l = roll_bracket(t, 0), r = roll_bracket(t, 1);
+        for (std::uint32_t side = 0; side < 2; ++side) {
+            const auto& b = side ? r : l;
+            CHECK(b.band.size() >= 8 && b.band.size() % 2 == 0 && b.band.size() <= 40);
+            CHECK(b.head.size() >= 3 && b.head.size() % 3 == 0);
+            const float corner = side ? t.x + t.width : t.x, out = side ? 1.f : -1.f;
+            float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+            for (const auto* v : {&b.band, &b.head})
+                for (const auto& p : *v) {
+                    const float clear = std::max({t.x - p[0], p[0] - (t.x + t.width), t.y - p[1]});
+                    CHECK(clear >= kRollEdgeClear * s - 1e-3f);
+                    CHECK(on_roll_bracket(t, side, p[0], p[1]) || clear < kRollEdgeClear * s + 1e-3f);  // the head's inner corner: on the band's edge
+                    CHECK(roll_distance(t, side, p[0], p[1]) <= std::max(head, half) + 1e-3f);
+                    x0 = std::min(x0, p[0]); x1 = std::max(x1, p[0]); y0 = std::min(y0, p[1]); y1 = std::max(y1, p[1]);
+                }
+            const float inner = corner - out * (arm + half), outer = corner + out * (gap + head);
+            CHECK(near(std::min(inner, outer), x0, 1e-2f) && near(std::max(inner, outer), x1, 1e-2f));
+            CHECK(near(y0, t.y - gap - half, 1e-2f) && near(y1, t.y + arm, 1e-2f));
+            // The head: its tip at the side arm's end, `arm` below the corner and kRollGap out; its base across the stroke.
+            const auto& tip = b.head[2];
+            CHECK(near(tip[0], corner + out * gap, 1e-3f) && near(tip[1], t.y + arm, 1e-3f));
+            CHECK(b.head[0][1] < tip[1] && near(b.head[0][1], b.head[1][1]) && near((b.head[0][0] + b.head[1][0]) / 2, tip[0], 1e-3f));
+            // The way it turns: from the top arm's end to the tip, round the desktop's centre (y up), clockwise for side 1.
+            const float tail_x = (b.band[0][0] + b.band[1][0]) / 2, tail_y = (b.band[0][1] + b.band[1][1]) / 2;
+            CHECK(near(tail_x, corner - out * arm, 1e-3f) && near(tail_y, t.y - gap, 1e-3f));
+            const float sweep = std::remainder(std::atan2(cy - tip[1], tip[0] - mid) - std::atan2(cy - tail_y, tail_x - mid), 2 * kPi);
+            CHECK(side ? sweep < 0 : sweep > 0);
+            // The centre line: kRollGap round the corner, on the arms, padded by kRollPad past the head.
+            CHECK(near(roll_distance(t, side, corner, t.y), gap, 1e-3f));
+            CHECK(near(roll_distance(t, side, corner - out * arm / 2, t.y - gap), 0, 1e-3f));
+            CHECK(near(roll_distance(t, side, corner + out * gap, t.y + arm / 2), 0, 1e-3f));
+            const float reach = (kRollHeadHalf + kRollPad) * s;
+            CHECK(on_roll_bracket(t, side, corner + out * (gap + reach - 0.25f * s), t.y + arm / 2));
+            CHECK(!on_roll_bracket(t, side, corner + out * (gap + reach + 0.25f * s), t.y + arm / 2));
+            CHECK(on_roll_bracket(t, side, corner + out * gap, t.y + arm + reach - 0.25f * s));   // past the tip
+            CHECK(!on_roll_bracket(t, side, corner + out * gap, t.y + arm + reach + 0.25f * s));
+            CHECK(on_roll_bracket(t, side, corner - out * (arm + reach - 0.25f * s), t.y - gap));  // past the cap
+            CHECK(!on_roll_bracket(t, side, corner - out * (arm + reach + 0.25f * s), t.y - gap));
+            // Never on the desktop itself, however close to the line: its own pixels stay with the desktop. Nor in the band
+            // kRollEdgeClear wide just outside its edges (the edge's resize zone): only from there out.
+            CHECK(!on_roll_bracket(t, side, corner - out * 1.f, t.y + arm / 2) && !on_roll_bracket(t, side, corner - out * arm / 2, t.y + 1.f));
+            for (const float in_band : {0.5f, 3.f, kRollEdgeClear - 0.25f}) {
+                CHECK(!on_roll_bracket(t, side, corner + out * in_band * s, t.y + arm / 2));    // beside the side arm
+                CHECK(!on_roll_bracket(t, side, corner - out * arm / 2, t.y - in_band * s));    // under the top arm
             }
-            CHECK(s == 1 ? sweep < -rad(150) : sweep > rad(150));
-            CHECK(std::fabs(sweep) < rad(240));  // a simple half-turn arc, not a near-full circle
-            CHECK(a.band.size() <= 40);           // minimal detail
-            // The tip lies further along that way than the head's base.
-            const auto& tip = a.head[2];
-            const float base_x = (a.head[0][0] + a.head[1][0]) / 2, base_y = (a.head[0][1] + a.head[1][1]) / 2;
-            const float turn = std::remainder(std::atan2(cy - tip[1], tip[0] - cx) - std::atan2(cy - base_y, base_x - cx), 2 * kPi);
-            CHECK(s == 1 ? turn < 0 : turn > 0);
+            CHECK(on_roll_bracket(t, side, corner + out * (kRollEdgeClear + 0.25f) * s, t.y + arm / 2));
+            CHECK(on_roll_bracket(t, side, corner - out * arm / 2, t.y - (kRollEdgeClear + 0.25f) * s));
+            CHECK(!on_roll_bracket(t, side, mid, t.y - gap));  // nothing in the middle of the top edge
         }
-        const auto l = roll_arrow(icon, 0), r = roll_arrow(icon, 1);
-        for (std::size_t i = 0; i < l.band.size(); ++i) CHECK(near(l.band[i][0] - cx, cx - r.band[i][0], 1e-3f) && near(l.band[i][1], r.band[i][1], 1e-3f));
-        CHECK(roll_arrow(FRect{}, 0).band.empty());
+        for (std::size_t i = 0; i < l.band.size() && i < r.band.size(); ++i)
+            CHECK(near(l.band[i][0] - mid, mid - r.band[i][0], 1e-2f) && near(l.band[i][1], r.band[i][1], 1e-3f));
+        for (std::size_t i = 0; i < l.head.size() && i < r.head.size(); ++i)
+            CHECK(near(l.head[i][0] - mid, mid - r.head[i][0], 1e-2f) && near(l.head[i][1], r.head[i][1], 1e-3f));
+        CHECK(l.band.size() == r.band.size() && l.head.size() == r.head.size());
+    }
+
+    // It moves and scales with its desktop: on the desktop's own surface, a resize (distance), a move (orbit), curvature
+    // and the levelling roll all carry it along, so as you see it the bracket's tip keeps its place at the corner and the
+    // same share of the desktop's width (the angle from the corner to the tip over the angle across the top edge).
+    {
+        auto angle = [](Vec3 a, Vec3 b) {
+            const float dot = a.x * b.x + a.y * b.y + a.z * b.z, n = std::sqrt((a.x * a.x + a.y * a.y + a.z * a.z) * (b.x * b.x + b.y * b.y + b.z * b.z));
+            return std::acos(std::clamp(dot / n, -1.f, 1.f));
+        };
+        for (const FRect& t : {centred, side}) {
+            for (std::uint32_t s = 0; s < 2; ++s) {
+                const auto b = roll_bracket(t, s);
+                const auto& tip = b.head[2];
+                const float corner = s ? t.x + t.width : t.x;
+                const float want = std::hypot(tip[0] - corner, tip[1] - t.y) / t.width;
+                for (const float d : {0.5f, 1.f, 2.f})
+                    for (Placement p : {Placement{}, Placement{0.25f, -0.15f, 1, 0, 0}, Placement{0, 0, 1, 0.6f, 0}, Placement{-0.4f, 0.2f, 1, 0.3f, rad(14)}}) {
+                        p.distance = d;
+                        const Vec3 c = place_point(canvas, t, p, corner, t.y), q = place_point(canvas, t, p, tip[0], tip[1]);
+                        const Vec3 a = place_point(canvas, t, p, t.x, t.y), z = place_point(canvas, t, p, t.x + t.width, t.y);
+                        const float got = angle(c, q) / angle(a, z);
+                        CHECK(std::fabs(got - want) <= 0.03f * want);
+                        if (std::fabs(got - want) > 0.03f * want) std::fprintf(stderr, "bracket share %g want %g (d %g x %g)\n", double(got), double(want), double(d), double(p.x));
+                        // ...and it turns with a rolled desktop: the tip stays on the desktop's own side of its corner.
+                        const Vec3 centre = place_point(canvas, t, p, t.x + t.width / 2, t.y + t.height / 2);
+                        CHECK(angle(centre, q) > angle(centre, c) * 0.9f);
+                    }
+            }
+        }
     }
 
     // Colour: an M3 icon in the theme's primary (the scheme of the accent, so it follows a live theme change), lifted
