@@ -513,7 +513,9 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
     program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
-    auto order = draw_order(canvas, tiles, s.resolved);
+    // Zoomed in (highlight_alpha = 1 - zoom), the zoomed desktop is drawn on top of any desktop dragged nearer.
+    auto order = highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
+                                : draw_order(canvas, tiles, s.resolved);
     float swizzle = -1;  // the value set this frame (-1: none yet)
     for (const std::size_t i : order) {
         if (i >= s.textures.size()) continue;

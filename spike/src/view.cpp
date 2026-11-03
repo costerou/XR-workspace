@@ -20,13 +20,6 @@ std::vector<FRect> row(std::span<const Size> src, float view_h, float h, float s
 }
 float smoothstep(float t) { t = clampf(t, 0, 1); return t * t * (3 - 2 * t); }
 float smootherstep(float t) { t = clampf(t, 0, 1); return t * t * t * (t * (6 * t - 15) + 10); }
-namespace {
-float smootherstep_d(float t) { t = clampf(t, 0, 1); return 30 * t * t * (1 - t) * (1 - t); }
-// Quintic Hermite basis carrying an initial velocity: value 0 at both ends, slope 1 at 0, slope and
-// curvature 0 at 1. Equals s(1-s)^3(1+3s), non-negative on [0,1].
-float carry(float t) { t = clampf(t, 0, 1); const float u = 1 - t; return t * u * u * u * (1 + 3 * t); }
-float carry_d(float t) { t = clampf(t, 0, 1); const float u = 1 - t; return u * u * (1 - 3 * t) * (1 + 5 * t); }
-}
 
 std::vector<FRect> overview_layout(std::span<const Size> src, float view_w, float view_h, float spacing) {
     if (!valid(src, view_w, view_h)) return {};
@@ -122,44 +115,40 @@ Dir slot_direction(const Canvas& c, const FRect& t) {
     const float wx = (2 * (t.x + t.width / 2) / c.view_w - 1) * c.half_w, wy = (1 - 2 * (t.y + t.height / 2) / c.view_h) * c.half_h;
     return {std::atan2(wx, 1.f), std::atan2(wy, std::sqrt(1 + wx * wx))};
 }
-// a toward b by t; azimuths the short way round.
-Dir blend(Dir a, Dir b, float t) { return {a.az + t * std::remainder(b.az - a.az, 2 * float(M_PI)), lerp(a.el, b.el, t)}; }
 }
 
 std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect> overview, std::span<const FRect> tiles,
-                                         std::span<const Placement> placements, float zoom, float position, bool keep_place) {
+                                         std::span<const Placement> placements, float zoom, float position) {
     const std::size_t n = tiles.size();
     std::vector<Placement> out(n);
     for (std::size_t i = 0; i < n && i < placements.size(); ++i) out[i] = placements[i];
     const float z = clampf(zoom, 0, 1);
-    if (n == 0 || z == 0 || overview.size() != n) return out;
-    auto own = [&](std::size_t i) { return i < placements.size() ? placements[i] : Placement{}; };
-    // Where desktop i is in the overview (slot plus orbit), and where its slot is now.
-    auto placed = [&](std::size_t i) { const Dir s = slot_direction(c, overview[i]); return Dir{s.az + own(i).x, s.el + own(i).y}; };
-    // Where zooming into desktop i takes it: where it is when kept, else straight ahead (its centred zoomed slot).
-    auto goal = [&](std::size_t i) {
-        const Dir d = placed(i);
-        const bool near_ahead = std::cos(d.el) * std::cos(d.az) >= std::cos(kZoomInPlaceMaxRad);
-        return keep_place && near_ahead ? d : Dir{};
+    if (n == 0 || z == 0 || overview.size() != n || c.view_w <= 0 || c.view_h <= 0) return out;
+    // Distance from the eye of a slot's centre on the canvas plane (place_point's r at distance 1).
+    auto radius = [&](const FRect& t) {
+        const float wx = (2 * (t.x + t.width / 2) / c.view_w - 1) * c.half_w, wy = (1 - 2 * (t.y + t.height / 2) / c.view_h) * c.half_h;
+        return std::sqrt(1 + wx * wx + wy * wy);
     };
-    auto now = [&](std::size_t i) { return slot_direction(c, tiles[i]); };
-    const std::size_t last = n - 1;
-    const float p = clampf(position, 0, float(last));
-    const std::size_t lo = std::size_t(std::floor(p)), hi = std::min(lo + 1, last);
-    const float t = p - float(lo);
-    // The orbit that puts the zoom target's slot at its goal.
-    const Dir target = blend(goal(lo), goal(hi), t), slot = blend(now(lo), now(hi), t);
-    const Dir delta{std::remainder(target.az - slot.az, 2 * float(M_PI)), target.el - slot.el};
     for (std::size_t i = 0; i < n; ++i) {
-        // Each desktop's own direction held still (orbit corrected for its slot's motion), blended into the row by the zoom.
-        const Dir ov = slot_direction(c, overview[i]), cur = now(i);
-        const Dir held{own(i).x + ov.az - cur.az, own(i).y + ov.el - cur.el};
-        const Dir orbit = blend(held, delta, z);
-        out[i] = faded(own(i), zoom_weight(z, position, i));
-        out[i].x = std::remainder(orbit.az, 2 * float(M_PI));
-        out[i].y = orbit.el;
+        const Placement own = i < placements.size() ? placements[i] : Placement{};
+        const FRect &was = overview[i], &now = tiles[i];
+        if (!(was.height > 0) || !(now.height > 0)) continue;
+        // Held still round you: the orbit absorbs the slot's move from the overview to `tiles`.
+        const Dir ov = slot_direction(c, was), cur = slot_direction(c, now);
+        // Held at its overview size: every length (tile, radius, curvature's arc) scales by k about the eye.
+        const float d = own.distance > 0 ? own.distance : 1.f;
+        const float rigid = d * (now.height / was.height) * radius(was) / radius(now);
+        out[i] = {std::remainder(own.x + ov.az - cur.az, 2 * float(M_PI)), own.y + ov.el - cur.el,
+                  lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature};
     }
     return out;
+}
+
+std::vector<std::size_t> zoom_draw_order(std::vector<std::size_t> order, float zoom, std::size_t target) {
+    if (!(zoom >= 0.5f)) return order;
+    const auto it = std::find(order.begin(), order.end(), target);
+    if (it != order.end()) std::rotate(it, it + 1, order.end());
+    return order;
 }
 
 std::vector<std::size_t> draw_order(const Canvas& c, std::span<const FRect> tiles, std::span<const Placement> placements) {
@@ -248,32 +237,13 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
     advance(now_ms);
     from_zoom_ = zoom(); from_spacing_ = this->spacing();
     to_zoom_ = zoomed ? 1.f : 0.f;
-    selected = std::min(selected, kMaxIndex);
-    if (selected != to_selected_) {  // only a desktop switch restarts the move; keep its momentum
-        const float carried = velocity() * move_;  // read both before touching the curve
-        from_pos_ = position();
-        const float d = float(selected) - from_pos_;
-        // Same direction: keep speed up to 2x the remaining distance (overshoot needs > 2.5x).
-        // Reversing: bleed it off with at most a small drift past the current position.
-        const float cap = (carried * d > 0 ? 2.f : 0.5f) * std::abs(d);
-        from_vel_ = move_ > 0 ? std::clamp(carried, -cap, cap) / move_ : 0.f;
-        to_selected_ = selected; move_start_ms_ = now_ms; move_t_ = 0.f;
-    }
+    to_selected_ = std::min(selected, kMaxIndex);  // a desktop switch is instant: no slide between desktops
     to_spacing_ = float(std::min(spacing, kMaxSpacing));
     start_ms_ = now_ms; t_ = 0.f;
 }
 void ViewAnimator::advance(double now_ms) {
     if (t_ < 1.f) t_ = duration_ > 0 ? clampf(float((now_ms - start_ms_) / duration_), 0, 1) : 1.f;
-    if (move_t_ < 1.f) move_t_ = move_ > 0 ? clampf(float((now_ms - move_start_ms_) / move_), 0, 1) : 1.f;
 }
 float ViewAnimator::zoom() const { return lerp(from_zoom_, to_zoom_, smoothstep(t_)); }
-float ViewAnimator::position() const {
-    if (move_t_ >= 1.f) return float(to_selected_);
-    return lerp(from_pos_, float(to_selected_), smootherstep(move_t_)) + from_vel_ * move_ * carry(move_t_);
-}
-float ViewAnimator::velocity() const {
-    if (move_t_ >= 1.f || move_ <= 0) return 0.f;
-    return (float(to_selected_) - from_pos_) * smootherstep_d(move_t_) / move_ + from_vel_ * carry_d(move_t_);
-}
 float ViewAnimator::spacing() const { return lerp(from_spacing_, to_spacing_, smoothstep(t_)); }
 }

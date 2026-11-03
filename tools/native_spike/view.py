@@ -392,7 +392,7 @@ class ViewState:
             target = self.selected + (1 if op == 'next' else -1)
             if not 0 <= target < len(self.names): return None
             self.selected = target
-            return self.names[target]  # overview and zoomed: highlight/slide and focus
+            return self.names[target]  # overview and zoomed: the renderer snaps to it (no slide) and it is focused
         self.spacing = min(max(self.spacing + (SPACING_STEP if op == 'spacing_up' else -SPACING_STEP), 0), MAX_SPACING)
         return None
 
