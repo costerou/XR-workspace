@@ -13,6 +13,9 @@ Design (overview-uc-input-lock, 2026-11-02):
     never reaches an edge or another monitor, and the sampler puts it back once it strays LEASH_PX (the free pointer's
     own leash is RECENTRE_PX). Hand motion only moves the dot; the window under the cursor, and with focus-follows-mouse
     the keyboard focus, stay as they were.
+  * Click focus. A dot click on a desktop focuses its monitor (free_pointer: Clicks) and moves the held cursor there,
+    under the dot (LockedPointer._clicked), so focus-follows-mouse keeps that focus: left on the monitor the dot came
+    from, the next hand motion would give that monitor the focus back.
   * Moves that are not the hand. A focus change (Ctrl+Alt+Left / Right, the send-window keys, a zoom-in) warps the cursor
     to another monitor. A jump of more than free_pointer.JUMP_PX from the parking point is never pulled back: the dot
     follows it (or stays put if it is already on that desktop, as after a click that focused it) and the cursor is
@@ -135,7 +138,18 @@ class LockedPointer(fp.OverviewPointer):
         return self._select(i)
 
     def _enter(self, i, q):
-        """The dot went (or clicked) into desktop i: select it; the real cursor stays where it is held."""
+        """The dot went into desktop i: select it; the real cursor stays where it is held."""
+        return self._select(i)
+
+    def _clicked(self, i, q):
+        """A click on desktop i at tile pixel q focused its monitor (view.ViewControl.focus_desktop): the held cursor moves
+        there too, under the dot (PARK_MARGIN_PX inside), still hidden and held. Left on the monitor the dot came from,
+        Hyprland's focus-follows-mouse would give that monitor the focus back on the next hand motion (the leash lets the
+        cursor stray LEASH_PX there before it is put back), and the warp itself refocuses the window under the dot."""
+        o, target = self._output(i), self._to_layout(i, q)
+        if o is not None and target is not None:
+            self.desktop, self.gain = i, self._gain(i)
+            self._set_want('free', park_point(o, target), sync=True)
         return self._select(i)
 
     def _follow(self, now):

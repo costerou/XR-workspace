@@ -20,8 +20,9 @@ Design (3dof-free-placement, 2026-11-02):
     round you is one drag away. In anchor mode the pills are also hit-tested along that stretched direction
     (stretched_pointer, used by free_pointer.hit), so a pill placed anywhere round you lights up and can be grabbed
     again, and the grabbed pill then follows the stretched direction exactly. Inside the view the stretch is the
-    identity, so nothing changes there; desktops, corners and panels are still only hit under the dot itself. In follow
-    and locked modes the view turns with your head, so there the desktop just follows the dot. The pointer and its
+    identity, so nothing changes there; desktops, corners and panels are still only hit under the dot itself, and
+    what is under the dot wins over a stretched pill. In follow and locked modes the view turns with your head, so
+    there the desktop just follows the dot. The pointer and its
     clamp are not changed. The drag's reach (anchor or not) is fixed when it starts, and its target is kept unwrapped,
     so a desktop held against a neighbour never flips round the other way when the target passes behind you.
   * No overlap (allowed_move): what a desktop covers is judged as you see it, as the set of directions from your eye that
