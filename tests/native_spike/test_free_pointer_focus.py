@@ -1,6 +1,7 @@
-"""Overview click-to-focus: a click with the circle cursor (the free pointer's dot) on a desktop selects it and gives its
-XR-n output Hyprland's monitor focus (view.ViewControl.focus_desktop, from free_pointer.OverviewPointer.on_op). Clicks on
-anything else (pills, corners, the help card, empty space) and clicks that only wake the idle dot focus nothing.
+"""Overview click-to-zoom: a click with the circle cursor (the free pointer's dot) on a desktop selects it, gives its
+XR-n output Hyprland's monitor focus and zooms into it, as Ctrl+Alt+Up does (view.ViewControl.focus_desktop, from
+free_pointer.OverviewPointer.on_op). Clicks on anything else (pills, corners, the help card, empty space) and clicks
+that only wake the idle dot focus nothing and stay in the overview.
 
 Offline only: fake clock, the free-pointer test rig, focus requests recorded in a list. No compositor, renderer binary
 or glasses.
@@ -32,9 +33,9 @@ class ClickFocusTests(PointerBase):
         out = self.focused_after('resize_press')
         self.assertEqual(self.focused, ['XR-2'])
         self.assertEqual(self.control.state.selected, 1)
-        self.assertEqual([f['payload']['selected'] for f in out if f['op'] == 'view'], [1])  # one view frame, not two
-        self.assertFalse(self.control.state.zoomed)  # focus only: the view stays in the overview
-        self.assertEqual(self.p.want[1:], ('desktop', (X2 + 960, fp.INSET_PX)))  # the cursor still comes back there
+        self.assertEqual([(f['payload']['selected'], f['payload']['zoomed']) for f in out if f['op'] == 'view'], [(1, True)])
+        self.assertTrue(self.control.state.zoomed)  # zoomed into it, as Ctrl+Alt+Up does
+        self.assertEqual(self.p.release_at, (X2 + 960, fp.INSET_PX))  # where the cursor shows: at the click
         self.assertEqual(self.p.focus_clicks, 1)
         self.assertEqual(self.focused_after('resize_release'), [])
         self.assertEqual(self.focused, ['XR-2'])  # the release asks nothing more
@@ -45,7 +46,8 @@ class ClickFocusTests(PointerBase):
         self.assertEqual(self.control.state.selected, 1)  # moving into XR-2 selected it already
         out = self.focused_after('resize_press')
         self.assertEqual(self.focused, ['XR-2'])
-        self.assertIsNone(last(out, 'view'))  # nothing about the view changed
+        self.assertEqual(last(out, 'view')['selected'], 1)  # the same desktop, zoomed into
+        self.assertTrue(last(out, 'view')['zoomed'])
 
     def test_a_click_on_another_desktop_than_the_one_the_dot_left_focuses_the_clicked_one(self):
         # The cursor runs off XR-1's right edge: free, the hidden cursor parked on XR-1. The dot then crosses just onto
@@ -57,11 +59,14 @@ class ClickFocusTests(PointerBase):
         self.focused_after('resize_press')
         self.assertEqual(self.focused, ['XR-2'])
         self.assertEqual(self.control.state.selected, 1)
-        self.assertEqual((self.p.mode, self.p.desktop, self.p.want[1]), ('desktop', 1, 'desktop'))
+        self.assertTrue(self.control.state.zoomed)
+        self.assertEqual(self.p.release_at[0] // 1920, X2 // 1920)  # the cursor shows on XR-2, not the parking monitor
 
     def test_each_click_focuses_the_desktop_it_lands_on(self):
         self.free_on(X1)
         self.focused_after('resize_press', 'resize_release')
+        self.assertTrue(self.control.state.zoomed)
+        self.control.poll(); self.op('zoom_out')
         self.free_on(X2)
         self.focused_after('resize_press', 'resize_release')
         self.assertEqual(self.focused, ['XR-1', 'XR-2'])
@@ -131,16 +136,16 @@ class ClickFocusTests(PointerBase):
         self.control.state.selected = 0
         out = self.focused_after('resize_press')
         self.assertEqual(last(out, 'view')['selected'], 1)
-        self.assertEqual(self.p.mode, 'desktop')
+        self.assertTrue(self.control.state.zoomed)  # the view still zooms in
 
 
 class FocusDesktopTests(PointerBase):
-    def test_selects_and_focuses_off_the_loop(self):
+    def test_selects_focuses_off_the_loop_and_zooms_in(self):
         out = frames(self.control.focus_desktop(2))
         self.control.join_focus(2)
-        self.assertEqual(self.focused, ['XR-3'])
+        self.assertEqual(self.focused, ['XR-3'])  # once: the zoom-in's own focus, as Ctrl+Alt+Up
         self.assertEqual(last(out, 'view')['selected'], 2)
-        self.assertFalse(self.control.state.zoomed)
+        self.assertTrue(last(out, 'view')['zoomed']); self.assertTrue(self.control.state.zoomed)
 
     def test_bad_desktops_do_nothing(self):
         for bad in (-1, 3, '1', None, True, 1.0):

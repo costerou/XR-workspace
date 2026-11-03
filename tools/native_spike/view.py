@@ -681,17 +681,14 @@ class ViewControl:
         return self._menu_update(lambda: self.state.hold_surface(None) or False)
 
     def focus_desktop(self, desktop):
-        """A circle-cursor (free pointer) click on `desktop` in the overview: select it (the highlight; Ctrl+Alt+Up zooms
-        into it) and give its output Hyprland's monitor focus, off the loop like Ctrl+Alt+Left / Right. Asked every time,
-        even for the selected desktop: the selection is the run's, while Hyprland's focus may be on another monitor (the
-        hidden cursor stays parked on the desktop it left from). The view stays in the overview. A view frame (bytes) if
-        the selection changed, else b''."""
+        """A circle-cursor (free pointer) click on `desktop` in the overview: select it and zoom into it, leaving the
+        overview, exactly as Ctrl+Alt+Up does on the selected desktop (an open panel collapses first, saved; its output
+        gets Hyprland's monitor focus off the loop; one view frame). The free pointer and the input lock then let go of
+        the mouse as on any zoom-in. Frames (bytes), b'' for a stale click."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
-        t = threading.Thread(target=self._focus, args=(self.state.names[desktop],), daemon=True); t.start(); self._threads.append(t)
-        if self.state.selected == desktop: return b''
         self.state.selected = desktop
-        return self._frame()
+        return self.on_message({'op': 'zoom_in', 'payload': {}}) or b''
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""

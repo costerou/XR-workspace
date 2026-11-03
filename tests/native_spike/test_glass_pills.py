@@ -737,12 +737,12 @@ class ClickOutsideTests(Base):
         self.assertNotIn('placement', ops_of(out)); self.assertNotIn('view', ops_of(out))
         self.assertEqual(self.p.mode, 'free'); self.assertIsNone(self.p.drag)
 
-    def test_a_desktop_press_closes_it_and_still_focuses_that_desktop(self):
+    def test_a_desktop_press_closes_it_and_still_zooms_into_that_desktop(self):
         self.to(T1[0] + T1[2] / 2, T1[1] + 1)  # just inside XR-2's top edge (less than ENTER_PX: still free)
         self.assertEqual(self.p.hover[:2], ('desktop', 1)); self.assertEqual(self.p.mode, 'free')
         out = self.press()
         self.assert_closed_and_saved(out)
-        self.assertEqual(self.p.mode, 'desktop'); self.assertEqual(self.state.selected, 1)
+        self.assertTrue(self.state.zoomed); self.assertEqual(self.state.selected, 1)
         self.assertEqual(last(out, 'view')['selected'], 1)
         self.assertEqual(self.p.focus_clicks, 1)
 

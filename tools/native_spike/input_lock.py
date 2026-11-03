@@ -5,17 +5,20 @@ free pointer's.
 Design (overview-uc-input-lock, 2026-11-02):
   * Capture. In the overview a cursor on one of the run's XR desktops (or one that Ctrl+Alt+Down's summon brings into
     the selected desktop) is captured at once: the pointer goes straight to the free pointer's free mode and stays there
-    for the whole overview. The dot starts where the cursor was. Moving it into a desktop, or clicking one, selects that
-    desktop (the highlight; Ctrl+Alt+Up zooms into it) but never hands the real cursor back (LockedPointer._enter). A
+    for the whole overview. The dot starts where the cursor was. Moving it into a desktop selects that desktop (the
+    highlight; Ctrl+Alt+Up zooms into it) but never hands the real cursor back (LockedPointer._enter); clicking one zooms
+    into it (Click to zoom, below). A
     cursor on the physical monitor is left alone, as before, so the panel stays usable; it is captured as soon as it
     comes onto an XR desktop.
   * Held still. The capture parks the hidden cursor where it was, kept PARK_MARGIN_PX inside its monitor so hand motion
     never reaches an edge or another monitor, and the sampler puts it back once it strays LEASH_PX (the free pointer's
     own leash is RECENTRE_PX). Hand motion only moves the dot; the window under the cursor, and with focus-follows-mouse
     the keyboard focus, stay as they were.
-  * Click focus. A dot click on a desktop focuses its monitor (free_pointer: Clicks) and moves the held cursor there,
-    under the dot (LockedPointer._clicked), so focus-follows-mouse keeps that focus: left on the monitor the dot came
-    from, the next hand motion would give that monitor the focus back.
+  * Click to zoom. A dot click on a desktop zooms into it, leaving the overview, as Ctrl+Alt+Up does on the selected
+    desktop (free_pointer: Clicks; view.ViewControl.focus_desktop selects it, gives its monitor Hyprland's focus and
+    zooms in). The click notes where the cursor should show first (OverviewPointer.release_at: on the clicked monitor,
+    under the dot), and the release below shows it there, never on the monitor the held cursor was parked on, where
+    focus-follows-mouse would take the focus back from the desktop just zoomed into.
   * Moves that are not the hand. A focus change (Ctrl+Alt+Left / Right, the send-window keys, a zoom-in) warps the cursor
     to another monitor. A jump of more than free_pointer.JUMP_PX from the parking point is never pulled back: the dot
     follows it (or stays put if it is already on that desktop, as after a click that focused it) and the cursor is
@@ -31,7 +34,7 @@ Design (overview-uc-input-lock, 2026-11-02):
     work.
   * Release. Leaving the overview (zoom in, typing mode, a VR video, no overview geometry) removes the binds and shows
     the cursor where it is (LockedSampler._release), never at the capture's starting point, which would undo a zoom-in's
-    focus warp. Run end is the free pointer's (its bind removal). A run that dies with the lock on leaves the binds: the
+    focus warp; after a click that zoomed in, under the dot on the clicked monitor. Run end is the free pointer's (its bind removal). A run that dies with the lock on leaves the binds: the
     first press of any bound button runs the bind helper, which finds no run and removes the whole table (xr_control.py
     REMOVE_RESIZE_BINDS): every button, the wheel, the scroll delay and the hidden cursor come back. The wheel alone
     runs nothing, so it stays bound until that click.
@@ -133,23 +136,13 @@ class LockedPointer(fp.OverviewPointer):
         self.mode, self.desktop, self.gain = 'free', i, self._gain(i)
         self.pointer, self.last_move = self._clamp(point), now
         self.captures += 1
+        self.release_at = None  # a new capture: no click zoomed in since
         self._set_want('free', park, sync=True)  # samples count again once the sampler has parked it there
         self.hover = self._hit()
         return self._select(i)
 
     def _enter(self, i, q):
         """The dot went into desktop i: select it; the real cursor stays where it is held."""
-        return self._select(i)
-
-    def _clicked(self, i, q):
-        """A click on desktop i at tile pixel q focused its monitor (view.ViewControl.focus_desktop): the held cursor moves
-        there too, under the dot (PARK_MARGIN_PX inside), still hidden and held. Left on the monitor the dot came from,
-        Hyprland's focus-follows-mouse would give that monitor the focus back on the next hand motion (the leash lets the
-        cursor stray LEASH_PX there before it is put back), and the warp itself refocuses the window under the dot."""
-        o, target = self._output(i), self._to_layout(i, q)
-        if o is not None and target is not None:
-            self.desktop, self.gain = i, self._gain(i)
-            self._set_want('free', park_point(o, target), sync=True)
         return self._select(i)
 
     def _follow(self, now):
@@ -206,10 +199,14 @@ class LockedSampler(fp.PointerSampler):
         except (OSError, ValueError, TypeError, KeyError, AttributeError): pass
 
     def _release(self):
-        """Out of the overview: the binds (the lock's too) go and the cursor shows where it is."""
+        """Out of the overview: the binds (the lock's too) go and the cursor shows where it is, or, after a dot click that
+        zoomed into a desktop, on that desktop's monitor under the dot (LockedPointer.release_at)."""
         if not self.grabbed: return
+        at = self.pointer.release_at
         try:
-            self.client.release_pointer()
+            if at is not None: self.client.release_pointer(*at)
+            else: self.client.release_pointer()
             self.grabbed = False
+            self.pointer.release_at = None
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             self.errors += 1

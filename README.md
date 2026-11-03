@@ -193,8 +193,8 @@ In the overview your mouse is no longer stuck inside the desktops:
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
   Resizing doesn't stop at other desktops.
-- **Focus a desktop:** click it with the dot. That desktop is selected (Ctrl+Alt+Up zooms into it) and the normal
-  cursor appears where you clicked. Moving the mouse into a desktop selects it too.
+- **Zoom into a desktop:** click it with the dot. The view zooms into that desktop, as Ctrl+Alt+Up does, it gets the
+  focus and the normal cursor appears where you clicked. Moving the mouse into a desktop only selects it.
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
 Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
