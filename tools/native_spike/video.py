@@ -14,7 +14,9 @@ While a video plays, modal bare-key binds (VIDEO_BINDS: Space, arrows, Shift+arr
 open placement panel's do; they are removed on exit, at run end, and by the bind helper if a key finds no run. The help
 card closes and an open placement panel collapses when a video opens. Desktop view keys (zoom, switch, spacing, viewing
 mode, the placement pills) are ignored while it plays; Ctrl+Alt+Space recenters the video, Ctrl+Alt+P
-toggles prediction and Ctrl+Alt+H shows the controls card.
+toggles prediction and Ctrl+Alt+H shows the controls card. Ctrl+Alt+C (view.PLAYBACK_MENU_OP) hides the controls card
+for the rest of the run: it no longer pops up on open or on a play / seek / format key (Up / Down and Ctrl+Alt+H still
+show it, and so does a playback error); pressed again, it shows the card and the pop-ups come back.
 
 The controls card follows the OLED rules of the help card: dimmed (nothing above 191/255), never moved, and closed after
 view.OVERLAY_IDLE_CLOSE_S seconds without a video key. VideoControl wraps view.ViewControl and passes everything that is
@@ -30,7 +32,8 @@ import stat
 import subprocess
 import threading
 
-from .view import CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, SAFE_PATH, SAFE_TOKEN, _binds_lua, _remove_lua
+from .view import (CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, PLAYBACK_MENU_OP, PLAYBACK_MENU_TOASTS, SAFE_PATH,
+                   SAFE_TOKEN, _binds_lua, _remove_lua)
 from .resize import RESIZE_OPS
 from .send import SEND_OPS
 
@@ -390,6 +393,7 @@ class VideoControl:
         self.title = self.format = self.source = None
         self.warnings, self.error = [], None
         self.controls = False
+        self.menu_hidden = False  # Ctrl+Alt+C: the controls card stays hidden unless asked for (view.PLAYBACK_MENU_OP)
         self.last_input = self.opened_at = self.error_seen_at = None
         self.supervisor = None
         self.opens = 0
@@ -422,9 +426,23 @@ class VideoControl:
         self.controls = visible
         return self._frame({'action': 'controls', 'visible': visible})
 
+    def _hide_if_hidden(self):
+        """After an open frame (the renderer shows the card on open): hide it again when the menu is hidden."""
+        return self._controls_frame(False) if self.menu_hidden else b''
+
+    def _menu_toggle(self):
+        """Ctrl+Alt+C: the playback menu hidden / shown, with a toast. Shown while a video plays: the card appears now."""
+        if getattr(self.view.state, 'typing', False): return None  # its bind is gone in typing mode: a stale key
+        self.menu_hidden = not self.menu_hidden
+        self.view._tell(PLAYBACK_MENU_TOASTS[self.menu_hidden])
+        if not self.active: return None
+        self.last_input = self.clock()
+        return self._controls_frame(not self.menu_hidden) or None
+
     # control socket
     def on_message(self, message):
         op = message.get('op') if isinstance(message, dict) else None
+        if op == PLAYBACK_MENU_OP: return self._menu_toggle()
         if op in VIDEO_OPS:
             self.view.last_input = self.last_input = self.clock()
             return self._on_video(op, message.get('payload') or {})
@@ -456,7 +474,7 @@ class VideoControl:
         if not self.active: return None
         if op == 'video_exit': return self._close() or None
         if op == 'video_controls': return self._controls_frame(not self.controls) or None
-        out = self._controls_frame(True)
+        out = b'' if self.menu_hidden else self._controls_frame(True)
         if op == 'video_pause': out += self._frame({'action': 'pause'})
         elif op in SEEK_S and self.stream is not None:  # a pipe cannot seek: poll() restarts the relay once the keys settle
             if not self.stream.request_seek(SEEK_S[op], self.clock()): self.error = 'a live stream cannot seek'
@@ -517,6 +535,7 @@ class VideoControl:
         self.active, self.format, self.source, self.warnings, self.error = True, fmt, source, list(warnings), None
         self.view.video_active = True  # free pointer off (its sampler stops reading the cursor; binds removed, cursor shown)
         self.controls = True  # the renderer shows the card on open
+        out += self._hide_if_hidden()
         self.last_input = self.opened_at = now
         self.error_seen_at = None
         self.opens += 1
@@ -530,7 +549,8 @@ class VideoControl:
             return self._close(str(exc) or 'the stream could not be restarted')
         self.controls = True  # the renderer shows the card on open
         self.opened_at, self.error_seen_at, self.last_input = now, None, now
-        return FdFrame(self._frame({'action': 'open', **self.format, 'title': self.title}), [fd])
+        out = self._frame({'action': 'open', **self.format, 'title': self.title})
+        return FdFrame(out + self._hide_if_hidden(), [fd])
 
     def _close(self, error=None):
         if self.stream is not None: self.stream.stop(); self.stream = None
@@ -617,6 +637,7 @@ class VideoControl:
         return {'active': self.active, 'title': self.title, 'format': dict(self.format) if self.format else None,
                 'label': format_label(self.format) if self.format else None, 'source': self.source,
                 'state': state or ('loading' if self.active else 'off'), 'controls': self.controls,
+                'menu_hidden': self.menu_hidden,
                 'warnings': list(self.warnings), 'error': self.error, 'ops': list(KEY_OPS), 'opening': self.opening,
                 'origin': self.origin if self.active else None,
                 'stream': self.stream.snapshot() if self.active and self.stream is not None else None}

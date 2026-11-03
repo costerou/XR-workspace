@@ -47,6 +47,7 @@ While a video plays, these keys exist (bare keys, like an open placement pill's;
 | Esc | Back to the desktops |
 | Ctrl+Alt+Space | Recenter (the existing bind) |
 | Ctrl+Alt+H | Show / hide the controls card (the desktop help card is not shown during video) |
+| Ctrl+Alt+C | Hide / show the playback controls for the rest of the session (a toast says which). Hidden, the card no longer pops up on open or on a video key; Up / Down and Ctrl+Alt+H still show it, and a playback error still does. Works before a video too |
 | Ctrl+Alt+P | Pose prediction on/off (the existing bind) |
 | Ctrl+Alt+O | Open another video: the desktops come back so you can see the picker |
 

@@ -94,7 +94,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
          ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
          PRIVACY_BIND,  # Ctrl+Alt+D: main display off / on (privacy.py)
-         ('CTRL + ALT + A', 'cursor_anim_toggle'))  # anchor mode: cursor switches animate / jump (CURSOR_ANIM_OP)
+         ('CTRL + ALT + A', 'cursor_anim_toggle'),  # anchor mode: cursor switches animate / jump (CURSOR_ANIM_OP)
+         ('CTRL + ALT + C', 'playback_menu_toggle'))  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -111,6 +112,15 @@ CURSOR_ANIM_OP = 'cursor_anim_toggle'
 CURSOR_ANIM_TOASTS = {True: 'Cursor switch animation on: anchor mode pans to the next desktop. Ctrl+Alt+A turns it off.',
                       False: 'Cursor switch animation off: anchor mode jumps to the next desktop, the view stays put. '
                              'Ctrl+Alt+A turns it on.'}
+# Ctrl+Alt+C: hides / shows the VR video playback menu (the controls card, video.VideoControl.menu_hidden). Hidden, the
+# card no longer pops up when a video opens or on a play / seek / format key; Up / Down and Ctrl+Alt+H still show it on
+# demand, and a playback error still shows it (the card says why). Shown, the card appears at once if a video plays.
+# Per run, with a toast. Not an op starting video_ (ipc.decode_control routes those to video.validate_request). Ctrl+Alt+H
+# is the help card, and Ctrl+Alt+M must reach the focused window (docs/placement-menu-test-plan.md G38). Ctrl+Alt+C is free
+# in Omarchy and this run's binds; bind_check.py checks the real config.
+PLAYBACK_MENU_OP = 'playback_menu_toggle'
+PLAYBACK_MENU_TOASTS = {True: 'VR video menu hidden: it no longer pops up on play or seek. Ctrl+Alt+C shows it again.',
+                        False: 'VR video menu shown: it pops up on play and seek. Ctrl+Alt+C hides it.'}
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
@@ -121,7 +131,8 @@ HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overvi
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
-                CURSOR_ANIM_OP: 'Anchor: animate cursor switch on / off'}
+                CURSOR_ANIM_OP: 'Anchor: animate cursor switch on / off',
+                PLAYBACK_MENU_OP: 'VR video: hide / show playback controls'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -135,7 +146,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, CURSOR_ANIM_OP)
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, CURSOR_ANIM_OP, PLAYBACK_MENU_OP)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -170,25 +181,36 @@ HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recent
                  ('help', 'help_prev'))                                                  # this card
 
 
-# Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action).
+# Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action); the second may be a
+# tuple of ops, all on the one row ('Ctrl+Alt+O / U / C').
 HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               # Ctrl+Alt+A shares the mode row, so the card keeps its row count (help_card_test: roomiest text)
               'mode_next': (CURSOR_ANIM_OP, 'View mode / anchor: animate cursor switch'),
-              'video_open': ('video_paste', 'VR video: file / copied web link'),  # docs/web-video.md
+              # docs/web-video.md; Ctrl+Alt+C shares the row, so the card keeps its row count (help_card_test: roomiest text)
+              'video_open': (('video_paste', PLAYBACK_MENU_OP), 'VR video: file / web link / hide controls'),
               'help_prev': ('help_next', 'Help: previous / next page')}
+
+
+def _pair_seconds(op):
+    """The ops sharing `op`'s help row after it (HELP_PAIRS), as a tuple."""
+    second = HELP_PAIRS[op][0]
+    return second if isinstance(second, tuple) else (second,)
 
 
 def _help_sections():
     """[[row, ...], ...]: the help card's rows grouped by HELP_SECTIONS (empty sections dropped)."""
     chords = {op: chord for chord, op in BINDS}
-    seconds = {second for second, _ in HELP_PAIRS.values()}
+    seconds = {s for op in HELP_PAIRS for s in _pair_seconds(op)}
 
     def row(op):
         if op in HELP_PAIRS:
-            second, action = HELP_PAIRS[op]
-            a, b = chord_label(chords[op]), chord_label(chords[second])
+            a = chord_label(chords[op])
             prefix = a[:a.rfind('+') + 1]  # 'Ctrl+Alt+[' and 'Ctrl+Alt+]' -> 'Ctrl+Alt+[ / ]'
-            return [f'{a} / {b[len(prefix):]}' if b.startswith(prefix) else f'{a} / {b}', action]
+            label = a
+            for second in _pair_seconds(op):
+                b = chord_label(chords[second])
+                label += f' / {b[len(prefix):]}' if b.startswith(prefix) else f' / {b}'
+            return [label, HELP_PAIRS[op][1]]
         return [chord_label(chords[op]), HELP_ACTIONS[op]]
     placed = {op for section in HELP_SECTIONS for op in section}
     sections = [[row(op) for op in section if op in chords] for section in HELP_SECTIONS]
