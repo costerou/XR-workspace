@@ -137,8 +137,25 @@ class StateTests(unittest.TestCase):
     def test_running_view_settings_forwarded(self):
         self.journal(); self.units.active=True; self.c.tick(); operations=[]
         self.units.control=lambda r,s,op: operations.append(op) or True
-        reply=self.c.request(dict(op='set_settings',settings={'mode':'follow','spacing':60,'prediction':False}))
+        self.c.live['view']=dict(zoomed=True,mode='follow')  # a maximized desktop, following (the last status)
+        reply=self.c.request(dict(op='set_settings',settings={'mode':'locked','spacing':60,'prediction':False}))
         self.assertTrue(reply['ok'],reply); self.assertEqual(operations,['mode_next','spacing_up','prediction'])
+    def test_running_mode_follows_the_live_view(self):
+        # Maximize-follow: the overview is always anchor and a maximized desktop follow or locked, so a panel mode button
+        # is one mode_next from the live view (never counted from the saved mode, which no longer changes), or refused.
+        self.journal(); self.units.active=True; self.c.tick(); operations=[]
+        self.units.control=lambda r,s,op: operations.append(op) or True
+        def mode(want): return self.c.request(dict(op='set_settings',settings={'mode':want}))
+        self.c.live['view']=dict(zoomed=False,mode='anchor')
+        self.assertTrue(mode('anchor')['ok']); self.assertEqual(operations,[])  # already there
+        for want in ('follow','locked'):
+            reply=mode(want); self.assertFalse(reply['ok']); self.assertIn('maximize a desktop',reply['error'])
+        self.c.live['view']=dict(zoomed=True,mode='locked')
+        self.assertTrue(mode('locked')['ok']); self.assertEqual(operations,[])
+        self.assertTrue(mode('follow')['ok']); self.assertEqual(operations,['mode_next'])
+        reply=mode('anchor'); self.assertFalse(reply['ok']); self.assertIn('Overview',reply['error'])
+        self.assertEqual(operations,['mode_next'])
+        self.assertEqual(self.c.store.profile['mode'],DEFAULT_PROFILE['mode'])  # nothing saved by the controller
     def test_idle_placements_saved_to_model_profile(self):
         tilted=dict(x=10,y=0,distance=150,curvature=60)
         reply=self.c.request(dict(op='set_settings',settings={'placements':[tilted]*3}))

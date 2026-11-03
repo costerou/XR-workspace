@@ -100,6 +100,19 @@ function scopeLines(scope, action) {
     return lines;
 }
 
+// The running session's view for the panel (maximize-follow, 2026-11-03): the overview is always anchored; a maximized
+// desktop follows you or is locked to your view. `view` is the supervisor's view payload ({} before the first status).
+function viewLabel(view) {
+    if (!view || view.mode === undefined) return "awaiting measured state";
+    return view.zoomed ? "Maximized · " + view.mode : "Overview · anchor";
+}
+
+// Panel button text for a run capability (an operation the supervisor advertises); unknown ones show their name.
+const OPERATION_LABELS = {prev:"◀ Prev", next:"Next ▶", zoom_in:"Maximize", zoom_out:"Overview", recenter:"Recenter",
+                          mode_next:"Maximized: follow / locked", spacing_up:"Spacing +", spacing_down:"Spacing −",
+                          prediction:"Pose prediction"};
+function operationLabel(op) { return OPERATION_LABELS[op] || op; }
+
 // Translate a preview click into the existing relative operations. The caller
 // serializes replies, stops on refusal/disconnect, and never changes view locally.
 function selectOperations(selected, target, capabilities) {

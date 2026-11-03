@@ -47,7 +47,7 @@ ColumnLayout {
     }
     Label {
         objectName: "placementHint"
-        text: "Every desktop always faces you, upright, wherever it is, so there are no turning settings. Left / right and down / up move the desktop round you (180° is behind you, 90° up is overhead); dragging the glass pill under a desktop in the glasses' overview sets them, and in anchor mode a drag can take it anywhere round you without overlapping another desktop. Distance 200% is twice as far (half the apparent size); dragging a desktop's corner in the glasses' overview sets it too. Curvature bends the desktop into a horizontal arc without stretching it. Zooming into a desktop brings it flat in front of you; curvature stays."
+        text: "Every desktop always faces you, upright, wherever it is, so there are no turning settings. Left / right and down / up move the desktop round you (180° is behind you, 90° up is overhead); dragging the glass pill under a desktop in the glasses' overview sets them, and in anchor mode a drag can take it anywhere round you without overlapping another desktop. Distance 200% is twice as far (half the apparent size); dragging a desktop's corner in the glasses' overview sets it too. Curvature bends the desktop into a horizontal arc without stretching it. Maximizing a desktop brings it flat in front of you; curvature stays."
         Layout.fillWidth: true; wrapMode: Text.WordWrap; opacity: 0.65
     }
     RowLayout {

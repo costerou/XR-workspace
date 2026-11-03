@@ -278,10 +278,13 @@ struct Presentation::Impl : SurfaceRequests {
         own.clear();  // keeps its capacity
         for (std::size_t i = 0; i < captures.size(); ++i) own.push_back(i < eased.size() ? eased[i] : target_placement(i));
         // Every mode: zooming never moves a desktop round you. The zoomed one grows to fit the glasses where it was dragged;
-        // anchor: one resized bigger than that keeps its size instead (keep_size). The rest stay put in every mode.
+        // zoomed in anchor mode, one resized bigger than that keeps its size instead (keep_size). The rest stay put in every
+        // mode. Since maximize-follow (2026-11-03) a maximized desktop is follow or locked and fits; anchor is the overview,
+        // so keep_size is never on while un-maximizing either: there it would make a desktop resized bigger than the view
+        // jump from the fit to its overview size as the zoom out starts, instead of easing there with the zoom.
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position(),
-                                     modes.mode() == ViewMode::anchor);
+                                     modes.mode() == ViewMode::anchor && maximized);
         return resolved;
     }
     // Follow and locked modes centre the view on the focused desktop wherever it was dragged (view.hpp focus_direction /
@@ -349,6 +352,9 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint64_t pose_retry_ms = 0;
     PoseState pose;
     ModeController modes;  // T2: anchor / locked (0DoF) / follow
+    // The supervisor's last view: maximized (zoomed in, or zooming in). A maximize or un-maximize changes the viewing mode
+    // with it (maximize-follow): the room is kept and restored (ModeController::Change), with no mode pop-up.
+    bool maximized = false;
     // Software latency (pose read -> compositor presented, same CLOCK_MONOTONIC) and bounded
     // prediction (predict.hpp). Neither is motion-to-photon latency.
     LatencyTracker latency;
@@ -1247,9 +1253,19 @@ void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->mode
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
                             bool prediction, bool typing, bool center, bool cut) {
     if (!impl_) return;
+    // Maximize-follow (2026-11-03): the overview is always anchor and a maximized desktop follow (or locked), so a maximize
+    // and an un-maximize change the mode as well. Those changes need no pop-up (only Ctrl+Alt+V's does), the zoom-in grows
+    // the desktop in place before follow takes over, and the zoom-out returns to the room exactly as it was left.
+    const bool maximize = zoomed && !impl_->maximized, unmaximize = !zoomed && impl_->maximized;
+    const auto view_mode = mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor;
+    if (maximize || unmaximize) impl_->popups.track_mode(mode);
     impl_->popups.update(mode, cursor_follow, prediction, typing, double(monotonic_ms()));
     impl_->prediction = prediction;
-    impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
+    using Change = ModeController::Change;
+    impl_->modes.set_mode(view_mode, double(monotonic_ms()),
+                          maximize && view_mode != ViewMode::anchor ? Change::maximize
+                          : unmaximize && view_mode == ViewMode::anchor ? Change::restore : Change::blend);
+    impl_->maximized = zoomed;
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
                            spacing, double(monotonic_ms()), center, cut);
     impl_->cadence.invalidate();
@@ -1320,6 +1336,8 @@ Status Presentation::draw_test_pattern() {
                 } else ++s.unpredicted_frames;
             }
             s.modes.set_aim(s.focus_aim());
+            // A maximize holds the canvas in the room while the desktop zooms in; follow / locked take over once it lands.
+            if (s.modes.holding() && !(s.view.zoom() < 1.f)) s.modes.land_maximize(double(now));
             head = view_from(relative, s.modes.update(relative, double(now)));
             world = view_from(relative, Quat{});
         }

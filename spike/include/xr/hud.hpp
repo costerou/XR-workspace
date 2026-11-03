@@ -71,6 +71,10 @@ public:
     // Typing mode switches get their own section; every run starts in control mode, which is not announced. A card that
     // shows only the typing section uses the dimmed card accent too, so nothing on it exceeds kCardMaxLevel.
     bool update(std::uint8_t mode, bool cursor_follow, bool prediction, bool typing, double now_ms);
+    // A viewing-mode change that is no news: a maximize switches to follow and an un-maximize back to anchor by themselves
+    // (maximize-follow), so only Ctrl+Alt+V's changes get the mode card. Call before update(): the mode is taken without
+    // a pop-up. Before the first update it does nothing (the first update still shows the starting mode).
+    void track_mode(std::uint8_t mode) { if (seen_) mode_ = mode > 2 ? 0 : mode; }
     void set_font(std::unique_ptr<HudFont> font);  // applies to the next card; nullptr: pixel font
     const HudFont* font() const { return font_.get(); }
     float alpha(double now_ms) const;

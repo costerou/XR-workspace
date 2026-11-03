@@ -1,5 +1,8 @@
-"""Every XR start is fresh: three desktops, all flat; saved placements and a saved desktop count are not restored, while
-the other saved settings (spacing, mode, prediction, cursor_switch_animate) still are."""
+"""Every XR start is fresh: three desktops, all flat, in the overview, anchored, a maximize following until Ctrl+Alt+V picks
+locked; saved placements, a saved desktop count and a saved viewing mode are not restored (maximize-follow: the overview
+is always anchor, the follow / locked choice lasts one session), while the other saved settings (spacing, prediction)
+still are. A `cursor_switch_animate` left by the removed Ctrl+Alt+A is ignored."""
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -23,21 +26,36 @@ class StartupDesktopsTests(unittest.TestCase):
 
 
 class FreshPlacementTests(unittest.TestCase):
-    def test_saved_placements_are_not_restored_but_other_settings_are(self):
+    def test_saved_placements_and_mode_are_not_restored_but_other_settings_are(self):
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Path(tmp) / 'run'; runtime.mkdir(mode=0o700)
             client = mock.Mock(runtime_dir=runtime, event_stream=None)
             client.query.return_value = []
             path = Path(tmp) / 'profiles.json'
-            profiles.save_profile(path, 'luma-ultra', {**profiles.DEFAULT_PROFILE, 'spacing': 60, 'mode': 'follow',
-                                                       'prediction': False, 'cursor_switch_animate': False,
-                                                       'placements': [CURVED] * 3})
+            profiles.save_profile(path, 'luma-ultra', {**profiles.DEFAULT_PROFILE, 'spacing': 60, 'mode': 'locked',
+                                                       'prediction': False, 'placements': [CURVED] * 3})
+            # A profile written while Ctrl+Alt+A existed still carries its setting: tolerated, ignored, no error.
+            raw = json.loads(path.read_text()); raw['profiles']['luma-ultra']['cursor_switch_animate'] = False
+            path.write_text(json.dumps(raw))
             store = profiles.ProfileStore(path, 'luma-ultra')
-            with managed.view_controls(client, 'run', 'session', NAMES, store=store) as control:
-                s = control.state
-                self.assertEqual(s.placements, [DEFAULT_PLACEMENT] * 3)  # all flat
-                self.assertEqual((s.spacing, s.mode, s.prediction, s.cursor_switch_animate), (60, 'follow', False, False))
-            self.assertEqual(profiles.load_profile(path, 'luma-ultra')['cursor_switch_animate'], False)
+            self.assertNotIn('cursor_switch_animate', store.load())
+            for run, spacing in (('run', 60), ('run2', 80)):  # run 2 gets the spacing run 1 saved
+                with managed.view_controls(client, run, 'session', NAMES, store=store) as control:
+                    s = control.state
+                    self.assertEqual(s.placements, [DEFAULT_PLACEMENT] * 3)  # all flat
+                    self.assertEqual((s.zoomed, s.mode), (False, 'anchor'))  # the overview, anchored: the saved mode is not read
+                    self.assertEqual(json.loads(control.initial_frame().split(b'\n')[0])['payload']['mode'], 'anchor')
+                    self.assertEqual((s.spacing, s.prediction), (spacing, False))
+                    self.assertFalse(hasattr(s, 'cursor_switch_animate'))
+                    self.assertEqual(s.maximized_mode, 'follow')  # a fresh start maximizes in follow, even after locked
+                    s.apply('zoom_in'); s.apply('mode_next'); s.apply('zoom_out'); s.apply('zoom_in')
+                    self.assertEqual(s.mode, 'locked')  # this session keeps locked...
+                    s.apply('spacing_up')  # + view.SPACING_STEP (20)
+                    control.settings.save(s.settings())
+            saved = profiles.load_profile(path, 'luma-ultra')  # ...but it is never saved
+            self.assertEqual(saved['mode'], 'anchor')
+            self.assertNotIn('cursor_switch_animate', saved)
+            self.assertNotIn('cursor_switch_animate', json.loads(path.read_text())['profiles']['luma-ultra'])
 
 
 if __name__ == '__main__':

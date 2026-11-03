@@ -44,17 +44,21 @@ ColumnLayout {
         }
     }
     Label { text:"Placement changes live. Ultrawide, Add new and Remove are on each desktop's glass pill in the glasses (Ctrl+Alt+L)."; opacity:0.65; Layout.fillWidth:true; wrapMode:Text.WordWrap }
-    Label { text:"View · " + (root.view.mode || "awaiting measured state") + (root.view.spacing !== undefined ? " · spacing " + root.view.spacing : ""); font.bold:true }
+    Label { text:"View · " + Model.viewLabel(root.view) + (root.view.spacing !== undefined ? " · spacing " + root.view.spacing : ""); font.bold:true }
+    // The overview is always anchored; a maximized desktop follows you, or is locked to your view (maximize-follow).
     RowLayout {
         visible:(root.snapshot.capabilities || []).indexOf("mode_next")>=0
+        Label { text:"Maximized:" }
         Repeater {
-            model:["anchor","follow","locked"]
+            model:["follow","locked"]
             delegate: Button {
                 required property string modelData
-                text:modelData; highlighted:root.view.mode===modelData; enabled:!root.busy
+                objectName:"maximized_" + modelData
+                text:modelData; highlighted:!!root.view.zoomed && root.view.mode===modelData; enabled:!root.busy && !!root.view.zoomed
                 onClicked:root.request({op:"set_settings",settings:{mode:modelData}})
             }
         }
+        Label { visible:!root.view.zoomed; text:"(maximize a desktop first)"; opacity:0.65 }
     }
     Flow {
         Layout.fillWidth:true;  Layout.preferredHeight:childrenRect.height; spacing:8
@@ -62,7 +66,7 @@ ColumnLayout {
             model:root.snapshot.capabilities || []
             delegate: Button {
                 required property string modelData
-                text:({prev:"◀ Prev",next:"Next ▶",zoom_in:"Zoom in",zoom_out:"Overview / zoom out",recenter:"Recenter",mode_next:"Cycle Anchor / Follow / Locked",spacing_up:"Spacing +",spacing_down:"Spacing −",prediction:"Pose prediction"})[modelData] || modelData
+                text:Model.operationLabel(modelData)
                 highlighted:modelData==="prediction" && !!root.view.prediction
                 enabled:!root.busy
                 onClicked:root.request({op:"view_op",operation:modelData})
