@@ -9,10 +9,11 @@ from pathlib import Path
 import tempfile
 from unittest import mock
 
-from tools.native_spike import profiles
+from tools.native_spike import profiles, view
+from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
 from test_desktops import Run, SupervisorStandIn
-from test_glass_pills import Base, OUTPUTS, T0, frames
+from test_glass_pills import Base, OUTPUTS, T0, frames, last
 from test_roll_level import grip
 
 ROLLS = [1700, -900, 400, 0]
@@ -148,3 +149,132 @@ class SavedRollsTests(Base):
         self.key('zoom_in')
         self.clock.now += 5; self.control.poll()
         self.assertEqual(self.store.load_setup()[0]['rolls'], [1700, -1250, 400])
+
+
+def moved(**fields):
+    return {**DEFAULT_PLACEMENT, **fields}
+
+
+class HeldPlaceTests(Base):
+    """Cody, 2026-11-03: a change in the settings panel's Place tab while a desktop is maximized waits and applies on the
+    way back to the overview. It can't be seen from a maximized desktop, the view being aimed at it. Never refused: the
+    panel keeps showing it, and a run ending first saves it, since the next start begins in the overview."""
+    FLAT = [dict(DEFAULT_PLACEMENT) for _ in range(3)]
+
+    def setUp(self):
+        super().setUp()
+        self.told = []
+        self.control.notify = self.told.append
+        self.free()
+        self.saves = self.store.saves
+
+    def place(self, *placements):
+        """The panel's Apply: every desktop's placement, as Model.withPlacement sends them."""
+        return frames(self.control.on_message({'op': 'placement', 'payload': {'desktops': list(placements)}}) or b'')
+
+    def shown(self):
+        return self.control.status_reply({})['placements']
+
+    def test_it_waits_while_maximized_and_lands_in_the_overview(self):
+        self.key('zoom_in')
+        self.assertEqual(self.place(moved(x=300, y=100), self.FLAT[1], self.FLAT[2]), [])  # nothing reaches the renderer
+        self.assertEqual(self.state.placements, self.FLAT)
+        self.assertEqual(self.store.saves, self.saves)  # nor the profile, yet
+        out = self.key('zoom_out')
+        self.assertEqual(self.state.placements, [moved(x=300, y=100), *self.FLAT[1:]])
+        self.assertEqual(self.store.saved, self.state.placements)
+        placement = last(out, 'placement')
+        self.assertEqual(placement['desktops'], self.state.placements)
+        self.assertEqual(placement['glide'], view.GLIDE_MS)  # it glides there as the desktop shrinks, with no jump
+        self.assertLess([f['op'] for f in out].index('view'), [f['op'] for f in out].index('placement'))
+        self.key('zoom_in')
+        self.assertNotIn('placement', [f['op'] for f in self.key('zoom_out')])  # applied once, nothing left over
+
+    def test_every_way_back_to_the_overview_applies_it(self):
+        ways = {'Ctrl+Alt+Down': lambda: self.key('zoom_out'), 'Ctrl+Alt+L': lambda: self.key('menu_toggle'),
+                'a pill': lambda: frames(self.control.pill_click(1))}
+        for name, back in ways.items():
+            with self.subTest(way=name):
+                self.key('zoom_in')
+                self.place(moved(x=len(name)), self.FLAT[1], self.FLAT[2])
+                back()
+                self.assertFalse(self.state.zoomed)
+                self.assertEqual(self.state.placements[0], moved(x=len(name)))
+                if self.state.menu_open: self.key('menu_back')
+
+    def test_the_panel_keeps_showing_it_and_a_second_edit_adds_to_it(self):
+        self.key('zoom_in')
+        self.place(moved(x=300), self.FLAT[1], self.FLAT[2])
+        self.assertEqual(self.shown(), [moved(x=300), *self.FLAT[1:]])  # the slider does not snap back
+        self.place(*self.shown()[:1], moved(y=-50), self.FLAT[2])       # the panel builds on what it was shown
+        self.assertEqual(self.shown(), [moved(x=300), moved(y=-50), self.FLAT[2]])
+        self.key('zoom_out')
+        self.assertEqual(self.state.placements, [moved(x=300), moved(y=-50), self.FLAT[2]])
+
+    def test_a_switch_and_ctrl_alt_v_leave_it_waiting(self):
+        self.key('zoom_in')
+        self.place(moved(x=300), self.FLAT[1], self.FLAT[2])
+        for op in ('next', 'mode_next', 'next', 'mode_next'):
+            self.assertNotIn('placement', [f['op'] for f in self.key(op)])
+        self.assertEqual(self.state.placements, self.FLAT)
+        self.key('zoom_out')
+        self.assertEqual(self.state.placements[0], moved(x=300))
+
+    def test_changing_it_back_leaves_nothing_to_apply(self):
+        self.key('zoom_in')
+        self.place(moved(x=300), self.FLAT[1], self.FLAT[2])
+        self.place(*self.FLAT)
+        self.assertEqual(self.shown(), self.FLAT)
+        self.assertNotIn('placement', [f['op'] for f in self.key('zoom_out')])
+        self.assertEqual(self.store.saves, self.saves)
+
+    def test_a_bad_change_is_ignored_while_maximized_too(self):
+        self.key('zoom_in')
+        self.assertEqual(self.place(moved(x=300)), [])  # one placement for three desktops
+        self.assertEqual(self.shown(), self.FLAT)
+
+    def test_it_says_so_once_per_change_waiting(self):
+        self.key('zoom_in')
+        self.place(moved(x=300), self.FLAT[1], self.FLAT[2])
+        self.place(moved(x=320), self.FLAT[1], self.FLAT[2])
+        self.control.join_focus()
+        self.assertEqual(self.told, [view.PLACE_HELD_TOAST])
+        self.key('zoom_out')
+        self.key('zoom_in')
+        self.place(moved(x=340), self.FLAT[1], self.FLAT[2])
+        self.control.join_focus()
+        self.assertEqual(self.told, [view.PLACE_HELD_TOAST] * 2)
+
+    def test_the_overview_still_applies_at_once(self):
+        out = self.place(moved(x=300), self.FLAT[1], self.FLAT[2])
+        self.assertEqual(self.state.placements[0], moved(x=300))
+        self.assertNotIn('glide', last(out, 'placement'))
+        self.assertEqual(self.told, [])
+
+    def test_it_follows_its_desktop_through_a_desktop_change(self):
+        self.key('zoom_in')
+        self.place(self.FLAT[0], self.FLAT[1], moved(x=300))
+        self.state.set_desktops(['XR-1', 'XR-3'], self.FLAT[:2], [False, False])
+        self.assertEqual(self.shown(), [self.FLAT[0], moved(x=300)])
+        self.key('zoom_out')
+        self.assertEqual(self.state.placements, [self.FLAT[0], moved(x=300)])
+
+
+class HeldPlaceSavedTests(Base):
+    def setUp(self):
+        super().setUp()
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        self.control.placements = self.store = profiles.PlacementStore(Path(tmp.name) / 'profiles.json', MODEL)
+        self.p.rolls = list(ROLLS)
+        self.control.poll()
+
+    def test_a_run_ending_while_it_waits_saves_it_with_the_overview_rolls(self):
+        self.key('zoom_in')
+        change = [moved(x=300), dict(DEFAULT_PLACEMENT), dict(DEFAULT_PLACEMENT)]
+        self.control.on_message({'op': 'placement', 'payload': {'desktops': change}})
+        self.assertEqual(self.store.load_setup()[0]['placements'][0], DEFAULT_PLACEMENT)  # not while it waits
+        self.control.flush()
+        self.control.save_setup()
+        setup, why = self.store.load_setup()
+        self.assertIsNone(why)
+        self.assertEqual((setup['placements'], setup['rolls']), (change, ROLLS[:3]))

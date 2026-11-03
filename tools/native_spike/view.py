@@ -190,6 +190,8 @@ RESET_TOASTS = {'confirm': 'Press Ctrl+Alt+R again to reset all monitors',
 # Ctrl+Alt+V in the overview (maximize-follow): nothing to change, the overview is always anchored. Says why, once per press.
 MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (select it, then Ctrl+Alt+Up), '
                        'then Ctrl+Alt+V switches it between follow and locked; your choice is kept until XR restarts.')
+# The settings panel's Place tab while a desktop is maximized: the change waits for the overview (ViewState.hold_placements).
+PLACE_HELD_TOAST = 'Placement change kept: it applies when you go back to the overview.'
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: use any desktop; pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
@@ -503,6 +505,7 @@ class ViewState:
         # Every run starts in the overview, anchored (maximize-follow): `zoomed` is the maximized state, and the viewing
         # mode follows from it (the `mode` property). There is no saved mode to start in any more.
         self.names, self.zoomed, self.selected = list(names), False, 0
+        self.held = {}  # hold_placements: desktop name -> the placement the panel asked for while maximized
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.prediction = prediction
         # The maximized desktop's mode (MAXIMIZED_MODES). Ctrl+Alt+V toggles it while maximized and it sticks: every later
@@ -672,6 +675,20 @@ class ViewState:
         if placements == self.placements: return False
         self.placements = placements
         return True
+
+    def hold_placements(self, placements):
+        """Absolute placements from the settings panel while maximized: they wait for the overview (ViewControl
+        _release_placements), where they can be seen, a maximized desktop's view being aimed at it. Only the desktops
+        they change are held, by name, so a desktop change meanwhile leaves the others alone. They replace what was held:
+        the panel sends every desktop's and shows wanted_placements."""
+        from .geometry import validate_placement
+        if not isinstance(placements, list) or len(placements) != len(self.names): raise ValueError('one placement per desktop required')
+        placements = [validate_placement(p) for p in placements]
+        self.held = {n: p for n, p, now in zip(self.names, placements, self.placements) if p != now}
+
+    def wanted_placements(self):
+        """The placements with anything held: what the panel shows and what a run ending while maximized saves."""
+        return [dict(self.held.get(n, p)) for n, p in zip(self.names, self.placements)]
 
     @property
     def mode(self):
@@ -1071,7 +1088,7 @@ class ViewControl:
 
     def status_reply(self, status):
         reply = dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
-                     placements=[dict(p) for p in self.state.placements], names=list(self.state.names))
+                     placements=self.state.wanted_placements(), names=list(self.state.names))
         if self.desktops is not None: reply['desktops'] = self.desktops.desktops()  # live sizes (Ultrawide, Add)
         return reply
 
@@ -1104,7 +1121,18 @@ class ViewControl:
         frame."""
         if self.overview_pointer is not None: self.overview_pointer.summon()  # a cursor off the desktops comes into one
         self.state.apply('zoom_out')
-        return self._frame()
+        return self._frame() + self._release_placements()
+
+    def _release_placements(self):
+        """Back in the overview: the Place tab's change held while maximized (ViewState.hold_placements) applies now,
+        as given, gliding there as the desktop shrinks, and is saved. Frames, b'' if nothing was waiting."""
+        s = self.state
+        if s.zoomed or not s.held: return b''
+        placements, s.held = s.wanted_placements(), {}
+        if not s.set_placements(placements): return b''
+        self.save_due = None  # this save also covers any pending pill-panel change
+        self._save_placements()
+        return self._placement_frame(glide=True)
 
     def _on_menu(self, op):
         """Panel key op. Ctrl+Alt+L while maximized goes back to the overview first, so the expanding pill is seen."""
@@ -1444,7 +1472,7 @@ class ViewControl:
             if self.reset is not None:
                 if hasattr(store, 'reset'): store.reset()
                 return
-            placements, rolls = [dict(p) for p in self.state.placements], self._rolls()
+            placements, rolls = self.state.wanted_placements(), self._rolls()  # a change still held: the next start's
             live = self.desktops.desktops() if self.desktops is not None else None
             if live is not None and len(live) == len(placements) and hasattr(store, 'save_desktops'):
                 store.save_desktops(live, placements, rolls)
@@ -1661,13 +1689,22 @@ class ViewControl:
             except (OSError, ValueError): pass
         if self.state.view() != before:
             out += self._frame(cut=True) if direct and self.state.selected != before['selected'] else self._frame()
+        out += self._release_placements()  # un-maximized by that op
         return out or None
 
     def _on_placement(self, payload):
         """Absolute placements from the panel; applied exactly as given (no bumping, even over another desktop), live, and
-        saved to the glasses profile. Invalid: ignored."""
+        saved to the glasses profile. While maximized they wait for the overview instead (ViewState.hold_placements), and a
+        toast says so. Invalid: ignored."""
+        s = self.state
         try:
-            if not isinstance(payload, dict) or not self.state.set_placements(payload.get('desktops')): return None
+            if not isinstance(payload, dict): return None
+            if s.zoomed:
+                waiting = bool(s.held)
+                s.hold_placements(payload.get('desktops'))
+                if s.held and not waiting: self._tell(PLACE_HELD_TOAST)
+                return None
+            if not s.set_placements(payload.get('desktops')): return None
         except ValueError:
             return None
         self.save_due = None  # this save also covers any pending pill-panel change

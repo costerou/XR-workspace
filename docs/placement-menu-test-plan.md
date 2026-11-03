@@ -466,6 +466,7 @@ glasses. Start with XR-1 rolled about 20° with a bracket and XR-2 about 10° th
 | L5 | Ctrl+Alt+Down | Back in the overview XR-1 and XR-2 have exactly the rolls they had, easing back as the desktop shrinks. The brackets and pills are back and work. |
 | L6 | Roll XR-1 about 70° with a bracket, maximize it and push the cursor past its right edge | It switches to XR-2, on your right as you see it. A desktop tilted 70° would point well away from XR-2, so if the roll were still counted nothing would happen. Go back to the overview and roll XR-1 back to about 20°. |
 | L7 | Maximize XR-1, then Stop, then start again | The new run starts in the overview with XR-1 and XR-2 at the rolls they had, not level. |
+| L8 | Maximize XR-1. In the settings panel's Place tab move XR-1 and XR-3 and press Apply, then Ctrl+Alt+Down | While maximized nothing moves, a notification says the change is kept, and the panel keeps showing your values. On Ctrl+Alt+Down both desktops glide to their new places, and they are there after a restart. |
 
 ## Resolution dropdown (the pill's Resolution box): automated coverage and glasses test script
 

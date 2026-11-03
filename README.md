@@ -225,6 +225,8 @@ bumps anything. Super + drag is your window manager's as always: it moves or res
 bumps nothing. Press Super while you are dragging a desktop and the drag stops right there.
 
 The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
+While a desktop is maximized, a change there waits: a small notification says so, the panel keeps showing it, and it
+applies when you go back to the overview. If you stop XR first it is saved for the next start.
 
 When the layout itself changes, desktops that overlap afterwards are pushed apart by themselves, gliding the same way:
 when a session starts with a saved layout that overlaps, when you change the spacing, and when you add, remove or widen
