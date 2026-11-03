@@ -237,13 +237,15 @@ struct Presentation::Impl : SurfaceRequests {
         for (std::size_t i = 0; i < eased.size(); ++i) if (!same_placement(eased[i], target_placement(i))) return true;
         return false;
     }
-    const std::vector<Placement>& resolved_placements() {
-        resolved.clear();  // keeps its capacity: no allocation per frame
-        const float zoom = view.zoom(), position = view.position();
-        for (std::size_t i = 0; i < captures.size(); ++i) {
-            const Placement p = i < eased.size() ? eased[i] : target_placement(i);
-            resolved.push_back(zoomed_placement(p, zoom, position, i));  // the zoomed desktop flat in front, the rest at their slots
-        }
+    std::vector<Placement> own;           // resolved_placements' scratch: each desktop's eased placement
+    const std::vector<Placement>& resolved_placements(std::span<const FRect> tiles) {
+        own.clear();  // keeps its capacity
+        for (std::size_t i = 0; i < captures.size(); ++i) own.push_back(i < eased.size() ? eased[i] : target_placement(i));
+        // Anchor mode: the zoomed desktop grows where it is round you (its dragged place) unless that is far from straight
+        // ahead. Locked and follow modes: it always comes straight ahead. The rest follow as its row.
+        const auto overview = overview_layout(capture_sizes(), float(width), float(height), view.spacing());
+        resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position(),
+                                     modes.mode() == ViewMode::anchor);
         return resolved;
     }
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
@@ -1056,7 +1058,7 @@ Status Presentation::draw_test_pattern() {
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel);
         s.last_head = head;
-        if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
+        if (!s.gl->draw_and_swap(tiles, s.resolved_placements(tiles), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
