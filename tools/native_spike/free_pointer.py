@@ -84,7 +84,7 @@ import socket
 import threading
 import time
 
-from . import orbit, resize, view
+from . import geometry, orbit, resize, view
 from .geometry import PLACEMENT_BOUNDS
 from .overview_cursor import DOT_MODES, OverviewCursor
 
@@ -106,8 +106,15 @@ PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
 # Expanded pill = placement panel (glass.hpp glass_panel and its layout, panel px from its top-left): the header strip
 # (the pill itself: drag to move, click to collapse), then one row per placement setting (geometry.PLACEMENT_KEYS order)
 # whose slider knob centre runs PANEL_KNOB_LO (low bound) .. PANEL_KNOB_HI (high bound).
-PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 220.0, 42.0
+PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 258.0, 42.0
 PANEL_ROWS_TOP, PANEL_ROW_H, PANEL_KNOB_LO, PANEL_KNOB_HI = 46.0, 34.0, 191.0, 367.0
+# Under the sliders, the desktop row (glass.hpp glass_panel_action): one button per PANEL_ACTIONS entry, side by side from
+# the panel's left padding (PANEL_PAD), each PANEL_ACTION_W wide with PANEL_ACTION_GAP between them. A press on one is
+# that action for the panel's desktop (view.ViewControl.desktop_action; desktops.py does the work).
+PANEL_PAD = 22.0
+PANEL_ACTIONS_TOP, PANEL_ACTION_H, PANEL_ACTION_W, PANEL_ACTION_GAP = 188.0, 32.0, 138.0, 11.0
+PANEL_ACTIONS = ('ultrawide', 'add', 'remove')
+MAX_DESKTOPS = geometry.MAX_DESKTOPS
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
 CLICK_PX = 4.0            # a pill press moving less than this (canvas px) before release is a click: the desktop stays put
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
@@ -126,7 +133,7 @@ def parse_overview_geometry(value):
     if type(w) is not int or type(h) is not int or not 0 < w <= MAX_POINTER_PX or not 0 < h <= MAX_POINTER_PX:
         raise ValueError('invalid overview geometry')
     half, tiles = value['half'], value['tiles']
-    if not isinstance(half, list) or len(half) != 2 or not isinstance(tiles, list) or not 1 <= len(tiles) <= 3:
+    if not isinstance(half, list) or len(half) != 2 or not isinstance(tiles, list) or not 1 <= len(tiles) <= MAX_DESKTOPS:
         raise ValueError('invalid overview geometry')
     half = tuple(number(v, 1e-3, 100.0) for v in half)
     out = []
@@ -242,6 +249,11 @@ def panel_rect(tile):
     return (tx + (tw - PANEL_W) / 2, ty + th + PILL_GAP, PANEL_W, PANEL_H)
 
 
+def action_rect(i):
+    """The desktop row's button i (glass.hpp glass_panel_action): (x, y, w, h) panel px from the panel's top-left."""
+    return (PANEL_PAD + i * (PANEL_ACTION_W + PANEL_ACTION_GAP), PANEL_ACTIONS_TOP, PANEL_ACTION_W, PANEL_ACTION_H)
+
+
 def slider_fraction(lx):
     """Panel x (px from the panel's left) -> fraction 0..1 along a slider's knob range (glass.cpp draws the knob there)."""
     return min(max((lx - PANEL_KNOB_LO) / (PANEL_KNOB_HI - PANEL_KNOB_LO), 0.0), 1.0)
@@ -249,9 +261,13 @@ def slider_fraction(lx):
 
 def panel_hit(lx, ly, index):
     """What panel point (lx, ly) (panel px from its top-left, inside the panel) is on: ('pill', index) for the header
-    strip, ('slider', index, field, lx) on a slider row's knob range (PANEL_SLOP_PX either side), else ('panel', index)."""
+    strip, ('slider', index, field, lx) on a slider row's knob range (PANEL_SLOP_PX either side), ('action', index, name)
+    on a desktop-row button (PANEL_ACTIONS), else ('panel', index)."""
     from .geometry import PLACEMENT_KEYS
     if ly < PANEL_HEADER_H: return ('pill', index)
+    for i, name in enumerate(PANEL_ACTIONS):
+        x, y, w, h = action_rect(i)
+        if x <= lx < x + w and y <= ly < y + h: return ('action', index, name)
     row = math.floor((ly - PANEL_ROWS_TOP) / PANEL_ROW_H) if ly >= PANEL_ROWS_TOP else -1
     if 0 <= row < len(PLACEMENT_KEYS) and PANEL_KNOB_LO - PANEL_SLOP_PX <= lx <= PANEL_KNOB_HI + PANEL_SLOP_PX:
         return ('slider', index, PLACEMENT_KEYS[row], lx)
@@ -385,6 +401,7 @@ class OverviewPointer:
         self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
+        self.actions = 0  # diagnostics: desktop-row button presses
         reader, writer = socket.socketpair()
         reader.setblocking(False); writer.setblocking(False)
         self.wake_reader, self._wake_writer = reader, writer
@@ -413,6 +430,15 @@ class OverviewPointer:
 
     def summon(self):
         self.summoned = True
+
+    def desktops_changed(self):
+        """The run's desktops changed (a pill's Add / Remove / Ultrawide): every index may mean another desktop now. Any
+        drag ends where it is, and hit testing waits for the renderer's new layout and the sampler's new monitors."""
+        self.drag = self.hover = self.geometry = None
+        self.outputs = []
+        with self._lock: self._outputs = []
+        if self.desktop is not None and self.desktop >= len(self.control.state.names): self.desktop = None
+        self._poke()
 
     def feed(self, cursor, motion, outputs, applied):
         """Sampler thread: latest cursor (global logical px or None), motion since the last sample, monitor rectangles and
@@ -653,7 +679,7 @@ class OverviewPointer:
                 self.help_clicks += 1
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
-            if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner')):
+            if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner', 'action')):
                 self.outside_closes += 1
                 out += self.control.pill_close()  # a click outside collapses the open panel; the press carries on (what
                 # it hit was not on that panel, so the panel's going changes nothing about it)
@@ -674,6 +700,9 @@ class OverviewPointer:
                 self.slides += 1
                 # The value jumps to the pointer; the panel stays drawn on the press-time placement until the release.
                 out += self.control.pill_slide(i, h[2], slider_fraction(h[3]), surface=self.drag['placement'])
+            elif h is not None and h[0] == 'action':  # the desktop row: Ultrawide / Add / Remove for the panel's desktop
+                self.actions += 1
+                out += self.control.desktop_action(h[1], h[2])
             elif h is not None and h[0] == 'desktop':  # focus it and hand the cursor back right there
                 self.focus_clicks += 1
                 out += self.control.focus_desktop(h[1])  # selected, and its monitor gets Hyprland's focus (off the loop)
@@ -770,6 +799,7 @@ class PointerSampler:
     binds, hiding / showing / parking the cursor and handing it back. stop() undoes them before returning."""
     def __init__(self, client, names, pointer, bind_args, period=SAMPLE_S):
         self.client, self.names, self.pointer, self.bind_args, self.period = client, list(names), pointer, bind_args, period
+        self.names_changed = False
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self.applied = 0          # last want serial applied
@@ -784,6 +814,11 @@ class PointerSampler:
     def start(self):
         self._thread.start()
         return self
+
+    def set_names(self, names):
+        """The run's desktops changed: read their monitors again at once (the loop thread picks this up)."""
+        self.names = list(names)
+        self.names_changed = True
 
     def stop(self, timeout=2.5):
         self._stop.set()
@@ -806,8 +841,9 @@ class PointerSampler:
                 continue
             now = time.monotonic()
             try:
-                if refreshed is None or now - refreshed >= OUTPUTS_REFRESH:
-                    outputs = resize.outputs_from_monitors(self.client.query('monitors', timeout=0.5), self.names)
+                if refreshed is None or self.names_changed or now - refreshed >= OUTPUTS_REFRESH:
+                    self.names_changed = False
+                    outputs = resize.outputs_from_monitors(self.client.query('monitors', timeout=0.5), list(self.names))
                     refreshed = now
             except (OSError, ValueError, TypeError, KeyError):
                 self.errors += 1

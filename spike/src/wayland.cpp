@@ -100,9 +100,9 @@ struct Presentation::Impl : SurfaceRequests {
         struct Content {
             bool valid = false;
             std::size_t n = 0;
-            std::array<Rect, 3> tiles{};
-            std::array<TileSource, 3> sources{};
-            std::array<std::uint64_t, 3> frames{};
+            std::array<Rect, kMaxDesktops> tiles{};
+            std::array<TileSource, kMaxDesktops> sources{};
+            std::array<std::uint64_t, kMaxDesktops> frames{};
             bool operator==(const Content& o) const {
                 if (valid != o.valid || n != o.n) return false;
                 for (std::size_t i = 0; i < n; ++i) {
@@ -145,6 +145,12 @@ struct Presentation::Impl : SurfaceRequests {
         std::array<std::unique_ptr<Buffer>, 2> slots{};
         int capturing = -1, ready = -1;
         bool stopped = false;
+        // Desktops change during a run (set_desktops). `gone`: its output was removed (expected: the supervisor dropped the
+        // capture first, or it is about to); it never re-attaches on its own. A session the compositor stops (an output
+        // reshaped to ultrawide and back) restarts after kRestartMs, at most kMaxRestarts times; then the run ends as before.
+        bool gone = false;
+        std::uint32_t restarts = 0;
+        std::uint64_t restart_ms = 0;
         std::uint64_t frames = 0, failures = 0, last_ready_ms = 0;
         // Zero-copy path (C2b): three GBM buffers imported into GL once; the compositor renders
         // into the slot that is neither the latest frame nor the one GL is sampling.
@@ -173,10 +179,12 @@ struct Presentation::Impl : SurfaceRequests {
         }
     };
     std::vector<std::unique_ptr<Capture>> captures;
-    // Each capture's own size for layout; one without a frame size yet holds a 1920x1080 tile. At most three captures
-    // (open() takes only a parse_capture_list allowlist), so no allocation.
+    static constexpr std::uint64_t kRestartMs = 100;
+    static constexpr std::uint32_t kMaxRestarts = 16;
+    // Each capture's own size for layout; one without a frame size yet holds a 1920x1080 tile. At most kMaxDesktops
+    // captures (open() and set_desktops() take only a parse_capture_list allowlist), so no allocation.
     struct Sizes {
-        std::array<Size, 3> v{};
+        std::array<Size, kMaxDesktops> v{};
         std::size_t n = 0;
         std::span<const Size> span() const { return {v.data(), n}; }
     };
@@ -190,15 +198,17 @@ struct Presentation::Impl : SurfaceRequests {
     }
     // Layouts are pure functions of the capture sizes, the surface size and three view floats: remembered with those
     // inputs (bit for bit) and recomputed only when one changes, so a settled view lays nothing out per frame or wake.
-    using LayoutKey = std::array<std::uint32_t, 12>;
+    static constexpr std::size_t kKeySizes = 2 * kMaxDesktops;
+    using LayoutKey = std::array<std::uint32_t, kKeySizes + 6>;
     LayoutKey layout_key(const Sizes& z, float a, float b, float c) const {
         LayoutKey k{};
         for (std::size_t i = 0; i < z.v.size(); ++i) {
             k[2 * i] = i < z.n ? std::bit_cast<std::uint32_t>(z.v[i].w) : 0u;
             k[2 * i + 1] = i < z.n ? std::bit_cast<std::uint32_t>(z.v[i].h) : 0u;
         }
-        k[6] = std::uint32_t(z.n); k[7] = width; k[8] = height;
-        k[9] = std::bit_cast<std::uint32_t>(a); k[10] = std::bit_cast<std::uint32_t>(b); k[11] = std::bit_cast<std::uint32_t>(c);
+        k[kKeySizes] = std::uint32_t(z.n); k[kKeySizes + 1] = width; k[kKeySizes + 2] = height;
+        k[kKeySizes + 3] = std::bit_cast<std::uint32_t>(a); k[kKeySizes + 4] = std::bit_cast<std::uint32_t>(b);
+        k[kKeySizes + 5] = std::bit_cast<std::uint32_t>(c);
         return k;
     }
     std::optional<LayoutKey> draw_tiles_key, overview_key, cpu_tiles_key;
@@ -310,8 +320,9 @@ struct Presentation::Impl : SurfaceRequests {
         auto& c = *static_cast<Capture*>(data);
         auto batch = c.constraints.done_all();
         if (!batch.shm) { c.stopped = true; c.owner->closed = true; return; }  // unsupported constraints: fail closed
+        // A restarted session (no targets yet: path None) allocates even when its size is the one it had.
         const bool changed = !c.plan || c.plan->width != batch.shm->width || c.plan->height != batch.shm->height ||
-                             c.plan->format != batch.shm->format;
+                             c.plan->format != batch.shm->format || c.path == Capture::Path::None;
         c.batch = std::move(batch);
         if (changed) {
             if (c.capturing >= 0) { c.realloc_pending = true; return; }  // after the in-flight frame completes or fails
@@ -392,8 +403,99 @@ struct Presentation::Impl : SurfaceRequests {
         c.owner->params_settled(c);
     }
     inline static const zwp_linux_buffer_params_v1_listener params_listener{params_created, params_failed};
-    static void cap_stopped(void* data, ext_image_copy_capture_session_v1*) {
-        auto& c = *static_cast<Capture*>(data); c.stopped = true; c.owner->closed = true;
+    static void cap_stopped(void* data, ext_image_copy_capture_session_v1*) { auto& c = *static_cast<Capture*>(data); c.owner->capture_stopped(c); }
+    // The compositor ended a capture session. Expected when its output went (`gone`); after a reshape it is restarted by
+    // service_captures (never from inside the session's own event), a bounded number of times; otherwise the run ends.
+    void capture_stopped(Capture& c) {
+        c.stopped = true;
+        if (c.gone) return;
+        if (!capture_requested || !allocation_enabled || ++c.restarts > kMaxRestarts) { closed = true; return; }
+        c.restart_ms = monotonic_ms() + kRestartMs;
+    }
+    Output* find_output(const std::string& name) {
+        Output* found = nullptr;
+        for (auto& o : outputs) if (o->name == name && o.get() != selected) {
+            if (found) return nullptr;  // ambiguous: never pick one
+            found = o.get();
+        }
+        return found;
+    }
+    void start_session(Capture& c) {
+        c.source = ext_output_image_capture_source_manager_v1_create_source(source_manager, c.output->proxy);
+        c.session = ext_image_copy_capture_manager_v1_create_session(copy_manager, c.source,
+                    EXT_IMAGE_COPY_CAPTURE_MANAGER_V1_OPTIONS_PAINT_CURSORS);  // pointer visible on the managed desktop
+        ext_image_copy_capture_session_v1_add_listener(c.session, &session_listener, &c);
+        c.stopped = false;
+    }
+    // Ends a capture's session and its buffers. Its texture keeps the last frame until a new one lands; its plan keeps the
+    // tile's shape meanwhile.
+    void stop_session(Capture& c) {
+        if (gl) gl->drop_dmabuf(c.index);  // GL lets go of the images before their buffers die
+        c.drop_dmabuf();
+        if (c.frame) { ext_image_copy_capture_frame_v1_destroy(c.frame); c.frame = nullptr; }
+        if (c.session) { ext_image_copy_capture_session_v1_destroy(c.session); c.session = nullptr; }
+        if (c.source) { ext_image_capture_source_v1_destroy(c.source); c.source = nullptr; }
+        for (auto& slot : c.slots) slot.reset();
+        c.capturing = c.ready = c.presented = -1;
+        c.path = Capture::Path::None; c.batch.reset(); c.realloc_pending = false;
+        (void)c.constraints.done_all();
+    }
+    // Every loop pass: restart stopped sessions that are due and start captures whose output Hyprland now advertises.
+    void service_captures() {
+        if (!capture_requested || !allocation_enabled) return;
+        const auto now = monotonic_ms();
+        for (auto& ptr : captures) {
+            auto& c = *ptr;
+            if (c.gone) continue;
+            if (c.stopped && c.restart_ms && now >= c.restart_ms) {
+                stop_session(c);
+                c.restart_ms = 0;
+                c.output = find_output(c.name);
+                if (c.output) start_session(c);
+                else c.stopped = false;  // its output is not advertised (yet): attached below once it is
+                cadence.invalidate();
+            } else if (!c.session && !c.stopped) {
+                if ((c.output = find_output(c.name))) { start_session(c); cadence.invalidate(); }
+            }
+        }
+    }
+    // The run's managed desktops changed (ipc.hpp DesktopsPayload).
+    void set_desktops(const std::vector<std::string>& wanted, const std::vector<std::string>& renew) {
+        if (!capture_requested || !allocation_enabled || !source_manager || !copy_manager) return;
+        std::string joined;
+        for (const auto& name : wanted) joined += (joined.empty() ? "" : ",") + name;
+        const auto names = parse_capture_list(joined, selected ? selected->name : std::string());
+        if (!names) return;
+        auto erase_at = [](auto& v, std::size_t i) { if (i < v.size()) v.erase(v.begin() + std::ptrdiff_t(i)); };
+        for (std::size_t i = captures.size(); i-- > 0;) {  // back to front: indices below stay valid
+            if (std::find(names->begin(), names->end(), captures[i]->name) != names->end()) continue;
+            stop_session(*captures[i]);
+            if (gl) gl->remove_source(i);
+            captures.erase(captures.begin() + std::ptrdiff_t(i));
+            erase_at(uploaded, i); erase_at(drawn, i); erase_at(frames_at_draw, i); erase_at(early_hold, i);
+            erase_at(placements, i); erase_at(eased, i);
+            for (std::size_t k = i; k < captures.size(); ++k) captures[k]->index = k;
+        }
+        for (std::size_t i = 0; i < names->size(); ++i) {  // both sorted: what is missing goes in at its place
+            const auto& name = (*names)[i];
+            if (i < captures.size() && captures[i]->name == name) continue;
+            auto c = std::make_unique<Capture>(); c->owner = this; c->name = name;
+            captures.insert(captures.begin() + std::ptrdiff_t(i), std::move(c));
+            if (gl) gl->insert_source(i);
+            for (auto* v : {&uploaded, &drawn, &frames_at_draw}) v->insert(v->begin() + std::ptrdiff_t(std::min(i, v->size())), 0);
+            early_hold.insert(early_hold.begin() + std::ptrdiff_t(std::min(i, early_hold.size())), 0);
+            if (i < placements.size()) placements.insert(placements.begin() + std::ptrdiff_t(i), std::array<std::int32_t, 4>{0, 0, 100, 0});
+            if (i < eased.size()) eased.insert(eased.begin() + std::ptrdiff_t(i), Placement{});
+            for (std::size_t k = i; k < captures.size(); ++k) captures[k]->index = k;
+        }
+        for (const auto& name : renew)
+            for (auto& c : captures) if (c->name == name) {
+                if (c->session) stop_session(*c);
+                c->output = nullptr; c->gone = false; c->stopped = false; c->restart_ms = 0; c->restarts = 0;
+            }
+        draw_tiles_key.reset(); overview_key.reset(); cpu_tiles_key.reset();
+        service_captures();
+        cadence.invalidate();
     }
     inline static const ext_image_copy_capture_session_v1_listener session_listener{
         cap_buffer_size, cap_shm_format, cap_dmabuf_device, cap_dmabuf_format, cap_done, cap_stopped};
@@ -413,7 +515,7 @@ struct Presentation::Impl : SurfaceRequests {
     static void frame_failed(void* data, ext_image_copy_capture_frame_v1* frame, uint32_t reason) {
         auto& c = *static_cast<Capture*>(data);
         ext_image_copy_capture_frame_v1_destroy(frame); c.frame = nullptr; c.capturing = -1; ++c.failures;
-        if (reason == EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_STOPPED) { c.stopped = true; c.owner->closed = true; return; }
+        if (reason == EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_STOPPED) { c.owner->capture_stopped(c); return; }
         if (reason == EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_BUFFER_CONSTRAINTS) {
             if (c.realloc_pending) { c.owner->apply_batch(c); return; }  // new constraints already arrived
             if (c.path == Capture::Path::Dmabuf && !c.dmabuf_frames) {   // refused before any frame: use SHM
@@ -528,7 +630,13 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data);
         if ((s.selected && s.selected->global == id) ||
             std::find(s.required_globals.begin(), s.required_globals.end(), id) != s.required_globals.end()) s.closed = true;
-        for (auto& c : s.captures) if (c->output && c->output->global == id) s.closed = true;  // captured output gone
+        // A captured output gone: only ever after (or while) the supervisor removes that desktop (it sends `desktops`
+        // without it first) or when it ends the run; its own guard ends the run if an output goes any other way. The
+        // capture stops for good (it never re-attaches to a later output of that name on its own).
+        for (auto& c : s.captures) if (c->output && c->output->global == id) {
+            if (!s.allocation_enabled) s.closed = true;  // still starting up: fail closed as before
+            c->gone = true; c->stopped = true; c->output = nullptr;
+        }
         for (auto& output : s.outputs) if (output->global == id) output->name.clear();
     }
     inline static const wl_registry_listener registry_listener{global, removed};
@@ -752,10 +860,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             }
             if (!found || found == s->selected) return Error{"capture", "managed output not advertised"};
             auto c = std::make_unique<Impl::Capture>(); c->owner = s.get(); c->index = s->captures.size(); c->name = name; c->output = found;
-            c->source = ext_output_image_capture_source_manager_v1_create_source(s->source_manager, found->proxy);
-            c->session = ext_image_copy_capture_manager_v1_create_session(s->copy_manager, c->source,
-                         EXT_IMAGE_COPY_CAPTURE_MANAGER_V1_OPTIONS_PAINT_CURSORS);  // pointer visible on the managed desktop
-            ext_image_copy_capture_session_v1_add_listener(c->session, &Impl::session_listener, c.get());
+            s->start_session(*c);
             s->captures.push_back(std::move(c));
         }
         // Constraints arrive asynchronously (after the output renders); bounded wait for every session.
@@ -803,7 +908,11 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
 Status Presentation::dispatch(int timeout_ms, int wake_fd, bool* wake_ready) {
     if (wake_ready) *wake_ready = true;
     if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms, wake_fd, wake_ready)) return Error{"dispatch", "closed, removed or disconnected"};
+    impl_->service_captures();
     return {};
+}
+void Presentation::set_desktops(const std::vector<std::string>& outputs, const std::vector<std::string>& renew) {
+    if (impl_) impl_->set_desktops(outputs, renew);
 }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
@@ -852,11 +961,8 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     }
     if (impl_->help.set(visible, help, double(monotonic_ms()), turn)) impl_->cadence.invalidate();
 }
-void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                                      const std::array<std::array<std::int32_t, 4>, 3>& placements,
-                                      const std::optional<std::array<std::int32_t, 4>>& surface) {
+void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
-    PlacementMenuState state{open, desktop, field, placements};
     if (impl_->glass.set(state, double(monotonic_ms()), surface)) impl_->cadence.invalidate();
 }
 void Presentation::set_placements(const std::vector<std::array<std::int32_t, 4>>& placements) {

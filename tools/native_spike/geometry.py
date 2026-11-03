@@ -5,6 +5,14 @@ PRESETS = {'16:9': ((1920, 1080), (2560, 1440)),
 SCALES = (1.0, 1.25, 1.5, 1.75, 2.0)
 CUSTOM_BOUNDS = {'width': (640, 7680), 'height': (480, 4320)}
 DEFAULT_DESKTOP = {'width': 1920, 'height': 1080, 'scale': 1.0}
+# A run has 1..MAX_DESKTOPS managed desktops, XR-1..XR-MAX_DESKTOPS: the pills' Add and Remove (desktops.py) change the
+# count live. Mirrors spike/include/xr/desktops.hpp kMaxDesktops (the glass_contract ctest compares them), the broker's
+# index bound (spike/ownership/registry.cpp) and the panel's Model.js MAX_DESKTOPS (test_desktops.py).
+MAX_DESKTOPS = 4
+# Ultrawide (a pill's Ultrawide button): 21:9 at the desktop's own height, and back to 16:9. The common sizes by height;
+# any other height gets the ratio, rounded to a multiple of 8 pixels.
+ULTRAWIDE_WIDTHS = {1080: 2560, 1440: 3440, 2160: 5120}
+STANDARD_WIDTHS = {1080: 1920, 1440: 2560, 2160: 3840}
 
 
 def exact_scale(width: int, height: int, scale: float) -> bool:
@@ -33,6 +41,26 @@ def validate_desktop(d: object) -> dict:
 
 def logical_width(d) -> int:
     return int(d['width'] / d['scale'])
+
+
+def is_ultrawide(d) -> bool:
+    """Wider than 2:1 (21:9 is 2.37, 16:9 is 1.78; 32:9 counts too)."""
+    return d['width'] > 2 * d['height']
+
+
+def toggle_ultrawide(d) -> dict:
+    """The desktop the Ultrawide button makes of `d`: 21:9 at its height if it is not ultrawide, else 16:9 at its height.
+    Height and scale stay; if the new width cannot keep the scale exact (validate_desktop), the nearest width that can
+    (within 64 px), else scale 1. Always a valid desktop."""
+    d = validate_desktop(d)
+    h, scale = d['height'], d['scale']
+    table, ratio = (STANDARD_WIDTHS, 16 / 9) if is_ultrawide(d) else (ULTRAWIDE_WIDTHS, 64 / 27)
+    lo, hi = CUSTOM_BOUNDS['width']
+    width = min(max(table.get(h) or int(round(h * ratio / 8)) * 8, lo), hi)
+    for step in range(0, 33):
+        for w in (width - 2 * step, width + 2 * step):
+            if lo <= w <= hi and exact_scale(w, h, scale): return validate_desktop({'width': w, 'height': h, 'scale': scale})
+    return validate_desktop({'width': width, 'height': h, 'scale': 1.0})
 
 
 # Per-desktop placement in the glasses view (presentation only: never sent to the broker or consent).
@@ -68,6 +96,17 @@ def legacy_placement(p: object) -> object:
     return p
 
 
-def validate_placements(value: object, count: int = 3) -> list:
-    if not isinstance(value, list) or len(value) != count: raise ValueError(f'exactly {count} placements required')
+def validate_placements(value: object, count: int | None = None) -> list:
+    """One placement per desktop: exactly `count`, or (None) 1..MAX_DESKTOPS."""
+    if count is None:
+        if not isinstance(value, list) or not 1 <= len(value) <= MAX_DESKTOPS:
+            raise ValueError(f'1 to {MAX_DESKTOPS} placements required')
+    elif not isinstance(value, list) or len(value) != count: raise ValueError(f'exactly {count} placements required')
     return [validate_placement(p) for p in value]
+
+
+def validate_desktops(value: object) -> list:
+    """A run's desktops: 1..MAX_DESKTOPS valid desktops."""
+    if not isinstance(value, list) or not 1 <= len(value) <= MAX_DESKTOPS:
+        raise ValueError(f'1 to {MAX_DESKTOPS} desktops required')
+    return [validate_desktop(d) for d in value]

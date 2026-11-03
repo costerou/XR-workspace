@@ -180,7 +180,7 @@ class HyprlandClient:
         # This host uses Lua config; legacy keyword monitor is not a fallback.
         patterns = [r'keyword input:follow_mouse [0-3]',
                     rf'dispatch moveworkspacetomonitor ([1-9][0-9]*) ({NAME})',
-                    r'dispatch hl\.dsp\.focus\(\{monitor="XR-[1-3]"\}\)']  # glasses view focus, managed outputs only
+                    r'dispatch hl\.dsp\.focus\(\{monitor="XR-[1-4]"\}\)']  # glasses view focus, managed outputs only (MAX_DESKTOPS)
         from .send import MOVE_PATTERN
         patterns.append(MOVE_PATTERN)  # Ctrl+Alt+G/1-3/B: one window by address onto one regular workspace (send.py)
         if not isinstance(command, str) or len(command) > 512: raise ValueError('invalid mutation')
@@ -515,9 +515,8 @@ def plan_outputs(existing, workspaces, run_id, desktops=None):
         used.add(w['id'])
     right = max((math.ceil(m['x'] + (m['height'] if m['transform'] % 2 else m['width']) / m['scale']) for m in existing), default=0)
     y = min((m['y'] for m in existing), default=0)
-    desktops = [dict(DEFAULT_DESKTOP)] * 3 if desktops is None else desktops
-    if not isinstance(desktops, list) or len(desktops) != 3: raise ValueError('exactly three desktops required')
-    desktops = [validate_desktop(d) for d in desktops]
+    from .geometry import validate_desktops
+    desktops = validate_desktops([dict(DEFAULT_DESKTOP)] * 3 if desktops is None else desktops)  # 1..MAX_DESKTOPS
     specs, x = [], right
     for index, d in enumerate(desktops):
         name = token(f'XR-{index + 1}')

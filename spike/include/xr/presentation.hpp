@@ -2,6 +2,7 @@
 #include "xr/types.hpp"
 #include "xr/metrics.hpp"
 #include "xr/video.hpp"
+#include "xr/hud.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -98,12 +99,15 @@ public:
                   const std::vector<std::uint32_t>& sections = {}, std::int32_t turn = 0);
     // Placement panel (display only; placements are applied by set_placements): with `open`, desktop `desktop`'s glass
     // pill expands into its placement panel (glass.hpp) and any other collapses; closed, every pill is a pill again.
-    // `desktop` 0..2, `field` 0..3 in WirePlacement order; `placements` for all three desktops in set_placements' units.
+    // `desktop` 0..count-1, `field` 0..3 in WirePlacement order; `placements` for every desktop in set_placements' units,
+    // plus the panel's desktop row (hud.hpp PlacementMenuState).
     // `surface` (open only): while the supervisor holds one of the panel's sliders, the placement the panel is drawn on
     // (its desktop's at the press; the desktop itself follows set_placements). Empty: the desktop's live placement.
-    void set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                            const std::array<std::array<std::int32_t, 4>, 3>& placements,
-                            const std::optional<std::array<std::int32_t, 4>>& surface = std::nullopt);
+    void set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface = std::nullopt);
+    // The run's managed desktops changed (ipc.hpp DesktopsPayload; capture runs only): captures of names not in `outputs`
+    // stop, new names start once Hyprland advertises them, `renew` restarts those captures. Captures stay in name order,
+    // which is the order of every per-desktop list (placements, the overview's tiles).
+    void set_desktops(const std::vector<std::string>& outputs, const std::vector<std::string>& renew = {});
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.

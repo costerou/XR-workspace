@@ -3,7 +3,7 @@ import json
 import os
 import re
 
-from .geometry import validate_desktop
+from .geometry import validate_desktops
 from .ipc import read_private_json, token
 from .profiles import MODELS
 from .supervisor import CAPTURE_ALLOW, CAPTURE_SCOPE
@@ -45,9 +45,9 @@ def _validate(data, instance=None, output=None):
         if not isinstance(mode, dict) or set(mode) != set(LUMA_MODE) or any(type(mode[k]) is not int or mode[k] != v for k, v in LUMA_MODE.items()):
             raise ValueError('mode switch must be exactly 1920x1200@120')
     data['plugin'] = _artifact(data['plugin']); data['renderer'] = _artifact(data['renderer'])
-    desktops = data['desktops']
-    if not isinstance(desktops, list) or len(desktops) != 3: raise ValueError('exactly 3 desktops required')
-    data['desktops'] = [validate_desktop(d) for d in desktops]
+    # The desktops the session starts with (1..MAX_DESKTOPS). The approved capture scope is the run's own managed outputs:
+    # desktops a pill adds, removes or reshapes during the session stay inside it (desktops.py).
+    data['desktops'] = validate_desktops(data['desktops'])
     if data['input'] is not False or data['sdk'] is not False: raise ValueError('input/SDK not authorized')
     return data
 

@@ -201,6 +201,13 @@ public:
         configured.emplace_back(o,p);
         return h->live;
     }
+    bool reshape(const Handle& h,const Json&,const Json& after) override {
+        auto m=resolve(h); if(!m) return false; auto o=native(h);
+        // Our rule goes, then configure() puts the new one in exactly as at creation (collision check, apply, arrange).
+        if(o->ruleLost || !eraseRule(*o)) return false;
+        std::erase_if(configured,[&](const auto& c) { auto held=c.first.lock(); return !held || held==o; });
+        return configure(h,after);
+    }
     bool verified(const Handle& h,const Json& p) override {
         auto m=resolve(h); if(!m) return false; auto o=native(h);
         if(o->ruleLost || !o->rule) return false;
@@ -345,6 +352,11 @@ struct Broker {
                     if(isolated) pairs.revalidate(run,session); // full target+fallback proof before mutation
                     if(!backend.usable(r.fallback)) throw std::runtime_error("fallback unavailable before creation");
                     state=registry.create(session,run,p);
+                }
+                else if(op=="reshape") {
+                    if(isolated) pairs.revalidate(run,session); // full target+fallback proof before mutation
+                    if(!backend.usable(r.fallback)) throw std::runtime_error("fallback unavailable before reshape");
+                    state=registry.reshape(session,run,p);
                 }
                 else if(op=="inspect") state=registry.inspect(session,run,id);
                 else {

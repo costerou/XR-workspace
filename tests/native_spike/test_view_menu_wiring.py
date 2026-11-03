@@ -23,13 +23,14 @@ class Clock:
 
 
 class MemoryPlacements:
+    """profiles.PlacementStore stand-in: one placement per desktop of the run; a saved tail beyond them is kept."""
     def __init__(self, initial=None):
         self.saved = [dict(p) for p in (initial or [DEFAULT_PLACEMENT] * 3)]
         self.saves = 0
     def load(self): return [dict(p) for p in self.saved]
     def save(self, placements):
-        assert len(placements) == 3
-        self.saved = [dict(p) for p in placements]; self.saves += 1
+        assert 1 <= len(placements) <= 4
+        self.saved = [dict(p) for p in placements] + self.saved[len(placements):]; self.saves += 1
 
 
 class MenuStateTests(unittest.TestCase):
@@ -38,7 +39,7 @@ class MenuStateTests(unittest.TestCase):
         s.apply('next')
         for op in view.MENU_OPS[1:]:
             self.assertFalse(s.apply_menu(op))
-        self.assertEqual(s.menu(), {'open': False, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3})
+        self.assertEqual(s.menu(), {'open': False, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3, 'names': [1, 2, 3], 'wide': False, 'armed': False, 'busy': False})
         s.apply_menu('menu_toggle')
         self.assertEqual((s.menu_open, s.menu_desktop), (True, 1))
         s.apply_menu('menu_toggle')
@@ -54,11 +55,12 @@ class MenuStateTests(unittest.TestCase):
         self.assertEqual(tuple(seen), PLACEMENT_KEYS); self.assertEqual(s.menu_field, 'x')
         s.apply_menu('menu_field_prev'); self.assertEqual(s.menu_field, 'curvature')
 
-    def test_two_output_run_cycles_two_desktops_and_pads_the_payload_to_three(self):
+    def test_two_output_run_cycles_two_desktops_with_one_placement_each(self):
         s = view.ViewState(['XR-1', 'XR-2']); s.apply_menu('menu_toggle')
         s.apply_menu('menu_desktop_next'); s.apply_menu('menu_desktop_next')
         self.assertEqual(s.menu_desktop, 0)
-        self.assertEqual(len(s.menu()['placements']), 3)
+        self.assertEqual(len(s.menu()['placements']), 2)  # desktops come and go in XR: no padding
+        self.assertEqual(s.menu()['names'], [1, 2])
 
     def test_steps_clamp_to_bounds_and_reset_flattens_only_the_menu_desktop(self):
         s = view.ViewState(NAMES); s.apply_menu('menu_toggle')
@@ -106,7 +108,7 @@ class MenuControlTests(unittest.TestCase):
         c = self.control()
         opened = self.send(c, 'menu_toggle')
         self.assertEqual([f['op'] for f in opened], ['placement_menu'])
-        self.assertEqual(opened[0]['payload'], {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3})
+        self.assertEqual(opened[0]['payload'], {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3, 'names': [1, 2, 3], 'wide': False, 'armed': False, 'busy': False})
         self.assertEqual([f['op'] for f in self.send(c, 'menu_field_next')], ['placement_menu'])
         out = self.send(c, 'menu_inc_big')
         self.assertEqual([f['op'] for f in out], ['placement', 'placement_menu'])
@@ -138,7 +140,12 @@ class MenuControlTests(unittest.TestCase):
         self.assertTrue(frame.endswith(b'\n') and frame.count(b'\n') == 1)
         for bad in ({'open': True, 'desktop': 3, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3},
                     {'open': True, 'desktop': 0, 'field': 'zoom', 'placements': [DEFAULT_PLACEMENT] * 3},
-                    {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 2},
+                    {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 5},
+                    {'open': True, 'desktop': 2, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 2},
+                    {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 2, 'names': [2, 1]},
+                    {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 2, 'names': [1, 5]},
+                    {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 2, 'wide': 1},
+                    {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 2, 'other': 1},
                     {'open': 1, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3}):
             with self.subTest(bad), self.assertRaises(ValueError): view.placement_menu_frame('run', 's', 3, bad)
 

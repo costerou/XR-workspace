@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
                      "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
-                     "Or --capture XR-1[,XR-2[,XR-3]]: show only the app's own managed outputs (managed-output capture consent),\n"
+                     "Or --capture XR-1[,XR-2[,XR-3[,XR-4]]]: show only the app's own managed outputs (managed-output capture consent),\n"
                      "  optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n"
                      "Generated SHM only; callback-paced redraw is not scanout or production GPU evidence.\n";
         return 0;
@@ -169,15 +169,18 @@ int main(int argc, char** argv) {
                     else if (m->op == xr::ControlOp::placement_menu) {
                         // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
                         if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
-                            std::array<std::array<std::int32_t, 4>, 3> placements{};
-                            for (std::size_t i = 0; i < placements.size(); ++i) {
+                            xr::PlacementMenuState state;
+                            state.open = menu->open; state.desktop = menu->desktop; state.field = menu->field;
+                            for (std::size_t i = 0; i < state.placements.size(); ++i) {
                                 const auto& w = menu->placements[i];
-                                placements[i] = {w.x, w.y, w.distance, w.curvature};
+                                state.placements[i] = {w.x, w.y, w.distance, w.curvature};
                             }
+                            state.count = menu->count; state.numbers = menu->numbers;
+                            state.wide = menu->wide; state.armed = menu->armed; state.busy = menu->busy;
                             std::optional<std::array<std::int32_t, 4>> surface;
                             if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
                                 surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};
-                            presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements, surface);
+                            presentation.set_placement_menu(state, surface);
                         }
                     }
                     else if (m->op == xr::ControlOp::resize_handle) {  // display only; malformed ones were dropped above
@@ -191,6 +194,10 @@ int main(int argc, char** argv) {
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
+                    }
+                    else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
+                        const auto& d = std::get<xr::DesktopsPayload>(m->payload);
+                        presentation.set_desktops(d.outputs, d.renew);
                     }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 4>> placements;

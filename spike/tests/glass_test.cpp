@@ -60,7 +60,25 @@ int main() {
     CHECK(kPanelFooterTop + float(kPanelHintPx) <= kPanelH && kGrabberTop + kGrabberH < kPanelHeaderH);
     // Four rows (left / right, down / up, distance, curvature: every desktop faces you, so there is no facing setting).
     static_assert(kPlacementMenuFields == 4);
-    CHECK(kPanelFooterTop == kPanelRowsTop + 4 * kPanelRowH + 8 && kPanelFooterTop == 190.f && kPanelH == 220.f);
+    // Then the desktop row (Ultrawide / Add / Remove) between the sliders and the footer, inside the paddings.
+    CHECK(kPanelActionsTop == kPanelRowsTop + 4 * kPanelRowH + 6 && kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
+    CHECK(kPanelFooterTop == 228.f && kPanelH == 258.f);
+    for (std::size_t a = 0; a < kPanelActions; ++a) {
+        const FRect r = glass_panel_action(a);
+        CHECK(r.x >= kPanelPad && r.x + r.width <= kPanelW - kPanelPad + 1e-3f && r.y == kPanelActionsTop && r.height == kPanelActionH);
+        if (a) CHECK(near(r.x, glass_panel_action(a - 1).x + kPanelActionW + kPanelActionGap));
+    }
+    CHECK(glass_panel_action(kPanelActions).width == 0.f);
+    {  // which buttons do anything: Add stops at kMaxDesktops, Remove keeps one desktop, nothing while busy
+        PlacementMenuState st; st.count = 3;
+        CHECK(glass_panel_action_enabled(0, st) && glass_panel_action_enabled(1, st) && glass_panel_action_enabled(2, st));
+        st.count = std::uint32_t(kMaxDesktops); CHECK(!glass_panel_action_enabled(1, st) && glass_panel_action_enabled(2, st));
+        st.count = 1; CHECK(glass_panel_action_enabled(1, st) && !glass_panel_action_enabled(2, st));
+        st.busy = true; for (std::size_t a = 0; a < kPanelActions; ++a) CHECK(!glass_panel_action_enabled(a, st));
+        CHECK(std::string(glass_panel_action_label(2, true)) == "Remove?" && std::string(glass_panel_action_label(2, false)) == "Remove");
+        for (std::size_t a = 0; a < kPanelActions; ++a)
+            for (unsigned char c : std::string(glass_panel_action_label(a, false))) CHECK(c >= 0x20 && c < 0x7f);  // pixel font: ASCII
+    }
 
     // Look: every pixel of every state stays at or under the cards' 191/255 cap, premultiplied, with any accent.
     for (const auto& accent : {std::array<float, 3>{1, 1, 1}, std::array<float, 3>{0.55f, 0.55f, 0.55f}, std::array<float, 3>{1, 0, 0.3f}})
@@ -123,6 +141,25 @@ int main() {
         CHECK(alpha_at(kPanelTrackX0 - 4, band_y) > 0 && alpha_at(kPanelTrackX0 - 4, kPanelRowsTop + 3) == 0);  // only row 3 has the band
         PlacementMenuState other = st; other.desktop = 2;
         CHECK(render_glass_panel(other, f).rgba != im.rgba);  // another desktop: its own header and values
+        {  // the desktop row: its buttons show, the header names the real output, and each state draws differently
+            const auto row_top = std::uint32_t(kPanelActionsTop), row_bottom = std::uint32_t(kPanelActionsTop + kPanelActionH);
+            CHECK(alpha_at(glass_panel_action(1).x + 4, kPanelActionsTop + kPanelActionH / 2) > 0);
+            PlacementMenuState renamed = st; renamed.numbers = {1, 3, 4, 4};
+            CHECK(render_glass_panel(renamed, f).rgba != im.rgba);  // "XR-3", not "XR-2"
+            for (auto change : {+[](PlacementMenuState& m) { m.wide = true; }, +[](PlacementMenuState& m) { m.armed = true; },
+                                +[](PlacementMenuState& m) { m.busy = true; }, +[](PlacementMenuState& m) { m.count = 1; },
+                                +[](PlacementMenuState& m) { m.count = std::uint32_t(kMaxDesktops); }}) {
+                PlacementMenuState changed = st; change(changed);
+                const auto other_im = render_glass_panel(changed, f);
+                CHECK(premultiplied(other_im) && brightest(other_im) <= kCardMaxLevel);
+                CHECK(!changed_columns(im, other_im, row_top, row_bottom).empty());   // the row shows it
+                CHECK(changed_columns(im, other_im, 0, row_top).empty());             // nothing above the row moves
+            }
+            if (f) for (std::size_t a = 0; a < kPanelActions; ++a)
+                for (bool armed : {false, true})  // every label fits its button
+                    CHECK(f->measure(glass_panel_action_label(a, armed), kPanelActionPx, true) + 8 <= std::uint32_t(kPanelActionW));
+            for (std::size_t a = 0; a < kPanelActions; ++a) CHECK(hud_text_width(glass_panel_action_label(a, true), 2) + 8 <= std::uint32_t(kPanelActionW));
+        }
         for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
             PlacementMenuState lo = st, hi = st;
             lo.field = hi.field = 9;  // no band

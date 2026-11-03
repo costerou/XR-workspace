@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "xr/desktops.hpp"
 
 namespace xr {
 // Premultiplied RGBA8, row 0 at the top, one texel per output pixel.
@@ -196,13 +197,19 @@ private:
 // Placement state (supervisor-owned, ipc.hpp PlacementMenuPayload): which desktop's glass pill is expanded into its
 // placement panel (`open`, `desktop`), the selected field, and every desktop's placement. The panel itself is drawn by
 // glass.hpp; these are the field table and formatting it shares with the tests.
-constexpr std::size_t kPlacementMenuFields = 4, kPlacementMenuDesktopCount = 3;
+constexpr std::size_t kPlacementMenuFields = 4, kPlacementMenuDesktopCount = kMaxDesktops;
 // {x, y, distance, curvature} in the wire units of ipc.hpp WirePlacement (every desktop always faces you: no facing field).
 using MenuPlacement = std::array<std::int32_t, kPlacementMenuFields>;
 struct PlacementMenuState {
     bool open = false;
-    std::uint32_t desktop = 0, field = 0;  // 0..2, 0..3 (out of range: drawn with nothing selected)
+    std::uint32_t desktop = 0, field = 0;  // 0..count-1, 0..3 (out of range: drawn with nothing selected)
     std::array<MenuPlacement, kPlacementMenuDesktopCount> placements{};
+    // The panel's desktop row (Ultrawide / Add / Remove): how many desktops the run has, each one's output number (the n
+    // of XR-n, in capture order: a removed desktop leaves a gap), whether the open desktop is ultrawide, the Remove button
+    // armed (a second click removes), and a desktop change in progress (every button dimmed).
+    std::uint32_t count = 3;
+    std::array<std::uint8_t, kPlacementMenuDesktopCount> numbers{1, 2, 3, 4};
+    bool wide = false, armed = false, busy = false;
     bool operator==(const PlacementMenuState&) const = default;
 };
 // Slider range of each field, {lo, hi}: the same bounds the renderer accepts (ipc.cpp kPlacementBounds, tested).

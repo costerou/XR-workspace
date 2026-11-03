@@ -63,7 +63,7 @@ int main() {
     require(std::holds_alternative<xr::ControlMessage>(control_mode) &&
             !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).typing);
     for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":0,"spacing":0,"mode":"orbit"})",
-                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":3,"spacing":0})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":4,"spacing":0})",
                             R"({"zoomed":true,"selected":0,"spacing":401})", R"({"zoomed":true,"selected":-1,"spacing":0})",
                             R"({"zoomed":true,"selected":0})", R"({"zoomed":true,"selected":0,"spacing":0,"x":1})",
                             R"({"zoomed":true,"selected":0.5,"spacing":0})",
@@ -148,7 +148,7 @@ int main() {
         return p.substr(0, at) + value + p.substr(p.find_first_of(",}", at));
     };
     for (const std::string& bad : {std::string(R"({"desktops":[]})"), std::string(R"({"desktops":{}})"), std::string(R"({})"),
-                                  R"({"desktops":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
+                                  R"({"desktops":[)" + flat + "," + flat + "," + flat + "," + flat + "," + flat + "]}",
                                   R"({"desktops":[)" + flat + R"(],"extra":1})",
                                   R"({"desktops":[)" + with("x", "1801") + "]}", R"({"desktops":[)" + with("x", "-1801") + "]}",
                                   R"({"desktops":[)" + with("y", "901") + "]}", R"({"desktops":[)" + with("y", "-901") + "]}",
@@ -191,8 +191,41 @@ int main() {
         require(sp && sp->surface && sp->surface->x == -1800 && sp->surface->y == 900 && sp->surface->distance == 200 &&
                 sp->surface->curvature == 120);
     }
-    for (const std::string& bad : {std::string("{}"),
-                                  R"({"open":true,"desktop":3,"field":"x","placements":)" + three + "}",
+    {  // One placement per desktop (1..kMaxDesktops) and the desktop row: names, ultrawide, armed Remove, busy.
+        auto one = xr::decode_control(menu(R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "]}"));
+        const auto* op = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(one).payload);
+        require(op && op->count == 1 && op->numbers[0] == 1 && !op->wide && !op->armed && !op->busy);
+        auto row = xr::decode_control(menu(R"({"open":true,"desktop":3,"field":"x","placements":[)" + flat + "," + edge + "," + flat + "," + flat +
+                                           R"(],"names":[1,2,3,4],"wide":true,"armed":true,"busy":true})"));
+        const auto* rp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(row).payload);
+        require(rp && rp->count == 4 && rp->desktop == 3 && rp->wide && rp->armed && rp->busy && rp->placements[1].x == -1800);
+        auto gap = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"x","placements":[)" + flat + "," + flat + R"(],"names":[2,4]})"));
+        const auto* gp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(gap).payload);
+        require(gp && gp->count == 2 && gp->numbers[0] == 2 && gp->numbers[1] == 4);
+    }
+    {  // The run's desktops changed: the set to capture (sorted), and the ones to restart. Anything else stops the renderer.
+        auto set = [](const std::string& payload) {
+            return std::string(R"({"schema":1,"request_id":12,"run_id":"run","session":"session","op":"desktops","payload":)") + payload + "}\n";
+        };
+        auto dd = xr::decode_control(set(R"({"outputs":["XR-4","XR-1"],"renew":["XR-4"]})"));
+        const auto* dp = std::get_if<xr::DesktopsPayload>(&std::get<xr::ControlMessage>(dd).payload);
+        require(dp && dp->outputs == std::vector<std::string>({"XR-1", "XR-4"}) && dp->renew == std::vector<std::string>({"XR-4"}));
+        auto plain = xr::decode_control(set(R"({"outputs":["XR-2"]})"));
+        require(std::holds_alternative<xr::ControlMessage>(plain) && std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(plain).payload).renew.empty());
+        for (const char* bad : {R"({})", R"({"outputs":[]})", R"({"outputs":["XR-5"]})", R"({"outputs":["XR-0"]})", R"({"outputs":["XR-1","XR-1"]})",
+                                R"({"outputs":["DP-1"]})", R"({"outputs":["XR-1","XR-2","XR-3","XR-4","XR-1"]})", R"({"outputs":"XR-1"})",
+                                R"({"outputs":["XR-1"],"renew":["XR-2"]})", R"({"outputs":["XR-1"],"extra":1})", R"({"outputs":["xr-1"]})",
+                                R"({"outputs":["XR-10"]})", R"({"outputs":[1]})"}) {
+            auto rejected = xr::decode_control(set(bad));
+            require(std::holds_alternative<xr::Error>(rejected) && !xr::ignorable_control_error(std::get<xr::Error>(rejected)));
+        }
+    }
+    for (const std::string& bad : {std::string("{}"),  // past its placements
+                                  R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"names":[1,2]})",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"names":[1,3,3]})",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"names":[1,2,5]})",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"wide":1})",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "," + flat + "," + flat + "," + flat + "]}",
                                   R"({"open":true,"desktop":-1,"field":"x","placements":)" + three + "}",
                                   R"({"open":true,"desktop":1.0,"field":"x","placements":)" + three + "}",
                                   R"({"open":1,"desktop":0,"field":"x","placements":)" + three + "}",
@@ -202,8 +235,6 @@ int main() {
                                   R"({"open":true,"desktop":0,"field":"pitch","placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":"roll","placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":0,"placements":)" + three + "}",
-                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "]}",
-                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + with("curvature", "121") + "," + flat + "]}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + R"(,{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0},)" + flat + "]}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"surface":{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0}})",

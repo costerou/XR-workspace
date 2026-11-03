@@ -226,6 +226,23 @@ class Journal:
             record["state"] = "confirmed"; self._save()
 
 
+    def output_removed(self, output_id: str) -> None:
+        """A desktop removed during the run (desktops.py) after the broker's own readback proved it gone and its windows
+        reachable on the fallback: its output record is done, so recovery leaves it alone."""
+        with self.transaction():
+            record = next((r for r in self.operations if r["operation"]["kind"] == "output" and r["operation"]["id"] == output_id), None)
+            if record is None: raise ValueError("unknown output")
+            if record["state"] == "done": return
+            if record["state"] != "confirmed": raise ValueError("output removal before its creation was confirmed")
+            record["state"] = "done"; self._save()
+
+    def live_outputs(self) -> list:
+        """Output records not yet removed: [{'id', 'name', 'index'}] in journal order."""
+        with self.transaction():
+            return [{k: r["operation"][k] for k in ("id", "name", "index")} for r in self.operations
+                    if r["operation"]["kind"] == "output" and r["state"] != "done"]
+
+
 def _session(journal, hypr):
     if hypr.query("session") != {"id": journal.session}: raise ValueError("session disconnected or changed")
 

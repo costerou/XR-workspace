@@ -12,6 +12,7 @@ ColumnLayout {
     id: root
     required property var placement
     property int index: 0
+    property string name: ""  // the desktop's XR-n name while running (a removed desktop leaves a gap); else XR-(index+1)
     property bool busy: false
     property bool live: false
     property var draft: Model.placementEdit(placement) || Model.defaultPlacement()
@@ -20,7 +21,7 @@ ColumnLayout {
     spacing: 6
     function setField(key, value) { const d = Object.assign({}, draft); d[key] = Math.round(value); draft = d }
     function apply() { const p = Model.placementEdit(draft); if (p && !busy) save(p) }
-    Label { text: "Placement · XR-" + (root.index + 1); font.bold: true }
+    Label { text: "Placement · " + (root.name || "XR-" + (root.index + 1)); font.bold: true }
     Repeater {
         objectName: "placementRows"
         model: [{key:"x"}, {key:"y"}, {key:"distance"}, {key:"curvature"}]

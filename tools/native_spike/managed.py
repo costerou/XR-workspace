@@ -62,10 +62,11 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None):
+def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
-    `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py)."""
+    `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
+    run's desktops.DesktopManager (the pills' Ultrawide / Add / Remove); closed here, before the run's recovery."""
     if not capture:
         yield None
         return
@@ -114,7 +115,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         try: initial = placements.load() if placements is not None else None
         except (OSError, ValueError): initial = None
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
-                                                   saved['prediction'], initial), run_id, session,
+                                                   saved['prediction'], _initial_placements(initial, capture)), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
@@ -125,11 +126,18 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         from .input_lock import LockedPointer, LockedSampler
         pointer = control.overview_pointer = LockedPointer(control)
         control.wake = pointer.wake_reader
-        if hasattr(client, 'lock_pointer'): sampler = LockedSampler(client, capture, pointer, bind_args).start()
-        # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-3, B). Closed first at run end (below).
+        if hasattr(client, 'lock_pointer'):
+            sampler = LockedSampler(client, capture, pointer, bind_args).start()
+            control.desktop_listeners.append(sampler.set_names)  # a pill's Add / Remove: its monitors again
+        # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-4, B). Closed first at run end (below).
         if hasattr(client, 'mutate'):
-            from .send import WindowSender
+            from .send import WindowSender, notify as notify_text
             control.sender = WindowSender(client, capture, fallback)
+            control.notify = notify_text  # a desktop change that could not be done says why
+        if desktops is not None:
+            control.desktops = desktops
+            if placements is not None: desktops.store = placements  # the profile takes the new desktops
+            control.state.wide = desktops.wide()
         stream = getattr(client, 'event_stream', None)  # cursor follow; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
@@ -144,6 +152,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         video = VideoControl(control, binds=video_binds, notify=notify_send)
         yield video
     finally:
+        if desktops is not None: desktops.close()  # no desktop change starts now; one in flight lands before recovery
         if video is not None: video.close()  # removes the video keys if a video was playing; none are added after this
         if control is not None and control.sender is not None:
             control.sender.close()  # no window move may start after this; one in flight lands before recovery runs
@@ -158,6 +167,13 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if events is not None: events.close()
         if pointer is not None: pointer.close()
         server.close()
+
+
+def _initial_placements(saved, names):
+    """The profile's placements for this run's desktops (one each; missing ones flat), or None."""
+    if saved is None: return None
+    from .geometry import DEFAULT_PLACEMENT
+    return (list(saved) + [dict(DEFAULT_PLACEMENT)] * len(names))[:len(names)]
 
 
 def capture_names(consent, specs):
@@ -176,10 +192,15 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
     journal.bind_broker(context)
     try:
         create_outputs(specs, journal, broker)
-        if guard is None: guard = ManagedGuard(broker, output, specs)
+        manager = None
+        if guard is None:
+            guard = ManagedGuard(broker, output, specs)
+            if capture and isinstance(broker, OwnershipBrokerClient):  # the pills' Ultrawide / Add / Remove (desktops.py)
+                from .desktops import DesktopManager
+                manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live))
         guard()
         with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store,
-                                                                                   fallback) as control:
+                                                                                   fallback, manager) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
                                  control=control, pose_feed=pose_feed, renderer=renderer)
     finally:

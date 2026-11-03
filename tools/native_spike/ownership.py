@@ -121,6 +121,37 @@ class OwnershipBrokerClient:
             result.append(spec['name'])
         return result
 
+    def create_live(self, spec, journal):
+        """One more managed output during a run (a pill's Add, desktops.py): write-ahead like create_journaled, for a run
+        whose journal already holds its outputs. Its name must not belong to a live (not yet removed) output of the run."""
+        if journal.run_id != self.run_id or journal.session != self.session: raise OwnershipBlocked('journal identity mismatch')
+        self.require_output_ownership()
+        if any(o['name'] == spec['name'] for o in journal.live_outputs()): raise OwnershipBlocked('output name already live')
+        oid = journal.prepare({'kind': 'output', 'id': spec['id'], 'name': spec['name'], 'index': spec['index'], 'before': None})
+        self._call('create', spec)  # A receipt is not readback.
+        self.verify(self.inspect(spec['id']), spec)
+        journal.confirm(oid, {'id': spec['id'], 'name': spec['name'], 'physical': False})
+        return spec['name']
+
+    def reshape(self, spec):
+        """New geometry for a live managed output of this run (Ultrawide, or sliding along the row): the broker replaces
+        its monitor rule, then a separate readback must match `spec` exactly. Anything else leaves the output untrusted
+        (the run's guard then ends the run and recovery removes it)."""
+        self.require_output_ownership()
+        reply = self._call('reshape', spec)
+        self._identity(reply, spec['id'])
+        if reply['name'] != spec['name'] or reply['state'] != 'live': raise OwnershipBlocked('reshape refused or unverified')
+        self.verify(self.inspect(spec['id']), spec)
+        return spec['name']
+
+    def remove_live(self, output_id, output_name, journal):
+        """Remove one managed output during a run (a pill's Remove): its windows go to the fallback (the recovery path,
+        with its reachability proof), then its journal record is done. False if the broker refused (pinned window ...):
+        the output stays, untouched."""
+        if not self.evacuate_remove(output_id, output_name): return False
+        journal.output_removed(output_id)
+        return True
+
     @staticmethod
     def verify(result, spec):
         if result['state'] != 'live' or result['name'] != spec['name'] or not result['fallback_usable']:

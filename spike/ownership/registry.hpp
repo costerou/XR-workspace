@@ -25,6 +25,9 @@ struct Backend {
     // Called once an entry is proven dead: drop compositor references (workspaces,
     // snapshots) so recovered runs leave nothing listed. Identity/readback data stays.
     virtual void release(const Handle&)=0;
+    // A live managed output takes new geometry (a pill's Ultrawide toggle, or a neighbour's change moving it along the
+    // row): `after` replaces `before` (same id, name, index and refresh). Only the plugin implements it; elsewhere refused.
+    virtual bool reshape(const Handle&,const Json& before,const Json& after) { (void)before; (void)after; return false; }
 };
 // A DRM binding is not a physical/virtual classification or VM attestation.
 struct PairObservation {
@@ -71,6 +74,9 @@ public:
     std::string create(const std::string&,const std::string&,const Json&);
     std::string inspect(const std::string&,const std::string&,const std::string&);
     std::string remove(const std::string&,const std::string&,const std::string&,const Handle&);
+    // New geometry for a live entry of this run (see Backend::reshape); its state after readback: "live" if the output
+    // verifies against `spec` (which becomes its spec), else "invalid" (recovery still removes it).
+    std::string reshape(const std::string&,const std::string&,const Json&);
     const Entry& entry(const std::string& id) const { return entries.at(id); }
 };
 }

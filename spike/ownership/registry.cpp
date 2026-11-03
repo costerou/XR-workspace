@@ -35,7 +35,7 @@ Json parse_request(const std::string& wire) {
     else if(op=="pair_observe" && j["schema"]==2) wanted={"target","fallback"};
     else if(op=="inspect") wanted={"id"};
     else if(op=="evacuate_remove") wanted={"id","name","fallback"};
-    else if(op=="create") wanted={"id","name","index","width","height","refresh_millihz","scale","x","y"};
+    else if(op=="create" || op=="reshape") wanted={"id","name","index","width","height","refresh_millihz","scale","x","y"};
     else throw std::runtime_error("operation");
     // Schema 2 is the explicit isolated-VM scope: every request carries the mode.
     if(j["schema"]==2) {
@@ -50,11 +50,12 @@ Json parse_request(const std::string& wire) {
     if(j["schema"]==2) for(auto key:{"target","fallback"}) if(p.contains(key))
         if(!std::regex_match(p[key].get<std::string>(),std::regex("[0-9a-f]{48}"))) throw std::runtime_error("pair handle");
     if(p.contains("id") && !std::regex_match(p["id"].get<std::string>(),std::regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))) throw std::runtime_error("UUID");
-    if(op=="create") {
+    if(op=="create" || op=="reshape") {
         for(auto key:{"index","width","height","refresh_millihz","x","y"})
             if(!p[key].is_number_integer() || (p[key].is_number_unsigned() ? p[key].get<uint64_t>()>2147483647ULL :
                 (p[key].get<int64_t>() < -2147483648LL || p[key].get<int64_t>()>2147483647LL))) throw std::runtime_error("integer");
-        if(p["index"]<0 || p["index"]>2 || p["refresh_millihz"]!=120000 ||
+        // XR-1..XR-4: tools/native_spike/geometry.py MAX_DESKTOPS (spike/include/xr/desktops.hpp kMaxDesktops).
+        if(p["index"]<0 || p["index"]>3 || p["refresh_millihz"]!=120000 ||
            !p["scale"].is_number() || !validDesktop(p["width"].get<int>(),p["height"].get<int>(),p["scale"].get<double>())) throw std::runtime_error("geometry");
         // Stable names: Omarchy gives each managed output its own persistent workspace block.
         if(p["name"]!="XR-"+std::to_string(p["index"].get<int>()+1)) throw std::runtime_error("output name");
@@ -159,6 +160,18 @@ std::string Registry::create(const std::string& session,const std::string& run,c
 std::string Registry::inspect(const std::string& s,const std::string& r,const std::string& id) {
     Guard guard(busy); auto& e=lookup(s,r,id);
     if(e.state=="live" && (!e.object->live || !backend.verified(e.object,e.spec))) e.state="invalid";
+    return e.state;
+}
+std::string Registry::reshape(const std::string& s,const std::string& r,const Json& spec) {
+    Guard guard(busy); auto& e=lookup(s,r,spec.at("id").get<std::string>());
+    for(auto key:{"name","index","refresh_millihz"}) if(spec.at(key)!=e.spec.at(key)) throw std::runtime_error("reshape identity");
+    if(e.state!="live") return e.state;
+    if(!e.object || !e.object->live || !backend.verified(e.object,e.spec)) { e.state="invalid"; return e.state; }
+    if(spec==e.spec) return e.state;
+    // From here the compositor may hold either geometry: a failed reshape is never retried or rolled back here.
+    const bool reshaped=backend.reshape(e.object,e.spec,spec);
+    e.spec=spec;
+    if(!reshaped || !e.object->live || !backend.verified(e.object,e.spec)) e.state="invalid";
     return e.state;
 }
 std::string Registry::remove(const std::string& s,const std::string& r,const std::string& id,const Handle& fallback) {

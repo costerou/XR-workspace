@@ -1,0 +1,230 @@
+"""Live desktop changes from a glass pill in the glasses: Ultrawide, Add and Remove.
+
+The open placement panel (an expanded glass pill, glass.hpp) has a row of three buttons under its sliders, also on keys
+while it is open (view.MENU_BINDS: U, N, Delete):
+
+    Ultrawide   that desktop toggles between 16:9 and 21:9 at its own height (geometry.toggle_ultrawide)
+    Add new     a new desktop, the size of the one whose pill it is (standard 16:9 if that one is ultrawide), named
+                with the lowest free number XR-1..XR-MAX_DESKTOPS
+    Remove      that desktop goes; its windows move to the run's physical fallback monitor (exactly what Stop does to
+                them). The first press only arms the button ("Remove?"); a second one within REMOVE_ARM_S removes.
+
+Every desktop of a run is a managed output the ownership broker made (spike/ownership/plugin.cpp), side by side in
+Hyprland's layout in name order, starting where the run's first desktop started. A change is a plan (plan(), pure)
+of broker steps in a safe order: remove first, then the outputs that move left or shrink (left to right), then the
+ones that move right or grow (right to left), then creations, so no two outputs ever share layout space.
+
+  * Creation is write-ahead journaled like the run's first outputs (ownership.create_live): a crash at any point leaves
+    a journal recovery removes.
+  * Reshape (ownership.reshape) swaps the broker's monitor rule and reads the output back; an output that does not read
+    back exactly is untrusted, and the run's guard ends the run (recovery removes it like any other).
+  * Removal is the recovery transaction itself (evacuate_remove: windows to the fallback, reachability proof, output
+    destroyed), then the journal record is done.
+
+The work runs on a worker thread, never on the supervisor loop (a broker call may take up to its 2 s deadline, and the
+renderer's heartbeat is checked there). The loop (view.ViewControl) pauses the run's guard first, hands the renderer
+its new desktop set (`desktops` frame: spike/include/xr/ipc.hpp DesktopsPayload; a removed desktop's capture stops
+before its output goes), and once the worker is done restarts the guard on the outputs as they now are. The profile
+takes the new desktops and placements, so the next session starts with them.
+
+Nothing here widens what the session may do: the outputs are the run's own managed outputs (the consent's capture
+scope), created and removed only through the broker, and the windows a removal moves go where Stop would move them.
+"""
+from dataclasses import dataclass, field
+import threading
+import time
+import uuid
+
+from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide, validate_desktop)
+
+ACTIONS = ('ultrawide', 'add', 'remove')
+REMOVE_ARM_S = 4.0  # the Remove button's second press must come this soon after the first
+REFRESH_MILLIHZ = 120000
+
+
+def number(name):
+    """'XR-3' -> 3."""
+    return int(name.split('-', 1)[1])
+
+
+def desktop_of(spec):
+    return validate_desktop({'width': spec['width'], 'height': spec['height'], 'scale': spec['scale']})
+
+
+@dataclass
+class Plan:
+    """What one action does. `specs`: the run's outputs afterwards, in name order (each a broker create spec). Steps, in
+    order: `remove` (spec or None), `reshape` (specs, already ordered), `create` (specs). `placements`: one per desktop
+    of `specs`. `focus`: the index in `specs` the panel should be on afterwards (None: collapse it)."""
+    action: str
+    specs: list
+    remove: dict | None = None
+    reshape: list = field(default_factory=list)
+    create: list = field(default_factory=list)
+    placements: list = field(default_factory=list)
+    focus: int | None = None
+    resized: list = field(default_factory=list)  # names whose pixel size changes (their capture restarts)
+
+    def steps(self):
+        out = [('remove', self.remove)] if self.remove is not None else []
+        return out + [('reshape', s) for s in self.reshape] + [('create', s) for s in self.create]
+
+
+def lay_out(desktops, origin):
+    """[(name, desktop)] in any order -> create specs (no ids) side by side in name order from `origin` (x, y)."""
+    x, y = origin
+    out = []
+    for name, d in sorted(desktops, key=lambda nd: number(nd[0])):
+        out.append({'name': name, 'index': number(name) - 1, 'width': d['width'], 'height': d['height'],
+                    'refresh_millihz': REFRESH_MILLIHZ, 'scale': d['scale'], 'x': x, 'y': y})
+        x += logical_width(d)
+        if x > 2147483647: raise ValueError('layout overflow')
+    return out
+
+
+def plan(specs, placements, action, index, origin=None):
+    """The broker steps for `action` on desktop `index` of `specs` (the run's live outputs in name order, with ids).
+    `placements`: one per spec. ValueError if the action cannot be done (Add at MAX_DESKTOPS, Remove of the last one)."""
+    if action not in ACTIONS: raise ValueError('unknown desktop action')
+    if not specs or type(index) is not int or not 0 <= index < len(specs): raise ValueError('no such desktop')
+    if len(placements) != len(specs): raise ValueError('one placement per desktop required')
+    specs = sorted(specs, key=lambda s: number(s['name']))
+    origin = origin or (specs[0]['x'], specs[0]['y'])
+    by_name = {s['name']: s for s in specs}
+    placed = {s['name']: dict(p) for s, p in zip(specs, placements)}
+    desktops = {s['name']: desktop_of(s) for s in specs}
+    target = specs[index]['name']
+    removed = None
+    if action == 'ultrawide':
+        desktops[target] = toggle_ultrawide(desktops[target])
+    elif action == 'add':
+        if len(specs) >= MAX_DESKTOPS: raise ValueError(f'at most {MAX_DESKTOPS} desktops')
+        free = next(n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops)
+        model = desktops[target]
+        target = f'XR-{free}'
+        desktops[target] = toggle_ultrawide(model) if is_ultrawide(model) else model
+        placed[target] = dict(DEFAULT_PLACEMENT)
+    else:
+        if len(specs) <= 1: raise ValueError('a session keeps at least one desktop')
+        removed = by_name[target]
+        del desktops[target], placed[target]
+    laid = lay_out(list(desktops.items()), origin)
+    after, moves, creates, resized = [], [], [], []
+    for s in laid:
+        old = by_name.get(s['name'])
+        if old is None:
+            s = {'id': str(uuid.uuid4()), **s}
+            creates.append(s)
+        else:
+            s = {'id': old['id'], **s}
+            if any(s[k] != old[k] for k in ('width', 'height', 'scale', 'x', 'y')): moves.append((old, s))
+            if any(s[k] != old[k] for k in ('width', 'height', 'scale')): resized.append(s['name'])
+        after.append(s)
+    # Never two outputs on the same layout space: what moves left or shrinks goes first, left to right; then what moves
+    # right or grows, right to left.
+    def right(s): return s['x'] + logical_width(desktop_of(s))
+    first = sorted([(o, n) for o, n in moves if n['x'] <= o['x'] and right(n) <= right(o)], key=lambda m: m[1]['x'])
+    rest = sorted([(o, n) for o, n in moves if (o, n) not in first], key=lambda m: -m[1]['x'])
+    names = [s['name'] for s in after]
+    focus = names.index(target) if action != 'remove' else None
+    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized)
+
+
+class DesktopManager:
+    """The run's managed outputs and the worker that changes them (module docstring).
+
+    `broker`: ownership.OwnershipBrokerClient of the run; `journal`: its journal; `specs`: the outputs the run created
+    (managed.plan_outputs). `guard_factory(specs)`: the run's guard for a set of outputs (managed.ManagedGuard).
+    `store`: optional profiles.PlacementStore (save_desktops). `threads=False` runs the steps inline (tests)."""
+    def __init__(self, broker, journal, specs, *, guard_factory=None, store=None, threads=True):
+        self.broker, self.journal, self.guard_factory, self.store, self.threads = broker, journal, guard_factory, store, threads
+        self.specs = sorted((dict(s) for s in specs), key=lambda s: number(s['name']))
+        if not self.specs: raise ValueError('a run has at least one desktop')
+        self.origin = (self.specs[0]['x'], self.specs[0]['y'])
+        self._lock = threading.Lock()
+        self._worker = None
+        self._result = None
+        self._stop = False
+        self.changes = self.failures = 0  # diagnostics
+
+    # what the run's other parts read
+    def names(self):
+        return [s['name'] for s in self.specs]
+
+    def desktops(self):
+        return [desktop_of(s) for s in self.specs]
+
+    def wide(self):
+        return [is_ultrawide(desktop_of(s)) for s in self.specs]
+
+    def busy(self):
+        return self._worker is not None and self._worker.is_alive() or self._result is not None
+
+    def guard(self):
+        return self.guard_factory([dict(s) for s in self.specs]) if self.guard_factory is not None else None
+
+    # the change itself
+    def start(self, change):
+        """Run `change` (a Plan) on the worker. False if one is still running or not yet collected."""
+        with self._lock:
+            if self._stop or self.busy(): return False
+            if self.threads:
+                self._worker = threading.Thread(target=self._run, args=(change,), daemon=True)
+                self._worker.start()
+                return True
+        self._run(change)  # inline (tests): the loop thread is the only caller, so nothing starts meanwhile
+        return True
+
+    def _run(self, change):
+        error = None
+        done = []
+        try:
+            for kind, spec in change.steps():
+                if self._stop: raise ValueError('the session is ending')
+                if kind == 'remove':
+                    if not self.broker.remove_live(spec['id'], spec['name'], self.journal):
+                        raise ValueError(f"{spec['name']} could not be removed (a pinned window, or a window that would "
+                                         f"not move); it stays")
+                    self.specs = [s for s in self.specs if s['id'] != spec['id']]
+                elif kind == 'reshape':
+                    # Recorded before the call: if it fails, the output may hold either geometry and is untrusted either
+                    # way; the guard checks the new one (and ends the run if it does not hold).
+                    self.specs = sorted([s for s in self.specs if s['id'] != spec['id']] + [dict(spec)], key=lambda s: number(s['name']))
+                    self.broker.reshape(spec)
+                else:
+                    self.broker.create_live(spec, self.journal)
+                    self.specs = sorted(self.specs + [dict(spec)], key=lambda s: number(s['name']))
+                done.append(kind)
+        except Exception as exc:  # broker refusals, OwnershipBlocked, transport errors: reported, never fatal here
+            error = str(exc) or type(exc).__name__
+        with self._lock:
+            self._result = (change, error, done)
+
+    def take_result(self):
+        """(plan, error or None, steps done) once the worker finished, else None. Collected once."""
+        with self._lock:
+            if self._result is None: return None
+            if self._worker is not None and self._worker.is_alive(): return None
+            result, self._result, self._worker = self._result, None, None
+        if result[1] is None: self.changes += 1
+        else: self.failures += 1
+        return result
+
+    def save(self, placements):
+        """The profile takes the run's desktops now and their placements (best effort)."""
+        if self.store is None or len(placements) != len(self.specs): return
+        try: self.store.save_desktops(self.desktops(), [dict(p) for p in placements])
+        except (OSError, ValueError, AttributeError): pass
+
+    def close(self, timeout=None):
+        """Run end, before recovery: no new change starts, the step in flight finishes (each is bounded by the broker's
+        deadline), and no later one runs."""
+        with self._lock: self._stop = True
+        worker = self._worker
+        if worker is not None: worker.join(timeout)
+
+
+def wait_idle(manager, timeout=5.0, poll=0.01):
+    """Tests: wait for the worker to finish (not collected)."""
+    deadline = time.monotonic() + timeout
+    while manager._worker is not None and manager._worker.is_alive() and time.monotonic() < deadline: time.sleep(poll)

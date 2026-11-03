@@ -55,6 +55,11 @@ class Supervisor:
         self._status_buffer = b''
         self._status_discard = False
         self.control = control  # optional ViewControl: user ops on the run's private control socket
+        # The guard's spawn worker (run()); replace_guard swaps it while the loop runs (desktops.py).
+        self._guard_worker = self._guard_receiver = self._guard_ready = None
+        self._guard_deadline = 0.0
+        self.guard_paused = False
+        self.guard_restarts = 0
         attach = getattr(control, 'attach_supervisor', None)  # video.VideoControl reads the renderer's measured status
         if callable(attach): attach(self)
     def heartbeat(self, now):
@@ -114,6 +119,66 @@ class Supervisor:
                         self.status = value
                 except (ValueError, TypeError): pass
             self._status_buffer = b''; self._status_discard = False
+
+    # --- the guard worker ---------------------------------------------------------------------------------------------
+    def _start_guard(self):
+        """Own exactly one spawn worker and one one-way pipe for the current guard. Spawn (never fork) excludes
+        renderer/control/Wayland sockets and copies client identity state; no thread or process concurrently mutates that
+        client."""
+        if self.guard is None or self.child.poll() is not None or self.stopping_at is not None: return
+        import multiprocessing  # only runs with a guard use it; the controller imports this module too
+        context = multiprocessing.get_context('spawn')
+        receiver, sender = context.Pipe(duplex=False)
+        worker = context.Process(target=_guard_worker, args=(self.guard, sender))
+        self._guard_deadline = time.monotonic() + GUARD_DEADLINE
+        try:
+            worker.start()
+        except BaseException:
+            receiver.close()
+            raise
+        finally:
+            sender.close()
+        self._guard_worker, self._guard_receiver = worker, receiver
+        # receiver.poll() builds a new selector on every call, and this runs on every loop pass (each heartbeat
+        # and pointer sample): one poll object, the same readiness (any revents: a verdict, or EOF / error).
+        self._guard_ready = select.poll()
+        self._guard_ready.register(receiver.fileno(), select.POLLIN)
+
+    def _stop_guard(self):
+        """Kill the exact worker, join/reap it and close its pipe. No orphans."""
+        worker, receiver = self._guard_worker, self._guard_receiver
+        self._guard_worker = self._guard_receiver = self._guard_ready = None
+        if worker is not None:
+            if worker.pid is not None:
+                if worker.is_alive(): worker.kill()
+                worker.join()
+            worker.close()
+        if receiver is not None: receiver.close()
+
+    def pause_guard(self):
+        """A desktop change starts (desktops.py): the guard's fixed output list is about to stop being true, so its
+        worker goes. The change's own broker readbacks stand in until replace_guard."""
+        self._stop_guard()
+        self.guard_paused = True
+
+    def replace_guard(self, guard):
+        """The change is done: a new guard for the run's outputs as they are now (None keeps none)."""
+        self._stop_guard()
+        self.guard_paused = False
+        self.guard = guard
+        self.guard_restarts += 1
+        self._start_guard()
+
+    def _check_guard(self, now):
+        worker, receiver = self._guard_worker, self._guard_receiver
+        if worker is None or receiver is None or self.stopping_at is not None: return
+        if now >= self._guard_deadline or not worker.is_alive():
+            self.disconnect(now)
+        elif self._guard_ready.poll(0):
+            try: valid = receiver.recv_bytes(1) == b'V'
+            except (EOFError, OSError): valid = False
+            if not valid: self.disconnect(now)
+            else: self._guard_deadline = now + GUARD_PERIOD + GUARD_DEADLINE
 
     def _control_ready(self, renderer_socket):
         """One bounded user op (peer UID, framing, replay checked by PrivateServer); never fatal."""
@@ -175,24 +240,8 @@ class Supervisor:
         """Run in supervisor process, not renderer. EOF means disconnect; only b'H' is valid."""
         if status_socket is None: status_socket = self.status_socket
         if not 0 < interval <= 0.1: raise ValueError("invalid poll interval")
-        # Own exactly one spawn worker and one one-way pipe for this run. Spawn
-        # (never fork) excludes renderer/control/Wayland sockets and copies client
-        # identity state; no thread or process concurrently mutates that client.
-        worker = receiver = sender = guard_ready = None
-        deadline = 0.0
         try:
-            if self.guard is not None and self.child.poll() is None and self.stopping_at is None:
-                import multiprocessing  # only runs with a guard use it; the controller imports this module too
-                context = multiprocessing.get_context('spawn')
-                receiver, sender = context.Pipe(duplex=False)
-                worker = context.Process(target=_guard_worker, args=(self.guard, sender))
-                deadline = time.monotonic() + GUARD_DEADLINE
-                worker.start()
-                sender.close()
-                # receiver.poll() builds a new selector on every call, and this runs on every loop pass (each heartbeat
-                # and pointer sample): one poll object, the same readiness (any revents: a verdict, or EOF / error).
-                guard_ready = select.poll()
-                guard_ready.register(receiver.fileno(), select.POLLIN)
+            self._start_guard()
             with selectors.DefaultSelector() as selector:
                 selector.register(heartbeat_socket, selectors.EVENT_READ)
                 if status_socket is not None:
@@ -210,14 +259,7 @@ class Supervisor:
                     # cannot revive an already expired watchdog.
                     self.tick(now)
                     if self.finished: break
-                    if worker is not None and receiver is not None and self.stopping_at is None:
-                        if now >= deadline or not worker.is_alive():
-                            self.disconnect(now)
-                        elif guard_ready.poll(0):
-                            try: valid = receiver.recv_bytes(1) == b'V'
-                            except (EOFError, OSError): valid = False
-                            if not valid: self.disconnect(now)
-                            else: deadline = now + GUARD_PERIOD + GUARD_DEADLINE
+                    self._check_guard(now)
                     for key, _ in selector.select(interval):
                         now = time.monotonic()
                         self.tick(now)
@@ -254,13 +296,7 @@ class Supervisor:
             # Reaping the renderer is never delayed by waiting on IPC. Once this
             # loop exits (including exceptions/interrupt), kill the exact worker,
             # join/reap it and close all pipe/process handles. No orphan threads.
-            if worker is not None:
-                if worker.pid is not None:
-                    if worker.is_alive(): worker.kill()
-                    worker.join()
-                worker.close()
-            if sender is not None: sender.close()
-            if receiver is not None: receiver.close()
+            self._stop_guard()
 
 
 def _send_frame(sock, frame):
@@ -321,11 +357,12 @@ CAPTURE_ALLOW = ['headless-outputs', 'capture-managed-outputs']
 
 
 def capture_arguments(names, output):
-    """Renderer argv for capture of the run's own managed outputs only (XR-1..XR-3), never `output`."""
+    """Renderer argv for capture of the run's own managed outputs only (XR-1..XR-MAX_DESKTOPS), never `output`."""
     import re
+    from .geometry import MAX_DESKTOPS
     if names is None: return []
-    if (not isinstance(names, (list, tuple)) or not 1 <= len(names) <= 3 or len(set(names)) != len(names)
-            or any(not isinstance(n, str) or not re.fullmatch(r'XR-[1-3]', n) or n == output for n in names)):
+    if (not isinstance(names, (list, tuple)) or not 1 <= len(names) <= MAX_DESKTOPS or len(set(names)) != len(names)
+            or any(not isinstance(n, str) or not re.fullmatch(f'XR-[1-{MAX_DESKTOPS}]', n) or n == output for n in names)):
         raise ValueError("capture is limited to the run's own managed outputs")
     return ['--capture', ','.join(sorted(names))]
 

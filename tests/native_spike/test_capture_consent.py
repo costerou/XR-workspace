@@ -46,7 +46,10 @@ class CaptureConsentTests(unittest.TestCase):
     def test_capture_arguments_only_for_managed_names(self):
         self.assertEqual(capture_arguments(['XR-1', 'XR-2', 'XR-3'], 'DP-2'), ['--capture', 'XR-1,XR-2,XR-3'])
         self.assertEqual(capture_arguments(None, 'DP-2'), [])
-        for bad in (['DP-1'], ['XR-1', 'XR-1'], ['XR-4'], ['XR-1', 'DP-2'], [], ['XR-1,XR-2']):
+        # Desktops added in the glasses go up to XR-4 (geometry.MAX_DESKTOPS); never a fifth.
+        self.assertEqual(capture_arguments(['XR-4', 'XR-1'], 'DP-2'), ['--capture', 'XR-1,XR-4'])
+        for bad in (['DP-1'], ['XR-1', 'XR-1'], ['XR-5'], ['XR-1', 'DP-2'], [], ['XR-1,XR-2'],
+                    ['XR-1', 'XR-2', 'XR-3', 'XR-4', 'XR-5']):
             with self.subTest(bad), self.assertRaises(ValueError):
                 capture_arguments(bad, 'DP-2')
 

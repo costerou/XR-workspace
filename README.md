@@ -54,7 +54,8 @@ If the panel says "controller not running", click **Start / restart controller**
 
 ### 3. Start a session
 
-1. Optional: click a desktop to change its size, sharpness or where it sits.
+1. Optional: click a desktop to change its resolution or scale. Everything else (where it sits, ultrawide, adding or
+   removing desktops, view mode, spacing, cursor follow, pose prediction) is set in the glasses during the session.
 2. Press **Start XR session**.
 3. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
 4. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
@@ -90,7 +91,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (zooms out to the overview first) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
-| Ctrl+Alt+1 / 2 / 3 | Send the window you're using to XR-1 / XR-2 / XR-3 |
+| Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
 | Ctrl+Alt+O | Play a VR video file |
 | Ctrl+Alt+U | Play the video or video page link you copied |
@@ -119,7 +120,7 @@ You can move, curve and resize each desktop in space, and put it anywhere around
 above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
 it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
 
-**In the panel.** Before starting, click a desktop. During a session, use the **Place** section. Each desktop has
+**In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
 
 Left/right and down/up move the desktop round you, in degrees. Left/right goes all the way round: 180° (or −180°) is
@@ -163,6 +164,9 @@ With a pill open:
 | Up / Down | Previous / next setting |
 | Left / Right | Change the setting a little (hold Shift for a bigger step) |
 | R | Reset this desktop to flat |
+| U | Ultrawide on or off for this desktop |
+| N | Add a new desktop |
+| Delete | Remove this desktop (press twice) |
 | Esc | Close the pill |
 | Ctrl+Alt+L | Close the pill |
 
@@ -289,8 +293,12 @@ never saved or sent anywhere. The head tracking driver runs with no network acce
 a web video you choose to play.
 
 **Can I use more or fewer than three desktops?**
-Not yet. Those panel options are greyed out and marked "coming". You can't change a desktop's resolution during a
-session either.
+Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a desktop's glass pill: under its sliders are
+**Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
+that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
+your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. The next
+session starts with the desktops you ended with. Other resolutions and scales are still set in the panel before
+starting.
 
 **Which glasses are tested?**
 The Luma Ultra has been used in real sessions. On the Beast only basic display tests have run. See

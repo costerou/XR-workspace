@@ -60,22 +60,45 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     return true;
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
-    // "surface" (optional, open panels only): the placement the open panel is drawn on while a slider is held.
-    const bool surface = p.is_object() && p.contains("surface");
-    if (!p.is_object() || p.size() != (surface ? 5u : 4u) || !p.contains("open") || !p["open"].is_boolean() || !p.contains("desktop") ||
-        !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kPlacementMenuDesktops || !p.contains("field") ||
-        !p["field"].is_string() || !p.contains("placements") || !p["placements"].is_array() || p["placements"].size() != kPlacementMenuDesktops)
+    // "surface" (optional, open panels only): the placement the open panel is drawn on while a slider is held. "names",
+    // "wide", "armed", "busy" (optional): the panel's desktop row.
+    if (!p.is_object()) return false;
+    std::size_t optional = 0;
+    for (const char* key : {"surface", "names", "wide", "armed", "busy"}) optional += p.contains(key);
+    if (p.size() != 4 + optional || !p.contains("open") || !p["open"].is_boolean() || !p.contains("placements") ||
+        !p["placements"].is_array() || p["placements"].empty() || p["placements"].size() > kPlacementMenuDesktops ||
+        !p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= p["placements"].size() ||
+        !p.contains("field") || !p["field"].is_string())
         return false;
     const auto& field = p["field"].get_ref<const std::string&>();
     const auto* named = std::find_if(std::begin(kPlacementBounds), std::end(kPlacementBounds), [&](const Bound& b) { return field == b.key; });
     if (named == std::end(kPlacementBounds)) return false;
+    out = {};
     out.open = p["open"].get<bool>();
     out.desktop = p["desktop"].get<std::uint32_t>();
     out.field = std::uint32_t(named - std::begin(kPlacementBounds));
-    for (std::size_t i = 0; i < kPlacementMenuDesktops; ++i)
+    out.count = std::uint32_t(p["placements"].size());
+    for (std::size_t i = 0; i < out.count; ++i)
         if (!placement(p["placements"][i], out.placements[i])) return false;
+    for (std::size_t i = 0; i < kPlacementMenuDesktops; ++i) out.numbers[i] = std::uint8_t(i + 1);
+    if (p.contains("names")) {  // increasing output numbers, one per desktop
+        const auto& names = p["names"];
+        if (!names.is_array() || names.size() != out.count) return false;
+        std::uint64_t last = 0;
+        for (std::size_t i = 0; i < out.count; ++i) {
+            if (!names[i].is_number_unsigned()) return false;
+            const auto n = names[i].get<std::uint64_t>();
+            if (n <= last || n > kPlacementMenuDesktops) return false;
+            out.numbers[i] = std::uint8_t(n); last = n;
+        }
+    }
+    for (auto [key, flag] : {std::pair{"wide", &out.wide}, std::pair{"armed", &out.armed}, std::pair{"busy", &out.busy}})
+        if (p.contains(key)) {
+            if (!p[key].is_boolean()) return false;
+            *flag = p[key].get<bool>();
+        }
     out.surface.reset();
-    if (surface) {
+    if (p.contains("surface")) {
         if (!out.open) return false;
         WirePlacement held;
         if (!placement(p["surface"], held)) return false;
@@ -83,11 +106,34 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     }
     return true;
 }
+bool desktop_names(const Json& value, std::vector<std::string>& out, std::size_t min) {
+    if (!value.is_array() || value.size() < min || value.size() > kMaxDesktops) return false;
+    for (const auto& n : value) {
+        if (!n.is_string()) return false;
+        const auto& name = n.get_ref<const std::string&>();
+        // XR-1..XR-kMaxDesktops (capture.cpp parse_capture_list), each at most once.
+        if (name.size() != 4 || name.compare(0, 3, "XR-") != 0 || name[3] < '1' || name[3] > char('0' + kMaxDesktops) ||
+            std::find(out.begin(), out.end(), name) != out.end()) return false;
+        out.push_back(name);
+    }
+    return true;
+}
+bool desktops(const Json& p, DesktopsPayload& out) {
+    if (!p.is_object() || p.size() != 1u + p.contains("renew") || !p.contains("outputs")) return false;
+    if (!desktop_names(p["outputs"], out.outputs, 1)) return false;
+    if (p.contains("renew")) {
+        if (!desktop_names(p["renew"], out.renew, 0)) return false;
+        for (const auto& name : out.renew)
+            if (std::find(out.outputs.begin(), out.outputs.end(), name) == out.outputs.end()) return false;
+    }
+    std::sort(out.outputs.begin(), out.outputs.end());
+    return true;
+}
 constexpr const char* kHandleCorners[] = {"tl", "tr", "bl", "br"};
 bool resize_handle(const Json& p, ResizeHandlePayload& out) {
     if (!p.is_object() || p.size() != 4 || !p.contains("visible") || !p["visible"].is_boolean() || !p.contains("active") ||
-        !p["active"].is_boolean() || !p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() > 2 ||
-        !p.contains("corner") || !p["corner"].is_string())
+        !p["active"].is_boolean() || !p.contains("desktop") || !p["desktop"].is_number_unsigned() ||
+        !p.contains("corner") || !p["corner"].is_string() || p["desktop"].get<std::uint64_t>() >= kMaxDesktops)
         return false;
     const auto& corner = p["corner"].get_ref<const std::string&>();
     const auto* named = std::find(std::begin(kHandleCorners), std::end(kHandleCorners), corner);
@@ -99,7 +145,7 @@ bool move_handle(const Json& p, MoveHandlePayload& out) {
     if (!p.is_object() || p.size() != 4) return false;
     for (const char* key : {"visible", "hover", "active"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
-    if (!p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() > 2) return false;
+    if (!p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kMaxDesktops) return false;
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>()};
     return true;
 }
@@ -139,6 +185,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "move_handle") op = ControlOp::move_handle;
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
+        else if (name == "desktops") op = ControlOp::desktops;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -153,7 +200,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             if (p.size() != 7 || !p.contains("typing") || !p["typing"].is_boolean() ||
                 !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
-                p["selected"].get<std::uint64_t>() > 2 || p["spacing"].get<std::uint64_t>() > 400) return invalid();
+                p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return invalid();
             const auto mode = p["mode"].get<std::string>();
             std::uint8_t m = 0;
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();
@@ -198,7 +245,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = std::move(help);
         } else if (op == ControlOp::placement) {
             const auto& p = j["payload"];
-            if (p.size() != 1 || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() || p["desktops"].size() > 3)
+            if (p.size() != 1 || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() || p["desktops"].size() > kMaxDesktops)
                 return invalid();
             PlacementPayload placements;
             for (const auto& d : p["desktops"]) {
@@ -223,6 +270,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             OverviewPointerPayload pointer;
             if (!overview_pointer(j["payload"], pointer)) return Error{kInvalidOverviewPointerCode, "Ignored malformed overview_pointer payload"};
             payload = pointer;
+        } else if (op == ControlOp::desktops) {
+            DesktopsPayload set;
+            if (!desktops(j["payload"], set)) return invalid();
+            payload = std::move(set);
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }
