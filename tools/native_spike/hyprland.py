@@ -394,6 +394,12 @@ class HyprlandClient:
         from .unified_cursor import confine_lua
         self._eval(confine_lua(x, y, name))
 
+    def scroll_to_window(self, address):
+        """Scroll before switch, zoomed in on a scrolling-layout workspace: window `address`'s column into view (focused,
+        the cursor left where it is: columns.scroll_lua); one eval of generated Lua."""
+        from .columns import scroll_lua
+        self._eval(scroll_lua(address))
+
     def _eval(self, code, limit=4096):
         if len(code) > limit: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

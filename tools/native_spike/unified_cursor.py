@@ -22,6 +22,11 @@ home's edge switches to the desktop placed that way):
     edge Hyprland lets it cross the overshoot counts; at an edge Hyprland clamps it at (the layout's outer edge, e.g.
     the top of the row) each touch counts NUDGE_PX and puts it that far back in, so a hand still pushing touches
     again. Nothing placed that way: the plain confinement above, and the cursor stays on home at the edge.
+  * Scroll before switch (columns.py, scroll-before-switch 2026-11-03; zoomed in, typing mode included, not during a VR
+    video). On a scrolling-layout workspace with a column past home's left or right edge, the push there scrolls the
+    columns first and never counts toward a switch: the cursor is held in the edge band (hold_point) while they scroll
+    in one at a time. Once none is left that way, the push rests columns.END_REST_S and then switches as above. Every
+    other layout, a fullscreen window, and the up and down edges: unchanged.
   * Overview, over home (free_pointer desktop mode). The real cursor is the pointer: hand motion moves it, and the dot is
     drawn where it maps onto home's surface (free_pointer._from_logical; every viewing mode). It is hidden
     (overview_cursor.py), but hover, focus-follows-mouse, every button and the wheel reach the window under it. The left
@@ -51,7 +56,7 @@ home's edge switches to the desktop placed that way):
 import math
 import time
 
-from . import free_pointer as fp, input_lock as il, neighbors, resize, view
+from . import columns as cols, free_pointer as fp, input_lock as il, neighbors, resize, view
 
 # Zoomed in, pushing past an edge of home toward a desktop placed that way switches to it (EdgePush, neighbors.py).
 PUSH_PX = 48              # logical px of push past one edge, each part within PUSH_WINDOW_S of the last, that switch
@@ -156,6 +161,22 @@ def along(o, cursor, side):
     return ly / max(o['height'] - 1, 1)
 
 
+def _band(o, cursor):
+    """'right' / 'left': the cursor (on `o`) within columns.EDGE_PX of that edge, tested as scroll-edge.py does; or None."""
+    lx = cursor[0] - o['x']
+    if lx >= o['width'] - cols.EDGE_PX: return 'right'
+    if lx <= cols.EDGE_PX - 1: return 'left'
+    return None
+
+
+def hold_point(o, cursor, side):
+    """A push held at edge `side` ('left' / 'right') of `o` for its columns (columns.py): the cursor in the edge band,
+    1 px in from the outermost pixel (so a 1 px push still stays on `o`), as far along the edge as it is."""
+    x, y = inside(o, cursor)
+    x = o['x'] + cols.EDGE_PX - 1 if side == 'left' else math.ceil(o['x'] + o['width'] - cols.EDGE_PX)
+    return int(x), y
+
+
 def entry_point(o, side, t, inset=ENTRY_PX):
     """Where the cursor enters output `o` after a push past the old desktop's `side` edge: just inside the opposite edge
     (pushed up, it comes in at the bottom), fraction `t` along it."""
@@ -178,18 +199,27 @@ class EdgePush:
       * On an edge Hyprland clamps it at (its outermost pixel, nothing beyond in the layout), with a neighbour that way:
         the touch counts NUDGE_PX and the cursor is put NUDGE_PX back in, so a hand still pushing touches again.
       * The push is per edge and starts over after PUSH_WINDOW_S without one, or on another edge; after a switch none
-        counts for SWITCH_COOLDOWN_S."""
+        counts for SWITCH_COOLDOWN_S.
+      * `columns(edge, now, confirm=False)` (columns.ColumnScroll.held), if given, is asked about every sample at or past
+        home's left / right edge (the edge band, columns.EDGE_PX, or over that edge by hand). True: the push is held
+        there for a scrolling-layout workspace's columns. It counts for nothing (and starts over), the cursor stays in
+        the band (one pushed over comes back to hold_point) and is never nudged. A push about to switch asks once more
+        with `confirm`, and a True then holds it instead. None (or False every time): every push exactly as before."""
     def __init__(self):
         self.edge, self.amount, self.last, self.quiet_until = None, 0.0, None, -math.inf
 
     def reset(self):
         self.edge, self.amount, self.last = None, 0.0, None
 
-    def step(self, outputs, home, cursor, previous, now, neighbour):
+    def step(self, outputs, home, cursor, previous, now, neighbour, columns=None):
         o = next((o for o in outputs if o['index'] == home), None)
         if o is None or cursor is None: return None, None
         at = _output_at(outputs, cursor)
         if at is not None and at['index'] == home:
+            band = _band(o, cursor) if columns is not None else None
+            if band is not None and columns(band, now):  # columns left that way: they scroll first, the cursor stays
+                self.reset()
+                return None, None
             sides = [s for s in _contact(o, cursor) if neighbour(s) is not None]
             if not sides or now < self.quiet_until: return None, None
             side, amount = sides[0], NUDGE_PX
@@ -198,11 +228,17 @@ class EdgePush:
             warp = confine_target(outputs, home, cursor, previous)
             if warp is None: return None, None
             side, amount = _crossing(o, cursor)
+            if columns is not None and side in cols.SIDES and amount <= fp.JUMP_PX and columns(side, now):
+                self.reset()
+                return hold_point(o, cursor, side), None  # back into the band: the columns scroll first
             if amount > fp.JUMP_PX or now < self.quiet_until or neighbour(side) is None: return warp, None
         if side != self.edge or self.last is None or now - self.last > PUSH_WINDOW_S: self.edge, self.amount = side, 0.0
         self.amount += amount
         self.last = now
         if self.amount < PUSH_PX: return warp, None
+        if columns is not None and side in cols.SIDES and columns(side, now, True):  # a column turned up: it scrolls first
+            self.reset()
+            return hold_point(o, cursor, side), None
         target = neighbour(side)
         self.reset()
         self.quiet_until = now + SWITCH_COOLDOWN_S
@@ -224,6 +260,12 @@ class UnifiedPointer(fp.OverviewPointer):
         Ctrl+Alt+Left / Right keys, whose binds typing mode and a video release)."""
         s = self.control.state
         return s.zoomed and not getattr(s, 'typing', False) and not getattr(self.control, 'video_active', False)
+
+    def can_scroll(self):
+        """A push at home's left / right edge scrolls a scrolling-layout workspace's columns before it switches
+        (columns.py): zoomed in, in typing mode too (switching is what needs the keys' binds; scrolling needs none),
+        never during a VR video."""
+        return self.control.state.zoomed and not getattr(self.control, 'video_active', False)
 
     def neighbour(self, edge):
         """The desktop placed past home's `edge` round you (neighbors.pick on the renderer's overview layout and the
@@ -438,6 +480,8 @@ class UnifiedSampler(il.LockedSampler):
         self._outside = None  # previous cursor sample outside the overview
         self.push = EdgePush()  # zoomed in: the push past home's edge that switches desktops
         self._pending = None    # (target, edge, fraction along it, asked at): a switch asked of the loop, not yet seen
+        # Scroll before switch (columns.py): only with a client that can scroll (the run's HyprlandClient).
+        self.columns = cols.ColumnScroll(self.client) if hasattr(self.client, 'scroll_to_window') else None
 
     def _run(self):
         outputs, refreshed = [], None
@@ -495,8 +539,9 @@ class UnifiedSampler(il.LockedSampler):
                 return True
             if home == target or now - asked >= PENDING_S: self._pending = None
         live = self._pending is None and self.pointer.can_switch()
+        columns = self._columns(home) if self._pending is None and self.pointer.can_scroll() else None
         warp, switch = self.push.step(outputs, home, cursor, self._outside, now,
-                                      self.pointer.neighbour if live else (lambda edge: None))
+                                      self.pointer.neighbour if live else (lambda edge: None), columns)
         if not live: self.push.reset()
         if warp is not None:
             try:
@@ -510,6 +555,12 @@ class UnifiedSampler(il.LockedSampler):
             self.pointer.request_switch(home, switch[0])
         self._outside = cursor
         return _output_at(outputs, cursor) is not None
+
+    def _columns(self, home):
+        """EdgePush's `columns` for home's monitor (columns.ColumnScroll.held), or None (no client that scrolls)."""
+        if self.columns is None or not 0 <= home < len(self.names): return None
+        name, held = self.names[home], self.columns.held
+        return lambda edge, now, confirm=False: held(name, edge, now, confirm)
 
     def _apply(self):
         serial, kind, point = self.pointer.want
