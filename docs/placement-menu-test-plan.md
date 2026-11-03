@@ -28,7 +28,14 @@ Renderer (ctest, offline):
 - `spike/tests/glass_render_test.cpp` (`glass_render`): on a real GLES2 context (surfaceless EGL: no display, window or
   compositor) the fragment shader matches its CPU mirror `glass_shade()` within rounding over black and over a bright
   (0.9) desktop, and over black the glass alone, and the glass with the panel content on top, stays at or under
-  191/255. Reports skipped (exit 77) without EGL or GLES.
+  191/255, also in saturated, pale and deep theme colours. Reports skipped (exit 77) without EGL or GLES.
+- `spike/tests/glass_theme_test.cpp` (`glass_theme`): for the border colour of every theme Omarchy ships (and pure
+  colours, black and white), the pill has the theme's hue with most of its saturation and the same brightness as every
+  other theme that reaches the luma target, its gloss and hairline still show, hover and drag brighten it, every state
+  stays under 191/255 without clipping the body, grey themes give grey glass and the open panel stays dark behind its
+  text; the panel's band and slider fill are the theme colour at the cards' dimmed level and nothing else on it changes;
+  `GlassPills::set_accent` re-renders an open (or collapsing) panel once per frame under a new generation, without
+  restarting its animation.
 - `glass_contract` (`spike/tests/glass_contract_test.py`, which runs `glass_geometry_dump`): the supervisor's copy of the
   geometry in `tools/native_spike/free_pointer.py` (`PILL_*`, `PANEL_*`, `pill_rect`, `panel_rect`) matches the
   renderer's constants and layouts.
@@ -42,6 +49,8 @@ Renderer (ctest, offline):
 
 Supervisor (Python, offline), in `tests/native_spike/`:
 
+- `test_pill_theme.py`: the theme colour reaches the renderer as the `style` frame at the start and on each theme switch
+  (each border shape Omarchy themes use), also with a pill open, which stays as it was; nothing pill-specific is sent.
 - `test_glass_pills.py`: the pill and panel geometry mirror; pill and panel hit testing (the open panel first, even
   where it covers another desktop: its top strip, a slider row from 12 px before the knob's lowest position to 12 px
   past its highest (`PANEL_KNOB_LO` / `PANEL_KNOB_HI` and `PANEL_SLOP_PX`: about 5 px past each end of the drawn track),
@@ -124,7 +133,7 @@ visible tilt in the panel (for example yaw 25), so a reset has something to undo
 | G33 | Change XR-1 and close its pill at once (Escape). Stop the session and start a new one | XR-1 comes back where you left it (saved on close). |
 | G34 | With a pill open, move a slider in the settings panel's **Place** tab | The desktop and the open panel's value both update. The next arrow press continues from the Place tab's value. |
 | G35 | With a pill open, press Ctrl+Alt+H, then Ctrl+Alt+P | The help card shows in front as usual and the panel stays open behind it. Its Ctrl+Alt+L row names the placement pill. Ctrl+Alt+P toggles prediction (its pop-up shows) and opens nothing. |
-| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider | Both still work (the binds were reinstalled). The glass's faint tint follows the new theme colour; the panel text keeps the cards' own blue accent. |
+| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel's glass, its selected-row band and slider fill, the other pills, the highlight border and the glow all change to the new theme colour together; the panel text stays grey and readable. In every theme the pills read as glass in that colour, about equally bright, with the gloss and hairline visible and nothing glaring. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
 

@@ -197,7 +197,7 @@ if(XR_ENABLE_PRESENTATION)
   # Pop-up text: installed system font via fontconfig + FreeType (local libraries, no downloads;
   # approved 2026-10-31). Missing font at runtime -> built-in pixel font, reported.
   pkg_check_modules(FONT REQUIRED IMPORTED_TARGET freetype2 fontconfig)
-  add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp)  # video.cpp: VR video maths + controls card state
+  add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp src/glass_theme.cpp)  # video.cpp: VR video maths + controls card state
   target_link_libraries(xr_hud PUBLIC xr_types xr_pose xr_view PRIVATE PkgConfig::FONT)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
@@ -213,6 +213,13 @@ if(XR_ENABLE_PRESENTATION)
   add_executable(glass_test tests/glass_test.cpp)
   target_link_libraries(glass_test PRIVATE xr_hud)
   add_test(NAME glass COMMAND glass_test)
+  # The pills' theme colour (glass_theme.hpp): every Omarchy theme's hue, one brightness, the OLED cap, live recolouring.
+  add_executable(glass_theme_test tests/glass_theme_test.cpp)
+  target_link_libraries(glass_theme_test PRIVATE xr_hud)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(glass_theme_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME glass_theme COMMAND glass_theme_test)
   # The glass pill geometry, renderer side to supervisor side (tools/native_spike/free_pointer.py mirrors it).
   add_executable(glass_geometry_dump tests/glass_geometry_dump.cpp)
   target_link_libraries(glass_geometry_dump PRIVATE xr_hud)

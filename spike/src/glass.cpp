@@ -10,9 +10,9 @@ float lerp(float a, float b, float t) { return a + (b - a) * t; }
 float clamp01(float v) { return std::clamp(v, 0.f, 1.f); }
 float smooth(float e0, float e1, float x) { const float t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); }  // GLSL smoothstep
 
-// Dimmed card palette (hud.cpp kCardText / kCardDim / kCardAccent): the panel text never passes kCardMaxLevel.
+// Dimmed card palette (hud.cpp kCardText / kCardDim; the highlights are the theme's, glass_theme_highlight): the panel
+// text never passes kCardMaxLevel.
 constexpr std::array<float, 3> kText{0.70f, 0.70f, 0.70f}, kMuted{0.56f, 0.56f, 0.56f}, kDim{0.46f, 0.46f, 0.46f};
-constexpr std::array<float, 3> kAccent{0.48f * 0.75f, 0.64f * 0.75f, 0.97f * 0.75f};
 constexpr std::array<float, 3> kRule{0.80f, 0.80f, 0.80f};
 constexpr float kBandAlpha = 0.20f, kRuleAlpha = 0.10f, kTrackAlpha = 0.55f, kFillAlpha = 0.9f, kTrackH = 4.f, kBandRadius = 9.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
@@ -97,9 +97,9 @@ float glass_radius(const FRect& t, float k) {
 GlassLook glass_look(std::array<float, 3> accent, float level, float t) {
     t = clamp01(t);
     GlassLook k;
-    const std::array<float, 3> slate{0.19f, 0.20f, 0.23f};
+    const auto tint = glass_theme_tint(accent, t);  // the theme's hue at one brightness (glass_theme.hpp)
     const float bright = lerp(1.3f, 0.8f, t);
-    for (std::size_t i = 0; i < 3; ++i) k.tint[i] = lerp(slate[i], clamp01(accent[i]), 0.2f) * bright;
+    for (std::size_t i = 0; i < 3; ++i) k.tint[i] = tint[i] * bright;
     k.fill = lerp(0.9f, 0.82f, t);
     k.gloss = lerp(0.22f, 0.10f, t);
     k.gloss_px = lerp(kGlassPillH * 0.6f, 30.f, t);
@@ -180,7 +180,8 @@ std::string glass_panel_hint(bool ascii) {
     return ascii ? "UP/DN FIELD  L/R ADJUST  TAB  R FLAT" : "\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust  Tab next  R flat";
 }
 
-HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font) {
+HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font, std::array<float, 3> accent) {
+    const auto highlight = glass_theme_highlight(accent);
     HudImage im;
     im.width = std::uint32_t(kPanelW); im.height = std::uint32_t(kPanelH);
     im.rgba.assign(std::size_t(im.width) * im.height * 4, 0);
@@ -200,13 +201,13 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     for (std::size_t i = 0; i < kPlacementMenuFields; ++i) {
         const float top = kPanelRowsTop + float(i) * kPanelRowH, cy = top + kPanelRowH / 2;
         const bool selected = rows[i].selected;
-        if (selected) fill_rounded(im, 10, top + 2, W - 10, top + kPanelRowH - 2, kBandRadius, kAccent, kBandAlpha);
+        if (selected) fill_rounded(im, 10, top + 2, W - 10, top + kPanelRowH - 2, kBandRadius, highlight, kBandAlpha);
         text(im, font, kLabels[i], kPanelTextPx, selected, kPanelPad, cy, selected ? kText : kMuted);
         const auto [lo, hi] = bounds[i];
         auto at = [&](std::int32_t v) { return kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * float(std::clamp(v, lo, hi) - lo) / float(hi - lo); };
         fill_rounded(im, kPanelTrackX0, cy - kTrackH / 2, kPanelTrackX1, cy + kTrackH / 2, kTrackH / 2, kDim, kTrackAlpha);
         const float a = at(flat[i]), b = at(values[i]);
-        if (std::fabs(b - a) >= 1.f) fill_rounded(im, std::min(a, b), cy - kTrackH / 2, std::max(a, b), cy + kTrackH / 2, kTrackH / 2, kAccent, kFillAlpha);
+        if (std::fabs(b - a) >= 1.f) fill_rounded(im, std::min(a, b), cy - kTrackH / 2, std::max(a, b), cy + kTrackH / 2, kTrackH / 2, highlight, kFillAlpha);
         fill_disc(im, b, cy, kPanelKnobR, kText);
         const auto& value = rows[i].value;
         text(im, font, value, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, value, kPanelTextPx, selected)), cy, selected ? kText : kMuted);
@@ -252,10 +253,17 @@ bool GlassPills::set(const PlacementMenuState& state, double now_ms, const std::
     return changed;
 }
 void GlassPills::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); dirty_ = generation_ != 0; }
+bool GlassPills::set_accent(std::array<float, 3> accent) {
+    if (accent == accent_) return false;
+    accent_ = accent;
+    if (!generation_) return false;  // nothing rendered yet: the first render uses it
+    dirty_ = true; ++generation_;    // a new generation: the compositor uploads the re-rendered content
+    return true;
+}
 void GlassPills::ensure() const {
     if (!dirty_) return;
     dirty_ = false;
-    image_ = render_glass_panel(rendered_, font_.get());
+    image_ = render_glass_panel(rendered_, font_.get(), accent_);
     ++renders_;
 }
 GlassFrame GlassPills::frame(bool overview, double now_ms) {
