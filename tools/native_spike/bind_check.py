@@ -7,9 +7,9 @@ loaded by `Hyprland --verify-config`, which runs the Lua config with the real `h
 runs in a throwaway HOME holding a copy of ~/.config/hypr and the Omarchy state the config reads, so nothing outside
 that directory is written. A small harness wraps hl.bind / hl.unbind to record every chord the config binds, then runs
 this run's own generated bind Lua (view binds, send-window binds, the placement panel's modal binds, the overview free
-pointer's left button) the same way, so Hyprland also checks that ours load. The run's chords (view.BINDS,
-send.SEND_BINDS, MENU_BINDS, the free pointer's resize_press / resize_release) are then compared with the desktop's and
-with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
+pointer's left button, the overview input lock's other buttons and wheel) the same way, so Hyprland also checks that
+ours load. The run's chords (view.BINDS, send.SEND_BINDS, MENU_BINDS, the free pointer's resize_press / resize_release,
+input_lock.OTHER_BUTTONS and WHEEL) are then compared with the desktop's and with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
 digits) count as the same key. The running compositor is never contacted.
 
 Exit status: 0 no clash, 1 clash found, 2 could not check (no Hyprland binary, config or harness error).
@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 
-from . import resize, send, view
+from . import input_lock, resize, send, view
 
 # Hyprland modifier spellings -> one name each.
 MODS = {'SUPER': 'SUPER', 'WIN': 'SUPER', 'LOGO': 'SUPER', 'MOD4': 'SUPER', 'META': 'SUPER', 'CTRL': 'CTRL',
@@ -52,7 +52,10 @@ def run_chords():
     out = [('run', c, op) for c, op in view.BINDS] + [('send', c, op) for c, op in send.SEND_BINDS]
     out += [('menu', c, op) for c, op in view.MENU_BINDS]
     # The overview free pointer's left button (free mode only: pill and corner drags, pill clicks, panel sliders).
-    return out + [('pointer', resize.RESIZE_BUTTON, op) for op in resize.RESIZE_OPS]
+    out += [('pointer', resize.RESIZE_BUTTON, op) for op in resize.RESIZE_OPS]
+    # The overview input lock, while the cursor is captured: the other buttons and the wheel (bound to nothing).
+    return out + [('lock', b, input_lock.OTHER_BUTTON_OP) for b in input_lock.OTHER_BUTTONS] + \
+        [('lock', w, 'nothing') for w in input_lock.WHEEL]
 
 
 def _lua_string(s):
@@ -63,6 +66,7 @@ def harness_lua(config, out):
     chunks = [view.install_binds_lua(*DUMMY_ARGS, typing=True), view.remove_binds_lua(),  # typing mode's toggle-only set
               view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
               view.install_menu_binds_lua(*DUMMY_ARGS), resize.install_resize_binds_lua(*DUMMY_ARGS),
+              input_lock.lock_binds_lua(*DUMMY_ARGS),  # into the free pointer's table, removed with it
               resize.remove_resize_binds_lua(), view.remove_binds_lua()]
     ours = '\n'.join(f'do {c} end' for c in chunks)
     return f'''local out = assert(io.open({_lua_string(out)}, "w"))
@@ -162,7 +166,8 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w == 'menu'}))
     sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
     return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), '
-                        f'placement panel binds ({labels}) and the free pointer\'s left button']
+                        f'placement panel binds ({labels}), the free pointer\'s left button and the input lock\'s other '
+                        'buttons and wheel']
 
 
 def main(argv=None):

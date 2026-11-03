@@ -260,6 +260,48 @@ need a new ownership-broker operation in the accepted plugin. Resolution, shape 
 and apply at the next start, through the journaled output creation that reads every value back. Corner resizing adds
 no compositor output change and no new journal record.
 
+### The overview input lock
+
+Offline tests only (`tests/native_spike/test_input_lock.py`, plus `bind_check`'s `--verify-config` load of its binds);
+not run in a live compositor or tried in the glasses. In the overview the real cursor is held still and cannot click:
+the mouse only drives the overview pointer's dot. This changes input only, and `tools/native_spike/input_lock.py`
+wraps the free pointer above:
+
+- **Captured, not handed back.** A cursor on one of the run's XR desktops in the overview is captured at once. The
+  pointer goes straight to the free pointer's dot, which starts where the cursor was, and stays the dot for the whole
+  overview. Moving the dot into a desktop, or clicking one, selects that desktop but never gives the real cursor back.
+  A cursor on the physical monitor is still left alone, so the panel stays usable. It is captured once it comes onto
+  an XR desktop, or when Ctrl+Alt+Down brings it into the selected desktop.
+- **Held still.** The hidden cursor stays where it was captured, at least 100 px (`PARK_MARGIN_PX`) inside its
+  monitor, and is put back as soon as it strays 32 px (`LEASH_PX`). Hand motion moves only the dot, so the window
+  under the cursor, and with focus-follows-mouse the keyboard focus, stay the same.
+- **Focus changes are followed.** A keyboard focus change (Ctrl+Alt+Left / Right, the send-window keys) warps the
+  cursor to another monitor. A jump of more than 400 px is not pulled back. The dot follows it onto that desktop (or
+  stays put if it is already on that desktop) and the cursor is held there instead. If it lands off the XR desktops (a window sent back to the monitor), the capture
+  ends and the cursor shows there.
+- **No clicks or wheel reach a window.** While the cursor is captured, the left button is the free pointer's (pills,
+  corners, sliders, help card arrows, a desktop click selects that desktop). The right, middle and side buttons
+  (`mouse:273`–`279`) run the bind helper's `resize_release`, which does nothing unless a drag is held (then it ends
+  the drag). The wheel (`mouse_up` / `down` / `left` / `right`) is bound to nothing. All of these binds go in the free
+  pointer's bind table (`xr_workspace_resize_binds`) in the same eval as its grab (`lock_pointer_lua`). Hyprland
+  passes wheel events on to the window for `binds.scroll_event_delay` ms after a bound one, so the lock sets that to
+  0. A restore entry in the same table puts the old value back when the table is removed. Chords with a modifier
+  (Super + drag, Super + Shift + wheel) are not bound, so the desktop's own binds still work.
+- **Released on the way out.** Zooming in, typing mode, a VR video, or losing the overview geometry removes the binds
+  and shows the cursor where it is held. It does not go back to where the capture started, which would undo a
+  zoom-in's focus warp. Run end is the free pointer's usual bind removal. Every removal of that bind table takes the
+  lock's binds and the scroll delay with it, so the lock adds no cleanup path of its own.
+- **Abnormal exit.** A run that dies with the lock on leaves its binds behind. The first click with any bound button
+  (left, right, middle or side) runs the bind helper, which finds no run and removes the whole table: every button,
+  the wheel, the scroll delay and the hidden cursor come back (`xr_control.py` `REMOVE_RESIZE_BINDS`). The wheel on its
+  own runs nothing, so it stays swallowed until that click.
+
+Not covered: touchpad scrolling, which Hyprland cannot bind; a desktop config with `binds.pass_mouse_when_bound`, where
+Hyprland passes bound clicks on to the window; and a starved sampler thread, which lets the hidden cursor stray further
+before it is put back. To check in the glasses: zoom out with a terminal focused, move and click around the overview,
+right-click and scroll over another window, then zoom back in. The terminal should still have focus and nothing
+else should have reacted. Then repeat with Ctrl+Alt+Right before zooming in.
+
 ### Moving desktops in the overview (the pill under the desktop)
 
 A pill drag (above) changes the desktop's **Left/right** and **Down/up** placement. Placement is free, with three guards
@@ -448,6 +490,10 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
   fixed Lua, and shows it again when the pointer goes back into a desktop, when the overview ends, at run end, or on
   the first click after a dead run. It warps the cursor only onto the run's own XR desktops.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
+- The overview input lock adds unmodified binds while the cursor is captured in the overview: the right, middle and
+  side buttons and the wheel, in the free pointer's bind table, removed with it (see
+  [The overview input lock](#the-overview-input-lock)). It sets `binds.scroll_event_delay` to 0 meanwhile and puts it
+  back with the binds. It holds the cursor only on the run's own XR desktops.
 
 ## Host diagnostic (`xr_probe`)
 

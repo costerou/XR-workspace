@@ -731,7 +731,7 @@ class WiringTests(unittest.TestCase):
         with self.assertRaises(BlockingIOError): p.wake_reader.recv(16)  # drained
 
     def test_view_controls_starts_the_sampler_and_cleans_up_before_the_view_binds(self):
-        from tools.native_spike import managed
+        from tools.native_spike import input_lock, managed  # the run's pointer is the input lock's (test_input_lock.py)
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         client = mock.Mock(runtime_dir=Path(tmp.name))
         client.query.side_effect = lambda kind, *a, **k: (MONITORS if kind == 'monitors' else
@@ -742,11 +742,11 @@ class WiringTests(unittest.TestCase):
             self.assertIs(control.wake, control.overview_pointer.wake_reader)
             control.set_overview_geometry(G)
             deadline = time.monotonic() + 2
-            while time.monotonic() < deadline and not client.grab_pointer.called:
+            while time.monotonic() < deadline and not client.lock_pointer.called:
                 control.poll(); time.sleep(0.01)
-            self.assertTrue(client.grab_pointer.called)
-            self.assertEqual(client.grab_pointer.call_args.args[:5], client.install_view_binds.call_args.args)
-            self.assertEqual(client.grab_pointer.call_args.args[5:], (X1 + 960, 540))
+            self.assertTrue(client.lock_pointer.called)
+            self.assertEqual(client.lock_pointer.call_args.args[:5], client.install_view_binds.call_args.args)
+            self.assertEqual(client.lock_pointer.call_args.args[5:], (X1 + 960, input_lock.PARK_MARGIN_PX))  # held where it was
         client.remove_resize_binds.assert_called()
         names = [c[0] for c in client.method_calls]
         self.assertLess(max(i for i, n in enumerate(names) if n == 'remove_resize_binds'), names.index('remove_view_binds'))
