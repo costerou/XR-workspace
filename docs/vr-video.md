@@ -43,8 +43,9 @@ While a video plays, these keys exist (bare keys, like an open placement pill's;
 | Left / Right | Back / forward 10 s |
 | Shift+Left / Shift+Right | Back / forward 60 s |
 | Tab | Next format (if detection got it wrong: 360 mono → 360 top-bottom → 360 side-by-side → 180 side-by-side → 180 top-bottom → 180 mono → fisheye 180/190/200 side-by-side → fisheye mono) |
-| Up / Down | Show / hide the controls card |
-| Esc | Back to the desktops |
+| Up / Down | Show / hide the controls card (in the quality menu: pick a setting) |
+| Q | Open / close the [quality menu](#quality-menu) |
+| Esc | Back to the desktops (in the quality menu: close it) |
 | Ctrl+Alt+Space | Recenter (the existing bind) |
 | Ctrl+Alt+H | Show / hide the controls card (the desktop help card is not shown during video) |
 | Ctrl+Alt+C | Hide / show the playback controls for the rest of the session (a toast says which). Hidden, the card no longer pops up on open or on a video key; Up / Down and Ctrl+Alt+H still show it, and a playback error still does. Works before a video too |
@@ -67,6 +68,50 @@ At the end of the file the last frame stays and the card says *Ended*. Left/Righ
 that cannot be played shows *Cannot play this video* with the reason for 4 s, then the desktops come back. Files refused
 before playing (missing, not a regular file, empty, not a video, too large, unsupported projection) send nothing to the
 glasses; the panel shows why.
+
+### Quality menu
+
+**Q** while a video plays opens the quality menu on the controls card, in place of the format line and key hints. The
+title, state, clock and progress bar stay. One row per setting, the selected one on a faint accent band with its value
+between arrows:
+
+| Keys (menu open) | Action |
+| --- | --- |
+| Up / Down, Tab | Previous / next setting (wraps) |
+| Left / Right (also with Shift) | Change the selected setting (wraps) |
+| Q, Esc | Close the menu (the video keeps playing; Esc again leaves the video) |
+| Space | Play / pause, as usual |
+| Ctrl+Alt+H, or 30 s without a key | Hide the card, which closes the menu |
+
+| Setting | Values | Default | What it does |
+| --- | --- | --- | --- |
+| Texture filter | Catmull-Rom, Sharp, Bilinear, Nearest pixels | Catmull-Rom | How the projection pass reconstructs the frame where it is magnified (see [Sampling](#sampling)): a Catmull-Rom cubic (Keys a = −0.5), a sharper cubic (a = −0.75, a little more ringing), plain bilinear, or `GL_NEAREST` (hard texel edges, for judging the source's real resolution). The same choices as `XR_VIDEO_FILTER`, which overrides the menu when set. Minified areas keep trilinear mipmaps whatever the choice |
+| Deband | Off, On | Off | mpv's `deband` pass while it converts each frame into the texture: smooths the banding of compressed skies and gradients; a small GPU cost per decoded frame, none per display frame |
+
+Each change applies to the playing video at once and is saved with the view settings: `video_quality` in layout.json
+(CLI runs) or in the glasses model's profile (`profiles.json`, panel runs). An older file without it loads the
+defaults. The supervisor sends the saved settings after every open, and the renderer keeps them for later videos.
+
+The defaults are what the renderer does without a `quality` frame (Catmull-Rom, deband off). A file saved by the
+first menu with `"filter": "linear"` loads as Bilinear. They live in one place on each side,
+`tools/native_spike/quality.py` (`DEFAULTS`) and `spike/include/xr/video.hpp` (`VideoQuality`), and every reader goes
+through one accessor: `quality.video_quality()` in the supervisor and `VideoMode::quality()` in the renderer. Adding a
+setting means a row in `quality.SETTINGS`, a field in `VideoQuality`, its key in the `quality` frame decoder
+(`video_ipc.cpp`, and the shared fixture) and its apply in `VideoMode::apply_quality()` or `draw()`. The menu code
+does not change.
+
+Not in the menu. **Render scale:** the projection is drawn 1:1 into the output and the video is always magnified (see
+[Limits](#limits)), so supersampling would cost a full pass for little gain. **Resolution and refresh rate:** fixed
+by the consented session mode, 1920×1200 at 120 Hz. **The desktops' capture resolution:** set per desktop in the panel
+before a session. **Codec and bitrate:** nothing is encoded. Files are decoded locally, and web streams are relayed
+with `-c copy`.
+
+Wire: `{"action":"quality","filter":"catmull-rom"|"sharp"|"bilinear"|"nearest","deband":bool}` applies the settings
+(the renderer also takes the first menu's `"linear"` as bilinear), and
+`{"action":"menu","visible":bool,"selected":n,"rows":[{"label":…,"value":…}]}` draws the menu (1–8 rows, printable ASCII,
+at most 24 characters each). Both are in the shared fixture. The renderer's exit report has `"filter"` (the one drawn), `"forced"` (`XR_VIDEO_FILTER` set),
+`"setting"` (the menu's) and `"deband"`,
+plus the player's `"quality_set"` and `"quality_errors"` (the deband changes mpv accepted or refused).
 
 ### Web video
 
@@ -130,12 +175,15 @@ about 2×. Plain bilinear filtering blurs that, so the pass handles it like this
 - **The 360° seam:** u wraps from 1 to 0 between neighbouring pixels, and implicit derivatives would pick the smallest
   mip there, which shows up as a line. The shader passes explicit gradients, taken from whichever of u and the
   half-turned u is continuous at that pixel.
-- `XR_VIDEO_FILTER=bilinear|catmull-rom|sharp` in the renderer's environment picks the magnification filter for A/B
-  checks (`sharp`: Keys a = −0.75, more acutance and a little more ringing). Unset means `catmull-rom`.
+- The magnification filter is the quality menu's **Texture filter** (Q, see [Quality menu](#quality-menu)):
+  Catmull-Rom by default, or `sharp` (Keys a = −0.75, more acutance and a little more ringing), `bilinear` or
+  `nearest`. `XR_VIDEO_FILTER=bilinear|catmull-rom|sharp|nearest` in the renderer's environment forces one for A/B
+  checks, over the menu; unset or unknown leaves the menu in charge.
 - The texture stays RGBA8. mpv dithers to the target's depth and the panel path is 8-bit, so a 10-bit or half-float
   target would only lose that dither. mpv's own scalers are its defaults (lanczos for chroma, `hermite` with
   linear-light correct downscaling for frames over 8192). The frame is drawn at its own size, so only chroma
-  upsampling applies. Debanding stays off: it costs a full 8K pass per frame and softens detail.
+  upsampling applies. Debanding is off by default (the quality menu turns it on):
+  it costs a full 8K pass per frame and softens detail.
 
 ### Stereo output
 
@@ -363,7 +411,9 @@ The projection runs every display refresh with a fresh pose, so head motion is s
 Offline only (no display, glasses or compositor):
 
 - `ctest -R video` runs `video` (projection maths, eye viewports, texture caps, wire payloads, the card's brightness
-  limit) and `video_render`. `video_render` runs on a surfaceless EGL context, on both the Ryzen iGPU and the RX 7800 XT
+  limit, the quality menu on the card) and `video_render`. `video_render` also applies the quality settings through
+  `VideoMode` while a clip plays: the texture filter on the drawn texture, deband accepted by mpv with playback going
+  on, and both kept for the next open. `video_render` runs on a surfaceless EGL context, on both the Ryzen iGPU and the RX 7800 XT
   (`DRI_PRIME=pci-0000_03_00_0`). It checks the projection pass against the CPU maths (18,090 samples, every projection
   and stereo layout, both eyes, turned heads), the sampling (a magnified edge steeper than bilinear, a minified
   one-texel checker grey on 99.4% of pixels against 48.9% without mipmaps, no mip line on the 360° seam, no bleed
@@ -390,6 +440,9 @@ Offline only (no display, glasses or compositor):
   24, 30 and 60 fps keep a steady cadence at 16 phases each (at most one adjustment), 25 and 50 fps use only the two
   neighbouring spacings, a 0.1 % clock drift slips at most 4 times in 10 s, and every frame is on screen between half
   an interval late and one interval early. Without the cadence rule the same checks fail 29 times.
+- `tests/native_spike/test_quality.py`: the quality accessor, its defaults and per-field fallback, layout.json and
+  profile persistence, and the menu keys (live frames, saving, Esc/Q/Ctrl+Alt+H/idle closing, the open sending the
+  saved settings).
 - `tests/native_spike/test_video.py`: requests, the shared payload fixture, detection (metadata, names, shape), limits,
   file checks, a real ffprobe of a generated Matroska file with a `stereo_mode` tag, the control state machine
   (open closes the help card and an open placement pill, key handling, ignored desktop keys, idle close, error and no-support exits, request-id

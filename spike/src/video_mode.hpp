@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 struct wl_display;
 
@@ -27,6 +28,12 @@ public:
     void seek(double relative_s);
     void set_format(const VideoFormat& format);
     void set_controls(bool visible, double now_ms);
+    // Quality settings (video.hpp VideoQuality): applied at once to the playing video and kept for later ones. The one
+    // accessor every quality reader in the renderer goes through is quality().
+    void set_quality(const VideoQuality& quality);
+    const VideoQuality& quality() const { return quality_; }
+    // The quality menu on the controls card (rows from the supervisor); an open or close closes it.
+    void set_menu(bool visible, std::vector<VideoMenuRow> rows, std::uint32_t selected);
     // Before drawing a frame: decode/update and refresh the card. False on a GL error.
     bool prepare(double now_ms);
     // Draw the video into the current framebuffer (`width` x `height`), one viewport per output eye.
@@ -43,6 +50,11 @@ private:
     std::unique_ptr<VideoPlayer> player_;
     std::unique_ptr<VideoSphere> sphere_;
     VideoControlsOverlay card_;
+    VideoQuality quality_;
+    bool menu_ = false;
+    std::vector<VideoMenuRow> menu_rows_;
+    std::uint32_t menu_selected_ = 0;
+    void apply_quality();
     std::uint64_t opened_ = 0, frames_drawn_ = 0;
 };
 }

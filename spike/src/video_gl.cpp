@@ -7,15 +7,29 @@
 #include <cstring>
 
 namespace xr {
+bool video_filter_parse(const char* name, VideoFilter& out) {
+    if (!name) return false;
+    if (!std::strcmp(name, "catmull-rom")) out = VideoFilter::catmull_rom;
+    else if (!std::strcmp(name, "sharp")) out = VideoFilter::sharp;
+    else if (!std::strcmp(name, "bilinear") || !std::strcmp(name, "linear")) out = VideoFilter::bilinear;
+    else if (!std::strcmp(name, "nearest")) out = VideoFilter::nearest;
+    else return false;
+    return true;
+}
 VideoFilter video_filter_from(const char* name) {
-    if (name && !std::strcmp(name, "bilinear")) return VideoFilter::bilinear;
-    if (name && !std::strcmp(name, "sharp")) return VideoFilter::sharp;
-    return VideoFilter::catmull_rom;
+    VideoFilter f = VideoFilter::catmull_rom;
+    video_filter_parse(name, f);
+    return f;
 }
 const char* video_filter_name(VideoFilter f) {
-    return f == VideoFilter::bilinear ? "bilinear" : f == VideoFilter::sharp ? "sharp" : "catmull-rom";
+    switch (f) {
+    case VideoFilter::sharp: return "sharp";
+    case VideoFilter::bilinear: return "bilinear";
+    case VideoFilter::nearest: return "nearest";
+    default: return "catmull-rom";
+    }
 }
-float video_filter_cubic_a(VideoFilter f) { return f == VideoFilter::bilinear ? 0.f : f == VideoFilter::sharp ? -0.75f : -0.5f; }
+float video_filter_cubic_a(VideoFilter f) { return f == VideoFilter::catmull_rom ? -0.5f : f == VideoFilter::sharp ? -0.75f : 0.f; }
 
 std::uint32_t video_texture_levels(std::uint32_t w, std::uint32_t h) {
     std::uint32_t side = std::max(w, h), levels = 0;
@@ -113,7 +127,7 @@ std::unique_ptr<VideoSphere> VideoSphere::create(std::string& why) {
     out->half_ = glGetUniformLocation(p, "half_fov"); out->projection_ = glGetUniformLocation(p, "projection");
     out->rect_ = glGetUniformLocation(p, "rect"); out->fov_ = glGetUniformLocation(p, "fov"); out->flip_ = glGetUniformLocation(p, "flip");
     out->cubic_ = glGetUniformLocation(p, "cubic");
-    out->filter_ = video_filter_from(std::getenv("XR_VIDEO_FILTER"));
+    out->forced_ = video_filter_parse(std::getenv("XR_VIDEO_FILTER"), out->filter_);
     return out;
 }
 

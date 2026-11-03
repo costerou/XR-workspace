@@ -15,7 +15,7 @@ neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor crossed onto in
 2026-11-02.
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
-Mode, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
+Mode, prediction, spacing and the VR video quality settings (quality.py) are saved in layout.json. The renderer shows a short pop-up
 in the glasses whenever the viewing mode or prediction changes (and the viewing mode at start).
 Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
@@ -76,6 +76,7 @@ import re
 import threading
 import time
 
+from . import quality as _quality
 from .geometry import MAX_DESKTOPS
 from .privacy import PRIVACY_BIND, PRIVACY_OP
 from .send import SEND_OPS
@@ -329,7 +330,7 @@ def warp_cursor_lua(x, y):
 
 class ViewState:
     def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', prediction=True, placements=None,
-                 cursor_switch_animate=True):
+                 cursor_switch_animate=True, video_quality=None):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if mode not in MODES or type(prediction) is not bool or type(cursor_switch_animate) is not bool:
             raise ValueError('invalid view mode')
@@ -340,6 +341,10 @@ class ViewState:
         # in anchor mode it cuts at once and the view stays where the head looks. Follow and locked ignore it. Toggled by
         # Ctrl+Alt+A (CURSOR_ANIM_OP) and saved with the view settings (ViewControl.cursor_switch_flags reads it).
         self.cursor_switch_animate = cursor_switch_animate
+        # VR video quality (quality.py: read it with quality.video_quality); changed by the video's quality menu and
+        # saved with the view settings. Missing or invalid settings fall back to quality.DEFAULTS.
+        from .quality import clean
+        self.video_quality = clean(video_quality)
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
@@ -484,7 +489,7 @@ class ViewState:
 
     def settings(self):
         return {'spacing': self.spacing, 'mode': self.mode, 'prediction': self.prediction,
-                'cursor_switch_animate': self.cursor_switch_animate}
+                'cursor_switch_animate': self.cursor_switch_animate, 'video_quality': dict(self.video_quality)}
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
@@ -516,13 +521,14 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True, 'cursor_switch_animate': True}
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True, 'cursor_switch_animate': True,
+                    'video_quality': dict(_quality.DEFAULTS)}  # quality.py owns its defaults
 
 
 def load_settings(path):
     """Each field validated on its own; anything invalid or missing falls back to its default. A `cursor_follow`
     saved before 2026-11-02 is ignored (the feature was removed)."""
-    out = dict(DEFAULT_SETTINGS)
+    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS)}
     try:
         data = json.loads(Path(path).read_text())
     except (OSError, ValueError):
@@ -532,6 +538,7 @@ def load_settings(path):
     if data.get('mode') in MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
     if type(data.get('cursor_switch_animate')) is bool: out['cursor_switch_animate'] = data['cursor_switch_animate']
+    out['video_quality'] = _quality.video_quality(data)
     return out
 
 
@@ -548,7 +555,8 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
-            and type(settings.get('prediction')) is bool and type(settings.get('cursor_switch_animate')) is bool)
+            and type(settings.get('prediction')) is bool and type(settings.get('cursor_switch_animate')) is bool
+            and _quality.is_valid(settings.get('video_quality')))
 
 
 def load_spacing(path):

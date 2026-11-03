@@ -224,7 +224,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(modes, ['follow', 'locked', 'anchor'])
         c.on_message({'op': 'mode_next'}); c.on_message({'op': 'spacing_up'})
         self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'follow', 'prediction': True,
-                                                             'cursor_switch_animate': True})
+                                                             'cursor_switch_animate': True, 'video_quality': {'filter': 'catmull-rom', 'deband': False}})
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
         self.assertIn(('CTRL + ALT + V', 'mode_next'), view.BINDS)
         self.assertNotIn('cursor_follow', [op for _, op in view.BINDS])  # cursor follow was removed (2026-11-02)
@@ -273,7 +273,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.settings.parent.mkdir(parents=True)
         self.settings.write_text('{"spacing": 80}')  # file written before modes existed
         self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'prediction': True,
-                                                             'cursor_switch_animate': True})
+                                                             'cursor_switch_animate': True, 'video_quality': {'filter': 'catmull-rom', 'deband': False}})
         self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1, "prediction": "on", '
                                  '"cursor_switch_animate": 0}')
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)

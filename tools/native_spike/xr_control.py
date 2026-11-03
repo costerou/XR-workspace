@@ -33,7 +33,7 @@ OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'rec
                        # + privacy.PRIVACY_OP + view.CURSOR_ANIM_OP + view.PLAYBACK_MENU_OP + LEGACY_OPS
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
-             'video_format', 'video_controls', 'video_exit')
+             'video_format', 'video_controls', 'video_exit', 'video_quality', 'video_up', 'video_down')
 # Same text as video.remove_video_binds_lua() (tests compare): a video key with no run listening gives the keys back.
 REMOVE_VIDEO_BINDS = ('for _, b in ipairs(xr_workspace_video_binds or {}) do '
                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_video_binds = nil')

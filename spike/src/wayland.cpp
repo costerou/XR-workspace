@@ -237,6 +237,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<Placement> resolved;     // resolved_placements() of the frame being drawn
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
     std::unique_ptr<VideoMode> video;     // VR video (video_mode.hpp); created on the first open
+    VideoQuality video_quality;           // the last `quality` frame, for a VideoMode created after it
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     std::vector<std::uint64_t> drawn;     // per capture: `uploaded` as of the last draw (SHM: one upload ahead at most)
@@ -1094,6 +1095,7 @@ void Presentation::video_open(int fd, const VideoFormat& format, const std::stri
     if (!s.video) {
         s.video = std::make_unique<VideoMode>();
         std::string why; s.video->set_font(HudFont::load(kHudFontFamily, why));
+        s.video->set_quality(s.video_quality);
     }
     s.video->open(fd, format, title, s.display, double(monotonic_ms()));
     s.cadence.invalidate();
@@ -1106,6 +1108,14 @@ void Presentation::video_format(const VideoFormat& format) {
 }
 void Presentation::video_controls(bool visible) {
     if (impl_ && impl_->video) { impl_->video->set_controls(visible, double(monotonic_ms())); impl_->cadence.invalidate(); }
+}
+void Presentation::video_quality(const VideoQuality& quality) {
+    if (!impl_) return;
+    impl_->video_quality = quality;  // kept for a VideoMode created later (the first open)
+    if (impl_->video) { impl_->video->set_quality(quality); impl_->cadence.invalidate(); }
+}
+void Presentation::video_menu(bool visible, const std::vector<VideoMenuRow>& rows, std::uint32_t selected) {
+    if (impl_ && impl_->video) { impl_->video->set_menu(visible, rows, selected); impl_->cadence.invalidate(); }
 }
 void Presentation::set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows,
                             const std::vector<std::uint32_t>& sections, std::int32_t turn) {

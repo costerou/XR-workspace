@@ -99,6 +99,9 @@ public:
     void video_seek(std::int32_t seconds);
     void video_format(const VideoFormat& format);
     void video_controls(bool visible);
+    // Quality settings (applied live, kept for later videos) and the quality menu on the controls card.
+    void video_quality(const VideoQuality& quality);
+    void video_menu(bool visible, const std::vector<VideoMenuRow>& rows, std::uint32_t selected);
     // Keyboard help card (Ctrl+Alt+H): fades in/out in the middle of the view; rows are (keys, action), `sections` their
     // section sizes (empty: one section). `turn` -1 / +1 flips a shown card to the previous / next page (hud.hpp).
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows,

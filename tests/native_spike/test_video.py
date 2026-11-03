@@ -231,9 +231,10 @@ class ControlTests(unittest.TestCase):
         out = self.open()
         self.assertEqual(os.fstat(out.fds[0]).st_ino, self.clip.stat().st_ino)
         self.assertEqual(self.probed, [self.clip.stat().st_ino])  # probed the very file that is sent
-        [f] = frames(out)
+        f, q = frames(out)
         self.assertEqual(f['op'], 'video')
         self.assertEqual(f['payload'], {'action': 'open', 'projection': '360', 'stereo': 'tb', 'fov': 180, 'title': 'Beach_360_TB.mp4'})
+        self.assertEqual(q['payload'], {'action': 'quality', 'filter': 'catmull-rom', 'deband': False})  # the saved quality, after it
         snap = self.v.snapshot()
         self.assertTrue(snap['active']); self.assertEqual(snap['label'], '360° top-bottom 3D'); self.assertTrue(snap['controls'])
         self.assertEqual(snap['state'], 'loading')
@@ -251,7 +252,7 @@ class ControlTests(unittest.TestCase):
         self.assertTrue(self.view.help_visible and self.view.state.menu_open)
         out = self.open()
         ops = [(f['op'], f['payload'].get('visible', f['payload'].get('open'))) for f in frames(out)]
-        self.assertEqual(ops[-1][0], 'video')
+        self.assertEqual(ops[-2][0], 'video')
         self.assertIn(('placement_menu', False), ops); self.assertIn(('help', False), ops)
         self.assertFalse(self.view.help_visible or self.view.state.menu_open)
         self.join_binds(); self.assertEqual(self.menu_binds, [True, False])
@@ -292,7 +293,7 @@ class ControlTests(unittest.TestCase):
         self.assertIsNone(self.op(view.PLAYBACK_MENU_OP))  # no video: only the setting and its toast
         self.assertTrue(self.v.menu_hidden and self.v.snapshot()['menu_hidden'])
         out = self.open()
-        self.assertEqual([f['payload']['action'] for f in frames(out)], ['open', 'controls'])
+        self.assertEqual([f['payload']['action'] for f in frames(out)], ['open', 'quality', 'controls'])  # quality: the Q menu's saved settings
         self.assertEqual(frames(out)[-1]['payload'], {'action': 'controls', 'visible': False})  # hidden right after open
         self.assertFalse(self.v.controls)
         self.assertEqual([f['payload'] for f in frames(self.op('video_pause'))], [{'action': 'pause'}])  # no pop-up
@@ -451,7 +452,9 @@ class BindTests(unittest.TestCase):
         self.assertEqual(xr_control.VIDEO_OPS, video.VIDEO_OPS)
         self.assertEqual(xr_control.REMOVE_VIDEO_BINDS, video.remove_video_binds_lua())
         self.assertEqual(set(video.SEEK_S) | {'video_pause', 'video_format', 'video_controls', 'video_exit'}, set(video.KEY_OPS))
-        self.assertEqual({op for _, op in video.VIDEO_BINDS}, set(video.KEY_OPS))
+        # Up / Down are video_up / video_down (the card toggle while the quality menu is closed); video_controls is the
+        # panel's button and Ctrl+Alt+H.
+        self.assertEqual({op for _, op in video.VIDEO_BINDS}, set(video.KEY_OPS) - {'video_controls'} | set(video.QUALITY_OPS))
 
     def test_bind_helper_picks_a_file_and_sends_its_path(self):
         with tempfile.TemporaryDirectory() as tmp:

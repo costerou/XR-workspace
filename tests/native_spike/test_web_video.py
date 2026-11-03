@@ -294,7 +294,7 @@ class RelayTests(unittest.TestCase):
         v.on_message({'op': 'video_open', 'payload': {'web': page}})
         out = v.poll(clock())
         self.assertIsInstance(out, video.FdFrame, v.snapshot())
-        [f] = frames(out)
+        f, _quality = frames(out)  # the open, then the saved quality settings (quality.py)
         self.assertEqual(f['payload'], {'action': 'open', 'projection': '180', 'stereo': 'sbs', 'fov': 180, 'title': 'Sunset beach'})
         fd = out.fds.pop()  # the renderer's end
         p = probe_bytes(drain(fd), self.tmp.name)
@@ -319,7 +319,7 @@ class RelayTests(unittest.TestCase):
         v.on_message({'op': 'video_open', 'payload': {'url': self.base + '/vrpage'}})
         out = v.poll(clock())
         self.assertIsInstance(out, video.FdFrame, v.snapshot())
-        [f] = frames(out)
+        f, _quality = frames(out)
         self.assertEqual(f['payload'], {'action': 'open', 'projection': '180', 'stereo': 'sbs', 'fov': 180, 'title': 'Alps VR180 3D SBS (1)'})  # yt-dlp numbers generic entries
         self.assertEqual(v.snapshot()['source'], 'title')
         p = probe_bytes(drain(out.fds.pop()), self.tmp.name)
@@ -498,7 +498,7 @@ class WebControlTests(unittest.TestCase):
         self.assertIsNone(self.op('video_open', {'web': page}))
         out = self.poll()
         self.assertIsInstance(out, video.FdFrame); self.assertEqual(len(out.fds), 1)
-        [f] = frames(out)
+        f, _quality = frames(out)
         self.assertEqual(f['payload'], {'action': 'open', 'projection': '180', 'stereo': 'sbs', 'fov': 180, 'title': 'Sunset beach'})
         self.assertEqual(self.probed, [('https://cdn.example.com/beach_8k.mp4', {'Referer': 'https://vr.example.com/watch/42'}, 'Mozilla/5.0 test')])
         argv = self.relays[0].argv
@@ -511,7 +511,7 @@ class WebControlTests(unittest.TestCase):
 
     def test_a_bare_link_is_detected_from_its_name_and_shape(self):
         self.op('video_open', {'url': 'https://cdn.example.com/clips/Alps_360_TB.mp4'})
-        [f] = frames(self.poll())
+        f, _quality = frames(self.poll())
         self.assertEqual((f['payload']['projection'], f['payload']['stereo'], f['payload']['title']), ('360', 'tb', 'Alps_360_TB.mp4'))
         self.assertEqual(self.v.snapshot()['source'], 'filename')
 
@@ -757,7 +757,7 @@ class PageFailureTests(unittest.TestCase):
         v, clock = self.control(lambda url: dict(self.YT), probe)
         v.on_message({'op': 'video_open', 'payload': {'url': 'https://www.example.com/watch?v=SECRETID'}})
         out = v.poll(clock()); self.addCleanup(out.close_fds)
-        [f] = frames(out)
+        f, _quality = frames(out)
         self.assertEqual(f['payload'], {'action': 'open', 'projection': '180', 'stereo': 'sbs', 'fov': 180, 'title': 'Mountain VR 180 3D SBS 8K'})
         self.assertEqual(probed, [('https://media.example.net/571', {'Accept': '*/*', 'Sec-Fetch-Mode': 'navigate'}, 'Mozilla/5.0 yt')])
         argv = self.relays[0].argv

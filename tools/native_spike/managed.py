@@ -6,6 +6,7 @@ from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
 from .ownership import OwnershipBrokerClient
+from .quality import video_quality
 from .supervisor import validate_physical_pair, _launch
 
 
@@ -148,7 +149,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         initial = [dict(DEFAULT_PLACEMENT) for _ in capture] if placements is not None else None
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'],
                                                    saved['prediction'], _initial_placements(initial, capture),
-                                                   saved.get('cursor_switch_animate', True)), run_id, session,
+                                                   saved.get('cursor_switch_animate', True),
+                                                   video_quality(saved)), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
