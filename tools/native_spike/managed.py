@@ -113,24 +113,26 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
         try: initial = placements.load() if placements is not None else None
         except (OSError, ValueError): initial = None
-        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'], saved['cursor_follow'],
+        control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'],
                                                    saved['prediction'], initial), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
                                    typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
         # Overview free pointer (glass pills, corners, panel sliders): cursor reads, its modal left-button binds and cursor
-        # hiding, off the supervisor loop. With the input lock (input_lock.py): in the overview the mouse only drives
-        # that pointer; the real cursor is held still and its buttons and wheel never reach a window.
-        from .input_lock import LockedPointer, LockedSampler
-        pointer = control.overview_pointer = LockedPointer(control)
+        # hiding, off the supervisor loop. Unified cursor (unified_cursor.py): the real cursor follows the dot, on the
+        # matching monitor and point while the dot is over a desktop (its clicks and wheel reach the window there); past
+        # a desktop's edge it is parked and the dot carries on through space to the next desktop.
+        from .unified_cursor import UnifiedPointer, UnifiedSampler
+        pointer = control.overview_pointer = UnifiedPointer(control)
         control.wake = pointer.wake_reader
-        if hasattr(client, 'lock_pointer'): sampler = LockedSampler(client, capture, pointer, bind_args).start()
+        if hasattr(client, 'lock_pointer') and hasattr(client, 'enter_desktop'):
+            sampler = UnifiedSampler(client, capture, pointer, bind_args).start()
         # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-3, B). Closed first at run end (below).
         if hasattr(client, 'mutate'):
             from .send import WindowSender
             control.sender = WindowSender(client, capture, fallback)
-        stream = getattr(client, 'event_stream', None)  # cursor follow; optional
+        stream = getattr(client, 'event_stream', None)  # config reloads; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
         client.install_view_binds(*bind_args)

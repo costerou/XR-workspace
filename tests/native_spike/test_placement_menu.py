@@ -52,13 +52,13 @@ MENU_PAYLOAD_KEYS = {'open', 'desktop', 'field', 'placements'}
 MENU_TOGGLE_CHORD, MENU_TOGGLE_LABEL = 'CTRL + ALT + L', 'Ctrl+Alt+L'  # contract; Ctrl+Alt+P is pose prediction
 # Baselines at f593574: the menu must not widen any of these.
 BASE_CONTROL_OPS = {'status', 'start', 'stop', 'select', 'recover', 'zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up',
-                    'spacing_down', 'recenter', 'mode_next', 'cursor_follow', 'prediction', 'help', 'placement'}
+                    'spacing_down', 'recenter', 'mode_next', 'prediction', 'help', 'placement'}
 BASE_CAPABILITIES = ['zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next',
-                     'cursor_follow', 'prediction', 'help']
+                     'prediction', 'help']  # cursor_follow removed 2026-11-02
 BASE_QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
-BASE_PROFILE_KEYS = {'cursor_follow', 'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'spacing',
+BASE_PROFILE_KEYS = {'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'spacing',
                      'tracking'}
 # Real-shaped bind arguments (2026-11-01): the live controller's checkout path, a token_hex(16) run id (state.py) and a
 # sha256-hex session id (HyprlandClient.verified_session).
@@ -789,7 +789,7 @@ class NoScopeChangeTests(unittest.TestCase):
     def test_profile_shape_unchanged(self):
         self.assertEqual(set(profiles.DEFAULT_PROFILE), BASE_PROFILE_KEYS)
         self.assertNotIn('menu', json.dumps(profiles.DEFAULT_PROFILE))
-        self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True})
+        self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'prediction': True})  # cursor_follow removed
 
     def test_placement_bounds_unchanged(self):
         # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); the rest are unchanged.

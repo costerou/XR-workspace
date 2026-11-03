@@ -220,10 +220,10 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         modes = [json.loads(c.on_message({'op': 'mode_next'}))['payload']['mode'] for _ in range(3)]
         self.assertEqual(modes, ['follow', 'locked', 'anchor'])
         c.on_message({'op': 'mode_next'}); c.on_message({'op': 'spacing_up'})
-        self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'follow', 'cursor_follow': False, 'prediction': True})
+        self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'follow', 'prediction': True})
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
         self.assertIn(('CTRL + ALT + V', 'mode_next'), view.BINDS)
-        self.assertIn(('CTRL + ALT + F', 'cursor_follow'), view.BINDS)
+        self.assertNotIn('cursor_follow', [op for _, op in view.BINDS])  # cursor follow was removed (2026-11-02)
         self.assertIn(('CTRL + ALT + P', 'prediction'), view.BINDS)
 
     def test_prediction_toggles_reaches_renderer_and_is_saved(self):
@@ -242,11 +242,11 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
     def test_settings_fields_fall_back_independently(self):
         self.settings.parent.mkdir(parents=True)
         self.settings.write_text('{"spacing": 80}')  # file written before modes existed
-        self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True})
+        self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'prediction': True})
         self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1, "prediction": "on"}')
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)
         for bad in ({'spacing': 40, 'mode': 'orbit', 'cursor_follow': False, 'prediction': True}, {'spacing': 40, 'mode': 'anchor'},
-                    {'spacing': 40, 'mode': 'anchor', 'cursor_follow': 'yes'}):
+                    {'spacing': 40, 'mode': 'anchor', 'prediction': 'yes'}):
             with self.subTest(bad), self.assertRaises(ValueError): view.save_settings(self.settings, bad)
         with self.assertRaises(ValueError): view.ViewState(NAMES, mode='orbit')
 
@@ -278,32 +278,24 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(c.state.view(), before)
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)  # never saved
 
-    def test_cursor_follow_switches_only_when_enabled_and_only_managed(self):
+    def test_monitor_focus_never_switches_the_view(self):
+        """Cursor follow (Ctrl+Alt+F) was removed on 2026-11-02: the cursor never switches desktops."""
         focused = []
         c = self.control(focused=focused)
-        self.assertIsNone(c.on_events(b'focusedmon>>XR-2,7\n'))          # off by default: ignored
-        toggled = json.loads(c.on_message({'op': 'cursor_follow'}))       # renderer shows the cursor pop-up
-        self.assertEqual(toggled['payload'], {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': True, 'prediction': True, 'typing': False})
-        self.assertTrue(view.load_settings(self.settings)['cursor_follow'])
-        frame = c.on_events(b'workspace>>3\nfocusedmon>>XR-')            # split across reads
-        self.assertIsNone(frame)
-        frame = c.on_events(b'3,8\nfocusedmonv2>>XR-3,8\n')
-        self.assertEqual(json.loads(frame)['payload']['selected'], 2)
-        self.assertIsNone(c.on_events(b'focusedmon>>XR-3,8\n'))           # already selected
-        for other in (b'focusedmon>>DP-1,1\n', b'focusedmon>>XR-9,1\n', b'focusedmon>>XR-1\n', b'\xff\xfe\n'):
-            self.assertIsNone(c.on_events(other), other)
-        self.assertIsNone(c.on_events(b'x' * 70000))                      # bounded buffer
-        self.assertEqual(json.loads(c.on_events(b'\nfocusedmon>>XR-1,1\n'))['payload']['selected'], 0)
-        self.assertEqual(focused, [])                                     # pointer already there: no focus dispatch
-        self.assertEqual(c.cursor_switches, 2)
+        self.assertIsNone(c.on_message({'op': 'cursor_follow'}))  # no longer an op
+        for events in (b'focusedmon>>XR-2,7\n', b'workspace>>3\nfocusedmon>>XR-', b'3,8\nfocusedmonv2>>XR-3,8\n', b'x' * 70000):
+            self.assertIsNone(c.on_events(events), events)
+        self.assertEqual(c.state.selected, 0)
+        self.assertEqual(focused, [])
+        self.assertIs(c.state.view()['cursor_follow'], False)  # kept on the wire for the renderer's decoder
 
 
-class SupervisorCursorFollowTests(unittest.TestCase):
-    def test_event_socket_drives_renderer_and_eof_is_not_fatal(self):
+class SupervisorEventSocketTests(unittest.TestCase):
+    def test_monitor_focus_events_switch_nothing_and_eof_is_not_fatal(self):
         import time
         from tools.native_spike.supervisor import Supervisor
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
-        control = view.ViewControl(view.ViewState(NAMES, cursor_follow=True), 'run', 'session', lambda n: None,
+        control = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None,
                                    LayoutStore(Path(tmp.name) / 'l.json'), type('S', (), {'socket': socket.socketpair()[0]})())
         hypr, events = socket.socketpair(); events.setblocking(False)
         control.events = events
@@ -319,14 +311,18 @@ class SupervisorCursorFollowTests(unittest.TestCase):
         sup = Supervisor(child, lambda: 'recovered', control=control)
         def drive():
             time.sleep(0.15); hypr.sendall(b'focusedmon>>XR-2,7\n')
-            time.sleep(0.15); hypr.close()                          # compositor stream ends: follow just stops
+            time.sleep(0.15); hypr.close()                          # compositor stream ends: nothing fatal
             time.sleep(0.15); renderer.sendall(b'H'); time.sleep(0.15); child.done = True
         t = threading.Thread(target=drive); t.start()
         renderer.sendall(b'H')
         self.assertEqual(sup.run(parent), 'recovered')
         t.join(5)
-        frames = [json.loads(l) for l in renderer.recv(65536).decode().splitlines()]
-        self.assertEqual([f['payload']['selected'] for f in frames], [1])
+        renderer.setblocking(False)
+        try: data = renderer.recv(65536)
+        except BlockingIOError: data = b''
+        frames = [json.loads(l) for l in data.decode().splitlines()]
+        self.assertEqual([f for f in frames if f.get('op') == 'view'], [])  # the focus change switched nothing
+        self.assertEqual(control.state.selected, 0)
 
 
 class EventStreamTests(unittest.TestCase):

@@ -57,8 +57,8 @@ ColumnLayout {
             model:root.snapshot.capabilities || []
             delegate: Button {
                 required property string modelData
-                text:({prev:"◀ Prev",next:"Next ▶",zoom_in:"Zoom in",zoom_out:"Overview / zoom out",recenter:"Recenter",mode_next:"Cycle Anchor / Follow / Locked",spacing_up:"Spacing +",spacing_down:"Spacing −",cursor_follow:"Cursor follow",prediction:"Pose prediction"})[modelData] || modelData
-                highlighted:(modelData==="cursor_follow" && !!root.view.cursor_follow) || (modelData==="prediction" && !!root.view.prediction)
+                text:({prev:"◀ Prev",next:"Next ▶",zoom_in:"Zoom in",zoom_out:"Overview / zoom out",recenter:"Recenter",mode_next:"Cycle Anchor / Follow / Locked",spacing_up:"Spacing +",spacing_down:"Spacing −",prediction:"Pose prediction"})[modelData] || modelData
+                highlighted:modelData==="prediction" && !!root.view.prediction
                 enabled:!root.busy
                 onClicked:root.request({op:"view_op",operation:modelData})
             }

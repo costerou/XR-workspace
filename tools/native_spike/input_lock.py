@@ -2,6 +2,11 @@
 overview's own pointer (the free pointer's dot, free_pointer.py). Input only: what the dot and cursor look like is the
 free pointer's.
 
+Superseded for the run (2026-11-02, dot-unified-cursor): managed.py wires unified_cursor.py, where the real cursor
+follows the dot onto the desktop under it and only free mode (the dot off every desktop) holds it; that free mode is
+this module's grab (lock_pointer_lua, park_point, LockedSampler's leash and warp handling). LockedPointer stays as the
+library behind it and is still tested on its own.
+
 Design (overview-uc-input-lock, 2026-11-02):
   * Capture. In the overview a cursor on one of the run's XR desktops (or one that Ctrl+Alt+Down's summon brings into
     the selected desktop) is captured at once: the pointer goes straight to the free pointer's free mode and stays there

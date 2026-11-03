@@ -619,7 +619,7 @@ class OverviewPointer:
         self.pointer = self._clamp((start[0] + over[0] * self.gain, start[1] + over[1] * self.gain))
         self.mode, self.last_move = 'free', now
         self.exits += 1
-        self._set_want('free', (int(o['x'] + w / 2), int(o['y'] + h / 2)))
+        self._set_want('free', self._park(o, (cx, cy)))
         self.hover = self._hit()
         return out
 
@@ -632,8 +632,13 @@ class OverviewPointer:
         self.gain = self._gain(self.desktop)
         self.mode = 'free'
         self.exits += 1
-        self._set_want('free', (int(o['x'] + o['width'] / 2), int(o['y'] + o['height'] / 2)))
+        self._set_want('free', self._park(o))
         self.hover = self._hit()
+
+    def _park(self, o, local=None):
+        """Where free mode parks the hidden cursor on output `o` (`local`: where it left the desktop, monitor-local px):
+        the middle of the monitor, so hand motion has room before any edge."""
+        return (int(o['x'] + o['width'] / 2), int(o['y'] + o['height'] / 2))
 
     def _move(self, dx, dy, now):
         """Free mode: the pointer moves by the cursor's motion; a drag follows it, otherwise it may go into a desktop."""

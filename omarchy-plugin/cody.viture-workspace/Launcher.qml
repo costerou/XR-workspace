@@ -61,7 +61,6 @@ ColumnLayout {
         Layout.fillWidth:true
         Layout.preferredHeight:childrenRect.height
         spacing:8
-        CheckBox { text:"Cursor follow"; checked:!!root.settings.cursor_follow; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{cursor_follow:checked}}) }
         CheckBox { text:"Pose prediction"; checked:!!root.settings.prediction; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{prediction:checked}}) }
         CheckBox { text:"Head tracking"; checked:!!root.settings.tracking; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{tracking:checked}}) }
         CheckBox { visible:root.snapshot.model==="luma-ultra"; text:"120 Hz mode switch"; checked:!!root.settings.mode_switch; enabled:!root.busy; onToggled:root.request({op:"set_settings",settings:{mode_switch:checked}}) }
