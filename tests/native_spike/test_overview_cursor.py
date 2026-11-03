@@ -7,6 +7,7 @@ throwaway config, as bind_check does: no compositor is started or contacted), to
 and bind removal in every order. Offline only: fake clocks, fake compositor clients and sockets, no renderer or glasses.
 """
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -18,7 +19,7 @@ import time
 import unittest
 from unittest import mock
 
-from tools.native_spike import free_pointer as fp, overview_cursor as oc, resize, view, xr_control
+from tools.native_spike import free_pointer as fp, orbit, overview_cursor as oc, resize, view, xr_control
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 from tools.native_spike.profiles import LayoutStore
 
@@ -49,7 +50,11 @@ def last(fs, op):
 
 
 def dot(point):
-    return {'visible': True, 'x': round(point[0]), 'y': round(point[1]), 'held': False}
+    """The dot's frame at canvas point `point`: always drawn in its direction (orbit.pointer_direction)."""
+    x, y = round(point[0]), round(point[1])
+    az, el = orbit.pointer_direction(G, (x, y))  # (at the whole pixel the frame carries)
+    return {'visible': True, 'x': x, 'y': y, 'held': False,
+            'az': round(math.degrees(az) * 100), 'el': round(math.degrees(el) * 100)}
 
 
 class Clock:

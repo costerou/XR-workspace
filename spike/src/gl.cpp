@@ -644,7 +644,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     }
     if (s.free_pointer && s.free_level > 0.f) {
         // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots),
-        // or turned to its direction round you when one is given (past the view in anchor mode).
+        // or turned to its direction round you when one is given (the supervisor always gives one).
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
         program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
         for (int k = 0; k < 2; ++k) {

@@ -9,7 +9,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
-from tools.native_spike import bind_check, free_pointer as fp, view, xr_control
+from tools.native_spike import bind_check, free_pointer as fp, orbit, view, xr_control
 from tools.native_spike.ipc import decode_control
 
 from test_free_pointer import G, PointerBase, X2, frames, last
@@ -150,7 +150,8 @@ class PointerTests(PointerBase):
         self.control.set_help_geometry(CARD)
 
     def onto(self, r, ops=None):
-        x, y = centre(r)
+        """The dot onto the middle of canvas rect `r` on the overview's plane, where the card is reported."""
+        x, y = orbit.from_plane(G, centre(r))
         return self.move_canvas(x - self.p.pointer[0], y - self.p.pointer[1], ops=ops)
 
     def test_a_cursor_onto_the_open_card_turns_into_the_free_dot(self):

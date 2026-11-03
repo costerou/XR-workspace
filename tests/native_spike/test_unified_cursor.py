@@ -49,7 +49,7 @@ class UnifiedBase(PointerBase):
 
     def aim(self, i, q):
         """Free dot onto desktop i at tile pixel q (on its placed surface)."""
-        aim = fp.project(G, G['tiles'][i], self.control.state.placements[i], *q, around=self.p._around())
+        aim = fp.project(G, G['tiles'][i], self.control.state.placements[i], *q)
         return self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
 
 
@@ -58,7 +58,7 @@ class HomeTests(UnifiedBase):
         out = self.at(*MID1)
         self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 0))
         self.assertEqual(self.p.want[1:], ('desktop', None))  # the click binds, no warp: the cursor already is there
-        self.assertAlmostEqual(self.p.pointer[0], T0[0] + T0[2] / 2, places=2)
+        self.assertAlmostEqual(self.p.pointer[0], fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)[0], places=2)
         self.assertTrue(last(out, 'overview_pointer')['visible'])
         self.at(X1 + 1200, 700)
         want = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + 1200 / 1920 * T0[2], T0[1] + 700 / 1080 * T0[3])

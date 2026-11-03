@@ -75,6 +75,14 @@ def on_panel(tile, lx, ly, placement=DEFAULT_PLACEMENT):
     return fp.project(G, tile, placement, x + lx, y + ly)
 
 
+EDGE = 1e-6  # canvas px: a point on a pill / corner zone's edge is moved just inside it (hit_at's ray round trip is ~1e-13)
+
+
+def hit_at(g, placements, point, open_=None):
+    """fp.hit for the dot looking at canvas point `point` on the overview's plane (orbit.from_plane)."""
+    return fp.hit(g, placements, orbit.from_plane(g, point), open_)
+
+
 def pill_centre(tile, placement=DEFAULT_PLACEMENT):
     x, y, w, h = fp.pill_rect(tile)
     return fp.project(G, tile, placement, x + w / 2, y + h / 2)
@@ -159,16 +167,16 @@ class HitTests(unittest.TestCase):
     def test_the_pill_zone_is_under_the_desktop_and_nothing_is_above_it(self):
         x, y, w, h = fp.pill_rect(T1)
         mid = x + w / 2
-        self.assertEqual(fp.hit(G, FLAT, (mid, y + h / 2)), ('pill', 1))
-        self.assertEqual(fp.hit(G, FLAT, (mid, T1[1] + T1[3] + 1)), ('pill', 1))    # the gap up to the desktop grabs it
-        self.assertEqual(fp.hit(G, FLAT, (mid, y + h + fp.PILL_PAD_Y)), ('pill', 1))  # and a little below it
-        self.assertIsNone(fp.hit(G, FLAT, (mid, y + h + fp.PILL_PAD_Y + 1)))
-        self.assertEqual(fp.hit(G, FLAT, (x - fp.PILL_PAD_X, y + 3)), ('pill', 1))
-        self.assertEqual(fp.hit(G, FLAT, (x + w + fp.PILL_PAD_X, y + 3)), ('pill', 1))
-        self.assertIsNone(fp.hit(G, FLAT, (x - fp.PILL_PAD_X - 1, y + 3)))
-        self.assertEqual(fp.hit(G, FLAT, (mid, T1[1] + T1[3] - 1))[:2], ('desktop', 1))  # just inside: the desktop
-        self.assertIsNone(fp.hit(G, FLAT, (mid, T1[1] - 3)))   # where the old drag bar was: nothing now
-        self.assertIsNone(fp.hit(G, FLAT, (mid, T1[1] - 12)))
+        self.assertEqual(hit_at(G, FLAT, (mid, y + h / 2)), ('pill', 1))
+        self.assertEqual(hit_at(G, FLAT, (mid, T1[1] + T1[3] + 1)), ('pill', 1))    # the gap up to the desktop grabs it
+        self.assertEqual(hit_at(G, FLAT, (mid, y + h + fp.PILL_PAD_Y - EDGE)), ('pill', 1))  # and a little below it
+        self.assertIsNone(hit_at(G, FLAT, (mid, y + h + fp.PILL_PAD_Y + 1)))
+        self.assertEqual(hit_at(G, FLAT, (x - fp.PILL_PAD_X + EDGE, y + 3)), ('pill', 1))
+        self.assertEqual(hit_at(G, FLAT, (x + w + fp.PILL_PAD_X - EDGE, y + 3)), ('pill', 1))
+        self.assertIsNone(hit_at(G, FLAT, (x - fp.PILL_PAD_X - 1, y + 3)))
+        self.assertEqual(hit_at(G, FLAT, (mid, T1[1] + T1[3] - 1))[:2], ('desktop', 1))  # just inside: the desktop
+        self.assertIsNone(hit_at(G, FLAT, (mid, T1[1] - 3)))   # where the old drag bar was: nothing now
+        self.assertIsNone(hit_at(G, FLAT, (mid, T1[1] - 12)))
         for i, tile in enumerate(G['tiles']):  # every desktop's own (turned) pill
             self.assertEqual(fp.hit(G, FLAT, pill_centre(tile)), ('pill', i))
 
@@ -179,7 +187,8 @@ class HitTests(unittest.TestCase):
         z = fp.corner_zone(tile)
         seen = set()
         for x in range(-12, 74, 2):
-            h = fp.hit(g, FLAT[:1], (x0 + x, y0 + 40 + 3))  # in the gap under the desktop
+            x += EDGE if x in (-z, 60 - z) else -EDGE if x in (z, 60 + z) else 0  # (a zone's edge: just inside, see EDGE)
+            h = hit_at(g, FLAT[:1], (x0 + x, y0 + 40 + 3))  # in the gap under the desktop
             seen.add(h and h[0])
             if abs(x) <= z: self.assertEqual(h, ('corner', 0, 'bl'), x)
             elif abs(x - 60) <= z: self.assertEqual(h, ('corner', 0, 'br'), x)
@@ -206,11 +215,11 @@ class HitTests(unittest.TestCase):
 
     def test_with_a_panel_open_the_rest_still_hits_as_before(self):
         self.assertEqual(fp.hit(G, FLAT, pill_centre(T1), 0), ('pill', 1))                  # another desktop's pill
-        self.assertEqual(fp.hit(G, FLAT, (T1[0] + 200, T1[1] + 100), 0)[:2], ('desktop', 1))
-        self.assertEqual(fp.hit(G, FLAT, (T0[0] - 8, T0[1] - 8), 0), ('corner', 0, 'tl'))    # the open desktop's corners
-        self.assertEqual(fp.hit(G, FLAT, (T0[0] + T0[2] + 6, T0[1] + T0[3] + 2), 0), ('corner', 0, 'br'))
-        self.assertEqual(fp.hit(G, FLAT, (T0[0] + T0[2] / 2, T0[1] + T0[3] + 4), 0), ('pill', 0))  # the gap over the header
-        self.assertIsNone(fp.hit(G, FLAT, (960, 100), 0))
+        self.assertEqual(hit_at(G, FLAT, (T1[0] + 200, T1[1] + 100), 0)[:2], ('desktop', 1))
+        self.assertEqual(hit_at(G, FLAT, (T0[0] - 8, T0[1] - 8), 0), ('corner', 0, 'tl'))    # the open desktop's corners
+        self.assertEqual(hit_at(G, FLAT, (T0[0] + T0[2] + 6, T0[1] + T0[3] + 2), 0), ('corner', 0, 'br'))
+        self.assertEqual(hit_at(G, FLAT, (T0[0] + T0[2] / 2, T0[1] + T0[3] + 4), 0), ('pill', 0))  # the gap over the header
+        self.assertIsNone(hit_at(G, FLAT, (960, 100), 0))
 
     def test_the_open_panel_wins_over_a_desktop_it_covers(self):
         # XR-1 turned 10 degrees right and lifted 10 degrees: its panel now hangs over XR-2.
@@ -760,7 +769,8 @@ class ClickOutsideTests(Base):
     def test_the_open_desktops_own_pieces_do_not_count_as_outside(self):
         # header, panel body, a corner of the same desktop, and the gap over the header (its pill zone)
         for point, click_collapses in ((on_panel(T0, 240, 10), True), (on_panel(T0, 240, fp.PANEL_H - 6), False),
-                                       ((T0[0] - 6, T0[1] - 6), False), ((T0[0] + T0[2] / 2, T0[1] + T0[3] + 3), True)):
+                                       (orbit.from_plane(G, (T0[0] - 6, T0[1] - 6)), False),
+                                       (orbit.from_plane(G, (T0[0] + T0[2] / 2, T0[1] + T0[3] + 3)), True)):
             with self.subTest(point=point):
                 self.to(*point)
                 self.press()

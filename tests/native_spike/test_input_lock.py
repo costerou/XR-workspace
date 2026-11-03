@@ -50,8 +50,9 @@ class CaptureTests(LockBase):
         out = self.at(X1 + 960, 540)
         self.assertEqual(self.p.mode, 'free')  # no desktop mode: the dot is the pointer from the start
         self.assertEqual(self.p.want[1:], ('free', (X1 + 960, 540)))  # held where it was: the window under it keeps focus
-        self.assertAlmostEqual(self.p.pointer[0], T0[0] + T0[2] / 2, places=2)
-        self.assertAlmostEqual(self.p.pointer[1], T0[1] + T0[3] / 2, places=2)
+        centre = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)  # the dot on that pixel
+        self.assertAlmostEqual(self.p.pointer[0], centre[0], places=2)
+        self.assertAlmostEqual(self.p.pointer[1], centre[1], places=2)
         self.assertAlmostEqual(self.p.gain, GAIN)
         self.assertTrue(last(out, 'overview_pointer')['visible'])
         self.assertEqual(self.p.captures, 1)

@@ -35,6 +35,19 @@ FLAT = [dict(DEFAULT_PLACEMENT) for _ in range(3)]
 BIND_ARGS = ('/usr/bin/python3', '/x/tools/native_spike/xr_control.py', '/run/user/1000/c.sock', 'a' * 32, 'e' * 64)
 
 
+def hit_at(g, placements, point, open_=None):
+    """fp.hit for the dot looking at canvas point `point` on the overview's plane (orbit.from_plane)."""
+    return fp.hit(g, placements, None if point is None or g is None else orbit.from_plane(g, point), open_)
+
+
+def dot_frame(pointer, held=False):
+    """The `overview_pointer` payload for the dot at canvas point `pointer`: always drawn in its direction (az / el)."""
+    x, y = math.floor(pointer[0] + 0.5), math.floor(pointer[1] + 0.5)
+    az, el = orbit.pointer_direction(G, (x, y))  # (at the whole pixel the frame carries)
+    return {'visible': True, 'x': x, 'y': y, 'held': held,
+            'az': round(math.degrees(az) * 100), 'el': round(math.degrees(el) * 100)}
+
+
 def frames(data, ops=None):
     out = [json.loads(line) for line in (data or b'').decode().splitlines()]
     return [f for f in out if ops is None or f['op'] in ops]
@@ -98,10 +111,13 @@ class ProjectionTests(unittest.TestCase):
         for tile in G['tiles']:
             for q in ((tile[0], tile[1]), (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2), (tile[0] + tile[2] - 1, tile[1] + 7)):
                 p = fp.project(G, tile, DEFAULT_PLACEMENT, *q)
-                if tile is T1: self.assertAlmostEqual(p[0], q[0], places=3); self.assertAlmostEqual(p[1], q[1], places=3)
+                flat = fp.to_canvas(G, fp.place_point(G, tile, DEFAULT_PLACEMENT, *q))
+                if tile is T1: self.assertAlmostEqual(flat[0], q[0], places=3); self.assertAlmostEqual(flat[1], q[1], places=3)
+                seen = orbit.plane_at(G, orbit.pointer_ray(G, p))  # the dot for that pixel looks at it
+                self.assertAlmostEqual(seen[0], flat[0], places=6); self.assertAlmostEqual(seen[1], flat[1], places=6)
                 back = fp.unproject(G, tile, DEFAULT_PLACEMENT, p)
                 self.assertAlmostEqual(back[0], q[0], delta=0.05); self.assertAlmostEqual(back[1], q[1], delta=0.05)
-        centre = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)
+        centre = fp.to_canvas(G, fp.place_point(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2))
         self.assertAlmostEqual(centre[0], T0[0] + T0[2] / 2, delta=0.01)  # a side desktop's centre stays where its slot is
 
     def test_the_orbit_turns_the_desktop_round_you_and_distance_scales_it_about_its_centre(self):
@@ -152,7 +168,7 @@ class ProjectionTests(unittest.TestCase):
                     back = fp.unproject(G, T1, p, fp.project(G, T1, p, *q))
                     self.assertAlmostEqual(back[0], q[0], delta=0.25); self.assertAlmostEqual(back[1], q[1], delta=0.25)
         behind = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': 1800}, dict(DEFAULT_PLACEMENT)]
-        self.assertIsNone(fp.project(G, T1, behind[1], T1[0] + T1[2] / 2, T1[1] + T1[3] / 2))  # not on the canvas
+        self.assertIsNone(fp.to_canvas(G, fp.place_point(G, T1, behind[1], T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)))  # not on the canvas
         self.assertIsNone(fp.unproject(G, T1, behind[1], (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)))
         self.assertIsNone(fp.hit(G, behind, (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)))  # where its slot was: nothing now
 
@@ -162,20 +178,20 @@ class HitTests(unittest.TestCase):
         pill = fp.pill_rect(T0)
         mid = pill[0] + pill[2] / 2
         self.assertEqual(pill[1], T0[1] + T0[3] + fp.PILL_GAP)  # under the desktop
-        self.assertEqual(fp.hit(G, FLAT, (mid, pill[1] + 2)), ('pill', 0))
-        self.assertEqual(fp.hit(G, FLAT, (mid, T0[1] + T0[3] + 1)), ('pill', 0))     # the gap over the pill grabs it too
-        self.assertEqual(fp.hit(G, FLAT, (mid, pill[1] + pill[3] + 9)), ('pill', 0))  # a little below it as well
-        self.assertIsNone(fp.hit(G, FLAT, (mid, pill[1] + pill[3] + 12)))
-        self.assertIsNone(fp.hit(G, FLAT, (mid, T0[1] - 3)))  # nothing above the desktop (the old drag bar's place)
-        self.assertIsNone(fp.hit(G, FLAT, (T0[0] + 20, T0[1] - 40)))
-        self.assertEqual(fp.hit(G, FLAT, (T0[0] - 8, T0[1] - 8)), ('corner', 0, 'tl'))  # outside the desktop: now reachable
-        self.assertEqual(fp.hit(G, FLAT, (T0[0] + T0[2] + 10, T0[1] + T0[3] + 10)), ('corner', 0, 'br'))
-        self.assertEqual(fp.hit(G, FLAT, (T1[0] + T1[2] - 3, T1[1] + 2)), ('corner', 1, 'tr'))
-        self.assertEqual(fp.hit(G, FLAT, (T1[0] + 3, T1[1] + T1[3] - 3)), ('corner', 1, 'bl'))
-        h = fp.hit(G, FLAT, (T1[0] + 200, T1[1] + 100))
+        self.assertEqual(hit_at(G, FLAT, (mid, pill[1] + 2)), ('pill', 0))
+        self.assertEqual(hit_at(G, FLAT, (mid, T0[1] + T0[3] + 1)), ('pill', 0))     # the gap over the pill grabs it too
+        self.assertEqual(hit_at(G, FLAT, (mid, pill[1] + pill[3] + 9)), ('pill', 0))  # a little below it as well
+        self.assertIsNone(hit_at(G, FLAT, (mid, pill[1] + pill[3] + 12)))
+        self.assertIsNone(hit_at(G, FLAT, (mid, T0[1] - 3)))  # nothing above the desktop (the old drag bar's place)
+        self.assertIsNone(hit_at(G, FLAT, (T0[0] + 20, T0[1] - 40)))
+        self.assertEqual(hit_at(G, FLAT, (T0[0] - 8, T0[1] - 8)), ('corner', 0, 'tl'))  # outside the desktop: now reachable
+        self.assertEqual(hit_at(G, FLAT, (T0[0] + T0[2] + 10, T0[1] + T0[3] + 10)), ('corner', 0, 'br'))
+        self.assertEqual(hit_at(G, FLAT, (T1[0] + T1[2] - 3, T1[1] + 2)), ('corner', 1, 'tr'))
+        self.assertEqual(hit_at(G, FLAT, (T1[0] + 3, T1[1] + T1[3] - 3)), ('corner', 1, 'bl'))
+        h = hit_at(G, FLAT, (T1[0] + 200, T1[1] + 100))
         self.assertEqual(h[:2], ('desktop', 1)); self.assertAlmostEqual(h[2][0], T1[0] + 200, places=2)
-        self.assertIsNone(fp.hit(G, FLAT, ((T0[0] + T0[2] + T1[0]) / 2, T0[1] + 150)))  # between desktops
-        self.assertIsNone(fp.hit(None, FLAT, (0, 0))); self.assertIsNone(fp.hit(G, FLAT, None))
+        self.assertIsNone(hit_at(G, FLAT, ((T0[0] + T0[2] + T1[0]) / 2, T0[1] + 150)))  # between desktops
+        self.assertIsNone(hit_at(None, FLAT, (0, 0))); self.assertIsNone(hit_at(G, FLAT, None))
 
     def test_the_pill_zone_never_reaches_a_corner(self):
         x0, y0 = G['w'] / 2 - 30, G['h'] / 2 - 20  # centred, so it is the canvas itself
@@ -183,7 +199,8 @@ class HitTests(unittest.TestCase):
         g = dict(G, tiles=[tile])
         z = fp.corner_zone(tile)
         for x in range(-12, 72, 2):
-            h = fp.hit(g, FLAT[:1], (x0 + x, y0 + 40 + 3))  # the gap under the desktop
+            x += 1e-6 if x in (-z, 60 - z) else -1e-6 if x in (z, 60 + z) else 0  # (a zone's edge: just inside it)
+            h = hit_at(g, FLAT[:1], (x0 + x, y0 + 40 + 3))  # the gap under the desktop
             if abs(x) <= z or abs(x - 60) <= z: self.assertEqual(h and h[0], 'corner', x)  # corners win
             elif h is not None: self.assertEqual(h, ('pill', 0), x)
 
@@ -285,17 +302,17 @@ class ModeTests(PointerBase):
         out = self.at(X1 + 960, 540)
         self.assertEqual(self.p.mode, 'desktop')
         self.assertEqual(self.p.want[1], 'away')  # no binds, cursor untouched: clicks go to windows
-        self.assertAlmostEqual(self.p.pointer[0], T0[0] + T0[2] / 2, places=2)
-        self.assertAlmostEqual(self.p.pointer[1], T0[1] + T0[3] / 2, places=2)
-        self.assertEqual(last(out, 'overview_pointer'), {'visible': True, 'x': round(T0[0] + T0[2] / 2), 'y': round(T0[1] + T0[3] / 2),
-                                                         'held': False})  # the dot there: the cursor itself is hidden
+        centre = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)  # the dot on that pixel
+        self.assertAlmostEqual(self.p.pointer[0], centre[0], places=2)
+        self.assertAlmostEqual(self.p.pointer[1], centre[1], places=2)
+        self.assertEqual(last(out, 'overview_pointer'), dot_frame(centre))  # the dot there: the cursor itself is hidden
         self.assertTrue(last(out, 'move_handle')['visible'])  # the pills are up in the overview
 
     def test_the_edge_hands_over_to_the_free_pointer(self):
         out = self.free_at_top()
         self.assertEqual(self.p.mode, 'free')
         self.assertEqual(self.p.want[1:], ('free', (X1 + 960, 540)))  # binds, hidden cursor parked mid-monitor
-        self.assertEqual(last(out, 'overview_pointer'), {'visible': True, 'x': round(T0[0] + T0[2] / 2), 'y': round(T0[1]), 'held': False})
+        self.assertEqual(last(out, 'overview_pointer'), dot_frame(fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1])))
         self.assertAlmostEqual(self.p.gain, GAIN)
         for edge in ((X1, 500), (X1 + 1919, 500), (X1 + 700, 1079)):  # every side
             self.setUp()
@@ -304,21 +321,24 @@ class ModeTests(PointerBase):
 
     def test_free_motion_moves_the_dot_anywhere_outside_the_desktops(self):
         self.free_at_top()
+        top = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1])
         out = self.move(0, -400)
-        y = T0[1] - 400 * GAIN
+        y = top[1] - 400 * GAIN
         self.assertEqual(last(out, 'overview_pointer')['y'], round(y))
         self.assertEqual(self.p.mode, 'free')
-        out = self.move(-10000, -10000)
+        out = self.move(-100000, -100000)
         # the far corner of the reach: anchor mode draws it in its direction, behind you and straight up
-        self.assertEqual(last(out, 'overview_pointer'), {'visible': True, 'x': -G['w'] // 2, 'y': -G['h'] // 2, 'held': False,
-                                                         'az': -18000, 'el': 9000})
+        ru, rv = orbit.reach(G, True)
+        self.assertEqual(self.p.pointer, (G['w'] * (1 - ru) / 2, G['h'] * (1 - rv) / 2))
+        self.assertEqual(last(out, 'overview_pointer'), {**dot_frame(self.p.pointer), 'az': -18000, 'el': 9000})
 
     def test_crossing_onto_the_next_monitor_goes_through_xr_space(self):
         self.at(X1 + 1900, 540)
         self.at(X2 + 6, 540)  # Hyprland lets the cursor onto XR-2; in the glasses there is a gap first
         self.assertEqual(self.p.mode, 'free')
         self.assertAlmostEqual(self.p.pointer[0], fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + 1919 * GAIN, 0)[0] + 7 * GAIN, places=2)
-        out = self.move_canvas(T1[0] - self.p.pointer[0] + fp.ENTER_PX + 1, 0)
+        into = fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + fp.ENTER_PX + 1, T1[1] + T1[3] / 2)  # just far enough in
+        out = self.move_canvas(into[0] - self.p.pointer[0], 0)
         self.assertEqual(self.p.mode, 'desktop')
         self.assertEqual(self.control.state.selected, 1)  # the desktop the pointer went into is selected
         self.assertEqual(last(out, 'view')['selected'], 1)
@@ -456,7 +476,7 @@ class ClickTests(PointerBase):
         self.on_pill(2); self.op('resize_press')
         x, y, w, h = fp.pill_rect(G['tiles'][2])
         grabbed = (x + w / 2, y + h / 2)
-        steps = [(G['w'] / 40, 0)] * 45 + [(0, -G['h'] / 40)] * 30 + [(-G['w'] / 40, 0)] * 110  # right, up, then left
+        steps = [(G['w'] / 40, 0)] * 180 + [(0, -G['h'] / 40)] * 30 + [(-G['w'] / 40, 0)] * 400  # right, up, then left
         worst, behind, turns = 0.0, 0, set()
         for dx, dy in steps:
             self.move_canvas(dx, dy)
@@ -465,12 +485,40 @@ class ClickTests(PointerBase):
             behind += abs(placed['x']) >= 1500
             if 0 in (placed['x'], placed['y']): continue  # held at the slot on that axis (orbit.SNAP)
             worst = max(worst, self.off_dot(2, grabbed))
-        self.assertEqual(self.p.pointer[0], -G['w'] / 2)  # the far left of the reach
+        self.assertEqual(self.p.pointer[0], G['w'] * (1 - orbit.reach(G, True)[0]) / 2)  # the far left of the reach
         self.assertGreater(behind, 20)  # it went round behind you...
         self.assertLessEqual({-3, -2, -1, 0, 1, 2}, turns)  # ...through every sixth of the turn
         self.assertLess(worst, 0.1)  # on the dot to the wire's tenth of a degree
         self.op('resize_release')
         self.assertEqual(self.store.saved[2]['x'], self.control.state.placements[2]['x'])
+
+    def test_a_steady_mouse_turns_a_dragged_desktop_at_a_steady_angle_all_the_way_round(self):
+        # Regression (installed master 56b7a5c, drag-speed-linear): past a certain angle from the centre (the view's
+        # edge) the dot's reach was stretched quadratically toward behind you, so the dragged desktop sped up ~12x and
+        # stopped following the mouse's speed. Now every mouse pixel turns the dot, and the desktop under it, the same
+        # angle from the front to directly behind you: equal mouse steps, equal turns.
+        self.assertEqual(self.control.state.mode, 'anchor')
+        self.on_pill(2); self.op('resize_press')
+        x, y, w, h = fp.pill_rect(G['tiles'][2])
+        grabbed = (x + w / 2, y + h / 2)
+        def azimuth(): return math.degrees(orbit.pointer_direction(G, self.p.pointer)[0])
+        def placed_azimuth():
+            d = fp.place_point(G, G['tiles'][2], self.control.state.placements[2], *grabbed)
+            return math.degrees(math.atan2(d[0], -d[2]))
+        step = 40  # mouse px per sample
+        per_px = math.degrees(2 * G['half'][0] / G['w']) * self.p.gain  # degrees per mouse pixel
+        dots, turns = [azimuth()], []
+        while dots[-1] + step * per_px < 179:
+            self.move(step, 0)
+            dots.append(azimuth())
+            if self.control.state.placements[2]['x'] != 0: turns.append(placed_azimuth())
+        self.assertGreater(dots[-1], 170)  # directly behind you, at the same speed
+        for a, b in zip(dots, dots[1:]):
+            self.assertAlmostEqual(b - a, step * per_px, places=6)
+        self.assertGreater(len(turns), 100)
+        for a, b in zip(turns, turns[1:]):  # the desktop keeps pace with the dot, to the wire's tenth of a degree
+            self.assertAlmostEqual(b - a, step * per_px, delta=0.11)
+        self.op('resize_release')
 
     def test_a_pill_far_round_you_lights_up_under_the_dot_and_drags_on(self):
         from tests.native_spike.test_orbit import direction, pointer_for
@@ -482,7 +530,7 @@ class ClickTests(PointerBase):
         out = self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
         self.assertEqual(self.p.hover, ('pill', 2))
         self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 2, 'hover': True, 'active': False})
-        self.assertIsNone(fp.hit(G, self.control.state.placements, aim))  # follow / locked: no stretch, nothing there
+        self.assertGreater(abs(aim[0] - G['w'] / 2), G['w'] * orbit.REACH / 2)  # past follow / locked mode's reach
         self.op('resize_press')
         self.move_canvas(-40, -60)  # (lifted past the slot's half-degree SNAP, so only the wire's rounding is left)
         self.assertLess(self.control.state.placements[2]['x'], 1200)  # back toward the front...
@@ -517,8 +565,9 @@ class ClickTests(PointerBase):
                 if f['op'] == 'overview_pointer':
                     self.assertLessEqual(abs(f['payload']['x']), fp.MAX_POINTER_PX)
                     self.assertLessEqual(abs(f['payload']['y']), fp.MAX_POINTER_PX)
-        self.move_canvas(G['w'] * 3, G['h'] * 3)
-        self.assertEqual(self.p.pointer, (G['w'] * 1.5, G['h'] * 1.5))
+        self.move_canvas(G['w'] * 30, G['h'] * 30)
+        ru, rv = orbit.reach(G, True)
+        self.assertEqual(self.p.pointer, (G['w'] * (1 + ru) / 2, G['h'] * (1 + rv) / 2))
 
     def test_in_follow_and_locked_modes_the_desktop_only_follows_the_dot(self):
         self.control.state.mode = 'locked'
@@ -785,7 +834,7 @@ class SamplerTests(unittest.TestCase):
         self.assertTrue(self.wait(lambda: self.p.mode == 'free'))
         client.cursor = (X1 + 960, 540 - 250)  # the hidden cursor strays: put back, motion still counted
         self.assertTrue(self.wait(lambda: client.count('warp') >= 1))
-        self.assertLess(self.p.pointer[1], T0[1] - 250 * GAIN + 1)
+        self.assertLess(self.p.pointer[1], fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1])[1] - 250 * GAIN + 1)
         client.cursor = (X1 + 960, 540 + 250 + 120)  # down, into the desktop
         self.assertTrue(self.wait(lambda: client.count('release') == 1))
         self.assertTrue(self.wait(lambda: self.p.mode == 'desktop'))

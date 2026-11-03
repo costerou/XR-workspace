@@ -230,7 +230,7 @@ With the dot:
 Hit testing order: an open panel is drawn on top (the renderer draws its desktop's glass last, over every other pill),
 so it is tested first (the pointer is mapped onto the open desktop's surface, where the panel is drawn). Then, front
 desktop first, each desktop's corners, its pill zone and the desktop itself. Everything is hit along the dot's own
-direction, which in anchor mode is stretched round you past the view, where the renderer draws the dot (below).
+direction, the one the renderer draws the dot in (below).
 
 Hit testing uses the same maths the renderer draws with (`spike/src/view.cpp` `place_point`, mirrored in
 `tools/native_spike/orbit.py`), including the orbit round you, distance and curvature, with every desktop facing you,
@@ -362,14 +362,17 @@ rotation about the eye Az(a0 + x) · El(y) · Az(−a0) (`orbit.rotation`), whic
 and the guard's footprints use. The yaw, pitch and roll settings, which used to turn a desktop in place, were removed
 on 2026-11-02 from the settings panel, the glass panel, the wire and the profiles.
 
-**The dot round you** (anchor mode, the desktops fixed in the room). The dot can go half a view past each edge of the
-view (`OverviewPointer._clamp`), and that reach is stretched smoothly (`orbit.pointer_direction`): its far left and
-right ends point directly behind you and its top and bottom ends straight up and down. The renderer draws the dot in
-that direction: past the view the `overview_pointer` frame also carries `az` / `el` (hundredths of a degree) and the
-dot is drawn there (`direction_disc`, the same disc turned round the eye, identical to the flat one at the view's edge
-so it never jumps). Inside the view the stretch changes nothing. Everything else reads the same direction: the hit
-test (`free_pointer.hit`), and in desktop mode the cursor's spot on a desktop placed round you, so what the dot is
-drawn on is what it hovers and clicks. Follow and locked modes turn the view with your head: no stretch there.
+**The dot round you.** The dot's direction is linear in the pointer (`orbit.pointer_direction`): every mouse pixel
+turns it the same angle, across the whole view and all the way round, at the overview plane's own rate at the view's
+centre (`half / (canvas / 2)` radians per canvas pixel, about 0.02° in the default layout, times the pointer's gain).
+In anchor mode (the desktops fixed in the room) its reach (`OverviewPointer._clamp`, `orbit.reach`) goes on to
+directly behind you (±180°) and straight up and down (±90°); follow and locked modes turn the view with your head, and
+there it goes half a view past each edge. The renderer always draws the dot in that direction: the `overview_pointer`
+frame carries `az` / `el` (hundredths of a degree) and the dot is drawn there (`direction_disc`, the flat disc turned
+round the eye). Everything else reads the same direction: the hit test (`free_pointer.hit`, the ray met on the
+overview's plane after the desktop's orbit is turned back), the help card (reported on the plane, so the ray is met
+there), and in desktop mode the cursor's spot on a desktop wherever it is placed, so what the dot is drawn on is what
+it hovers and clicks.
 
 **The drag.** The point you grabbed stays exactly under the dot (`orbit.drag_target`, `orbit.PillDrag`): at the
 press the dot's ray is turned back into the desktop's own frame (`orbit.grab_point`), and every move solves for the
@@ -380,7 +383,11 @@ brings a point off its middle only so close. Left/right wraps round behind you; 
 
 - Until 2026-11-02 (drag-cursor-sync) the drag read the stretched direction while the dot was drawn on the overview's
   plane, so once the dot left the view the desktop ran ahead of it, faster the further out.
-- Whether a drag is stretched is fixed when it starts. Its target is followed unwrapped and only wrapped for the wire,
+- Until 2026-11-02 (drag-speed-linear) the dot itself was the pointer's ray through the plane inside the view (an
+  `atan`) and, in anchor mode, a quadratic stretch from the view's edge to behind you over only half a view, so past
+  the edge each mouse pixel turned the dot and the dragged desktop up to about 16 times as far as at the edge: the
+  drag sped up and stopped following the mouse. Now it is the same angle per pixel everywhere.
+- The drag's reach (anchor mode's or not) is fixed when it starts. Its target is followed unwrapped and only wrapped for the wire,
   so a desktop held against a neighbour does not flip round the other way when the target passes behind you.
 
 **No overlap.** Desktops never overlap as seen from your eye. Each desktop's footprint is the set of directions from

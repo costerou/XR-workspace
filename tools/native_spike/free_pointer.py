@@ -48,10 +48,11 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
     the same placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front
-    desktop first. The overview's slots never move with head pose, so neither does this. In anchor mode the dot's
-    reach past the view is stretched round you (orbit.pointer_direction): the renderer draws it in that direction (the
-    `overview_pointer` frame's az / el), and the hit test and the desktop-mode cursor mapping (project / unproject with
-    `around`) read the same direction, so what the dot is drawn on is what it hits, anywhere round you.
+    desktop first. The overview's slots never move with head pose, so neither does this. The dot's direction is
+    linear in the pointer (orbit.pointer_direction: the same angle per mouse pixel everywhere), and in anchor mode its
+    reach goes all the way round you (orbit.reach): the renderer always draws it in that direction (the
+    `overview_pointer` frame's az / el), and the hit test and the desktop-mode cursor mapping (project / unproject) read
+    the same direction, so what the dot is drawn on is what it hits, anywhere round you.
   * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
     point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you), and
     it never overlaps another desktop. A corner drag changes `distance` so the corner
@@ -127,6 +128,7 @@ CLICK_PX = 4.0            # a pill press moving less than this (canvas px) befor
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
+EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
 # Roll-level icons (glass.hpp kRollIconPx / kRollIconGap: size and gap above the top corner as you see it, tile px times the
 # desktop's distance), the padding that still grabs one, how far from level (1/100 degree) a desktop shows one, and the
@@ -253,23 +255,33 @@ def to_canvas(g, point):
     return out if abs(out[0]) <= MAX_POINTER_PX and abs(out[1]) <= MAX_POINTER_PX else None
 
 
-def project(g, tile, p, px, py, around=False):
-    """Where tile pixel (px, py) of a placed desktop appears on the overview plane (canvas px), or None. `around` (anchor
-    mode): the pointer position whose dot (orbit.pointer_direction, stretched past the view) lies on that pixel, which
-    is anywhere round you within the pointer's reach."""
-    point = place_point(g, tile, p, px, py)
-    return orbit.pointer_at(g, point, True) if around else to_canvas(g, point)
+def project(g, tile, p, px, py):
+    """The pointer position (canvas px) whose dot (orbit.pointer_direction) lies on tile pixel (px, py) of a placed
+    desktop: anywhere round you, never None."""
+    return orbit.pointer_at(g, place_point(g, tile, p, px, py))
 
 
-def unproject(g, tile, p, pointer, around=False):
+def _flat(g, tile, p, px, py):
+    """Where tile pixel (px, py) of a placed desktop appears on the overview plane (canvas px), or None."""
+    return to_canvas(g, place_point(g, tile, p, px, py))
+
+
+def _onto_edges(tile, q):
+    """Tile pixel q, put exactly on the desktop's edge when within EDGE_SNAP_PX of it: the dot leaves a desktop on its
+    edge (OverviewPointer._absolute), and the ray's round trip back to it is exact only to ~1e-13 px."""
+    tx, ty, tw, th = tile
+    def snap(v, lo, hi): return lo if abs(v - lo) < EDGE_SNAP_PX else hi if abs(v - hi) < EDGE_SNAP_PX else v
+    return (snap(q[0], tx, tx + tw), snap(q[1], ty, ty + th))
+
+
+def unproject(g, tile, p, pointer):
     """The tile pixel (px, py) that appears under the dot at canvas point `pointer` on a placed desktop's surface, or None
-    when the dot's ray misses that surface. `around` (anchor mode): the dot's ray is stretched past the view
-    (orbit.pointer_ray). An orbit (x / y) is a rotation about the eye, so the ray is turned back by it first
-    (orbit.unorbit_ray). Newton's method on `project`, started from the exact flat answer."""
-    if p['x'] or p['y'] or (around and orbit.beyond_view(g, pointer)):
-        pointer = orbit.unorbit_ray(g, tile, p, pointer, around)
-        if pointer is None: return None
-        p = {**p, 'x': 0, 'y': 0}
+    when the dot's ray (orbit.pointer_ray) misses that surface. The ray is met on the overview's plane, turned back first
+    by the desktop's orbit (x / y, a rotation about the eye: orbit.unorbit_ray). Newton's method on that flat
+    projection, started from the exact flat answer."""
+    pointer = orbit.unorbit_ray(g, tile, p, pointer)
+    if pointer is None: return None
+    p = {**p, 'x': 0, 'y': 0}
     tx, ty, tw, th = tile
     cx, cy = tx + tw / 2, ty + th / 2
     d = p['distance'] / 100
@@ -279,12 +291,12 @@ def unproject(g, tile, p, pointer, around=False):
     q = [cx + ax, cy - av]
     limit = 4 * max(tw, th)
     for _ in range(16):
-        f = project(g, tile, p, q[0], q[1])
+        f = _flat(g, tile, p, q[0], q[1])
         if f is None: return None
         ex, ey = f[0] - pointer[0], f[1] - pointer[1]
-        if abs(ex) < 0.01 and abs(ey) < 0.01: return (q[0], q[1])
+        if abs(ex) < 0.01 and abs(ey) < 0.01: return _onto_edges(tile, q)
         step = 0.5
-        fx, fy = project(g, tile, p, q[0] + step, q[1]), project(g, tile, p, q[0], q[1] + step)
+        fx, fy = _flat(g, tile, p, q[0] + step, q[1]), _flat(g, tile, p, q[0], q[1] + step)
         if fx is None or fy is None: return None
         a, b = (fx[0] - f[0]) / step, (fy[0] - f[0]) / step
         c, e = (fx[1] - f[1]) / step, (fy[1] - f[1]) / step
@@ -293,8 +305,8 @@ def unproject(g, tile, p, pointer, around=False):
         dx, dy = (e * ex - b * ey) / det, (a * ey - c * ex) / det
         q = [q[0] - dx, q[1] - dy]
         if abs(q[0] - cx) > limit or abs(q[1] - cy) > limit: return None
-    f = project(g, tile, p, q[0], q[1])
-    return (q[0], q[1]) if f is not None and math.hypot(f[0] - pointer[0], f[1] - pointer[1]) < 0.5 else None
+    f = _flat(g, tile, p, q[0], q[1])
+    return _onto_edges(tile, q) if f is not None and math.hypot(f[0] - pointer[0], f[1] - pointer[1]) < 0.5 else None
 
 
 def corner_zone(tile):
@@ -343,24 +355,24 @@ def front_order(g, placements):
     return sorted(range(n), key=depth)
 
 
-def hit(g, placements, pointer, open_=None, around=False, icons=None):
+def hit(g, placements, pointer, open_=None, icons=None):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)); then each desktop front to back: ('roll', index, 'ccw'|'cw') on its roll-level icon (`icons`: per
     desktop None or the side shown, roll_side), ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
-    ('desktop', index, (px, py) tile pixel). None if nothing. `around` (anchor mode): the dot's ray is stretched past the
-    view (orbit.pointer_ray, where the renderer draws the dot), so anything placed anywhere round you can be reached."""
+    ('desktop', index, (px, py) tile pixel). None if nothing. Tested along the dot's ray (orbit.pointer_ray, where the
+    renderer draws the dot), so anything placed anywhere round you can be reached."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
         tile = g['tiles'][open_]
-        q = unproject(g, tile, placements[open_], pointer, around)
+        q = unproject(g, tile, placements[open_], pointer)
         if q is not None:
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
     for i in front_order(g, placements):
         tile = g['tiles'][i]
-        q = unproject(g, tile, placements[i], pointer, around)
+        q = unproject(g, tile, placements[i], pointer)
         tx, ty, tw, th = tile
         if q is not None:
             side = icons[i] if icons is not None and i < len(icons) else None
@@ -403,7 +415,7 @@ def resize_distance(start, corner, dx, dy, tile):
 
 
 def overview_pointer_frame(run_id, session, request_id, pointer):
-    """Renderer `overview_pointer` frame: {visible, x, y, held} and, past the view in anchor mode, {az, el}: x/y canvas
+    """Renderer `overview_pointer` frame: {visible, x, y, held} and, while the dot is shown, {az, el}: x/y canvas
     px, az / el the dot's direction in hundredths of a degree (orbit.pointer_direction; the renderer draws the dot
     there). spike/src/ipc.cpp checks the same."""
     keys = {'visible', 'x', 'y', 'held'}
@@ -555,8 +567,13 @@ class OverviewPointer:
 
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
-        return help_hit(self._help(), self.pointer) or hit(self.geometry, self._rolled(), self.pointer, self._open(),
-                                                          around=self._around(), icons=self._icons())
+        return self._on_help() or hit(self.geometry, self._rolled(), self.pointer, self._open(), icons=self._icons())
+
+    def _on_help(self, margin=0.0):
+        """help_hit for the dot: the card is reported on the overview's plane, so the dot's ray is met there."""
+        help_ = self._help()
+        if not help_ or self.pointer is None or self.geometry is None: return None
+        return help_hit(help_, orbit.plane_at(self.geometry, orbit.pointer_ray(self.geometry, self.pointer)), margin)
 
     def _rolled(self):
         """The placements as drawn: each with its levelling roll (orbit.place_point's 'roll') when it has one."""
@@ -572,8 +589,9 @@ class OverviewPointer:
                 for i in range(len(self.control.state.placements))]
 
     def _around(self):
-        """Anchor mode: the dot's reach past the view is stretched round you (orbit.pointer_direction)."""
-        return self.control.state.mode == 'anchor'
+        """Anchor mode: the dot's reach goes all the way round you (orbit.reach). A drag keeps the reach it started with."""
+        d = getattr(self, 'drag', None)
+        return d['around'] if d is not None and 'around' in d else self.control.state.mode == 'anchor'
 
     def _output(self, index):
         return next((o for o in self.outputs if o['index'] == index), None)
@@ -590,8 +608,7 @@ class OverviewPointer:
     def _from_logical(self, i, lx, ly):
         o, tile, p = self._output(i), self._tile(i), self._placement(i)
         if o is None or tile is None or p is None: return None
-        return project(self.geometry, tile, p, tile[0] + lx / o['width'] * tile[2], tile[1] + ly / o['height'] * tile[3],
-                       around=self._around())
+        return project(self.geometry, tile, p, tile[0] + lx / o['width'] * tile[2], tile[1] + ly / o['height'] * tile[3])
 
     def _to_layout(self, i, q):
         """Tile pixel q of desktop i -> integer layout pixel inside its monitor (at least INSET_PX from every edge)."""
@@ -599,7 +616,7 @@ class OverviewPointer:
         if o is None or tile is None: return None
         lx = min(max((q[0] - tile[0]) / tile[2] * o['width'], INSET_PX), o['width'] - 1 - INSET_PX)
         ly = min(max((q[1] - tile[1]) / tile[3] * o['height'], INSET_PX), o['height'] - 1 - INSET_PX)
-        return (int(o['x'] + lx), int(o['y'] + ly))
+        return (int(o['x'] + lx + 0.5), int(o['y'] + ly + 0.5))  # the nearest pixel (lx, ly >= 0)
 
     def _gain(self, i):
         o, tile, p = self._output(i), self._tile(i), self._placement(i)
@@ -607,8 +624,11 @@ class OverviewPointer:
         return tile[2] / o['width'] * 100 / p['distance']
 
     def _clamp(self, point):
+        """The pointer kept within its reach (orbit.reach): in anchor mode to directly behind you and the poles."""
         g = self.geometry
-        return (min(max(point[0], -g['w'] / 2), g['w'] * 1.5), min(max(point[1], -g['h'] / 2), g['h'] * 1.5))
+        ru, rv = orbit.reach(g, self._around())
+        return (min(max(point[0], g['w'] * (1 - ru) / 2), g['w'] * (1 + ru) / 2),
+                min(max(point[1], g['h'] * (1 - rv) / 2), g['h'] * (1 + rv) / 2))
 
     def _at(self, cursor):
         """(index, lx, ly) of the XR monitor holding layout point `cursor`, or None."""
@@ -726,7 +746,7 @@ class OverviewPointer:
         with the head over a still cursor): the card is on top, so the pointer turns into the free dot right there and
         the left button goes to the run, not to the window hidden under the card."""
         o = self._output(self.desktop)
-        if self.mode != 'desktop' or o is None or help_hit(self._help(), self.pointer) is None: return
+        if self.mode != 'desktop' or o is None or self._on_help() is None: return
         self.gain = self._gain(self.desktop)
         self.mode = 'free'
         self.exits += 1
@@ -746,7 +766,7 @@ class OverviewPointer:
         if self.drag is not None: return self._apply_drag()
         self.hover = self._hit()
         if self.hover is not None and self.hover[0] == 'desktop' and inside_by(self._tile(self.hover[1]), self.hover[2]) >= ENTER_PX \
-                and help_hit(self._help(), self.pointer, ENTER_PX) is None:  # ENTER_PX clear of the help card too
+                and self._on_help(ENTER_PX) is None:  # ENTER_PX clear of the help card too
             return self._enter(self.hover[1], self.hover[2])
         return b''
 
@@ -791,14 +811,14 @@ class OverviewPointer:
             if h is not None and h[0] == 'roll':
                 i, tile = h[1], self._tile(h[1])
                 p = self._placement(i)
-                centre = project(self.geometry, tile, p, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2, around=self._around())
+                centre = project(self.geometry, tile, p, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
                 level = min(max(-self._tilt(i), -MAX_ROLL), MAX_ROLL) if self._tilt(i) is not None else self.rolls[i]
                 self.drag = {'kind': 'roll', 'index': i, 'side': h[2], 'start': self.pointer, 'from': self.rolls[i], 'level': level,
                              'centre': centre if centre is not None else (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2), 'moved': False}
             elif h is not None and h[0] in ('corner', 'pill'):
                 i, tile, p = h[1], self._tile(h[1]), self._placement(h[1])
                 if h[0] == 'corner':
-                    q = unproject(self.geometry, tile, p, self.pointer, self._around())  # the corner zone's inner half is on the desktop
+                    q = unproject(self.geometry, tile, p, self.pointer)  # the corner zone's inner half is on the desktop
                     on = q if q is not None and inside_by(tile, q) >= 0 else None
                     self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile,
                                  'on': on}  # a release there that resized nothing is a click on the desktop: it zooms in
@@ -832,7 +852,7 @@ class OverviewPointer:
             # A key that collapsed or moved the panel meanwhile dropped that surface: the rest of this drag does nothing.
             if c.state.menu_surface is None: return b''
             roll = self.rolls[d['index']] if d['index'] < len(self.rolls) else 0
-            q = unproject(self.geometry, d['tile'], {**d['placement'], 'roll': roll}, self.pointer, self._around())
+            q = unproject(self.geometry, d['tile'], {**d['placement'], 'roll': roll}, self.pointer)
             if q is None: return b''
             return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
         dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
@@ -856,7 +876,7 @@ class OverviewPointer:
                 d['moved'] = True
                 self.moves += 1
             if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, never overlapping (orbit.py)
-                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], around=d['around'])
+                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'])
             x, y = d['orbit'].follow(self.pointer, c.state.placements)
             updated = {**current, 'x': x, 'y': y}
         if updated == current: return b''
@@ -927,11 +947,13 @@ class OverviewPointer:
         """The dot: in desktop and free mode (the real cursor is hidden in both: overview_cursor.py), hidden when idle."""
         p = self.pointer
         if self.mode in DOT_MODES and p is not None and not idle and self.active():
-            want = {'visible': True, 'x': int(math.floor(p[0] + 0.5)), 'y': int(math.floor(p[1] + 0.5)), 'held': self.drag is not None}
-            if self._around() and orbit.beyond_view(self.geometry, p):  # stretched round you: drawn in its direction
-                az, el = orbit.pointer_direction(self.geometry, p, True)
-                want['az'] = min(max(round(math.degrees(az) * 100), -MAX_POINTER_AZ), MAX_POINTER_AZ)
-                want['el'] = min(max(round(math.degrees(el) * 100), -MAX_POINTER_EL), MAX_POINTER_EL)
+            # Always drawn in its direction (linear, anywhere round you), at the whole canvas pixel the frame carries.
+            px, py = (int(math.floor(c + 0.5)) for c in p)
+            az, el = orbit.pointer_direction(self.geometry, (px, py))
+            x, y = (min(max(c, -MAX_POINTER_PX), MAX_POINTER_PX) for c in (px, py))
+            want = {'visible': True, 'x': x, 'y': y, 'held': self.drag is not None,
+                    'az': min(max(round(math.degrees(az) * 100), -MAX_POINTER_AZ), MAX_POINTER_AZ),
+                    'el': min(max(round(math.degrees(el) * 100), -MAX_POINTER_EL), MAX_POINTER_EL)}
         else:
             want = {**self.sent, 'visible': False, 'held': False}
         if want == self.sent: return b''

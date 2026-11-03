@@ -42,7 +42,7 @@ class PureTests(unittest.TestCase):
         near, far = ({**FLAT, 'distance': d} for d in (100, 200))
         def apparent(p):
             x, y, w, h = fp.roll_icon_rect(tile, 'cw', p['distance'] / 100)
-            a, b = fp.project(G, tile, p, x, y + h / 2), fp.project(G, tile, p, x + w, y + h / 2)
+            a, b = fp._flat(G, tile, p, x, y + h / 2), fp._flat(G, tile, p, x + w, y + h / 2)  # on the overview's plane
             return math.hypot(b[0] - a[0], b[1] - a[1])
         self.assertAlmostEqual(apparent(near), apparent(far), delta=0.05)
         self.assertAlmostEqual(apparent(near), fp.ROLL_ICON_PX, delta=1.0)
