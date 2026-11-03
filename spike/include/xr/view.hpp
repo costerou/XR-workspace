@@ -55,19 +55,20 @@ std::vector<MeshVertex> tile_mesh(const Canvas& canvas, const FRect& tile, const
 float zoom_weight(float zoom, float position, std::size_t index);
 Placement faded(const Placement& placement, float weight);
 // The placements the desktops are drawn with at `zoom` / `position` (ViewAnimator's eased values), `overview` being the
-// overview layout (where the orbits were dragged) and `tiles` the blended layout being drawn. The zoomed desktop's distance
-// fades to 1 (faded(placement, zoom_weight(...))) so it fills the view, and it goes to one of two places:
-//   - where it is: with `keep_place` (anchor mode) and its overview direction (slot plus orbit) within
-//     kZoomInPlaceMaxRad of straight ahead, it keeps that direction round you all the way in and grows there;
-//   - straight ahead: otherwise (dragged far to the side, above / below or behind you in anchor mode; always in locked
-//     and follow modes) it moves from where it is to flat in front of you, the canvas centre.
-// The others follow it as its row: at full zoom each is at its zoomed-row slot turned by the zoomed desktop's direction
-// (none when it is straight ahead), keeping its distance and curvature. Between two desktops (fractional position) the
-// direction blends the short way round. zoom 0 (the overview): `placements` unchanged. `placements` shorter than `tiles`
-// leaves the rest at the default.
-constexpr float kZoomInPlaceMaxRad = 60.f * 3.14159265f / 180.f;
+// overview layout (where the orbits were dragged) and `tiles` the blended layout being drawn. Zooming never moves a
+// desktop round you, in every viewing mode (anchor, locked, follow) and however far it was dragged:
+//   - every desktop keeps its overview direction (slot plus orbit) at every zoom: its orbit is corrected for its slot's
+//     motion between the overview and `tiles`;
+//   - the zoomed desktop's distance fades to 1 (zoom_weight), so it grows where it is until it fills the view there;
+//   - every other desktop also keeps its overview size: its distance scales with its tile, so it is drawn exactly as in
+//     the overview (a uniform scale about the eye), curvature included.
+// Nothing ever goes back to its default place or snaps straight ahead. zoom 0 (the overview): `placements` unchanged.
+// `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<Placement> zoomed_placements(const Canvas& canvas, std::span<const FRect> overview, std::span<const FRect> tiles,
-                                         std::span<const Placement> placements, float zoom, float position, bool keep_place);
+                                         std::span<const Placement> placements, float zoom, float position);
+// Back-to-front draw order with the zoom target last (on top) once zoomed in past halfway (zoom >= 0.5): a desktop
+// dragged nearer than the zoomed one never covers it. Below that, `order` unchanged. `target` outside it: unchanged.
+std::vector<std::size_t> zoom_draw_order(std::vector<std::size_t> order, float zoom, std::size_t target);
 // Back-to-front draw order by distance of each desktop's centre (painter's algorithm; intersecting desktops
 // are not split). `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);
@@ -102,27 +103,25 @@ std::vector<Vec3> canvas_disc(const Canvas& canvas, float x, float y, float radi
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h);
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 
-// Time-based animation toward targets (no frame-rate dependence).
-// Zoom and spacing ease with smoothstep over `duration_ms`. Switching desktops (position) has its
-// own gentle ease-in/ease-out over `move_ms`; pressing again mid-move keeps the current speed
-// (capped so it never overshoots) instead of stopping and restarting.
+// Time-based animation toward targets (no frame-rate dependence). Zoom and spacing ease with smoothstep over
+// `duration_ms`. Switching desktops (Ctrl+Alt+Left / Right, cursor follow, a dot click) is instant in every viewing mode:
+// position() is the selected desktop at once, with no slide.
 class ViewAnimator {
 public:
-    explicit ViewAnimator(float duration_ms = 220.f, float move_ms = 300.f) : duration_(duration_ms), move_(move_ms) {}
+    explicit ViewAnimator(float duration_ms = 220.f) : duration_(duration_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms);
     void advance(double now_ms);
-    bool animating() const { return t_ < 1.f || move_t_ < 1.f; }
+    bool animating() const { return t_ < 1.f; }
     float zoom() const;      // eased current zoom in [0,1]
-    float position() const;  // eased current position
-    float velocity() const;  // position units per ms
+    float position() const { return float(to_selected_); }  // the selected desktop: switching never animates
     float spacing() const;
     float target_spacing() const { return to_spacing_; }  // where spacing() is heading (the overview's settled layout)
     std::uint32_t selected() const { return to_selected_; }
 private:
-    float duration_, move_;
-    double start_ms_ = 0, move_start_ms_ = 0;
-    float t_ = 1.f, move_t_ = 1.f;
-    float from_zoom_ = 0, to_zoom_ = 0, from_pos_ = 0, from_vel_ = 0, from_spacing_ = 40, to_spacing_ = 40;
+    float duration_;
+    double start_ms_ = 0;
+    float t_ = 1.f;
+    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40;
     std::uint32_t to_selected_ = 0;
 };
 }

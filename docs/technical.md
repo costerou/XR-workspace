@@ -113,7 +113,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
-Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop in anchor mode zooms into it where it is when it is within 60° of straight ahead: it keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, and keeps its curvature. Dragged farther (far to the side, high or low, or behind you), and always in locked and follow modes, it comes flat in front of you instead (straight ahead of the anchor in anchor mode, of the view in locked and follow modes). The other desktops follow it as its row, keeping their distance and curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
+Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming in and back out never moves a desktop, in every viewing mode (anchor, locked and follow) and however far it was dragged: the zoomed desktop keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, keeps its curvature and is drawn on top; every other desktop stays exactly where and as large as it was in the overview. Nothing snaps straight ahead or back to its default place (`zoomed_placements`, since 2026-11-02). Ctrl+Alt+Left / Right switch desktops instantly, with no slide, in every mode; a free-pointer click on a desktop is the main way to pick one. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
 
@@ -263,9 +263,8 @@ The size has limits and is saved like the other placements:
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
-- Zooming into a desktop brings it full size where it is (its dragged place round you) in anchor mode within 60° of
-  straight ahead, and flat in front of you otherwise. The bracket and the pills only show in
-  the overview.
+- Zooming into a desktop brings it full size where it is (its dragged place round you), in every viewing mode; the
+  others stay where they are. The bracket and the pills only show in the overview.
 
 Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
 overview all desktops share one height, so pixel count only changes sharpness, never size. A free-aspect resize could
@@ -350,8 +349,8 @@ this way, in float, and `tools/native_spike/orbit.py` `place_point` mirrors it e
 
 So `x = y = 0` is no longer the flat canvas plane for a desktop off the middle of the view: the side desktops of the
 default row now turn to face you. A centred desktop at Distance 100 is still exactly in the plane z = −1, and zooming
-brings the zoomed desktop to that distance in the direction it was dragged to in anchor mode within 60° of straight ahead,
-else straight ahead (`zoomed_placements`). Moving a desktop from its slot is the rigid
+brings the zoomed desktop to that distance in the direction it was dragged to, in every viewing mode, and leaves the others
+where they are (`zoomed_placements`). Moving a desktop from its slot is the rigid
 rotation about the eye Az(a0 + x) · El(y) · Az(−a0) (`orbit.rotation`), which hit testing (`orbit.unorbit_pointer`)
 and the guard's footprints use. The yaw, pitch and roll settings, which used to turn a desktop in place, were removed
 on 2026-11-02 from the settings panel, the glass panel, the wire and the profiles.
@@ -395,11 +394,14 @@ pixel font, for width), Distance in percent and Curvature in degrees. The settin
 ("12.5°"), and its one-line summary reads like "moved 12.5° right, 3° up". Its preview keeps a desktop beside or behind
 you at the end of the row.
 
-**Zoom.** Zooming into a desktop still brings it flat and full size in front of you (`faded`): it is centred, so
-facing you is the same as flat. The other desktops' orbits fade with the zoom (`zoomed_placement`: `x` and `y` scaled
-by 1 − zoom), so while zoomed they are back at their row slots beside it, facing you and keeping their distance and
-curvature, and they go back out on zoom-out. An orbit is an angle round you, which does not fit the zoomed layout's
-spread-out slots.
+**Zoom.** Since 2026-11-02 zooming never moves a desktop round you, in any viewing mode (`zoomed_placements`). Each
+desktop's orbit is corrected for its slot's move between the overview and the zoomed layout, so its centre keeps its
+overview direction. The zoomed desktop's distance blends to 1 (`zoom_weight`), so it grows where it is until it fills
+the view there, curvature kept, and from halfway in it is drawn on top (`zoom_draw_order`). Every other desktop's
+distance scales with its tile (times the ratio of the slots' radii), a uniform scale about the eye, so it looks exactly
+as in the overview. Zooming out returns every placement unchanged. The earlier 60° cutoff in anchor mode, the snap
+straight ahead in locked and follow modes and the row the others used to follow are gone. Switching desktops is instant
+(`ViewAnimator::position` is the selected desktop).
 
 The position is saved to the glasses model's profile like a size (half a second after the last change, and on
 release), and the panel's **Place** tab shows it.

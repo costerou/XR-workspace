@@ -8,8 +8,6 @@ using namespace xr;
 bool near(float a, float b, float eps = 0.5f) { return std::fabs(a - b) <= eps; }
 bool same(const FRect& r, FRect e) { return near(r.x, e.x, 1e-3f) && near(r.y, e.y, 1e-3f) && near(r.width, e.width, 1e-3f) && near(r.height, e.height, 1e-3f); }
 
-static float lerp_test(float a, float b, float t) { return a + (b - a) * t; }
-
 int main() {
     const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
     // Overview: 3 x 16:9 desktops in 1920x1200 with 40 px gaps and margins.
@@ -75,52 +73,35 @@ int main() {
     for (float t = 0; t < 1; t += 0.1f) CHECK(smoothstep(t + 0.1f) >= smoothstep(t));
 
     // Animator: time-based, reaches target exactly, retargets from the current state.
-    ViewAnimator a(200, 200);
+    ViewAnimator a(200);
     a.set_target(false, 0, 40, 0); a.advance(1000);
     CHECK(!a.animating() && a.zoom() == 0 && a.position() == 0);
     a.set_target(true, 2, 40, 1000);
-    a.advance(1100); CHECK(a.animating() && a.zoom() > 0 && a.zoom() < 1 && a.position() > 0 && a.position() < 2);
+    CHECK(a.position() == 2);  // the switch is instant (no advance needed); the zoom eases
+    a.advance(1100); CHECK(a.animating() && a.zoom() > 0 && a.zoom() < 1 && a.position() == 2);
     a.advance(1200); CHECK(!a.animating() && a.zoom() == 1 && a.position() == 2 && a.selected() == 2);
     a.set_target(true, 1, 120, 1200); a.advance(1300);
-    const float halfway = a.position();
-    CHECK(halfway > 1 && halfway < 2 && a.spacing() > 40 && a.spacing() < 120);
-    a.set_target(false, 1, 120, 1300);  // retarget mid-flight: continues from current position
-    a.advance(1300); CHECK(near(a.position(), halfway, 1e-3f));
-    a.advance(2000); CHECK(a.zoom() == 0 && a.position() == 1 && a.spacing() == 120);
-    a.set_target(true, 9, 9999, 2000); a.advance(3000);  // selection and spacing are clamped
+    CHECK(a.position() == 1 && a.spacing() > 40 && a.spacing() < 120);
+    a.advance(2000); CHECK(a.zoom() == 1 && a.position() == 1 && a.spacing() == 120);
+    a.set_target(false, 1, 120, 2000); a.advance(2100); CHECK(a.zoom() > 0 && a.zoom() < 1 && a.position() == 1);
+    a.advance(3000); CHECK(a.zoom() == 0 && !a.animating());
+    a.set_target(true, 9, 9999, 3000); a.advance(4000);  // selection and spacing are clamped
     CHECK(a.selected() == 2 && a.spacing() == float(kMaxSpacing));
 
-    // Desktop switch: gentle ease-in/out, momentum kept across quick presses, never overshoots.
+    // Regression (Ctrl+Alt+Left / Right): switching desktops snaps straight to the target, zoomed in or not, in every
+    // viewing mode (the animator has no mode), the zoom untouched; quick presses never pass through a fraction.
     CHECK(smootherstep(0) == 0 && smootherstep(1) == 1 && near(smootherstep(0.5f), 0.5f, 1e-3f));
-    ViewAnimator m;  // defaults: 220 ms zoom, 300 ms switch
-    m.set_target(true, 0, 40, 0); m.advance(1000);
-    m.set_target(true, 1, 40, 1000);
-    m.advance(1030); CHECK(m.position() > 0 && m.position() < 0.02f);       // slow start
-    m.advance(1150); CHECK(near(m.position(), 0.5f, 1e-3f));               // symmetric
-    const float peak = m.velocity();
-    CHECK(peak > 1.f / 300 && peak < 2.f / 300);                           // not exaggerated (1.875x mean)
-    m.advance(1270); CHECK(m.position() > 0.98f && m.position() < 1.f);     // slow finish
-    m.advance(1300); CHECK(!m.animating() && m.position() == 1 && m.velocity() == 0);
-    // Second press mid-move: no velocity jump and monotone, ending exactly with no overshoot.
-    m.set_target(true, 0, 40, 2000); m.advance(3000);
-    m.set_target(true, 1, 40, 3000); m.advance(3150);
-    const float v_before = m.velocity(), p_before = m.position();
-    m.set_target(true, 2, 40, 3150);
-    CHECK(near(m.velocity(), v_before, 1e-6f) && near(m.position(), p_before, 1e-6f));
-    float last = m.position();
-    for (double t = 3150; t <= 3500; t += 5) { m.advance(t); CHECK(m.position() >= last - 1e-5f && m.position() <= 2.f); last = m.position(); }
-    CHECK(!m.animating() && m.position() == 2);
-    // Reversal mid-move: bounded drift past the current position, then settles on the target.
-    m.set_target(true, 1, 40, 4000); m.advance(4150);
-    const float turn = m.position();
-    m.set_target(true, 2, 40, 4150);
-    float lo = turn;
-    for (double t = 4150; t <= 4500; t += 5) { m.advance(t); lo = std::min(lo, m.position()); CHECK(m.position() <= 2.f); }
-    CHECK(turn - lo < 0.1f && m.position() == 2);
-    // Zoom/spacing changes alone do not restart an in-flight switch.
-    m.set_target(true, 1, 40, 5000); m.advance(5100); const float mid_pos = m.position();
-    m.set_target(true, 1, 80, 5100); m.advance(5100); CHECK(near(m.position(), mid_pos, 1e-6f));
-    m.advance(5300); CHECK(m.position() == 1);
+    for (const bool zoomed : {true, false}) {
+        ViewAnimator m;  // defaults: 220 ms zoom
+        m.set_target(zoomed, 0, 40, 0); m.advance(1000);
+        CHECK(!m.animating() && m.position() == 0);
+        for (const std::uint32_t to : {1u, 2u, 1u, 0u, 2u}) {
+            const double at = 1000 + 50.0 * to;
+            m.set_target(zoomed, to, 40, at);
+            CHECK(m.position() == float(to) && m.selected() == to && m.zoom() == (zoomed ? 1.f : 0.f));
+            m.advance(at + 1); CHECK(m.position() == float(to) && m.zoom() == (zoomed ? 1.f : 0.f));
+        }
+    }
 
     {  // Per-desktop placement (orbit round you, distance, curvature). Every desktop always faces you.
     const Canvas cv{1920, 1200, 0.5f, 0.3125f};  // square canvas pixels: half_w/half_h == width/height
@@ -260,77 +241,70 @@ int main() {
     CHECK(gone.x == 0 && gone.y == 0 && gone.distance == 1 && gone.curvature == 1.f);
     CHECK(near(half.x, 0.2f, 1e-6f) && near(half.y, -0.1f, 1e-6f) && near(half.distance, 1.3f, 1e-6f) && half.curvature == 1.f);
     CHECK(same_placement(kept, mixed));
-    // Drawn while zooming (regression: in anchor mode, zooming in after a pill drag must not send the desktop back to its
-    // default place). Anchor mode (keep_place) and within kZoomInPlaceMaxRad of straight ahead: the zoomed desktop keeps the
-    // direction round you it was dragged to, all the way in, and comes to distance 1 there (filling the view); the others
-    // follow it as its row, keeping their distance and curvature. Farther (side, behind) in anchor mode, and always in locked
-    // and follow modes (keep_place false): it comes straight ahead, as before the fix.
+    // Drawn while zooming (regression, 2026-11-02: zooming in from the overview and back out must keep every desktop where
+    // it was dragged, in every viewing mode; zoomed_placements takes no mode). However far a desktop was dragged (beside
+    // you, overhead, behind you), at every zoom: every desktop keeps its overview direction round you; the zoomed one comes
+    // to distance 1 there (filling the view, curvature kept); every other one is drawn exactly as in the overview. Nothing
+    // goes back to its default slot or snaps straight ahead.
     {
         const auto ov = overview_layout(eq, 1920, 1200, 40);
-        const Placement dragged{0.5f, 0.2f, 1.6f, 1.f}, other{-0.4f, 0.1f, 1.3f, 0.5f};
-        const std::vector<Placement> own{other, dragged, Placement{}};
         auto centre_of = [&](const FRect& t, const Placement& p) { return place_point(cv, t, p, t.x + t.width / 2, t.y + t.height / 2); };
-        const Vec3 where = centre_of(ov[1], dragged);  // where the drag left it in the overview
-        CHECK(std::acos(-unit(where).z) < kZoomInPlaceMaxRad && std::acos(-unit(where).z) > 0.4f);
-        for (bool keep : {true, false}) {
-            CHECK(zoomed_placements(cv, ov, ov, own, 0, 1, keep).size() == 3);
+        const Placement other{-0.4f, 0.1f, 1.3f, 0.5f};
+        {
+            const std::vector<Placement> own{other, Placement{0.5f, 0.2f, 1.6f, 1.f}, Placement{}};
+            CHECK(zoomed_placements(cv, ov, ov, own, 0, 1).size() == 3);
             for (std::size_t i = 0; i < 3; ++i) {
-                CHECK(same_placement(zoomed_placements(cv, ov, ov, own, 0, 1, keep)[i], own[i]));      // overview: unchanged
-                CHECK(same_placement(zoomed_placements(cv, ov, ov, own, -1, 0.4f, keep)[i], own[i]));  // clamped; mid-switch
+                CHECK(same_placement(zoomed_placements(cv, ov, ov, own, 0, 1)[i], own[i]));      // overview: unchanged
+                CHECK(same_placement(zoomed_placements(cv, ov, ov, own, -1, 0.4f)[i], own[i]));  // clamped
             }
-            CHECK(zoomed_placements(cv, ov, ov, std::span<const Placement>(own).first(1), 1, 1, keep).size() == 3);  // short list
+            CHECK(zoomed_placements(cv, ov, ov, std::span<const Placement>(own).first(1), 1, 1).size() == 3);  // short list
         }
-        for (float z : {0.f, 0.25f, 0.5f, 0.75f, 1.f}) {
-            const auto tl = blended_layout(eq, 1920, 1200, 40, z, 1);
-            const auto pl = zoomed_placements(cv, ov, tl, own, z, 1, true);
-            const Vec3 c = centre_of(tl[1], pl[1]);
-            CHECK(near(azimuth(c), azimuth(where), 1e-5f) && near(elevation(c), elevation(where), 1e-5f));  // never moves round you
-            CHECK(near(pl[1].distance, lerp_test(1.6f, 1.f, z), 1e-5f) && pl[1].curvature == 1.f);
-            check_facing(tl[1], pl[1]);
-        }
-        const auto zl = zoomed_layout(eq, 1920, 1200, 40, 1);
-        const auto in = zoomed_placements(cv, ov, zl, own, 1, 1, true);
-        CHECK(in[1].distance == 1 && in[1].curvature == 1.f);
-        CHECK(!close3(centre_of(zl[1], in[1]), Vec3{0, 0, -1}, 1e-2f));  // not back at the default straight-ahead slot
-        CHECK(near(len(centre_of(zl[1], in[1])), 1, 1e-5f));            // the canvas distance: it fills the view, there
-        Placement flat = dragged; flat.curvature = 0;
-        const std::vector<Placement> own_flat{other, flat, Placement{}};
-        const auto in_flat = zoomed_placements(cv, ov, zl, own_flat, 1, 1, true);
-        CHECK(near(dist(place_point(cv, zl[1], in_flat[1], 0, 60), place_point(cv, zl[1], in_flat[1], 1920, 1140)),
-                   dist(plane(0, 60), plane(1920, 1140)), 1e-5f));  // full view size
-        for (std::size_t i : {0u, 2u}) {  // the row turned with it: same orbit, own distance and curvature
-            CHECK(near(in[i].x, in[1].x, 1e-6f) && near(in[i].y, in[1].y, 1e-6f));
-            CHECK(in[i].distance == own[i].distance && in[i].curvature == own[i].curvature);
-            check_facing(zl[i], in[i]);
-        }
-        // Straight ahead instead: dragged far to the side or behind you in anchor mode, or anywhere in locked / follow.
-        // It moves from where it is to flat in front of you (the canvas centre), its direction blending there with the
-        // zoom; the row is back at its slots.
-        struct Case { Placement p; std::size_t index; bool keep; };
-        for (const Case& k : {Case{{1.2f, 0.3f, 1.6f, 1.f}, 1, true}, Case{{3.0f, 0.f, 1.f, 0.f}, 2, true},
-                              Case{{0.2f, 1.3f, 1.f, 0.f}, 0, true}, Case{dragged, 1, false}, Case{{3.0f, 0.f, 1.f, 0.f}, 2, false}}) {
-            std::vector<Placement> o{other, Placement{}, Placement{}};
-            o[k.index] = k.p;
-            const Vec3 from = centre_of(ov[k.index], k.p);
-            if (k.keep) CHECK(std::acos(-unit(from).z) > kZoomInPlaceMaxRad);
-            for (float z : {0.f, 0.25f, 0.5f, 0.75f, 1.f}) {
-                const auto tl = blended_layout(eq, 1920, 1200, 40, z, float(k.index));
-                const auto pl = zoomed_placements(cv, ov, tl, o, z, float(k.index), k.keep);
-                const Vec3 c = centre_of(tl[k.index], pl[k.index]);
-                CHECK(near(azimuth(c), (1 - z) * azimuth(from), 1e-4f) && near(elevation(c), (1 - z) * elevation(from), 1e-4f));
-                CHECK(near(pl[k.index].distance, lerp_test(k.p.distance, 1.f, z), 1e-5f));
-                check_facing(tl[k.index], pl[k.index]);
+        // Dragged near ahead, beside you (past the old 60 deg cutoff), overhead, behind you, and to the far side; with the
+        // undragged default in the mix (it must not move either: the regression that reset the others to their slots).
+        const Placement drags[] = {{0.5f, 0.2f, 1.6f, 1.f}, {1.2f, 0.3f, 1.6f, 1.f}, {0.2f, 1.3f, 1.f, 0.f},
+                                   {3.0f, 0.f, 1.f, 0.f}, {-1.4f, -0.5f, 0.5f, 0.3f}, Placement{}};
+        for (std::size_t target = 0; target < 3; ++target)
+            for (const Placement& drag : drags) {
+                std::vector<Placement> own{other, Placement{0.3f, -0.2f, 0.5f, 0.f}, Placement{-0.9f, 0.4f, 1.2f, 0.f}};
+                own[target] = drag;
+                for (float z : {0.f, 0.25f, 0.5f, 0.75f, 1.f}) {
+                    const auto tl = blended_layout(eq, 1920, 1200, 40, z, float(target));
+                    const auto pl = zoomed_placements(cv, ov, tl, own, z, float(target));
+                    for (std::size_t i = 0; i < 3; ++i) {
+                        const Vec3 was = centre_of(ov[i], own[i]), now = centre_of(tl[i], pl[i]);
+                        CHECK(near(std::remainder(azimuth(now) - azimuth(was), 2 * pi), 0, 1e-4f) || near(std::fabs(now.y), len(now), 1e-4f));
+                        CHECK(near(elevation(now), elevation(was), 1e-4f));  // never moves round you
+                        CHECK(pl[i].curvature == own[i].curvature);
+                        check_facing(tl[i], pl[i]);
+                        if (i == target) continue;
+                        // Not zoomed: seen exactly as in the overview (every corner's direction from the eye, so size and
+                        // curvature too); only scaled about the eye, so it is never nearer than it was.
+                        for (const auto& [u, v] : {std::pair{0.f, 0.f}, std::pair{1.f, 0.f}, std::pair{0.5f, 1.f}, std::pair{1.f, 1.f}})
+                            CHECK(close3(unit(place_point(cv, tl[i], pl[i], tl[i].x + u * tl[i].width, tl[i].y + v * tl[i].height)),
+                                         unit(place_point(cv, ov[i], own[i], ov[i].x + u * ov[i].width, ov[i].y + v * ov[i].height)), 1e-4f));
+                        CHECK(len(now) >= len(was) * (1 - 1e-5f));
+                    }
+                }
+                // Full zoom: the zoomed one is at distance 1 where it was dragged (not straight ahead unless it was), the
+                // full view's size; zooming back out gives every desktop its own placement back.
+                const auto zl = zoomed_layout(eq, 1920, 1200, 40, float(target));
+                const auto in = zoomed_placements(cv, ov, zl, own, 1, float(target));
+                CHECK(in[target].distance == 1.f && near(len(centre_of(zl[target], in[target])), 1, 1e-5f));
+                if (!same_placement(drag, Placement{}) || target != 1)
+                    CHECK(!close3(centre_of(zl[target], in[target]), Vec3{0, 0, -1}, 1e-2f));
+                Placement flat = in[target]; flat.curvature = 0;
+                const FRect& t = zl[target];
+                CHECK(near(dist(place_point(cv, t, flat, t.x, t.y), place_point(cv, t, flat, t.x + t.width, t.y + t.height)),
+                           dist(plane(t.x, t.y), plane(t.x + t.width, t.y + t.height)), 1e-5f));
+                const auto out = zoomed_placements(cv, ov, ov, own, 0, float(target));
+                for (std::size_t i = 0; i < 3; ++i) CHECK(same_placement(out[i], own[i]));
             }
-            const auto zk = zoomed_layout(eq, 1920, 1200, 40, float(k.index));
-            const auto full = zoomed_placements(cv, ov, zk, o, 1, float(k.index), k.keep);
-            CHECK(close3(centre_of(zk[k.index], full[k.index]), Vec3{0, 0, -1}, 1e-5f));
-            for (std::size_t i = 0; i < 3; ++i) CHECK(near(full[i].x, 0, 1e-5f) && near(full[i].y, 0, 1e-5f));
-        }
-        // Switching while zoomed (position 1.5): the view's direction blends between the two desktops' places.
-        const auto mid = zoomed_placements(cv, ov, zoomed_layout(eq, 1920, 1200, 40, 1.5f), own, 1, 1.5f, true);
-        const float a1 = azimuth(centre_of(ov[1], dragged)), a2 = azimuth(centre_of(ov[2], Placement{}));
-        CHECK(near(mid[1].x, mid[2].x, 1e-6f) && mid[1].x > std::min(a1, a2) - 0.2f && mid[1].x < std::max(a1, a2) + 0.2f);
-        CHECK(near(mid[1].distance, 1.3f, 1e-5f) && near(mid[2].distance, 1.f, 1e-5f));
+        // Zoomed in, the zoomed desktop is drawn on top of one dragged nearer; the overview keeps back-to-front order.
+        const std::vector<std::size_t> back_to_front{2, 1, 0};
+        CHECK(zoom_draw_order(back_to_front, 1, 1) == (std::vector<std::size_t>{2, 0, 1}));
+        CHECK(zoom_draw_order(back_to_front, 0.5f, 2) == (std::vector<std::size_t>{1, 0, 2}));
+        CHECK(zoom_draw_order(back_to_front, 0.49f, 1) == back_to_front && zoom_draw_order(back_to_front, 0, 2) == back_to_front);
+        CHECK(zoom_draw_order(back_to_front, 1, 7) == back_to_front);
     }
     // The orbit's x eases the short way round: a desktop crossing behind you (+-pi) stays behind you.
     Placement from_behind; from_behind.x = 3.1f;
