@@ -2,12 +2,15 @@
 //  * the `overview_pointer` control frame decodes strictly (shared fixture with the Python side), and a malformed payload
 //    is the ignorable kind (dropped, never fatal);
 //  * the `overview_geometry` status line is exactly what the supervisor's parser was tested against;
-//  * the dot is a closed disc on the canvas plane at the requested pixel, the same every time (no drift or orbit);
+//  * the dot is a closed disc on the canvas plane at the requested pixel, the same every time (no drift or orbit), or, given
+//    a direction (past the view in anchor mode), the same disc turned to that direction round you;
 //  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention).
 #include "xr/ipc.hpp"
 #include "xr/view.hpp"
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <cmath>
+#include <tuple>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -41,6 +44,8 @@ int main(int argc, char** argv) try {
         const auto* v = std::get_if<OverviewPointerPayload>(&m.payload);
         CHECK(v && v->visible == p.at("visible").get<bool>() && v->held == p.at("held").get<bool>() &&
               v->x == p.at("x").get<std::int32_t>() && v->y == p.at("y").get<std::int32_t>());
+        CHECK(v->directed == p.contains("az"));
+        if (v->directed) CHECK(v->az == p.at("az").get<std::int32_t>() && v->el == p.at("el").get<std::int32_t>());
     }
     for (const auto& c : cases.at("invalid")) {
         auto d = decode_control(frame(c.at("payload"), id++));
@@ -104,6 +109,39 @@ int main(int argc, char** argv) try {
     CHECK(canvas_disc({0, 0, 0.36f, 0.225f}, 1, 1, 6).empty());
     CHECK(canvas_disc(canvas, 1, 1, 0).empty());
     CHECK(canvas_disc(canvas, 1, 1, 6, 2).empty());
+
+    // Past the view in anchor mode the dot is drawn in its direction round you: centred there (behind you, overhead), the
+    // same rigid disc (every rim point as far from the centre, as seen from the eye, as on the plane), upright, and
+    // exactly canvas_disc at the view's edge where the stretch begins, so it never jumps there.
+    auto dir = [](const Vec3& v) {
+        return std::pair{std::atan2(double(v.x), -double(v.z)), std::atan2(double(v.y), std::hypot(double(v.x), double(v.z)))};
+    };
+    auto angle = [](const Vec3& a, const Vec3& b) {
+        const double d = (double(a.x) * b.x + double(a.y) * b.y + double(a.z) * b.z) /
+                         (std::sqrt(double(a.x) * a.x + double(a.y) * a.y + double(a.z) * a.z) * std::sqrt(double(b.x) * b.x + double(b.y) * b.y + double(b.z) * b.z));
+        return std::acos(std::clamp(d, -1.0, 1.0));
+    };
+    const double pi = M_PI;
+    for (const auto& [x, y, az, el] : {std::tuple{2880.f, 600.f, float(pi), 0.f}, std::tuple{2400.f, 100.f, 2.1f, 0.5f},
+                                        std::tuple{-700.f, -500.f, -2.8f, 1.45f}, std::tuple{960.f, 1700.f, 0.f, -1.3f}}) {
+        const auto fan = direction_disc(canvas, x, y, az, el, kFreePointerRadiusPx);
+        CHECK(fan.size() == std::size_t(kFreePointerSegments) + 2);
+        const auto [a, e] = dir(fan[0]);
+        CHECK(std::fabs(std::remainder(a - double(az), 2 * pi)) < 1e-4 || std::fabs(double(e)) > 1.5);
+        CHECK(std::fabs(e - double(el)) < 1e-4);
+        const auto flat = canvas_disc(canvas, std::clamp(x, 0.f, 1920.f), std::clamp(y, 0.f, 1200.f), kFreePointerRadiusPx);
+        for (std::size_t i = 1; i < fan.size(); ++i) CHECK(std::fabs(angle(fan[0], fan[i]) - angle(flat[0], flat[i])) < 1e-5);
+        CHECK(fan[1].x == fan.back().x && fan[1].y == fan.back().y);  // closed
+    }
+    for (const auto& [x, y] : {std::pair{1920.f, 600.f}, std::pair{0.f, 0.f}, std::pair{700.f, 1200.f}}) {
+        const double wx = (2.0 * x / 1920 - 1) * 0.36, wy = (1 - 2.0 * y / 1200) * 0.225;
+        const auto at_edge = direction_disc(canvas, x, y, float(std::atan2(wx, 1.0)), float(std::atan2(wy, std::hypot(wx, 1.0))),
+                                            kFreePointerRadiusPx);
+        const auto flat = canvas_disc(canvas, x, y, kFreePointerRadiusPx);
+        for (std::size_t i = 0; i < flat.size(); ++i)
+            CHECK(std::fabs(at_edge[i].x - flat[i].x) < 1e-5f && std::fabs(at_edge[i].y - flat[i].y) < 1e-5f && std::fabs(at_edge[i].z - flat[i].z) < 1e-5f);
+    }
+    CHECK(direction_disc({0, 0, 0.36f, 0.225f}, 1, 1, 0, 0, 6).empty());
 
     // OLED care: dim greys at or under the cards' cap; the ring is black, so the dot is never surrounded by light.
     constexpr float cap = 191.f / 255.f;

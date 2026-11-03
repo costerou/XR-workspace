@@ -197,6 +197,22 @@ std::vector<Vec3> canvas_disc(const Canvas& c, float x, float y, float radius, i
     return out;
 }
 
+std::vector<Vec3> direction_disc(const Canvas& c, float x, float y, float az, float el, float radius, int segments) {
+    const float cx = std::clamp(x, 0.f, std::max(c.view_w, 0.f)), cy = std::clamp(y, 0.f, std::max(c.view_h, 0.f));
+    auto fan = canvas_disc(c, cx, cy, radius, segments);
+    if (fan.empty()) return fan;
+    const double wx = (2.0 * cx / c.view_w - 1) * c.half_w, wy = (1 - 2.0 * cy / c.view_h) * c.half_h;
+    const double a = std::atan2(wx, 1.0), e = std::atan2(wy, std::hypot(wx, 1.0));
+    const double ca = std::cos(-a), sa = std::sin(-a), ce = std::cos(el - e), se = std::sin(el - e), cz = std::cos(az), sz = std::sin(az);
+    for (auto& v : fan) {
+        double px = ca * v.x - sa * v.z, py = v.y, pz = sa * v.x + ca * v.z;            // Az(-a)
+        const double qy = ce * py - se * pz, qz = se * py + ce * pz;                     // El(el - e)
+        py = qy; pz = qz;
+        v = {float(cz * px - sz * pz), float(py), float(sz * px + cz * pz)};            // Az(az)
+    }
+    return fan;
+}
+
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h) {
     if (tiles.empty() || tiles.size() > 3 || !width || !height || width > 8192 || height > 8192 || !(half_w > 0) || !(half_h > 0) ||
         !std::isfinite(half_w) || !std::isfinite(half_h)) return {};

@@ -48,11 +48,13 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
     the same placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front
-    desktop first. The overview's slots never move with head pose, so neither does this. In anchor mode past the view,
-    what is under the dot itself always wins; a pill found only along the stretched drag direction is the fallback.
+    desktop first. The overview's slots never move with head pose, so neither does this. In anchor mode the dot's
+    reach past the view is stretched round you (orbit.pointer_direction): the renderer draws it in that direction (the
+    `overview_pointer` frame's az / el), and the hit test and the desktop-mode cursor mapping (project / unproject with
+    `around`) read the same direction, so what the dot is drawn on is what it hits, anywhere round you.
   * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
-    pill stays under the pointer in the view; in anchor (3DoF) mode the pointer's reach past the view carries it on to
-    anywhere round you, and it never overlaps another desktop. A corner drag changes `distance` so the corner
+    point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you), and
+    it never overlaps another desktop. A corner drag changes `distance` so the corner
     follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
     debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
     on zoom-in and when a VR video opens.
@@ -114,6 +116,7 @@ CLICK_PX = 4.0            # a pill press moving less than this (canvas px) befor
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
+MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
 
 
 def parse_overview_geometry(value):
@@ -186,17 +189,21 @@ def to_canvas(g, point):
     return out if abs(out[0]) <= MAX_POINTER_PX and abs(out[1]) <= MAX_POINTER_PX else None
 
 
-def project(g, tile, p, px, py):
-    """Where tile pixel (px, py) of a placed desktop appears on the overview plane (canvas px), or None."""
-    return to_canvas(g, place_point(g, tile, p, px, py))
+def project(g, tile, p, px, py, around=False):
+    """Where tile pixel (px, py) of a placed desktop appears on the overview plane (canvas px), or None. `around` (anchor
+    mode): the pointer position whose dot (orbit.pointer_direction, stretched past the view) lies on that pixel, which
+    is anywhere round you within the pointer's reach."""
+    point = place_point(g, tile, p, px, py)
+    return orbit.pointer_at(g, point, True) if around else to_canvas(g, point)
 
 
-def unproject(g, tile, p, pointer):
-    """The tile pixel (px, py) that appears under canvas point `pointer` on a placed desktop's surface, or None when the
-    pointer's ray misses that surface. An orbit (x / y) is a rotation about the eye, so the pointer's ray is turned back
-    by it first (orbit.unorbit_pointer). Newton's method on `project`, started from the exact flat answer."""
-    if p['x'] or p['y']:
-        pointer = orbit.unorbit_pointer(g, tile, p, pointer)
+def unproject(g, tile, p, pointer, around=False):
+    """The tile pixel (px, py) that appears under the dot at canvas point `pointer` on a placed desktop's surface, or None
+    when the dot's ray misses that surface. `around` (anchor mode): the dot's ray is stretched past the view
+    (orbit.pointer_ray). An orbit (x / y) is a rotation about the eye, so the ray is turned back by it first
+    (orbit.unorbit_ray). Newton's method on `project`, started from the exact flat answer."""
+    if p['x'] or p['y'] or (around and orbit.beyond_view(g, pointer)):
+        pointer = orbit.unorbit_ray(g, tile, p, pointer, around)
         if pointer is None: return None
         p = {**p, 'x': 0, 'y': 0}
     tx, ty, tw, th = tile
@@ -273,36 +280,35 @@ def hit(g, placements, pointer, open_=None, around=False):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)); then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
-    ('desktop', index, (px, py) tile pixel). None if nothing. `around` (anchor mode): past the view, pills are found
-    along the pill drag's stretched direction (orbit.stretched_pointer), so a pill anywhere round you can be grabbed."""
+    ('desktop', index, (px, py) tile pixel). None if nothing. `around` (anchor mode): the dot's ray is stretched past the
+    view (orbit.pointer_ray, where the renderer draws the dot), so anything placed anywhere round you can be reached."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
         tile = g['tiles'][open_]
-        q = unproject(g, tile, placements[open_], pointer)
+        q = unproject(g, tile, placements[open_], pointer, around)
         if q is not None:
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
-    stretched = around and orbit.beyond_view(g, pointer)
-    reached = None  # past the view: the first pill found only along the stretched direction (what is under the dot wins)
     for i in front_order(g, placements):
         tile = g['tiles'][i]
-        q = unproject(g, tile, placements[i], pointer)
-        qp = None
-        if stretched and reached is None:
-            seen = orbit.stretched_pointer(g, tile, placements[i], pointer)
-            qp = unproject(g, tile, {**placements[i], 'x': 0, 'y': 0}, seen) if seen is not None else None
+        q = unproject(g, tile, placements[i], pointer, around)
         tx, ty, tw, th = tile
-        px, py, pw, ph = pill_rect(tile)
-        def on_pill(r): return r is not None and px - PILL_PAD_X <= r[0] <= px + pw + PILL_PAD_X and ty + th <= r[1] <= py + ph + PILL_PAD_Y
         if q is not None:
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
-            if on_pill(q): return ('pill', i)
+            if on_pill(tile, q): return ('pill', i)
             if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
-        if on_pill(qp): reached = ('pill', i)
-    return reached
+    return None
+
+
+def on_pill(tile, q):
+    """True if tile pixel `q` (None: missed) is in a desktop's pill zone: the pill padded by PILL_PAD_X / PILL_PAD_Y,
+    plus the gap up to the desktop's bottom edge."""
+    if q is None: return False
+    px, py, pw, ph = pill_rect(tile)
+    return px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] <= py + ph + PILL_PAD_Y
 
 
 def inside_by(tile, q):
@@ -323,10 +329,15 @@ def resize_distance(start, corner, dx, dy, tile):
 
 
 def overview_pointer_frame(run_id, session, request_id, pointer):
-    """Renderer `overview_pointer` frame: {visible, x, y, held}, x/y canvas px (spike/src/ipc.cpp checks the same)."""
-    if (not isinstance(pointer, dict) or set(pointer) != {'visible', 'x', 'y', 'held'} or type(pointer['visible']) is not bool
+    """Renderer `overview_pointer` frame: {visible, x, y, held} and, past the view in anchor mode, {az, el}: x/y canvas
+    px, az / el the dot's direction in hundredths of a degree (orbit.pointer_direction; the renderer draws the dot
+    there). spike/src/ipc.cpp checks the same."""
+    keys = {'visible', 'x', 'y', 'held'}
+    if (not isinstance(pointer, dict) or set(pointer) not in (keys, keys | {'az', 'el'}) or type(pointer['visible']) is not bool
             or type(pointer['held']) is not bool
-            or any(type(pointer[k]) is not int or not -MAX_POINTER_PX <= pointer[k] <= MAX_POINTER_PX for k in 'xy')):
+            or any(type(pointer[k]) is not int or not -MAX_POINTER_PX <= pointer[k] <= MAX_POINTER_PX for k in 'xy')
+            or any(type(pointer[k]) is not int or not -limit <= pointer[k] <= limit
+                   for k, limit in (('az', MAX_POINTER_AZ), ('el', MAX_POINTER_EL)) if k in pointer)):
         raise ValueError('invalid overview pointer')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'overview_pointer',
                         'payload': dict(pointer)}, separators=(',', ':')) + '\n').encode()
@@ -461,7 +472,11 @@ class OverviewPointer:
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
         return help_hit(self._help(), self.pointer) or hit(self.geometry, self.control.state.placements, self.pointer, self._open(),
-                                                          around=self.control.state.mode == 'anchor')
+                                                          around=self._around())
+
+    def _around(self):
+        """Anchor mode: the dot's reach past the view is stretched round you (orbit.pointer_direction)."""
+        return self.control.state.mode == 'anchor'
 
     def _output(self, index):
         return next((o for o in self.outputs if o['index'] == index), None)
@@ -477,7 +492,8 @@ class OverviewPointer:
     def _from_logical(self, i, lx, ly):
         o, tile, p = self._output(i), self._tile(i), self._placement(i)
         if o is None or tile is None or p is None: return None
-        return project(self.geometry, tile, p, tile[0] + lx / o['width'] * tile[2], tile[1] + ly / o['height'] * tile[3])
+        return project(self.geometry, tile, p, tile[0] + lx / o['width'] * tile[2], tile[1] + ly / o['height'] * tile[3],
+                       around=self._around())
 
     def _to_layout(self, i, q):
         """Tile pixel q of desktop i -> integer layout pixel inside its monitor (at least INSET_PX from every edge)."""
@@ -669,14 +685,15 @@ class OverviewPointer:
             if h is not None and h[0] in ('corner', 'pill'):
                 i, tile, p = h[1], self._tile(h[1]), self._placement(h[1])
                 if h[0] == 'corner':
-                    q = unproject(self.geometry, tile, p, self.pointer)  # the corner zone's inner half is on the desktop
+                    q = unproject(self.geometry, tile, p, self.pointer, self._around())  # the corner zone's inner half is on the desktop
                     on = q if q is not None and inside_by(tile, q) >= 0 else None
                     self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile,
                                  'on': on}  # a release there that resized nothing is a click on the desktop: it zooms in
                     self.drags += 1
                 else:  # the desktop moves only once the pointer is CLICK_PX away; a release before that is a click
                     self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile, 'moved': False,
-                                 'open_at_press': self._open()}  # after any click-outside collapse above
+                                 'open_at_press': self._open(),  # after any click-outside collapse above
+                                 'around': self._around()}  # the dot's reach the drag keeps to its end
             elif h is not None and h[0] == 'slider':
                 i = h[1]
                 self.drag = {'kind': 'slider', 'index': i, 'field': h[2], 'tile': self._tile(i), 'placement': dict(self._placement(i))}
@@ -697,7 +714,7 @@ class OverviewPointer:
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
             # A key that collapsed or moved the panel meanwhile dropped that surface: the rest of this drag does nothing.
             if c.state.menu_surface is None: return b''
-            q = unproject(self.geometry, d['tile'], d['placement'], self.pointer)
+            q = unproject(self.geometry, d['tile'], d['placement'], self.pointer, self._around())
             if q is None: return b''
             return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
         current = c.state.placements[d['index']]
@@ -709,8 +726,8 @@ class OverviewPointer:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
                 self.moves += 1
-            if 'orbit' not in d:  # the turn round you, never overlapping (orbit.py); its reach fixed by the mode it began in
-                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], around=c.state.mode == 'anchor')
+            if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, never overlapping (orbit.py)
+                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], around=d['around'])
             x, y = d['orbit'].follow(self.pointer, c.state.placements)
             updated = {**current, 'x': x, 'y': y}
         if updated == current: return b''
@@ -765,6 +782,10 @@ class OverviewPointer:
         p = self.pointer
         if self.mode in DOT_MODES and p is not None and not idle and self.active():
             want = {'visible': True, 'x': int(math.floor(p[0] + 0.5)), 'y': int(math.floor(p[1] + 0.5)), 'held': self.drag is not None}
+            if self._around() and orbit.beyond_view(self.geometry, p):  # stretched round you: drawn in its direction
+                az, el = orbit.pointer_direction(self.geometry, p, True)
+                want['az'] = min(max(round(math.degrees(az) * 100), -MAX_POINTER_AZ), MAX_POINTER_AZ)
+                want['el'] = min(max(round(math.degrees(el) * 100), -MAX_POINTER_EL), MAX_POINTER_EL)
         else:
             want = {**self.sent, 'visible': False, 'held': False}
         if want == self.sent: return b''

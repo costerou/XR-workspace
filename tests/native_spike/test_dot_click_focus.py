@@ -123,7 +123,7 @@ class LockedClickZoomTests(LockBase):
         self.assertEqual(self.focused, [])
         self.assertFalse(self.control.state.zoomed)  # empty space: nothing
         q = (T1[0] + T1[2] * 0.7, T1[1] + T1[3] * 0.4)
-        self.dot_to(fp.project(G, T1, placed, *q))  # on XR-2 as drawn, billboarded toward you
+        self.dot_to(fp.project(G, T1, placed, *q, around=True))  # on XR-2 as drawn, billboarded toward you
         self.assertEqual(self.p.hover[:2], ('desktop', 1))
         self.assertAlmostEqual(self.p.hover[2][0], q[0], delta=0.05); self.assertAlmostEqual(self.p.hover[2][1], q[1], delta=0.05)
         self.click()
@@ -133,33 +133,34 @@ class LockedClickZoomTests(LockBase):
         self.assertEqual(self.p._at(at)[0], 1)
         self.assertLessEqual(abs(at[0] - (X2 + 0.7 * 1920)), 2); self.assertLessEqual(abs(at[1] - 0.4 * 1080), 2)
 
-    def test_past_the_view_the_desktop_under_the_dot_wins_over_a_stretched_pill(self):
-        # Anchor mode. XR-3 turned 15 degrees right: its middle is past the view's edge but the dot reaches it. XR-1 sits
-        # nearer, about 76 degrees round, its pill exactly where that dot's stretched drag direction points.
+    def test_past_the_view_what_is_hit_is_what_the_dot_is_drawn_on(self):
+        # Anchor mode. Past the view the dot is drawn in its stretched direction round you (orbit.pointer_direction, the
+        # frame's az / el), and the hit test reads that same direction. XR-1 sits about 76 degrees round, XR-3 15
+        # degrees: the dot drawn on XR-3 clicks XR-3, and the dot drawn on XR-1's pill is on that pill.
         placements = [{**DEFAULT_PLACEMENT, 'x': 760, 'y': 45, 'distance': 80}, dict(DEFAULT_PLACEMENT),
                       {**DEFAULT_PLACEMENT, 'x': 150}]
         self.control.state.placements = placements
         self.assertEqual(self.control.state.mode, 'anchor')
-        target = fp.project(G, T2, placements[2], *centre(T2))
+        target = fp.project(G, T2, placements[2], *centre(T2), around=True)
         self.assertTrue(orbit.beyond_view(G, target))
-        seen = orbit.stretched_pointer(G, T0, placements[0], target)
-        q0 = fp.unproject(G, T0, {**placements[0], 'x': 0, 'y': 0}, seen)
-        px, py, pw, ph = fp.pill_rect(T0)
-        self.assertTrue(px <= q0[0] <= px + pw and T0[1] + T0[3] <= q0[1] <= py + ph + fp.PILL_PAD_Y)  # the stretched pill
-        self.assertEqual(fp.front_order(G, placements)[0], 0)  # and it is tested first
-        hit = fp.hit(G, placements, target, around=True)
-        self.assertEqual(hit[:2], ('desktop', 2))
+        self.assertEqual(fp.hit(G, placements, target, around=True)[:2], ('desktop', 2))
+        pill = fp.pill_rect(T0)
+        on_pill = fp.project(G, T0, placements[0], pill[0] + pill[2] / 2, pill[1] + pill[3] / 2, around=True)
+        self.assertTrue(orbit.beyond_view(G, on_pill))
+        self.assertEqual(fp.hit(G, placements, on_pill, around=True), ('pill', 0))
         self.at(X3 + 960, 540)
         self.dot_to(target)
         self.assertEqual(self.p.hover[:2], ('desktop', 2))
+        dot = self.p.sent  # the dot as last sent to the renderer
+        az, el = orbit.pointer_direction(G, self.p.pointer, True)
+        self.assertEqual((dot['az'], dot['el']), (round(math.degrees(az) * 100), round(math.degrees(el) * 100)))
+        seen = orbit.place_point(G, T2, placements[2], *centre(T2))  # the dot is drawn on XR-3's middle
+        self.assertAlmostEqual(math.degrees(math.atan2(seen[0], -seen[2])), dot['az'] / 100, delta=0.02)
         self.click()
         self.assertEqual(self.focused, ['XR-3'])
         self.assertTrue(self.control.state.zoomed); self.assertEqual(self.control.state.selected, 2)
         self.assertEqual(self.control.state.placements, placements)  # no pill drag
         self.assertFalse(self.control.state.menu_open)  # nor a pill click
-        # With nothing under the dot, the stretched pill is still found (a pill anywhere round you can be grabbed).
-        alone = [placements[0], dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': -150}]
-        self.assertEqual(fp.hit(G, alone, target, around=True), ('pill', 0))
 
     def test_a_click_on_the_inner_half_of_a_corner_zooms_in_and_a_drag_there_still_resizes(self):
         self.at(X2 + 960, 540)

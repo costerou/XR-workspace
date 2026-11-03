@@ -272,7 +272,9 @@ struct Presentation::Impl : SurfaceRequests {
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
     struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
-    struct FreePointer { bool visible = false, held = false; std::int32_t x = 0, y = 0; std::uint64_t shown = 0; } free_pointer;
+    struct FreePointer {
+        bool visible = false, held = false, directed = false; std::int32_t x = 0, y = 0, az = 0, el = 0; std::uint64_t shown = 0;
+    } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
     std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
     double help_geometry_ms = -1e9;      // when it was sent
@@ -879,11 +881,12 @@ void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hov
     p.visible = visible; p.desktop = desktop; p.hover = hover; p.active = active;
     impl_->cadence.invalidate();
 }
-void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held) {
+void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed, std::int32_t az,
+                                        std::int32_t el) {
     if (!impl_) return;
     auto& p = impl_->free_pointer;
     if (visible && !p.visible) ++p.shown;
-    p.visible = visible; p.x = x; p.y = y; p.held = held;
+    p.visible = visible; p.x = x; p.y = y; p.held = held; p.directed = directed; p.az = az; p.el = el;
     impl_->cadence.invalidate();
 }
 std::optional<std::string> Presentation::take_overview_geometry() {
@@ -1056,7 +1059,8 @@ Status Presentation::draw_test_pattern() {
         }
         const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f;  // overview only; world-locked on the canvas
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
-                               s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel);
+                               s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
+                               float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f);
         s.last_head = head;
         if (!s.gl->draw_and_swap(tiles, s.resolved_placements(tiles), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits

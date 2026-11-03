@@ -132,7 +132,7 @@ class LockTests(LockBase):
         self.op('menu_back')
         self.on_pill(0); self.op('resize_press')
         self.move_canvas(0, -T0[3] * 1.3); self.move_canvas(T0[2] * 0.2, 0)  # lifted clear of XR-2 (no overlap), then right
-        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)  # the turn round you it asks for
+        want = orbit.drag_target(G, self.p.drag['tile'], (0, 0), self.p.drag['start'], self.p.pointer)  # the turn round you it asks for
         self.op('resize_release')
         self.assertEqual((self.store.saved[0]['x'], self.store.saved[0]['y']), want)
         corner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2], T0[1])  # the moved desktop's top right

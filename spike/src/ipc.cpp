@@ -43,7 +43,8 @@ bool placement(const Json& value, WirePlacement& out) {
     return true;
 }
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
-    if (!p.is_object() || p.size() != 4) return false;
+    const bool directed = p.is_object() && (p.contains("az") || p.contains("el"));
+    if (!p.is_object() || p.size() != (directed ? 6u : 4u)) return false;
     for (const char* key : {"visible", "held"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
     std::int32_t xy[2];
@@ -56,7 +57,20 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
         if (v < -std::int64_t(kMaxPointerPx) || v > std::int64_t(kMaxPointerPx)) return false;
         xy[i] = std::int32_t(v);
     }
-    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>()};
+    std::int32_t dir[2] = {0, 0};
+    if (directed) {
+        for (int i = 0; i < 2; ++i) {
+            const char* key = i ? "el" : "az";
+            const std::int64_t limit = i ? kMaxPointerEl : kMaxPointerAz;
+            if (!p.contains(key) || !p[key].is_number_integer()) return false;
+            const auto& n = p[key];
+            if (n.is_number_unsigned() && n.get<std::uint64_t>() > std::uint64_t(limit)) return false;
+            const auto v = n.get<std::int64_t>();
+            if (v < -limit || v > limit) return false;
+            dir[i] = std::int32_t(v);
+        }
+    }
+    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1]};
     return true;
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {

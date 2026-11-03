@@ -114,8 +114,10 @@ public:
     void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
     // Overview free pointer (display only; the supervisor owns it): a dim dot at canvas pixel (x, y) on the overview's
     // plane, world-locked, a little brighter while `held` (a pill, corner or panel-slider press/drag is in progress).
-    // Overview only (hidden while zoomed or zooming), never moving on its own. GPU composition only.
-    void set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held);
+    // Overview only (hidden while zoomed or zooming), never moving on its own. GPU composition only. `directed`: drawn in
+    // direction (az, el) (1/100 degree, ipc.hpp OverviewPointerPayload) instead, anywhere round you (view.hpp direction_disc).
+    void set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed = false, std::int32_t az = 0,
+                              std::int32_t el = 0);
     // The overview's canvas and settled desktop slots (view.hpp overview_geometry_json) when they changed since the last
     // call; the supervisor hit-tests the free pointer with them. GPU composition only.
     std::optional<std::string> take_overview_geometry();

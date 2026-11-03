@@ -108,6 +108,7 @@ struct GlCompositor::Impl {
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
+    bool free_directed = false; float free_az = 0, free_el = 0;                        // ...drawn in this direction (degrees)
     GLuint offscreen_fb = 0, offscreen_rb = 0;  // create_offscreen: the framebuffer drawn instead of a window
     bool setup(std::size_t sources, std::string& why);  // shaders, textures, extensions (context current)
     // Vertex data: every strip the frame draws lives in its own buffer object, rebuilt (tile_mesh / canvas_disc) only when
@@ -120,7 +121,7 @@ struct GlCompositor::Impl {
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
     GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr);
-    GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius);
+    GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius, bool directed, float az, float el);
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
         drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m);
@@ -358,8 +359,9 @@ void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float le
 
 void GlCompositor::set_glass(const GlassFrame& frame) { impl_->glass = frame; }
 
-void GlCompositor::set_free_pointer(bool visible, float x, float y, float level) {
+void GlCompositor::set_free_pointer(bool visible, float x, float y, float level, bool directed, float az, float el) {
     impl_->free_pointer = visible; impl_->free_x = x; impl_->free_y = y; impl_->free_level = std::min(level, kFreePointerHeldLevel);
+    impl_->free_directed = directed; impl_->free_az = az; impl_->free_el = el;
 }
 
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
@@ -417,12 +419,14 @@ GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, c
     return m.count;
 }
 
-GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float y, float radius) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, radius, float(int(Attr::disc))};
+GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float y, float radius, bool directed, float az, float el) {
+    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, radius, float(int(Attr::disc)), directed ? 1.f : 0.f,
+                                    az, el};
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
     if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
-    const auto fan = canvas_disc(c, x, y, radius);
+    const auto fan = directed ? direction_disc(c, x, y, az * float(M_PI) / 180.f, el * float(M_PI) / 180.f, radius)
+                              : canvas_disc(c, x, y, radius);
     scratch.clear();
     for (const auto& v : fan) scratch.insert(scratch.end(), {v.x, v.y, v.z});
     glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
@@ -593,12 +597,13 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         s.current = 0;
     }
     if (s.free_pointer && s.free_level > 0.f) {
-        // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots).
+        // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots),
+        // or turned to its direction round you when one is given (past the view in anchor mode).
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
         program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
         for (int k = 0; k < 2; ++k) {
             const float radius = k ? kFreePointerRadiusPx : kFreePointerRadiusPx + kFreePointerRingPx, level = k ? s.free_level : 0.f;
-            const GLsizei n = s.build_disc(s.disc_mesh[k], canvas, s.free_x, s.free_y, radius);
+            const GLsizei n = s.build_disc(s.disc_mesh[k], canvas, s.free_x, s.free_y, radius, s.free_directed, s.free_az, s.free_el);
             glUniform4f(s.color, level, level, level, 1.f);
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, n);
