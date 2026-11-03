@@ -146,6 +146,28 @@ std::vector<Vec3> direction_outline(const Canvas& canvas, float x, float y, floa
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h);
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 
+// How long the view's own changes take: zoom, spacing (ViewAnimator) and a desktop's shape (SizeEase), all with smoothstep.
+constexpr float kViewEaseMs = 220.f;
+// One desktop's size as the layout draws it. When its output is resized live to a new shape (a glass pill's Resolution
+// dropdown or Ultrawide) the frame at the new size appears at once, in a tile whose aspect eases to the new one, so
+// the tile widens or narrows smoothly and, every layout being computed from these sizes, its neighbours slide along with
+// it. The aspect is what eases (a tile's width in the row is proportional to it), so a new resolution of the same shape
+// starts nothing. A change that comes mid-way carries on from the aspect drawn then. advance() once per drawn frame; with
+// `animate` false (a desktop's first size) the new size just applies. Until the first advance() value() is empty.
+class SizeEase {
+public:
+    explicit SizeEase(float duration_ms = kViewEaseMs) : duration_(duration_ms) {}
+    void advance(Size target, double now_ms, bool animate);
+    std::optional<Size> value() const;
+    bool animating() const { return t_ < 1.f; }
+    std::uint64_t eases() const { return eases_; }  // how many started (diagnostic)
+private:
+    float duration_, t_ = 1.f, from_ = 0;
+    double start_ms_ = 0;
+    std::optional<Size> to_;
+    std::uint64_t eases_ = 0;
+};
+
 // Time-based animation toward targets (no frame-rate dependence). Zoom and spacing ease with smoothstep over
 // `duration_ms`; selecting another desktop in the overview just moves the highlight.
 // Switching desktops while zoomed in (Ctrl+Alt+Left / Right, cursor follow) animates in three phases, in every viewing mode:
@@ -166,7 +188,7 @@ class ViewAnimator {
 public:
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
     struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
-    explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
+    explicit ViewAnimator(float duration_ms = kViewEaseMs, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
                     bool cut = false);
     void advance(double now_ms);

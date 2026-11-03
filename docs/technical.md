@@ -30,7 +30,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Live desktops from the glass pill (Ultrawide, Add new, Remove; 1..4 desktops; `tools/native_spike/desktops.py`, the renderer's `desktops` control op, the broker's `reshape` op) | Offline tests only: `tests/native_spike/test_desktops.py` (plans, journaled broker steps with the real journal and the C++ request validator, the supervisor loop, pointer hits, profiles), ctest `ipc`, `glass`, `glass_contract`, `capture`, `ownership`. Not run in an isolated VM or in the glasses: whether Hyprland keeps a capture session through a reshape (the renderer restarts it if not), the new panel row's look, and the guard swap are unverified. The ownership plugin, renderer, supervisor, controller and panel must be installed together. |
 | Seamless workspace layout switches (master / scrolling / floating; Omarchy's toggle rewrites a layout file the config requires, so each switch is a Hyprland config reload) | Offline tests only: ctest `ownership_reload` runs the plugin's `keptThroughReload` against the pinned reload sequence (clear, parse, `ensureMonitorStatus`): during a run a reload keeps the XR-n rules and the rule in effect for every output the config does not name (the glasses' session mode), so it modesets nothing, and the config still wins wherever it names an output. The plugin applies it by hooking `CMonitorRuleManager::clear()`; that hook has not been loaded in an isolated VM or in the glasses. Takes effect only with the new `libxr-ownership.so` installed. |
 | Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
-| Monitor resolution from the glass pill (the open panel's Resolution dropdown, above Scale, in the same Material Design 3 parts and 18 px font; its menu lists 16:9 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160, 16:10 1680x1050, 1920x1200, 2560x1600 and ultrawide 2560x1080, 3440x1440, 5120x1440 in three columns, the current one marked; a pick resizes that XR desktop's own Hyprland output live and in place through the broker's `reshape`, like Ultrawide: no other output modeset, no XR restart, its windows stay on it, its placement stays; a scale that no longer divides the size becomes the nearest one that does, and the Scale list greys out the rest; the profile keeps the size for the next start; `desktops.RESOLUTION`, `geometry.with_resolution`, `ViewControl.resolution_box` / `resolution_pick`; see [Live resolution changes](#live-resolution-changes-the-pills-resolution-dropdown)) | Offline tests only: `tests/native_spike/test_resolution_dropdown.py` (the list against the renderer's, the nearest-scale rule, plans, payload, the pick end to end through the fake broker into the saved profile with only `reshape` and its read-back on the wire, the C++ request validator for every size, pointer hits), ctest `glass` (layout, the box, the three-column menu in M3 roles, every label fitting), `glass_contract` (box, menu and item geometry, the sizes and groups), `placement_menu_ipc` (the `resolution` / `resolution_picker` fixture cases), `capture` (`ResizeSettle`) and `capture_e2e_churn_resize_*` (a resized capture waits before re-creating its buffers and never goes blank; a reload's bounce does not wait). Not run in an isolated VM or in the glasses: whether the swap is free of any visible glitch on the real compositor (wallpaper, bar and windows redrawing within the 100 ms the renderer waits), how windows re-lay out, and how the three-column menu reads on the OLED panels are unverified. The panel grew another row (326 px tall). No broker change: every listed size was already inside `validDesktop`; the renderer, supervisor and controller must be installed together. |
+| Monitor resolution from the glass pill (the open panel's Resolution dropdown, above Scale, in the same Material Design 3 parts and 18 px font; its menu lists 16:9 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160, 16:10 1680x1050, 1920x1200, 2560x1600 and ultrawide 2560x1080, 3440x1440, 3840x1080, 5120x1440 in three columns, the current one marked; a pick resizes that XR desktop's own Hyprland output live and in place through the broker's `reshape`, like Ultrawide: no other output modeset, no XR restart, its windows stay on it, its placement stays; a new shape eases the tile's width and its neighbours' shift (also for Ultrawide); a desktop that shrinks pulls its floating windows back inside it (also for Ultrawide off and a larger Scale); a scale that no longer divides the size becomes the nearest one that does, and the Scale list greys out the rest; the profile keeps the size for the next start; `desktops.RESOLUTION`, `geometry.with_resolution`, `ViewControl.resolution_box` / `resolution_pick`, `fit_windows.py`, `SizeEase`; see [Live resolution changes](#live-resolution-changes-the-pills-resolution-dropdown)) | Offline tests only: `tests/native_spike/test_resolution_dropdown.py` (the list against the renderer's, the nearest-scale rule, plans, payload, the pick end to end through the fake broker into the saved profile with only `reshape` and its read-back on the wire, the C++ request validator for every size, pointer hits), `tests/native_spike/test_fit_windows.py` (which windows move and where, what counts as shrinking, the worker's order and failures, the generated Lua run in a real interpreter against a stand-in), ctest `view` (`SizeEase`: same smoothstep and time as zoom, neighbours between the two layouts), `glass` (layout, the box, the three-column menu in M3 roles, every label fitting), `glass_contract` (box, menu and item geometry, the sizes and groups), `placement_menu_ipc` (the `resolution` / `resolution_picker` fixture cases), `capture` (`ResizeSettle`) and `capture_e2e_churn_resize_*` (a resized capture waits before re-creating its buffers and never goes blank, and on the GPU paths its new shape eases; a reload's bounce does neither). Not run in an isolated VM or in the glasses: whether the swap is free of any visible glitch on the real compositor (wallpaper, bar and windows redrawing within the 100 ms the renderer waits), how windows re-lay out, whether Hyprland carries out the floating-window move and resize on a shown or hidden workspace as restore.py's use of them suggests, how the ease looks (the new frame is squeezed to the old shape as it starts), and how the three-column menu reads on the OLED panels are unverified. The panel grew another row (326 px tall). No broker change: every listed size was already inside `validDesktop`; the renderer, supervisor and controller must be installed together. |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -338,7 +338,14 @@ layout space). Why it is seamless:
   layout switches). The run goes on: no XR restart, no new consent, no journal record (the output keeps its id).
 - **Windows stay.** The output is never removed or re-created, so its workspaces and windows stay on it: tiled windows
   re-tile to the new size and floating ones keep their place on it (Hyprland moves the floating windows of an output
-  that slides along with it). A floating window larger than a smaller new size can end partly off it.
+  that slides along with it, `CMonitor::moveTo`). Hyprland does nothing for a floating window on an output that got
+  smaller, so whenever a change shrinks a desktop's logical size (a smaller Resolution, Ultrawide off, a larger Scale:
+  `Plan.shrunk`), the worker pulls those windows in once the broker steps are done (`fit_windows.py`). Every floating
+  window on that output's regular workspaces, shown or not, that sticks out moves the least it takes to be inside, into
+  the part the bar leaves free; one larger than that also shrinks to fit. Windows already inside, fullscreen ones and
+  windows hidden in a group are left alone. It runs inside the renderer's hold below, and a failure here never fails
+  the change. It is generated Lua from validated addresses and whole pixels, the same absolute `hl.dsp.window.resize`
+  and `move` Stop uses to put floating windows back (`restore.py`).
 - **No blank or half-drawn frame in the glasses.** Hyprland answers the mode change with new capture constraints. The
   renderer keeps showing the last frame, at its old size, and re-creates that capture's buffers only
   `kResizeSettleMs` (100 ms) after the new size was first seen (`ResizeSettle` in `spike/include/xr/capture.hpp`), so
@@ -347,8 +354,14 @@ layout space). Why it is seamless:
   `desktops` frame with that output in `renew` (its capture restarts, held the same way), then the view, placement and
   panel frames.
 - **It stays where it is in the glasses.** Placements are not touched. The overview gives every desktop the same
-  height, so a change within one shape (1920x1080 to 2560x1440) changes only sharpness and what fits; a new shape makes
-  the desktop wider or narrower in its place, and its row neighbours make room as for Ultrawide.
+  height, so a change within one shape (1920x1080 to 2560x1440) changes only sharpness and what fits and nothing moves.
+- **A new shape eases.** When the first frame at a new shape lands, that desktop's aspect in the layout eases from the
+  old one to the new over 220 ms with smoothstep, the same easing and time as zoom and spacing (`SizeEase` and
+  `kViewEaseMs` in `spike/include/xr/view.hpp`). Every layout is computed from those sizes, so the tile widens or
+  narrows, its neighbours slide along and, when the row is limited by the view's width, all of them share the new height,
+  in step. It works for any live change of shape, so Ultrawide does the same. The new frame is drawn squeezed to the old
+  shape as it starts. The supervisor's hit testing keeps the settled layout (`take_overview_geometry`), so it is
+  ahead of the picture for those 220 ms. The CPU fallback renderer lays the new size out at once.
 
 The scale stays if it still divides the new size, else it becomes the nearest step that does (`geometry.nearest_scale`;
 a tie goes to the larger step), and the panel's Scale list re-evaluates which steps are greyed out. The profile keeps
@@ -828,9 +841,12 @@ and the `view`, `hud`, `glass`, `ipc` and `placement_menu_ipc` ctests were updat
 
 The pill's Resolution dropdown adds `tests/native_spike/test_resolution_dropdown.py` (the size table against the
 renderer's, the nearest-scale rule, plans, the payload, a pick end to end through the fake broker into the saved
-profile, pointer hits, and every size through the C++ request validator when the ownership build is present) and checks
-in the `glass`, `glass_contract`, `placement_menu_ipc` and `capture` ctests; `capture_e2e_churn_resize_*` now also
-require each resize to wait (`resize_settles`) and `capture_e2e_churn_bounce_*` that a reload's bounce does not.
+profile, pointer hits, and every size through the C++ request validator when the ownership build is present),
+`tests/native_spike/test_fit_windows.py` (floating windows pulled inside a desktop that shrinks: the plan, the worker,
+and the generated Lua in a real interpreter when one is installed) and checks in the `view`, `glass`, `glass_contract`,
+`placement_menu_ipc` and `capture` ctests; `capture_e2e_churn_resize_*` now also require each resize to wait
+(`resize_settles`) and, on the GPU paths, its new shape to ease (`shape_eases`), and `capture_e2e_churn_bounce_*` that a
+reload's bounce does neither.
 
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
@@ -851,6 +867,9 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 - The send-window keys (Ctrl+Alt+G, 1-3, B) move only the focused window, by address, onto the active regular workspace
   of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
   windows are refused, so recovery can always move the XR desktops' windows back.
+- When a change from a glass pill shrinks a desktop, its floating windows that would stick out are moved and, if need
+  be, resized by address to stay on that same output (`fit_windows.py`). It touches no window on any other output, uses
+  generated Lua from validated addresses and whole pixels, and runs only while the run is live.
 - Run binds use Ctrl+Alt chords. The only unmodified binds are modal: an open placement pill's keys, and the left
   button while the overview's free pointer is outside the desktops (pill click and move, panel sliders, corner resize,
   click to focus). Both are removed when no longer needed. The free pointer hides the cursor and re-centres it with

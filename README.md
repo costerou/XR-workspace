@@ -181,12 +181,14 @@ With a pill open:
 - **Drag the top strip** of the open pill to move the desktop, the same as dragging the closed pill.
 - **Change the desktop's resolution or scale** with the two boxes under the sliders (new, not yet tried in the glasses).
   Click **Resolution** for a list of common sizes in three columns: 16:9 (1280x720 up to 3840x2160), 16:10 (1680x1050,
-  1920x1200, 2560x1600) and ultrawide (2560x1080, 3440x1440, 5120x1440). The current one is highlighted. Pick one and
-  that desktop changes size on the spot, without restarting XR or touching your other monitors: its windows stay on it
-  and it stays where it is in the glasses. Within one shape (16:9 to 16:9) it also keeps its size in the glasses; only
-  how sharp it is and how much fits on it change. A new shape makes it wider or narrower where it is. It keeps its scale
-  if that still fits the new size, else it takes the nearest one that does. Click **Scale** for 100% to 300%; steps that
-  would not give whole pixels at this resolution are greyed out. The next session starts with both.
+  1920x1200, 2560x1600) and ultrawide (2560x1080, 3440x1440, 3840x1080, 5120x1440). The current one is highlighted. Pick
+  one and that desktop changes size on the spot, without restarting XR or touching your other monitors: its windows stay
+  on it and it stays where it is in the glasses. Within one shape (16:9 to 16:9) it also keeps its size in the glasses;
+  only how sharp it is and how much fits on it change. A new shape smoothly makes it wider or narrower where it is, and
+  the desktops beside it slide along (the Ultrawide button does the same). When a desktop gets smaller, floating windows
+  that would stick out are pulled back inside it, and one too big for it shrinks to fit. It keeps its scale if that still
+  fits the new size, else it takes the nearest one that does. Click **Scale** for 100% to 300%; steps that would not give
+  whole pixels at this resolution are greyed out. The next session starts with both.
 - **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click inside a desktop
   with the normal cursor goes to the window there and leaves the pill open.
 

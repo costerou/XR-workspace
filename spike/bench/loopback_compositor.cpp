@@ -1085,7 +1085,8 @@ int main(int argc, char** argv) {
             nlohmann::json paths = nlohmann::json::array();
             for (const auto& o : j["outputs"]) paths.push_back({{"name", o["name"]}, {"path", o["path"]}, {"fallback", o["fallback"]}, {"frames", o["frames"]},
                                                                 {"reallocations", o.value("reallocations", -1)}, {"constraint_batches", o.value("constraint_batches", -1)},
-                                                                {"resize_settles", o.value("resize_settles", -1)}});
+                                                                {"resize_settles", o.value("resize_settles", -1)},
+                                                                {"shape_eases", o.value("shape_eases", -1)}});
             out["capture_paths"] = paths;
             if (j.contains("composition") && j["composition"].is_object()) {
                 const auto& c = j["composition"];
@@ -1128,10 +1129,14 @@ int main(int argc, char** argv) {
             if (!out.contains("capture_paths")) fail("no capture report");
             else for (const auto& o : out["capture_paths"]) if (o["reallocations"] != 1) fail("constraints that came back re-created capture buffers");
             if (out.contains("capture_paths")) for (const auto& o : out["capture_paths"]) if (o["resize_settles"] != 0) fail("a bounce waited as a resize");
+            if (out.contains("capture_paths")) for (const auto& o : out["capture_paths"]) if (o["shape_eases"] != 0) fail("a bounce changed a desktop's shape");
         }
         if (capture && opt.churn == "resize") {  // a real size change waits (ResizeSettle) before its buffers are re-created
             if (!out.contains("capture_paths")) fail("no capture report");
             else for (const auto& o : out["capture_paths"]) if (!(o["resize_settles"].is_number() && o["resize_settles"] >= 2)) fail("a resize did not settle first");
+            // GPU composition eases the new shape (view.hpp SizeEase); the CPU fallback lays the new size out at once.
+            if (gl && out.contains("capture_paths")) for (const auto& o : out["capture_paths"]) if (!(o["shape_eases"].is_number() && o["shape_eases"] >= 2)) fail("a new shape did not ease");
+            if (!gl && out.contains("capture_paths")) for (const auto& o : out["capture_paths"]) if (o["shape_eases"] != 0) fail("the CPU path eased a shape");
         }
     }
     wl_display_destroy(server.display);

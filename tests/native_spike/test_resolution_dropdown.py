@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 QHD = {'width': 2560, 'height': 1440, 'scale': 1.0}
 CODY = ((1280, 720), (1600, 900), (1920, 1080), (2560, 1440), (3840, 2160),   # 16:9
         (1680, 1050), (1920, 1200), (2560, 1600),                             # 16:10
-        (2560, 1080), (3440, 1440), (5120, 1440))                             # ultrawide
+        (2560, 1080), (3440, 1440), (3840, 1080), (5120, 1440))               # ultrawide
 
 
 class ListTests(unittest.TestCase):
@@ -35,7 +35,7 @@ class ListTests(unittest.TestCase):
         hpp = (ROOT / 'spike/include/xr/desktops.hpp').read_text()
         listed = re.search(r'kResolutions\{\{(.*?)\}\};', hpp, re.S).group(1)
         self.assertEqual(tuple((int(w), int(h)) for w, h in re.findall(r'\{(\d+), (\d+)\}', listed)), g.RESOLUTIONS)
-        self.assertIn('kResolutionGroups{{{"16:9", 5}, {"16:10", 3}, {"Ultrawide", 3}}}', hpp)
+        self.assertIn('kResolutionGroups{{{"16:9", 5}, {"16:10", 3}, {"Ultrawide", 4}}}', hpp)
         (wlo, whi), (hlo, hhi) = g.CUSTOM_BOUNDS['width'], g.CUSTOM_BOUNDS['height']
         self.assertIn(f'kDesktopMinW = {wlo}, kDesktopMaxW = {whi}, kDesktopMinH = {hlo}, kDesktopMaxH = {hhi};', hpp)
         self.assertIn(f'if(w<{wlo} || w>{whi} || h<{hlo} || h>{hhi} || w%2 || h%2) return false;',

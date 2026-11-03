@@ -19,11 +19,11 @@ constexpr std::uint16_t kDesktopMinW = 640, kDesktopMaxW = 7680, kDesktopMinH = 
 // RESOLUTIONS (the glass_contract ctest compares them); every one is a desktop the broker accepts at 100%.
 struct Resolution { std::uint16_t width = 0, height = 0; bool operator==(const Resolution&) const = default; };
 struct ResolutionGroup { const char* name; std::size_t count; };
-constexpr std::size_t kResolutionCount = 11, kResolutionGroupCount = 3, kResolutionRows = 5;  // rows: the largest group
+constexpr std::size_t kResolutionCount = 12, kResolutionGroupCount = 3, kResolutionRows = 5;  // rows: the largest group
 constexpr std::array<Resolution, kResolutionCount> kResolutions{{{1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}, {3840, 2160},
                                                                  {1680, 1050}, {1920, 1200}, {2560, 1600},
-                                                                 {2560, 1080}, {3440, 1440}, {5120, 1440}}};
-constexpr std::array<ResolutionGroup, kResolutionGroupCount> kResolutionGroups{{{"16:9", 5}, {"16:10", 3}, {"Ultrawide", 3}}};
+                                                                 {2560, 1080}, {3440, 1440}, {3840, 1080}, {5120, 1440}}};
+constexpr std::array<ResolutionGroup, kResolutionGroupCount> kResolutionGroups{{{"16:9", 5}, {"16:10", 3}, {"Ultrawide", 4}}};
 static_assert(kResolutionGroups[0].count + kResolutionGroups[1].count + kResolutionGroups[2].count == kResolutionCount);
 static_assert(kResolutionGroups[0].count == kResolutionRows && kResolutionGroups[1].count <= kResolutionRows &&
               kResolutionGroups[2].count <= kResolutionRows);

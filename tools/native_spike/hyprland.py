@@ -208,6 +208,12 @@ class HyprlandClient:
         from .adopt import lua
         for code in lua(moves): self._eval(code)
 
+    def fit_windows(self, moves):
+        """A desktop shrank: its floating windows that would stick out back inside it (fit_windows.py). Generated Lua only,
+        from a validated plan of window addresses and whole pixels; never free-form eval."""
+        from .fit_windows import lua
+        for code in lua(moves): self._eval(code)
+
     def restore_layout(self, snapshot):
         """Stop / Recover: the adopted windows back to their pre-XR layout (restore.py), in one eval of generated Lua
         from a validated snapshot; never free-form eval."""

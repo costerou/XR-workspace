@@ -537,5 +537,76 @@ int main() {
         CHECK(near(faded(huge, 1).distance, 1, 1e-6f) && near(faded(huge, 0).distance, 0.1f, 1e-6f));
     }
     }
+    {  // A desktop changing shape live (SizeEase): the tile eases with the same smoothstep over the same time as zoom and
+       // spacing, and the layout built from it slides the neighbours along.
+        CHECK(kViewEaseMs == 220.f);
+        ViewAnimator v;  // zoom goes the same way over the same time
+        v.set_target(true, 0, 40, 1000); v.advance(1000);
+        const float d = kViewEaseMs;
+        const Size fhd{1920, 1080}, uw{2560, 1080}, uhd{3840, 2160};
+        SizeEase e;
+        CHECK(!e.value() && !e.animating() && e.eases() == 0);
+        e.advance(fhd, 1000, false);  // its first size just applies
+        CHECK(e.value()->w == 1920 && e.value()->h == 1080 && !e.animating());
+        e.advance(fhd, 1100, true);   // no change: nothing to do
+        CHECK(!e.animating() && e.eases() == 0);
+        e.advance(uhd, 1200, true);   // 16:9 to 16:9: same shape, nothing moves
+        CHECK(e.value()->w == 3840 && e.value()->h == 2160 && !e.animating() && e.eases() == 0);
+        e.advance(fhd, 1300, true);
+        CHECK(!e.animating() && e.eases() == 0);
+        e.advance(uw, 2000, true);    // to 21:9: starts from where it is
+        CHECK(e.animating() && e.eases() == 1 && near(e.value()->w, 1920, 1e-3f) && e.value()->h == 1080);
+        const auto shape_at = [&](double t) { e.advance(uw, t, true); return e.value()->w / e.value()->h; };
+        const float a0 = 1920.f / 1080, a1 = 2560.f / 1080;
+        float last = a0;
+        for (double t = 2010; t < 2000 + d; t += 10) {
+            const float a = shape_at(t);
+            CHECK(a > last && a < a1);  // always on its way, never past it
+            CHECK(near(a, a0 + (a1 - a0) * smoothstep(float((t - 2000) / d)), 1e-4f));
+            v.advance(1000 + (t - 2000));
+            CHECK(near((a - a0) / (a1 - a0), v.zoom(), 1e-3f));  // in step with a zoom started at the same moment
+            last = a;
+        }
+        shape_at(2000 + d);
+        CHECK(!e.animating() && e.value()->w == 2560 && e.value()->h == 1080);  // lands exactly on the size
+        // A change mid-way carries on from what is drawn, with no jump.
+        e.advance(fhd, 3000, true);
+        e.advance(fhd, 3000 + d / 2, true);
+        const float mid = e.value()->w / e.value()->h;
+        CHECK(near(mid, (a0 + a1) / 2, 1e-4f));
+        e.advance(uw, 3000 + d / 2, true);
+        CHECK(e.animating() && e.eases() == 3 && near(e.value()->w / e.value()->h, mid, 1e-4f));
+        e.advance(uw, 3000 + 2 * d, true);
+        CHECK(!e.animating() && e.value()->w == 2560);
+        // animate false: the new shape applies at once. A zero duration never eases.
+        e.advance(fhd, 4000, false);
+        CHECK(!e.animating() && e.value()->w == 1920 && e.eases() == 3);
+        SizeEase none(0);
+        none.advance(fhd, 0, true); none.advance(uw, 1, true);
+        CHECK(!none.animating() && none.value()->w == 2560);
+        // The middle desktop widening: the row is laid out from the eased sizes, so every drawn frame lies between the two
+        // layouts: the tile widens, the right neighbour slides right, and (the row being limited by the view's width) all
+        // three share a lower height, each step the eased share of the whole move.
+        SizeEase m;
+        m.advance(fhd, 0, false);
+        const auto layout = [&](Size mid_size) {
+            const Size row3[] = {fhd, mid_size, fhd};
+            return overview_layout(row3, 1920, 1200, 40);
+        };
+        const auto a = layout(fhd), b = layout(uw);
+        CHECK(b[1].width > a[1].width && b[2].x > a[2].x && b[0].height < a[0].height);
+        for (double t = 0; t <= d; t += 22) {
+            m.advance(uw, t, true);
+            const auto now = layout(*m.value());
+            const float ws = (now[1].width / now[1].height - a[1].width / a[1].height) /
+                             (b[1].width / b[1].height - a[1].width / a[1].height);
+            CHECK(ws >= -1e-4f && ws <= 1 + 1e-4f);
+            for (std::size_t i = 0; i < 3; ++i) {
+                CHECK(now[i].x >= std::min(a[i].x, b[i].x) - 0.5f && now[i].x <= std::max(a[i].x, b[i].x) + 0.5f);
+                CHECK(now[i].width >= std::min(a[i].width, b[i].width) - 0.5f && now[i].width <= std::max(a[i].width, b[i].width) + 0.5f);
+            }
+            if (t + 22 <= d) CHECK(near(ws, smoothstep(float(t / d)), 1e-3f));
+        }
+    }
     std::cout << "view layout passed\n";
 }

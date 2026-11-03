@@ -89,7 +89,8 @@ int main() {
         // Cody's sizes (2026-11-03): 16:9, 16:10 and ultrawide, every one a desktop the broker takes at 100%.
         CHECK((kResolutions[0] == Resolution{1280, 720} && kResolutions[4] == Resolution{3840, 2160} &&
                kResolutions[5] == Resolution{1680, 1050} && kResolutions[7] == Resolution{2560, 1600} &&
-               kResolutions[8] == Resolution{2560, 1080} && kResolutions[10] == Resolution{5120, 1440}));
+               kResolutions[8] == Resolution{2560, 1080} && kResolutions[10] == Resolution{3840, 1080} &&
+               kResolutions[11] == Resolution{5120, 1440}));
         for (const auto& r : kResolutions)
             CHECK(r.width >= kDesktopMinW && r.width <= kDesktopMaxW && r.height >= kDesktopMinH && r.height <= kDesktopMaxH &&
                   r.width % 2 == 0 && r.height % 2 == 0);
@@ -389,7 +390,7 @@ int main() {
             CHECK(is(px_at(ia, box.x + 4, box.y + box.height / 2), m.surface_container_highest, 1));
             CHECK(is(px_at(ia, box.x + box.width / 2, box.y + box.height - 1), m.on_surface_variant, 1));
             CHECK(is(px_at(io, box.x + box.width / 2, box.y + box.height - 2), m.primary, 1));
-            const FRect fhd = glass_resolution_item(2), uhd = glass_resolution_item(4), uw = glass_resolution_item(10);
+            const FRect fhd = glass_resolution_item(2), uhd = glass_resolution_item(4), uw = glass_resolution_item(11);
             CHECK(is(px_at(io, fhd.x + 6, fhd.y + fhd.height / 2), m.secondary_container, 1));   // 1920x1080: current
             CHECK(is(px_at(io, uhd.x + 6, uhd.y + uhd.height / 2), m.surface_container, 1));     // 3840x2160: not
             CHECK(is(px_at(io, uw.x + 6, uw.y + uw.height / 2), m.surface_container, 1));

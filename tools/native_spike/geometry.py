@@ -18,11 +18,11 @@ ULTRAWIDE_WIDTHS = {1080: 2560, 1440: 3440, 2160: 5120}
 STANDARD_WIDTHS = {1080: 1920, 1440: 2560, 2160: 3840}
 # A pill's Resolution dropdown (desktops.RESOLUTION): the common sizes by shape, one column of its list each, in this
 # order. Every one is a desktop the broker accepts at 100% (CUSTOM_BOUNDS, even); the ultrawide ones are the Ultrawide
-# button's own 21:9 sizes and the 32:9 preset at 1440. Mirrored by spike/include/xr/desktops.hpp kResolutions /
+# button's own 21:9 sizes and the 32:9 presets. Mirrored by spike/include/xr/desktops.hpp kResolutions /
 # kResolutionGroups (the glass_contract ctest compares them).
 RESOLUTION_GROUPS = (('16:9', ((1280, 720), (1600, 900), (1920, 1080), (2560, 1440), (3840, 2160))),
                      ('16:10', ((1680, 1050), (1920, 1200), (2560, 1600))),
-                     ('Ultrawide', ((2560, 1080), (3440, 1440), (5120, 1440))))
+                     ('Ultrawide', ((2560, 1080), (3440, 1440), (3840, 1080), (5120, 1440))))
 RESOLUTIONS = tuple(size for _, sizes in RESOLUTION_GROUPS for size in sizes)
 
 
@@ -75,6 +75,10 @@ def validate_desktop(d: object) -> dict:
 
 def logical_width(d) -> int:
     return int(d['width'] / d['scale'])
+
+
+def logical_height(d) -> int:
+    return int(d['height'] / d['scale'])
 
 
 def is_ultrawide(d) -> bool:

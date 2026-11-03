@@ -20,7 +20,11 @@ headless output's monitor rule, which re-sizes only that output (no other output
 goes on), its workspaces and windows stay on it, and the renderer keeps showing its last frame until one at the new
 size arrives. Its scale stays if it divides the new size, else it becomes the nearest step that does
 (geometry.with_resolution). Its placement in the glasses stays too: the overview gives every desktop the same height,
-so only a change of shape makes it wider or narrower where it is. The profile takes the new size with the desktops.
+so only a change of shape makes it wider or narrower where it is (the renderer eases that, and its neighbours' shift,
+view.hpp SizeEase). The profile takes the new size with the desktops.
+
+Whatever makes a desktop smaller (a smaller Resolution, Ultrawide off, a larger Scale) also pulls its floating windows
+back inside it (fit_windows.py), on the same worker once the broker steps are done.
 
 Every desktop of a run is a managed output the ownership broker made (spike/ownership/plugin.cpp), side by side in
 Hyprland's layout in name order, starting where the run's first desktop started. A change is a plan (plan(), pure)
@@ -41,15 +45,17 @@ before its output goes), and once the worker is done restarts the guard on the o
 takes the new desktops and placements, so the next session starts with them.
 
 Nothing here widens what the session may do: the outputs are the run's own managed outputs (the consent's capture
-scope), created and removed only through the broker, and the windows a removal moves go where Stop would move them.
+scope), created and removed only through the broker, the windows a removal moves go where Stop would move them, and the
+windows a shrink pulls in stay on that output.
 """
 from dataclasses import dataclass, field
 import threading
 import time
 import uuid
 
-from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide, validate_desktop,
-                       with_resolution, with_scale)
+from .fit_windows import plan as fit_plan
+from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_height, logical_width, toggle_ultrawide,
+                       validate_desktop, with_resolution, with_scale)
 
 ACTIONS = ('ultrawide', 'add', 'remove')  # the panel's desktop row (its buttons, free_pointer.PANEL_ACTIONS)
 SCALE = 'scale'  # the panel's Scale dropdown: plan(..., SCALE, index, scale=s)
@@ -80,6 +86,7 @@ class Plan:
     placements: list = field(default_factory=list)
     focus: int | None = None
     resized: list = field(default_factory=list)  # names whose pixel size changes (their capture restarts)
+    shrunk: list = field(default_factory=list)   # names whose logical size gets smaller (fit_windows.py pulls windows in)
 
     def steps(self):
         out = [('remove', self.remove)] if self.remove is not None else []
@@ -135,7 +142,7 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None, siz
         removed = by_name[target]
         del desktops[target], placed[target]
     laid = lay_out(list(desktops.items()), origin)
-    after, moves, creates, resized = [], [], [], []
+    after, moves, creates, resized, shrunk = [], [], [], [], []
     for s in laid:
         old = by_name.get(s['name'])
         if old is None:
@@ -145,6 +152,8 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None, siz
             s = {'id': old['id'], **s}
             if any(s[k] != old[k] for k in ('width', 'height', 'scale', 'x', 'y')): moves.append((old, s))
             if any(s[k] != old[k] for k in ('width', 'height', 'scale')): resized.append(s['name'])
+            before, now = desktop_of(old), desktop_of(s)
+            if logical_width(now) < logical_width(before) or logical_height(now) < logical_height(before): shrunk.append(s['name'])
         after.append(s)
     # Never two outputs on the same layout space: what moves left or shrinks goes first, left to right; then what moves
     # right or grows, right to left.
@@ -153,7 +162,7 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None, siz
     rest = sorted([(o, n) for o, n in moves if (o, n) not in first], key=lambda m: -m[1]['x'])
     names = [s['name'] for s in after]
     focus = names.index(target) if action != 'remove' else None
-    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized)
+    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized, shrunk)
 
 
 class DesktopManager:
@@ -161,9 +170,11 @@ class DesktopManager:
 
     `broker`: ownership.OwnershipBrokerClient of the run; `journal`: its journal; `specs`: the outputs the run created
     (managed.plan_outputs). `guard_factory(specs)`: the run's guard for a set of outputs (managed.ManagedGuard).
-    `store`: optional profiles.PlacementStore (save_desktops). `threads=False` runs the steps inline (tests)."""
-    def __init__(self, broker, journal, specs, *, guard_factory=None, store=None, threads=True):
+    `store`: optional profiles.PlacementStore (save_desktops). `windows`: optional Hyprland client (query, fit_windows), to
+    pull a shrunk desktop's floating windows back inside it. `threads=False` runs the steps inline (tests)."""
+    def __init__(self, broker, journal, specs, *, guard_factory=None, store=None, threads=True, windows=None):
         self.broker, self.journal, self.guard_factory, self.store, self.threads = broker, journal, guard_factory, store, threads
+        self.windows = windows
         self.specs = sorted((dict(s) for s in specs), key=lambda s: number(s['name']))
         if not self.specs: raise ValueError('a run has at least one desktop')
         self.origin = (self.specs[0]['x'], self.specs[0]['y'])
@@ -171,7 +182,7 @@ class DesktopManager:
         self._worker = None
         self._result = None
         self._stop = False
-        self.changes = self.failures = 0  # diagnostics
+        self.changes = self.failures = self.fitted = self.fit_failures = 0  # diagnostics
 
     # what the run's other parts read
     def names(self):
@@ -227,10 +238,24 @@ class DesktopManager:
                     self.broker.create_live(spec, self.journal)
                     self.specs = sorted(self.specs + [dict(spec)], key=lambda s: number(s['name']))
                 done.append(kind)
+            self._fit_windows(change)
         except Exception as exc:  # broker refusals, OwnershipBlocked, transport errors: reported, never fatal here
             error = str(exc) or type(exc).__name__
         with self._lock:
             self._result = (change, error, done)
+
+    def _fit_windows(self, change):
+        """The change went through: floating windows that would stick out of a desktop it shrank go back inside it
+        (fit_windows.py). Best effort: a window left sticking out is no reason to fail a change that worked."""
+        if self.windows is None or self._stop or not change.shrunk: return
+        try:
+            clients, workspaces, monitors = (self.windows.query(kind) for kind in ('clients', 'workspaces', 'monitors'))
+            by_name = {s['name']: s for s in change.specs}
+            moves = [m for name in change.shrunk if name in by_name for m in fit_plan(clients, workspaces, monitors, by_name[name])]
+            if moves and not self._stop: self.windows.fit_windows(moves)
+            self.fitted += len(moves)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            self.fit_failures += 1
 
     def take_result(self):
         """(plan, error or None, steps done) once the worker finished, else None. Collected once."""
