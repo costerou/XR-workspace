@@ -30,7 +30,7 @@ the viewing mode at start), not for the mode change a maximize or un-maximize ma
 Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
-Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a frosted-glass pill
+Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a glass pill
 under every desktop (spike/include/xr/glass.hpp). One at a time expands, with a short morph, into that desktop's own
 placement panel: the same four settings the panel edits (left/right, down/up, distance, curvature) as sliders.
 Ctrl+Alt+L expands the selected desktop's pill (back to the overview first if maximized) or collapses whichever

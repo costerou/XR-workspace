@@ -19,6 +19,8 @@ public:
     VideoMode();
     ~VideoMode();
     void set_font(std::unique_ptr<HudFont> font);
+    // The controls card's theme colour (VideoControlsOverlay::set_accent); true if it changed.
+    bool set_accent(std::array<float, 3> accent);
     // Start playing the file behind `fd` (ownership taken). A failure keeps the mode active in the error state, so the
     // card can say why; the supervisor then closes it.
     void open(int fd, const VideoFormat& format, std::string title, wl_display* display, double now_ms, bool audio = true);

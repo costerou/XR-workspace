@@ -77,7 +77,7 @@ struct GlCompositor::Impl {
     GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
     GLint glow_pos = -1, glow_px = -1, glow_rect = -1, glow_color = -1, glow_falloff = -1, glow_view = -1, glow_half_fov = -1;
     GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
-    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, tint = -1, hair = -1, look = -1, edge = -1, shadow_dy = -1, opacity = -1; } glass_loc;
+    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, style = -1, opacity = -1; } glass_loc;
     struct { GLint pos = -1, uv = -1, view = -1, half_fov = -1, tex = -1, alpha = -1; } panel_loc;
     GLuint panel_texture = 0; std::uint64_t panel_uploaded = 0;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
@@ -278,10 +278,8 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
         auto& g = s.glass_loc; const GLuint p = s.glass_program;
         g.pos = glGetAttribLocation(p, "pos"); g.px = glGetAttribLocation(p, "px");
         g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
-        g.rect = glGetUniformLocation(p, "rect"); g.radius = glGetUniformLocation(p, "radius"); g.tint = glGetUniformLocation(p, "tint");
-        g.hair = glGetUniformLocation(p, "hair");
-        g.look = glGetUniformLocation(p, "look"); g.edge = glGetUniformLocation(p, "edge");
-        g.shadow_dy = glGetUniformLocation(p, "shadow_dy"); g.opacity = glGetUniformLocation(p, "opacity");
+        g.rect = glGetUniformLocation(p, "rect"); g.radius = glGetUniformLocation(p, "radius");
+        g.style = glGetUniformLocation(p, "style"); g.opacity = glGetUniformLocation(p, "opacity");  // style: glass_style()
     }
     if ((s.panel_program = link(kVertex, kPanelFragment))) {
         auto& g = s.panel_loc; const GLuint p = s.panel_program;
@@ -648,11 +646,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             program(s.glass_program, s.glass_projection, s.glass_loc.view, s.glass_loc.half_fov);
             glUniform4f(s.glass_loc.rect, r.x + r.width / 2, r.y + r.height / 2, r.width / 2, r.height / 2);
             glUniform1f(s.glass_loc.radius, radius);
-            glUniform3f(s.glass_loc.tint, look.tint[0], look.tint[1], look.tint[2]);
-            glUniform3f(s.glass_loc.hair, look.hair[0], look.hair[1], look.hair[2]);
-            glUniform4f(s.glass_loc.look, look.fill, look.gloss, look.gloss_px, look.level);
-            glUniform4f(s.glass_loc.edge, look.border_top, look.border_bottom, look.shadow, look.shadow_sigma);
-            glUniform1f(s.glass_loc.shadow_dy, look.shadow_dy); glUniform1f(s.glass_loc.opacity, opacity);
+            glUniform4fv(s.glass_loc.style, kGlassStyleVecs, glass_style(look).data());  // every M3 style input at once
+            glUniform1f(s.glass_loc.opacity, opacity);
             const GLsizei n = s.build(mesh, canvas, tiles[i], glass_on(i), {r.x - margin, r.y - margin, r.width + 2 * margin, r.height + 2 * margin},
                                       Impl::Attr::canvas_px, true);  // fixed size: a resize never scales the glass
             attrib(s.glass_loc.pos, 3, 5, 0); attrib(s.glass_loc.px, 2, 5, 3);
@@ -706,12 +701,14 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glDisable(GL_BLEND);
     }
     if (s.handle_desktop >= 0 && std::size_t(s.handle_desktop) < tiles.size() && s.handle_level > 0.f) {
-        // Corner-resize handle: an opaque grey bracket on the desktop's own surface, over its pixels (no blending needed).
+        // Corner-resize handle: an opaque bracket on the desktop's own surface, over its pixels (no blending needed), in the
+        // theme's M3 on-surface-variant, turning primary while held (glass.hpp corner_handle_color).
         const auto h = std::size_t(s.handle_desktop);
         const auto arms = corner_handle(tiles[h], s.handle_corner);
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
         program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
-        glUniform4f(s.color, s.handle_level, s.handle_level, s.handle_level, 1.f);
+        const auto handle = corner_handle_color({s.accent[0], s.accent[1], s.accent[2]}, s.handle_level);
+        glUniform4f(s.color, handle[0], handle[1], handle[2], 1.f);
         for (int k = 0; k < 2; ++k) {
             const GLsizei n = s.build(s.handle_mesh[k], canvas, tiles[h], s.resolved[h], k ? arms.vertical : arms.horizontal, Impl::Attr::tile_uv);
             attrib(s.color_pos, 3, 5, 0);

@@ -1,7 +1,8 @@
 # Placement pills: test coverage and glasses test script
 
 On 2026-11-02 (`feature/glass-pills`) the head-locked placement menu card and its mouse mode (Ctrl+Alt+M) were replaced
-by a frosted-glass pill under each desktop in the overview. Clicking a pill with the overview free pointer, or pressing
+by a glass pill under each desktop in the overview (since 2026-11-03 drawn in Material Design 3: a tonal pill in the
+theme's colours). Clicking a pill with the overview free pointer, or pressing
 Ctrl+Alt+L for the selected desktop, expands it into that desktop's own placement panel with the menu's sliders and
 keys: four sliders since the yaw, pitch and roll settings were removed later on 2026-11-02 (`3dof-free-placement`,
 every desktop now faces you), seven before. The pill is also the desktop's move handle: it replaces the thin grey bar
@@ -33,11 +34,11 @@ Renderer (ctest, offline):
   (0.9) desktop, and over black the glass alone, and the glass with the panel content on top, stays at or under
   191/255, also in saturated, pale and deep theme colours. Reports skipped (exit 77) without EGL or GLES.
 - `spike/tests/glass_theme_test.cpp` (`glass_theme`): for the border colour of every theme Omarchy ships (and pure
-  colours, black and white), the pill is the border colour scaled by one factor (hue, saturation and lightness follow
-  the theme; Vantablack, White, Lumon and Kanagawa give four different pills), its hairline is the theme colour, its
-  gloss and hairline still show, hover and drag brighten it, every state
-  stays under 191/255 without clipping the body, grey themes give grey glass and the open panel stays dark behind its
-  text; the panel's band and slider fill are the theme colour at the cards' dimmed level and nothing else on it changes;
+  colours, black and white), the pill is the M3 scheme's primary container: the border colour's hue and chroma at its own
+  tone (Vantablack, White, Lumon and Kanagawa give four different pills), hover and drag lay M3's state layer over it,
+  every state stays under 191/255, grey themes give grey glass and the open panel is the dark surface container behind
+  its text; the panel's band is the secondary container and its tracks, fills and handles the primary, in every theme;
+  `spike/tests/material_test.cpp` (`material`) checks the scheme itself (M3 tones, hue, contrast, the cap);
   `GlassPills::set_accent` re-renders an open (or collapsing) panel once per frame under a new generation, without
   restarting its animation.
 - `glass_contract` (`spike/tests/glass_contract_test.py`, which runs `glass_geometry_dump`): the supervisor's copy of the
@@ -84,7 +85,7 @@ Supervisor (Python, offline), in `tests/native_spike/`:
   panel loads the help card's font and uses its dimmed colours. `test_typing_mode.py`: typing mode closes an open panel
   and hides the pills.
 
-Not checked offline: how the glass looks on the micro-OLED panels (the tint, gloss, hairline and shadow under the
+Not checked offline: how the glass looks on the micro-OLED panels (the tonal surfaces, state layers and shadows under the
 191/255 cap), whether the panel text is readable at overview size (the panel is drawn on the desktop's surface, so it
 shrinks as Distance grows), whether the panel hanging below the desktop row stays in view at the default spacing,
 whether the morph looks smooth at 120 Hz, how the 4 px click threshold feels with a real mouse, and the shader's frame
@@ -108,7 +109,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 
 | # | Do | Expect |
 |---|----|--------|
-| G1 | Look under each desktop | A small frosted-glass pill sits centred just under each of XR-1, XR-2 and XR-3: glass in the theme's border colour, rounded ends, a soft gloss along the top, a thin hairline edge and a soft shadow. Nothing on it is white or glaring. |
+| G1 | Look under each desktop | A small flat pill sits centred just under each of XR-1, XR-2 and XR-3 (Material Design 3): a solid tonal capsule in the theme's border colour, as light or dark as that colour, fully rounded ends and a soft shadow under it over a desktop. Hovering it with the dot tints it slightly; dragging it tints it a little more and deepens its shadow. Nothing on it is white or glaring. |
 | G2 | **OLED.** Compare the pills under a dark desktop and under a bright one (a white web page) | The pills read as solid glass shapes in both cases, not as holes, and are never brighter than the help card's grey text. They don't flicker, drift or shimmer. |
 | G3 | Push the mouse down past XR-1's bottom edge so the grey dot shows, and move the dot onto XR-1's pill | That pill gets brighter; the others don't. No corner bracket. |
 | G4 | Click the pill without moving the mouse | It grows smoothly (about a quarter of a second) into XR-1's placement panel under XR-1: "XR-1" and "Placement" at the top with a small grabber, four rows (Left/right, Down/up, Distance, Curvature) with a slider and value each, the selected row on a faint band, and the key hints at the bottom. There is no Yaw, Pitch or Roll row. The text fades in at the end. XR-1 does not move. |
@@ -143,7 +144,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G33 | Change XR-1 and close its pill at once (Escape). Stop the session and start a new one | XR-1 comes back where you left it (saved on close). |
 | G34 | With a pill open, move a slider in the settings panel's **Place** tab | The desktop and the open panel's value both update. The next arrow press continues from the Place tab's value. |
 | G35 | With a pill open, press Ctrl+Alt+H, then Ctrl+Alt+P | The help card shows in front as usual and the panel stays open behind it. Its Ctrl+Alt+L row names the placement pill. Ctrl+Alt+P toggles prediction (its pop-up shows) and opens nothing. |
-| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel's glass, its selected-row band and slider fill, the other pills, the highlight border and the glow all change to the new theme colour together; the panel text stays grey and readable. In every theme the pills read as glass in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), with the gloss and hairline visible and nothing glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
+| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the roll arrows, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
 

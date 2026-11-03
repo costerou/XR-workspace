@@ -167,7 +167,7 @@ copy of any one of them can't take the new placements. Going back to an older ba
 placements this version saved to flat.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
-(**Ctrl+Alt+Down**) each desktop has a small frosted-glass pill just under it. Click a pill with the grey dot (see the
+(**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the
 next part) and it grows smoothly into that desktop's own placement panel: four sliders, one for each setting
 (Left/right, Down/up, Distance, Curvature), each with its value.
 Or press **Ctrl+Alt+L** to open the pill of the selected desktop. If a desktop is maximized, Ctrl+Alt+L goes back to
@@ -223,10 +223,11 @@ In the overview your mouse is no longer stuck inside the desktops:
   it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Resizing doesn't stop at other desktops.
-- **Level a tilted desktop:** if a desktop looks tilted (say you recentred with your head tipped to one side), a small
-  round glass button with a curved arrow appears above its higher top corner, in anchor mode. Click it and the desktop
-  rolls level. Or hold it and drag the dot round the desktop to roll it yourself; it only turns the way the arrow
-  points and stops when it is level. A level desktop has no button. Levelling lasts for the session only.
+- **Level or roll a desktop:** every desktop in the overview has two small curved arrows in your theme's colour above
+  its top corners: counter-clockwise on the left, clockwise on the right. Click one and the desktop turns that way:
+  straight to level if level lies that way (say you recentred with your head tipped to one side; judged against
+  gravity in anchor mode), else 2° further. Or hold either arrow and drag the dot round the desktop to roll it either
+  way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
 - **Maximize a desktop:** click it with the dot. The window under the dot gets the click and the desktop is maximized,
   as Ctrl+Alt+Up does: it grows where it is to fill your view, then follows your head. It gets the focus and the
   normal cursor appears where you clicked. A press that drags (moving a window, selecting text) doesn't maximize.

@@ -11,15 +11,22 @@
 #include <string_view>
 #include <vector>
 #include "xr/desktops.hpp"
+#include "xr/material.hpp"
 
 namespace xr {
 // Premultiplied RGBA8, row 0 at the top, one texel per output pixel.
 struct HudImage { std::uint32_t width = 0, height = 0; std::vector<std::uint8_t> rgba; };
+// A line's colour can be a role of the card's Material scheme (material.hpp, from the theme accent the card is drawn with)
+// instead of its own `color`: the cards follow the Omarchy theme and stay under the OLED cap.
+enum class HudRole : std::uint8_t { none, on_surface, on_surface_variant, outline, primary, on_secondary_container };
 // `scale` is a relative size step (1 small, 2 normal, 4 large); `bold` uses the font's bold face. `px`, when set,
 // is the exact em size in pixels instead (the pixel font takes the nearest whole zoom, at least 1).
 struct HudLine {
     std::string text; std::uint32_t scale = 1; std::array<float, 3> color{1, 1, 1}; bool bold = false; std::uint32_t px = 0;
+    HudRole role = HudRole::none;  // none: `color`
 };
+// The colour a line is drawn in with `scheme`.
+std::array<float, 3> hud_line_color(const HudLine& line, const MaterialScheme& scheme);
 
 // Installed scalable font, looked up by exact family name. Not thread-safe; one per renderer.
 class HudFont {
@@ -43,8 +50,9 @@ constexpr const char* kHudFontFamily = "JetBrainsMono Nerd Font";  // Omarchy's 
 constexpr std::uint32_t kGlyphW = 5, kGlyphH = 7;
 // Width in texels of `text` at `scale` (one blank column between glyphs, none trailing).
 std::uint32_t hud_text_width(std::string_view text, std::uint32_t scale);
-// Rounded dark card with an `accent` border and the lines centred, top to bottom. With no
-// `font`, the built-in pixel font is used.
+// Material Design 3 card: an extra-large rounded surface container (high) with a 1 px outline-variant edge, in the M3
+// scheme of theme colour `accent` (material.hpp, as the glass pills: glass_theme_scheme), and the lines centred, top to
+// bottom, each in its role's colour (HudLine::role) or its own. With no `font`, the built-in pixel font is used.
 HudImage render_hud_card(const std::vector<HudLine>& lines, std::array<float, 3> accent, const HudFont* font = nullptr);
 // Uppercase-only glyph rows (bit 4 = leftmost column); lowercase maps to uppercase, unknown to '?'.
 const std::array<std::uint8_t, kGlyphH>& hud_glyph(char c);
@@ -54,11 +62,12 @@ constexpr double kPopupFadeInMs = 120, kPopupHoldMs = 1500, kPopupFadeOutMs = 38
 constexpr double kPopupTotalMs = kPopupFadeInMs + kPopupHoldMs + kPopupFadeOutMs;
 float popup_alpha(double elapsed_ms);
 
-// mode: 0 anchor, 1 locked, 2 follow (the ViewPayload encoding).
+// mode: 0 anchor, 1 locked, 2 follow (the ViewPayload encoding). Each pop-up section: what it is (on-surface-variant),
+// its new state (large, bold, the theme's primary), what that means (on-surface-variant) and its key (outline).
 std::vector<HudLine> view_mode_lines(std::uint8_t mode);
 std::vector<HudLine> cursor_follow_lines(bool on);
 std::vector<HudLine> prediction_lines(bool on);
-// Typing mode (Ctrl+Alt+T): drawn in the cards' dimmed colours (kCardMaxLevel), never full white.
+// Typing mode (Ctrl+Alt+T). Every pop-up is drawn in its M3 scheme's roles, under the OLED cap (kCardMaxLevel).
 std::vector<HudLine> typing_lines(bool on);
 
 class StatusPopups {
@@ -77,6 +86,9 @@ public:
     void track_mode(std::uint8_t mode) { if (seen_) mode_ = mode > 2 ? 0 : mode; }
     void set_font(std::unique_ptr<HudFont> font);  // applies to the next card; nullptr: pixel font
     const HudFont* font() const { return font_.get(); }
+    // The theme colour (Presentation::set_accent) the cards are drawn in. A change redraws a card that is still showing,
+    // in place (a new generation, the same fade), and returns true.
+    bool set_accent(std::array<float, 3> accent, double now_ms);
     float alpha(double now_ms) const;
     bool active(double now_ms) const { return generation_ && now_ms - shown_ms_ < kPopupTotalMs; }
     const HudImage& image() const { return image_; }
@@ -87,6 +99,8 @@ private:
     double shown_ms_ = 0;
     std::uint64_t generation_ = 0;
     HudImage image_;
+    std::vector<HudLine> lines_;  // the card shown last
+    std::array<float, 3> accent_ = kMdDefaultSeed;
     std::unique_ptr<HudFont> font_;
 };
 
@@ -133,7 +147,7 @@ std::string help_geometry_json(const std::array<float, 9>& view, std::uint32_t w
                                const HelpCardControls& controls);
 constexpr double kHelpFadeInMs = 220, kHelpFadeOutMs = 260;
 // Image-retention protection for the centred help card and the placement panels (glass.hpp) on the glasses' micro-OLED panels:
-// dimmed text and accent (see hud.cpp kCardText) and an idle auto-close. The cards never move while shown.
+// Material roles scaled under the cap (material.hpp kMdOledLevel) and an idle auto-close. The cards never move while shown.
 // The supervisor closes both cards after this many seconds without a run key or panel change. The value lives in
 // tools/native_spike/view.py OVERLAY_IDLE_CLOSE_S; this copy is only for the help card's footer note (a test pins them).
 constexpr std::uint32_t kOverlayIdleCloseS = 30;
@@ -172,6 +186,8 @@ public:
     // Returns true if visibility changed or a shown card was redrawn (new page or new rows).
     bool set(bool visible, const std::vector<HelpRow>& rows, double now_ms, int turn = 0);
     void set_font(std::unique_ptr<HudFont> font);
+    // The theme colour (Presentation::set_accent) the card is drawn in; a change re-renders a rendered card (true).
+    bool set_accent(std::array<float, 3> accent);
     // Output surface size the card must fit (0 = unbounded); a rendered card is laid out again when it changes.
     bool set_viewport(std::uint32_t width, std::uint32_t height);
     bool visible() const { return fade_.visible(); }
@@ -195,6 +211,7 @@ private:
     HelpCardControls controls_;
     std::uint64_t generation_ = 0;
     HudImage image_;
+    std::array<float, 3> accent_ = kMdDefaultSeed;
     std::unique_ptr<HudFont> font_;
 };
 

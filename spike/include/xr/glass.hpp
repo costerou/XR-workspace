@@ -1,5 +1,5 @@
 #pragma once
-// Glass pills: a frosted-glass capsule under each XR desktop in the overview, on that desktop's own surface (it faces you
+// Glass pills: a Material Design 3 tonal capsule under each XR desktop in the overview, on that desktop's own surface (it faces you
 // with its desktop, and a curved desktop curves its pill). Dragging a pill moves its desktop; clicking it (or Ctrl+Alt+L for
 // the selected desktop) expands it, with a smooth morph, into that desktop's placement panel: the four placement sliders,
 // the selected one highlighted. Only one panel is open at a time. The supervisor owns the state (ipc.hpp
@@ -7,9 +7,11 @@
 // which mirrors every geometry constant here; a contract test compares them). Pure and offline-testable, except the
 // fragment shader source, which glass_shade() mirrors on the CPU.
 //
-// Look: a dark translucent tint in the theme's hue, lighter toward the top, a soft top gloss, a one-pixel
-// hairline brighter at the top, rounded ends and a soft drop shadow. On the glasses' micro-OLED panels black is
-// see-through, so the glass is mostly its own tint: nothing on it exceeds kCardMaxLevel (191/255), the panel is dark
+// Look: Material Design 3 (material.hpp), in an M3 scheme seeded by the Omarchy theme colour (glass_theme.hpp). The pill
+// is a flat tonal capsule in the primary container at elevation 1; hover and drag lay M3's state layer over it (8%, 16%)
+// and lift it (elevation 2, 4). The open panel is a surface container (high) with an outline-variant edge at elevation 3,
+// the state layer on its header strip only; its content (render_glass_panel) is M3's slider, list and button parts. On the
+// glasses' micro-OLED panels black is see-through: every role sits under kCardMaxLevel (191/255), the panel is dark
 // behind its text, and nothing moves on its own.
 #include "xr/glass_theme.hpp"
 #include "xr/hud.hpp"
@@ -72,33 +74,48 @@ FRect roll_icon(const FRect& tile, std::uint32_t side, float distance);
 // clockwise) for side 0: the way a click or drag on it turns the desktop. Empty for an empty icon.
 struct RollArrow { std::vector<std::array<float, 2>> band; std::array<std::array<float, 2>, 3> head{}; };
 RollArrow roll_arrow(const FRect& icon, std::uint32_t side);
-// The arrow's colour: the monitor border's and glow's, the theme accent itself (GlCompositor::set_accent, live with the
-// Omarchy theme); hovered or dragged (level above kGlassIdle) it is lifted toward white, up to 30% at kGlassActive.
+// The arrow's colour: an M3 icon in the theme's primary (glass_theme_scheme of the accent, GlCompositor::set_accent, live
+// with the Omarchy theme); hovered or dragged (level above kGlassIdle) it is lifted along the primary palette toward its
+// tone 98 (MaterialScheme::primary_bright), all the way at kGlassActive. Under the OLED cap in every state.
 std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level);
+// The corner-resize handle's colour (view.hpp corner_handle, GlCompositor::set_corner_handle `level`): on-surface-variant
+// at view.hpp kHandleLevelIdle, the theme's primary at kHandleLevelActive (blended in between), faded toward black below
+// the idle level, nothing at 0. Opaque, under the OLED cap.
+std::array<float, 3> corner_handle_color(std::array<float, 3> accent, float level);
 
 // --- Look ----------------------------------------------------------------------------------------------------------
-// Pill states: brightness of the gloss, hairline and tint. Hover = the pointer is on the pill (or the open panel's
-// header); active = it is being dragged.
+// Pill states (GlassFrame::hover_level). Hover = the pointer is on the pill (or the open panel's header); active = it is
+// being dragged. In M3 terms: enabled, hovered (state layer kMdStateHover, elevation 2) and dragged (kMdStateDragged,
+// elevation 4).
 constexpr float kGlassIdle = 1.f, kGlassHover = 1.4f, kGlassActive = 1.7f;
 constexpr float kGlassCap = 191.f / 255.f;   // = kCardMaxLevel: the brightest any glass pixel may be
-constexpr float kGlossLevel = 0.86f, kHairLevel = 0.88f;  // grey of the gloss, brightest hairline channel, before alpha
 constexpr float kGlassShadowMargin = 32.f;   // canvas px drawn around the shape for its shadow
+constexpr float kPanelFill = 0.94f;          // the open panel's opacity (the pill is opaque): a hint of what is behind it
+// One glass shape in M3 terms: a container colour at `fill` opacity, a 1 px outline just inside its edge, a state layer
+// (the content colour at `state_alpha`) over its top `state_px`, and an elevation shadow below it.
 struct GlassLook {
-    std::array<float, 3> tint{};             // base colour (lightened toward the top)
-    std::array<float, 3> hair{kHairLevel, kHairLevel, kHairLevel};  // the hairline's colour before its alpha
-    float fill = 0, gloss = 0, gloss_px = 1, level = kGlassIdle;
-    float border_top = 0, border_bottom = 0, shadow = 0, shadow_sigma = 1, shadow_dy = 0;
+    std::array<float, 3> container{}, outline{}, state{};
+    float fill = 0, outline_alpha = 0, state_alpha = 0, state_px = 0;
+    float shadow = 0, shadow_sigma = 1, shadow_dy = 0;
 };
-// The look `t` (eased 0..1) of the way from pill to panel: the pill is a little brighter, the open panel darker behind
-// its text. `accent` is the Omarchy theme colour: the glass takes its hue (glass_theme_tint).
+// M3's state layer opacity for a pill state: 0 idle, kMdStateHover at kGlassHover, kMdStateDragged at kGlassActive.
+float glass_state_opacity(float level);
+// The look `t` (eased 0..1) of the way from pill to panel, `accent` the Omarchy theme colour (glass_theme_scheme): the
+// primary container with its on-colour as the state layer over the whole pill, then the surface container (high) with an
+// outline-variant edge and the on-surface state layer over its header strip (kPanelHeaderH), the elevation rising from
+// the pill's (1, or 2 hovered / 4 dragged) to the panel's (3, or 4 while its header is dragged).
 GlassLook glass_look(std::array<float, 3> accent, float level, float t);
+// The open panel's drag handle (M3: on-surface-variant at 40%), more opaque while hovered or dragged. No shadow.
 GlassLook grabber_look(float level);
 // One pixel (canvas px centre px, py) of a glass shape `rect` with corner `radius` at `opacity`: premultiplied RGBA,
 // every colour channel at most kGlassCap. The GLSL fragment shader below computes exactly this.
 std::array<float, 4> glass_shade(const GlassLook& look, const FRect& rect, float radius, float px, float py, float opacity);
-// GLSL ES 1.00 fragment shader. Varying `p` = canvas px; uniforms rect (centre x, y, half w, half h), radius, tint, hair,
-// look (fill, gloss, gloss_px, level), edge (border_top, border_bottom, shadow, shadow_sigma), shadow_dy, opacity.
-// Premultiplied output: blend with GL_ONE, GL_ONE_MINUS_SRC_ALPHA.
+// The shader's `style` uniform, four vec4s: container + fill, outline + its alpha, state layer + its alpha,
+// (state_px, shadow, shadow_sigma, shadow_dy). One glUniform4fv(style, kGlassStyleVecs, ...) sets every style input.
+constexpr int kGlassStyleVecs = 4;
+std::array<float, 4 * kGlassStyleVecs> glass_style(const GlassLook& look);
+// GLSL ES 1.00 fragment shader. Varying `p` = canvas px; uniforms rect (centre x, y, half w, half h), radius,
+// style[kGlassStyleVecs] (glass_style), opacity. Premultiplied output: blend with GL_ONE, GL_ONE_MINUS_SRC_ALPHA.
 const char* glass_fragment_shader();
 
 // --- Panel content -----------------------------------------------------------------------------------------------------
@@ -106,12 +123,19 @@ const char* glass_fragment_shader();
 // transparent background (the glass is drawn under it): header "XR-n" / "Placement", one row per field (label, slider
 // filled from the flat value, value with units; the selected row on a faint accent band), the desktop row (Ultrawide lit
 // while the desktop is ultrawide, Remove lit while armed, buttons that do nothing now dimmed), and a key-hint footer.
-// Text in the help card's dimmed colours, the band and the fills in `accent`'s (glass_theme_highlight), so nothing
-// passes kCardMaxLevel.
+// Material Design 3 parts in `accent`'s scheme (glass_theme_scheme): text in on-surface / on-surface-variant, the selected
+// row on a fully rounded secondary-container band, sliders with a primary track, fill and handle (the selected one with
+// a focus halo), filled tonal buttons with icons (primary while on, error container while armed, M3 disabled). Every
+// role is under the OLED cap, so nothing passes kCardMaxLevel.
 HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font = nullptr,
                             std::array<float, 3> accent = kGlassThemeDefault);
 // Footer hint as drawn (font: arrows; pixel font: ASCII).
 std::string glass_panel_hint(bool ascii);
+// A desktop-row button's M3 colours in `accent`'s scheme: filled tonal (secondary container), the primary while on
+// (Ultrawide), the error container while armed (Remove?), M3 disabled when it does nothing now (on-surface at 12% / 38%).
+struct PanelButtonStyle { std::array<float, 3> container{}, content{}; float container_alpha = 1, content_alpha = 1; };
+PanelButtonStyle glass_panel_button_style(std::size_t action, const PlacementMenuState& state,
+                                          std::array<float, 3> accent = kGlassThemeDefault);
 
 // --- Animation -----------------------------------------------------------------------------------------------------
 constexpr double kGlassExpandMs = 260, kGlassCollapseMs = 200;

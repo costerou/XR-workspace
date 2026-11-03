@@ -1,9 +1,9 @@
 // The glass fragment shader (glass.hpp glass_fragment_shader) on a real GLES2 context matches its CPU mirror
-// glass_shade() pixel for pixel (within rounding) over black and over a bright (0.9) desktop; over black the glass alone,
-// and the glass with the panel content composited on top, stays at or under the 191/255 OLED cap (over a bright desktop
-// the desktop itself is brighter than that, so the cap is not checked there). The same holds for the glass and the panel in
-// Omarchy theme colours (glass_theme.hpp). Surfaceless EGL: no display, window or compositor. Exit 77 (skipped) without
-// EGL/GLES.
+// glass_shade() pixel for pixel (within rounding) over black and over a bright (0.9) desktop, in every state (idle,
+// hovered: the M3 state layer, dragged) and along the morph; over black the glass alone, and the glass with the panel
+// content composited on top, stays at or under the 191/255 OLED cap (over a bright desktop the desktop itself is brighter
+// than that, so the cap is not checked there). The same holds for the glass and the panel in Omarchy theme colours
+// (the M3 scheme, glass_theme.hpp). Surfaceless EGL: no display, window or compositor. Exit 77 (skipped) without EGL/GLES.
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -79,11 +79,8 @@ int main() {
         glUseProgram(glass);
         glUniform4f(glGetUniformLocation(glass, "rect"), r.x + r.width / 2, r.y + r.height / 2, r.width / 2, r.height / 2);
         glUniform1f(glGetUniformLocation(glass, "radius"), radius);
-        glUniform3f(glGetUniformLocation(glass, "tint"), k.tint[0], k.tint[1], k.tint[2]);
-        glUniform3f(glGetUniformLocation(glass, "hair"), k.hair[0], k.hair[1], k.hair[2]);
-        glUniform4f(glGetUniformLocation(glass, "look"), k.fill, k.gloss, k.gloss_px, k.level);
-        glUniform4f(glGetUniformLocation(glass, "edge"), k.border_top, k.border_bottom, k.shadow, k.shadow_sigma);
-        glUniform1f(glGetUniformLocation(glass, "shadow_dy"), k.shadow_dy); glUniform1f(glGetUniformLocation(glass, "opacity"), opacity);
+        glUniform4fv(glGetUniformLocation(glass, "style"), kGlassStyleVecs, glass_style(k).data());  // as GlCompositor does
+        glUniform1f(glGetUniformLocation(glass, "opacity"), opacity);
         const GLint pos = glGetAttribLocation(glass, "pos"), pxl = glGetAttribLocation(glass, "px");
         glVertexAttribPointer(GLuint(pos), 2, GL_FLOAT, GL_FALSE, 0, full); glEnableVertexAttribArray(GLuint(pos));
         glVertexAttribPointer(GLuint(pxl), 2, GL_FLOAT, GL_FALSE, 0, px); glEnableVertexAttribArray(GLuint(pxl));
@@ -141,7 +138,7 @@ int main() {
         glDeleteTextures(1, &tex);
     }
     // Theme colours (glass_theme.hpp): saturated, pale and deep Omarchy borders (matte-black, catppuccin-latte, lumon,
-    // hackerman), pure blue, white and vantablack grey, dragged (the brightest state): the shader, its hairline in the
+    // hackerman), pure blue, white and vantablack grey, dragged (the brightest state): the shader, its outline in the
     // theme colour too, still matches glass_shade, and over black the glass, and the open panel with its themed
     // highlights on it, stay under the cap.
     for (const std::uint32_t hex : {0xe68e0du, 0x1e66f5u, 0xf2fcffu, 0x26a269u, 0x0000ffu, 0xffffffu, 0x8d8d8du}) {

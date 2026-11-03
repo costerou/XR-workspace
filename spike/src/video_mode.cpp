@@ -11,6 +11,7 @@ VideoMode::VideoMode() = default;
 VideoMode::~VideoMode() { close(); }
 
 void VideoMode::set_font(std::unique_ptr<HudFont> font) { card_.set_font(std::move(font)); }
+bool VideoMode::set_accent(std::array<float, 3> accent) { return card_.set_accent(accent); }
 
 void VideoMode::open(int fd, const VideoFormat& format, std::string title, wl_display* display, double now_ms, bool audio) {
     if (active_) card_.set_visible(false, 0);  // as close(): the open fades the card in again

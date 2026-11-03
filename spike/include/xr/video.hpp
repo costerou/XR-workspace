@@ -110,8 +110,8 @@ const char* video_state_name(VideoState state);
 std::string format_clock(double seconds);
 
 // Controls card (head-locked, near the bottom of the view). It follows the OLED rules of the help card and placement
-// menu: the help card's dimmed text and accent (nothing above kCardMaxLevel), no pixel orbit or drift, and the supervisor
-// closes it after kOverlayIdleCloseS without input (tools/native_spike/video.py).
+// menu: the help card's Material parts in the theme's M3 scheme (nothing above kCardMaxLevel), no pixel orbit or drift,
+// and the supervisor closes it after kOverlayIdleCloseS without input (tools/native_spike/video.py).
 struct VideoCardState {
     std::string title;
     VideoFormat format;
@@ -127,6 +127,7 @@ struct VideoCardState {
 // Key hints on the card's footer (shared with the help text in docs/vr-video.md).
 std::vector<std::string> video_card_hints(bool ascii);
 std::vector<std::string> video_menu_hints(bool ascii);  // the same, while the quality menu is open
+// `accent`: the Omarchy theme colour (material.hpp seed; all zero: the default, kMdDefaultSeed).
 HudImage render_video_card(const VideoCardState& state, std::array<float, 3> accent, const HudFont* font = nullptr);
 
 class VideoControlsOverlay {
@@ -134,6 +135,8 @@ public:
     bool set_visible(bool visible, double now_ms);              // true if visibility changed
     bool update(const VideoCardState& state, double now_ms);    // re-renders when visible and changed; true if redrawn
     void set_font(std::unique_ptr<HudFont> font);
+    // The theme colour (Presentation::set_accent); a change redraws the card on its next update. True if it changed.
+    bool set_accent(std::array<float, 3> accent);
     bool visible() const { return fade_.visible(); }
     float alpha(double now_ms) const;
     bool animating(double now_ms) const;
@@ -147,6 +150,7 @@ private:
     bool dirty_ = true;
     std::uint64_t generation_ = 0, shown_ = 0;
     HudImage image_;
+    std::array<float, 3> accent_ = kMdDefaultSeed;
     std::unique_ptr<HudFont> font_;
 };
 }

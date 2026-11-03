@@ -53,7 +53,7 @@ These are a model of the compositor, not Hyprland. They do not show glasses late
 
 ## Glass placement pills
 
-In the overview each desktop gets a frosted-glass pill under it (`include/xr/glass.hpp`, `src/glass.cpp`). The
+In the overview each desktop gets a glass pill under it (a Material Design 3 tonal capsule) (`include/xr/glass.hpp`, `src/glass.cpp`). The
 supervisor owns the state and the hit testing (`tools/native_spike/free_pointer.py` mirrors the geometry; the
 `glass_contract` test compares the two) and sends two display-only control frames:
 
@@ -81,10 +81,11 @@ row slot and the zoomed desktop comes flat in front of you (`zoomed_placement`).
   18 px corners, centred under the desktop with its top at the pill's top. Its 42 px top strip is still the pill (drag
   to move, click to collapse); below it, one 34 px row per field (Left / right, Down / up, Distance, Curvature) with
   label, slider and value, then a key-hint footer.
-- Look: the theme's border colour as translucent glass (`glass_theme.hpp`), lighter toward the top, a top gloss, a 1 px
-  hairline in the theme colour, brighter at the top, rounded corners and a soft drop shadow, from one GLSL fragment shader (`glass_fragment_shader`)
-  with a CPU mirror (`glass_shade`). Hover and drag brighten it. Every pixel stays at or under `kCardMaxLevel`
-  (191/255) for the micro-OLED panels, and the panel text uses the help card's dimmed colours.
+- Look: Material Design 3 (`material.hpp`) in an M3 dark scheme seeded by the theme's border colour (`glass_theme.hpp`):
+  the pill a flat tonal capsule in the primary container at elevation 1, the open panel a surface container with an
+  outline-variant edge at elevation 3, from one GLSL fragment shader (`glass_fragment_shader`) with a CPU mirror
+  (`glass_shade`). Hover and drag lay M3's state layer over it (8%, 16%) and lift it. Every role stays at or under
+  `kCardMaxLevel` (191/255) for the micro-OLED panels.
 - Animation: the pill morphs into the panel in 260 ms and back in 200 ms, eased; the panel's text fades in over the
   last quarter. An expansion is held while the view is zoomed in or still zooming out (`GlassPills::frame`), so a
   panel opened from a zoomed-in view morphs in full once the overview is reached. Nothing moves on its own.

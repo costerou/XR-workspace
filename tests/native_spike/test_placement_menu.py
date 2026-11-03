@@ -1,6 +1,6 @@
 """In-session placement from the keyboard: contract tests written ahead of the placement menu, kept for the glass pills.
 
-Since feature/glass-pills (2026-11-02) the head-locked menu card is gone: the same state and ops drive a frosted-glass
+Since feature/glass-pills (2026-11-02) the head-locked menu card is gone: the same state and ops drive a glass
 pill under each desktop, and 'placement_menu' {open, desktop, ...} means "that desktop's pill is expanded into its
 placement panel". The keyboard contract below is unchanged; the pointer side (pill clicks, sliders, click outside) is
 tested in test_glass_pills.py.
@@ -709,17 +709,21 @@ class MenuBindTests(unittest.TestCase):
 
 class GlassPanelSourceTests(unittest.TestCase):
     """What the pixel tests cannot see (spike/tests/glass_test.cpp covers the geometry, the look under the 191/255 cap and
-    the panel content): the open panel shares the help card's font and dimmed colours."""
+    the panel content): the open panel shares the help card's font and its Material Design 3 scheme."""
     def test_the_panel_loads_the_same_font_family_as_the_help_card(self):
         src = (ROOT / 'spike/src/wayland.cpp').read_text()
         loads = re.findall(r's->(\w+)\.set_font\(HudFont::load\((\w+)', src)
         self.assertIn(('help', 'kHudFontFamily'), loads)
         self.assertIn(('glass', 'kHudFontFamily'), loads)
 
-    def test_the_panel_text_uses_the_help_cards_dimmed_colours(self):
-        card = dict(re.findall(r'\b(kCardText|kCardDim)\{([^}]*)\}', (ROOT / 'spike/src/hud.cpp').read_text()))
-        panel = re.findall(r'\b(kText|kDim)\{([^}]*)\}', (ROOT / 'spike/src/glass.cpp').read_text())
-        self.assertEqual(panel[:2], [('kText', card['kCardText']), ('kDim', card['kCardDim'])])
+    def test_the_panel_and_the_help_card_draw_from_one_material_scheme(self):
+        # Both take the M3 scheme of the theme colour they are drawn with (glass_theme_scheme), whose roles stay under the
+        # OLED cap (spike/tests/material_test.cpp); the panel has no colours of its own to drift from the card's.
+        glass = (ROOT / 'spike/src/glass.cpp').read_text()
+        hud = (ROOT / 'spike/src/hud.cpp').read_text()
+        self.assertRegex(glass, r'HudImage render_glass_panel\([^)]*\) \{\s*const auto& m = glass_theme_scheme\(accent\);')
+        self.assertRegex(hud, r'HudImage render_help_card\([^)]*\)[^{]*\{\s*const auto& m = glass_theme_scheme\(accent\);')
+        self.assertNotRegex(glass, r'constexpr std::array<float, 3> k\w+\{')
 
     def test_the_head_locked_menu_card_is_gone(self):
         for path in ('spike/src/wayland.cpp', 'spike/src/hud.cpp', 'spike/include/xr/hud.hpp'):

@@ -28,18 +28,23 @@ int main() {
     CHECK(hud_text_width("", 3) == 0 && hud_text_width("A", 1) == 5 && hud_text_width("AB", 2) == 22);
 
     // Pixel-font card (1:1 output pixels, font texels doubled): sized to the widest line plus
-    // padding, rounded (transparent corners), opaque accent edge, premultiplied, text present.
+    // padding, rounded (transparent corners), an opaque outline-variant edge, premultiplied, text present.
     auto card = render_hud_card({{"VIEW MODE", 2, {1, 1, 1}}, {"FOLLOW", 4, {1, 1, 1}}}, {0.5f, 0.6f, 0.9f});
     CHECK(card.width == hud_text_width("FOLLOW", 8) + 44 && card.height == 7 * 4 + 8 + 7 * 8 + 44);
     CHECK(card.rgba.size() == std::size_t(card.width) * card.height * 4);
     CHECK(!lit(card, 0, 0) && !lit(card, card.width - 1, card.height - 1));
     CHECK(card.rgba[(std::size_t(card.height / 2) * card.width) * 4 + 3] == 255);  // left edge, mid height
     CHECK(premultiplied(card));
+    {  // the edge is the scheme's outline variant (Material Design 3, from the theme colour the card is drawn with)
+        const MaterialScheme m = material_scheme({0.5f, 0.6f, 0.9f});
+        const auto* edge = &card.rgba[(std::size_t(card.height / 2) * card.width) * 4];
+        for (int c = 0; c < 3; ++c) CHECK(std::abs(int(edge[c]) - int(std::lround(m.outline_variant[std::size_t(c)] * 255))) <= 1);
+    }
     auto text_row = [](const HudImage& im, std::uint32_t y) {
         for (std::uint32_t x = 22; x + 22 < im.width; ++x) if (im.rgba[(std::size_t(y) * im.width + x) * 4] > 200) return true;
         return false;
     };
-    CHECK(text_row(card, 22 + 28 + 8 + 3 * 8));
+    CHECK(text_row(card, 22 + 28 + 8 + 3 * 8));  // a line without a role keeps its own colour (white here)
     CHECK(render_hud_card({}, {1, 1, 1}).width == 44);
 
     // System font (JetBrainsMono Nerd Font) when installed: anti-aliased (partial coverage), bold
@@ -73,6 +78,15 @@ int main() {
     CHECK(joined(view_mode_lines(0)).find("|Anchor|") != std::string::npos);
     CHECK(joined(view_mode_lines(1)).find("|Locked|") != std::string::npos);
     CHECK(joined(view_mode_lines(2)).find("|Follow|") != std::string::npos && view_mode_lines(2)[1].bold);
+    // Each section in Material roles: what it is, the new state in the theme's primary, what it means, its key.
+    const std::vector<std::vector<HudLine>> sections{view_mode_lines(0), cursor_follow_lines(true), prediction_lines(false), typing_lines(true)};
+    for (const auto& lines : sections) {
+        CHECK(lines.size() == 4 && lines[0].role == HudRole::on_surface_variant && lines[1].role == HudRole::primary &&
+              lines[2].role == HudRole::on_surface_variant && lines[3].role == HudRole::outline);
+        const MaterialScheme m = material_scheme({0.9f, 0.55f, 0.05f});
+        CHECK(hud_line_color(lines[1], m) == m.primary && hud_line_color(lines[3], m) == m.outline);
+    }
+    CHECK(hud_line_color(HudLine{"x", 1, {0.2f, 0.3f, 0.4f}}, material_scheme({1, 0, 0})) == (std::array<float, 3>{0.2f, 0.3f, 0.4f}));
     CHECK(joined(cursor_follow_lines(true)).find("Cursor follow|On|") == 0);
     CHECK(joined(cursor_follow_lines(false)).find("Cursor follow|Off|") == 0);
     CHECK(joined(prediction_lines(true)).find("Prediction|On|") == 0);
@@ -134,6 +148,27 @@ int main() {
     CHECK(joined(view_mode_lines(2)).find("Maximized screen") != std::string::npos);
     CHECK(joined(view_mode_lines(2)).find("Ctrl+Alt+V for locked") != std::string::npos);
     CHECK(joined(view_mode_lines(1)).find("Ctrl+Alt+V for follow") != std::string::npos);
+    // A theme switch (Presentation::set_accent): a card still showing is redrawn in place (new generation, same fade);
+    // a gone one is not; the next card is drawn in the new theme either way.
+    {
+        StatusPopups t;
+        CHECK(!t.set_accent({0.48f, 0.64f, 0.97f}, 0.0) && t.generation() == 0);  // nothing shown yet
+        CHECK(t.update(0, false, 1000.0) && t.generation() == 1);
+        const auto before = t.image().rgba;
+        const float a = t.alpha(1000.0 + kPopupFadeInMs + 100);
+        CHECK(t.set_accent({0.9f, 0.55f, 0.05f}, 1000.0 + kPopupFadeInMs + 100) && t.generation() == 2 && t.image().rgba != before);
+        CHECK(t.alpha(1000.0 + kPopupFadeInMs + 100) == a);
+        CHECK(!t.set_accent({0.9f, 0.55f, 0.05f}, 1200.0) && t.generation() == 2);  // the same colour: nothing
+        CHECK(!t.set_accent({0.2f, 0.8f, 0.4f}, 1000.0 + kPopupTotalMs) && t.generation() == 2);  // gone: not redrawn
+        CHECK(t.update(1, false, 9000.0) && t.image().rgba != before);
+        HelpOverlay h;
+        const std::vector<HelpRow> one{{"Ctrl+Alt+H", "Help"}};
+        CHECK(!h.set_accent({0.9f, 0.55f, 0.05f}) && h.generation() == 0);
+        CHECK(h.set(true, one, 0) && h.generation() == 1);
+        const auto help = h.image().rgba;
+        CHECK(h.set_accent({0.2f, 0.8f, 0.4f}) && h.generation() == 2 && h.image().rgba != help && h.visible());
+        CHECK(!h.set_accent({0.2f, 0.8f, 0.4f}) && h.generation() == 2);
+    }
 
     // Help card: brackets have real pixel glyphs; card grows with rows, is premultiplied and
     // rounded; with the system font it also renders.
@@ -210,8 +245,9 @@ int main() {
     CHECK((flat == MenuPlacement{0, 0, 100, 0}));
 
 
-    // Image-retention protection. The help card stays well below full white everywhere (text, accent, border), with
-    // the pixel font and with the installed font; the pop-ups keep their full brightness. (Placement panels: glass_test.)
+    // Image-retention protection. The help card and every pop-up stay well below full white everywhere (text, edge,
+    // dividers: Material roles under the cap), with the pixel font and with the installed font, in any theme colour.
+    // (Placement panels: glass_test.)
     {
         auto brightest = [](const HudImage& im) {
             std::uint8_t top = 0;
@@ -234,6 +270,16 @@ int main() {
             CHECK(brightest(typing.image()) <= kCardMaxLevel && brightest(typing.image()) >= 140);
             CHECK(typing.update(0, false, true, false, 9000.0));
             CHECK(brightest(typing.image()) <= kCardMaxLevel);
+            for (const auto accent : {std::array<float, 3>{1, 1, 1}, std::array<float, 3>{0.48f, 0.64f, 0.97f}, std::array<float, 3>{1, 0, 0}}) {
+                StatusPopups p;
+                if (real_font) p.set_font(HudFont::load(kHudFontFamily, why));
+                p.set_accent(accent, 0.0);
+                CHECK(p.update(2, true, true, false, 0.0) && brightest(p.image()) <= kCardMaxLevel && brightest(p.image()) >= 120);
+                HelpOverlay themed;
+                themed.set_accent(accent);
+                themed.set(true, rows, 0);
+                CHECK(brightest(themed.image()) <= kCardMaxLevel && brightest(themed.image()) >= 140);
+            }
         }
         CHECK(kCardMaxLevel <= 0.75 * 255);
         CHECK(kOverlayIdleCloseS >= 10 && kOverlayIdleCloseS <= 300);  // the footer note's value (tests/native_spike pins it)

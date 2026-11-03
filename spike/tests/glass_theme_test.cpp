@@ -1,18 +1,17 @@
-// The glass pills' theme colour (glass_theme.hpp). For the border colour of every theme Omarchy ships, the pill's glass
-// is that colour itself, scaled by one factor: its hue, saturation and lightness follow the border (pale themes give
-// pale pills, the grey themes give their own different greys), its hairline is the theme colour too, it keeps its
-// gloss, brightens on hover and drag, and stays under the 191/255 OLED cap in every state without clipping its body;
-// grey themes give grey glass; the open panel stays dark behind its text. The panel's band and slider fills are the theme colour at the
-// cards' dimmed level, and nothing else on the panel changes with the theme. A theme switch (Presentation::set_accent ->
-// GlassPills::set_accent) re-renders an open panel once, under a new generation (so the compositor uploads it), without
-// restarting its animation.
+// The glass pills' theme colour (glass_theme.hpp): a Material Design 3 scheme from the border colour of every theme
+// Omarchy ships. The collapsed pill is the scheme's primary container: the theme colour's own hue and chroma at its own
+// tone (pressed into the range the see-through OLED shows), so pale themes give pale pills and the grey themes their own
+// different greys; grey themes give grey glass. It stays under the 191/255 OLED cap in every state (hover and drag lay
+// M3's state layer over it), and the open panel is the dark surface container behind its text. The panel's parts take
+// the scheme's roles: the selected row's band the secondary container, the slider tracks and handles the primary, the
+// text on-surface. A theme switch (Presentation::set_accent -> GlassPills::set_accent) re-renders an open panel once,
+// under a new generation (so the compositor uploads it), without restarting its animation.
 #include "xr/glass.hpp"
 #include "xr/glass_theme.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
-#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,13 +43,7 @@ constexpr Theme kThemes[] = {
 Rgb rgb(std::uint32_t v) { return {float((v >> 16) & 255) / 255.f, float((v >> 8) & 255) / 255.f, float(v & 255) / 255.f}; }
 float top(Rgb c) { return std::max({c[0], c[1], c[2]}); }
 float saturation(Rgb c) { const float m = top(c); return m > 0 ? (m - std::min({c[0], c[1], c[2]})) / m : 0.f; }
-float hue(Rgb c) {  // HSV hue, degrees
-    const float m = top(c), d = m - std::min({c[0], c[1], c[2]});
-    if (d <= 0) return 0;
-    float h = m == c[0] ? std::fmod((c[1] - c[2]) / d, 6.f) : m == c[1] ? (c[2] - c[0]) / d + 2 : (c[0] - c[1]) / d + 4;
-    h *= 60; return h < 0 ? h + 360 : h;
-}
-float hue_gap(Rgb a, Rgb b) { const float d = std::fabs(hue(a) - hue(b)); return std::min(d, 360 - d); }
+float hue_gap(float a, float b) { const float d = std::fabs(a - b); return std::min(d, 360 - d); }
 Rgb colour(const std::array<float, 4>& px) { return {px[0], px[1], px[2]}; }  // premultiplied: as shown over black
 Rgb unpremultiplied(const HudImage& im, std::uint32_t x, std::uint32_t y) {
     const auto* p = &im.rgba[(std::size_t(y) * im.width + x) * 4];
@@ -66,130 +59,58 @@ bool premultiplied(const HudImage& im) {
     for (std::size_t i = 0; i < im.rgba.size(); i += 4) for (int c = 0; c < 3; ++c) if (im.rgba[i + std::size_t(c)] > im.rgba[i + 3]) return false;
     return true;
 }
-bool same_rows(const HudImage& a, const HudImage& b, std::uint32_t y0, std::uint32_t y1) {
-    for (std::uint32_t y = y0; y < y1; ++y)
-        for (std::uint32_t x = 0; x < a.width; ++x)
-            for (int c = 0; c < 4; ++c)
-                if (a.rgba[(std::size_t(y) * a.width + x) * 4 + std::size_t(c)] != b.rgba[(std::size_t(y) * b.width + x) * 4 + std::size_t(c)]) return false;
-    return true;
-}
-// The old look's tint (a fifth of the accent mixed into slate), to show the new one carries far more of the theme.
-Rgb old_tint(Rgb a) { Rgb out{}; for (std::size_t i = 0; i < 3; ++i) out[i] = kGlassSlate[i] + (std::clamp(a[i], 0.f, 1.f) - kGlassSlate[i]) * 0.2f; return out; }
 }
 
 int main() {
-    // glass_theme_hue: hue and saturation kept, at the luma asked for unless the channel peak comes first; greys stay grey,
-    // black (or anything under 1/255) counts as grey; out-of-range channels are clamped, non-finite ones count as 0.
-    for (const auto& th : kThemes) {
-        const Rgb a = rgb(th.hex);
-        for (const auto& [luma, peak] : {std::pair{kGlassTintLuma, kGlassTintPeak}, std::pair{0.5f, 0.9f}, std::pair{1.f, kGlassHighlightPeak}}) {
-            const Rgb h = glass_theme_hue(a, luma, peak);
-            CHECK_THEME(top(h) <= peak + 1e-6f, th.name);
-            CHECK_THEME(near(glass_luma(h), luma, 1e-4f) || near(top(h), peak, 1e-6f), th.name);  // whichever is reached first
-            CHECK_THEME(glass_luma(h) <= luma + 1e-4f, th.name);
-            if (top(a) >= 1.f / 255.f) {
-                CHECK_THEME(near(saturation(h), saturation(a), 1e-4f), th.name);
-                if (saturation(a) > 0.02f) CHECK_THEME(hue_gap(h, a) < 0.1f, th.name);
-            } else {
-                CHECK_THEME(saturation(h) == 0.f, th.name);  // black: grey
-            }
-        }
-    }
-    CHECK(near3(glass_theme_hue({0.5f, 0.5f, 0.5f}, 0.3f, 0.42f), {0.3f, 0.3f, 0.3f}));
-    CHECK(near3(glass_theme_hue({0, 0, 0}, 0.3f, 0.42f), {0.3f, 0.3f, 0.3f}));
-    CHECK(near3(glass_theme_hue({0.5f, 0.5f, 0.5f}, 0.6f, 0.42f), {0.42f, 0.42f, 0.42f}));  // the peak first
-    CHECK(glass_theme_hue({2.f, -1.f, 0.5f}, 1.f, 0.8f) == glass_theme_hue({1.f, 0.f, 0.5f}, 1.f, 0.8f));
-    const float nan = std::numeric_limits<float>::quiet_NaN(), inf = std::numeric_limits<float>::infinity();
-    CHECK(glass_theme_hue({nan, inf, 0.5f}, 1.f, 0.8f) == glass_theme_hue({0.f, 0.f, 0.5f}, 1.f, 0.8f));
-    CHECK(near3(glass_theme_hue({nan, nan, nan}, 0.3f, 0.42f), {0.3f, 0.3f, 0.3f}));
-    CHECK(near(glass_luma({1, 1, 1}), 1.f) && near(glass_luma({0, 1, 0}), 0.7152f));
-
-    // glass_theme_pill: the accent times kGlassPillScale, unless that is too dark to see (then its hue at the floor luma,
-    // or with its brightest channel at kGlassPillScale if that comes first).
-    for (const auto& th : kThemes) {
-        const Rgb a = rgb(th.hex), pill = glass_theme_pill(a);
-        const Rgb scaled{a[0] * kGlassPillScale, a[1] * kGlassPillScale, a[2] * kGlassPillScale};
-        if (glass_luma(scaled) >= kGlassPillMinLuma) CHECK_THEME(near3(pill, scaled), th.name);
-        else CHECK_THEME((near(glass_luma(pill), kGlassPillMinLuma) || near(top(pill), kGlassPillScale, 1e-6f)) && top(pill) <= kGlassPillScale + 1e-6f, th.name);  // a pure blue reaches the peak first
-        if (saturation(a) > 0.02f && top(a) >= 1.f / 255.f) CHECK_THEME(hue_gap(pill, a) < 0.1f && near(saturation(pill), saturation(a), 1e-4f), th.name);
-    }
-    CHECK(glass_theme_pill({2.f, -1.f, 0.5f}) == glass_theme_pill({1.f, 0.f, 0.5f}));
-
-    // glass_theme_tint: the pill at t = 0, the open panel (the hue at one luma, kGlassTintPanel of it over slate) at 1,
-    // in between a blend.
-    {
-        const Rgb a = rgb(0xe68e0d), h = glass_theme_hue(a, kGlassTintLuma, kGlassTintPeak), pill = glass_theme_pill(a);
-        for (const auto& [t, want_panel] : {std::pair{0.f, false}, std::pair{1.f, true}, std::pair{-3.f, false}, std::pair{4.f, true}}) {
-            const Rgb tint = glass_theme_tint(a, t);
-            for (std::size_t i = 0; i < 3; ++i)
-                CHECK(near(tint[i], want_panel ? kGlassSlate[i] + (h[i] - kGlassSlate[i]) * kGlassTintPanel : pill[i]));
-        }
-        const Rgb mid = glass_theme_tint(a, 0.5f), p = glass_theme_tint(a, 0), q = glass_theme_tint(a, 1);
-        for (std::size_t i = 0; i < 3; ++i) CHECK(near(mid[i], (p[i] + q[i]) / 2));
-        CHECK(saturation(p) > saturation(mid) && saturation(mid) > saturation(q));  // the panel is calmer behind its text
-    }
-
-    // glass_theme_hair: the accent's hue, half of it kHairLevel grey; greys give kHairLevel grey.
-    for (const auto& th : kThemes) {
-        const Rgb a = rgb(th.hex), hair = glass_theme_hair(a, kHairLevel);
-        CHECK_THEME(near(top(hair), kHairLevel, 1e-5f), th.name);
-        if (saturation(a) > 0.02f && top(a) >= 1.f / 255.f) CHECK_THEME(hue_gap(hair, a) < 0.1f, th.name);
-        if (saturation(a) == 0.f) CHECK_THEME(near3(hair, {kHairLevel, kHairLevel, kHairLevel}), th.name);
-    }
-
     // The look, theme by theme, through glass_look and glass_shade (the CPU mirror of the shader the compositor runs).
     const FRect tile{100, 300, 459, 258};
-    std::vector<std::pair<float, float>> pills;  // shipped themes: (base pill luma, shown centre luma)
+    std::vector<std::pair<float, float>> pills;  // shipped themes: (border tone, shown centre tone)
     for (const auto& th : kThemes) {
         const Rgb a = rgb(th.hex);
+        const auto& m = glass_theme_scheme(a);
+        CHECK_THEME(m == material_scheme(a), th.name);
         for (float t : {0.f, 0.4f, 1.f}) {
             const FRect r = glass_morph(tile, t);
             const float radius = glass_radius(tile, t);
             const float cx = r.x + r.width / 2, cy = r.y + r.height / 2;
-            float prev_centre = 0, prev_rim = 0;
+            Rgb idle{};
             for (float level : {kGlassIdle, kGlassHover, kGlassActive}) {
                 const auto look = glass_look(a, level, t);
-                // Every pixel under the cap and premultiplied; the body itself never reaches the cap, so the cap's
-                // per-channel clamp never shifts the theme's hue, even while dragged.
+                // Every pixel under the cap and premultiplied, in every state, in every theme.
                 for (float y = r.y - 8; y < r.y + r.height + 8; y += 1.f)
                     for (float x = r.x - 4; x < r.x + r.width + 4; x += 5.f) {
                         const auto c = glass_shade(look, r, radius, x + 0.5f, y + 0.5f, 1.f);
                         for (std::size_t i = 0; i < 3; ++i) CHECK_THEME(c[i] <= kGlassCap + 1e-5f && c[i] <= c[3] + 1e-5f, th.name);
                     }
+                // The state layer: the header's (the pill's whole) colour moves toward the content colour by M3's
+                // opacity for the state; the cap's per-channel clamp never touches it.
+                const Rgb head = colour(glass_shade(look, r, radius, cx, r.y + std::min(r.height / 2, 6.f), 1.f));
+                const Rgb want = md_layer(look.container, look.state, glass_state_opacity(level));
+                for (std::size_t i = 0; i < 3; ++i) CHECK_THEME(near(head[i], want[i] * look.fill, 1e-5f), th.name);
+                if (level == kGlassIdle) idle = head;
+                else if (t != 0.4f) CHECK_THEME(!near3(head, idle, 1e-3f), th.name);  // hover and drag show (mid-morph the on-colours cross)
+                if (level != kGlassIdle || t != 0.f) continue;
                 const Rgb centre = colour(glass_shade(look, r, radius, cx, cy, 1.f));
-                const Rgb body_top = colour(glass_shade(look, r, radius, cx, r.y + std::min(r.height / 2, 3.f), 1.f));
-                for (float v : {centre[0], centre[1], centre[2]}) CHECK_THEME(v < kGlassCap - 0.02f, th.name);
-                for (std::size_t i = 0; i < 3; ++i) CHECK_THEME(look.tint[i] * 1.25f * look.fill * (1 + 0.25f * (look.level - 1)) < kGlassCap, th.name);
-                // Gloss and hairline still show on every theme: the top edge is brighter than the body.
-                const Rgb rim = colour(glass_shade(look, r, radius, cx, r.y + 0.5f, 1.f));
-                CHECK_THEME(glass_luma(rim) > glass_luma(body_top) && glass_luma(body_top) > glass_luma(centre) * 0.99f, th.name);
-                // Hover and drag brighten it.
-                CHECK_THEME(glass_luma(centre) > prev_centre && glass_luma(rim) >= prev_rim, th.name);
-                prev_centre = glass_luma(centre); prev_rim = glass_luma(rim);
-                if (level != kGlassIdle) continue;
-                if (t == 0.f) {
-                    // The collapsed pill shows (black is see-through on the OLED panels) and is the theme colour: its hue
-                    // and nearly all of its saturation (a little gloss reaches the middle), much more of it than the old
-                    // fifth-of-the-accent tint had.
-                    CHECK_THEME(top(centre) > 0.12f, th.name);
-                    if (saturation(a) >= 0.25f) {
-                        CHECK_THEME(hue_gap(centre, a) < 3.f, th.name);
-                        CHECK_THEME(saturation(centre) >= 0.85f * saturation(a), th.name);
-                        CHECK_THEME(saturation(centre) > 1.2f * saturation(old_tint(a)), th.name);
-                    }
-                    if (saturation(a) == 0.f) CHECK_THEME(saturation(centre) < 0.05f, th.name);  // grey themes: grey glass
-                    // The rim carries the theme colour as well (hairline over the gloss).
-                    if (saturation(a) >= 0.25f) CHECK_THEME(hue_gap(rim, a) < 20.f, th.name);
-                    if (th.shipped) pills.push_back({glass_luma(glass_theme_pill(a)), glass_luma(centre)});
-                }
-                if (t == 1.f) CHECK_THEME(glass_luma(centre) < 0.2f && top(centre) < 0.4f, th.name);  // dark behind the text
+                // The collapsed pill is the primary container exactly (opaque, flat): it shows on the see-through OLED and
+                // carries the theme colour's hue and nearly all of its saturation.
+                CHECK_THEME(near3(centre, m.primary_container, 1e-5f) && top(centre) > 0.15f, th.name);
+                const MdHct seed = md_hct(a), pill = md_hct({centre[0] / kMdOledLevel, centre[1] / kMdOledLevel, centre[2] / kMdOledLevel});
+                if (seed.chroma > 0.03f) CHECK_THEME(hue_gap(pill.hue, seed.hue) < 2.5f, th.name);
+                if (saturation(a) >= 0.25f && seed.tone > 30 && seed.tone < 75) CHECK_THEME(saturation(centre) >= 0.6f * saturation(a), th.name);
+                if (saturation(a) == 0.f) CHECK_THEME(saturation(centre) < 0.02f, th.name);  // grey themes: grey glass
+                if (th.shipped) pills.push_back({seed.tone, pill.tone});
+            }
+            if (t == 1.f) {  // the open panel is dark behind its text, its edge the outline variant
+                const Rgb body = colour(glass_shade(glass_look(a, kGlassIdle, t), r, radius, cx, cy, 1.f));
+                CHECK_THEME(glass_luma(body) < 0.2f && top(body) < 0.25f && near3(body, Rgb{m.surface_container_high[0] * kPanelFill,
+                                                                                      m.surface_container_high[1] * kPanelFill,
+                                                                                      m.surface_container_high[2] * kPanelFill}, 1e-5f), th.name);
             }
         }
     }
-    // The pill's brightness follows the border's: a lighter border colour gives a lighter pill, theme for theme (the
-    // old look gave every theme one brightness, so the grey themes all came out the same slate).
+    // The pill's brightness follows the border's: a lighter border colour gives a lighter pill, theme for theme.
     std::sort(pills.begin(), pills.end());
-    for (std::size_t i = 1; i < pills.size(); ++i) CHECK(pills[i].second >= pills[i - 1].second - 1e-5f);
+    for (std::size_t i = 1; i < pills.size(); ++i) CHECK(pills[i].second >= pills[i - 1].second - 0.5f);  // L*, to the solver's precision
     auto centre_of = [&](std::uint32_t hex) {
         const FRect r = glass_morph(tile, 0);
         return colour(glass_shade(glass_look(rgb(hex), kGlassIdle, 0), r, glass_radius(tile, 0), r.x + r.width / 2, r.y + r.height / 2, 1.f));
@@ -200,23 +121,20 @@ int main() {
     CHECK(glass_luma(kanagawa) > glass_luma(vanta) + 0.08f && !near3(kanagawa, lumon, 0.01f));
     CHECK(lumon[2] > lumon[0] && kanagawa[0] > kanagawa[2]);  // lumon's faint blue, kanagawa's warm paper
     // Switching themes changes the glass (the compositor recomputes glass_look from its accent every frame).
-    CHECK(glass_look(rgb(0x7aa2f7), kGlassIdle, 0).tint != glass_look(rgb(0xe68e0d), kGlassIdle, 0).tint);
-    CHECK(glass_look(rgb(0x8d8d8d), kGlassIdle, 0).tint == glass_look(kGlassThemeDefault, kGlassIdle, 0).tint);
+    CHECK(glass_look(rgb(0x7aa2f7), kGlassIdle, 0).container != glass_look(rgb(0xe68e0d), kGlassIdle, 0).container);
+    CHECK(glass_look(rgb(0x8d8d8d), kGlassIdle, 0).container == glass_look(kGlassThemeDefault, kGlassIdle, 0).container);
 
-    // glass_theme_highlight: the accent's hue with its brightest channel at the cards' dimmed accent level (hud.cpp
-    // kCardAccent is the pop-up blue at 75%: the highlight of that blue is exactly it). Black gives grey.
-    {
-        const Rgb card = glass_theme_highlight({0.48f, 0.64f, 0.97f});
-        CHECK(near(card[0], 0.48f * 0.75f) && near(card[1], 0.64f * 0.75f) && near(card[2], 0.97f * 0.75f));
-        for (const auto& th : kThemes) {
-            const Rgb a = rgb(th.hex), h = glass_theme_highlight(a);
-            CHECK_THEME(near(top(h), kGlassHighlightPeak, 1e-6f) && top(h) <= kGlassCap, th.name);
-            if (saturation(a) > 0.02f && top(a) >= 1.f / 255.f) CHECK_THEME(hue_gap(h, a) < 0.1f, th.name);
-        }
-        CHECK(glass_theme_highlight({0, 0, 0}) == (Rgb{kGlassHighlightPeak, kGlassHighlightPeak, kGlassHighlightPeak}));
+    // The resize handle and the roll icons take the scheme too: on-surface-variant / primary, under the cap.
+    for (const auto& th : kThemes) {
+        const Rgb a = rgb(th.hex);
+        const auto& m = glass_theme_scheme(a);
+        CHECK_THEME(corner_handle_color(a, kHandleLevelIdle) == m.on_surface_variant && corner_handle_color(a, kHandleLevelActive) == m.primary, th.name);
+        CHECK_THEME(corner_handle_color(a, 0.f) == (Rgb{0, 0, 0}) && top(corner_handle_color(a, kHandleLevelIdle / 2)) < top(m.on_surface_variant), th.name);
+        CHECK_THEME(roll_arrow_color(a, kGlassIdle) == m.primary, th.name);
+        for (const Rgb c : {corner_handle_color(a, kHandleLevelActive), roll_arrow_color(a, kGlassActive)}) CHECK_THEME(top(c) <= kGlassCap + 1e-6f, th.name);
     }
 
-    // The panel content: band and fills in the theme colour, everything else the same for every theme, under the cap.
+    // The panel content: every part in the theme's roles, under the cap.
     std::string why;
     const auto real = HudFont::load(kHudFontFamily, why);
     std::vector<const HudFont*> fonts{nullptr};
@@ -231,20 +149,26 @@ int main() {
             const auto [lo, hi] = bounds[3];
             return kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * float(std::clamp(v, lo, hi) - lo) / float(hi - lo);
         };
-        const auto fill_x = std::uint32_t((knob(placement_menu_flat()[3]) + knob(60) - kPanelKnobR) / 2);  // short of the knob
+        const auto fill_x = std::uint32_t((knob(placement_menu_flat()[3]) + knob(60) - kPanelKnobR) / 2 - 4);  // short of the halo
         const auto band_x = std::uint32_t(14), band_y = std::uint32_t(cy);  // the band's left end, clear of the label text
+        const auto handle_x = std::uint32_t(knob(60));
         CHECK(render_glass_panel(st, f).rgba == render_glass_panel(st, f, kGlassThemeDefault).rgba);
-        const HudImage base = render_glass_panel(st, f, rgb(0x8d8d8d));
         for (const auto& th : kThemes) {
-            const Rgb a = rgb(th.hex), h = glass_theme_highlight(a);
+            const Rgb a = rgb(th.hex);
+            const auto& m = glass_theme_scheme(a);
             const HudImage im = render_glass_panel(st, f, a);
             CHECK_THEME(premultiplied(im) && brightest(im) <= kCardMaxLevel && brightest(im) >= 140, th.name);
-            const Rgb fill = unpremultiplied(im, fill_x, band_y), band = unpremultiplied(im, band_x, band_y);
-            // (The fill is 90% over the track, so a little of the grey track shows through it.)
-            for (std::size_t i = 0; i < 3; ++i) CHECK_THEME(near(fill[i], h[i], 0.03f) && near(band[i], h[i], 0.02f), th.name);
-            // Only the highlights follow the theme: the header, the unselected rows and the footer are unchanged.
-            CHECK_THEME(same_rows(im, base, 0, std::uint32_t(kPanelRowsTop + 3 * kPanelRowH)), th.name);
-            CHECK_THEME(same_rows(im, base, std::uint32_t(kPanelRowsTop + 4 * kPanelRowH), im.height), th.name);
+            const Rgb band = unpremultiplied(im, band_x, band_y), fill = unpremultiplied(im, fill_x, band_y), handle = unpremultiplied(im, handle_x, band_y);
+            for (std::size_t i = 0; i < 3; ++i) {
+                CHECK_THEME(near(band[i], m.secondary_container[i], 0.012f), th.name);
+                CHECK_THEME(near(fill[i], m.primary[i], 0.012f) && near(handle[i], m.primary[i], 0.012f), th.name);
+            }
+            // The unselected rows' tracks: the primary at 24% on the transparent panel.
+            const Rgb track = unpremultiplied(im, std::uint32_t(kPanelTrackX0 + 30), std::uint32_t(kPanelRowsTop + kPanelRowH / 2));
+            CHECK_THEME(near3(track, m.primary, 0.02f), th.name);
+            // The header's divider: the outline variant, opaque.
+            const Rgb rule = unpremultiplied(im, std::uint32_t(kPanelW / 2), std::uint32_t(kPanelHeaderH) - 1);
+            CHECK_THEME(near3(rule, m.outline_variant, 0.006f), th.name);
         }
         CHECK(render_glass_panel(st, f, rgb(0x7aa2f7)).rgba != render_glass_panel(st, f, rgb(0xe68e0d)).rgba);
     }
@@ -254,10 +178,7 @@ int main() {
         const Rgb tokyo = rgb(0x7aa2f7), matte = rgb(0xe68e0d), nord = rgb(0x81a1c1);
         const float cy = kPanelRowsTop + kPanelRowH / 2;  // the first row (selected by default)
         auto band = [&](const GlassPills& g) { return unpremultiplied(g.image(), 14, std::uint32_t(cy)); };
-        auto matches = [](Rgb got, Rgb accent) {
-            const Rgb h = glass_theme_highlight(accent);
-            return near(got[0], h[0], 0.04f) && near(got[1], h[1], 0.04f) && near(got[2], h[2], 0.04f);
-        };
+        auto matches = [](Rgb got, Rgb accent) { return near3(got, glass_theme_scheme(accent).secondary_container, 0.012f); };
         GlassPills g;
         CHECK(!g.set_accent(tokyo) && g.generation() == 0 && g.renders() == 0 && g.content_desktop() == -1);  // nothing to redo
         PlacementMenuState st; st.open = true; st.desktop = 2;

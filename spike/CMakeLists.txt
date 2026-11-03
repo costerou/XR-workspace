@@ -271,7 +271,9 @@ if(XR_ENABLE_PRESENTATION)
   # Pop-up text: installed system font via fontconfig + FreeType (local libraries, no downloads;
   # approved 2026-10-31). Missing font at runtime -> built-in pixel font, reported.
   pkg_check_modules(FONT REQUIRED IMPORTED_TARGET freetype2 fontconfig)
-  add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp src/glass_theme.cpp)  # video.cpp: VR video maths + controls card state
+  # video.cpp: VR video maths + controls card state; material*.cpp: the Material Design 3 palette, tokens and drawing.
+  add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp src/glass_theme.cpp src/material.cpp
+              src/material_draw.cpp)
   target_link_libraries(xr_hud PUBLIC xr_types xr_pose xr_view PRIVATE PkgConfig::FONT)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
@@ -300,6 +302,13 @@ if(XR_ENABLE_PRESENTATION)
     target_compile_options(glass_theme_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endif()
   add_test(NAME glass_theme COMMAND glass_theme_test)
+  # Material Design 3 (material.hpp): the tonal palette from every Omarchy theme colour, the OLED cap, tokens, icons.
+  add_executable(material_test tests/material_test.cpp)
+  target_link_libraries(material_test PRIVATE xr_hud)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(material_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME material COMMAND material_test)
   # Roll-level icons: the levelling roll, the tilt from level, the icon and its arrow, the `roll` frame.
   if(TARGET xr_ipc)
     add_executable(roll_level_test tests/roll_level_test.cpp)
