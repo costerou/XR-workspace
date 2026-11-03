@@ -98,15 +98,17 @@ class PointerTests(Base):
 
     def test_a_removed_desktop_takes_its_roll_with_it_and_the_others_keep_theirs(self):
         # Regression (merge of roll-level icons with live Add / Remove, 2026-11-02): rolls were per index, so removing
-        # XR-2 handed its roll to XR-3. They are kept by name now, and the tilts wait for the renderer's new layout.
+        # XR-2 handed its roll to XR-3. They are kept by name now, and so are the tilts (dot-cursor-new-desktop: the
+        # renderer reports them only when they change, so dropped ones could stay gone) until its next report.
         self.p.rolls = [-300, 200, 150, 0]
         self.state.set_desktops(['XR-1', 'XR-3'], [FLAT, FLAT], [False, False])
         self.p.desktops_changed()
         self.assertEqual(self.p.rolls, [-300, 150, 0, 0])
-        self.assertEqual(self.p.tilts, [])
+        self.assertEqual(self.p.tilts, [300, -40])
         self.state.set_desktops(['XR-1', 'XR-2', 'XR-3'], [FLAT] * 3, [False] * 3)  # added back: level, as a new desktop
         self.p.desktops_changed()
         self.assertEqual(self.p.rolls, [-300, 0, 150, 0])
+        self.assertEqual(self.p.tilts, [300, None, -40])  # not measured yet
 
     def test_a_click_levels_it_at_once(self):
         self.free()
