@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <vector>
 #include "gl.hpp"
@@ -42,6 +43,7 @@ constexpr std::array<std::uint8_t, 3> kAccent8{0x7a, 0xa2, 0xf7};
 const std::array<float, 3> kAccent{0x7a / 255.f, 0xa2 / 255.f, 0xf7 / 255.f};
 
 double now_us() { return double(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()) / 1e3; }
+double thread_us() { timespec t{}; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t); return double(t.tv_sec) * 1e6 + double(t.tv_nsec) / 1e3; }
 
 std::uint64_t fnv(const std::uint8_t* p, std::size_t n, std::uint64_t h = 1469598103934665603ull) {
     for (std::size_t i = 0; i < n; ++i) { h ^= p[i]; h *= 1099511628211ull; }
@@ -272,8 +274,39 @@ int check(std::uint32_t w, std::uint32_t h) {
     return 0;
 }
 
+// Every plot call (x, y, coverage bits), measure and metrics result of a text corpus (ASCII, arrows, degrees, Nerd Font
+// icons, a missing glyph, invalid / truncated / overlong UTF-8) at many sizes, regular and bold, three times: cold, after
+// a flood of distinct glyphs past the cache bound, and warm.
+std::uint64_t font_fingerprint(const HudFont& font) {
+    const std::vector<std::string> corpus{"XR-2", "Placement", "Distance  100%", "Curvature  +12\xc2\xb0", "\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust",
+                                          "\xef\x80\x81 \xee\x9c\x91 nerd", "\xe4\xb8\xad\xe6\x96\x87", "bad \xff\xfe end", "trunc \xe2\x86", "over \xc0\xaf \xf7\xbf\xbf\xbf",
+                                          "\xed\xa0\x80 surrogate", "", " ", "Ctrl+Alt+PgUp / PgDn or click an arrow for more"};
+    const std::uint32_t sizes[] = {6, 12, 18, 24, 30, 48, 160};
+    std::uint64_t h = 1469598103934665603ull;
+    auto mix = [&](std::uint64_t v) { h = fnv(reinterpret_cast<const std::uint8_t*>(&v), sizeof v, h); };
+    auto pass = [&] {
+        for (const auto& text : corpus)
+            for (const auto px : sizes)
+                for (const bool bold : {false, true}) {
+                    const auto m = font.metrics(px, bold);
+                    mix(m.ascent); mix(m.descent); mix(font.measure(text, px, bold));
+                    font.draw(text, px, bold, 3, 40, [&](int x, int y, float c) { std::uint32_t bits; std::memcpy(&bits, &c, 4); mix(std::uint64_t(std::uint32_t(x)) << 32 | std::uint32_t(y)); mix(bits); });
+                }
+    };
+    pass();
+    for (std::uint32_t px = 8; px < 60; ++px) {  // ~95 glyphs x 52 sizes x 2: past kMaxCached (4096) for draw and measure
+        std::string all; for (char c = 0x21; c < 0x7f; ++c) all += c;
+        mix(font.measure(all, px, px & 1));
+        font.draw(all, px, px & 1, 0, 0, [&](int x, int y, float c) { std::uint32_t bits; std::memcpy(&bits, &c, 4); mix(std::uint64_t(std::uint32_t(x)) << 32 | std::uint32_t(y)); mix(bits); });
+    }
+    pass();
+    pass();
+    return h;
+}
+
 int hashes(std::uint32_t w, std::uint32_t h) {
     Resources r = load_resources(w, h);
+    if (r.font) std::printf("font fingerprint %016llx\n", (unsigned long long)font_fingerprint(*r.font));
     auto image_hash = [](const HudImage& im) { return fnv(im.rgba.data(), im.rgba.size(), fnv(reinterpret_cast<const std::uint8_t*>(&im.width), 8)); };
     std::printf("card popup %016llx\ncard video %016llx\ncard help %016llx\ncard panel %016llx\n", (unsigned long long)image_hash(r.popup),
                 (unsigned long long)image_hash(r.card), (unsigned long long)image_hash(r.help), (unsigned long long)image_hash(r.panel_static));
@@ -328,10 +361,13 @@ int bench(std::uint32_t w, std::uint32_t h, int frames) {
     GLuint query = 0; if (timer) gen(1, &query);
     std::printf("renderer: %s | %ux%u, %d frames per scenario, GPU timer %s\n", reinterpret_cast<const char*>(glGetString(GL_RENDERER)), w, h, frames,
                 timer ? "on" : "off (frame time only)");
-    std::printf("%-22s %8s %8s %8s %8s | %8s %8s | %8s %8s %5s | %5s %5s %5s %5s %5s %5s %5s %8s\n", "scenario", "cpu_mean", "cpu_p50", "cpu_p99", "cpu_max",
-                "gpu_mean", "gpu_p99", "frm_mean", "frm_p99", ">8.3", "calls", "draws", "progs", "unifs", "texs", "attrs", "tgls", "upKiB");
+    // cpu: wall time of the draw call (draw_and_swap / draw_scene_and_swap, uploads excluded); gl = cpu minus the time
+    // inside its final glFlush (command submission); thr = thread CPU time of the call; gpu = GPU time of the frame.
+    std::printf("%-22s %7s %7s %7s %7s %7s %7s | %7s %7s | %7s %7s %4s | %5s %5s %5s %5s %5s %5s %5s %5s %7s\n", "scenario", "cpu_avg", "cpu_p50",
+                "cpu_p99", "gl_p50", "thr_p50", "fls_p50", "gpu_avg", "gpu_p99", "frm_avg", "frm_p99", ">8.3", "calls", "draws", "progs", "unifs",
+                "texs", "attrs", "bufs", "tgls", "upKiB");
     for (const auto& s : scenarios()) {
-        std::vector<double> cpu, gpu, frame, up;
+        std::vector<double> cpu, gl_only, thr, flush, gpu, frame, up;
         GlCallCounts per{};
         for (int f = -30; f < frames; ++f) {
             const int fi = f < 0 ? f + 30 : f;
@@ -339,24 +375,36 @@ int bench(std::uint32_t w, std::uint32_t h, int frames) {
             const double t0 = now_us();
             g_gl_calls = {};
             if (timer) begin(GL_TIME_ELAPSED_EXT, query);
-            const double c = draw_frame(*gl, r, s, s.panel_drag ? fi % 81 : fi, w, h, s.upload_each_frame, &upload_us);
+            if (s.upload_each_frame) draw_frame(*gl, r, s, fi, w, h, true, &upload_us);  // the uploads, timed apart ...
+            const GlCallCounts uploads = g_gl_calls;
+            const double c0 = thread_us();
+            const double c = s.upload_each_frame ? 0 : draw_frame(*gl, r, s, s.panel_drag ? fi % 81 : fi, w, h, false);
+            const double thread = thread_us() - c0;
             if (timer) end(GL_TIME_ELAPSED_EXT);
-            const GlCallCounts counts = g_gl_calls;
+            GlCallCounts counts = g_gl_calls;
             glFinish();
             const double t1 = now_us();
             GLuint64 ns = 0; if (timer) result(query, GL_QUERY_RESULT_EXT, &ns);
             if (f < 0) continue;
-            cpu.push_back(c); frame.push_back(t1 - t0); gpu.push_back(double(ns) / 1e3); up.push_back(upload_us);
+            if (s.upload_each_frame) { up.push_back(upload_us); counts = uploads; continue; }  // ... (a frame per upload set)
+            const double fl = double(counts.flush_ns) / 1e3;
+            cpu.push_back(c); gl_only.push_back(c - fl); thr.push_back(thread); flush.push_back(fl);
+            frame.push_back(t1 - t0); gpu.push_back(double(ns) / 1e3);
             per = counts;  // steady state: the last frame's counts (every frame of a scenario issues the same calls)
         }
-        const Pct pc = pct(cpu), pg = pct(gpu), pf = pct(frame);
+        if (s.upload_each_frame) {  // upload throughput: 3 x 1920x1080 per frame, then the zoomed frame drawn as usual
+            const Pct pu = pct(up);
+            std::printf("%-22s 3 SHM uploads/frame: mean %.1f us, p50 %.1f, p99 %.1f, max %.1f (%llu KiB)\n", s.name, pu.mean, pu.p50, pu.p99, pu.max,
+                        (unsigned long long)(per.upload_bytes >> 10));
+            continue;
+        }
+        const Pct pc = pct(cpu), pl = pct(gl_only), pt = pct(thr), ps = pct(flush), pg = pct(gpu), pf = pct(frame);
         const auto over = std::count_if(frame.begin(), frame.end(), [](double v) { return v > 1e6 / 120; });
-        std::printf("%-22s %8.1f %8.1f %8.1f %8.1f | %8.1f %8.1f | %8.1f %8.1f %5ld | %5llu %5llu %5llu %5llu %5llu %5llu %5llu %8llu",
-                    s.name, pc.mean, pc.p50, pc.p99, pc.max, pg.mean, pg.p99, pf.mean, pf.p99, long(over), (unsigned long long)per.calls(),
-                    (unsigned long long)per.draws, (unsigned long long)per.programs, (unsigned long long)per.uniforms,
-                    (unsigned long long)per.textures, (unsigned long long)per.attribs, (unsigned long long)per.toggles,
-                    (unsigned long long)(per.upload_bytes >> 10));
-        if (s.upload_each_frame) std::printf("  (3 uploads: mean %.1f us)", pct(up).mean);
+        std::printf("%-22s %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f | %7.1f %7.1f | %7.1f %7.1f %4ld | %5llu %5llu %5llu %5llu %5llu %5llu %5llu %5llu %7llu",
+                    s.name, pc.mean, pc.p50, pc.p99, pl.p50, pt.p50, ps.p50, pg.mean, pg.p99, pf.mean, pf.p99, long(over),
+                    (unsigned long long)per.calls(), (unsigned long long)per.draws, (unsigned long long)per.programs,
+                    (unsigned long long)per.uniforms, (unsigned long long)per.textures, (unsigned long long)per.attribs,
+                    (unsigned long long)per.buffers, (unsigned long long)per.toggles, (unsigned long long)(per.upload_bytes >> 10));
         std::printf("\n");
     }
     std::printf("report: %s\n", gl->report().c_str());

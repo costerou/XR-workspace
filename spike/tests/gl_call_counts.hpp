@@ -4,16 +4,23 @@
 // that bumps a counter and then calls the real function unchanged. The renderer itself is never built this way.
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <chrono>
 #include <cstdint>
 
 struct GlCallCounts {
     std::uint64_t draws = 0, vertices = 0, programs = 0, uniforms = 0, textures = 0, attribs = 0, toggles = 0,
                   uploads = 0, upload_bytes = 0, buffers = 0, buffer_bytes = 0, errors = 0, other = 0;
+    std::uint64_t flush_ns = 0;  // wall time inside glFlush (the offscreen "swap": command submission to the kernel)
     std::uint64_t calls() const { return draws + programs + uniforms + textures + attribs + toggles + uploads + buffers + errors + other; }
 };
 extern GlCallCounts g_gl_calls;
 
 #ifndef XR_GL_COUNT_NO_MACROS  // gl_bench.cpp itself only needs the counters
+inline void xr_gl_timed_flush() {  // defined before the glFlush macro: calls the real glFlush
+    const auto t = std::chrono::steady_clock::now();
+    glFlush();
+    g_gl_calls.flush_ns += std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - t).count());
+}
 #define XR_GL_COUNT(field, call) (++g_gl_calls.field, call)
 #define glDrawArrays(mode, first, n) (++g_gl_calls.draws, g_gl_calls.vertices += std::uint64_t(n), glDrawArrays(mode, first, n))
 #define glDrawElements(mode, n, type, p) (++g_gl_calls.draws, g_gl_calls.vertices += std::uint64_t(n), glDrawElements(mode, n, type, p))
@@ -51,5 +58,5 @@ extern GlCallCounts g_gl_calls;
 #define glViewport(...) XR_GL_COUNT(other, glViewport(__VA_ARGS__))
 #define glClear(...) XR_GL_COUNT(other, glClear(__VA_ARGS__))
 #define glClearColor(...) XR_GL_COUNT(other, glClearColor(__VA_ARGS__))
-#define glFlush() XR_GL_COUNT(other, glFlush())
+#define glFlush() (++g_gl_calls.other, xr_gl_timed_flush())
 #endif
