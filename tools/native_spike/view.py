@@ -805,7 +805,7 @@ class ViewControl:
             s.remove_armed, self.remove_armed_at = True, now  # "Remove?": a second press removes
             return self._menu_frame()
         s.remove_armed = False
-        try: change = plan(self.desktops.specs, s.placements, action, desktop)
+        try: change = plan(self.desktops.specs, s.placements, action, desktop, held=self.desktops.held())
         except ValueError as exc:
             self._tell(str(exc))
             return self._menu_frame()

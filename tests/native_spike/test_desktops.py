@@ -483,6 +483,42 @@ class ControlTests(unittest.TestCase):
         self.run.manager.close()
 
 
+class HeldNameTests(unittest.TestCase):
+    """Regression (ultrawide-add-monitor, 2026-11-03, live run): one ultrawide XR-1 left, and Add said "output name
+    already live" every time. An earlier Add's create of XR-2 had failed after its write-ahead journal record, which
+    stays pending until recovery (journal.live_outputs counts it), but plan() picked the lowest XR-n missing from the
+    run's outputs only, so every Add asked for XR-2 again. Add now takes the lowest name nothing holds."""
+    def setUp(self):
+        self.run = Run(self, [WIDE])
+        self.run.journal.prepare({'kind': 'output', 'id': '7538a1bc-d92e-4c3e-94e3-27cfdc576726', 'name': 'XR-2',
+                                  'index': 1, 'before': None})  # a failed create's record, as the live journal held it
+        self.told = []
+        state = view.ViewState(['XR-1'], placements=[FLAT])
+        state.wide = [True]
+        self.c = view.ViewControl(state, 'run', 'session', lambda n: None, None, None, clock=lambda: 100.0)
+        self.c.desktops, self.c.notify = self.run.manager, self.told.append
+        self.c.attach_supervisor(SupervisorStandIn())
+
+    def test_add_skips_a_name_the_journal_still_holds(self):
+        self.assertEqual(self.run.manager.held(), {'XR-1', 'XR-2'})
+        self.c.state.open_menu(0)
+        self.c.desktop_action(0, 'add')
+        self.c.poll(100.0); self.c.join_focus()
+        self.assertEqual(self.told, [])
+        self.assertEqual(self.run.manager.names(), ['XR-1', 'XR-3'])
+        self.assertEqual(self.run.manager.wide(), [True, False])  # the new one 16:9, beside the ultrawide
+        self.assertEqual((self.c.state.names, self.c.state.menu_desktop), (['XR-1', 'XR-3'], 1))
+        self.assertEqual([(o['name'], o['index']) for o in self.run.journal.live_outputs()],
+                         [('XR-1', 0), ('XR-2', 1), ('XR-3', 2)])  # recovery still has the failed one
+
+    def test_plan_takes_the_lowest_name_nothing_holds(self):
+        specs = self.run.manager.specs
+        self.assertEqual(dk.plan(specs, [FLAT], 'add', 0).create[0]['name'], 'XR-2')  # nothing else held
+        made = dk.plan(specs, [FLAT], 'add', 0, held={'XR-2'}).create[0]
+        self.assertEqual((made['name'], made['index'], made['x']), ('XR-3', 2, specs[0]['x'] + 2560))
+        with self.assertRaises(ValueError): dk.plan(specs, [FLAT], 'add', 0, held={'XR-2', 'XR-3', 'XR-4'})
+
+
 class PointerTests(unittest.TestCase):
     def test_the_desktop_row_is_hit_on_the_open_panel(self):
         for i, name in enumerate(fp.PANEL_ACTIONS):
