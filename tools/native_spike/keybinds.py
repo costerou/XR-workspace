@@ -94,6 +94,7 @@ ENTER_CODES = (36, 104)  # Enter and the keypad's Enter: change the picked bind
 
 # Panel labels for ops whose help-card text says something else (view.HELP_ACTIONS), and the send-window binds.
 LABELS = {'help': 'Help card (every key)', 'zoom_out': 'Overview', PANEL_OP: 'Key binds (this panel)',
+          'menu_toggle': 'Placement pill of the selected desktop',
           'send_glasses': 'Send window to the selected desktop', 'send_back': 'Send window back to the main display',
           **{f'send_glasses_{n}': f'Send window to XR-{n}' for n in range(1, 5)}}
 

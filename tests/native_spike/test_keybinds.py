@@ -239,8 +239,8 @@ class DesktopBindTests(unittest.TestCase):
         self.assertEqual(off, {'next', 'recenter'})  # recenter: the same keys as Maximize, which comes first
         self.assertIn('Close all windows', notes['next']); self.assertTrue(notes['next'].startswith('Off'))
         self.assertIn('no description', notes['prev'])     # flagged, still installed
-        self.assertIn('Maximize the selected desktop', notes['recenter'])
-        self.assertIn('Recenter the view', notes['zoom_in'])
+        self.assertIn(kb.label('zoom_in'), notes['recenter'])
+        self.assertIn(kb.label('recenter'), notes['zoom_in'])
         self.assertEqual(kb.find_conflicts(kb.KeyMap(), kb.DesktopBinds.from_text(DESKTOP)), ({}, set()))
         self.assertIn('mode_next', kb.find_conflicts(kb.KeyMap(), kb.DesktopBinds.from_text(HYPRCTL))[0])  # a leftover: flagged
         self.assertEqual(kb.find_conflicts(km, None)[1], {'recenter'})  # desktop unknown: only XR against XR
@@ -284,7 +284,7 @@ class PanelTests(unittest.TestCase):
         p = self.open(c)
         self.assertTrue(p['visible'] and c.keys_open)
         self.assertEqual(len(p['rows']), len(kb.CATALOG))
-        self.assertEqual(p['rows'][0], {'action': 'Maximize the selected desktop', 'keys': 'Ctrl+Alt+Up', 'note': '', 'state': 'normal'})
+        self.assertEqual(p['rows'][0], {'action': kb.label('zoom_in'), 'keys': 'Ctrl+Alt+Up', 'note': '', 'state': 'normal'})
         self.assertEqual(p['selected'], 0)
         self.assertEqual(p['title'], 'Key binds')
         self.assertIn(('open', ARGS), self.client.calls)
@@ -375,8 +375,8 @@ class PanelTests(unittest.TestCase):
         self.press(c, 0, ENTER)  # Maximize
         refused = self.press(c, CTRL | ALT, 46)  # Ctrl+Alt+L: the placement pill
         self.assertTrue(refused['alert'])
-        self.assertIn('Ctrl+Alt+L is already Placement pill of the selected desktop', refused['status'])
-        pill = next(r for r in refused['rows'] if r['action'] == 'Placement pill of the selected desktop')
+        self.assertIn(f"Ctrl+Alt+L is already {kb.label('menu_toggle')}", refused['status'])
+        pill = next(r for r in refused['rows'] if r['action'] == kb.label('menu_toggle'))
         self.assertEqual(pill['state'], 'conflict'); self.assertIn('Ctrl+Alt+L', pill['note'])
         self.assertTrue(c.keys.capturing and c.keys.keymap.overrides == {})
         self.assertEqual(len(self.toasts), 1); self.assertIn('Ctrl+Alt+L', self.toasts[0])
