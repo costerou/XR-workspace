@@ -17,12 +17,13 @@ KEYS = ('x', 'y', 'distance', 'curvature')  # every desktop always faces you: no
 data = json.loads(subprocess.run([dump], check=True, capture_output=True, text=True).stdout)
 cases = data['cases']
 assert cases, 'no cases'
-points = worst = behind = turned = 0
+points = worst = behind = turned = rolled = 0
 for case in cases:
     w, h, hw, hh = case['canvas']
     g = {'w': w, 'h': h, 'half': (hw, hh)}
     tile, p = tuple(case['tile']), case['placement']
-    assert tuple(sorted(p)) == tuple(sorted(KEYS)), p
+    assert tuple(sorted(set(p) - {'roll'})) == tuple(sorted(KEYS)), p  # 'roll': the levelling roll (roll-level icons)
+    rolled += 'roll' in p
     for px, py, *want in case['points']:
         got = orbit.place_point(g, tile, p, px, py)
         for a, b in zip(got, want):
@@ -37,6 +38,6 @@ for case in cases:
 # The dump covers the orbit's whole range (both ends of x, behind you, and both poles) and finds desktops behind you.
 xs, ys = {c['placement']['x'] for c in cases}, {c['placement']['y'] for c in cases}
 assert {0, orbit.X_LIMIT, -orbit.X_LIMIT} <= xs and {0, orbit.Y_LIMIT} <= ys and min(ys) < 0, (sorted(xs), sorted(ys))
-assert behind > 0 and turned > 0
+assert behind > 0 and turned > 0 and rolled > 0
 print(f"placement contract: {points} points on {len(cases)} placed desktops match (worst error {worst:.1e}, {behind} behind you, "
-      f"{turned} turned to face you at their slot)")
+      f"{turned} turned to face you at their slot, {rolled} rolled level)")

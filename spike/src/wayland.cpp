@@ -222,10 +222,16 @@ struct Presentation::Impl : SurfaceRequests {
     // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
     std::vector<std::array<std::int32_t, 4>> placements;
     std::uint64_t placement_updates = 0;
+    std::array<std::int32_t, 3> rolls{};  // levelling roll per desktop, hundredths of a degree (set_roll)
     Placement target_placement(std::size_t i) const {
-        if (i >= placements.size()) return {};
-        return placement_from_wire(placements[i]);
+        Placement p = i < placements.size() ? placement_from_wire(placements[i]) : Placement{};
+        if (i < rolls.size()) p.roll = float(rolls[i]) / 100.f * float(M_PI) / 180.f;
+        return p;
     }
+    struct RollIcons { std::array<std::int8_t, 3> icons{-1, -1, -1}; std::int32_t hover = -1; bool active = false; std::uint64_t updates = 0; } roll;
+    std::string roll_geometry_sent;      // last roll_geometry line handed to the supervisor
+    double roll_geometry_ms = -1e9;      // when it was sent
+    bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
     // Drawn placements ease toward the latest ones (view.hpp ease_toward), so a pill drag or corner resize, whose
     // updates arrive at the pointer's rate, moves smoothly at the display's rate.
     std::vector<Placement> eased;
@@ -710,6 +716,7 @@ std::string Presentation::capture_report() const {
     }
     out += ",\"view\":{\"selected\":" + std::to_string(impl_->view.selected()) + ",\"zoom\":" + std::to_string(impl_->view.zoom()) +
            ",\"spacing\":" + std::to_string(impl_->view.spacing()) + ",\"placement_updates\":" + std::to_string(impl_->placement_updates) +
+           ",\"roll_updates\":" + std::to_string(impl_->roll.updates) +
            ",\"placements\":[";
     for (std::size_t i = 0; i < impl_->placements.size(); ++i) {
         out += i ? ",[" : "[";
@@ -893,6 +900,42 @@ void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32
     p.visible = visible; p.x = x; p.y = y; p.held = held; p.directed = directed; p.az = az; p.el = el;
     impl_->cadence.invalidate();
 }
+void Presentation::set_roll(const std::array<std::int32_t, 3>& roll, const std::array<std::int8_t, 3>& icons, std::int32_t hover,
+                            bool active) {
+    if (!impl_) return;
+    auto& s = *impl_;
+    s.rolls = roll;
+    s.roll.icons = icons; s.roll.hover = hover; s.roll.active = active; ++s.roll.updates;
+    s.cadence.invalidate();
+}
+std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
+    if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
+    auto& s = *impl_;
+    const auto reference = s.pose.reference();
+    const bool measured = s.pose.tracking() && reference && s.modes.mode() == ViewMode::anchor && s.modes.settled() &&
+                          !(s.video && s.video->active());
+    if (measured && s.roll_geometry_measured && now_ms - s.roll_geometry_ms < kRollGeometryMs) return std::nullopt;  // rate limit
+    std::string line = "{\"roll_geometry\":{\"tilt\":[";
+    const auto tiles = measured ? overview_layout(s.capture_sizes().span(), float(s.width), float(s.height), s.view.target_spacing())
+                                : std::vector<FRect>{};
+    const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
+    const auto up = measured ? canvas_up(*reference, s.modes.anchor()) : std::array<float, 3>{0, 1, 0};
+    for (std::size_t i = 0; i < s.captures.size(); ++i) {
+        std::optional<float> tilt;
+        if (measured && i < tiles.size()) {
+            Placement p = s.target_placement(i);
+            p.roll = 0;  // the supervisor adds its own roll
+            tilt = desktop_tilt(canvas, tiles[i], p, Vec3{up[0], up[1], up[2]});
+        }
+        line += i ? "," : "";
+        line += tilt ? std::to_string(std::clamp(int(std::lround(*tilt * 180.f / float(M_PI) * 100.f)), -18000, 18000)) : "null";
+    }
+    line += "]}}";
+    if (line == s.roll_geometry_sent) return std::nullopt;
+    s.roll_geometry_sent = line; s.roll_geometry_ms = now_ms; s.roll_geometry_measured = measured;
+    return line;
+}
+void Presentation::resend_roll_geometry() { if (impl_) impl_->roll_geometry_sent.clear(); }
 std::optional<std::string> Presentation::take_overview_geometry() {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
@@ -1058,6 +1101,10 @@ Status Presentation::draw_test_pattern() {
             GlassFrame glass = s.glass.frame(overview, help_now);
             glass.pills = s.pills.visible && overview;
             if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
+            if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
+                glass.surface->roll = s.target_placement(std::size_t(glass.surface_desktop)).roll;
+            for (std::size_t i = 0; i < glass.roll_icon.size(); ++i) glass.roll_icon[i] = s.roll.icons[i];
+            glass.roll_hover = s.roll.hover; glass.roll_level = s.roll.active ? kGlassActive : kGlassHover;
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
         }

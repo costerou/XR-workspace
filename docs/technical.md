@@ -25,6 +25,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to zoom into it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
 | Glass placement pills (a frosted pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; a pill drag keeps the desktop under the dot, and in anchor mode the dot, and so the drag, reaches all the way round you; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Roll-level icons (in anchor mode a desktop that is not level as you see it, judged against gravity from the head tracker, gets a small round glass button with a curved arrow above its higher top corner; a click levels it, a drag rolls it toward level and never past) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the icon's size, side, arrow and colours, the `roll` frame), `glass_contract` and `placement_contract` (the icon rect and the rolled surface, renderer against supervisor); `tests/native_spike/test_roll_level.py`. Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the icon reads on the OLED panels and how the drag feels are unverified. See [Roll-level icons](#roll-level-icons). |
 | Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
@@ -447,6 +448,27 @@ same day the flat offset's move maths gave way to the orbit and guard above: its
 of the smaller desktop's area (judged on approximate overview rectangles) and its reach of one desktop width or height
 are gone, and `resize.allowed_move` became `orbit.allowed_move`. After that every desktop was made to face you, and the
 yaw, pitch and roll settings were removed.
+
+### Roll-level icons
+
+Every desktop faces you, upright in the canvas frame. That frame is the head's orientation at the last recentre, so a
+recentre with the head tipped to one side leaves every desktop rolled as you see it, and a pitched one leaves desktops
+turned off to the side rolled. In anchor mode, while head tracking runs and no mode blend is in progress, the renderer
+measures each desktop's roll from level (`view.hpp desktop_tilt`: the world's up from the pose feed, `pose.hpp
+canvas_up`, projected onto the desktop at its centre) and reports it on the status socket as
+`{"roll_geometry":{"tilt":[t,...]}}` (hundredths of a degree, counter-clockwise positive, `null` where it is not
+measured; on change, at most every 100 ms). The tilt leaves out the levelling roll, so the supervisor owns that alone.
+
+`free_pointer.OverviewPointer` keeps a levelling roll per desktop for the session (not saved in profiles, not part of
+the wire placement) and sends it with the icons in the `roll` op: `{"roll":[r,r,r],"icons":["none"|"ccw"|"cw",...],
+"hover":-1..2,"active":bool}`. The renderer turns each desktop by its roll about its own line of sight
+(`Placement::roll`, eased like a placement, at every zoom), so it still faces you. A desktop more than 0.5° from level
+shows one icon above its higher top corner (`glass.hpp roll_icon`): above the top-left a counter-clockwise arrow, above
+the top-right a clockwise one. It is 22 px across and 8 px above the corner as you see it whatever the desktop's size or
+distance, a glass disc in the pill's theme look with its arrow in the theme's highlight colour, under the 191/255 cap.
+The icons show and hide with the pills. A click levels the desktop; a press and drag turns it with the dot round its
+centre, only toward level and never past it. Hit testing and the cursor mapping use the rolled surface; the pill drag
+and the no-overlap guard ignore the roll.
 
 ### Help card pages
 

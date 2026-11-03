@@ -200,6 +200,11 @@ Mat3 view_from(Quat head, Quat anchor) {
     return transpose(driver_to_gl(quat_to_mat3(quat_mul(quat_conj(anchor), head))));
 }
 
+std::array<float, 3> canvas_up(Quat reference, Quat anchor) {
+    const auto v = apply(transpose(quat_to_mat3(quat_mul(reference, anchor))), {0, 0, 1});  // driver up, in the canvas's driver frame
+    return apply(kDriverToGl, v);
+}
+
 void ModeController::set_mode(ViewMode mode, double now_ms) {
     if (mode == mode_) return;
     from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;

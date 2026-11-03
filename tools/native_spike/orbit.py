@@ -99,7 +99,8 @@ def apply_t(m, v):
 
 def place_point(g, tile, p, px, py):
     """World position of canvas pixel (px, py) on a desktop laid out at `tile` with wire placement `p`
-    (geometry.PLACEMENT_BOUNDS units). The desktop always faces the eye, upright along its meridian (a billboard): its
+    (geometry.PLACEMENT_BOUNDS units, plus an optional 'roll': the renderer's levelling roll about the line of sight in
+    hundredths of a degree, counter-clockwise as you see it, free_pointer.py's roll-level icons). The desktop always faces the eye, upright along its meridian (a billboard): its
     centre lies in its slot's direction turned by the orbit, `distance` times as far as the slot's centre, and its
     surface (bent by `curvature` toward you) is square to that line of sight: Az(a0 + x) . El(e0 + y) applied to the
     desktop drawn straight ahead, a0 / e0 the slot centre's azimuth / elevation. Mirrors spike/src/view.cpp
@@ -121,6 +122,10 @@ def place_point(g, tile, p, px, py):
         rc = tw / curvature
         phi = u / rc
         local = (rc * math.sin(phi), v, rc * (1 - math.cos(phi)))  # toward you at the edges
+    roll = math.radians(p.get('roll', 0) / 100)  # levelling roll (hundredths of a degree; not a wire placement key)
+    if roll:
+        cr, sr = math.cos(roll), math.sin(roll)
+        local = (cr * local[0] - sr * local[1], sr * local[0] + cr * local[1], local[2])
     q = (local[0], local[1], local[2] - r)  # straight ahead, square to the line of sight
     ce, se = math.cos(e0 + p['y'] * TENTH), math.sin(e0 + p['y'] * TENTH)
     q = (q[0], ce * q[1] - se * q[2], se * q[1] + ce * q[2])

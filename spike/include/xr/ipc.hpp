@@ -11,7 +11,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
-                       overview_pointer };
+                       overview_pointer, roll };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..2), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -87,8 +87,20 @@ struct OverviewPointerPayload {
     bool visible = false; std::int32_t x = 0, y = 0; bool held = false;
     bool directed = false; std::int32_t az = 0, el = 0;  // az / el given (1/100 degree)
 };
+// Roll-level icons (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
+// {"roll":[r,r,r],"icons":[i,i,i],"hover":-1..2,"active":bool}. roll: each desktop's levelling roll (view.hpp
+// Placement::roll) in hundredths of a degree, counter-clockwise as you see it, -kMaxRoll..kMaxRoll. icons: "none", "ccw"
+// (the icon above the top-left corner) or "cw" (above the top-right; glass.hpp roll_icon). hover: the desktop whose icon is
+// under the pointer or held (-1: none); active: it is being dragged. Exactly three entries each, in managed-output order
+// (desktops beyond this run's outputs are ignored). Malformed: rejected with kInvalidRollCode and dropped, like move_handle.
+constexpr const char* kInvalidRollCode = "invalid_roll";
+constexpr std::int32_t kMaxRoll = 9000;
+struct RollPayload {
+    std::array<std::int32_t, 3> roll{}; std::array<std::int8_t, 3> icons{-1, -1, -1};  // icon: -1 none, 0 ccw, 1 cw
+    std::int32_t hover = -1; bool active = false;
+};
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload>;
+                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -97,12 +109,12 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle or
-// overview_pointer payload. It
+// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle,
+// overview_pointer or roll payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
     return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
-           e.code == kInvalidOverviewPointerCode;
+           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode;
 }
 class ControlQueue {
 public:
