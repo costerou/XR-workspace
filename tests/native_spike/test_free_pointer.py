@@ -540,12 +540,21 @@ class ClickTests(PointerBase):
         self.assertIsNone(self.p.drag)
         self.assertFalse(self.control.state.menu_open)  # a drag is not a click: the pill did not expand
 
-    def test_pill_drag_respects_the_overlap_guard(self):
+    def test_pill_drag_bumps_the_desktops_it_runs_into_out_of_the_way(self):
         self.on_pill(0); self.op('resize_press')
-        self.move_canvas(T0[2] * 0.6, 0)  # straight into XR-2: stops just before it touches
-        self.assertGreater(self.control.state.placements[0]['x'], 0)
-        self.assertLess(self.control.state.placements[0]['x'], 9)  # the slots are 40 px (~0.9 degrees) apart
-        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, self.control.state.placements[0]), orbit.footprint(G, T1, FLAT[1])), 0)
+        out = self.move_canvas(T0[2] * 0.6, 0)  # straight into XR-2 (the slots are 40 px, ~0.9 degrees, apart)
+        s = [dict(p) for p in self.control.state.placements]
+        want = orbit.drag_target(G, self.p.drag['tile'], (0, 0), self.p.drag['start'], self.p.pointer)
+        self.assertEqual((s[0]['x'], s[0]['y']), want)  # XR-1 stays under the dot, as if nothing were in its way...
+        self.assertGreater(s[1]['x'], 0); self.assertGreater(s[2]['x'], 0)  # ...pushing XR-2 and, through it, XR-3 right
+        self.assertEqual((s[1]['y'], s[2]['y']), (0, 0))  # straight out of its way: sideways only
+        self.assertEqual(frames_of(out, 'placement'), {'desktops': s})  # one frame, every desktop, no glide (a drag streams)
+        prints = [orbit.footprint(G, G['tiles'][i], s[i]) for i in range(3)]
+        for a, b in ((0, 1), (1, 2), (0, 2)): self.assertEqual(orbit.overlap(prints[a], prints[b]), 0, (a, b))
+        self.move_canvas(-T0[2] * 0.6, 0)  # back to its slot: the pushed desktops stay where they were pushed
+        self.assertEqual(self.control.state.placements[0]['x'], 0)
+        self.assertEqual(self.control.state.placements[1:], s[1:])
+        self.assertGreater(self.p.bumps, 0)
         self.op('resize_release')
 
     def off_dot(self, i, q, dot=None):
@@ -881,8 +890,9 @@ local function show(tag) print(tag, state.invisible, state.x, state.y, state.bin
             fp.grab_pointer_lua(*BIND_ARGS, 3520, 540), 'show("grab2")',
             resize.remove_resize_binds_lua(), 'show("dead")',
             resize.remove_resize_binds_lua(), 'show("again")']))
-        self.assertEqual(out, [['grab', 'true', '3520', '540', '2'], ['regrab', 'true', '3520', '540', '2'],
-                               ['release', 'false', '4500', '30', '0'], ['grab2', 'true', '3520', '540', '2'],
+        # 4 binds: the left button's press and release, and the two Super keys' (resize.py)
+        self.assertEqual(out, [['grab', 'true', '3520', '540', '4'], ['regrab', 'true', '3520', '540', '4'],
+                               ['release', 'false', '4500', '30', '0'], ['grab2', 'true', '3520', '540', '4'],
                                ['dead', 'false', '4500', '30', '0'],  # back where free mode found it, visible
                                ['again', 'false', '4500', '30', '0']])
 

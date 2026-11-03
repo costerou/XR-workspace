@@ -474,7 +474,7 @@ hl.dispatch = function(p) if p.focus then focused = p.focus else plain_dispatch(
             'print("nc", tostring(nc["mouse:272"]), tostring(nc["mouse:272^"]), state.binds["mouse:272"], state.binds["mouse:272^"], '
             'tostring(state.binds["mouse:273"]), tostring(state.binds["mouse_up"]))',
             fp.release_pointer_lua(), 'show("away")']))
-        n = 2 + len(il.OTHER_BUTTONS) + len(il.WHEEL)
+        n = 2 + len(resize.SUPER_KEYS) + len(il.OTHER_BUTTONS) + len(il.WHEEL)
         self.assertEqual(out[0], ['free', 'true', '3520', '540', str(n), '0', str(n + 1)])
         self.assertEqual(out[1], ['desktop', 'false', '3000', '600', '2', '300', '2'])
         self.assertEqual(out[2], ['nc', 'true', 'true', 'resize_press', 'resize_release', 'nil', 'nil'])

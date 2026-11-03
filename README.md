@@ -168,6 +168,27 @@ and curvature are kept. Update the program that draws in the glasses, the backgr
 copy of any one of them can't take the new placements. Going back to an older background helper alone resets the
 placements this version saved to flat.
 
+**Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
+in the overview (dragging its pill or a corner, or the sliders and keys of its pill), it never goes through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
+runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
+doesn't pull it back, and it is saved with your layout like any other move. What counts is how they look from where you sit, curve and size included: a small desktop far
+away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
+you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
+push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
+fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
+desktops glides them there together in a quarter of a second; one that bumps nothing moves as it always did, and while
+you drag they move with your hand. Only the handles round a desktop do this (its pill, its resize corners and edges, its
+pill's sliders and keys); pressing and dragging on a desktop's content goes to the app there and never moves, resizes or
+bumps anything. Super + drag is your window manager's as always: it moves or resizes a window, never a desktop, and
+bumps nothing. Press Super while you are dragging a desktop and the drag stops right there.
+
+The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
+
+When the layout itself changes, desktops that overlap afterwards are pushed apart by themselves, gliding the same way:
+when a session starts with a saved layout that overlaps, when you change the spacing, and when you add, remove or widen
+a desktop. The selected desktop stays where it is, and the others move the shortest way to a clear spot. That includes an
+overlap you made with Apply, the next time the layout changes.
+
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the
 next part) and it grows smoothly into that desktop's own placement panel: four sliders, one for each setting
@@ -199,8 +220,8 @@ With a pill open:
 For left/right one press is 0.2° and Shift+Left / Shift+Right is 15°. It never stops: past 180° it carries on round to
 the other side. For down/up one press is 0.2° and Shift is 10°, and it stops at 90° up or down. The pill shows whole
 degrees, so a single small step may not change the number there; the panel's **Place** section shows the tenths. The
-keys and sliders don't stop at other desktops, so they can push one desktop over another. Only dragging the pill (below)
-keeps them apart.
+keys and sliders bump other desktops out of the way like a drag does (above), and R walks the desktop back to its slot,
+pushing aside whatever is there now.
 
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
@@ -221,18 +242,17 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   arrows. The look stays through a drag until you let go.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
-  slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
-  before touching one (a small gap is kept, and the strip with its pill counts as part of the desktop), and if you
-  keep pushing at an angle it slides along that desktop's edge. However fast you move, it never jumps through one. To
-  get past a neighbour, lift it clear of the row first, or carry it round behind you. A desktop that already overlaps
-  another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
-  that doesn't move opens the pill instead of moving anything.
+  slot if you drop it within half a degree of it. It never goes through another desktop as you see it: it bumps it
+  out of the way (see [Desktops bump each other out of the way](#placing-desktops); a small gap is kept, and the strip
+  with its pill counts as part of the desktop), and the bumped one stays where it ends up. However fast you move, it
+  never jumps through one. To pass a neighbour without moving it, lift it clear of the row first, or carry it round
+  behind you. A click that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** put the dot just outside an edge or corner of a desktop, until it shows its two arrows (a
   corner also shows a small grey bracket). The handles are outside the desktop, so a window's corner, like its close
   button, stays the window's. Pushing the mouse against a desktop's edge from inside lands on that handle. Drag outward
   to make it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
-  Resizing doesn't stop at other desktops.
+  Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
 - **Level or roll a desktop:** every desktop in the overview has two arrow brackets in your theme's colour wrapped
   round its top corners, just outside its border: the left one turns it counter-clockwise, the right one clockwise. They
   stay on the corners as you move or resize the desktop, and grow and shrink with it. Click a bracket's arm (not the

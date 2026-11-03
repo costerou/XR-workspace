@@ -499,6 +499,59 @@ int main() {
             CHECK(!same_placement(other, to));
         }
     }
+    {  // A glide (bumping, view.py GLIDE_MS): one smootherstep curve from where a desktop was drawn to its new placement.
+        const Placement from{-0.2f, 0.1f, 1.f, 0.f, 0.f}, to{0.4f, -0.3f, 0.5f, 1.f, 0.1f};
+        CHECK(same_placement(glide_toward(from, to, 0), from));  // starts where it was drawn: no jump
+        CHECK(same_placement(glide_toward(from, to, 1), to) && same_placement(glide_toward(from, to, 7), to));  // lands exactly
+        CHECK(same_placement(glide_toward(from, to, -1), from));
+        const Placement half = glide_toward(from, to, 0.5f);
+        CHECK(near(half.x, 0.1f, 1e-6f) && near(half.y, -0.1f, 1e-6f) && near(half.distance, 0.75f, 1e-6f) &&
+              near(half.curvature, 0.5f, 1e-6f) && near(half.roll, 0.05f, 1e-6f));  // halfway at half time
+        float last = from.x;
+        for (int i = 1; i <= 100; ++i) {  // every field moves one way only, never past the end (no overshoot)
+            const Placement p = glide_toward(from, to, i / 100.f);
+            CHECK(p.x >= last - 1e-7f && p.x <= to.x + 1e-7f && p.y <= from.y + 1e-7f && p.y >= to.y - 1e-7f);
+            last = p.x;
+        }
+        // Eased in and out: it starts and lands with no jump in speed (smootherstep's slope is 0 at both ends).
+        CHECK(glide_toward(from, to, 0.01f).x - from.x < 0.01f * (to.x - from.x) * 0.01f);
+        CHECK(to.x - glide_toward(from, to, 0.99f).x < 0.01f * (to.x - from.x) * 0.01f);
+        // Every desktop of the frame takes the same t, so the pair's configuration moves along one straight line between
+        // two that were apart: a pushed desktop and the one pushing it slide out of each other's way together.
+        const Placement a0{0, 0, 1, 0}, a1{0.3f, 0, 1, 0}, b0{0.25f, 0, 1, 0}, b1{0.55f, 0, 1, 0};
+        for (int i = 0; i <= 10; ++i) CHECK(glide_toward(b0, b1, i / 10.f).x - glide_toward(a0, a1, i / 10.f).x >= 0.25f - 1e-6f);
+        // The short way round, as ease_toward: behind you it stays behind you, and lands on the exact value.
+        Placement behind_a; behind_a.x = 3.1f;
+        Placement behind_b; behind_b.x = -3.1f;
+        CHECK(glide_toward(behind_a, behind_b, 0.5f).x > 3.1f && glide_toward(behind_a, behind_b, 1).x == -3.1f);
+    }
+    {  // The renderer's per-frame step (wayland.cpp ease_placements): a glide frame takes every desktop along one curve,
+       // over exactly its time, then easing goes on as before; a frame without one eases on from wherever the glide got to.
+        PlacementGlide glide;
+        std::vector<Placement> drawn{{0, 0, 1, 0}, {0.25f, 0, 1, 0}};
+        const std::vector<Placement> pushed{{0.3f, 0, 1, 0}, {0.55f, 0, 1, 0}};  // the mover and the desktop it bumped
+        CHECK(!start_glide(glide, {}, 0, 240) && glide.ms == 0);  // nothing drawn yet: nothing to glide from
+        CHECK(!start_glide(glide, drawn, 1000, 0) && glide.ms == 0);
+        CHECK(start_glide(glide, drawn, 1000, 240) && glide.ms == 240);
+        step_placements(drawn, pushed, 8, 1120, glide);  // half the time: half the way, both together
+        CHECK(near(drawn[0].x, 0.15f, 1e-5f) && near(drawn[1].x, 0.4f, 1e-5f) && glide.ms == 240);
+        step_placements(drawn, pushed, 8, 1008, glide);  // early on it has barely started: eased in, not a jump
+        CHECK(drawn[0].x < 0.3f * 0.01f);
+        step_placements(drawn, pushed, 8, 1240, glide);  // its time is up: exactly there, and the glide is over
+        CHECK(same_placement(drawn[0], pushed[0]) && same_placement(drawn[1], pushed[1]) && glide.ms == 0);
+        const std::vector<Placement> next{{0.4f, 0, 1, 0}, {0.65f, 0, 1, 0}};
+        step_placements(drawn, next, kPlacementEaseMs, 1300, glide);  // no glide: the quick exponential easing again
+        CHECK(near(drawn[0].x, 0.4f - 0.1f * std::exp(-1.f), 1e-5f));
+        CHECK(start_glide(glide, drawn, 2000, 240));  // a glide that a plain frame interrupts: eased on from where it is
+        step_placements(drawn, next, 8, 2060, glide);
+        const Placement at = drawn[0];
+        glide.ms = 0;  // (set_placements without a glide, a roll change or a desktop change end it)
+        step_placements(drawn, next, 8, 2068, glide);
+        CHECK(drawn[0].x >= at.x && drawn[0].x <= next[0].x);  // on toward the target, from there: no jump back
+        std::vector<Placement> grown{{0.4f, 0, 1, 0}};
+        step_placements(grown, next, 8, 2100, glide);  // a desktop added meanwhile starts at its target
+        CHECK(grown.size() == 2 && same_placement(grown[1], next[1]));
+    }
     // Draw order: farthest first; equal-distance ties keep layout order; missing placements are flat.
     const FRect row3[] = {{0, 330, 600, 540}, {660, 330, 600, 540}, {1320, 330, 600, 540}};
     const Placement pushed[] = {{}, {0, 0, 1.8f, 0}};

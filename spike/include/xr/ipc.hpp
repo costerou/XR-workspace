@@ -42,8 +42,12 @@ struct HelpPayload {
 // object exactly those four keys (the removed yaw / pitch / roll are rejected), every field an integer inside
 // kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS): x / y the orbit round you in tenths of a
 // degree (view.hpp Placement), distance in percent, curvature in degrees. Every desktop always faces you.
+// Optional "glide": 1..kMaxPlacementGlideMs milliseconds (tools/native_spike/view.py GLIDE_MS): every desktop slides to its
+// new placement together along one smootherstep curve over that time (view.hpp glide_toward), instead of the quick
+// exponential easing; the supervisor asks for it when a discrete edit bumped other desktops out of the way (bump.py).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, curvature = 0; };
-struct PlacementPayload { std::vector<WirePlacement> desktops; };
+constexpr std::uint32_t kMaxPlacementGlideMs = 1000;
+struct PlacementPayload { std::vector<WirePlacement> desktops; std::uint32_t glide_ms = 0; };
 // Placement panel (a glass pill expanded: a pill click or Ctrl+Alt+L in the supervisor; Ctrl+Alt+P is pose prediction),
 // display only (the supervisor owns the state and applies placements with `placement`):
 // {"open":bool,"desktop":0..n-1,"field":"x"|"y"|"distance"|"curvature","placements":[n placements]}, n = 1..kMaxDesktops

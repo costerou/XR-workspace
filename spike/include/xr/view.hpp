@@ -105,6 +105,18 @@ std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect>
 struct CornerHandle { FRect horizontal, vertical; };
 CornerHandle corner_handle(const FRect& tile, std::uint32_t corner);
 constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 255.f;
+// A glide (a `placement` frame's glide, ipc.hpp: a discrete edit that bumped desktops out of the way, bump.py): `t` of the
+// way (0..1, clamped) from `from` to `to` along smootherstep, so it starts and lands with no jump in speed, never overshoots
+// and is exactly `to` at t >= 1. Every desktop of the frame takes the same t, so they move out of each other's way
+// together. x the short way round, as ease_toward.
+Placement glide_toward(const Placement& from, const Placement& to, float t);
+// The renderer's drawn placements, one step to `now_ms` toward `targets` (resized to match, new ones at their target):
+// while a glide is under way (glide.ms > 0) every desktop is glide_toward(glide.from[i], targets[i], (now - start) / ms),
+// and once it has landed the glide ends (ms = 0); otherwise each eases toward its target over `dt_ms` (ease_toward).
+// start_glide begins one from what is drawn now (false, and any glide ends, when ms is 0 or nothing is drawn yet).
+struct PlacementGlide { std::vector<Placement> from; double start_ms = 0; float ms = 0; };
+bool start_glide(PlacementGlide& glide, const std::vector<Placement>& drawn, double now_ms, std::uint32_t ms);
+void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>& targets, float dt_ms, double now_ms, PlacementGlide& glide);
 // The overview's drag handles are the glass pills under each desktop (glass.hpp glass_pill), which also open its placement panel.
 // Placement easing: the drawn placement approaches the latest one with time constant `tau_ms` (exponential, frame-rate
 // independent) and lands on it exactly once within a hair, so drags at the pointer's ~30-60 Hz look smooth at 120 Hz.

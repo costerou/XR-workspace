@@ -91,7 +91,10 @@ public:
     void recenter();
     // Per-desktop placement in capture order, each {x, y, distance, curvature} in the validated wire units of ipc.hpp
     // WirePlacement (every desktop always faces you); entries beyond the captured outputs are ignored. GPU composition only.
-    void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements);
+    // `glide_ms` > 0 (ipc.hpp PlacementPayload glide): every desktop glides from where it is drawn to its new placement
+    // together over that time (view.hpp glide_toward); 0: the drawn placements ease toward it (ease_toward), and a glide
+    // still under way ends there, eased on from where it got to.
+    void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements, std::uint32_t glide_ms = 0);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
     // VR video (docs/vr-video.md; capture runs with GPU composition only). While open the glasses show the head-tracked
     // video (world-locked to the recentre reference whatever the viewing mode) and its controls card instead of the

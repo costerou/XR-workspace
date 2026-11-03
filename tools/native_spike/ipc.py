@@ -50,7 +50,7 @@ def decode_control(raw):
         message["payload"] = validate_request(op, payload)
         return message
     if op not in ("status", "start", "stop", "select", "recover", "zoom_in", "zoom_out", "next", "prev",
-                  "spacing_up", "spacing_down", "recenter", "mode_next", "prediction", "help",
+                  "spacing_up", "spacing_down", "recenter", "mode_next", "prediction", "help", "resize_cancel",
                   "placement", "menu_toggle", "menu_desktop_next", "menu_desktop_prev", "menu_field_next", "menu_field_prev",
                   "menu_inc", "menu_dec", "menu_inc_big", "menu_dec_big", "menu_reset", "menu_back",
                   "menu_ultrawide", "menu_add", "menu_delete",

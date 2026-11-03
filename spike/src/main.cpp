@@ -209,9 +209,10 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 4>> placements;
-                        for (const auto& w : std::get<xr::PlacementPayload>(m->payload).desktops)
+                        const auto& payload = std::get<xr::PlacementPayload>(m->payload);
+                        for (const auto& w : payload.desktops)
                             placements.push_back({w.x, w.y, w.distance, w.curvature});
-                        presentation.set_placements(placements);
+                        presentation.set_placements(placements, payload.glide_ms);
                     }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);

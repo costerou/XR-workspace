@@ -95,11 +95,15 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     `overview_pointer` frame's az / el), and the hit test and the desktop-mode cursor mapping (project / unproject) read
     the same direction, so what the dot is drawn on is what it hits, anywhere round you.
   * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
-    point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you), and
-    it never overlaps another desktop. A corner drag changes `distance` so the corner
-    follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
-    debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
-    on zoom-in and when a VR video opens.
+    point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you). A
+    corner drag changes `distance` so the corner follows the pointer along its diagonal; a slider sets its setting. A
+    drag never goes through another desktop: it bumps the desktops it runs into out of its way (bump.py; one Pusher for
+    the whole drag), and every desktop goes out in the same `placement` frame. Only drags started on the move and resize
+    handles do (RESIZE_DRAGS, _resize_to, orbit.PillDrag): content is the apps', and a Super + drag is Hyprland's window
+    move or resize, whose press never reaches the run (resize.py). All are saved like a panel key change (0.5 s
+    debounce, and at once on release), pushed desktops with them. Drags also end, and save, after
+    OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in, when a VR video opens and when Super goes down
+    (super_down).
   * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is
     up the renderer reports where it lies on the canvas under the current head rotation (`help_geometry`, the card and,
     on a paged card, its previous / next arrows and page indicator; parse_help_geometry). It is the top layer for the
@@ -125,7 +129,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     desktop (the band along its edges is the edge resize's), within ROLL_HEAD_HALF + ROLL_PAD of the stroke's centre
     line, and only where nothing else is: any desktop's content, a resize corner's zone and the pills all win over it
     (hit), and the renderer draws the brackets under them. The brackets hide with the pills. Every hit test and cursor mapping uses the
-    rolled surface (orbit.place_point's 'roll'); the pill drag and the no-overlap guard ignore the roll (a few degrees at
+    rolled surface (orbit.place_point's 'roll'); the pill drag and bumping ignore the roll (a few degrees at
     most changes nothing there).
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
@@ -148,7 +152,7 @@ import socket
 import threading
 import time
 
-from . import geometry, orbit, resize, view
+from . import bump, geometry, orbit, resize, view
 from .geometry import PLACEMENT_BOUNDS
 from .overview_cursor import DOT_MODES, OverviewCursor
 
@@ -213,6 +217,14 @@ MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past t
 # edge (OverviewPointer._clamp), so a corner following it 1:1 could not take a desktop to the distance bound's ten times.
 RESIZE_OVERSHOOT_GAIN = 8.0
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
+# Bumping hooks into the hit-zone contract's handles, never the content (bump.py): a drag started on a resize handle
+# (RESIZE_DRAGS: the contract's corner and edge handles, `resize` with its `handle`) resizes through
+# _resize_to, one on a move handle (the pill or the open panel's header) moves through orbit.PillDrag, and both bump. A
+# press on content (hit: 'desktop') is the apps' and never starts either; nor do the roll handles, sliders (ViewControl
+# bumps those) or a window drag.
+RESIZE_DRAGS = ('resize',)
+# What Super going down stops (OverviewPointer.super_down): every drag of a monitor. A window drag is the window's.
+MONITOR_DRAGS = RESIZE_DRAGS + ('pill', 'slider', 'roll')
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
@@ -837,6 +849,8 @@ class OverviewPointer:
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
         self.actions = 0  # diagnostics: desktop-row button presses
+        self.bumps = 0    # diagnostics: drag updates that pushed another desktop out of the way (bump.py)
+        self.super_stops = 0  # diagnostics: monitor drags stopped by Super going down (super_down)
         self.window_lifts = self.window_drops = self.window_cancels = 0  # diagnostics: window drags
         self._found = None  # (token, window) from the sender's lookup thread, taken on the loop (_take_found)
         self._token = 0
@@ -1278,6 +1292,15 @@ class OverviewPointer:
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._frames(False)) or None
 
+    def super_down(self):
+        """Super went down (resize.py's bind on the Super keys, there while the left button is the run's): Super + drag is
+        a window's, so a monitor drag in progress (MONITOR_DRAGS; it began without Super) stops where it is, saved as on a
+        release. It is no click: the button's later release finds nothing held. Frames or None."""
+        d = self.drag
+        if d is None or d['kind'] not in MONITOR_DRAGS: return None
+        self.super_stops += 1
+        return (self._end_drag() + self._frames(False)) or None
+
     # --- window drag ------------------------------------------------------------------------------------------------
     def _window_press(self, i, q, start, point, now):
         """A press on desktop i at tile pixel q (dot at canvas `start`, layout pixel `point` on its monitor): a window drag
@@ -1374,23 +1397,29 @@ class OverviewPointer:
             turn = (turn + math.pi) % (2 * math.pi) - math.pi  # counter-clockwise as you see it
             self.rolls[d['index']] = roll_drag(self._tilt(d['index']), d['from'], math.degrees(turn) * 100)
             return b''  # the `roll` frame goes out with the others (_roll_frame)
-        current = c.state.placements[d['index']]
-        if d['kind'] == 'resize':  # the corner along its diagonal, an edge along its normal, under the dot
+        if d['kind'] in RESIZE_DRAGS:  # a resize handle: the size it asks for, bumping what it grows into
             (ax, ay), (bx, by) = resize_reach(self.geometry, d['start']), resize_reach(self.geometry, self.pointer)
-            updated = {**current, 'distance': resize_distance(d['distance'], d['handle'], bx - ax, by - ay, d['tile'])}
-        else:
+            placements = self._resize_to(d, resize_distance(d['distance'], d['handle'], bx - ax, by - ay, d['tile']))
+        else:  # a move handle (the pill, or the open panel's header strip): the turn round you, bumping what it meets
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
                 self.moves += 1
-            if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, never overlapping (orbit.py)
+            if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, pushing what it meets (orbit.py)
                 d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'])
-            x, y = d['orbit'].follow(self.pointer, c.state.placements)
-            updated = {**current, 'x': x, 'y': y}
-        if updated == current: return b''
-        c.state.placements = [updated if i == d['index'] else p for i, p in enumerate(c.state.placements)]
+            placements = d['orbit'].follow(self.pointer, c.state.placements)
+        if placements == c.state.placements: return b''
+        if any(p != q for i, (p, q) in enumerate(zip(placements, c.state.placements)) if i != d['index']): self.bumps += 1
+        c.state.placements = placements
         c.save_due = c.clock() + view.MENU_SAVE_DELAY
         return c._placement_frame() + (c._menu_frame() if c.state.menu_open else b'')
+
+    def _resize_to(self, d, distance):
+        """Every desktop's placement for resize drag `d` (any resize handle of the hit-zone contract: a corner; the edges
+        too where they are handles) asking for `distance`: the desktop takes it, growing pushes the desktops it runs into
+        out of its way and with no room left it stops growing (bump.py; one Pusher for the whole drag)."""
+        if 'bump' not in d: d['bump'] = bump.Pusher(self.geometry, d['index'])
+        return d['bump'].move(self.control.state.placements, {'distance': distance})
 
     def _end_drag(self):
         """Release, idle, zoom-in, typing mode or a video: the drag ends and is saved at once. A held slider's panel goes
