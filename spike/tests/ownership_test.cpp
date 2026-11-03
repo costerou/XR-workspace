@@ -65,8 +65,20 @@ int main(int argc,char** argv) {
     b.reach=false;
     CHECK(r.remove("session","run","uuid0",b.fallback)=="blocked");
     b.reach=true;
+    // A removed slot is created again under a new id (a pill's Add after a Remove: the lowest free XR-n, desktops.py).
+    // Regression (ultrawide-add-monitor, 2026-11-03): one ultrawide XR-1 left after removing XR-2 and XR-3, Add new
+    // asked for XR-2 again and the broker refused it ("run slot already used"), so nothing was added.
     auto reused=spec(); reused["id"]="new-uuid";
-    bool nameReuse=false; try { r.create("session","run",reused); } catch(...) {nameReuse=true;} CHECK(nameReuse);
+    CHECK(r.create("session","run",reused)=="live"); CHECK(b.creates==4);
+    // ... but never while the slot is held: a live output, or one whose creation failed (its output may still exist).
+    auto twice=spec(); twice["id"]="third-uuid";
+    bool nameReuse=false; try { r.create("session","run",twice); } catch(...) {nameReuse=true;} CHECK(nameReuse && b.creates==4);
+    {
+        Fake f; f.failAt=1; Registry registry(f);
+        CHECK(registry.create("s","r",spec())=="failed");
+        auto again=spec(); again["id"]="again-uuid";
+        bool held=false; try { registry.create("s","r",again); } catch(...) {held=true;} CHECK(held && f.creates==1);
+    }
     b.rule=false;
     CHECK(r.create("session","run",spec(1))=="invalid");
     bool rejected=false;
