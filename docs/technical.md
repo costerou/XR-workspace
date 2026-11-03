@@ -517,14 +517,17 @@ the new one drawn on top. An expansion that starts while the view is zoomed in o
 until the overview is reached (`GlassPills::frame`), so a panel opened with Ctrl+Alt+L from a zoomed-in view does not
 pop in nearly full size; a collapse is never held.
 
-**The look.** Frosted glass: a dark translucent tint in the Omarchy theme colour, lighter toward the top, a soft gloss
-along the top, a 1 px hairline that is brighter at the top edge, fully rounded ends and a soft drop shadow. The colour is
+**The look.** Frosted glass in the Omarchy theme colour, lighter toward the top, a soft gloss along the top, a 1 px
+hairline in the theme colour that is brighter at the top edge, fully rounded ends and a soft drop shadow. The colour is
 the highlight border's and glow's (`general:col.active_border`, sent as the `style` frame at the start of a run and
-after every config reload), so switching the theme recolours the pills, an open panel's band and slider fills, the
-border and the glow together. The glass takes the theme's hue and most of its saturation (85% on the pill, 55% on the
-open panel behind its text, the rest neutral slate) at one fixed brightness whatever the theme, so pale and deep themes
-give equally bright glass and the gloss, hairline, text contrast and cap below hold for all of them; a deep blue is a
-little darker, because its brightest channel is held under the cap first. Grey themes give grey glass. The highlights
+after every config reload, which `omarchy-theme-set` does), so switching the theme recolours the pills, an open panel's
+band and slider fills, the border and the glow together in the running session; the renderer's status reports the
+colour it has (`theme.accent`) and how many switches reached it (`theme.updates`). The collapsed pill is the border
+colour itself scaled by one factor (`kGlassPillScale`), so its hue, saturation and lightness follow the theme: a pale
+theme gives a pale pill, a dark one a darker pill, and the grey themes (Vantablack, White, Lumon, Kanagawa) each give
+their own grey. Only an accent too dark to show on the see-through OLED is lifted to a floor. The factor keeps even a
+white border's pill under the cap below while dragged. The open panel stays calm behind its text: the theme's hue at one
+brightness, 55% of it over neutral slate. Grey themes give grey glass. The highlights
 are the theme colour at the cards' dimmed accent level (`spike/include/xr/glass_theme.hpp`). The collapsed pill is 14 px tall and 24% of the desktop's width (64–160 px). Hover and drag brighten it.
 The renderer draws it with one GLSL fragment shader (`glass_fragment_shader` in `spike/src/glass.cpp`) whose CPU mirror
 (`glass_shade`) is checked against it on a real GLES context. On the glasses' micro-OLED panels black is see-through, so
@@ -579,7 +582,8 @@ surfaceless EGL context; it reports skipped, exit 77, where EGL or GLES is missi
 `glass_geometry_dump` and checks that `tools/native_spike/free_pointer.py` uses the same pill and panel geometry) and
 `glass_theme` (for every Omarchy theme's border colour: the pill's hue and brightness, the cap in every state, the
 panel's highlights, and an open panel re-rendered once on a theme switch). `tests/native_spike/test_pill_theme.py`
-covers the supervisor side: the theme colour reaches the renderer as the `style` frame, with a pill open too. `menu_geometry_contract` and
+covers the supervisor side: the theme colour reaches the renderer as the `style` frame, with a pill open too, and
+through the installed wiring (Supervisor, VideoControl, real sockets) on every `configreloaded`. `menu_geometry_contract` and
 `placement_menu_style` were removed with the head-locked menu card. `help_card` (`spike/tests/help_card_test.cpp`) took over the help card's fit checks: the real rows fit 1920×1200 @1.25
 on one page at full size (and with three more rows still on one page); 1 to 64 rows page without clipping at every
 scale from 1 to 2 (every row on one page, in order, pages the same size, nothing in the padding); sections stay whole

@@ -49,10 +49,11 @@ static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its
 // header); active = it is being dragged.
 constexpr float kGlassIdle = 1.f, kGlassHover = 1.4f, kGlassActive = 1.7f;
 constexpr float kGlassCap = 191.f / 255.f;   // = kCardMaxLevel: the brightest any glass pixel may be
-constexpr float kGlossLevel = 0.86f, kHairLevel = 0.88f;  // grey of the gloss and the hairline before their alpha
+constexpr float kGlossLevel = 0.86f, kHairLevel = 0.88f;  // grey of the gloss, brightest hairline channel, before alpha
 constexpr float kGlassShadowMargin = 32.f;   // canvas px drawn around the shape for its shadow
 struct GlassLook {
     std::array<float, 3> tint{};             // base colour (lightened toward the top)
+    std::array<float, 3> hair{kHairLevel, kHairLevel, kHairLevel};  // the hairline's colour before its alpha
     float fill = 0, gloss = 0, gloss_px = 1, level = kGlassIdle;
     float border_top = 0, border_bottom = 0, shadow = 0, shadow_sigma = 1, shadow_dy = 0;
 };
@@ -63,7 +64,7 @@ GlassLook grabber_look(float level);
 // One pixel (canvas px centre px, py) of a glass shape `rect` with corner `radius` at `opacity`: premultiplied RGBA,
 // every colour channel at most kGlassCap. The GLSL fragment shader below computes exactly this.
 std::array<float, 4> glass_shade(const GlassLook& look, const FRect& rect, float radius, float px, float py, float opacity);
-// GLSL ES 1.00 fragment shader. Varying `p` = canvas px; uniforms rect (centre x, y, half w, half h), radius, tint,
+// GLSL ES 1.00 fragment shader. Varying `p` = canvas px; uniforms rect (centre x, y, half w, half h), radius, tint, hair,
 // look (fill, gloss, gloss_px, level), edge (border_top, border_bottom, shadow, shadow_sigma), shadow_dy, opacity.
 // Premultiplied output: blend with GL_ONE, GL_ONE_MINUS_SRC_ALPHA.
 const char* glass_fragment_shader();

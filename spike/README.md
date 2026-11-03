@@ -76,8 +76,8 @@ row slot and the zoomed desktop comes flat in front of you (`zoomed_placement`).
   18 px corners, centred under the desktop with its top at the pill's top. Its 42 px top strip is still the pill (drag
   to move, click to collapse); below it, one 34 px row per field (Left / right, Down / up, Distance, Curvature) with
   label, slider and value, then a key-hint footer.
-- Look: a dark translucent tint in the theme colour (`glass_theme.hpp`), lighter toward the top, a top gloss, a 1 px hairline
-  brighter at the top, rounded corners and a soft drop shadow, from one GLSL fragment shader (`glass_fragment_shader`)
+- Look: the theme's border colour as translucent glass (`glass_theme.hpp`), lighter toward the top, a top gloss, a 1 px
+  hairline in the theme colour, brighter at the top, rounded corners and a soft drop shadow, from one GLSL fragment shader (`glass_fragment_shader`)
   with a CPU mirror (`glass_shade`). Hover and drag brighten it. Every pixel stays at or under `kCardMaxLevel`
   (191/255) for the micro-OLED panels, and the panel text uses the help card's dimmed colours.
 - Animation: the pill morphs into the panel in 260 ms and back in 200 ms, eased; the panel's text fades in over the
