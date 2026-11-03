@@ -1,12 +1,15 @@
+#include "fake_feed.hpp"
 #include "xr/pose.hpp"
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <pthread.h>
 #include <stdexcept>
 #include <string>
-#include <sys/ipc.h>
-#include <sys/shm.h>
+#include <sys/wait.h>
+#include <thread>
 #include <unistd.h>
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(#x); } while (0)
 using namespace xr;
@@ -16,38 +19,8 @@ Quat axis_angle(float x, float y, float z, float deg) {
     return {x * s, y * s, z * s, std::cos(h)};
 }
 
-// Synthetic SysV feed laid out like XRLinuxDriver (16 floats, process-shared mutex, disabled flag).
-struct FakeFeed {
-    std::string prefix; int pose_id = -1, mutex_id = -1, disabled_id = -1, fov_id = -1;
-    float* pose = nullptr; float* fov = nullptr; pthread_mutex_t* mutex = nullptr; bool* disabled = nullptr;
-    template <class T> T* make(const char* name, std::size_t size, int& id) {
-        const auto path = prefix + name;
-        if (FILE* f = std::fopen(path.c_str(), "w")) std::fclose(f);
-        id = shmget(ftok(path.c_str(), 0), size, 0600 | IPC_CREAT);
-        CHECK(id >= 0);
-        return static_cast<T*>(shmat(id, nullptr, 0));
-    }
-    explicit FakeFeed(std::string p) : prefix(std::move(p)) {
-        pose = make<float>("pose_orientation", sizeof(float) * 16, pose_id);
-        mutex = make<pthread_mutex_t>("pose_orientation_mutex", sizeof(pthread_mutex_t), mutex_id);
-        disabled = make<bool>("disabled", sizeof(bool), disabled_id);
-        fov = make<float>("display_fov", sizeof(float), fov_id);
-        *fov = 52.f;
-        pthread_mutexattr_t attr; pthread_mutexattr_init(&attr); pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-        pthread_mutex_init(mutex, &attr);
-        *disabled = false;
-    }
-    void write(Quat q, float ms) {
-        pthread_mutex_lock(mutex);
-        float v[16] = {q.x, q.y, q.z, q.w, q.x, q.y, q.z, q.w, q.x, q.y, q.z, q.w, ms, ms - 16, ms - 32, 0};
-        for (int i = 0; i < 16; ++i) pose[i] = v[i];
-        pthread_mutex_unlock(mutex);
-    }
-    ~FakeFeed() {
-        for (int id : {pose_id, mutex_id, disabled_id, fov_id}) if (id >= 0) shmctl(id, IPC_RMID, nullptr);
-        for (const char* n : {"pose_orientation", "pose_orientation_mutex", "disabled", "display_fov"}) std::remove((prefix + n).c_str());
-    }
-};
+// Synthetic SysV feed laid out like XRLinuxDriver (robust mutex; fake_feed.hpp).
+using test::FakeFeed;
 
 int main() {
     // Quaternion basics.
@@ -108,6 +81,102 @@ int main() {
         *fake.fov = 500.f; CHECK(!feed->display_fov());
         *fake.disabled = true; CHECK(!feed->read());
         *fake.disabled = false; fake.write({NAN, 0, 0, 1}, 1235); CHECK(!feed->read());
+    }
+    // The driver dies holding its (robust) lock: the next reader gets EOWNERDEAD and owns it. The feed
+    // makes it consistent and releases it, serving the last good sample for that frame, then reads on.
+    // It must never keep the lock: that stalled every later frame 2 ms and locked out a restarted driver.
+    {
+        FakeFeed fake(prefix);
+        auto feed = PoseFeed::open(prefix, why);
+        CHECK(feed);
+        fake.write(axis_angle(0, 0, 1, 5), 100);
+        CHECK(feed->read() && feed->read()->device_ms == 100);
+        const pid_t child = fork();
+        if (child == 0) { pthread_mutex_lock(fake.mutex); _exit(0); }
+        int status = 0;
+        CHECK(waitpid(child, &status, 0) == child);
+        const auto recovered = feed->read();
+        CHECK(recovered && recovered->device_ms == 100);
+        for (int i = 0; i < 5; ++i) CHECK(feed->read() && feed->read()->device_ms == 100);
+        int rc = -1;  // the driver (another thread here) can take the lock at once
+        std::thread([&] { rc = pthread_mutex_trylock(fake.mutex); if (rc == 0) pthread_mutex_unlock(fake.mutex); }).join();
+        CHECK(rc == 0);
+        fake.write(axis_angle(0, 0, 1, 6), 101);
+        CHECK(feed->read() && feed->read()->device_ms == 101);
+    }
+    // Not recoverable: a process died holding the lock and the driver (which ignores EOWNERDEAD) unlocked
+    // it without making it consistent. A read gets no sample, and must leave the lock word free: another
+    // locker gets ENOTRECOVERABLE at once, not a lock held by the reader that would hang the driver.
+    {
+        FakeFeed fake(prefix);
+        auto feed = PoseFeed::open(prefix, why);
+        CHECK(feed);
+        fake.write(axis_angle(0, 0, 1, 5), 300);
+        const pid_t child = fork();
+        if (child == 0) { pthread_mutex_lock(fake.mutex); _exit(0); }
+        int status = 0;
+        CHECK(waitpid(child, &status, 0) == child);
+        int driver_rc = -1;
+        std::thread([&] { driver_rc = pthread_mutex_lock(fake.mutex); pthread_mutex_unlock(fake.mutex); }).join();
+        CHECK(driver_rc == EOWNERDEAD);
+        for (int i = 0; i < 3; ++i) CHECK(!feed->read());
+        int rc = -1;
+        std::thread([&] {
+            timespec deadline{};
+            clock_gettime(CLOCK_REALTIME, &deadline);
+            deadline.tv_sec += 1;
+            rc = pthread_mutex_timedlock(fake.mutex, &deadline);
+        }).join();
+        CHECK(rc == ENOTRECOVERABLE);
+    }
+    // A live driver holding the lock: one bounded wait, then the newest sample is served again (same
+    // device timestamp, so it ages and is predicted) instead of no sample (an unpredicted frame), and
+    // later frames do not wait at all. A fresh sample is read once the lock is free again.
+    {
+        using namespace std::chrono_literals;
+        FakeFeed fake(prefix);
+        auto feed = PoseFeed::open(prefix, why);
+        CHECK(feed);
+        fake.write(axis_angle(0, 0, 1, 5), 200);
+        CHECK(feed->read() && feed->read()->device_ms == 200);
+        std::atomic<bool> locked{false}, release{false};
+        std::thread holder([&] {
+            pthread_mutex_lock(fake.mutex); locked = true;
+            while (!release) std::this_thread::sleep_for(1ms);
+            pthread_mutex_unlock(fake.mutex);
+        });
+        while (!locked) std::this_thread::yield();
+        const auto start = std::chrono::steady_clock::now();
+        bool served = true;
+        for (int i = 0; i < 10; ++i) { const auto s = feed->read(); served = served && s && s->device_ms == 200; }
+        const auto waited = std::chrono::steady_clock::now() - start;
+        release = true; holder.join();
+        CHECK(served);
+        CHECK(waited < 15ms);  // a 2 ms wait per read was 20 ms
+        fake.write(axis_angle(0, 0, 1, 7), 201);
+        CHECK(feed->read() && feed->read()->device_ms == 201);
+        *fake.disabled = true; CHECK(!feed->read());  // disabled: nothing, not a held-over sample
+        *fake.disabled = false;
+        std::atomic<bool> again{false}; release = false;
+        std::thread holder2([&] { pthread_mutex_lock(fake.mutex); again = true; while (!release) std::this_thread::sleep_for(1ms); pthread_mutex_unlock(fake.mutex); });
+        while (!again) std::this_thread::yield();
+        CHECK(!feed->read());  // the cache was cleared by the disabled read
+        release = true; holder2.join();
+    }
+    // A driver publishing at ~1 kHz alongside: every read gets a sample (never a lock failure).
+    {
+        FakeFeed fake(prefix);
+        auto feed = PoseFeed::open(prefix, why);
+        CHECK(feed);
+        fake.write(axis_angle(0, 0, 1, 1), 1);
+        std::atomic<bool> stop{false};
+        std::thread writer([&] {
+            for (float ms = 2; !stop; ms += 1) { fake.write(axis_angle(0, 0, 1, ms * 0.01f), ms); std::this_thread::sleep_for(std::chrono::microseconds(900)); }
+        });
+        int got = 0;
+        for (int i = 0; i < 300; ++i) { got += feed->read().has_value(); std::this_thread::sleep_for(std::chrono::microseconds(300)); }
+        stop = true; writer.join();
+        CHECK(got == 300);
     }
     // T2 viewing modes. deg(a, b): angle between orientations in degrees.
     auto deg = [](Quat a, Quat b) { return quat_angle(a, b) * 180.f / 3.14159265f; };

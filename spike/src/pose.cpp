@@ -52,6 +52,12 @@ struct PoseFeed::Impl {
     bool* disabled = nullptr;
     float* fov = nullptr;  // optional
     float* look_ahead = nullptr;  // optional
+    std::optional<FeedSample> last;  // newest valid sample read: served again while the driver holds the lock
+    // After two 2 ms waits in a row time out (a stopped driver, not a busy one), frames only try the
+    // lock until retry_ns, then wait once more; while the holder never lets go the gap doubles, 50 ms
+    // up to 1 s.
+    std::uint64_t retry_ns = 0, backoff_ns = 0;
+    unsigned timeouts = 0;
     ~Impl() { for (void* p : {static_cast<void*>(pose), static_cast<void*>(mutex), static_cast<void*>(disabled), static_cast<void*>(fov), static_cast<void*>(look_ahead)}) if (p) shmdt(p); }
 };
 namespace {
@@ -94,20 +100,62 @@ std::optional<std::array<float, 4>> PoseFeed::look_ahead_cfg() const {
     if (!impl_->look_ahead) return std::nullopt;
     return std::array<float, 4>{impl_->look_ahead[0], impl_->look_ahead[1], impl_->look_ahead[2], impl_->look_ahead[3]};
 }
+namespace {
+std::uint64_t monotonic_ns() {
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return std::uint64_t(ts.tv_sec) * 1'000'000'000ull + std::uint64_t(ts.tv_nsec);
+}
+}
 std::optional<FeedSample> PoseFeed::read() {
     auto& s = *impl_;
-    if (*s.disabled) return std::nullopt;
-    timespec deadline{};
-    clock_gettime(CLOCK_REALTIME, &deadline);
-    deadline.tv_nsec += 2'000'000;  // a driver that died holding the lock must not stall rendering
-    if (deadline.tv_nsec >= 1'000'000'000) { deadline.tv_sec += 1; deadline.tv_nsec -= 1'000'000'000; }
-    if (pthread_mutex_timedlock(s.mutex, &deadline) != 0) return std::nullopt;
+    if (*s.disabled) { s.last.reset(); return std::nullopt; }
+    // The driver holds its lock only to copy 16 floats (XRLinuxDriver src/outputs.c), so it is nearly
+    // always free. First try with an already-passed deadline: an atomic and no system call when the lock
+    // is free. (Not pthread_mutex_trylock: on a not-recoverable robust mutex glibc's trylock leaves our
+    // thread id in the lock word, which would hang the driver's next lock forever; clocklock releases it.)
+    // If the lock is held, wait for it (futex) for up to 2 ms on the monotonic clock, which wall-clock
+    // steps cannot stretch. If it is still held (a stopped driver), serve the newest sample again: its
+    // device timestamp is unchanged, so it ages and is predicted like any other read (no sample at all
+    // would leave the frame unpredicted). After two such timeouts in a row, frames only try the lock
+    // until Impl::retry_ns, so a stopped driver costs a 2 ms wait about once a second instead of on
+    // every frame. Outside that back-off a live driver is waited for exactly as before.
+    constexpr std::uint64_t kWaitNs = 2'000'000;
+    constexpr std::uint64_t kFirstBackoffNs = 50'000'000, kMaxBackoffNs = 1'000'000'000;
+    static constexpr timespec kNoWait{0, 0};
+    int rc = pthread_mutex_clocklock(s.mutex, CLOCK_MONOTONIC, &kNoWait);
+    if (rc == ETIMEDOUT) {
+        const std::uint64_t now = monotonic_ns();
+        if (s.retry_ns && now < s.retry_ns) return s.last;  // backing off: no waiting
+        const std::uint64_t until = now + kWaitNs;
+        const timespec deadline{time_t(until / 1'000'000'000ull), long(until % 1'000'000'000ull)};
+        rc = pthread_mutex_clocklock(s.mutex, CLOCK_MONOTONIC, &deadline);
+        if (rc == ETIMEDOUT) {
+            if (++s.timeouts >= 2) {
+                s.backoff_ns = s.retry_ns ? std::min(2 * s.backoff_ns, kMaxBackoffNs) : kFirstBackoffNs;
+                s.retry_ns = monotonic_ns() + s.backoff_ns;
+            }
+            return s.last;
+        }
+    }
+    if (rc == EOWNERDEAD) {
+        // The driver died mid-write (its mutex is robust): we now own the lock. Make it consistent and
+        // release it, or every later read (and a restarted driver) would wait on a lock nobody frees.
+        // This frame gets the last good sample, not the possibly half-written one.
+        pthread_mutex_consistent(s.mutex);
+        pthread_mutex_unlock(s.mutex);
+        s.retry_ns = 0; s.timeouts = 0;
+        return s.last;
+    }
+    if (rc != 0) return std::nullopt;  // ENOTRECOVERABLE (lock word released by glibc) or not a mutex: no sample
+    s.retry_ns = 0; s.timeouts = 0;
     float v[16];
     for (int i = 0; i < 16; ++i) v[i] = s.pose[i];
     pthread_mutex_unlock(s.mutex);
     auto q = quat_normalized({v[0], v[1], v[2], v[3]});
     if (!q || !std::isfinite(v[12])) return std::nullopt;
-    return FeedSample{*q, v[12], {Quat{v[4], v[5], v[6], v[7]}, Quat{v[8], v[9], v[10], v[11]}}, {v[13], v[14]}};
+    s.last = FeedSample{*q, v[12], {Quat{v[4], v[5], v[6], v[7]}, Quat{v[8], v[9], v[10], v[11]}}, {v[13], v[14]}};
+    return s.last;
 }
 
 void PoseState::update(const std::optional<FeedSample>& sample, double now_ms) {

@@ -32,7 +32,12 @@ public:
     // prefix "/tmp/shader_runtime_" in production; tests pass a private prefix.
     static std::unique_ptr<PoseFeed> open(const std::string& prefix, std::string& why);
     ~PoseFeed();
-    std::optional<FeedSample> read();  // under the driver's process-shared mutex; nullopt if disabled/invalid
+    // Under the driver's process-shared (robust) mutex; nullopt if disabled/invalid. Waits at most
+    // 2 ms for the lock; if the driver holds it longer (stopped) or died holding it, the newest sample
+    // already read is returned again (same device timestamp, so it ages normally). After two timeouts
+    // in a row, frames do not wait for 50 ms, then wait once more; a driver that still holds the lock
+    // is retried less often, doubling up to once a second.
+    std::optional<FeedSample> read();
     std::optional<float> display_fov() const;  // driver-published diagonal FOV (deg), if sane (10..120)
     std::optional<std::array<float, 4>> look_ahead_cfg() const;  // driver look-ahead config, raw; absent if not published
 private:
