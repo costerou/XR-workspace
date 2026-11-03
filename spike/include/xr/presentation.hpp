@@ -46,6 +46,10 @@ private:
 };
 std::uint32_t animated_pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint32_t width,
                                      std::uint32_t height, std::uint64_t phase);
+// The whole width x height frame of animated_pattern_pixel into rows `stride_px` apart, pixel for pixel the same, from
+// three computed rows (top row, grid row, plain row) copied down instead of one call per pixel.
+void render_animated_pattern(std::uint32_t* pixels, std::uint32_t width, std::uint32_t height, std::size_t stride_px,
+                             std::uint64_t phase);
 
 class Presentation {
 public:
@@ -61,7 +65,8 @@ public:
     // Bounded dispatch; suitable for an independently supervised heartbeat loop.
     // Wait up to `timeout_ms` for Wayland events, or until `wake_fd` (the supervisor's control socket, if given) is
     // readable, so a control frame such as a pointer move is handled at once rather than after the timeout.
-    Status dispatch(int timeout_ms = 50, int wake_fd = -1);
+    // `wake_ready` (optional) is set false only when the wait saw `wake_fd` idle, so the caller can skip reading it.
+    Status dispatch(int timeout_ms = 50, int wake_fd = -1, bool* wake_ready = nullptr);
     void close();
     std::string timing_report() const;
     std::string status_json(double now_ms) const;

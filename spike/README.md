@@ -26,6 +26,26 @@ Tests never open a real display or device. Checks stay active in Release builds.
 Dependencies are listed in [dependencies.md](dependencies.md); the vendored
 protocol XML provenance is in [protocols/PROVENANCE.md](protocols/PROVENANCE.md).
 
+## Capture and frame delivery benchmarks
+
+`spike/bench/` measures the capture path offline. It never touches the desktop, the glasses or XRLinuxDriver.
+
+- `capture_bench` times the CPU pixel paths (GPU-less composition, animated test pattern, the overview geometry each
+  main-loop wake) against the previous implementations kept in `bench/reference_pixels.hpp`, and fails if any pixel
+  differs.
+- `capture_e2e_bench` runs the real `xr-native-spike` against a loopback Wayland compositor in the same process. The
+  compositor has one presentation output, `XR-1..3` capture sessions, presentation feedback, linux-dmabuf v4 for
+  Mesa, and a simulated 120 Hz vblank. Every capture frame carries a stamp, which is read back from the committed
+  buffer to time capture→present. Modes: `cpu`, `gl-shm`, `gl-dmabuf`, `pattern`. `--tracking` runs the renderer
+  under `bwrap` with a private `/tmp` and SysV IPC, so the pose feed is absent but every frame callback redraws, as
+  in the glasses. `--malloc-shim build/libxr_malloc_count.so` counts allocations; add `--malloc-trace FILE` and
+  read it with `bench/malloc_report.py`.
+- `bench/compare.py --bench … --before OLD --after NEW` alternates two renderer builds and prints medians.
+- ctest `capture_e2e_{cpu,pattern,gl-shm,gl-dmabuf}` are 1.5 s smoke runs: frames flow, captured frames reach the
+  screen on the expected path, and the renderer exits 0. The GL ones skip (77) without a render node.
+
+These are a model of the compositor, not Hyprland. They do not show glasses latency or Hyprland's scheduling.
+
 ## Glass placement pills
 
 In the overview each desktop gets a frosted-glass pill under it (`include/xr/glass.hpp`, `src/glass.cpp`). The

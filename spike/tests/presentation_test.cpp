@@ -1,4 +1,6 @@
 #include "xr/presentation.hpp"
+#include "../bench/reference_pixels.hpp"
+#include <initializer_list>
 #include <iostream>
 #include <vector>
 
@@ -39,6 +41,22 @@ int main() {
     animated.stop(); animated.stop(); animated.frame_done(); animated.invalidate();
     check(!animated.ready(15, true, true), "cancellation ignores late callbacks");
     check(xr::animated_pattern_pixel(0, 0, 300, 100, 1) != xr::pattern_pixel(0, 0, 300, 100), "generated animation changes pixels");
+    {  // the row-template frame equals animated_pattern_pixel at every pixel (bench/reference_pixels.hpp), padding untouched
+        struct Case { std::uint32_t w, h; std::size_t pad; };
+        const Case cases[] = {{1, 1, 0}, {1, 65, 1}, {65, 1, 0}, {2, 2, 3}, {31, 64, 0}, {64, 64, 0}, {65, 65, 2}, {130, 129, 0},
+                              {300, 100, 0}, {97, 200, 5}, {1920, 1200, 0}, {1920, 1080, 16}, {8192, 2, 0}, {0, 10, 0}, {10, 0, 0},
+                              {8193, 2, 0}, {33, 3, 1}};  // the last ones: empty and over-wide (per-pixel fallback)
+        bool same = true;
+        for (const auto& c : cases)
+            for (const std::uint64_t phase : std::initializer_list<std::uint64_t>{0, 1, 7, 63, c.w, std::uint64_t(c.w) * 3 + 5, 12345678901}) {
+                const std::size_t stride = std::size_t(c.w) + c.pad;
+                std::vector<std::uint32_t> a(stride * c.h + 1, 0xdeadbeefU), b = a;
+                xr::reference::render_animated_pattern(a.data(), c.w, c.h, stride, phase);
+                xr::render_animated_pattern(b.data(), c.w, c.h, stride, phase);
+                same = same && a == b;
+            }
+        check(same, "render_animated_pattern matches animated_pattern_pixel everywhere");
+    }
     Requests requests;
     xr::apply_presentation_policy(requests);
     check(requests.keyboard == std::vector<int>{0}, "test_presentation_never_requests_keyboard");

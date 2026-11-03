@@ -156,6 +156,7 @@ if(XR_ENABLE_PRESENTATION)
       COMMAND "${WAYLAND_SCANNER}" private-code "${XML}" "${GENERATED}/${PROTOCOL}-protocol.c"
       DEPENDS "${XML}" VERBATIM)
     list(APPEND PROTOCOL_SOURCES "${GENERATED}/${PROTOCOL}-protocol.c" "${GENERATED}/${PROTOCOL}-client-protocol.h")
+    set(XR_PROTOCOL_XML_${PROTOCOL} "${XML}")  # the loopback compositor's server headers (bench/)
   endforeach()
   add_library(xr_metrics STATIC src/metrics.cpp)
   target_link_libraries(xr_metrics PUBLIC xr_types PRIVATE nlohmann_json::nlohmann_json)
@@ -280,4 +281,34 @@ if(XR_ENABLE_PRESENTATION)
   endif()
   add_test(NAME video_render COMMAND video_render_test "${XR_FFMPEG}" "${CMAKE_CURRENT_BINARY_DIR}/video-samples")
   set_tests_properties(video_render PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 240)
+  # Capture pipeline bench (bench/): capture_bench times the CPU pixel paths against their previous versions;
+  # capture_e2e_bench runs the real renderer against an in-process loopback Wayland compositor (frame callbacks,
+  # presentation feedback, ext-image-copy-capture with SHM or dmabuf targets) and measures frame delivery.
+  add_executable(capture_bench bench/capture_bench.cpp)
+  target_link_libraries(capture_bench PRIVATE xr_capture xr_presentation)
+  target_compile_options(capture_bench PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  pkg_check_modules(WAYLAND_SERVER IMPORTED_TARGET wayland-server>=1.22)
+  pkg_check_modules(BENCH_GPU IMPORTED_TARGET egl glesv2 gbm)
+  if(WAYLAND_SERVER_FOUND AND BENCH_GPU_FOUND)
+    set(SERVER_HEADERS "")
+    set(SERVER_CODE "${GENERATED}/xdg-shell-protocol.c" "${GENERATED}/ext-foreign-toplevel-list-v1-protocol.c")
+    foreach(PROTOCOL wlr-layer-shell-unstable-v1 presentation-time ext-image-capture-source-v1 ext-image-copy-capture-v1 linux-dmabuf-v1)
+      add_custom_command(OUTPUT "${GENERATED}/${PROTOCOL}-server-protocol.h"
+        COMMAND "${WAYLAND_SCANNER}" server-header "${XR_PROTOCOL_XML_${PROTOCOL}}" "${GENERATED}/${PROTOCOL}-server-protocol.h"
+        DEPENDS "${XR_PROTOCOL_XML_${PROTOCOL}}" VERBATIM)
+      list(APPEND SERVER_HEADERS "${GENERATED}/${PROTOCOL}-server-protocol.h")
+      list(APPEND SERVER_CODE "${GENERATED}/${PROTOCOL}-protocol.c")
+    endforeach()
+    add_executable(capture_e2e_bench bench/loopback_compositor.cpp ${SERVER_HEADERS} ${SERVER_CODE})
+    target_include_directories(capture_e2e_bench PRIVATE "${GENERATED}")
+    target_link_libraries(capture_e2e_bench PRIVATE xr_capture nlohmann_json::nlohmann_json PkgConfig::WAYLAND_SERVER PkgConfig::BENCH_GPU)
+    target_compile_options(capture_e2e_bench PRIVATE -Wall -Wextra -Werror)
+    add_library(xr_malloc_count SHARED bench/malloc_count.c)
+    # Short end-to-end smoke per path: frames flow, captured frames reach the screen, the renderer exits cleanly.
+    foreach(MODE cpu pattern gl-shm gl-dmabuf)
+      add_test(NAME capture_e2e_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
+        --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endforeach()
+  endif()
 endif()

@@ -209,8 +209,10 @@ int main(int argc, char** argv) {
     auto next_status = std::chrono::steady_clock::now();
     while (!stopping && !result && !presentation.finished()) {
         // Wake on a control frame too: a free-pointer move is drawn on the next frame, not after the 50 ms wait.
-        if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50, control))) { result = 1; break; }
-        if (!read_control()) { std::cerr << "control: supervisor channel closed or invalid\n"; result = 1; break; }
+        // Most wakes are Wayland events: read the control socket only when the wait did not see it idle.
+        bool control_ready = true;
+        if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50, control, &control_ready))) { result = 1; break; }
+        if (control_ready && !read_control()) { std::cerr << "control: supervisor channel closed or invalid\n"; result = 1; break; }
         if (status_fd >= 0)  // overview layout for the supervisor's free-pointer hit testing, only when it changes
             if (const auto geometry = presentation.take_overview_geometry()) {
                 const auto line = *geometry + "\n";
