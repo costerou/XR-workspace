@@ -285,6 +285,8 @@ class ManagedAdoptionTests(unittest.TestCase):
         self.path = Path(self.tmp.name) / 'xr-workspace-spike' / 'run' / 'journal.json'
         self.path.parent.mkdir(parents=True, mode=0o700); self.path.parent.parent.chmod(0o700)
         self.journal = Journal.open(self.path, 'run', 'session')
+        env = patch.dict(os.environ, {'XDG_STATE_HOME': str(Path(self.tmp.name) / 'state')})  # the layout snapshot
+        env.start(); self.addCleanup(env.stop)
         spaces, clients = [ws(i, monitor='DP-1') for i in range(1, 7)], [win(f'0x{i}', i) for i in range(1, 7)]
         class Transport(ManagedTransport):
             def query(self, kind, timeout=None):
