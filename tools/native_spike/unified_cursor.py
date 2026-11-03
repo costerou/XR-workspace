@@ -1,16 +1,26 @@
 """Unified cursor: the dot is the one real cursor, and it only ever controls the selected desktop.
 
 Design (dot-unified-cursor, 2026-11-02; replaces the input lock's held cursor for the run, input_lock.py; scope change the
-same day: the cursor never switches desktops or monitors):
+same day: the cursor never switches desktops or monitors; dot-directional-switch, 2026-11-03: zoomed in, a push past
+home's edge switches to the desktop placed that way):
   * Home. The real cursor belongs to the selected desktop's monitor (view.ViewState.selected, "home"), zoomed in and in
-    the overview. It never crosses onto another monitor by hand: switching desktops is a key (Ctrl+Alt+Left / Right) or
-    a click on a desktop in the overview, which zooms into it. Cursor follow (Ctrl+Alt+F) is gone (view.py).
+    the overview. It never crosses onto another monitor in Hyprland's layout by hand: switching desktops is a key
+    (Ctrl+Alt+Left / Right), a click on a desktop in the overview, which zooms into it, or, zoomed in, a push past home's
+    edge (below). Cursor follow (Ctrl+Alt+F) is gone (view.py).
   * Zoomed in (and in typing mode or during a VR video, whenever the overview pointer is off): the sampler keeps the
     cursor on home (confine_target). A cursor pushed onto another XR monitor, or off home onto the physical monitor,
     is put straight back at the nearest point inside home (INSET_PX in) and home gets Hyprland's monitor focus back
     (confine_lua). A jump of more than free_pointer.JUMP_PX onto the physical monitor is a warp, not the hand (a window
     sent back with Ctrl+Alt+B): it is left there. A cursor already on the physical monitor is left alone until it comes
     onto an XR monitor, and then goes to home.
+  * Zoomed in, the push past an edge (EdgePush; not in typing mode or during a VR video). If a desktop is placed past
+    that edge of home round you in 3D (neighbors.py: by direction from the eye, a cone round the push and the nearest;
+    not the row order), pushing PUSH_PX past the edge switches to it: the loop selects it (ViewControl.switch_desktop,
+    as Ctrl+Alt+Left / Right: the renderer zooms out, turns and zooms in; every desktop stays where it is placed) and the
+    sampler brings the cursor in just inside the opposite edge of the new home, as far along it as it left. Over an
+    edge Hyprland lets it cross the overshoot counts; at an edge Hyprland clamps it at (the layout's outer edge, e.g.
+    the top of the row) each touch counts NUDGE_PX and puts it that far back in, so a hand still pushing touches
+    again. Nothing placed that way: the plain confinement above, and the cursor stays on home at the edge.
   * Overview, over home (free_pointer desktop mode). The real cursor is the pointer: hand motion moves it, and the dot is
     drawn where it maps onto home's surface (free_pointer._from_logical; every viewing mode). It is hidden
     (overview_cursor.py), but hover, focus-follows-mouse, every button and the wheel reach the window under it. The left
@@ -40,7 +50,16 @@ same day: the cursor never switches desktops or monitors):
 import math
 import time
 
-from . import free_pointer as fp, input_lock as il, resize, view
+from . import free_pointer as fp, input_lock as il, neighbors, resize, view
+
+# Zoomed in, pushing past an edge of home toward a desktop placed that way switches to it (EdgePush, neighbors.py).
+PUSH_PX = 48              # logical px of push past one edge, each part within PUSH_WINDOW_S of the last, that switch
+PUSH_WINDOW_S = 0.25      # a pause longer than this starts the push over
+NUDGE_PX = 12             # an edge Hyprland clamps the cursor at (nothing beyond it in its layout): the cursor touching it
+                          # is put back this far in, and each touch counts this much push (the hand's push is not seen)
+SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's zoom out, turn, zoom in)
+ENTRY_PX = 24             # the cursor enters the new desktop this far inside the edge it came in over
+PENDING_S = 0.5           # a requested switch the loop has not made by then is dropped
 
 CLICK_OPTS = '{ non_consuming = true }', '{ release = true, non_consuming = true }'
 
@@ -99,12 +118,132 @@ def confine_target(outputs, home, cursor, previous=None):
     return inside(o, cursor)
 
 
+def _contact(o, cursor):
+    """The edges of output `o` whose outermost pixel the cursor (on `o`) is on, horizontal first."""
+    lx, ly = cursor[0] - o['x'], cursor[1] - o['y']
+    sides = []
+    if lx < 1: sides.append('left')
+    elif lx >= o['width'] - 1: sides.append('right')
+    if ly < 1: sides.append('up')
+    elif ly >= o['height'] - 1: sides.append('down')
+    return sides
+
+
+def _crossing(o, cursor):
+    """(edge, px past it) of a cursor off output `o`: the axis it is furthest past."""
+    lx, ly = cursor[0] - o['x'], cursor[1] - o['y']
+    dx = lx - min(max(lx, 0), o['width'] - 1)
+    dy = ly - min(max(ly, 0), o['height'] - 1)
+    if abs(dx) >= abs(dy): return ('right' if dx > 0 else 'left'), abs(dx)
+    return ('down' if dy > 0 else 'up'), abs(dy)
+
+
+def _nudge(o, cursor, side):
+    """The cursor NUDGE_PX back inside `o` from edge `side`, the other coordinate kept."""
+    x, y = inside(o, cursor)
+    if side == 'left': x = o['x'] + NUDGE_PX
+    elif side == 'right': x = o['x'] + o['width'] - 1 - NUDGE_PX
+    elif side == 'up': y = o['y'] + NUDGE_PX
+    else: y = o['y'] + o['height'] - 1 - NUDGE_PX
+    return inside(o, (x, y))
+
+
+def along(o, cursor, side):
+    """How far along edge `side` of `o` the cursor is, 0..1 (left / top to right / bottom)."""
+    lx, ly = inside(o, cursor, 0)[0] - o['x'], inside(o, cursor, 0)[1] - o['y']
+    if side in ('up', 'down'): return lx / max(o['width'] - 1, 1)
+    return ly / max(o['height'] - 1, 1)
+
+
+def entry_point(o, side, t, inset=ENTRY_PX):
+    """Where the cursor enters output `o` after a push past the old desktop's `side` edge: just inside the opposite edge
+    (pushed up, it comes in at the bottom), fraction `t` along it."""
+    w, h = o['width'] - 1, o['height'] - 1
+    if side == 'up': local = (round(t * w), h - inset)
+    elif side == 'down': local = (round(t * w), inset)
+    elif side == 'left': local = (w - inset, round(t * h))
+    else: local = (inset, round(t * h))
+    return inside(o, (o['x'] + local[0], o['y'] + local[1]))
+
+
+class EdgePush:
+    """Zoomed in: the confinement (confine_target) plus the push past an edge of home that switches desktops.
+
+    step() takes each cursor sample and returns (warp, switch): warp, a layout pixel on home to put the cursor at, or
+    None; switch, (target index, edge, fraction along it) once the push past one edge reached PUSH_PX, or None.
+    `neighbour(edge)` gives the desktop placed past home's edge, or None (no switch that way: plain confinement).
+      * Past an edge Hyprland lets it over (onto another monitor): the overshoot counts and the cursor goes back, as
+        confine_target does. A jump of more than free_pointer.JUMP_PX is a warp, never a push.
+      * On an edge Hyprland clamps it at (its outermost pixel, nothing beyond in the layout), with a neighbour that way:
+        the touch counts NUDGE_PX and the cursor is put NUDGE_PX back in, so a hand still pushing touches again.
+      * The push is per edge and starts over after PUSH_WINDOW_S without one, or on another edge; after a switch none
+        counts for SWITCH_COOLDOWN_S."""
+    def __init__(self):
+        self.edge, self.amount, self.last, self.quiet_until = None, 0.0, None, -math.inf
+
+    def reset(self):
+        self.edge, self.amount, self.last = None, 0.0, None
+
+    def step(self, outputs, home, cursor, previous, now, neighbour):
+        o = next((o for o in outputs if o['index'] == home), None)
+        if o is None or cursor is None: return None, None
+        at = _output_at(outputs, cursor)
+        if at is not None and at['index'] == home:
+            sides = [s for s in _contact(o, cursor) if neighbour(s) is not None]
+            if not sides or now < self.quiet_until: return None, None
+            side, amount = sides[0], NUDGE_PX
+            warp = _nudge(o, cursor, side)
+        else:
+            warp = confine_target(outputs, home, cursor, previous)
+            if warp is None: return None, None
+            side, amount = _crossing(o, cursor)
+            if amount > fp.JUMP_PX or now < self.quiet_until or neighbour(side) is None: return warp, None
+        if side != self.edge or self.last is None or now - self.last > PUSH_WINDOW_S: self.edge, self.amount = side, 0.0
+        self.amount += amount
+        self.last = now
+        if self.amount < PUSH_PX: return warp, None
+        target = neighbour(side)
+        self.reset()
+        self.quiet_until = now + SWITCH_COOLDOWN_S
+        return warp, (target, side, along(o, cursor, side))
+
+
 class UnifiedPointer(fp.OverviewPointer):
     """The overview free pointer with the real cursor on home (module docstring)."""
     def __init__(self, control, clock=time.monotonic):
         super().__init__(control, clock)
         self.click = None  # over home, left button down: {'start', 'at', 'moved'} (the dot and time at the press)
         self.rehomes = self.pullbacks = self.window_clicks = self.follows = 0  # diagnostics
+        self._switch = None  # zoomed in: (home, target) the sampler asked the loop to switch to (EdgePush)
+        self.edge_switches = 0  # diagnostics
+
+    # --- zoomed in: the push past an edge -------------------------------------------------------------------------
+    def can_switch(self):
+        """A push past home's edge switches desktops: zoomed in, not in typing mode and with no VR video (as the
+        Ctrl+Alt+Left / Right keys, whose binds typing mode and a video release)."""
+        s = self.control.state
+        return s.zoomed and not getattr(s, 'typing', False) and not getattr(self.control, 'video_active', False)
+
+    def neighbour(self, edge):
+        """The desktop placed past home's `edge` round you (neighbors.pick on the renderer's overview layout and the
+        placements as drawn), or None. Without a layout with one slot per desktop: the row order (neighbors.row_fallback).
+        Read from the sampler thread: the layout and placements are replaced, never changed in place."""
+        s = self.control.state
+        home, count, g = s.selected, len(s.names), self.geometry
+        if g is None or len(g['tiles']) != count: return neighbors.row_fallback(count, home, edge)
+        return neighbors.pick(neighbors.frames(g, self._rolled()), home, edge)
+
+    def request_switch(self, home, target):
+        """Sampler thread: the push past home's edge reached a neighbour; the loop switches (poll)."""
+        with self._lock: self._switch = (home, target)
+        self._poke()
+
+    def _take_switch(self):
+        with self._lock: req, self._switch = self._switch, None
+        if req is None or not self.can_switch() or self._home() != req[0]: return b''
+        out = self.control.switch_desktop(req[1])
+        if out: self.edge_switches += 1
+        return out
 
     def _home(self):
         return self.control.state.selected
@@ -112,7 +251,7 @@ class UnifiedPointer(fp.OverviewPointer):
     # --- modes ----------------------------------------------------------------------------------------------------
     def poll(self, now):
         if not self.active() or now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S: self.click = None
-        out = b''
+        out = self._take_switch()
         if self.active() and self.mode in fp.DOT_MODES and self.desktop != self._home():
             out += self._to_home(now)  # a key changed the selected desktop: the cursor goes with it
             self.rehomes += 1
@@ -296,6 +435,8 @@ class UnifiedSampler(il.LockedSampler):
         self.bound = False   # the click binds are installed (desktop mode)
         self.confines = 0    # diagnostics: cursors put back on home while zoomed in
         self._outside = None  # previous cursor sample outside the overview
+        self.push = EdgePush()  # zoomed in: the push past home's edge that switches desktops
+        self._pending = None    # (target, edge, fraction along it, asked at): a switch asked of the loop, not yet seen
 
     def _run(self):
         outputs, refreshed = [], None
@@ -325,7 +466,8 @@ class UnifiedSampler(il.LockedSampler):
             self._stop.wait(self.period)
 
     def _confine(self, outputs):
-        """Outside the overview: put a cursor that left home back on it. True while it is on an XR monitor (sample fast)."""
+        """Outside the overview: put a cursor that left home back on it, and switch desktops on a push past home's edge
+        toward one (EdgePush). True while it is on an XR monitor (sample fast)."""
         if not outputs: return False
         try:
             pos = self.client.query('cursorpos', timeout=0.25)
@@ -335,16 +477,36 @@ class UnifiedSampler(il.LockedSampler):
         except (OSError, ValueError, TypeError, KeyError):
             self.errors += 1
             return False
-        cursor = (x, y)
+        cursor, now = (x, y), time.monotonic()
         home = self.pointer.control.state.selected
-        target = confine_target(outputs, home, cursor, self._outside)
-        if target is not None:
+        if self._pending is not None:
+            target, edge, t, asked = self._pending
+            o = next((o for o in outputs if o['index'] == target), None)
+            if home == target and o is not None:  # the loop switched: the cursor comes in over the matching edge
+                self._pending = None
+                entry = entry_point(o, edge, t)
+                try:
+                    self.client.confine_cursor(*entry, self.names[target])  # also gives the new home monitor focus
+                    cursor = entry
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError):
+                    self.errors += 1
+                self._outside = cursor
+                return True
+            if home == target or now - asked >= PENDING_S: self._pending = None
+        live = self._pending is None and self.pointer.can_switch()
+        warp, switch = self.push.step(outputs, home, cursor, self._outside, now,
+                                      self.pointer.neighbour if live else (lambda edge: None))
+        if not live: self.push.reset()
+        if warp is not None:
             try:
-                self.client.confine_cursor(*target, self.names[home])
-                cursor = target
+                self.client.confine_cursor(*warp, self.names[home])
+                cursor = warp
                 self.confines += 1
             except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError):
                 self.errors += 1
+        if switch is not None and 0 <= switch[0] < len(self.names):
+            self._pending = (*switch, now)
+            self.pointer.request_switch(home, switch[0])
         self._outside = cursor
         return _output_at(outputs, cursor) is not None
 

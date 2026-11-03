@@ -8,9 +8,11 @@ Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world
 dead zone, eases back in front) and locked (0DoF, head-locked). Ctrl+Alt+H toggles a help card in
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
-click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor never switches
-desktops: it stays on the selected desktop's monitor (unified_cursor.py), and the view changes desktop only by key or by
-a click on a desktop in the overview (cursor follow, Ctrl+Alt+F, was removed on 2026-11-02).
+click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
+selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by a click on a desktop in the
+overview, or, zoomed in, by pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop;
+neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor crossed onto in Hyprland's layout) was removed on
+2026-11-02.
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
 Mode, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
@@ -850,6 +852,18 @@ class ViewControl:
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
         self.state.selected = desktop
         return self.on_message({'op': 'zoom_in', 'payload': {}}) or b''
+
+    def switch_desktop(self, desktop):
+        """Zoomed in, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
+        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so the renderer zooms
+        out, turns to it and zooms in, every desktop staying where it is placed. The sampler gives its monitor focus and
+        brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
+        One view frame, or b'' when stale (not zoomed in, typing mode, a VR video, no such desktop, already selected)."""
+        if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
+        if not self.state.zoomed or self.state.typing or self.video_active: return b''
+        self.last_input = self.clock()
+        self.state.selected = desktop
+        return self._frame()
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""
