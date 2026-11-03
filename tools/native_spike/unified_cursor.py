@@ -41,14 +41,15 @@ scrolling and typing, and a click never maximizes):
     release over another desktop moves the window there. Moving first is the window's own drag or selection.
   * Overview, off the desktops (free mode). The cursor reaching home's edge pixel turns the dot free: the cursor is
     hidden and parked just inside home where it left (input_lock.park_point; leash input_lock.LEASH_PX), and its motion
-    moves the dot through space. Over pills, corners, roll arrows, panels and the help card (the XR handles, all outside
-    the desktops' content: free_pointer.hit) it is only the dot: the free grab is the input lock's
-    (input_lock.lock_pointer_lua), so no button or wheel reaches a window there. Moving ENTER_PX onto any desktop's
-    content hands the real cursor to that desktop, under the dot (free_pointer.OverviewPointer._enter: the dot's hit
-    point through free_pointer.surface_to_layout), and makes it home (selected; the highlight moves there and
-    Ctrl+Alt+Up maximizes it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so
-    the keyboard goes to that monitor's focused window and focus-follows-mouse picks the window under the dot. A click
-    in the ENTER_PX band does the same (free_pointer._click_desktop); it reaches no window itself.
+    moves the dot through space from just past that edge, on its resize handle (free_pointer._exit). Over edges, corners,
+    pills, rotate brackets, panels and the help card (the XR handles, all outside the desktops' content, and the dot's look
+    shows which: free_pointer.hit, zone_of, look_for) it is only the dot: the free grab is the input lock's
+    (input_lock.lock_pointer_lua), so no button or wheel reaches a window there. Moving onto any desktop's content hands
+    the real cursor to that desktop, under the dot (free_pointer.OverviewPointer._enter: the dot's hit point through
+    free_pointer.surface_to_layout), and makes it home (selected; the highlight moves there and Ctrl+Alt+Up maximizes
+    it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so the keyboard goes to that
+    monitor's focused window and focus-follows-mouse picks the window under the dot. It feels like one cursor: the same
+    dot, the same speed either side of an edge (_gain), and a look that always says what a press would do.
   * Keys. Ctrl+Alt+Left / Right change the selected desktop: home moves with it, and the cursor and dot go to the middle
     of the new home (OverviewPointer desktop mode there; zoomed in, the confinement moves it). Any other jump of the
     cursor off home in the overview is pulled back home, or let go (away) if it landed on the physical monitor.
@@ -331,10 +332,10 @@ class UnifiedPointer(fp.OverviewPointer):
                 return self._wants()
             self.pullbacks += 1
             return self._to_home(now) + self._wants()
-        start = self._from_logical(home, cx, cy)
+        start = self._exit(home, lx, ly)  # just past the edge it reached: on that edge's resize handle
         if start is None: return self._wants()
         self.gain = self._gain(home)
-        self.pointer = self._clamp((start[0] + over[0] * self.gain, start[1] + over[1] * self.gain))
+        self.pointer = self._clamp(start)
         self.mode, self.last_move = 'free', now
         self.exits += 1
         self._set_want('free', self._park(o, (cx, cy)))  # the grab parks it back on home
@@ -349,6 +350,10 @@ class UnifiedPointer(fp.OverviewPointer):
 
     def _onto_help(self):
         if self.click is None: super()._onto_help()  # a held button stays with its window until released
+
+    def _held(self):
+        """The left button held on a window (desktop mode): the dot is drawn held, as for a handle drag."""
+        return self.click is not None and self.mode == 'desktop'
 
     def _park(self, o, local=None):
         """Free mode holds the hidden cursor just inside home where it left (input_lock.park_point), not in the middle:

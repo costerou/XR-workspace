@@ -4,6 +4,7 @@
 #include "xr/video.hpp"
 #include "xr/hud.hpp"
 #include "xr/desktops.hpp"
+#include "xr/view.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -147,9 +148,11 @@ public:
     // Overview only (hidden while zoomed or zooming), never moving on its own. GPU composition only. `directed`: drawn in
     // direction (az, el) (1/100 degree, ipc.hpp OverviewPointerPayload) instead, anywhere round you (view.hpp direction_disc).
     // ghost_w / ghost_h > 0: a window is being dragged (ipc.hpp OverviewPointerPayload drag): its ghost outline round the dot
-    // and, target >= 0, the desktop it would land on framed in the accent.
+    // and, target >= 0, the desktop it would land on framed in the accent. `look`: what a press would do there, drawn as
+    // marks round the dot (view.hpp PointerLook).
     void set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed = false, std::int32_t az = 0,
-                              std::int32_t el = 0, std::int32_t ghost_w = 0, std::int32_t ghost_h = 0, std::int32_t target = -1);
+                              std::int32_t el = 0, std::int32_t ghost_w = 0, std::int32_t ghost_h = 0, std::int32_t target = -1,
+                              PointerLook look = PointerLook::plain);
     // The overview's canvas and settled desktop slots (view.hpp overview_geometry_json) when they changed since the last
     // call; the supervisor hit-tests the free pointer with them. GPU composition only.
     std::optional<std::string> take_overview_geometry();

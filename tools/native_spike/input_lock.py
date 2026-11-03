@@ -174,7 +174,7 @@ class LockedPointer(fp.OverviewPointer):
             self._set_want('away')  # the sampler shows the cursor where it landed
             return out
         h = self.hover
-        if h is not None and h[0] in ('desktop', 'pill', 'corner', 'roll') and h[1] == at[0]:
+        if h is not None and h[0] in ('desktop', 'pill', 'corner', 'edge', 'roll') and h[1] == at[0]:
             # Onto the desktop the dot is already on (a focus change onto it): only the held cursor moves there.
             self._set_want('free', park_point(self._output(at[0]), cursor), sync=True)
             return out + self._select(at[0])

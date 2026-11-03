@@ -160,21 +160,19 @@ class EdgeTests(UnifiedBase):
         want = fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 1200 / 1920 * T1[2], T1[1] + 700 / 1080 * T1[3])
         self.assertAlmostEqual(self.p.pointer[0], want[0], places=2); self.assertAlmostEqual(self.p.pointer[1], want[1], places=2)
 
-    def test_a_click_in_the_edge_band_enters_that_desktop(self):
-        # Less than ENTER_PX inside a desktop's edge the dot is still free (so the modes never flap at an edge): a click
-        # there selects that desktop and hands it the cursor under the dot (free_pointer._click_desktop).
+    def test_another_desktops_edge_resizes_it_and_moving_in_enters_it(self):
+        # The border round a desktop is its resize edges (free_pointer.border_handle): a drag there resizes it, a click
+        # does nothing, and the dot moving on in hands that desktop the cursor (there is no click-only band any more).
         self.free()
-        q = (T1[0] + fp.ENTER_PX / 2, T1[1] + T1[3] * 0.75)
-        self.aim(1, q)
-        self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', 1)))
-        out = self.op('resize_press') + self.op('resize_release')
-        self.assertEqual((last(out, 'view')['selected'], last(out, 'view')['zoomed']), (1, False))  # selected, not maximized
-        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
-        _, kind, (x, y) = self.p.want
-        self.assertEqual(kind, 'desktop')
-        self.assertEqual(self.p._at((x, y))[0], 1)  # on XR-2, under the dot
-        self.assertLessEqual(abs(x - (X2 + fp.ENTER_PX / 2 / T1[2] * 1920)), 1); self.assertLessEqual(abs(y - 810), 1)
-        self.assertTrue(self.p.overview())
+        self.aim(1, (T1[0] - 4, T1[1] + T1[3] * 0.5))  # just left of XR-2's left edge
+        self.assertEqual((self.p.mode, self.p.hover), ('free', ('edge', 1, 'l')))
+        self.op('resize_press'); self.op('resize_release')
+        self.assertEqual((self.control.state.selected, self.control.state.placements[1]), (0, DEFAULT_PLACEMENT))
+        self.op('resize_press'); self.move_canvas(-T1[2] / 4, 0); self.op('resize_release')  # the left edge outward
+        self.assertLess(self.control.state.placements[1]['distance'], 100)
+        self.assertEqual((self.control.state.selected, self.control.state.zoomed), (0, False))
+        self.aim(1, (T1[0] + 10, T1[1] + T1[3] * 0.5))  # on into its content
+        self.assertEqual((self.p.mode, self.p.desktop, self.control.state.selected), ('desktop', 1, 1))
 
     def test_inside_another_desktops_corner_is_content_and_outside_it_resizes(self):
         self.free()

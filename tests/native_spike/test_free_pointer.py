@@ -182,7 +182,8 @@ class HitTests(unittest.TestCase):
         self.assertEqual(hit_at(G, FLAT, (mid, T0[1] + T0[3] + 1)), ('pill', 0))     # the gap over the pill grabs it too
         self.assertEqual(hit_at(G, FLAT, (mid, pill[1] + pill[3] + 9)), ('pill', 0))  # a little below it as well
         self.assertIsNone(hit_at(G, FLAT, (mid, pill[1] + pill[3] + 12)))
-        self.assertIsNone(hit_at(G, FLAT, (mid, T0[1] - 3)))  # nothing above the desktop (the old drag bar's place)
+        self.assertEqual(hit_at(G, FLAT, (mid, T0[1] - 3)), ('edge', 0, 't'))  # the old drag bar's place: the resize edge
+        self.assertIsNone(hit_at(G, FLAT, (mid, T0[1] - fp.EDGE_OUT_PX - 3)))  # nothing beyond it
         self.assertIsNone(hit_at(G, FLAT, (T0[0] + 20, T0[1] - 40)))
         self.assertEqual(hit_at(G, FLAT, (T0[0] - 8, T0[1] - 8)), ('corner', 0, 'tl'))  # outside the desktop: now reachable
         self.assertEqual(hit_at(G, FLAT, (T0[0] + T0[2] + 10, T0[1] + T0[3] + 10)), ('corner', 0, 'br'))
@@ -371,8 +372,9 @@ class PointerBase(unittest.TestCase):
         return self.at(X1 + lx, 0)
 
     def on_pill(self, i=0):
-        """Free mode from XR-1's bottom edge, then the dot onto desktop i's glass pill (under the desktop)."""
-        self.at(X1 + 960, 540); self.at(X1 + 960, 1079)
+        """Free mode from XR-1's bottom edge (left of its pill: on that resize edge), then the dot onto desktop i's glass
+        pill (under the desktop)."""
+        self.at(X1 + 300, 540); self.at(X1 + 300, 1079)
         x, y, w, h = fp.pill_rect(G['tiles'][i])
         aim = fp.project_glass(G, G['tiles'][i], self.control.state.placements[i], x + w / 2, y + h / 2)
         out = self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
@@ -395,7 +397,9 @@ class ModeTests(PointerBase):
         out = self.free_at_top()
         self.assertEqual(self.p.mode, 'free')
         self.assertEqual(self.p.want[1:], ('free', (X1 + 960, 540)))  # binds, hidden cursor parked mid-monitor
-        self.assertEqual(last(out, 'overview_pointer'), dot_frame(fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1])))
+        above = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] - fp.EXIT_PX * GAIN)  # just past the top edge
+        self.assertEqual(last(out, 'overview_pointer'), {**dot_frame(above), 'look': 'resize_ns'})  # on its resize edge
+        self.assertEqual(self.p.hover, ('edge', 0, 't'))
         self.assertAlmostEqual(self.p.gain, GAIN)
         for edge in ((X1, 500), (X1 + 1919, 500), (X1 + 700, 1079)):  # every side
             self.setUp()
@@ -419,7 +423,8 @@ class ModeTests(PointerBase):
         self.at(X1 + 1900, 540)
         self.at(X2 + 6, 540)  # Hyprland lets the cursor onto XR-2; in the glasses there is a gap first
         self.assertEqual(self.p.mode, 'free')
-        self.assertAlmostEqual(self.p.pointer[0], fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + 1919 * GAIN, 0)[0] + 7 * GAIN, places=2)
+        past = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + (1920 + 7 + fp.EXIT_PX) * GAIN, T0[1] + 540 * GAIN)  # its overshoot
+        self.assertAlmostEqual(self.p.pointer[0], past[0], places=2); self.assertAlmostEqual(self.p.pointer[1], past[1], places=2)
         into = fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + fp.ENTER_PX + 1, T1[1] + T1[3] / 2)  # just far enough in
         out = self.move_canvas(into[0] - self.p.pointer[0], 0)
         self.assertEqual(self.p.mode, 'desktop')
@@ -491,18 +496,19 @@ class ModeTests(PointerBase):
 
 
 class ClickTests(PointerBase):
-    def test_click_on_a_desktop_selects_it_and_the_cursor_shows_there(self):
-        # anchor-no-click-maximize (2026-11-03): the click selects, it never maximizes (only Ctrl+Alt+Up does).
-        self.at(X2 + 960, 540); self.at(X2 + 960, 0)  # XR-2 top edge: free, still on XR-2's top row
+    def test_a_click_on_a_desktops_edge_resizes_nothing_and_moving_in_selects_it(self):
+        # anchor-no-click-maximize: the dot leaving at XR-2's top edge sits on that resize edge (no click selects there);
+        # moving in hands XR-2 the cursor under the dot and selects it. Nothing maximizes.
+        self.at(X2 + 960, 540); self.at(X2 + 960, 0)
+        self.assertEqual(self.p.hover, ('edge', 1, 't'))
         self.control.state.selected = 0
-        out = self.op('resize_press')
-        self.assertEqual(self.control.state.selected, 0)  # a click selects on its release (a hold would lift the window)
-        out += self.op('resize_release')
-        self.assertFalse(self.control.state.zoomed)
-        self.assertEqual(self.control.state.selected, 1)
+        out = self.op('resize_press') + self.op('resize_release')
+        self.assertFalse(any(f['op'] in ('view', 'placement') for f in out))
+        self.assertEqual((self.control.state.selected, self.control.state.zoomed, self.p.focus_clicks), (0, False, 0))
+        out = self.move_canvas(0, 2)
+        self.assertEqual((self.p.mode, self.control.state.selected), ('desktop', 1))
         self.assertEqual(last(out, 'view')['selected'], 1); self.assertFalse(last(out, 'view')['zoomed'])
-        self.assertEqual((self.p.mode, self.p.want[1:]), ('desktop', ('desktop', (X2 + 960, fp.INSET_PX))))  # under the dot
-        self.assertEqual(self.p.focus_clicks, 1)
+        self.assertEqual(self.p.want[1], 'desktop'); self.assertEqual(self.p._at(self.p.want[2])[0], 1)
         self.assertEqual(self.op('resize_release'), [])
 
     def test_click_in_empty_space_does_nothing(self):

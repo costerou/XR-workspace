@@ -4,8 +4,8 @@ press and hold on a window on a desktop, then drag, moves that window to another
 OFF in the run since anchor-no-click-maximize (2026-11-03: every press, hold and drag on a desktop is its window's;
 OverviewPointer.window_drag). These tests turn it on to keep the mechanism working, under the current pointer model:
 the dot moving onto any desktop gives it the real cursor (desktop mode), so a drag starts by holding still on a window
-there (_hold_home); only in the ENTER_PX band just inside a desktop's edge is the dot still free over its content, where
-moving WINDOW_DRAG_PX first also lifts. test_full_interaction.py checks that with it off nothing ever lifts.
+there (_hold_home); only next to the open help card is the dot still free over a desktop's content, where moving
+WINDOW_DRAG_PX first also lifts. test_full_interaction.py checks that with it off nothing ever lifts.
 
 Regression (overview-window-drag, 2026-11-03): before it, a press on a desktop in the overview zoomed into it at once
 (OverviewPointer.on_op called _click_desktop on resize_press), so there was no way to hold a press on a window and the
@@ -20,7 +20,7 @@ No compositor, renderer binary or glasses.
 import threading
 import unittest
 
-from tools.native_spike import free_pointer as fp, send, view
+from tools.native_spike import free_pointer as fp, orbit, send, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
 from test_free_pointer import G, OUTPUTS, T0, T1, X1, X2, X3, frames, last
@@ -72,10 +72,16 @@ class DragBase(UnifiedBase):
         self.at(*self.p.want[2])
 
     def band_on(self, i):
-        """The free dot just inside desktop i's left edge, less than ENTER_PX: still free over its content."""
+        """The free dot over desktop i's content, kept free by the open help card just right of it (the one place the
+        dot stays free over content since the edge band became the resize edge)."""
         self.free()
         tile = G['tiles'][i]
-        self.aim(i, (tile[0] + fp.ENTER_PX / 2, tile[1] + tile[3] / 2))
+        q = (tile[0] + tile[2] * 0.3, tile[1] + tile[3] / 2)
+        dot = fp.project(G, tile, DEFAULT_PLACEMENT, *q)
+        self.op('help')
+        plane = orbit.plane_at(G, orbit.pointer_ray(G, dot))
+        self.control.set_help_geometry({'card': (plane[0] + 1, plane[1] - 60, 300, 120)})
+        self.dot_to(dot)
         self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', i)))
 
     def dot_to(self, point):
@@ -98,7 +104,7 @@ class QuickClickTests(DragBase):
         self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
         self.assertEqual((self.sender.lookups, self.sender.drops, self.p.window_lifts), ([], [], 0))
 
-    def test_a_click_with_a_little_jitter_in_the_edge_band_still_selects(self):
+    def test_a_click_with_a_little_jitter_next_to_the_help_card_still_selects(self):
         self.band_on(1)
         self.op('resize_press')
         self.move_canvas(fp.WINDOW_DRAG_PX * 0.7, 0)  # past the pill's CLICK_PX, short of a window drag
@@ -144,7 +150,7 @@ class FreeDragTests(DragBase):
         self.assertNotIn('drag', last(out, 'overview_pointer'))  # the ghost and the frame are gone
         self.assertEqual(self.p.window_drops, 1)
 
-    def test_dragging_past_the_threshold_in_the_edge_band_lifts_without_waiting_for_the_hold(self):
+    def test_dragging_past_the_threshold_next_to_the_help_card_lifts_without_waiting_for_the_hold(self):
         self.band_on(1)
         self.op('resize_press')
         out = self.move_canvas(fp.WINDOW_DRAG_PX + 3, 0)

@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
                     else if (m->op == xr::ControlOp::overview_pointer) {  // display only; malformed ones were dropped above
                         if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
                             presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el,
-                                                             p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1);
+                                                             p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1, p->look);
                     }
                     else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
                         if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))

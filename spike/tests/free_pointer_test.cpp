@@ -5,7 +5,8 @@
 //  * the dot is a closed disc on the canvas plane at the requested pixel, the same every time (no drift or orbit), or, given
 //    a direction (the supervisor always gives one: linear in the pointer, round you in anchor mode), the same disc turned
 //    to that direction round you;
-//  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention).
+//  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention);
+//  * its look (`look`, what a press would do there) is marks round the disc, part of the same dot.
 #include "xr/ipc.hpp"
 #include "xr/view.hpp"
 #include <nlohmann/json.hpp>
@@ -51,6 +52,11 @@ int main(int argc, char** argv) try {
         if (v->drag) CHECK(v->ghost_w == p.at("drag").at("w").get<std::int32_t>() && v->ghost_h == p.at("drag").at("h").get<std::int32_t>() &&
                            v->target == p.at("drag").at("target").get<std::int32_t>());
         else CHECK(v->target == -1 && v->ghost_w == 0 && v->ghost_h == 0);
+        const std::pair<const char*, PointerLook> looks[] = {  // the dot's look over a handle (absent: plain)
+            {"resize_ew", PointerLook::resize_ew}, {"resize_ns", PointerLook::resize_ns}, {"resize_nwse", PointerLook::resize_nwse},
+            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate}};
+        if (!p.contains("look")) CHECK(v->look == PointerLook::plain);
+        for (const auto& [name, look] : looks) if (p.contains("look") && p.at("look") == name) CHECK(v->look == look);
     }
     for (const auto& c : cases.at("invalid")) {
         auto d = decode_control(frame(c.at("payload"), id++));
@@ -164,6 +170,61 @@ int main(int argc, char** argv) try {
             CHECK(std::fabs(at_edge[i].x - flat[i].x) < 1e-5f && std::fabs(at_edge[i].y - flat[i].y) < 1e-5f && std::fabs(at_edge[i].z - flat[i].z) < 1e-5f);
     }
     CHECK(direction_disc({0, 0, 0.36f, 0.225f}, 1, 1, 0, 0, 6).empty());
+
+    // The dot's look: arrowheads just past its ring, pointing away from it along the resize direction (four for move, two
+    // chasing round it for rotate), none when plain; a rigid part of the dot, turned with it to its direction.
+    {
+        const float reach = kFreePointerRadiusPx + kFreePointerRingPx + kPointerMarkGapPx;
+        auto tips = [&](PointerLook look) {  // on the canvas plane: each mark's tip relative to the dot, canvas px
+            const auto wx = (2.0 * 700 / 1920 - 1) * 0.36, wy = (1 - 2.0 * 500 / 1200) * 0.225;
+            const auto tris = direction_marks(canvas, 700, 500, float(std::atan2(wx, 1.0)), float(std::atan2(wy, std::hypot(wx, 1.0))), look);
+            CHECK(tris.size() % 3 == 0);
+            std::vector<std::pair<float, float>> out;
+            for (std::size_t i = 0; i < tris.size(); i += 3) {
+                const auto [tx, ty] = pixel(canvas, tris[i]);
+                for (std::size_t k = 0; k < 3; ++k) {  // on the plane, clear of the ring, never far from the dot
+                    const auto [px, py] = pixel(canvas, tris[i + k]);
+                    CHECK(std::fabs(tris[i + k].z + 1.f) < 1e-3f);
+                    const float r = std::hypot(px - 700, py - 500);
+                    CHECK(r >= reach - 1e-1f && r <= reach + 2 * kPointerMarkHalfPx + kPointerMarkLenPx);
+                }
+                out.push_back({tx - 700, ty - 500});
+            }
+            return out;
+        };
+        auto near = [](const std::pair<float, float>& t, float x, float y) { return std::fabs(t.first - x) < 0.1f && std::fabs(t.second - y) < 0.1f; };
+        const float tip = reach + kPointerMarkLenPx, diag = tip * float(M_SQRT1_2);
+        CHECK(direction_marks(canvas, 700, 500, 0, 0, PointerLook::plain).empty());
+        auto ew = tips(PointerLook::resize_ew), ns = tips(PointerLook::resize_ns);
+        CHECK(ew.size() == 2 && near(ew[0], tip, 0) && near(ew[1], -tip, 0));
+        CHECK(ns.size() == 2 && near(ns[0], 0, tip) && near(ns[1], 0, -tip));
+        auto nwse = tips(PointerLook::resize_nwse), nesw = tips(PointerLook::resize_nesw);
+        CHECK(nwse.size() == 2 && near(nwse[0], diag, diag) && near(nwse[1], -diag, -diag));   // down-right and up-left
+        CHECK(nesw.size() == 2 && near(nesw[0], diag, -diag) && near(nesw[1], -diag, diag));   // up-right and down-left
+        auto move = tips(PointerLook::move);
+        CHECK(move.size() == 4 && near(move[0], tip, 0) && near(move[1], -tip, 0) && near(move[2], 0, tip) && near(move[3], 0, -tip));
+        auto rotate = tips(PointerLook::rotate);  // left going up, right going down: clockwise
+        const float side = reach + kPointerMarkHalfPx;
+        CHECK(rotate.size() == 2 && near(rotate[0], -side, -kPointerMarkLenPx) && near(rotate[1], side, kPointerMarkLenPx));
+        // Turned with the dot anywhere round you, as one rigid piece: each mark keeps its angle from the dot's centre.
+        const auto flat = direction_marks(canvas, 700, 500, float(std::atan2((2.0 * 700 / 1920 - 1) * 0.36, 1.0)),
+                                          float(std::atan2((1 - 2.0 * 500 / 1200) * 0.225, std::hypot((2.0 * 700 / 1920 - 1) * 0.36, 1.0))), PointerLook::move);
+        const auto flat_disc = canvas_disc(canvas, 700, 500, kFreePointerRadiusPx);
+        const auto turned = direction_marks(canvas, 700, 500, 2.1f, 0.5f, PointerLook::move);
+        const auto disc = direction_disc(canvas, 700, 500, 2.1f, 0.5f, kFreePointerRadiusPx);
+        CHECK(turned.size() == flat.size());
+        for (std::size_t i = 0; i < turned.size(); ++i) CHECK(std::fabs(angle(disc[0], turned[i]) - angle(flat_disc[0], flat[i])) < 1e-5);
+        // The outline pass is the same marks, fatter: it shows round the grey on every side.
+        const auto fat = direction_marks(canvas, 700, 500, 0, 0, PointerLook::resize_ew, kFreePointerRingPx);
+        const auto thin = direction_marks(canvas, 700, 500, 0, 0, PointerLook::resize_ew);
+        CHECK(fat.size() == thin.size());
+        const auto area = [&](const std::vector<Vec3>& t) {
+            const auto [ax, ay] = pixel(canvas, t[0]); const auto [bx, by] = pixel(canvas, t[1]); const auto [cx, cy] = pixel(canvas, t[2]);
+            return std::fabs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2;
+        };
+        CHECK(area(fat) > area(thin) * 1.5f);
+        CHECK(direction_marks({0, 0, 0.36f, 0.225f}, 1, 1, 0, 0, PointerLook::move).empty());
+    }
 
     // Window drag ghost: a closed rectangular outline strip round the dot, w x h on the canvas plane with its inner edge
     // kGhostThicknessPx in, and turned to the dot's direction as one rigid piece with it (direction_disc's turn).

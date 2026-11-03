@@ -14,7 +14,7 @@ What the run controls, and what is checked here:
     the cursor warps (enter_desktop_lua), so the keyboard goes to that monitor's focused window and focus-follows-mouse
     picks the window under the dot. No key is bound by the pointer; a click into a window closes an open pill so its
     modal keys stop taking the typing.
-  * Handles are not forwarded: on a pill, roll arrow or resize handle the dot stays free (the run's grab), the press does
+  * Handles are not forwarded: on a pill, roll arrow, corner or edge the dot stays free (the run's grab), the press does
     its XR action and the cursor is never handed to a window; no handle covers a desktop's content.
   * Window drag (press and hold to lift a window onto another desktop) is off: holds and drags stay the app's.
 
@@ -25,7 +25,7 @@ warp, non-consuming binds) is for the glasses run.
 import time
 import unittest
 
-from tools.native_spike import free_pointer as fp, input_lock as il, resize, unified_cursor as uc, view
+from tools.native_spike import free_pointer as fp, input_lock as il, orbit, resize, unified_cursor as uc, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
 from test_free_pointer import BIND_ARGS, G, MONITORS, NAMES, OUTPUTS, T0, T1, X1, X2, X3, frames, last
@@ -323,6 +323,15 @@ class HandleTests(Base):
         self.assertNotEqual(self.p.rolls[1], 0)
         self.assert_not_forwarded(serial, 0)
 
+    def test_an_edge_handle_resizes_its_desktop(self):
+        self.free()
+        serial = self.p.want[0]
+        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + T1[2] + 4, T1[1] + T1[3] / 2))  # just right of XR-2's right edge
+        self.assertEqual(self.p.hover, ('edge', 1, 'r'))
+        self.op('resize_press'); self.move_canvas(30, 0); self.op('resize_release')
+        self.assertLess(self.control.state.placements[1]['distance'], 100)
+        self.assert_not_forwarded(serial, 0)
+
     def test_a_corner_handle_resizes_its_desktop(self):
         self.free()
         serial = self.p.want[0]
@@ -349,14 +358,14 @@ class HandleTests(Base):
                     h = fp.hit(G, drawn, pointer, icons=self.p._icons())
                     if h is None: continue
                     own = fp.unproject(G, G['tiles'][h[1]], drawn[h[1]], pointer)
-                    inside = own is not None and fp.inside_by(G['tiles'][h[1]], own) > 1e-6
+                    inside = own is not None and fp.inside_by(G['tiles'][h[1]], own) >= fp.ENTER_PX
                     seen.add(h[0])
                     if h[0] == 'desktop': continue
                     with self.subTest(desktop=i, q=(fx, fy), hit=h[:3]):
-                        self.assertFalse(inside)  # a handle is never on its desktop's content
+                        self.assertFalse(inside)  # a handle is never on its desktop's content (the border's edge sliver at most)
                     if 0 < fx < 1 and 0 < fy < 1 and h[1] == i:
                         self.fail(f'{h} covers desktop {i} at {(fx, fy)}')
-        self.assertEqual(seen, {'desktop', 'pill', 'corner', 'roll'})
+        self.assertEqual(seen, {'desktop', 'pill', 'corner', 'edge', 'roll'})
 
 
 class WindowDragOffTests(Base):
@@ -378,9 +387,13 @@ class WindowDragOffTests(Base):
         self.op('resize_release')
         self.assertIsNone(self.p.drag)
 
-    def test_a_press_and_drag_in_the_edge_band_lifts_nothing(self):
+    def test_a_press_and_drag_on_content_the_dot_is_free_over_lifts_nothing(self):
         self.free()
-        self.aim(1, (T1[0] + fp.ENTER_PX / 2, T1[1] + T1[3] / 2))
+        dot = fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + T1[2] * 0.3, T1[1] + T1[3] / 2)
+        self.op('help')  # next to the help card the dot stays free over content (HELP_CLEAR_PX)
+        plane = orbit.plane_at(G, orbit.pointer_ray(G, dot))
+        self.control.set_help_geometry({'card': (plane[0] + 1, plane[1] - 60, 300, 120)})
+        self.dot_to(dot)
         self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', 1)))
         self.op('resize_press')
         self.move_canvas(fp.WINDOW_DRAG_PX * 3, 0)

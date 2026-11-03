@@ -116,6 +116,7 @@ struct GlCompositor::Impl {
     GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
     bool free_directed = false; float free_az = 0, free_el = 0;                        // ...drawn in this direction (degrees)
+    PointerLook free_look = PointerLook::plain;                                        // ...with these marks round it
     float ghost_w = 0, ghost_h = 0; int drop_target = -1;                               // window drag: ghost and target
     GLuint offscreen_fb = 0, offscreen_rb = 0;  // create_offscreen: the framebuffer drawn instead of a window
     bool setup(std::size_t sources, std::string& why);  // shaders, textures, extensions (context current)
@@ -124,7 +125,7 @@ struct GlCompositor::Impl {
     // Interleaved per vertex: world xyz, then (u, v) on the tile, canvas (px, py), or (u, v) on the rect (panel content).
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 20> key{}; };
-    Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2], ghost_mesh, drop_mesh[4];
+    Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2], mark_mesh[2], ghost_mesh, drop_mesh[4];
     std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, band_meshes, head_meshes;  // per desktop (band / head: and side)
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
@@ -132,12 +133,14 @@ struct GlCompositor::Impl {
     GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr, bool glass = false);
     GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius, bool directed, float az, float el);
     GLsizei build_ghost(Mesh& m, const Canvas& canvas, float x, float y, float w, float h, bool directed, float az, float el);
+    GLsizei build_marks(Mesh& m, const Canvas& canvas, float x, float y, PointerLook look, float grow, bool directed, float az, float el);
+    static std::pair<float, float> dot_direction(const Canvas& c, float x, float y, bool directed, float az, float el);
     // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll-level arrow; `shape` keys the points.
     GLsizei build_points(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& shape, float tag,
                          std::span<const std::array<float, 2>> points);
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
-        drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m);
+        drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m); for (auto& m : mark_mesh) drop(m);
         drop(ghost_mesh); for (auto& m : drop_mesh) drop(m);
         for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &band_meshes, &head_meshes}) {
             for (auto& m : *v) drop(m);
@@ -376,9 +379,9 @@ void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float le
 
 void GlCompositor::set_glass(const GlassFrame& frame) { impl_->glass = frame; }
 
-void GlCompositor::set_free_pointer(bool visible, float x, float y, float level, bool directed, float az, float el) {
+void GlCompositor::set_free_pointer(bool visible, float x, float y, float level, bool directed, float az, float el, PointerLook look) {
     impl_->free_pointer = visible; impl_->free_x = x; impl_->free_y = y; impl_->free_level = std::min(level, kFreePointerHeldLevel);
-    impl_->free_directed = directed; impl_->free_az = az; impl_->free_el = el;
+    impl_->free_directed = directed; impl_->free_az = az; impl_->free_el = el; impl_->free_look = look;
 }
 
 void GlCompositor::set_window_drag(float w, float h, int target) {
@@ -497,17 +500,36 @@ GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float 
     return m.count;
 }
 
-GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float y, float w, float h, bool directed, float az, float el) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, w, h, 11.f, directed ? 1.f : 0.f, az, el};
-    if (!m.buffer) glGenBuffers(1, &m.buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
-    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
-    // Undirected: the dot's own plane point is its direction (direction_disc is then canvas_disc exactly).
+// The dot's direction in radians. Undirected: its own plane point's (direction_disc is then canvas_disc exactly).
+std::pair<float, float> GlCompositor::Impl::dot_direction(const Canvas& c, float x, float y, bool directed, float az, float el) {
     float a = az * float(M_PI) / 180.f, e = el * float(M_PI) / 180.f;
     if (!directed && c.view_w > 0 && c.view_h > 0) {
         const double wx = (2.0 * std::clamp(x, 0.f, c.view_w) / c.view_w - 1) * c.half_w, wy = (1 - 2.0 * std::clamp(y, 0.f, c.view_h) / c.view_h) * c.half_h;
         a = float(std::atan2(wx, 1.0)); e = float(std::atan2(wy, std::hypot(wx, 1.0)));
     }
+    return {a, e};
+}
+
+GLsizei GlCompositor::Impl::build_marks(Mesh& m, const Canvas& c, float x, float y, PointerLook look, float grow, bool directed, float az, float el) {
+    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, float(int(look)), grow, 13.f, directed ? 1.f : 0.f, az, el};
+    if (!m.buffer) glGenBuffers(1, &m.buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
+    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
+    const auto [a, e] = dot_direction(c, x, y, directed, az, el);
+    const auto tris = direction_marks(c, x, y, a, e, look, grow);
+    scratch.clear();
+    for (const auto& v : tris) scratch.insert(scratch.end(), {v.x, v.y, v.z});
+    glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
+    m.key = key; m.count = GLsizei(tris.size()); m.built = true;
+    return m.count;
+}
+
+GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float y, float w, float h, bool directed, float az, float el) {
+    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, w, h, 11.f, directed ? 1.f : 0.f, az, el};
+    if (!m.buffer) glGenBuffers(1, &m.buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
+    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
+    const auto [a, e] = dot_direction(c, x, y, directed, az, el);
     const auto strip = direction_outline(c, x, y, a, e, w, h, kGhostThicknessPx);
     scratch.clear();
     for (const auto& v : strip) scratch.insert(scratch.end(), {v.x, v.y, v.z});
@@ -744,6 +766,14 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glUniform4f(s.color, kGhostLevel, kGhostLevel, kGhostLevel, 1.f);
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+        }
+        if (s.free_look != PointerLook::plain) for (int k = 0; k < 2; ++k) {  // what a press would do: black outlines, then grey
+            const float level = k ? s.free_level : 0.f;
+            const GLsizei n = s.build_marks(s.mark_mesh[k], canvas, s.free_x, s.free_y, s.free_look, k ? 0.f : kFreePointerRingPx,
+                                            s.free_directed, s.free_az, s.free_el);
+            glUniform4f(s.color, level, level, level, 1.f);
+            attrib(s.color_pos, 3, 3, 0);
+            glDrawArrays(GL_TRIANGLES, 0, n);
         }
         for (int k = 0; k < 2; ++k) {
             const float radius = k ? kFreePointerRadiusPx : kFreePointerRadiusPx + kFreePointerRingPx, level = k ? s.free_level : 0.f;

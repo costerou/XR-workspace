@@ -128,6 +128,16 @@ std::vector<Vec3> canvas_disc(const Canvas& canvas, float x, float y, float radi
 // and where (az, el) is that point's own direction it is canvas_disc exactly. Empty under canvas_disc's conditions.
 std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float az, float el, float radius,
                                  int segments = kFreePointerSegments);
+// The dot's look (free_pointer.py POINTER_LOOKS, the `overview_pointer` frame's `look`): it stays one cursor and shows what
+// a press would do there. plain over content, empty space and controls; two small arrowheads either side of the disc along
+// the resize direction on a desktop's edge or corner (ew: left / right edges, ns: top / bottom, nwse: top-left / bottom-right
+// corners, nesw: top-right / bottom-left); four on a pill (move); two chasing round the disc on a rotate bracket (rotate).
+enum class PointerLook : std::uint8_t { plain, resize_ew, resize_ns, resize_nwse, resize_nesw, move, rotate };
+constexpr float kPointerMarkGapPx = 2.5f, kPointerMarkLenPx = 5.f, kPointerMarkHalfPx = 3.5f;  // past the ring, canvas px
+// Triangles (three vertices per mark, GL_TRIANGLES) of look `look`'s marks round the dot at canvas (x, y), turned to
+// (az, el) exactly as direction_disc turns the dot, so they stay round it anywhere round you and stay upright. `grow` px
+// fattens each (the black outline drawn under them, as the ring is under the disc). Empty for plain or an empty canvas.
+std::vector<Vec3> direction_marks(const Canvas& canvas, float x, float y, float az, float el, PointerLook look, float grow = 0.f);
 // Window drag (free_pointer.py): the dragged window's ghost, a w x h canvas px rectangle outline `thickness` px wide (on
 // the inside of w x h), centred on canvas (x, y) and turned to (az, el) exactly as direction_disc turns the dot, so it
 // follows the dot anywhere round you. Triangle strip (outer / inner corner pairs, closed: 10 vertices). Empty if the

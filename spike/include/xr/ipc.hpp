@@ -104,6 +104,8 @@ struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool
 // Optionally also "drag":{"w":int,"h":int,"target":int} while a window is being dragged to another desktop
 // (free_pointer.py window drag): the ghost, a w x h canvas px outline (1..kMaxGhostPx each) centred on the dot, and the
 // desktop it would land on (-1..kMaxDesktops-1, -1: none), framed in the accent colour.
+// Optionally also "look":string over a handle (free_pointer.py POINTER_LOOKS, view.hpp PointerLook): "resize_ew", "resize_ns",
+// "resize_nwse", "resize_nesw", "move" or "rotate"; absent: the plain dot.
 // Malformed: rejected with kInvalidOverviewPointerCode and dropped, like move_handle.
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
 constexpr std::int32_t kMaxPointerAz = 18000, kMaxPointerEl = 9000, kMaxGhostPx = 512;
@@ -111,6 +113,7 @@ struct OverviewPointerPayload {
     bool visible = false; std::int32_t x = 0, y = 0; bool held = false;
     bool directed = false; std::int32_t az = 0, el = 0;  // az / el given (1/100 degree)
     bool drag = false; std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // a window drag in progress
+    PointerLook look = PointerLook::plain;
 };
 // Roll-level icons (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
 // {"roll":[r,...],"icons":[i,...],"hover":-1..kMaxDesktops-1,"side":s,"active":bool}. roll: each desktop's levelling roll

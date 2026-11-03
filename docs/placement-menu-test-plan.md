@@ -190,7 +190,7 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot, facing you all the way. It is not stopped one desktop height down or width left of its slot: it goes as far as the dot goes (in anchor mode on round you, see O8). |
 | F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values in degrees. The dot stays where it is. |
 | F9 | Drag XR-1's pill right toward XR-2 at the same height | It stops just before touching XR-2, with a small gap (XR-1's pill strip counts as part of XR-1). Lift it above the row first and it passes over. Dropped within half a degree of its slot it snaps in. O11–O14 test the guard further. |
-| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner. |
+| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner, and the dot shows two diagonal arrows. |
 | F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
 | F13 | Highlight XR-1 (Ctrl+Alt+Left), then on XR-2 push the mouse just past its top edge so the dot shows on the edge, and click without moving | XR-2 is highlighted and the cursor appears there. That click does not reach the window; the next one does. |
@@ -208,6 +208,11 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F25 | Move the dot onto XR-3 and type without clicking | The letters reach XR-3 (the window under the dot, or XR-3's focused window). |
 | F26 | Press and hold on a window for a second, then drag slowly (e.g. select text) | The app gets the long press and the drag; no window outline lifts off. |
 | F27 | Click a pill, a roll arrow, and just outside a corner (then drag there) | Each does its XR action only; no window reacts, and the highlight does not move. |
+| F28 | (One cursor, 2026-11-03.) Sweep the dot slowly from a window out across a desktop's edge, over the space, and back in | No jump and no change of speed at the edge. It is the same dot all the way: plain over the window, two arrows on the edge, plain again further out. Back over the edge it shows the arrows, then the window takes it. |
+| F29 | Push the dot against each of a desktop's four edges and corners from inside | The dot shows two arrows the way that edge or corner resizes: left-right, up-down, or diagonal. A corner also shows the bracket. |
+| F30 | On each edge and corner, press and drag out, then in | The desktop grows and shrinks about its centre, keeping its shape, the edge or corner following the dot. The arrows stay until you let go, even past the handle. Place tab: Distance changes. |
+| F31 | Hover a pill, then a rotate arrow, then a window | Four arrows, then two arrows chasing round the dot, then the plain dot. |
+| F32 | Hold a button down on a window | The dot brightens a little, as on a handle. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 

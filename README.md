@@ -213,8 +213,11 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   the other desktops. Move it onto another desktop (changed 3 November 2026, not yet tried in the glasses) and the
   mouse works there at once: that desktop becomes the selected one (it gets the highlight), your keyboard goes to it,
   and its windows take every click, drag, right-click, scroll and key, wherever it is placed, however it is curved,
-  rolled or sized, and whatever its scale. The first 4 glasses pixels inside a desktop's edge are a small margin where
-  the dot is still the dot (so it doesn't flicker at the edge): a click there only selects that desktop.
+  rolled or sized, and whatever its scale.
+- **The dot shows what a press will do** (new, not yet tried in the glasses). It's one cursor everywhere, and its look
+  changes with what's under it: a plain dot over windows and empty space, two small arrows on a desktop's edge or
+  corner, pointing the way it resizes, four arrows on a pill (move), and two arrows chasing round the dot on the rotate
+  arrows. The look stays through a drag until you let go.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
   slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
@@ -223,9 +226,10 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   get past a neighbour, lift it clear of the row first, or carry it round behind you. A desktop that already overlaps
   another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
   that doesn't move opens the pill instead of moving anything.
-- **Resize a desktop:** put the dot just outside a corner of a desktop until a small grey bracket appears (the handle
-  is outside the desktop, so a window's corner, like its close button, stays the window's). Drag outward to make
-  it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
+- **Resize a desktop:** put the dot just outside an edge or corner of a desktop, until it shows its two arrows (a
+  corner also shows a small grey bracket). The handles are outside the desktop, so a window's corner, like its close
+  button, stays the window's. Pushing the mouse against a desktop's edge from inside lands on that handle. Drag outward
+  to make it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Resizing doesn't stop at other desktops.
 - **Level or roll a desktop:** every desktop in the overview has two small curved arrows in your theme's colour above
@@ -234,8 +238,8 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   gravity in anchor mode), else 2° further. Or hold either arrow and drag the dot round the desktop to roll it either
   way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
 - **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
-  (and its panel when open), the two roll arrows above its top corners, and the resize handles just outside its
-  corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
+  (and its panel when open), the two roll arrows above its top corners, and the resize handles just outside its edges
+  and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
   never maximizes the desktop. To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the desktop under the
   dot grows where it is to fill your view, then follows your head.
 - **Moving a window to another desktop by holding it** is switched off for now, so a long press or a slow drag in an

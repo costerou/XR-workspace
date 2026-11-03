@@ -1,6 +1,8 @@
-"""Overview click-to-select (anchor-no-click-maximize, 2026-11-03): a click with the circle cursor (the free pointer's
-dot) on a desktop selects it and stays in the overview, anchored (view.ViewControl.select_desktop, from
-free_pointer.OverviewPointer.on_op). It never maximizes: only Ctrl+Alt+Up (zoom_in) does. The real cursor comes back
+"""Overview click-to-select (anchor-no-click-maximize, 2026-11-03): moving the circle cursor (the free pointer's dot)
+onto a desktop selects it and hands it the cursor; where the dot is still free over a desktop's content (next to the help
+card) a click selects it and stays in the overview, anchored (view.ViewControl.select_desktop, from
+free_pointer.OverviewPointer.on_op). A desktop's edge is its resize edge: a click there selects nothing. Nothing
+maximizes but Ctrl+Alt+Up (zoom_in). The real cursor comes back
 onto the clicked desktop under the dot (desktop mode), and that warp is what gives its monitor Hyprland's focus: the
 click asks for no monitor focus of its own, which would warp the cursor away from the dot. Clicks on anything else
 (pills, corners, the help card, empty space) and clicks that only wake the idle dot select nothing.
@@ -13,105 +15,91 @@ or glasses.
 """
 import unittest
 
-from tools.native_spike import free_pointer as fp, view
+from tools.native_spike import free_pointer as fp, orbit, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 from tools.native_spike.hyprland import HyprlandClient
 
-from test_free_pointer import G, T1, X1, X2, PointerBase, frames, last
+from test_free_pointer import G, OUTPUTS, T1, X1, X2, PointerBase, frames, last
 
 
 class ClickSelectTests(PointerBase):
     def free_on(self, x):
-        """Push the cursor against the top edge of the monitor at layout x: free mode, the dot on that desktop's top row."""
+        """Push the cursor against the top edge of the monitor at layout x: free mode, the dot just above that desktop's
+        top edge, on its resize edge."""
         self.at(x + 960, 540); self.at(x + 960, 0)
         self.assertEqual(self.p.mode, 'free')
+
+    def free_by_card(self, i, q):
+        """The free dot over desktop i's content at tile pixel q, kept free by the open help card 1 px to its right (the
+        dot enters a desktop only HELP_CLEAR_PX clear of the card): the one place a click lands on content in free mode."""
+        tile = G['tiles'][i]
+        self.op('help')
+        dot = fp.project(G, tile, DEFAULT_PLACEMENT, *q)
+        plane = orbit.plane_at(G, orbit.pointer_ray(G, dot))
+        self.control.set_help_geometry({'card': (plane[0] + 1, plane[1] - 60, 300, 120)})
+        self.free_on(X1)
+        self.move_canvas(dot[0] - self.p.pointer[0], dot[1] - self.p.pointer[1])
+        self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', i)))
 
     def focused_after(self, *ops):
         out = [f for op in ops for f in self.op(op)]
         self.control.join_focus(2)
         return out
 
-    def test_a_click_on_a_desktop_selects_it_and_stays_in_the_overview(self):
+    def test_at_a_desktops_edge_the_dot_is_on_its_resize_edge_and_a_click_there_selects_nothing(self):
         self.free_on(X2)
-        self.assertEqual(self.p.hover[:2], ('desktop', 1))
-        self.control.state.selected = 0  # e.g. Ctrl+Alt+Left since the dot came up here
-        self.focused_after('resize_press')  # the press alone: maybe a window drag (on hold), nothing selected yet
-        self.assertEqual(self.control.state.selected, 0)
-        out = self.focused_after('resize_release')
-        self.assertEqual(self.control.state.selected, 1)
-        self.assertFalse(self.control.state.zoomed)  # never maximized by a click
-        self.assertEqual(self.control.state.mode, 'anchor')
-        self.assertEqual([(f['payload']['selected'], f['payload']['zoomed']) for f in out if f['op'] == 'view'], [(1, False)])
-        self.assertEqual(self.focused, [])  # no focus request: the cursor's own warp focuses the monitor (below)
-        self.assertEqual(self.p.focus_clicks, 1)
-        self.assertTrue(self.p.overview())  # the free pointer, pills and corners stay up
-
-    def test_the_cursor_comes_back_under_the_dot_on_the_clicked_desktop(self):
-        self.free_on(X2)
+        self.assertEqual(self.p.hover, ('edge', 1, 't'))
         self.control.state.selected = 0
-        self.focused_after('resize_press', 'resize_release')
-        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
-        self.assertEqual(self.p.want[1:], ('desktop', (X2 + 960, fp.INSET_PX)))  # at the click, on XR-2
-        out = self.at(X2 + 960, fp.INSET_PX)  # the sampler warped it there: it stays the pointer on XR-2
-        self.assertEqual(self.p.mode, 'desktop')
-        self.assertFalse(any(f['op'] == 'view' for f in out))
-        self.assertEqual(self.focused_after('resize_press', 'resize_release'), [])  # the next click is the window's
-        self.assertEqual(self.p.focus_clicks, 1)
-        self.assertFalse(self.control.state.zoomed)
-
-    def test_a_click_on_the_selected_desktop_hands_the_cursor_back_and_changes_no_view(self):
-        self.free_on(X2)
-        self.assertEqual(self.control.state.selected, 1)  # moving into XR-2 selected it already
         out = self.focused_after('resize_press', 'resize_release')
-        self.assertFalse(any(f['op'] == 'view' for f in out))  # nothing changed in the view
-        self.assertFalse(self.control.state.zoomed)
-        self.assertEqual(self.focused, [])
-        self.assertEqual(self.p.want[1:], ('desktop', (X2 + 960, fp.INSET_PX)))
-
-    def test_a_click_on_another_desktop_than_the_one_the_dot_left_selects_the_clicked_one(self):
-        # The cursor runs off XR-1's right edge: free, the hidden cursor parked on XR-1. The dot then crosses just onto
-        # XR-2 (less than ENTER_PX in, so still free) and clicks there: XR-2 is selected and the cursor shows on XR-2,
-        # not on the parking monitor.
-        self.at(X1 + 1900, 540); self.at(X2 + 6, 540)
-        self.assertEqual((self.p.mode, self.p.desktop), ('free', 0))
-        self.move_canvas(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 1, T1[1] + T1[3] / 2)[0] - self.p.pointer[0], 0)
-        self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', 1)))
-        self.focused_after('resize_press', 'resize_release')
-        self.assertEqual(self.control.state.selected, 1)
-        self.assertFalse(self.control.state.zoomed)
-        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
-        self.assertEqual(self.p.want[2][0] // 1920, X2 // 1920)  # the cursor goes to XR-2, not the parking monitor
-
-    def test_each_click_selects_the_desktop_it_lands_on(self):
-        self.free_on(X1)
-        self.control.state.selected = 2
-        self.focused_after('resize_press', 'resize_release')
         self.assertEqual(self.control.state.selected, 0)
-        self.free_on(X2)
-        self.control.state.selected = 0
-        self.focused_after('resize_press', 'resize_release')
-        self.assertEqual(self.control.state.selected, 1)
         self.assertFalse(self.control.state.zoomed)
-        self.assertEqual(self.focused, [])
+        self.assertFalse(any(f['op'] in ('view', 'placement') for f in out))
+        self.assertEqual((self.focused, self.p.focus_clicks), ([], 0))
+        self.assertEqual(self.control.state.placements[1], DEFAULT_PLACEMENT)  # no move: a click resizes nothing
 
-    def test_ctrl_alt_up_after_a_click_maximizes_the_clicked_desktop(self):
+    def test_moving_onto_a_desktop_selects_it_and_hands_it_the_cursor_without_a_click(self):
         self.free_on(X2)
         self.control.state.selected = 0
-        self.focused_after('resize_press', 'resize_release')
-        self.assertFalse(self.control.state.zoomed)
+        out = self.move_canvas(0, 40)  # down into XR-2
+        self.assertEqual((self.p.mode, self.p.desktop, self.control.state.selected), ('desktop', 1, 1))
+        self.assertEqual((last(out, 'view')['selected'], last(out, 'view')['zoomed']), (1, False))
+        self.assertEqual(self.p.want[1], 'desktop')
+        self.assertEqual(self.p._at(self.p.want[2])[0], 1)  # the cursor goes onto XR-2, under the dot
+        self.assertEqual(self.focused, [])
+        self.assertTrue(self.p.overview())
+
+    def test_ctrl_alt_up_after_moving_onto_a_desktop_maximizes_it(self):
+        self.free_on(X2)
+        self.control.state.selected = 0
+        self.move_canvas(0, 40)
         out = self.focused_after('zoom_in')  # Ctrl+Alt+Up: the one way to maximize
         self.assertTrue(self.control.state.zoomed)
-        self.assertEqual(self.control.state.selected, 1)
         self.assertEqual(self.control.state.mode, 'follow')
         self.assertEqual((last(out, 'view')['selected'], last(out, 'view')['zoomed']), (1, True))
         self.assertEqual(self.focused, ['XR-2'])  # the zoom-in's own focus
         self.control.poll()
-        self.assertFalse(self.p.overview())  # out of the overview: the free pointer is off
+        self.assertFalse(self.p.overview())
+
+    def test_a_click_on_content_the_dot_is_free_over_selects_it_and_stays_in_the_overview(self):
+        q = (T1[0] + T1[2] * 0.3, T1[1] + T1[3] * 0.4)
+        self.free_by_card(1, q)
+        self.control.state.selected = 0
+        self.focused_after('resize_press')  # the press alone: nothing yet
+        self.assertEqual(self.control.state.selected, 0)
+        out = self.focused_after('resize_release')
+        self.assertEqual(self.control.state.selected, 1)
+        self.assertFalse(self.control.state.zoomed)  # never maximized by a click
+        self.assertEqual([(f['payload']['selected'], f['payload']['zoomed']) for f in out if f['op'] == 'view'], [(1, False)])
+        self.assertEqual(self.focused, [])
+        self.assertEqual(self.p.focus_clicks, 1)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
+        self.assertEqual(self.p.want[1:], ('desktop', fp.surface_to_layout(T1, OUTPUTS[1], q)))  # the cursor under the dot
 
     def test_a_click_outside_an_open_panel_closes_it_and_still_selects(self):
         self.control.pill_click(0)
+        q = (T1[0] + T1[2] * 0.3, T1[1] + T1[3] * 0.4)
+        self.free_by_card(1, q)
         self.assertTrue(self.control.state.menu_open)
-        self.free_on(X2)
         self.control.state.selected = 0
         self.focused_after('resize_press')
         self.assertFalse(self.control.state.menu_open)  # the press collapses it
@@ -159,7 +147,8 @@ class ClickSelectTests(PointerBase):
         self.assertEqual(self.control.state.selected, 0)
 
     def test_a_click_that_only_wakes_the_idle_dot_selects_nothing(self):
-        self.free_on(X2)
+        q = (T1[0] + T1[2] * 0.3, T1[1] + T1[3] * 0.4)
+        self.free_by_card(1, q)
         self.control.state.selected = 0
         self.clock.now += view.OVERLAY_IDLE_CLOSE_S + 1
         self.control.poll()
@@ -170,13 +159,13 @@ class ClickSelectTests(PointerBase):
 
     def test_the_click_never_asks_the_compositor_for_monitor_focus(self):
         # A monitor focus would warp the cursor to that monitor's last window, away from the dot, and it would block or
-        # fail off the loop anyway. The click needs none: the cursor's warp under the dot focuses the monitor.
+        # fail off the loop anyway. The click needs none: the cursor's move under the dot does it (unified_cursor).
         calls = []
         def refuse(name):
             calls.append(name)
             raise OSError('compositor gone')
         self.control.focus = refuse
-        self.free_on(X2)
+        self.free_by_card(1, (T1[0] + T1[2] * 0.3, T1[1] + T1[3] * 0.4))
         self.control.state.selected = 0
         out = self.focused_after('resize_press', 'resize_release')
         self.assertEqual(last(out, 'view')['selected'], 1)
