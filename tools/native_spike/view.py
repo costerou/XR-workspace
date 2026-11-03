@@ -299,6 +299,10 @@ class ViewState:
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.mode, self.prediction = mode, prediction
+        # A cursor switch (ViewControl.switch_desktop) animates: in anchor mode it pans to and centres the desktop. False:
+        # in anchor mode it cuts at once and the view stays where the head looks. Follow and locked ignore it. Not saved
+        # and not bound yet: the hook for the animation toggle (ViewControl.cursor_switch_flags).
+        self.cursor_switch_animate = True
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
@@ -686,11 +690,9 @@ class ViewControl:
         self.next_id += 1
         return frame
 
-    def _frame(self, center=False):
-        """A view frame; `center` (a cursor switch, switch_desktop): in anchor mode the renderer's switch pans straight to
-        the new desktop and lands with it centred in view (spike/include/xr/ipc.hpp ViewPayload)."""
-        frame = view_frame(self.run_id, self.session, self.next_id,
-                           {**self.state.view(), 'center': True} if center else self.state.view())
+    def _frame(self, **flags):
+        """A view frame, with a cursor switch's flags (cursor_switch_flags) added to the payload."""
+        frame = view_frame(self.run_id, self.session, self.next_id, {**self.state.view(), **flags})
         self.next_id += 1
         return frame
 
@@ -868,14 +870,23 @@ class ViewControl:
         desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so the renderer zooms
         out, turns to it and zooms in, every desktop staying where it is placed. The frame's `center` makes the anchor-mode
         turn start from the centre of the view, so it pans straight to the desktop the cursor is on and centres it there
-        (pushing back pans to and centres the other); follow and locked centre it already. The sampler gives its monitor focus and
+        (pushing back pans to and centres the other); follow and locked centre it already. cursor_switch_flags decides
+        (anchor mode with the animation off: a cut instead). The sampler gives its monitor focus and
         brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
         One view frame, or b'' when stale (not zoomed in, typing mode, a VR video, no such desktop, already selected)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
         if not self.state.zoomed or self.state.typing or self.video_active: return b''
         self.last_input = self.clock()
         self.state.selected = desktop
-        return self._frame(center=True)
+        return self._frame(**self.cursor_switch_flags())
+
+    def cursor_switch_flags(self):
+        """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Animated (default):
+        `center`, so in anchor mode the switch pans straight to the desktop and lands with it centred (follow and locked
+        ignore it: they centre it already). Anchor mode with ViewState.cursor_switch_animate off: `cut`, no animation and
+        no turn of the view, so it stays wherever the head looks. Follow and locked always animate as before."""
+        if not self.state.cursor_switch_animate and self.state.mode == 'anchor': return {'cut': True}
+        return {'center': True}
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""

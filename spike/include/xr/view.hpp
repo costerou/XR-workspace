@@ -158,12 +158,16 @@ constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx 
 // A centred switch (set_target's `center`: the cursor pushed past an edge, tools/native_spike/unified_cursor.py) animates
 // the same, but in anchor mode its turn starts from the direction at the centre of the view when it began rather than from
 // the desktop being left, so it pans straight to the target and lands with the target centred in view (wayland.cpp).
+// A cut (set_target's `cut`: an anchor-mode cursor switch with its animation off) zoomed in skips all three: the target is
+// shown at once, fully zoomed in at its placement, the view never turned; any switch or turn in flight is dropped
+// unlanded (nothing to hand over to the room). Spacing still eases.
 class ViewAnimator {
 public:
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
     struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
     explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
-    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false);
+    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
+                    bool cut = false);
     void advance(double now_ms);
     bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active; }
     bool switching() const { return switch_.active; }

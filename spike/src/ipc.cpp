@@ -254,8 +254,9 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
         } else if (op == ControlOp::view) {
             const auto& p = j["payload"];
-            const bool has_center = p.contains("center");
-            if (p.size() != (has_center ? 8u : 7u) || (has_center && !p["center"].is_boolean()) || !p.contains("typing") || !p["typing"].is_boolean() ||
+            const bool has_center = p.contains("center"), has_cut = p.contains("cut");
+            if (p.size() != 7u + has_center + has_cut || (has_center && !p["center"].is_boolean()) ||
+                (has_cut && !p["cut"].is_boolean()) || !p.contains("typing") || !p["typing"].is_boolean() ||
                 !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
                 p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return invalid();
@@ -264,7 +265,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();
             payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m,
                                   p["cursor_follow"].get<bool>(), p["prediction"].get<bool>(), p["typing"].get<bool>(),
-                                  has_center && p["center"].get<bool>()};
+                                  has_center && p["center"].get<bool>(), has_cut && p["cut"].get<bool>()};
         } else if (op == ControlOp::style) {
             const auto& p = j["payload"];
             if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return invalid();

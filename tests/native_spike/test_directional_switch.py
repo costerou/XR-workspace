@@ -213,6 +213,26 @@ class ControlTests(UnifiedBase):
         self.control.state.typing = False; self.control.video_active = True
         self.assertEqual(self.control.switch_desktop(0), b'')
 
+    def test_the_cursor_switch_animation_flag(self):
+        # cursor_switch_animate (default on; the hook for the animation toggle): on, every mode gets `center` (anchor: pan to
+        # and centre). Off: anchor mode cuts (`cut`: no animation, no turn, the view stays where the head looks); follow and
+        # locked are unchanged (`center`, which they ignore). The keys never carry either flag.
+        self.op('zoom_in')
+        s = self.control.state
+        self.assertIs(s.cursor_switch_animate, True)
+        self.assertNotIn('cursor_switch_animate', s.view()); self.assertNotIn('cursor_switch_animate', s.settings())
+        for animate, mode, flags in ((True, 'anchor', {'center': True}), (True, 'follow', {'center': True}),
+                                     (True, 'locked', {'center': True}), (False, 'anchor', {'cut': True}),
+                                     (False, 'follow', {'center': True}), (False, 'locked', {'center': True})):
+            with self.subTest(animate=animate, mode=mode):
+                s.cursor_switch_animate, s.mode = animate, mode
+                self.assertEqual(self.control.cursor_switch_flags(), flags)
+                target = (s.selected + 1) % len(s.names)
+                self.assertEqual(last(frames(self.control.switch_desktop(target)), 'view'), {**s.view(), **flags})
+                self.assertEqual(s.selected, target)  # the switch itself always happens
+                key = last(self.op('next' if s.selected < len(s.names) - 1 else 'prev'), 'view')
+                self.assertNotIn('cut', key); self.assertNotIn('center', key)
+
     def test_the_pointer_reads_the_placed_layout(self):
         self.assertEqual([self.p.neighbour(e) for e in ('left', 'right', 'up')], [None, 1, None])
         self.control.state.set_placements([at_direction(0, 0, 0), at_direction(1, 0, 25), at_direction(2, 25, 0)])
@@ -322,7 +342,7 @@ class SamplerTests(unittest.TestCase):
                 self.assertEqual(self.p.edge_switches, 1)
                 sampler.stop(); self.p.edge_switches = 0
 
-    def test_a_cursor_switch_frame_is_the_key_switch_frame_centred(self):
+    def test_a_cursor_switch_frame_is_the_key_switch_frame_centred(self):  # (the flag on: the default)
         # The renderer animates a cursor switch as Ctrl+Alt+Left / Right (the same frame), plus `center`: in anchor mode it
         # lands with the desktop the cursor is on centred in view (spike focus_center_test). The keys never send it, and
         # the state never holds it.

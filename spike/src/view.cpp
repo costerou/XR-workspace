@@ -363,7 +363,7 @@ void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom
     from_zoom_ = to_zoom_ = 1.f; t_ = 1.f;  // the zoom tween waits at 1 for the switch to land
 }
 
-void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center) {
+void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center, bool cut) {
     advance(now_ms);
     selected = std::min(selected, kMaxIndex);
     const float spacing_target = float(std::min(spacing, kMaxSpacing));
@@ -383,7 +383,12 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
         from_turn_ = turn_now;  // >0 only mid-turn (phase 2), where it equals look_now
         from_zoom_ = z; to_zoom_ = to; start_ms_ = now_ms; t_ = 0.f;
     };
-    if (switch_.active) {
+    if (cut && zoomed) {  // straight onto the target at its placement: no zoom out, no turn, no zoom in
+        switch_ = {};
+        from_zoom_ = to_zoom_ = 1.f; t_ = 1.f;
+        from_look_ = from_turn_ = 0; look_t_ = 1.f; look_from_ = look_to_ = selected; turn_centred_ = false;
+        shown_ = selected;
+    } else if (switch_.active) {
         const bool zooming_out = now_ms - switch_.start_ms < switch_.out_ms;
         if (!zoomed) {
             tween_zoom(0.f);  // zoom out from here; shown_ keeps the desktop on screen until the overview

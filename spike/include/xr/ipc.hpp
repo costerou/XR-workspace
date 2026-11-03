@@ -22,8 +22,11 @@ struct SelectPayload { OutputId output_id; };
 // `typing`: display-only typing mode (Ctrl+Alt+T: the supervisor released every run key but the toggle); a dim pop-up.
 // Optional `center` (bool, default false): this change of `selected` is a cursor switch (the cursor pushed past an edge,
 // tools/native_spike/unified_cursor.py); in anchor mode the switch lands with the target centred in view (view.hpp).
+// Optional `cut` (bool, default false): zoomed in, the new desktop is shown at once, with no zoom out / turn / zoom in and
+// no turn of the view. The controller sends it only for an anchor-mode cursor switch with its animation off
+// (view.py ViewControl.cursor_switch_flags), so the view stays wherever the head looks.
 struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; bool prediction = false;
-                     bool typing = false; bool center = false; };
+                     bool typing = false; bool center = false; bool cut = false; };
 // Theme accent for the highlight border/glow: {"border":[r,g,b]}, each 0..255.
 struct StylePayload { std::uint8_t r = 0, g = 0, b = 0; };
 // Keyboard help card: {"visible":bool,"rows":[[keys,action],...]}; at most kMaxHelpRows rows,

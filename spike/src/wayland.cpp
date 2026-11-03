@@ -1191,13 +1191,13 @@ std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
 void Presentation::resend_help_geometry() { if (impl_) impl_->help_geometry_sent.clear(); }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
-                            bool prediction, bool typing, bool center) {
+                            bool prediction, bool typing, bool center, bool cut) {
     if (!impl_) return;
     impl_->popups.update(mode, cursor_follow, prediction, typing, double(monotonic_ms()));
     impl_->prediction = prediction;
     impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
-                           spacing, double(monotonic_ms()), center);
+                           spacing, double(monotonic_ms()), center, cut);
     impl_->cadence.invalidate();
 }
 bool Presentation::finished() const { return impl_ && impl_->cadence.finished(monotonic_ms()); }
