@@ -212,6 +212,10 @@ void ModeController::set_mode(ViewMode mode, double now_ms) {
     if (mode == ViewMode::anchor) pinned_ = anchor_;  // anchor where the canvas is right now
     mode_ = mode;
 }
+void ModeController::turn_anchor(Quat turn) {
+    pinned_ = quat_normalized(quat_mul(pinned_, turn)).value_or(pinned_);
+    if (mode_ == ViewMode::anchor && !transitioning_) anchor_ = pinned_;
+}
 void ModeController::recenter() { follow_ = Quat{}; anchor_ = from_ = pinned_ = aim_; transitioning_ = false; velocity_ = {}; }
 Quat aim_rotation(float az, float el) {
     // GL: the view must apply R^T = El(el)^T . Az(az)^T (place_point's R = Az(az) . El(el)); in the driver frame (x forward,
