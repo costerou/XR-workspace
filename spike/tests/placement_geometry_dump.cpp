@@ -25,7 +25,8 @@ int main() {
     // with the rest of the placement (distance and curvature).
     const std::int32_t xs[] = {0, 37, -450, 900, -900, 1800, -1800, 1234};
     const std::int32_t ys[] = {0, 300, -899, 900};
-    const MenuPlacement rests[] = {{0, 0, 100, 0}, {0, 0, 50, 120}, {0, 0, 200, 0}, {0, 0, 137, 45}, {0, 0, 200, 120}, {0, 0, 73, 7}};
+    const MenuPlacement rests[] = {{0, 0, 100, 0}, {0, 0, 50, 120}, {0, 0, 200, 0}, {0, 0, 137, 45}, {0, 0, 200, 120}, {0, 0, 73, 7},
+                                     {0, 0, 10, 0}, {0, 0, 10, 120}};  // the distance floor: ten times the size
     std::string out = "{\"cases\":[";
     bool first = true;
     for (const Canvas& c : canvases) {
@@ -62,6 +63,18 @@ int main() {
                         for (const auto& [px, py] : points) {
                             const Vec3 w = place_point(c, t, p, px, py);
                             out += (first_point ? "[" : ",[") + num(px) + "," + num(py) + "," + num(w.x) + "," + num(w.y) + "," + num(w.z) + "]";
+                            first_point = false;
+                        }
+                        // Glass (the pill and panel corners, glass.hpp): drawn through view.hpp glass_to_desktop, fixed size.
+                        out += "],\"glass\":[";
+                        const FRect pill = glass_pill(t), panel = glass_panel(t);
+                        const std::pair<float, float> glass[] = {{pill.x, pill.y}, {pill.x + pill.width, pill.y + pill.height},
+                                                                 {panel.x, panel.y + panel.height}, {panel.x + panel.width, panel.y}};
+                        first_point = true;
+                        for (const auto& [gx, gy] : glass) {
+                            const auto [dx, dy] = glass_to_desktop(t, p, gx, gy);
+                            const Vec3 w = place_point(c, t, p, dx, dy);
+                            out += (first_point ? "[" : ",[") + num(gx) + "," + num(gy) + "," + num(w.x) + "," + num(w.y) + "," + num(w.z) + "]";
                             first_point = false;
                         }
                         out += "]}";

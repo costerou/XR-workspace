@@ -242,7 +242,8 @@ def _outline(g, tile, p):
     """Points round a desktop, its MARGIN_PX border and the pill zone under it, on its placed surface (un-orbited): the
     corners and, when curved, the top and bottom edges every few degrees of arc."""
     tx, ty, tw, th = tile
-    top, bottom = ty - MARGIN_PX, ty + th + PILL_ZONE_PX + MARGIN_PX
+    k = p['distance'] / 100 if p['distance'] > 0 else 1.0  # the pill keeps its size (free_pointer.glass_to_desktop)
+    top, bottom = ty - MARGIN_PX, ty + th + PILL_ZONE_PX * k + MARGIN_PX
     columns = max(4, min(16, math.ceil(p['curvature'] / 6))) if p['curvature'] > 0 else 1
     xs = [tx - MARGIN_PX + (tw + 2 * MARGIN_PX) * i / columns for i in range(columns + 1)]
     return [place_point(g, tile, p, x, top) for x in xs] + [place_point(g, tile, p, x, bottom) for x in reversed(xs)]

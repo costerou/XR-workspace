@@ -119,7 +119,8 @@ struct GlCompositor::Impl {
     std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes;  // per desktop
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
-    GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr);
+    // glass: `rect` is glass px under the desktop (view.hpp glass_mesh: fixed size whatever the desktop's distance).
+    GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr, bool glass = false);
     GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius);
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
@@ -397,14 +398,15 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
 
 static_assert(sizeof(Canvas) == 4 * sizeof(float) && sizeof(FRect) == 4 * sizeof(float) && sizeof(Placement) == 4 * sizeof(float),
               "a mesh key holds every field of tile_mesh's inputs: extend it with them");
-GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& rect, Attr attr) {
+GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& rect, Attr attr,
+                                  bool glass) {
     const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
                                     on.distance, on.curvature, rect.x, rect.y, rect.width, rect.height,
-                                    float(int(attr))};
+                                    float(int(attr)), glass ? 1.f : 0.f};
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
     if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;  // bitwise: same inputs, same mesh
-    const auto vertices = tile_mesh(c, tile, on, rect);
+    const auto vertices = glass ? glass_mesh(c, tile, on, rect) : tile_mesh(c, tile, on, rect);
     scratch.clear();
     for (const auto& v : vertices) {
         float a = v.u, b = v.v;
@@ -527,7 +529,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         // Glass pills: blended over the desktops, each on its own desktop's surface (it faces you with its desktop),
         // back to front, except that the open panel's desktop comes last (glass_draw_order): the supervisor hit-tests
         // the open panel as the top layer. The open one morphs into its placement panel; its content fades in over the
-        // glass. While a slider is held the open panel stays on its press-time surface (GlassFrame::surface).
+        // glass. While a slider is held the open panel stays on its press-time surface (GlassFrame::surface). Glass keeps
+        // its size whatever the desktop's (view.hpp glass_mesh): a resize moves a pill with the desktop, never scales it.
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
         const auto& g = s.glass;
         glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -541,7 +544,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glUniform4f(s.glass_loc.edge, look.border_top, look.border_bottom, look.shadow, look.shadow_sigma);
             glUniform1f(s.glass_loc.shadow_dy, look.shadow_dy); glUniform1f(s.glass_loc.opacity, opacity);
             const GLsizei n = s.build(mesh, canvas, tiles[i], glass_on(i), {r.x - margin, r.y - margin, r.width + 2 * margin, r.height + 2 * margin},
-                                      Impl::Attr::canvas_px);
+                                      Impl::Attr::canvas_px, true);  // fixed size: a resize never scales the glass
             attrib(s.glass_loc.pos, 3, 5, 0); attrib(s.glass_loc.px, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         };
@@ -565,7 +568,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             s.upload_panel(im, g.generation);  // already uploaded before the first draw: binds it
             glUniform1f(s.panel_loc.alpha, std::min(g.content_alpha, 1.f));
             // The content rides on the morphing shape (it only shows over the last quarter, when the shape is near full size).
-            const GLsizei n = s.build(s.panel_meshes[i], canvas, tiles[i], glass_on(i), r, Impl::Attr::rect_uv);
+            const GLsizei n = s.build(s.panel_meshes[i], canvas, tiles[i], glass_on(i), r, Impl::Attr::rect_uv, true);
             attrib(s.panel_loc.pos, 3, 5, 0); attrib(s.panel_loc.uv, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
             glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));

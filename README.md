@@ -192,7 +192,7 @@ In the overview your mouse is no longer stuck inside the desktops:
   that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
-  field of view; past the edge of the view the drag speeds up), and it keeps its shape.
+  field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Resizing doesn't stop at other desktops.
 - **Focus a desktop:** click it with the dot. That desktop is selected (Ctrl+Alt+Up zooms into it) and the normal
   cursor appears where you clicked. Moving the mouse into a desktop selects it too.

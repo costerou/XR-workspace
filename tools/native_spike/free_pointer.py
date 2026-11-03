@@ -20,7 +20,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Glass pills (spike/include/xr/glass.hpp, mirrored here: pill_rect, panel_rect and the PILL_* / PANEL_* constants; the
     ctest `glass_contract` compares them): a frosted-glass pill sits PILL_GAP under every desktop, on that desktop's own
     surface. One at a time expands into the desktop's placement panel (PANEL_W x PANEL_H, centred under the desktop, its
-    top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. The state is
+    top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. Glass keeps one
+    size whatever the desktop's: a resize moves it with the desktop's bottom edge but never scales it (glass_to_desktop,
+    view.hpp glass_mesh); pill_rect / panel_rect are glass px. The state is
     view.ViewState's menu_open / menu_desktop; Ctrl+Alt+L and the panel's modal keys drive the same state (view.py).
   * Clicks in free mode, tested front to back (hit): the open panel first (it is drawn on top), then each desktop's
     corners (they win over its pill), its pill zone (the pill padded by PILL_PAD_X / PILL_PAD_Y, plus the gap up to the
@@ -230,6 +232,27 @@ def corner_zone(tile):
     return min(max(CORNER_SHARE * min(tile[2], tile[3]), CORNER_MIN), CORNER_MAX)
 
 
+def glass_to_desktop(tile, p, gx, gy):
+    """Glass px (pill_rect / panel_rect) -> the desktop surface px it is drawn at (spike/src/view.cpp glass_to_desktop):
+    scaled by the desktop's distance about its bottom-centre, so the glass keeps its size however big the desktop is."""
+    k = p['distance'] / 100 if p['distance'] > 0 else 1.0
+    ax, ay = tile[0] + tile[2] / 2, tile[1] + tile[3]
+    return (ax + (gx - ax) * k, ay + (gy - ay) * k)
+
+
+def desktop_to_glass(tile, p, q):
+    """The inverse of glass_to_desktop for desktop surface px `q` (None stays None)."""
+    if q is None: return None
+    k = p['distance'] / 100 if p['distance'] > 0 else 1.0
+    ax, ay = tile[0] + tile[2] / 2, tile[1] + tile[3]
+    return (ax + (q[0] - ax) / k, ay + (q[1] - ay) / k)
+
+
+def project_glass(g, tile, p, gx, gy):
+    """Where glass point (gx, gy) under a placed desktop appears on the overview plane (canvas px), or None."""
+    return project(g, tile, p, *glass_to_desktop(tile, p, gx, gy))
+
+
 def pill_rect(tile):
     """The drawn glass pill (glass.hpp glass_pill): (x, y, w, h) canvas px on the desktop's surface, centred PILL_GAP
     under the desktop."""
@@ -281,7 +304,7 @@ def hit(g, placements, pointer, open_=None, around=False):
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
         tile = g['tiles'][open_]
-        q = unproject(g, tile, placements[open_], pointer)
+        q = desktop_to_glass(tile, placements[open_], unproject(g, tile, placements[open_], pointer))
         if q is not None:
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
@@ -293,7 +316,7 @@ def hit(g, placements, pointer, open_=None, around=False):
         qp = None
         if stretched and reached is None:
             seen = orbit.stretched_pointer(g, tile, placements[i], pointer)
-            qp = unproject(g, tile, {**placements[i], 'x': 0, 'y': 0}, seen) if seen is not None else None
+            qp = desktop_to_glass(tile, placements[i], unproject(g, tile, {**placements[i], 'x': 0, 'y': 0}, seen)) if seen is not None else None
         tx, ty, tw, th = tile
         px, py, pw, ph = pill_rect(tile)
         def on_pill(r): return r is not None and px - PILL_PAD_X <= r[0] <= px + pw + PILL_PAD_X and ty + th <= r[1] <= py + ph + PILL_PAD_Y
@@ -301,7 +324,7 @@ def hit(g, placements, pointer, open_=None, around=False):
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
-            if on_pill(q): return ('pill', i)
+            if on_pill(desktop_to_glass(tile, placements[i], q)): return ('pill', i)
             if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
         if on_pill(qp): reached = ('pill', i)
     return reached
@@ -702,7 +725,7 @@ class OverviewPointer:
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
             # A key that collapsed or moved the panel meanwhile dropped that surface: the rest of this drag does nothing.
             if c.state.menu_surface is None: return b''
-            q = unproject(self.geometry, d['tile'], d['placement'], self.pointer)
+            q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry, d['tile'], d['placement'], self.pointer))
             if q is None: return b''
             return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
         current = c.state.placements[d['index']]

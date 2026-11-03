@@ -251,6 +251,45 @@ class HugeResizeMathTests(unittest.TestCase):
         a, b = fp.resize_reach(G, start), fp.resize_reach(G, (G['w'] * 1.5, start[1]))
         self.assertEqual(fp.resize_distance(100, 'tr', b[0] - a[0], b[1] - a[1], T0), PLACEMENT_BOUNDS['distance'][0])
 
+    def test_pills_and_panels_keep_their_size_whatever_the_desktop_size(self):
+        # A resize (distance 10 .. 200: ten times to half the size) moves the glass with the desktop's bottom edge but
+        # never scales it: on the centred desktop its canvas size is exactly the laid-out one, the gap under the bottom
+        # edge stays PILL_GAP, and the pill's grab zone (and the open panel's sliders) are hit at that same size.
+        x, y, w, h = fp.pill_rect(T1)
+        px, py, pw, ph = fp.panel_rect(T1)
+        def size(p, r):
+            a, b = fp.project_glass(G, T1, p, r[0], r[1]), fp.project_glass(G, T1, p, r[0] + r[2], r[1] + r[3])
+            return (b[0] - a[0], b[1] - a[1])
+        for d in (10, 20, 50, 100, 150, 200):
+            with self.subTest(distance=d):
+                p = {**DEFAULT_PLACEMENT, 'distance': d}
+                placements = [dict(DEFAULT_PLACEMENT), p, dict(DEFAULT_PLACEMENT)]
+                for got, want in ((size(p, (x, y, w, h)), (w, h)), (size(p, (px, py, pw, ph)), (pw, ph))):
+                    self.assertAlmostEqual(got[0], want[0], delta=1e-3); self.assertAlmostEqual(got[1], want[1], delta=1e-3)
+                bottom = fp.project(G, T1, p, T1[0] + T1[2] / 2, T1[1] + T1[3])[1]
+                top = fp.project_glass(G, T1, p, x + w / 2, y)[1]
+                self.assertAlmostEqual(top - bottom, fp.PILL_GAP, delta=1e-3)
+                cx, cy = fp.project_glass(G, T1, p, x + w / 2, y + h / 2)
+                self.assertEqual(fp.hit(G, placements, (cx, cy)), ('pill', 1))
+                self.assertEqual(fp.hit(G, placements, (cx + w / 2 + fp.PILL_PAD_X - 1, cy)), ('pill', 1))  # its pad, unscaled
+                self.assertNotEqual(fp.hit(G, placements, (cx + w / 2 + fp.PILL_PAD_X + 2, cy)), ('pill', 1))
+                self.assertNotEqual(fp.hit(G, placements, (cx, cy + h / 2 + fp.PILL_PAD_Y + 2)), ('pill', 1))
+                for field in ('x', 'distance'):
+                    sx, sy = fp.project_glass(G, T1, p, px + fp.PANEL_KNOB_HI, py + fp.PANEL_ROWS_TOP + fp.PANEL_ROW_H *
+                                              (('x', 'y', 'distance', 'curvature').index(field) + 0.5))
+                    h_ = fp.hit(G, placements, (sx, sy), open_=1)
+                    self.assertEqual(h_[:3], ('slider', 1, field)); self.assertAlmostEqual(h_[3], fp.PANEL_KNOB_HI, delta=1e-3)
+        # Orbited or curved, the glass's apparent size is the same as at distance 100 with that orbit and curvature.
+        def apparent(p):  # world width of the pill over the desktop centre's distance from the eye
+            a = fp.place_point(G, T1, p, *fp.glass_to_desktop(T1, p, x, y + h / 2))
+            b = fp.place_point(G, T1, p, *fp.glass_to_desktop(T1, p, x + w, y + h / 2))
+            c = fp.place_point(G, T1, p, T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)
+            return math.dist(a, b) / math.hypot(*c)
+        for extra in ({'x': 300, 'y': -100}, {'curvature': 60}):
+            want = apparent({**DEFAULT_PLACEMENT, **extra})
+            for d in (10, 50, 200):
+                self.assertAlmostEqual(apparent({**DEFAULT_PLACEMENT, **extra, 'distance': d}), want, delta=0.02 * want)
+
     def test_hit_testing_on_a_huge_desktop(self):
         # XR-2 at ten times the size is nearest and covers the whole view: everywhere is on it, and the tile pixel found
         # projects back under the pointer, flat or curved.
@@ -315,7 +354,7 @@ class PointerBase(unittest.TestCase):
         """Free mode from XR-1's bottom edge, then the dot onto desktop i's glass pill (under the desktop)."""
         self.at(X1 + 960, 540); self.at(X1 + 960, 1079)
         x, y, w, h = fp.pill_rect(G['tiles'][i])
-        aim = fp.project(G, G['tiles'][i], self.control.state.placements[i], x + w / 2, y + h / 2)
+        aim = fp.project_glass(G, G['tiles'][i], self.control.state.placements[i], x + w / 2, y + h / 2)
         out = self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
         self.assertEqual(self.p.hover, ('pill', i))
         return out

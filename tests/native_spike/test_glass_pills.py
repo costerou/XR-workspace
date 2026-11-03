@@ -72,12 +72,12 @@ def on_panel(tile, lx, ly, placement=DEFAULT_PLACEMENT):
     """Canvas point of panel pixel (lx, ly) for a desktop at `tile` (each desktop faces you, so a side desktop's panel
     is turned toward you: projected, not flat)."""
     x, y, _, _ = fp.panel_rect(tile)
-    return fp.project(G, tile, placement, x + lx, y + ly)
+    return fp.project_glass(G, tile, placement, x + lx, y + ly)
 
 
 def pill_centre(tile, placement=DEFAULT_PLACEMENT):
     x, y, w, h = fp.pill_rect(tile)
-    return fp.project(G, tile, placement, x + w / 2, y + h / 2)
+    return fp.project_glass(G, tile, placement, x + w / 2, y + h / 2)
 
 
 class Clock:
@@ -488,13 +488,30 @@ class SliderTests(Base):
 
     def under(self, field, surface=DEFAULT_PLACEMENT):
         """The value of `field`'s slider at the pointer, on XR-1's panel drawn on `surface` (the press-time placement)."""
-        q = fp.unproject(G, T0, surface, self.p.pointer)
+        q = fp.desktop_to_glass(T0, surface, fp.unproject(G, T0, surface, self.p.pointer))
         return slider_value(field, q[0] - fp.panel_rect(T0)[0])
 
     def press_slider(self, field, lx):
         self.to(*on_panel(T0, lx, row_y(field)))
         self.assertEqual(self.p.hover[:3], ('slider', 0, field))
         return self.press()
+
+    def test_resizing_never_changes_the_panel_size_and_its_sliders_still_hit(self):
+        # Drag the distance slider to 50 (twice the size): released, the panel rides on the resized desktop, yet its
+        # track is exactly as long on screen as before, and a press at its far end still lands on the slider (200).
+        row = row_y('distance')
+        def track(p): return math.dist(on_panel(T0, knob_x(0), row, p), on_panel(T0, knob_x(1), row, p))  # on screen
+        before = track(DEFAULT_PLACEMENT)
+        self.press_slider('distance', knob_x((50 - 10) / 190))
+        self.release()
+        live = self.state.placements[0]
+        self.assertEqual(live['distance'], 50)
+        self.assertAlmostEqual(track(live), before, delta=0.005 * before)  # T0 is off-centre: turned to face you
+        self.to(*on_panel(T0, knob_x(1), row, live))
+        self.assertEqual(self.p.hover[:3], ('slider', 0, 'distance'))
+        self.press()
+        self.assertEqual(self.state.placements[0]['distance'], 200)
+        self.release()
 
     def test_a_press_selects_the_setting_and_snaps_it_to_the_pointer(self):
         out = self.press_slider('distance', knob_x(0.5))

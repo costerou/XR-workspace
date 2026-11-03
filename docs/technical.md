@@ -264,6 +264,8 @@ The size has limits and is saved like the other placements:
   each edge, so a corner that followed it 1:1 could not reach ten times. Once a desktop is bigger than the view its
   corners and pill are out of sight; shrink it with the open panel's keys (Ctrl+Alt+L, Down to Distance, then Right / Shift+Right, or R to reset). The panel's **Place** tab and an
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
+- A resize never changes the glass pill's (or its open panel's) size: it moves with the desktop's bottom edge and stays
+  the same size on screen (`view.hpp glass_to_desktop`, mirrored by `free_pointer.glass_to_desktop` for hit testing).
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
 - Zooming into a desktop brings it full size where it is (its dragged place round you) in anchor mode within 60° of
