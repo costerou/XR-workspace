@@ -39,7 +39,7 @@ import threading
 
 from . import quality
 from .view import (CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, PLAYBACK_MENU_OP, PLAYBACK_MENU_TOASTS, SAFE_PATH,
-                   SAFE_TOKEN, _binds_lua, _remove_lua)
+                   SAFE_TOKEN, SUPER_OPS, _binds_lua, _remove_lua)
 from .resize import RESIZE_OPS
 from .send import SEND_OPS
 
@@ -61,7 +61,7 @@ VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 
 # arrive from stale or racing binds. Send-window keys (Ctrl+Alt+G, 1/2/3, B) are ignored too: the desktops are hidden,
 # so a window (and focus) would move somewhere unseen.
 IGNORED_WHILE_PLAYING = (('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'mode_next')
-                         + MENU_OPS + RESIZE_OPS + SEND_OPS)
+                         + MENU_OPS + RESIZE_OPS + SUPER_OPS + SEND_OPS)
 
 PROJECTIONS = ('360', '180', 'fisheye')
 STEREO = ('mono', 'sbs', 'tb')

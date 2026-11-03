@@ -1022,6 +1022,8 @@ class OverviewPointer:
             if self.mode == 'free':
                 if motion[0] or motion[1]: out += self._move(motion[0] * self.gain, motion[1] * self.gain, now)
                 out += self._hold(now)
+            elif self.mode == 'carry':  # a Super drag between desktops (unified_cursor.py)
+                if motion[0] or motion[1]: out += self._carry(motion[0] * self.gain, motion[1] * self.gain, now)
             elif fresh and cursor is not None and applied >= self._sync:
                 out += self._absolute(cursor, now)
             else:
@@ -1371,6 +1373,10 @@ class OverviewPointer:
     def _held(self):
         """A button held on a window (unified_cursor: the non-consuming click binds); none here."""
         return False
+
+    def _carry(self, dx, dy, now):
+        """Carry mode's motion (unified_cursor.UnifiedPointer); no such mode here."""
+        return b''
 
     def _look(self):
         """The dot's look (POINTER_LOOKS; None: the plain dot), the zone contract on screen: what it holds, else what it is

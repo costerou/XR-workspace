@@ -126,6 +126,8 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Left-drag a desktop edge or corner | free pointer on a resize handle, just outside the desktop ([Handles and content](#handles-and-content)); the dot shows two arrows | Resize that desktop about its centre, keeping its shape: outward is bigger, inward is smaller. An edge follows the dot along its normal (new 2026-11-03), a corner along its diagonal. The open desktop's own edges and corners do not close its panel. A click there does nothing |
 | Left click a desktop | over its content the cursor is the real one: every click is the window's alone, and closes an open pill. Only next to the open help card is the dot still free there | There, select it on the release and hand it the real cursor at that spot (its monitor focused); this click reaches no window. No click maximizes (since 2026-11-03; Ctrl+Alt+Up does) |
 | Left press-hold (`HOLD_S` 0.35 s) or drag (> `WINDOW_DRAG_PX` 12 canvas px) on a desktop, then release on another desktop | **Off since 2026-11-03** (`OverviewPointer.window_drag`): a press, hold or drag on a desktop is its window's. With it on: holding still over a desktop | Move the window under the press onto the workspace that desktop shows (`send.WindowSender.drop`, Hyprland move with `follow = false`): no zoom, no selection change. A ghost outline follows the dot and the target desktop is framed (`overview_pointer` frame `drag`). Released anywhere else: nothing moves |
+| Super + left-drag | a window, over a desktop | Hyprland's own window move (Omarchy's bind), across desktops too: [Super drags](#super-drags). Handles do nothing while it lasts |
+| Super + right-drag | a window, over a desktop | Hyprland's own window resize. The mouse stays on that desktop until you let go |
 | Left click a help card arrow or its "2 / 3" | free pointer on the open help card | Previous page (left arrow) or next page (right arrow or the page number). Elsewhere on the card a click does nothing, and it never closes an open pill |
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
@@ -383,7 +385,7 @@ value back; only the pill's Ultrawide toggle and its Scale dropdown change a run
 
 ### The unified overview cursor
 
-Offline tests only (`tests/native_spike/test_unified_cursor.py`, `test_full_interaction.py`, `test_pointer_zones.py`, `test_directional_switch.py`,
+Offline tests only (`tests/native_spike/test_unified_cursor.py`, `test_full_interaction.py`, `test_pointer_zones.py`, `test_super_drag.py`, `test_directional_switch.py`,
 plus `bind_check`'s `--verify-config` load of its binds); not run in a live compositor or tried in the glasses. Since
 2026-11-02 (`dot-unified-cursor`) the dot is the one real cursor, and the real Hyprland cursor stays on the selected
 desktop's monitor ("home"), zoomed in and in the overview; it never crosses to another monitor in Hyprland's layout by
@@ -415,6 +417,7 @@ still for the whole overview and let no click or wheel reach a window.
   `binds.scroll_event_delay` at 0, restored afterwards). Moving the dot onto any desktop's content hands that
   desktop the real cursor under the dot and makes it home (`enter_desktop_lua`: its monitor focused, then the warp,
   then the click binds; the grab and its wheel and button binds go).
+- **Super drags:** see [below](#super-drags).
 - **Keys:** Ctrl+Alt+Left / Right change the selected desktop. Home moves with it, and the cursor and dot go to the
   middle of the new home. The pointer binds no key: the keyboard is the focused window's. Any other jump off home in the overview is pulled back home, or let go if it landed on the
   physical monitor. Cursor follow (Ctrl+Alt+F) was removed: monitor focus events never switch the view.
@@ -459,6 +462,52 @@ handles just outside the edges and corners still do their XR actions and never r
 changes on each and it feels like one cursor across an edge; open a pill, click a window and
 type (the pill closes, the letters reach the window); press Ctrl+Alt+Up (the desktop under the dot is maximized); and
 repeat after Ctrl+Alt+Right.
+
+### Super drags
+
+Offline tests only (`tests/native_spike/test_super_drag.py`, plus `bind_check`'s `--verify-config` load of the binds); not run
+in a live compositor or tried in the glasses. Since 2026-11-03 Hyprland's own window move and resize work through the dot,
+including dropping a window on another XR desktop. On this machine they are Omarchy's `SUPER + mouse:272` ("Move window") and
+`SUPER + mouse:273` ("Resize window") in `default/hypr/bindings/tiling.lua`. `hyprctl binds -j` lists them as modmask 64,
+`__lua` binds with `mouse: false`: on Hyprland 0.56.2 `hl.dsp.window.drag()` is a Lua dispatcher that ends itself on the
+button's release, not a classic `bindm`.
+
+The drag stays Hyprland's; the run keeps out of its way and carries it across the gaps. What follows about Hyprland is read
+from its source at the installed commit (`efb5099`), not observed.
+
+**Seeing it.** `view.install_drag_binds_lua` adds its own table (`xr_workspace_drag_binds`) with the run binds (not in typing
+mode). `SUPER + mouse:272` and `:273` are bound *non-consuming*: Hyprland runs every bind matching a chord, so the user's
+still fire, and `bind_check` loads these but does not count them as clashes. `mouse:272` and `:273` are bound on release
+with `ignore_mods`, because a release bind otherwise needs the press's modifiers and Super may be let go first; they run
+nothing unless a Super press came first, so a plain click spawns no helper. The ops are `view.SUPER_OPS`. A lost release
+cannot strand the dot: a plain press ends the drag in the run, and so do 30 s without pointer movement.
+
+**A move across desktops.** Inside a desktop nothing changes. At its edge the pointer goes to `carry`, not free:
+
+- The dot goes on through space from just past the edge, as ever, but nothing is grabbed, so the button stays Hyprland's.
+  The cursor, and the window with it, waits 12 px inside the edge (`CARRY_INSET_PX`) and is put back once it strays 6 px
+  (`CARRY_LEASH_PX`): that is how hand motion past an edge Hyprland clamps at still shows, and the window shakes by no more
+  than that.
+- Pills, roll arrows, panels and resize handles do nothing, and do not light up. The dot shows the `move` look throughout.
+- Onto any desktop's content (`_carry`) the cursor warps to the pixel under the dot, through the same mapping as any entry
+  (rolled, curved, resized, placed, scaled). That desktop becomes home, by a plain `view` frame with no `cut` or `center`: in
+  the overview that only moves the highlight, at once. No focus call is made: `moveCursor` already focuses the monitor, and
+  a monitor focus would take the cursor to its last window mid drag.
+- In Hyprland a warp during a drag moves the window (`moveCursor` -> `simulateMouseMovement` -> `moveMouse`: start position +
+  the cursor's delta) and, while it is floating, gives it to the active workspace of the monitor under its **middle**
+  (`assignToSpace`). A dragged tiled window floats, centred on the cursor, so it changes monitor with the cursor and re-tiles
+  there on release. A floating window keeps its offset from the cursor, so held far from its middle it changes monitor
+  only once its middle is over, as on any multi-monitor desktop.
+- Dropped between desktops, the window stays where it waited and the dot is free there.
+
+**A resize** is monitor-bound: the window keeps the cursor, as for a held left button. It stays on that desktop, pulled back if
+Hyprland lets it onto another monitor, and the dot never goes free. The dot shows `resize_nwse`.
+
+**Super is never an XR action.** The run's own left-button binds have no modifier, so with Super held they do not fire and
+no pill or corner drag can start. With the dot off the desktops nothing is under it, but Hyprland has just begun dragging
+whatever is under the parked cursor: the bind sees the free grab and a 1 ms timer ends that drag (outside a bind,
+`hl.dsp.window.drag()` is the drag's release). A tiled window there may flicker for a frame. Maximized, a Super drag stops the
+push past an edge from switching desktops (`can_switch`): the cursor just stays on home.
 
 ### Moving desktops in the overview (the pill under the desktop)
 
@@ -888,7 +937,8 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 - The unified overview cursor adds unmodified binds in the overview, in the free pointer's bind table and removed with
   it (see [The unified overview cursor](#the-unified-overview-cursor)): over a desktop a non-consuming left-button
   press/release (the window still gets the click); while the dot is free, the right, middle and side buttons and the
-  wheel. It sets `binds.scroll_event_delay` to 0 while free and puts it back with those binds. It warps and holds the
+  wheel. With the run's binds, non-consuming Super + left / right presses and the release of those buttons
+  ([Super drags](#super-drags)); they never stop the desktop's own binds. It sets `binds.scroll_event_delay` to 0 while free and puts it back with those binds. It warps and holds the
   cursor only on the run's XR desktops' monitors (the one under the dot in the overview, the selected one zoomed in),
   and gives monitor focus only to them.
 

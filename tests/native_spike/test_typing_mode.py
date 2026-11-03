@@ -79,11 +79,12 @@ class BindLuaTests(unittest.TestCase):
         # cleanup), then only the toggle comes back. No send-window binds.
         self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS, typing=True)])
         for table in ('xr_workspace_binds = nil', 'xr_workspace_send_binds = nil', 'xr_workspace_menu_binds = nil',
-                      'xr_workspace_mouse_binds = nil'):
+                      'xr_workspace_mouse_binds = nil', f'{view.DRAG_TABLE} = nil'):
             self.assertIn(table, sent[0])
         self.assertLessEqual(len(sent[0]), 4096)
         sent.clear(); client.reinstall_view_binds(*ARGS, typing=False)
-        self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS)])
+        self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS),
+                                view.install_drag_binds_lua(*ARGS)])
 
 
 class ControlTests(unittest.TestCase):

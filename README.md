@@ -242,8 +242,15 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
   never maximizes the desktop. To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the desktop under the
   dot grows where it is to fill your view, then follows your head.
-- **Moving a window to another desktop by holding it** is switched off for now, so a long press or a slow drag in an
-  app stays the app's. Use **Ctrl+Alt+1–4** or **Ctrl+Alt+G** to send the window you're using to another desktop.
+- **Drag a window to another desktop with Super** (new, not yet tried in the glasses): hold **Super** and drag it with the
+  left button, as on any monitor. Past the edge of its desktop the dot carries on through the space between desktops, and
+  when it reaches another desktop the window arrives under it, wherever that desktop is placed. A tiled window fits in
+  where you drop it. A floating one changes desktop once its middle is over, so drag it a little further in. Let go between
+  desktops and it stays where it was. While you drag, the pills, roll arrows and resize handles do nothing, and nothing
+  animates. **Super and the right button** resizes the window as usual, and the mouse stays on that desktop until you
+  let go. If the dot is off the desktops, Super and a click do nothing.
+- **Moving a window to another desktop by holding it** without Super is switched off for now, so a long press or a slow
+  drag in an app stays the app's. **Ctrl+Alt+1–4** and **Ctrl+Alt+G** still send the window you're using.
 - **A held button stays on its desktop.** While you hold a mouse button (dragging inside an app, selecting text) the
   mouse stays on that desktop until you let go, even at its edge. The selected desktop is the one under the dot;
   Ctrl+Alt+Left / Right still pick one too.

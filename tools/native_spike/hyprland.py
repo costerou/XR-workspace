@@ -194,9 +194,11 @@ class HyprlandClient:
 
     def install_view_binds(self, python, client, control_socket, run_id, session):
         """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
-        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
+        from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(install_binds_lua(python, client, control_socket, run_id, session))
-        try: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+        try:
+            self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+            self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
         except (OSError, ValueError):
             try: self._eval(remove_binds_lua())  # the run will not start: leave no half-installed binds behind
             except (OSError, ValueError): pass
@@ -216,10 +218,13 @@ class HyprlandClient:
 
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
         """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
-        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
-        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
+        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send, Super drag and placement-panel
+        binds."""
+        from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
-        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+        if not typing:
+            self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+            self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
 
     def set_dpms(self, name, on, keep=None):
         """Privacy mode (Ctrl+Alt+D, privacy.py): the physical output `name` DPMS off (`keep`: the glasses' output,

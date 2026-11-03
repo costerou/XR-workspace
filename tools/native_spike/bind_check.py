@@ -11,7 +11,8 @@ pointer's left button, the overview input lock's other buttons and wheel, the un
 desktop-mode click binds) the same way, so Hyprland also checks that
 ours load. The run's chords (view.BINDS, send.SEND_BINDS, MENU_BINDS, the free pointer's resize_press / resize_release,
 input_lock.OTHER_BUTTONS and WHEEL) are then compared with the desktop's and with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
-digits) count as the same key. The running compositor is never contacted.
+digits) count as the same key. The Super drag binds (view.SUPER_BINDS) are loaded and counted but not compared: they sit on
+the desktop's own window move and resize chords on purpose, non-consuming. The running compositor is never contacted.
 
 Exit status: 0 no clash, 1 clash found, 2 could not check (no Hyprland binary, config or harness error).
 """
@@ -72,7 +73,11 @@ def harness_lua(config, out):
               # The unified cursor's desktop-mode left button (non-consuming; pcall'd, so check both were taken).
               unified_cursor.click_binds_lua(*DUMMY_ARGS) +
               f' assert(#{resize.BIND_TABLE} == 2, "the unified cursor\'s click binds were refused")',
-              resize.remove_resize_binds_lua(), view.remove_binds_lua()]
+              resize.remove_resize_binds_lua(),
+              # The Super drag binds: on the user's own chords on purpose (non-consuming, so no clash: not in run_chords).
+              view.install_drag_binds_lua(*DUMMY_ARGS) +
+              f' assert(#{view.DRAG_TABLE} == {len(view.SUPER_BINDS) + len(view.SUPER_BUTTONS)}, "the Super drag binds were refused")',
+              view.remove_binds_lua()]
     ours = '\n'.join(f'do {c} end' for c in chunks)
     return f'''local out = assert(io.open({_lua_string(out)}, "w"))
 local phase = "desktop"

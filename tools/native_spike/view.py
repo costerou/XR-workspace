@@ -115,6 +115,15 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
+# Super drags: Hyprland's own window move and resize, Omarchy's `SUPER + mouse:272` / `SUPER + mouse:273`
+# (default/hypr/bindings/tiling.lua; on this build `hyprctl binds -j` lists them as `__lua` binds with mouse false: the
+# Lua drag dispatchers end themselves on release). The run binds the same chords non-consuming, beside them, to see a drag
+# begin, and the buttons' release (ignore_mods: Super may be let go first) to see it end: install_drag_binds_lua,
+# unified_cursor.py. Hyprland runs every bind matching a chord, so this takes nothing from the user's binds.
+SUPER_OPS = ('super_left_press', 'super_right_press', 'super_release')
+SUPER_BINDS = (('SUPER + mouse:272', 'super_left_press'), ('SUPER + mouse:273', 'super_right_press'))
+SUPER_BUTTONS = ('mouse:272', 'mouse:273')
+DRAG_TABLE = 'xr_workspace_drag_binds'
 # Typing mode (module docstring): the one run bind that stays while every other bind is released. Ctrl+Alt+T is free in
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
@@ -683,8 +692,10 @@ def _remove_lua(table):
 
 
 def remove_binds_lua():
-    """Run end / reinstall: the view binds, the send-window binds and an open placement panel's modal binds."""
-    return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_menu_binds_lua()
+    """Run end / reinstall: the view binds, the send-window binds, the Super drag binds and an open placement panel's modal
+    binds."""
+    return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_drag_binds_lua() + ' ' + \
+        remove_menu_binds_lua()
 
 
 def install_send_binds_lua(python, client, control_socket, run_id, session):
@@ -700,6 +711,33 @@ def install_send_binds_lua(python, client, control_socket, run_id, session):
 
 def remove_send_binds_lua():
     return _remove_lua('xr_workspace_send_binds')
+
+
+def install_drag_binds_lua(python, client, control_socket, run_id, session):
+    """The run's view of Super drags (SUPER_BINDS): non-consuming, beside the user's own binds, in their own table. With
+    the real cursor on a desktop, a press tells the run (helper op) and the buttons' next release, whatever the modifiers
+    are by then, does too; other releases run nothing, so a plain click spawns no helper. With the dot free (the grab's
+    table is set) nothing is under the dot, but Hyprland has just started dragging whatever is under the parked cursor:
+    a 1 ms timer ends that drag (outside a bind hl.dsp.window.drag() is the drag's release) and the run hears nothing.
+    pcall'd: a refused bind is left out."""
+    from .resize import GRAB_TABLE
+    for p in (python, client, control_socket):
+        if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
+    for t in (run_id, session):
+        if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
+    presses = ' '.join(f'bind("{chord}", press("{op}"), {{ non_consuming = true }})' for chord, op in SUPER_BINDS)
+    releases = ' '.join(f'bind("{b}", release, {{ release = true, non_consuming = true, ignore_mods = true }})' for b in SUPER_BUTTONS)
+    return (remove_drag_binds_lua() + f' do local t, held = {{}}, false local c = "{python} -I {client} {control_socket} {run_id} {session} " '
+            'local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end '
+            f'local function press(op) return function() if {GRAB_TABLE} then '
+            'hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = "oneshot" }) return end '
+            'held = true hl.exec_cmd(c .. op) end end '
+            f'local function release() if held then held = false hl.exec_cmd(c .. "{SUPER_OPS[2]}") end end '
+            f'{presses} {releases} {DRAG_TABLE} = t end')
+
+
+def remove_drag_binds_lua():
+    return _remove_lua(DRAG_TABLE)
 
 
 def install_menu_binds_lua(python, client, control_socket, run_id, session):
@@ -1142,6 +1180,9 @@ class ViewControl:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
+        if isinstance(message, dict) and message.get('op') in SUPER_OPS:  # unified_cursor.py: Super drags
+            on_super = getattr(self.overview_pointer, 'on_super', None)
+            return on_super(message['op']) if on_super is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None

@@ -27,7 +27,7 @@ import time
 
 from .resize import GRAB_TABLE
 
-DOT_MODES = ('desktop', 'free')  # OverviewPointer modes with the dot drawn and the real cursor hidden
+DOT_MODES = ('desktop', 'free', 'carry')  # OverviewPointer modes with the dot drawn and the real cursor hidden
 RELOAD_REAPPLY_S = 2.0           # config reloads: at most one forced re-send per this long (free mode's regrab limit)
 TABLE = 'xr_workspace_overview_cursor'
 HIDE_LUA = (f'do local g = {GRAB_TABLE} if {TABLE} == nil then local invisible '

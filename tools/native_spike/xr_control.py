@@ -26,10 +26,10 @@ LEGACY_OPS = ('menu_mouse', 'menu_mouse_press', 'menu_mouse_release')
 OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next',
        'prediction', 'help', 'menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'menu_ultrawide', 'menu_add',
-       'menu_delete', 'resize_press', 'resize_release',
+       'menu_delete', 'resize_press', 'resize_release', 'super_left_press', 'super_right_press', 'super_release',
        'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back', 'typing_toggle',
        'help_prev', 'help_next', 'privacy_display', 'playback_menu_toggle'
-       ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS
+       ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + view.SUPER_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS
                        # + privacy.PRIVACY_OP + view.PLAYBACK_MENU_OP + LEGACY_OPS
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
@@ -86,6 +86,10 @@ REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
                        'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
                        'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
                        'end end')
+# Same text as view.remove_drag_binds_lua() (tests compare): a Super drag with no run listening drops the run's own binds
+# beside the user's (which never stopped working).
+REMOVE_DRAG_BINDS = ('for _, b in ipairs(xr_workspace_drag_binds or {}) do '
+                     'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_drag_binds = nil')
 # Same text as overview_cursor.SHOW_LUA (tests compare): the real cursor a dead run hid in the overview comes back. Sent
 # after every stale cleanup's own code below; after REMOVE_RESIZE_BINDS, whose grab record still says hidden.
 SHOW_OVERVIEW_CURSOR = ('do local s = xr_workspace_overview_cursor xr_workspace_overview_cursor = nil if s then '
@@ -245,6 +249,7 @@ def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
         if op.startswith('video_'): drop_stale_video_binds()  # incl. Escape (video_exit)
         if op.startswith('menu_'): drop_stale_menu_binds()  # incl. Escape (menu_toggle); harmless if none are left
         if op.startswith('resize_'): drop_stale_menu_binds(code=REMOVE_RESIZE_BINDS)  # give the left button back
+        if op.startswith('super_'): drop_stale_menu_binds(code=REMOVE_DRAG_BINDS)
         if op.startswith('send_'): notify_no_session()  # nothing moves
         if op == 'privacy_display': _eval_stale(os.environ, WAKE_ALL_DISPLAYS)  # never leave the main display dark
         return 1

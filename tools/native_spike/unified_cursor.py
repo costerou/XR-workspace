@@ -50,6 +50,21 @@ scrolling and typing, and a click never maximizes):
     it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so the keyboard goes to that
     monitor's focused window and focus-follows-mouse picks the window under the dot. It feels like one cursor: the same
     dot, the same speed either side of an edge (_gain), and a look that always says what a press would do.
+  * Super drags (Hyprland's own window move and resize, SUPER + mouse:272 / 273: view.SUPER_BINDS; Cody, 2026-11-03). The drag
+    stays Hyprland's; the run only keeps out of its way and carries it across the gaps. Non-consuming binds beside the
+    user's tell the run it began, and the buttons' release (ignore_mods: Super may go first) that it ended
+    (view.install_drag_binds_lua, on_super). A move: inside a desktop nothing changes. At its edge the mode is `carry`, not
+    free: the dot goes on through space from just past the edge (free_pointer._exit) with nothing grabbed, so the button
+    stays Hyprland's, while the cursor, and the window, wait CARRY_INSET_PX inside the edge, put back once they stray
+    CARRY_LEASH_PX so hand motion past a clamped edge still shows. Handles do nothing in carry mode. Onto any desktop's
+    content (_carry) the cursor warps to the pixel under the dot, that desktop is home (a plain view frame: the highlight
+    moves, no animation) and the mode is desktop again. No focus call: warping is enough. In Hyprland 0.56.2's source
+    moveCursor warps, focuses that monitor and simulates motion; motion during a drag sets the window to its start
+    position + the cursor's delta and, floating (a dragged tiled window is, centred on the cursor), gives it to the
+    workspace of the monitor under its middle; the release re-tiles a tiled one there. A drop between desktops leaves
+    the window where it waited and the dot free. A resize: the window keeps the cursor, as for a held left button: it stays
+    on home, pulled back, and never goes free. Maximized, the same binds stop the push past an edge (can_switch). With
+    the dot free nothing is under it, so the bind itself ends the drag Hyprland began on the parked cursor.
   * Keys. Ctrl+Alt+Left / Right change the selected desktop: home moves with it, and the cursor and dot go to the middle
     of the new home (OverviewPointer desktop mode there; zoomed in, the confinement moves it). Any other jump of the
     cursor off home in the overview is pulled back home, or let go (away) if it landed on the physical monitor.
@@ -71,6 +86,10 @@ NUDGE_PX = 12             # an edge Hyprland clamps the cursor at (nothing beyon
                           # is put back this far in, and each touch counts this much push (the hand's push is not seen)
 SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's zoom out, turn, zoom in)
 ENTRY_PX = 24             # the cursor enters the new desktop this far inside the edge it came in over
+# A Super drag (carry mode) between desktops: the real cursor, and the window with it, waits this far inside the edge it
+# left by (so hand motion past a clamped edge still shows), and goes back there once it strays CARRY_LEASH_PX. Small, because
+# the window shows every pixel of that.
+CARRY_INSET_PX, CARRY_LEASH_PX = 12, 6
 PENDING_S = 0.5           # a requested switch the loop has not made by then is dropped
 
 CLICK_OPTS = '{ non_consuming = true }', '{ release = true, non_consuming = true }'
@@ -235,13 +254,16 @@ class UnifiedPointer(fp.OverviewPointer):
         self.rehomes = self.pullbacks = self.window_clicks = self.follows = 0  # diagnostics
         self._switch = None  # zoomed in: (home, target) the sampler asked the loop to switch to (EdgePush)
         self.edge_switches = 0  # diagnostics
+        self.super_drag = None  # 'move' / 'resize': a Super drag of Hyprland's is under way (on_super)
+        self.carries = 0        # diagnostics: Super drags that left a desktop
 
     # --- zoomed in: the push past an edge -------------------------------------------------------------------------
     def can_switch(self):
         """A push past home's edge switches desktops: zoomed in, not in typing mode and with no VR video (as the
         Ctrl+Alt+Left / Right keys, whose binds typing mode and a video release)."""
         s = self.control.state
-        return s.zoomed and not getattr(s, 'typing', False) and not getattr(self.control, 'video_active', False)
+        return s.zoomed and not getattr(s, 'typing', False) and not getattr(self.control, 'video_active', False) \
+            and self.super_drag is None  # never mid Super drag: no switch, the cursor just stays on home
 
     def neighbour(self, edge):
         """The desktop placed past home's `edge` round you (neighbors.pick on the renderer's overview layout and the
@@ -270,7 +292,8 @@ class UnifiedPointer(fp.OverviewPointer):
     # --- modes ----------------------------------------------------------------------------------------------------
     def poll(self, now):
         if not self.active() or now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S: self.click = None
-        out = self._take_switch()
+        out = self._super_end() if self.super_drag is not None and now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S else b''
+        out += self._take_switch()
         if self.active() and self.mode in fp.DOT_MODES and self.desktop != self._home():
             out += self._to_home(now)  # a key changed the selected desktop: the cursor goes with it
             self.rehomes += 1
@@ -319,7 +342,7 @@ class UnifiedPointer(fp.OverviewPointer):
             return self._wants()
         cx, cy = min(max(lx, 0), w - 1), min(max(ly, 0), h - 1)
         over = (lx - cx, ly - cy)
-        if self.click is not None:  # held: the window keeps the cursor, which stays on home
+        if self.click is not None or self.super_drag == 'resize':  # held: the window keeps the cursor, which stays on home
             if at is None or at[0] != home:
                 self.pullbacks += 1
                 self._set_want('desktop', inside(o, cursor), sync=True)
@@ -332,6 +355,7 @@ class UnifiedPointer(fp.OverviewPointer):
                 return self._wants()
             self.pullbacks += 1
             return self._to_home(now) + self._wants()
+        if self.super_drag == 'move': return self._start_carry(home, o, cursor, now)
         start = self._exit(home, lx, ly)  # just past the edge it reached: on that edge's resize handle
         if start is None: return self._wants()
         self.gain = self._gain(home)
@@ -349,11 +373,83 @@ class UnifiedPointer(fp.OverviewPointer):
         return b''
 
     def _onto_help(self):
-        if self.click is None: super()._onto_help()  # a held button stays with its window until released
+        if self.click is None and self.super_drag is None: super()._onto_help()  # a held button stays with its window
 
     def _held(self):
-        """The left button held on a window (desktop mode): the dot is drawn held, as for a handle drag."""
-        return self.click is not None and self.mode == 'desktop'
+        """The left button held on a window (desktop mode), or a Super drag: the dot is drawn held, as for a handle drag."""
+        return (self.click is not None and self.mode == 'desktop') or self.super_drag is not None
+
+    def _look(self):
+        """A Super drag shows what it does, wherever the dot is; otherwise the zone contract (free_pointer._look)."""
+        return {'move': 'move', 'resize': 'resize_nwse'}.get(self.super_drag) or super()._look()
+
+    # --- Super drags ----------------------------------------------------------------------------------------------
+    def on_super(self, op):
+        """view.SUPER_OPS: Hyprland began a window move or resize under the cursor, or a button came up (module docstring:
+        Super drags). Only the run's own idea of the drag changes here: the drag itself is Hyprland's."""
+        if op not in view.SUPER_OPS: raise ValueError('unsupported Super drag operation')
+        now = self.clock()
+        self.last_move = now
+        if op == 'super_release': return self._super_end() or None
+        self.super_drag = 'move' if op == 'super_left_press' else 'resize'
+        self.click = None
+        out = self.control.pill_close() if self.active() and self.control.state.menu_open else b''  # as a click into a window
+        if self.active() and self.mode == 'free':  # the hand beat the helper to the edge: the grab must not stay on the drag
+            o = self._output(self._home())
+            with self._lock: cursor = self._abs
+            if o is not None and cursor is not None:
+                if self.super_drag == 'move': out += self._start_carry(self._home(), o, cursor, now)
+                else:
+                    self.mode, self.desktop, self.hover = 'desktop', self._home(), None
+                    self._set_want('desktop', inside(o, cursor), sync=True)
+        return (out + self._frames(False)) or None if self.active() else out or None
+
+    def _super_end(self):
+        """The Super drag's button came up (or its release was lost: _desktop_button, the idle close). Dropped between
+        desktops, the dot is free there again; Hyprland left the window where the cursor waited."""
+        self.super_drag = None
+        if self.mode != 'carry': return self._frames(False) if self.active() else b''
+        o = self._output(self.desktop)
+        if o is None:
+            self.mode, self.desktop, self.pointer = 'away', None, None
+            self._set_want('away')
+            return b''
+        self.mode = 'free'
+        self._set_want('free', self._park(o))
+        self.hover = self._hit()
+        return self._frames(False)
+
+    def _start_carry(self, i, o, cursor, now):
+        """A Super drag reached desktop i's edge: the dot goes on through space from just past it, as ever (free_pointer._exit),
+        but nothing is grabbed, so the button stays Hyprland's and the drag goes on. The cursor, and the window, wait just
+        inside the edge."""
+        start = self._exit(i, cursor[0] - o['x'], cursor[1] - o['y'])
+        if start is None: return self._wants()
+        self.gain = self._gain(i)
+        self.pointer = self._clamp(start)
+        self.mode, self.desktop, self.hover, self.last_move = 'carry', i, None, now
+        self.exits += 1
+        self.carries += 1
+        self._set_want('carry', inside(o, cursor, CARRY_INSET_PX), sync=True)
+        return b''
+
+    def _carry(self, dx, dy, now):
+        """Carry mode: the dot moves through space. Handles do nothing here. Onto any desktop's content the cursor warps to
+        the matching pixel (a warp, no focus call, which would take the window from under the drag): Hyprland's drag follows
+        the cursor there, by the same offset, and the window goes to that monitor's workspace with its middle. That desktop
+        is home now: a plain view frame, so the highlight moves with no animation."""
+        self.pointer = self._clamp((self.pointer[0] + dx, self.pointer[1] + dy))
+        self.last_move = now
+        i = fp.desktop_at(self.geometry, self._rolled(), self.pointer)
+        if i is None: return b''
+        tile = self._tile(i)
+        q = fp.unproject(self.geometry, tile, self._placement(i), self.pointer)
+        target = self._to_layout(i, q) if q is not None and fp.inside_by(tile, q) >= fp.ENTER_PX else None
+        if target is None: return b''
+        self.mode, self.desktop = 'desktop', i
+        self.entries += 1
+        self._set_want('desktop', target, sync=True)
+        return self._select(i)
 
     def _park(self, o, local=None):
         """Free mode holds the hidden cursor just inside home where it left (input_lock.park_point), not in the middle:
@@ -388,10 +484,14 @@ class UnifiedPointer(fp.OverviewPointer):
     # --- the left button ------------------------------------------------------------------------------------------
     def on_op(self, op):
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
+        # A plain press means no button is held: a Super drag's release was lost. A plain release mid drag (Super let go
+        # first) is nothing: its own release bind says when it ends.
+        stale = self._super_end() if op == 'resize_press' and self.super_drag is not None else b''
+        if self.mode == 'carry': return stale or None
         if self.mode == 'desktop' or (op == 'resize_release' and self.click is not None):
-            return self._desktop_button(op)
+            return (stale + (self._desktop_button(op) or b'')) or None
         self.click = None
-        return super().on_op(op)
+        return (stale + (super().on_op(op) or b'')) or None
 
     def _desktop_button(self, op):
         """Over home, the non-consuming left button: the window already has it. The press closes an open placement panel
@@ -548,6 +648,12 @@ class UnifiedSampler(il.LockedSampler):
                 self.ever_grabbed = True  # set first: a failed or partial grab is still undone at stop
                 self.client.grab_pointer(*self.bind_args, *point)  # the lock's grab (input_lock._LockingClient)
                 self.grabbed, self.bound, self.park, self._last = True, False, point, point
+            elif kind == 'carry':  # a Super drag between desktops: no grab, the button stays Hyprland's
+                if self.grabbed:  # (the hand beat the helper to the edge: on_super)
+                    self.client.enter_desktop(*self.bind_args, *point)
+                    self.grabbed, self.bound = False, True
+                else: self.client.warp_cursor(*point)
+                self.park, self._last = point, point
             elif kind == 'desktop' and self.bound and not self.grabbed:  # the click binds are in: only the cursor moves
                 if point is not None: self.client.warp_cursor(*point)
             elif kind == 'desktop':  # into a desktop from free mode (or away): that monitor focused, the cursor under the dot
@@ -564,6 +670,16 @@ class UnifiedSampler(il.LockedSampler):
             self.errors += 1
             return  # retried on the next sample
         self.applied = serial
+
+    def _recentre(self, cursor):
+        """Carry mode: the cursor, and the dragged window with it, goes back to where it waits once it strays
+        CARRY_LEASH_PX: that is how hand motion past a clamped edge keeps showing. Otherwise the lock's own leash."""
+        if self.pointer.want[1] != 'carry' or not self.pointer.overview(): return super()._recentre(cursor)
+        if cursor is None or self.park is None or math.hypot(cursor[0] - self.park[0], cursor[1] - self.park[1]) <= CARRY_LEASH_PX: return
+        try:
+            self.client.warp_cursor(*self.park)
+            self._last = self.park; self.recentres += 1
+        except (OSError, ValueError, TypeError, KeyError, AttributeError): pass
 
     def _monitor(self, point):
         """The name of the run's XR monitor holding layout point `point`, or None."""
