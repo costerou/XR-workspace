@@ -1,6 +1,7 @@
-"""Dot-cursor click under the input lock (the run's pointer, input_lock.LockedPointer, as managed.py wires it) and with
-desktops placed anywhere round you (3DoF orbit, always facing you): a click with the dot wherever a desktop is shown
-zooms into that desktop, leaving the overview, exactly as Ctrl+Alt+Up does on the selected desktop.
+"""Dot-cursor click under the input lock (input_lock.LockedPointer; the run now wires the unified cursor, whose free mode
+grabs like this one: test_unified_cursor.py) and with desktops placed anywhere round you (3DoF orbit, always facing
+you): a click with the dot wherever a desktop is shown zooms into that desktop, leaving the overview, exactly as
+Ctrl+Alt+Up does on the selected desktop.
 
 Regressions:
   * click-zoom-fix (2026-11-02, installed master 80fab06): a dot click on a monitor in the overview did not zoom into it.

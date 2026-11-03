@@ -5,8 +5,8 @@ usage: python3 -m tools.native_spike.bench_control [--quick] [--json PATH] [--on
 Benchmarks (one result block each; --json writes them all for a before / after comparison):
   hypr_query  HyprlandClient.query('cursorpos') against a fake Hyprland socket server in another process: client CPU
               and wall time per request. The overview's cursor sampler makes up to 250 of these a second.
-  overview    The overview end to end: a real Supervisor loop with the run's ViewControl, the input lock's LockedPointer
-              and LockedSampler, and a real HyprlandClient against the fake compositor, whose cursor moves 10 px every
+  overview    The overview end to end: a real Supervisor loop with the run's ViewControl, the unified cursor's UnifiedPointer
+              and UnifiedSampler, and a real HyprlandClient against the fake compositor, whose cursor moves 10 px every
               20 ms. A fake renderer process sends heartbeats at 120 Hz and times the overview_pointer frames it gets.
               Supervisor-process CPU (loop + sampler thread), samples per second, and cursor move -> dot frame latency.
   watchdog    The watchdog loop alone: 120 Hz heartbeats from the fake renderer and a real spawned guard worker (every
@@ -202,7 +202,7 @@ def bench_hypr_query(quick):
 
 def bench_overview(quick):
     from . import view
-    from .input_lock import LockedPointer, LockedSampler
+    from .unified_cursor import UnifiedPointer, UnifiedSampler
     from .free_pointer import parse_overview_geometry
     from .ipc import PrivateServer
     from .profiles import LayoutStore
@@ -225,12 +225,12 @@ def bench_overview(quick):
 
     control = view.ViewControl(view.ViewState(NAMES), run_id, session, lambda name: None,
                                LayoutStore(fake.tmp / 'layout.json'), server, placements=Placements())
-    pointer = control.overview_pointer = LockedPointer(control)
+    pointer = control.overview_pointer = UnifiedPointer(control)
     control.wake = pointer.wake_reader
     control.set_overview_geometry(parse_overview_geometry(GEOMETRY))
     client = fake.client()
     bind_args = (sys.executable, str(HELPER), str(server.path), run_id, session)
-    sampler = LockedSampler(client, NAMES, pointer, bind_args).start()
+    sampler = UnifiedSampler(client, NAMES, pointer, bind_args).start()
     watchdog = Supervisor(proc, lambda: proc.poll(), control=control, status_socket=status_parent)
     marks = {}
     loop_clock = time.pthread_getcpuclockid(threading.get_ident())  # this thread runs the supervisor loop

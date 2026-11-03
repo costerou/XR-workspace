@@ -120,12 +120,14 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
                                    typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
         # Overview free pointer (glass pills, corners, panel sliders): cursor reads, its modal left-button binds and cursor
-        # hiding, off the supervisor loop. With the input lock (input_lock.py): in the overview the mouse only drives
-        # that pointer; the real cursor is held still and its buttons and wheel never reach a window.
-        from .input_lock import LockedPointer, LockedSampler
-        pointer = control.overview_pointer = LockedPointer(control)
+        # hiding, off the supervisor loop. Unified cursor (unified_cursor.py): the real cursor follows the dot, on the
+        # matching monitor and point while the dot is over a desktop (its clicks and wheel reach the window there); past
+        # a desktop's edge it is parked and the dot carries on through space to the next desktop.
+        from .unified_cursor import UnifiedPointer, UnifiedSampler
+        pointer = control.overview_pointer = UnifiedPointer(control)
         control.wake = pointer.wake_reader
-        if hasattr(client, 'lock_pointer'): sampler = LockedSampler(client, capture, pointer, bind_args).start()
+        if hasattr(client, 'lock_pointer') and hasattr(client, 'enter_desktop'):
+            sampler = UnifiedSampler(client, capture, pointer, bind_args).start()
         # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-3, B). Closed first at run end (below).
         if hasattr(client, 'mutate'):
             from .send import WindowSender

@@ -354,6 +354,12 @@ class HyprlandClient:
         from .input_lock import lock_pointer_lua
         self._eval(lock_pointer_lua(python, client, control_socket, run_id, session, x, y))
 
+    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None):
+        """Unified overview cursor, desktop mode: any free-mode grab removed, the cursor warped to (x, y) if given, and
+        the non-consuming left-button click binds; one eval of generated Lua."""
+        from .unified_cursor import enter_desktop_lua
+        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y))
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

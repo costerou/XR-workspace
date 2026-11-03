@@ -7,7 +7,8 @@ loaded by `Hyprland --verify-config`, which runs the Lua config with the real `h
 runs in a throwaway HOME holding a copy of ~/.config/hypr and the Omarchy state the config reads, so nothing outside
 that directory is written. A small harness wraps hl.bind / hl.unbind to record every chord the config binds, then runs
 this run's own generated bind Lua (view binds, send-window binds, the placement panel's modal binds, the overview free
-pointer's left button, the overview input lock's other buttons and wheel) the same way, so Hyprland also checks that
+pointer's left button, the overview input lock's other buttons and wheel, the unified cursor's non-consuming
+desktop-mode click binds) the same way, so Hyprland also checks that
 ours load. The run's chords (view.BINDS, send.SEND_BINDS, MENU_BINDS, the free pointer's resize_press / resize_release,
 input_lock.OTHER_BUTTONS and WHEEL) are then compared with the desktop's and with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
 digits) count as the same key. The running compositor is never contacted.
@@ -22,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 
-from . import input_lock, resize, send, view
+from . import input_lock, resize, send, unified_cursor, view
 
 # Hyprland modifier spellings -> one name each.
 MODS = {'SUPER': 'SUPER', 'WIN': 'SUPER', 'LOGO': 'SUPER', 'MOD4': 'SUPER', 'META': 'SUPER', 'CTRL': 'CTRL',
@@ -67,6 +68,10 @@ def harness_lua(config, out):
               view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
               view.install_menu_binds_lua(*DUMMY_ARGS), resize.install_resize_binds_lua(*DUMMY_ARGS),
               input_lock.lock_binds_lua(*DUMMY_ARGS),  # into the free pointer's table, removed with it
+              resize.remove_resize_binds_lua(),
+              # The unified cursor's desktop-mode left button (non-consuming; pcall'd, so check both were taken).
+              unified_cursor.click_binds_lua(*DUMMY_ARGS) +
+              f' assert(#{resize.BIND_TABLE} == 2, "the unified cursor\'s click binds were refused")',
               resize.remove_resize_binds_lua(), view.remove_binds_lua()]
     ours = '\n'.join(f'do {c} end' for c in chunks)
     return f'''local out = assert(io.open({_lua_string(out)}, "w"))
@@ -166,8 +171,8 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w == 'menu'}))
     sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
     return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), '
-                        f'placement panel binds ({labels}), the free pointer\'s left button and the input lock\'s other '
-                        'buttons and wheel']
+                        f'placement panel binds ({labels}), the free pointer\'s left button (and the unified cursor\'s '
+                        'non-consuming click binds) and the input lock\'s other buttons and wheel']
 
 
 def main(argv=None):

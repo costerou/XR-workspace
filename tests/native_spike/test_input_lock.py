@@ -1,6 +1,7 @@
 """Overview input lock (input_lock.py): capture instead of desktop mode, the held cursor and its leash, warps made by focus
 changes followed, the release on leaving the overview, the lock's button and wheel binds (also run by a real Lua
-interpreter against a stub `hl`), a dead run's cleanup, bind_check and the run's wiring.
+interpreter against a stub `hl`), a dead run's cleanup and bind_check. The run itself wires the unified cursor
+(unified_cursor.py, test_unified_cursor.py), which reuses the lock's grab for free mode.
 
 Offline only: fake clocks, fake compositor clients and a stub `hl` (Hyprland itself only as --verify-config, through
 bind_check, when installed). No compositor, renderer binary or glasses.
@@ -452,26 +453,6 @@ class BindCheckTests(unittest.TestCase):
             status, lines = bind_check.check(cfg, HYPRLAND, home)
             self.assertEqual(status, 1, lines)
             self.assertTrue(any('mouse:275' in l and 'lock' in l for l in lines), lines)
-
-
-class WiringTests(unittest.TestCase):
-    def test_the_run_captures_with_the_lock(self):
-        from tools.native_spike import managed
-        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
-        client = mock.Mock(runtime_dir=Path(tmp.name))
-        client.query.side_effect = lambda kind, *a, **k: (MONITORS if kind == 'monitors' else
-                                                          {'x': X2 + 960, 'y': 540} if kind == 'cursorpos' else None)
-        client.event_stream.side_effect = OSError('no events')
-        with managed.view_controls(client, 'run', 'session', NAMES, store=LayoutStore(Path(tmp.name) / 'l.json')) as control:
-            self.assertIsInstance(control.overview_pointer, il.LockedPointer)
-            control.set_overview_geometry(G)
-            deadline = time.monotonic() + 2
-            while time.monotonic() < deadline and not client.lock_pointer.called:
-                control.poll(); time.sleep(0.01)
-            self.assertEqual(client.lock_pointer.call_args.args[5:], (X2 + 960, 540))
-            self.assertEqual(control.state.selected, 1)
-        client.grab_pointer.assert_not_called()
-        client.remove_resize_binds.assert_called()  # run end
 
 
 if __name__ == '__main__':

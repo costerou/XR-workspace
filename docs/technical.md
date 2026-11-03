@@ -218,9 +218,9 @@ With the dot:
   shorter side, 10–28 px each way), so it reaches outside the desktop. A small dim L-bracket shows inside that corner.
   Drag it: the corner follows the dot along its diagonal, outward bigger, inward smaller. A corner wins where it meets
   the pill's zone.
-- **Zoom into a desktop: click it.** The click is the run's, not the window's: the desktop is selected, its monitor gets
-  Hyprland's focus and the view zooms into it (the Ctrl+Alt+Up path). The cursor comes back at the clicked spot, on the
-  clicked monitor, so the next click reaches the window there.
+- **Zoom into a desktop: click it.** The desktop is selected, its monitor gets Hyprland's focus and the view zooms into
+  it (the Ctrl+Alt+Up path). The cursor comes back at the clicked spot, on the clicked monitor. Over a desktop the click
+  also reaches the window under the dot ([the unified overview cursor](#the-unified-overview-cursor)).
 - A click in empty space does nothing, apart from closing an open panel.
 
 Hit testing order: an open panel is drawn on top (the renderer draws its desktop's glass last, over every other pill),
@@ -241,8 +241,8 @@ The free pointer is off in typing mode (Ctrl+Alt+T: the cursor stays a normal cu
 while a VR video plays (`resize_press` / `resize_release` are in `IGNORED_WHILE_PLAYING`). It stays on while a
 placement panel is open: it is how you use the panel. Leaving the overview removes the left-button binds and shows the
 cursor again. A drag in progress (pill, corner or slider) ends and is saved when a video opens, on zoom-in and after
-30 s without pointer movement. Right clicks and scrolling while the dot is free still reach the window under the
-hidden, parked cursor.
+30 s without pointer movement. While the dot is free, right clicks and scrolling are swallowed (no window is under
+it); over a desktop they reach the window there ([the unified overview cursor](#the-unified-overview-cursor)).
 
 The dot, pills and bracket protect the micro-OLED like the cards. The dot is a grey disc (170/255, 184 while dragging)
 in a black ring, 16 px across. The pills are dark glass (see [Placement pills](#placement-pills)) that brightens on
@@ -274,48 +274,53 @@ need a new ownership-broker operation in the accepted plugin. Resolution, shape 
 and apply at the next start, through the journaled output creation that reads every value back. Corner resizing adds
 no compositor output change and no new journal record.
 
-### The overview input lock
+### The unified overview cursor
 
-Offline tests only (`tests/native_spike/test_input_lock.py`, plus `bind_check`'s `--verify-config` load of its binds);
-not run in a live compositor or tried in the glasses. In the overview the real cursor is held still and cannot click:
-the mouse only drives the overview pointer's dot. This changes input only, and `tools/native_spike/input_lock.py`
-wraps the free pointer above:
+Offline tests only (`tests/native_spike/test_unified_cursor.py`, plus `bind_check`'s `--verify-config` load of its
+binds); not run in a live compositor or tried in the glasses. Since 2026-11-02 (`dot-unified-cursor`) the dot is the
+one real cursor in the overview: the real Hyprland cursor follows it, so pointing, clicking and scrolling work inside
+whichever desktop the dot is over, and the dot still travels between desktops through space.
+`tools/native_spike/unified_cursor.py` wraps the free pointer above and replaces the input lock, which held the real
+cursor still for the whole overview and let no click or wheel reach a window.
 
-- **Captured, not handed back.** A cursor on one of the run's XR desktops in the overview is captured at once. The
-  pointer goes straight to the free pointer's dot, which starts where the cursor was, and stays the dot for the whole
-  overview. Moving the dot into a desktop selects that desktop but never gives the real cursor back. Clicking one zooms
-  into it (as Ctrl+Alt+Up), and the cursor then shows under the dot on that desktop's monitor.
-  A cursor on the physical monitor is still left alone, so the panel stays usable. It is captured once it comes onto
-  an XR desktop, or when Ctrl+Alt+Down brings it into the selected desktop.
-- **Held still.** The hidden cursor stays where it was captured, at least 100 px (`PARK_MARGIN_PX`) inside its
-  monitor, and is put back as soon as it strays 32 px (`LEASH_PX`). Hand motion moves only the dot, so the window
-  under the cursor, and with focus-follows-mouse the keyboard focus, stay the same.
-- **Focus changes are followed.** A keyboard focus change (Ctrl+Alt+Left / Right, the send-window keys) warps the
-  cursor to another monitor. A jump of more than 400 px is not pulled back. The dot follows it onto that desktop (or
-  stays put if it is already on that desktop) and the cursor is held there instead. If it lands off the XR desktops (a window sent back to the monitor), the capture
-  ends and the cursor shows there.
-- **No clicks or wheel reach a window.** While the cursor is captured, the left button is the free pointer's (pills,
-  corners, sliders, help card arrows, a desktop click zooms into that desktop). The right, middle and side buttons
-  (`mouse:273`–`279`) run the bind helper's `resize_release`, which does nothing unless a drag is held (then it ends
-  the drag). The wheel (`mouse_up` / `down` / `left` / `right`) is bound to nothing. All of these binds go in the free
-  pointer's bind table (`xr_workspace_resize_binds`) in the same eval as its grab (`lock_pointer_lua`). Hyprland
-  passes wheel events on to the window for `binds.scroll_event_delay` ms after a bound one, so the lock sets that to
-  0. A restore entry in the same table puts the old value back when the table is removed. Chords with a modifier
-  (Super + drag, Super + Shift + wheel) are not bound, so the desktop's own binds still work.
-- **Released on the way out.** Zooming in, typing mode, a VR video, or losing the overview geometry removes the binds
-  and shows the cursor where it is held. It does not go back to where the capture started, which would undo a
-  zoom-in's focus warp. Run end is the free pointer's usual bind removal. Every removal of that bind table takes the
-  lock's binds and the scroll delay with it, so the lock adds no cleanup path of its own.
-- **Abnormal exit.** A run that dies with the lock on leaves its binds behind. The first click with any bound button
-  (left, right, middle or side) runs the bind helper, which finds no run and removes the whole table: every button,
-  the wheel, the scroll delay and the hidden cursor come back (`xr_control.py` `REMOVE_RESIZE_BINDS`). The wheel on its
-  own runs nothing, so it stays swallowed until that click.
+- **Over a desktop the real cursor is there.** The real cursor is on that desktop's Hyprland monitor at the point
+  under the dot. Hand motion moves it, and the dot is drawn where it maps onto the desktop's surface (orbit, distance
+  and curvature, in anchor, locked and follow mode). It stays hidden, so only the dot is drawn, but hover,
+  focus-follows-mouse, every button and the wheel reach the window under it.
+- **Click to zoom, still.** The left button is bound *non-consuming* (`non_consuming = true`), so the window gets the
+  press and release as usual and the run sees them too. A press and release less than 4 canvas px apart on the same
+  desktop counts as a click and zooms into that desktop (the Ctrl+Alt+Up path). The cursor stays where you clicked. A
+  press that moves further is a window drag or a text selection and does not zoom.
+- **Holding the button.** While the left button is down the dot does not go free at an edge. It follows the real
+  cursor, including onto the next monitor in Hyprland's layout, so a window or selection dragged across gets its
+  release. A held cursor that leaves the XR monitors lets go of the overview pointer.
+- **Past an edge the dot carries on.** At a desktop's edge pixel the dot goes free (as in the free pointer above). The
+  hidden cursor is parked just inside where it left, at least 100 px (`PARK_MARGIN_PX`) from the monitor's edges, and
+  put back once it strays 32 px (`LEASH_PX`), so the window it was over keeps its focus. Its motion moves the dot
+  through space at that desktop's scale. Once the dot is 4 px into any desktop in 3D (front desktop first, with that
+  desktop's placement), the real cursor is warped to the matching point on that desktop's monitor and is the pointer
+  again.
+- **Nothing reaches a window while free.** There is no window under a free dot, so free mode uses the input lock's
+  grab (`input_lock.lock_pointer_lua`): the left button drives pills, corners, sliders, the help card and a desktop
+  click. The right, middle and side buttons (`mouse:273`–`279`) only end a drag, and the wheel is bound to nothing,
+  with `binds.scroll_event_delay` at 0 and restored afterwards.
+- **Focus warps are followed.** A keyboard focus change (Ctrl+Alt+Left / Right, the send-window keys) that moves the
+  cursor more than 400 px is followed in both modes: the dot goes where the cursor landed and the cursor is the pointer
+  there. If the cursor lands off the XR monitors, the overview pointer lets go.
+- **In and out of the overview.** Zooming out with the cursor on an XR monitor puts the dot right where the cursor is.
+  Zooming in, typing mode and a VR video remove the binds and leave the cursor where it is, shown. A cursor on the
+  physical monitor is left alone, and Ctrl+Alt+Down still brings it into the selected desktop.
+- **One bind table.** Whichever set is live goes in the free pointer's table (`xr_workspace_resize_binds`): the click
+  binds over a desktop, the lock grab while free. Each switch replaces it in one eval (`enter_desktop_lua`,
+  `lock_pointer_lua`). Run end, a config reload (the set is re-applied) and a dead run all clean it up through the
+  existing paths. After a dead run, the next left click still reaches the window and runs the bind helper, which
+  removes the whole table (`xr_control.py` `REMOVE_RESIZE_BINDS`).
 
-Not covered: touchpad scrolling, which Hyprland cannot bind; a desktop config with `binds.pass_mouse_when_bound`, where
-Hyprland passes bound clicks on to the window; and a starved sampler thread, which lets the hidden cursor stray further
-before it is put back. To check in the glasses: zoom out with a terminal focused, move and click around the overview,
-right-click and scroll over another window, then zoom back in. The terminal should still have focus and nothing
-else should have reacted. Then repeat with Ctrl+Alt+Right before zooming in.
+Not covered: touchpad scrolling while free, which Hyprland cannot bind; a desktop config with
+`binds.pass_mouse_when_bound`; and a starved sampler thread, which lets the parked cursor stray further. To check in the
+glasses: zoom out, move the dot across all desktops and the gaps between them, scroll and right-click inside a desktop
+(the window under the dot reacts), drag a window inside a desktop (no zoom), click once (it zooms in there), and repeat
+with Ctrl+Alt+Right and in each viewing mode.
 
 ### Moving desktops in the overview (the pill under the desktop)
 
@@ -630,10 +635,11 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
   fixed Lua, and shows it again when the pointer goes back into a desktop, when the overview ends, at run end, or on
   the first click after a dead run. It warps the cursor only onto the run's own XR desktops.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
-- The overview input lock adds unmodified binds while the cursor is captured in the overview: the right, middle and
-  side buttons and the wheel, in the free pointer's bind table, removed with it (see
-  [The overview input lock](#the-overview-input-lock)). It sets `binds.scroll_event_delay` to 0 meanwhile and puts it
-  back with the binds. It holds the cursor only on the run's own XR desktops.
+- The unified overview cursor adds unmodified binds in the overview, in the free pointer's bind table and removed with
+  it (see [The unified overview cursor](#the-unified-overview-cursor)): over a desktop a non-consuming left-button
+  press/release (the window still gets the click); while the dot is free, the right, middle and side buttons and the
+  wheel. It sets `binds.scroll_event_delay` to 0 while free and puts it back with those binds. It warps and holds the
+  cursor only on the run's own XR desktops.
 
 ## Host diagnostic (`xr_probe`)
 

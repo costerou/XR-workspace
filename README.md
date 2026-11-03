@@ -178,10 +178,10 @@ Zooming in (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 **With the mouse in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
 In the overview your mouse is no longer stuck inside the desktops:
 
-- **Inside a desktop** the mouse works as usual. Click, drag and resize windows like on any monitor.
-- **Push the mouse past the edge of a desktop** and it keeps going into the space around it. The normal cursor
-  disappears and a small grey dot takes its place. Move the dot back onto a desktop and the normal cursor comes back
-  right there.
+- **The dot is your mouse.** Only a small grey dot is drawn, and over a desktop the real mouse pointer is right under
+  it on that desktop. Hover, right-click, scroll, drag and resize windows there as on any monitor.
+- **Push the dot past the edge of a desktop** and it keeps going into the space around it, to the next desktop
+  wherever it is placed round you. As soon as the dot is on that desktop, the mouse works there.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
   slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
@@ -193,8 +193,9 @@ In the overview your mouse is no longer stuck inside the desktops:
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
   Resizing doesn't stop at other desktops.
-- **Zoom into a desktop:** click it with the dot. The view zooms into that desktop, as Ctrl+Alt+Up does, it gets the
-  focus and the normal cursor appears where you clicked. Moving the mouse into a desktop only selects it.
+- **Zoom into a desktop:** click it with the dot. The window under the dot gets the click and the view zooms into that
+  desktop, as Ctrl+Alt+Up does. It gets the focus and the normal cursor appears where you clicked. A press that drags
+  (moving a window, selecting text) doesn't zoom. Moving the mouse into a desktop only selects it.
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
 Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
