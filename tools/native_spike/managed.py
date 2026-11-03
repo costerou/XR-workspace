@@ -37,8 +37,26 @@ def recover_managed(client, consent, path):
         broker = OwnershipBrokerClient.from_journal(client, journal)
         if any(journal.broker[key] != consent[key] for key in ('instance', 'output', 'recovery_output')):
             raise OwnershipBlocked('consent does not match saved broker scope')
-        result = recover(journal, broker)
+        result = recover_restoring(client, journal, broker, consent['run_id'])
     return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining}
+
+
+def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None):
+    """Recovery, preceded by the run's layout restore (restore.py) while its XR outputs still exist: the snapshot
+    taken at start (`snapshot`, else the one saved in the state directory). The saved one goes once recovery completes;
+    an incomplete recovery keeps it, so the next attempt restores again."""
+    from . import restore
+    if snapshot is None:
+        try: snapshot = restore.load(run_id, layouts)
+        except (OSError, ValueError): snapshot = None
+    if snapshot is not None:
+        from .send import notify
+        restore.restore(client, snapshot, notify=notify)
+    result = recover(journal, broker)
+    if result.complete:
+        try: restore.discard(run_id, layouts)
+        except OSError: pass
+    return result
 
 
 def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None):
@@ -199,8 +217,9 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None):
     session = journal.session
+    snapshot = None
     with journal.transaction():
         if journal.operations or journal.broker is not None:
             raise OwnershipBlocked('existing run requires explicit recovery; use a fresh run id')
@@ -220,8 +239,11 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         if adopt and capture and hasattr(client, 'adopt_windows'):
             # Once, before the renderer starts: the physical monitor's windows onto the desktops, by workspace, in one
             # compositor tick (adopt.py). Recovery below returns them, like any window on an XR output.
+            # First the pre-XR arrangement, kept in memory and the state directory: Stop and Recover put it back.
             from .adopt import adopt as adopt_windows
+            from .restore import take
             from .send import notify
+            snapshot = take(client, fallback, journal.run_id, layouts)
             adopt_windows(client, fallback, [s['name'] for s in specs], notify=notify)
         with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store,
                                                                                    fallback, manager) as control:
@@ -230,6 +252,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.
-        result = recover(journal, broker)
+        # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
+        result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
     return {'journal': str(journal.path), 'renderer_returncode': returncode,
             'complete': result.complete, 'remaining': result.remaining}

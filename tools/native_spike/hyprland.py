@@ -208,6 +208,12 @@ class HyprlandClient:
         from .adopt import lua
         for code in lua(moves): self._eval(code)
 
+    def restore_layout(self, snapshot):
+        """Stop / Recover: the adopted windows back to their pre-XR layout (restore.py), in one eval of generated Lua
+        from a validated snapshot; never free-form eval."""
+        from .restore import EVAL_LIMIT, lua
+        self._eval(lua(snapshot), limit=EVAL_LIMIT)
+
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
         """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
         (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
@@ -372,8 +378,8 @@ class HyprlandClient:
         from .unified_cursor import confine_lua
         self._eval(confine_lua(x, y, name))
 
-    def _eval(self, code):
-        if len(code) > 4096: raise ValueError('bind code too large')
+    def _eval(self, code, limit=4096):
+        if len(code) > limit: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()
         if reply != 'ok':
             detail = ''.join(c for c in reply[:160] if c.isprintable())

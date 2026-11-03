@@ -21,9 +21,11 @@ return windows to) onto its XR desktops, right after the desktops are created an
   * One Hyprland eval (generated Lua, fixed shape, every value validated) makes all the moves, in one compositor tick:
     no intermediate layout is drawn. A plan too large for one eval is split; each part is still one tick.
 
-Stop and Recover are unchanged: recovery evacuates every workspace of every XR output back to the fallback (the
-ownership broker's evacuate_remove), which brings the adopted workspaces, and the windows moved one by one, back to the
-physical monitor. Adoption is best-effort: if it fails, the run goes on with the windows where they were.
+Just before the moves, restore.py snapshots the fallback's arrangement (memory and the state directory). Stop and
+Recover put it back in one eval before recovery: the workspaces under their own ids again (this renumbering undone),
+the windows moved one by one on their own workspaces, order, floating, fullscreen and focus as they were. Recovery's
+evacuation of every XR output (the ownership broker's evacuate_remove) stays the safety net for anything the restore
+could not place. Adoption is best-effort: if it fails, the run goes on with the windows where they were.
 """
 import re
 
