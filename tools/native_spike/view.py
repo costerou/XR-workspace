@@ -5,7 +5,9 @@ text navigation otherwise). They run xr_control.py, which sends one frame to thi
 control socket. The selected desktop's monitor gets Hyprland's focus (and the cursor with it).
 
 Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
-dead zone, eases back in front) and locked (0DoF, head-locked). Ctrl+Alt+H toggles a help card in
+dead zone, eases back in front) and locked (0DoF, head-locked). The overview exists in anchor mode only
+(ViewState.overview_allowed): follow and locked are always zoomed in, Ctrl+Alt+Down there moves to the next desktop, and
+every switch there (keys, a cursor push) cuts straight to the desktop with no zoom out / turn / zoom in. Ctrl+Alt+H toggles a help card in
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
 click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
@@ -311,7 +313,8 @@ class ViewState:
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if mode not in MODES or type(prediction) is not bool or type(cursor_switch_animate) is not bool:
             raise ValueError('invalid view mode')
-        self.names, self.zoomed, self.selected = list(names), False, 0
+        # The overview exists in anchor mode only (overview_allowed): follow and locked runs start zoomed in.
+        self.names, self.zoomed, self.selected = list(names), mode != 'anchor', 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.mode, self.prediction = mode, prediction
         # A cursor switch (ViewControl.switch_desktop) animates: in anchor mode it pans to and centres the desktop. False:
@@ -464,13 +467,25 @@ class ViewState:
         return {'spacing': self.spacing, 'mode': self.mode, 'prediction': self.prediction,
                 'cursor_switch_animate': self.cursor_switch_animate}
 
+    def overview_allowed(self):
+        """The overview (zoomed out: all desktops, free pointer, pills, panels) exists in anchor mode only. Follow and
+        locked are always zoomed in: entering them zooms in, Ctrl+Alt+Down there moves straight to the next desktop, and
+        every desktop switch there is a cut (ViewControl: the frame's `cut`, no zoom out / turn / zoom in)."""
+        return self.mode == 'anchor'
+
     def apply(self, op):
         """Update state; return the output to focus, or None."""
         if op not in USER_OPS: raise ValueError('unsupported view operation')
         if op in ('recenter', 'help'): return None  # head-tracking reference / overlay only; the view layout is unchanged
         if op == 'mode_next':
             self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
-            return None
+            if self.zoomed or self.overview_allowed(): return None
+            self.zoomed = True  # follow / locked have no overview: into the selected desktop
+            return self.names[self.selected]
+        if op == 'zoom_out' and not self.overview_allowed():
+            if len(self.names) < 2: return None  # follow / locked: no overview; the next desktop (wrapping), zoomed in
+            self.zoomed, self.selected = True, (self.selected + 1) % len(self.names)
+            return self.names[self.selected]
         if op == 'prediction':
             self.prediction = not self.prediction
             return None
@@ -484,7 +499,7 @@ class ViewState:
             target = self.selected + (1 if op == 'next' else -1)
             if not 0 <= target < len(self.names): return None
             self.selected = target
-            return self.names[target]  # overview: highlight; zoomed: the renderer zooms out, turns to it and zooms in; focused
+            return self.names[target]  # overview: highlight; zoomed: anchor zooms out, turns, zooms in (follow/locked cut); focused
         self.spacing = min(max(self.spacing + (SPACING_STEP if op == 'spacing_up' else -SPACING_STEP), 0), MAX_SPACING)
         return None
 
@@ -740,7 +755,8 @@ class ViewControl:
         return out
 
     def _zoom_out(self):
-        """To the overview (the pills and panels are drawn there only), as Ctrl+Alt+Down does. A view frame."""
+        """To the overview (the pills and panels are drawn there only), as Ctrl+Alt+Down does. A view frame. Anchor
+        mode only (ViewState.overview_allowed; callers check)."""
         if self.overview_pointer is not None: self.overview_pointer.summon()  # a cursor off the desktops comes into one
         self.state.apply('zoom_out')
         return self._frame()
@@ -749,6 +765,8 @@ class ViewControl:
         """Panel key op. Ctrl+Alt+L while zoomed in zooms out first, so the expanding pill is seen."""
         if op in MENU_DESKTOP_OPS:  # U / N / Delete: the open panel's desktop row
             return (self.desktop_action(self.state.menu_desktop, MENU_DESKTOP_OPS[op]) if self.state.menu_open else b'') or None
+        if op == 'menu_toggle' and not self.state.menu_open and not self.state.overview_allowed():
+            return None  # follow / locked: no overview, so no pill to expand
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
         return (out + self._menu_update(lambda: self.state.apply_menu(op))) or None
 
@@ -759,6 +777,7 @@ class ViewControl:
         collapsing panel is saved at once and the idle close restarts. Renderer frames (bytes)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.typing or self.video_active: return b''  # the free pointer is off then; a stale click does nothing
+        if not self.state.overview_allowed(): return b''  # follow / locked: no overview, no pills (a stale click)
         self.last_input = self.clock()
         if self.state.menu_open and self.state.menu_desktop == desktop: return self._on_menu('menu_toggle') or b''
         if self.state.menu_open: self.flush()  # the other desktop's panel collapses: its changes are saved at once
@@ -884,8 +903,9 @@ class ViewControl:
 
     def switch_desktop(self, desktop):
         """Zoomed in, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
-        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so the renderer zooms
-        out, turns to it and zooms in, every desktop staying where it is placed. The frame's `center` makes the anchor-mode
+        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so in anchor mode the
+        renderer zooms out, turns to it and zooms in, every desktop staying where it is placed (follow and locked: a cut,
+        straight there with no overview step). The frame's `center` makes the anchor-mode
         turn start from the centre of the view, so it pans straight to the desktop the cursor is on and centres it there
         (pushing back pans to and centres the other); follow and locked centre it already. cursor_switch_flags decides
         (anchor mode with the animation off: a cut instead). The sampler gives its monitor focus and
@@ -898,11 +918,12 @@ class ViewControl:
         return self._frame(**self.cursor_switch_flags())
 
     def cursor_switch_flags(self):
-        """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Animated (default):
-        `center`, so in anchor mode the switch pans straight to the desktop and lands with it centred (follow and locked
-        ignore it: they centre it already). Anchor mode with ViewState.cursor_switch_animate off: `cut`, no animation and
-        no turn of the view, so it stays wherever the head looks. Follow and locked always animate as before."""
-        if not self.state.cursor_switch_animate and self.state.mode == 'anchor': return {'cut': True}
+        """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Anchor mode, animated
+        (default): `center`, so the switch pans straight to the desktop and lands with it centred. Anchor mode with
+        ViewState.cursor_switch_animate off: `cut`, no animation and no turn of the view, so it stays wherever the head
+        looks. Follow and locked have no overview (ViewState.overview_allowed): always `cut`, straight onto the desktop
+        with no zoom out / turn / zoom in (their aim then centres it)."""
+        if not self.state.overview_allowed() or not self.state.cursor_switch_animate: return {'cut': True}
         return {'center': True}
 
     def _cursor_anim_toggle(self):
@@ -1042,11 +1063,17 @@ class ViewControl:
                                  'op': 'recenter', 'payload': {}}, separators=(',', ':')) + '\n').encode()
             self.next_id += 1
             return frame
-        # Zooming in collapses an open panel first (saved, keys released): pills and panels live in the overview.
-        out = (self._on_menu('menu_toggle') or b'') if message['op'] == 'zoom_in' and self.state.menu_open else b''
+        # Zooming in collapses an open panel first (saved, keys released): pills and panels live in the overview. So does
+        # leaving anchor mode for follow (no overview there: ViewState.overview_allowed, the mode change zooms in).
+        leaving = message['op'] == 'zoom_in' or (message['op'] == 'mode_next' and self.state.mode == 'anchor')
+        out = (self._on_menu('menu_toggle') or b'') if leaving and self.state.menu_open else b''
         before = self.state.view()
-        if message['op'] == 'zoom_out' and self.state.zoomed and self.overview_pointer is not None:
+        if message['op'] == 'zoom_out' and self.state.zoomed and self.state.overview_allowed() and \
+                self.overview_pointer is not None:
             self.overview_pointer.summon()  # a cursor off the desktops comes into the selected one
+        # Follow / locked: a key that changes the zoomed-in desktop (Ctrl+Alt+Left / Right, and Ctrl+Alt+Down there)
+        # moves straight to it, no overview step (`cut`, as cursor_switch_flags).
+        direct = not self.state.overview_allowed() and self.state.zoomed and message['op'] in ('next', 'prev', 'zoom_out')
         target = self.state.apply(message['op'])
         if target is not None:
             # Never block the watchdog loop on a compositor reply.
@@ -1054,7 +1081,8 @@ class ViewControl:
         if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'prediction'):
             try: self.settings.save(self.state.settings())  # a settings store (profiles.LayoutStore/ProfileStore)
             except (OSError, ValueError): pass
-        if self.state.view() != before: out += self._frame()
+        if self.state.view() != before:
+            out += self._frame(cut=True) if direct and self.state.selected != before['selected'] else self._frame()
         return out or None
 
     def _on_placement(self, payload):
