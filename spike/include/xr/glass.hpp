@@ -59,20 +59,22 @@ static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the 
 static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its footer's top (free_pointer.py PANEL_H)");
 
 // Roll-level icons (tools/native_spike/free_pointer.py roll_icon_rect / ROLL_*, compared by the glass_contract ctest): when
-// a desktop is not level (view.hpp desktop_tilt, the supervisor deciding from the renderer's `roll_geometry` line), a small
-// round glass button sits kRollIconGap above its top corner on the side that is higher, on the desktop's own surface,
-// holding a curved arrow: above the top-left corner a counter-clockwise one, above the top-right a clockwise one, the way
-// a click (level at once) or a drag (roll toward level, never past it) turns the desktop. It is kRollIconPx across as you
+// a desktop is not level (view.hpp desktop_tilt, the supervisor deciding from the renderer's `roll_geometry` line), a
+// curved arrow alone (no button behind it) sits kRollIconGap above its top corner on the side that is higher, on the
+// desktop's own surface: above the top-left corner a counter-clockwise one, above the top-right a clockwise one, the way
+// a click (level at once) or a drag (roll toward level, never past it) turns the desktop. Its square (the hit box, padded
+// by free_pointer.py ROLL_PAD) is kRollIconPx across as you
 // see it whatever the desktop's size: its tile px are scaled by the desktop's distance. Side 0 = top-left (counter-
 // clockwise), 1 = top-right (clockwise).
 constexpr float kRollIconPx = 22.f, kRollIconGap = 8.f;
 FRect roll_icon(const FRect& tile, std::uint32_t side, float distance);
-// The arrow on the icon, canvas px: one plain curved arrow, a thick half-turn arc over the top (a triangle strip, outer
+// The arrow filling the icon's square, canvas px: one plain curved arrow, a thick half-turn arc over the top (a triangle strip, outer
 // then inner per step) and a large arrowhead (one triangle) at its end, clockwise for side 1, its mirror image (counter-
 // clockwise) for side 0: the way a click or drag on it turns the desktop. Empty for an empty icon.
 struct RollArrow { std::vector<std::array<float, 2>> band; std::array<std::array<float, 2>, 3> head{}; };
 RollArrow roll_arrow(const FRect& icon, std::uint32_t side);
-// The arrow's colour: the theme's highlight colour (glass_theme_highlight), dimmer while idle; under kGlassCap.
+// The arrow's colour: the monitor border's and glow's, the theme accent itself (GlCompositor::set_accent, live with the
+// Omarchy theme); hovered or dragged (level above kGlassIdle) it is lifted toward white, up to 30% at kGlassActive.
 std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level);
 
 // --- Look ----------------------------------------------------------------------------------------------------------

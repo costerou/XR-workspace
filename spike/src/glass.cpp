@@ -91,11 +91,11 @@ FRect roll_icon(const FRect& t, std::uint32_t side, float distance) {
 RollArrow roll_arrow(const FRect& icon, std::uint32_t side) {
     RollArrow out;
     if (!(icon.width > 0) || !(icon.height > 0) || side > 1) return out;
-    // One plain curved arrow, readable at a glance on the 22 px disc: a thick half-turn arc over the top and a large
-    // head. Clockwise (side 1): from the left (210 degrees, y up) over the top to the right (20 degrees), the head
-    // pointing on down the right side. Its centre sits a little low so the glyph (arc plus head) is balanced in the disc.
-    const float s = std::min(icon.width, icon.height), cx = icon.x + icon.width / 2, cy = icon.y + icon.height / 2 + 0.05f * s;
-    const float ra = 0.25f * s, half = 0.065f * s, head_len = 0.24f * s, head_half = 0.17f * s;
+    // One plain curved arrow, readable at a glance and filling the 22 px square with nothing behind it: a thick half-turn
+    // arc over the top and a large head. Clockwise (side 1): from the left (210 degrees, y up) over the top to the right
+    // (20 degrees), the head pointing on down the right side. Its centre sits low so the glyph is centred in the square.
+    const float s = std::min(icon.width, icon.height), cx = icon.x + icon.width / 2, cy = icon.y + icon.height / 2 + 0.12f * s;
+    const float ra = 0.29f * s, half = 0.075f * s, head_len = 0.27f * s, head_half = 0.18f * s;
     const float from = 210.f * float(std::numbers::pi) / 180.f, to = 20.f * float(std::numbers::pi) / 180.f;
     const float mirror = side ? 1.f : -1.f;  // side 0: the mirror image, counter-clockwise
     auto at = [&](float theta, float r) { return std::array<float, 2>{cx + mirror * r * std::cos(theta), cy - r * std::sin(theta)}; };
@@ -116,9 +116,9 @@ RollArrow roll_arrow(const FRect& icon, std::uint32_t side) {
 }
 
 std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level) {
-    const auto h = glass_theme_highlight(accent);
-    const float k = std::clamp(0.8f + 0.2f * (level - kGlassIdle) / (kGlassActive - kGlassIdle), 0.8f, 1.f);
-    return {std::min(h[0] * k, kGlassCap), std::min(h[1] * k, kGlassCap), std::min(h[2] * k, kGlassCap)};
+    const float lift = 0.3f * std::clamp((level - kGlassIdle) / (kGlassActive - kGlassIdle), 0.f, 1.f);
+    auto c = [&](float v) { v = std::clamp(v, 0.f, 1.f); return v + (1.f - v) * lift; };
+    return {c(accent[0]), c(accent[1]), c(accent[2])};
 }
 
 FRect glass_panel_action(std::size_t action) {

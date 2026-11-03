@@ -1,7 +1,7 @@
 // Roll-level icons, renderer side: the levelling roll (view.hpp Placement::roll) turns a desktop about its own line of
 // sight and keeps it facing you; desktop_tilt measures a desktop's roll from the world's up (pose.hpp canvas_up); the
-// icon (glass.hpp roll_icon / roll_arrow) is a fixed size as you see it, above the right corner, in the theme's colours
-// under the OLED cap; the `roll` control frame (ipc.hpp RollPayload) and its malformed-frame handling.
+// icon (glass.hpp roll_icon / roll_arrow) is a lone arrow, a fixed size as you see it, above the higher top corner, in
+// the theme accent like the monitor border; the `roll` control frame (ipc.hpp RollPayload) and its malformed-frame handling.
 #include "xr/glass.hpp"
 #include "xr/ipc.hpp"
 #include "xr/pose.hpp"
@@ -153,19 +153,18 @@ int main() {
     }
     CHECK(roll_icon(FRect{}, 0, 1.f).width == 0 && roll_icon(FRect{0, 0, 10, 10}, 2, 1.f).width == 0);
 
-    // The disc under the arrow is glass (drawn through glass_to_desktop): its glass rect (desktop_to_glass) lands exactly
-    // on the icon's surface rect, where the arrow is drawn and the supervisor hit-tests, at any distance, both sides, and
-    // it is kRollIconPx glass px across (one size as you see it). Regression: the icon's surface rect was drawn as glass
-    // px, so on a resized desktop the disc sat away from its arrow and hit box.
+    // Just the arrow, no button: it fills most of its fixed-size square (the hit box), at any distance, in surface px
+    // (the square's own), so it stays kRollIconPx across as you see it and sits where the supervisor hit-tests.
     for (const float d : {0.5f, 1.f, 1.7f, 3.f})
         for (std::uint32_t side = 0; side < 2; ++side) {
-            const FRect t{300, 400, 430, 242};
-            Placement p; p.distance = d;
-            const FRect icon = roll_icon(t, side, d), disc = desktop_to_glass(t, p, icon);
-            const auto a = glass_to_desktop(t, p, disc.x, disc.y), b = glass_to_desktop(t, p, disc.x + disc.width, disc.y + disc.height);
-            CHECK(near(a[0], icon.x, 1e-3f) && near(a[1], icon.y, 1e-3f));
-            CHECK(near(b[0], icon.x + icon.width, 1e-3f) && near(b[1], icon.y + icon.height, 1e-3f));
-            CHECK(near(disc.width, kRollIconPx, 1e-4f) && near(disc.height, kRollIconPx, 1e-4f));
+            const FRect icon = roll_icon(FRect{300, 400, 430, 242}, side, d);
+            const auto a = roll_arrow(icon, side);
+            float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+            auto grow = [&](const std::array<float, 2>& p) { x0 = std::min(x0, p[0]); x1 = std::max(x1, p[0]); y0 = std::min(y0, p[1]); y1 = std::max(y1, p[1]); };
+            for (const auto& p : a.band) grow(p);
+            for (const auto& p : a.head) grow(p);
+            CHECK(x0 >= icon.x - 1e-3f && x1 <= icon.x + icon.width + 1e-3f && y0 >= icon.y - 1e-3f && y1 <= icon.y + icon.height + 1e-3f);
+            CHECK(x1 - x0 >= 0.7f * icon.width && y1 - y0 >= 0.5f * icon.height);
         }
 
     // The arrow: one plain curved arrow inside its icon, the two sides mirror images of each other; side 1 turns
@@ -199,13 +198,21 @@ int main() {
         CHECK(roll_arrow(FRect{}, 0).band.empty());
     }
 
-    // Colour: the theme's highlight hue, brighter when hovered or dragged, never over the cap.
+    // Colour: the monitor border's and glow's, the theme accent itself (so it follows a live theme change), lifted toward
+    // white when hovered or dragged, never past white.
     for (const auto accent : {std::array<float, 3>{1, 1, 1}, std::array<float, 3>{0.48f, 0.64f, 0.97f}, kGlassThemeDefault,
                               std::array<float, 3>{0, 0, 0}, std::array<float, 3>{0.9f, 0.2f, 0.1f}}) {
-        const auto idle = roll_arrow_color(accent, kGlassIdle), hot = roll_arrow_color(accent, kGlassActive);
-        for (int c = 0; c < 3; ++c) CHECK(idle[c] <= kGlassCap && hot[c] <= kGlassCap && idle[c] <= hot[c] + 1e-6f);
-        const auto h = glass_theme_highlight(accent);
-        for (int c = 0; c < 3; ++c) CHECK(near(hot[c], std::min(h[c], kGlassCap), 1e-5f));
+        const auto idle = roll_arrow_color(accent, kGlassIdle), hover = roll_arrow_color(accent, kGlassHover),
+                   hot = roll_arrow_color(accent, kGlassActive);
+        for (int c = 0; c < 3; ++c) {
+            CHECK(near(idle[c], accent[c], 1e-6f));
+            CHECK(idle[c] <= hover[c] + 1e-6f && hover[c] <= hot[c] + 1e-6f && hot[c] <= 1.f);
+            CHECK(near(hot[c], accent[c] + (1 - accent[c]) * 0.3f, 1e-5f));
+        }
+    }
+    {
+        const auto a = roll_arrow_color({0.9f, 0.2f, 0.1f}, kGlassIdle), b = roll_arrow_color({0.1f, 0.5f, 0.9f}, kGlassIdle);
+        CHECK(!near(a[0], b[0], 0.1f) && !near(a[2], b[2], 0.1f));  // another theme, another arrow
     }
 
     // The `roll` frame: kMaxDesktops (four) rolls and icons, a hover and active; anything else is dropped without stopping.
