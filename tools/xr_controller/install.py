@@ -96,6 +96,13 @@ def verify_pinned(entry):
     if not ok: raise ValueError('pinned binary changed')
 
 
+def verify_recovery_pin(entry, data_home):
+    """A run's consent-pinned binary: must live under our install bin dir and still hash-match.
+    Used only by recovery, so a run interrupted before an upgrade can be finished with its own plugin."""
+    _check_entry(entry, _root(data_home) / 'bin')
+    verify_pinned(entry)
+
+
 def install_plugin(repo, config_home):
     """Explicit install only. Callers/tests choose the config root; never start a shell."""
     source = Path(repo).resolve() / 'omarchy-plugin' / 'cody.viture-workspace'

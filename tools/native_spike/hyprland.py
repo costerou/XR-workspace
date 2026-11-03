@@ -244,15 +244,21 @@ class HyprlandClient:
     def plugin_load(self, path, *, data_home=None):
         self._plugin_command('load', path, data_home)
 
-    def plugin_unload(self, path, *, data_home=None):
-        self._plugin_command('unload', path, data_home)
+    def plugin_unload(self, path, *, data_home=None, recovery_pin=None):
+        # recovery_pin: the plugin a crashed run pinned in its consent. An install may have
+        # replaced installed.json since; unloading that run's own (verified) broker is still allowed.
+        self._plugin_command('unload', path, data_home, recovery_pin)
 
-    def _plugin_command(self, verb, path, data_home):
-        from ..xr_controller.install import PLUGIN, load_installed
+    def _plugin_command(self, verb, path, data_home, recovery_pin=None):
+        from ..xr_controller.install import PLUGIN, load_installed, verify_recovery_pin
         if data_home is None: data_home = Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')
         if not isinstance(path, str) or not PLUGIN_PATH.fullmatch(path) or Path(path).name != PLUGIN:
             raise ValueError('plugin path must be the pinned install')
-        if path != load_installed(data_home)['plugin']['path']: raise ValueError('plugin path must be the pinned install')
+        if recovery_pin is not None:
+            if verb != 'unload': raise ValueError('recovery pin only permits unload')
+            verify_recovery_pin(recovery_pin, data_home)
+            if path != recovery_pin['path']: raise ValueError('plugin path must be the pinned install')
+        elif path != load_installed(data_home)['plugin']['path']: raise ValueError('plugin path must be the pinned install')
         reply = self._request(f'/plugin {verb} {path}').decode('utf-8', errors='replace').strip()
         if reply != 'ok':
             raise ValueError(f'plugin {verb} rejected: ' + ''.join(c for c in reply[:160] if c.isprintable()))
