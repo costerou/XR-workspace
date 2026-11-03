@@ -289,17 +289,31 @@ struct Presentation::Impl : SurfaceRequests {
     // canvas by exactly the camera turn the switch ended on, so the view stays on the target instead of easing back to the
     // desktop it left. Follow and locked need nothing (their aim already ends on the target). Call once per frame after
     // view.advance, before modes.update.
+    // A centred switch (a cursor switch, ViewAnimator::set_target's `center`) turns from the direction at the centre of the
+    // view when it began, so the target lands centred: that direction, per switch serial, from the last drawn view.
+    Mat3 last_drawn{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    struct Centre { bool valid = false; std::uint32_t serial = 0; std::array<float, 2> dir{}; } centre;
+    void capture_centre() {
+        if (!view.turn_centred() || (centre.valid && centre.serial == view.serial())) return;
+        centre = {true, view.serial(), view_centre(last_drawn)};  // the turn holds 0 until phase 2: nothing drawn turned yet
+    }
+    std::array<float, 2> centre_of(std::uint32_t serial) const {
+        return centre.valid && centre.serial == serial ? centre.dir : view_centre(last_drawn);
+    }
     void land_turns() {
-        const auto landed = view.take_landed_turn();
-        if (!landed || modes.mode() != ViewMode::anchor || !half_w) return;
+        const auto landed = view.take_landed_turns();
+        if (landed.empty() || modes.mode() != ViewMode::anchor || !half_w) return;
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         std::array<Placement, kMaxDesktops> placed{};
         const std::size_t n = std::min(captures.size(), placed.size());
         for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
         const Canvas c{float(width), float(height), half_w, half_h};
         const std::span<const Placement> ps(placed.data(), n);
-        const auto a = focus_direction(c, overview, ps, (*landed)[0]), b = focus_direction(c, overview, ps, (*landed)[1]);
-        modes.turn_anchor(quat_mul(quat_conj(aim_rotation(a[0], a[1])), aim_rotation(b[0], b[1])));
+        for (const auto& l : landed) {  // in order: turns do not commute
+            const auto a = l.centred ? centre_of(l.serial) : focus_direction(c, overview, ps, l.from);
+            const auto b = focus_direction(c, overview, ps, l.to);
+            modes.turn_anchor(quat_mul(quat_conj(aim_rotation(a[0], a[1])), aim_rotation(b[0], b[1])));
+        }
     }
     // A desktop switch's view turn (ViewAnimator::turn, view.hpp look_turn) applied to this frame's head rotation: the
     // camera turns, never a placement. Call after resolved_placements (it reads `own`). Identity turn at rest. Anchor
@@ -307,8 +321,9 @@ struct Presentation::Impl : SurfaceRequests {
     Mat3 turned(const Mat3& head) const {
         if (!(view.turn() > 0.f) || modes.mode() != ViewMode::anchor) return head;
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
-        const Mat3 m = look_turn(Canvas{float(width), float(height), half_w, half_h}, overview, own, view.look_from(), view.look_to(),
-                                 view.turn());
+        const Canvas c{float(width), float(height), half_w, half_h};
+        const Mat3 m = view.turn_centred() ? look_turn_from(c, overview, own, centre_of(view.serial()), view.look_to(), view.turn())
+                                           : look_turn(c, overview, own, view.look_from(), view.look_to(), view.turn());
         Mat3 out{};
         for (int r = 0; r < 3; ++r)
             for (int c = 0; c < 3; ++c) out[r * 3 + c] = head[r * 3] * m[c] + head[r * 3 + 1] * m[3 + c] + head[r * 3 + 2] * m[6 + c];
@@ -1176,13 +1191,13 @@ std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
 void Presentation::resend_help_geometry() { if (impl_) impl_->help_geometry_sent.clear(); }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
-                            bool prediction, bool typing) {
+                            bool prediction, bool typing, bool center) {
     if (!impl_) return;
     impl_->popups.update(mode, cursor_follow, prediction, typing, double(monotonic_ms()));
     impl_->prediction = prediction;
     impl_->modes.set_mode(mode == 1 ? ViewMode::locked : mode == 2 ? ViewMode::follow : ViewMode::anchor, double(monotonic_ms()));
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
-                           spacing, double(monotonic_ms()));
+                           spacing, double(monotonic_ms()), center);
     impl_->cadence.invalidate();
 }
 bool Presentation::finished() const { return impl_ && impl_->cadence.finished(monotonic_ms()); }
@@ -1218,6 +1233,7 @@ Status Presentation::draw_test_pattern() {
         if (!s.half_w) s.update_fov();
         s.ease_placements(double(monotonic_ms()));
         s.land_turns();
+        s.capture_centre();
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
         // Untracked, anchor mode's room is still turned by landed switches (ModeController::turn_anchor; identity otherwise).
         if (!s.tracking_requested && s.modes.mode() == ViewMode::anchor)
@@ -1318,7 +1334,8 @@ Status Presentation::draw_test_pattern() {
         s.last_head = head;
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
-        if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), 1.f - s.view.zoom(), s.turned(head), s.half_w, s.half_h))
+        s.last_drawn = s.turned(head);
+        if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), 1.f - s.view.zoom(), s.last_drawn, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};

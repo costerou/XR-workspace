@@ -361,7 +361,9 @@ still for the whole overview and let no click or wheel reach a window.
   directly behind has no bearing. With no overview layout reported yet, right and left are the next and previous in the
   row and up and down nothing. Once the push reaches 48 px (`PUSH_PX`, each part within 0.25 s of the last, on one
   edge), the loop selects that desktop (`ViewControl.switch_desktop`, the Ctrl+Alt+Left / Right path, so the renderer
-  zooms out, turns and zooms in and no desktop moves) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
+  zooms out, turns and zooms in and no desktop moves; its view frame carries `"center": true`, so in anchor mode the turn
+  starts from the centre of the view and the camera pans straight to the new desktop and leaves it centred, world-locked
+  there, and pushing back pans to and centres the other one) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
   opposite edge of the new home, as far along it as it left, and focuses that monitor (`confine_lua`). Then no push
   counts for 0.8 s. Over an edge Hyprland lets the cursor cross (onto the next XR monitor or the physical one) the
   overshoot counts and the cursor goes back as above; a jump over 400 px is a warp and never counts. At an edge

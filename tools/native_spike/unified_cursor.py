@@ -16,7 +16,8 @@ home's edge switches to the desktop placed that way):
   * Zoomed in, the push past an edge (EdgePush; not in typing mode or during a VR video). If a desktop is placed past
     that edge of home round you in 3D (neighbors.py: by direction from the eye, a cone round the push and the nearest;
     not the row order), pushing PUSH_PX past the edge switches to it: the loop selects it (ViewControl.switch_desktop,
-    as Ctrl+Alt+Left / Right: the renderer zooms out, turns and zooms in; every desktop stays where it is placed) and the
+    as Ctrl+Alt+Left / Right: the renderer zooms out, turns and zooms in, in anchor mode panning straight to it and
+    centring it in view; every desktop stays where it is placed) and the
     sampler brings the cursor in just inside the opposite edge of the new home, as far along it as it left. Over an
     edge Hyprland lets it cross the overshoot counts; at an edge Hyprland clamps it at (the layout's outer edge, e.g.
     the top of the row) each touch counts NUDGE_PX and puts it that far back in, so a hand still pushing touches

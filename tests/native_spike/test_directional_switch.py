@@ -1,7 +1,7 @@
 """Directional desktop switching (neighbors.py, unified_cursor.EdgePush): zoomed in, pushing the cursor past an edge of
 the selected desktop switches to the desktop placed that way round you in 3D (yaw / pitch / roll as drawn), not just the
-next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in) and every desktop
-left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
+next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in; in anchor mode it
+pans straight to the desktop and centres it, the frame's `center`) and every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
 
 Regression: dot-cursor monitor switching was removed on 2026-11-02 (the cursor never left home); it comes back here,
 chosen by placement. Overview click-to-zoom and the Ctrl+Alt arrows are unchanged (test_unified_cursor.py).
@@ -203,7 +203,7 @@ class ControlTests(UnifiedBase):
     def test_switch_desktop_is_the_key_switch_zoomed_in(self):
         self.op('zoom_in')
         out = frames(self.control.switch_desktop(2))
-        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True})
+        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True, 'center': True})
         self.assertEqual(self.control.state.placements, flat())  # nothing is moved
         for stale in (2, 5, -1, 'x'): self.assertEqual(self.control.switch_desktop(stale), b'')
         self.op('zoom_out')
@@ -307,8 +307,7 @@ class SamplerTests(unittest.TestCase):
         # cursor-switch-no-anim (2026-11-03): "the view goes to the other monitor and then goes back". The cursor path
         # asks the renderer for exactly one switch, to the desktop the cursor ends up on, and nothing after it: the hand
         # still pushing through the switch animation (and past the cooldown) never selects another desktop or the old
-        # one. Here the 3D order differs from Hyprland's row (XR-2 above, XR-3 to the right). The turn back seen in anchor
-        # mode is the renderer's switch animation, the same for Ctrl+Alt+Left / Right (fixed there, anchor-switch-stay).
+        # one. Here the 3D order differs from Hyprland's row (XR-2 above, XR-3 to the right).
         placed = [at_direction(0, 0, 0), at_direction(1, 0, 25), at_direction(2, 25, 0)]
         for start, delta, destination in (((X1 + 1700, 300), (4, 0), 2),   # right: across XR-2 in the row, to XR-3
                                           ((X1 + 960, 200), (0, -4), 1)):  # up: the clamped top edge, to XR-2 above
@@ -323,13 +322,18 @@ class SamplerTests(unittest.TestCase):
                 self.assertEqual(self.p.edge_switches, 1)
                 sampler.stop(); self.p.edge_switches = 0
 
-    def test_a_cursor_switch_frame_is_the_key_switch_frame(self):
-        # The renderer animates (and settles) a cursor switch exactly as Ctrl+Alt+Left / Right: the same view frame.
+    def test_a_cursor_switch_frame_is_the_key_switch_frame_centred(self):
+        # The renderer animates a cursor switch as Ctrl+Alt+Left / Right (the same frame), plus `center`: in anchor mode it
+        # lands with the desktop the cursor is on centred in view (spike focus_center_test). The keys never send it, and
+        # the state never holds it.
         self.control.state.selected = 0
         cursor = last(frames(self.control.switch_desktop(1)), 'view')
         self.control.state.selected = 0
         key = last(frames(self.control.on_message({'op': 'next', 'payload': {}})), 'view')
-        self.assertEqual(cursor, key)
+        self.assertEqual(cursor, {**key, 'center': True})
+        self.assertNotIn('center', self.control.state.view())
+        for op in ('prev', 'next', 'zoom_out', 'zoom_in'):
+            self.assertNotIn('center', last(frames(self.control.on_message({'op': op, 'payload': {}})), 'view'), op)
 
     def test_the_push_rests_until_the_switch_animation_has_landed(self):
         # spike ViewAnimator defaults: zoom out 220 ms, turn 300 ms, zoom in 220 ms. No second push lands mid-animation.

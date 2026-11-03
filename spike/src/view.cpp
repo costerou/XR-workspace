@@ -176,15 +176,27 @@ float focus_weight(const ViewAnimator& view) { return clampf(view.zoom() + view.
 
 std::array<float, 9> look_turn(const Canvas& c, std::span<const FRect> overview, std::span<const Placement> placements,
                                std::size_t from, std::size_t to, float look) {
+    if (from >= overview.size() || c.view_w <= 0 || c.view_h <= 0) return {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const Dir s = slot_direction(c, overview[from]);
+    const Placement p = from < placements.size() ? placements[from] : Placement{};
+    return look_turn_from(c, overview, placements, {s.az + p.x, s.el + p.y}, to, look);
+}
+
+std::array<float, 2> view_centre(const std::array<float, 9>& view) {
+    // The canvas point the view puts straight ahead (0, 0, -1): view^T (0, 0, -1), minus the view's last row.
+    const float x = -view[6], y = -view[7], z = -view[8];
+    return {std::atan2(x, -z), std::atan2(y, std::sqrt(x * x + z * z))};
+}
+
+std::array<float, 9> look_turn_from(const Canvas& c, std::span<const FRect> overview, std::span<const Placement> placements,
+                                    std::array<float, 2> from, std::size_t to, float look) {
     std::array<float, 9> m{1, 0, 0, 0, 1, 0, 0, 0, 1};
     const float u = clampf(look, 0, 1);
-    if (!(u > 0) || from >= overview.size() || to >= overview.size() || c.view_w <= 0 || c.view_h <= 0) return m;
-    auto placed = [&](std::size_t i) {
-        const Dir s = slot_direction(c, overview[i]);
-        const Placement p = i < placements.size() ? placements[i] : Placement{};
-        return Dir{s.az + p.x, s.el + p.y};
-    };
-    const Dir a = placed(from), b = placed(to);
+    if (!(u > 0) || to >= overview.size() || c.view_w <= 0 || c.view_h <= 0 || !std::isfinite(from[0]) || !std::isfinite(from[1]))
+        return m;
+    const Dir st = slot_direction(c, overview[to]);
+    const Placement pt = to < placements.size() ? placements[to] : Placement{};
+    const Dir a{from[0], from[1]}, b{st.az + pt.x, st.el + pt.y};
     const Dir l{a.az + u * std::remainder(b.az - a.az, 2 * float(M_PI)), lerp(a.el, b.el, u)};  // the short way round
     // R(d) = Az(d.az) . El(d.el) carries straight ahead to direction d, upright (place_point's turn). m = R(a) . R(l)^T.
     auto rot = [](Dir d) {
@@ -342,15 +354,16 @@ std::optional<float> desktop_tilt(const Canvas& c, const FRect& t, const Placeme
     return std::isfinite(a) ? std::optional<float>(a) : std::nullopt;
 }
 
-void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms) {
+void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center) {
     switch_ = {};
+    switch_.center = turn_centred_ = center; ++serial_;
     switch_.active = true; switch_.start_ms = now_ms; switch_.zoom = clampf(zoom, 0, 1); switch_.out_ms = duration_ * switch_.zoom;
     switch_.from = from; switch_.to = to; switch_.zoom_now = switch_.zoom;
     shown_ = from; look_from_ = from; look_to_ = to; look_t_ = 1.f; from_look_ = from_turn_ = 0;
     from_zoom_ = to_zoom_ = 1.f; t_ = 1.f;  // the zoom tween waits at 1 for the switch to land
 }
 
-void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {
+void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center) {
     advance(now_ms);
     selected = std::min(selected, kMaxIndex);
     const float spacing_target = float(std::min(spacing, kMaxSpacing));
@@ -362,7 +375,7 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
         const float look_now = look();
         float turn_now = turn();
         if (switch_.active && now_ms - switch_.start_ms >= switch_.out_ms + turn_) {  // phase 3: the target is ahead
-            land_turn(switch_.from, switch_.to);
+            land_turn(switch_.from, switch_.to, switch_.center);
             turn_now = 0;
         }
         switch_.active = switch_.queued = false;
@@ -376,15 +389,17 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
             tween_zoom(0.f);  // zoom out from here; shown_ keeps the desktop on screen until the overview
         } else if (selected == switch_.to) {
             switch_.queued = false;
+            if (zooming_out && center) switch_.center = turn_centred_ = true;  // the turn has not started
         } else if (zooming_out && selected == switch_.from) {
             tween_zoom(1.f);  // back before the turn began: zoom straight back in
         } else if (zooming_out) {
             switch_.to = look_to_ = selected;  // the turn has not started: just aim it elsewhere
+            switch_.center = turn_centred_ = center;
         } else {
-            switch_.queued = true; switch_.next = selected;  // runs once this switch lands
+            switch_.queued = true; switch_.next = selected; switch_.next_center = center;  // runs once this switch lands
         }
     } else if (zoomed && selected != shown_ && (to_zoom_ == 1.f || z > 0.f)) {  // zoomed (or partly): animate the switch
-        start_switch(shown_, selected, z, now_ms);
+        start_switch(shown_, selected, z, now_ms, center);
     } else {
         if (float(zoomed) != to_zoom_) tween_zoom(zoomed ? 1.f : 0.f);
         // Zooming out, the desktop being left stays the zoom's until the overview; otherwise the selection is shown at once.
@@ -406,22 +421,33 @@ void ViewAnimator::advance(double now_ms) {
         if (e < in) { const float s = smoothstep(float((e - turn) / duration_)); w.zoom_now = s; w.look_now = 1 - s; w.turn_now = 1; return; }
         // Landed: zoomed into the target, the view untouched (anchor: the turn is the room's now). A queued switch starts
         // where this one ended.
-        land_turn(w.from, w.to);
+        land_turn(w.from, w.to, w.center);
         const bool again = w.queued && w.next != w.to;
         const std::uint32_t from = w.to, next = w.next;
+        const bool next_center = w.next_center;
         w.active = false; w.zoom_now = 1; w.look_now = w.turn_now = 0;
         if (!again) { shown_ = from; break; }
-        start_switch(from, next, 1.f, w.start_ms + in);
+        start_switch(from, next, 1.f, w.start_ms + in, next_center);
     }
 }
 float ViewAnimator::zoom() const { return switch_.active ? switch_.zoom_now : lerp(from_zoom_, to_zoom_, smoothstep(t_)); }
 float ViewAnimator::look() const { return switch_.active ? switch_.look_now : from_look_ * (1 - smoothstep(look_t_)); }
 float ViewAnimator::turn() const { return switch_.active ? switch_.turn_now : from_turn_ * (1 - smoothstep(look_t_)); }
-void ViewAnimator::land_turn(std::uint32_t from, std::uint32_t to) {
+void ViewAnimator::land_turn(std::uint32_t from, std::uint32_t to, bool centred) {
+    if (centred) { landed_.push_back({from, to, true, serial_}); return; }  // turned from the view's centre: its own fold
     if (from == to) return;
-    if (landed_) (*landed_)[1] = to; else landed_ = std::array<std::uint32_t, 2>{from, to};
-    if ((*landed_)[0] == (*landed_)[1]) landed_.reset();  // there and back again
+    if (!landed_.empty() && !landed_.back().centred) {
+        landed_.back().to = to;
+        if (landed_.back().from == landed_.back().to) landed_.pop_back();  // there and back again
+    } else {
+        landed_.push_back({from, to, false, 0});
+    }
 }
-std::optional<std::array<std::uint32_t, 2>> ViewAnimator::take_landed_turn() { return std::exchange(landed_, std::nullopt); }
+std::vector<ViewAnimator::LandedTurn> ViewAnimator::take_landed_turns() { return std::exchange(landed_, {}); }
+std::optional<std::array<std::uint32_t, 2>> ViewAnimator::take_landed_turn() {
+    const auto all = take_landed_turns();
+    if (all.empty() || all.front().from == all.back().to) return std::nullopt;
+    return std::array<std::uint32_t, 2>{all.front().from, all.back().to};
+}
 float ViewAnimator::spacing() const { return lerp(from_spacing_, to_spacing_, smoothstep(spacing_t_)); }
 }

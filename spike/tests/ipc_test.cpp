@@ -62,6 +62,13 @@ int main() {
     auto control_mode = xr::decode_control(view(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false})"));
     require(std::holds_alternative<xr::ControlMessage>(control_mode) &&
             !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).typing);
+    require(!v.center);  // optional, false
+    auto centred = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":true})"));
+    require(std::holds_alternative<xr::ControlMessage>(centred) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(centred).payload).center);
+    for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":1})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"center":true})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":true,"x":1})"})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
     for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":0,"spacing":0,"mode":"orbit"})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":4,"spacing":0})",
                             R"({"zoomed":true,"selected":0,"spacing":401})", R"({"zoomed":true,"selected":-1,"spacing":0})",

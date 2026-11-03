@@ -20,8 +20,10 @@ struct SelectPayload { OutputId output_id; };
 // `cursor_follow` is display-only for the renderer (mode/cursor pop-ups); the supervisor acts on it.
 // `prediction`: renderer-side bounded head-pose prediction (predict.hpp), toggled at run time.
 // `typing`: display-only typing mode (Ctrl+Alt+T: the supervisor released every run key but the toggle); a dim pop-up.
+// Optional `center` (bool, default false): this change of `selected` is a cursor switch (the cursor pushed past an edge,
+// tools/native_spike/unified_cursor.py); in anchor mode the switch lands with the target centred in view (view.hpp).
 struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; bool prediction = false;
-                     bool typing = false; };
+                     bool typing = false; bool center = false; };
 // Theme accent for the highlight border/glow: {"border":[r,g,b]}, each 0..255.
 struct StylePayload { std::uint8_t r = 0, g = 0, b = 0; };
 // Keyboard help card: {"visible":bool,"rows":[[keys,action],...]}; at most kMaxHelpRows rows,

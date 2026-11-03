@@ -155,10 +155,15 @@ constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx 
 // The turn is a view (camera) rotation only: no placement ever changes, and at rest look() is 0. During phase 1 another
 // switch retargets it; later ones queue and run once this one lands. Zooming out mid-switch zooms out from where the view
 // is and eases any turn back to 0.
+// A centred switch (set_target's `center`: the cursor pushed past an edge, tools/native_spike/unified_cursor.py) animates
+// the same, but in anchor mode its turn starts from the direction at the centre of the view when it began rather than from
+// the desktop being left, so it pans straight to the target and lands with the target centred in view (wayland.cpp).
 class ViewAnimator {
 public:
+    // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
+    struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
     explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
-    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms);
+    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false);
     void advance(double now_ms);
     bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active; }
     bool switching() const { return switch_.active; }
@@ -174,25 +179,35 @@ public:
     // The turn of the switch(es) that landed since the last call, as {from, to} (look_from / look_to); consecutive landed
     // turns merge (first from, last to: aim turns telescope). nullopt if none.
     std::optional<std::array<std::uint32_t, 2>> take_landed_turn();
+    // Every switch that landed since the last call, in order; consecutive uncentred ones merge as above. A centred one
+    // never merges: its turn starts from its own direction (the view's centre), not from a desktop.
+    std::vector<LandedTurn> take_landed_turns();
+    // The most recent switch (the one whose turn turn() reports, also while it eases back): its serial (one per switch
+    // started) and whether it is centred.
+    std::uint32_t serial() const { return serial_; }
+    bool turn_centred() const { return turn_centred_; }
     std::uint32_t look_from() const { return look_from_; }
     std::uint32_t look_to() const { return look_to_; }
     float spacing() const;
     float target_spacing() const { return to_spacing_; }  // where spacing() is heading (the overview's settled layout)
     std::uint32_t selected() const { return to_selected_; }
 private:
-    void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms);
+    void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center);
     float duration_, turn_;
     double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
     float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
     float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0, from_turn_ = 0;
-    void land_turn(std::uint32_t from, std::uint32_t to);
-    std::optional<std::array<std::uint32_t, 2>> landed_;
+    void land_turn(std::uint32_t from, std::uint32_t to, bool centred);
+    std::vector<LandedTurn> landed_;
+    std::uint32_t serial_ = 0;
+    bool turn_centred_ = false;
     std::uint32_t to_selected_ = 0, shown_ = 0, look_from_ = 0, look_to_ = 0;
     struct Switch {
         bool active = false, queued = false;
         double start_ms = 0;
         float zoom = 1, out_ms = 0;  // the zoom it started from; phase 1's length
         std::uint32_t from = 0, to = 0, next = 0;
+        bool center = false, next_center = false;
         float zoom_now = 1, look_now = 0, turn_now = 0;
     } switch_;
 };
@@ -214,4 +229,11 @@ float focus_weight(const ViewAnimator& view);
 // range) it is the identity. Row-major, GL frame.
 std::array<float, 9> look_turn(const Canvas& canvas, std::span<const FRect> overview, std::span<const Placement> placements,
                                std::size_t from, std::size_t to, float look);
+// The same turn from direction `from` ({azimuth, elevation}, focus_direction's) instead of a desktop's: a centred switch
+// turns from view_centre(...) so at look 1 `to`'s direction is at the centre of the view it started from.
+std::array<float, 9> look_turn_from(const Canvas& canvas, std::span<const FRect> overview, std::span<const Placement> placements,
+                                    std::array<float, 2> from, std::size_t to, float look);
+// The direction {azimuth, elevation} (focus_direction's) of the canvas point drawn at the centre of a view (a drawn
+// row-major GL view rotation: canvas -> eye, straight ahead -z).
+std::array<float, 2> view_centre(const std::array<float, 9>& view);
 }
