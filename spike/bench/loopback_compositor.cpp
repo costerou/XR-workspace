@@ -72,7 +72,13 @@ struct Options {
     double seconds = 5, warmup = 1.5, hz = 120, capture_hz = 119.7;
     int outputs = 3;
     bool check = false, tracking = false;
+    // Constraint churn, as Hyprland sends it on monitor mode events (a layout change re-checks every monitor rule; a config
+    // reload takes each XR-n output through the default rule and back): "bounce" resends each session's constraints as
+    // another size and straight back in one flush, plus an unchanged batch; "resize" alternates the source size, failing
+    // frames whose buffer no longer fits (buffer_constraints). Every kChurnMs of the measured window.
+    std::string churn;
 };
+constexpr double kChurnMs = 150;
 
 // A wl_buffer reference that forgets the buffer when the client destroys it.
 struct BufRef {
@@ -245,7 +251,7 @@ struct Surface {
     Layer* layer = nullptr;
 };
 struct Layer { wl_resource* res = nullptr; Surface* surface = nullptr; bool configured = false; std::uint32_t serial = 0; };
-struct CapSession { wl_resource* res = nullptr; int output = -1; bool delivered = false; };
+struct CapSession { wl_resource* res = nullptr; int output = -1; bool delivered = false; std::uint32_t w = kSrcW, h = kSrcH; };
 struct CapFrame { wl_resource* res = nullptr; CapSession* session = nullptr; BufRef buf; bool captured = false; };
 struct Params { wl_resource* res = nullptr; std::unique_ptr<Dmabuf> d = std::make_unique<Dmabuf>(); bool used = false; };
 struct StampInfo { std::uint32_t stamp = 0; std::int64_t ready_ns = 0; int output = -1; };
@@ -277,6 +283,7 @@ struct Server {
     std::int64_t last_commit_ns = -1;
     std::vector<std::uint32_t> row;
     std::uint64_t readback_failures = 0;
+    std::uint64_t blank_frames = 0, churn_events = 0, constraint_failures = 0;  // blank: a tile that had shown a frame shows none
 
     StampInfo* lookup(std::uint32_t stamp) {
         auto& s = stamps[stamp & 0xffff];
@@ -315,6 +322,7 @@ struct Server {
     }
     void account_shown(const std::array<std::uint32_t, 3>& got, std::int64_t at_ns, Dist& dist, bool count_shown) {
         for (std::size_t i = 0; i < tiles.size() && i < 3; ++i) {
+            if (!got[i] && last_shown[i] && count_shown && measuring) ++blank_frames;
             if (!got[i] || got[i] == last_shown[i]) continue;
             if (const auto* info = lookup(got[i]); info && measuring) dist.add(double(at_ns - info->ready_ns) / 1e6);
             if (count_shown) { last_shown[i] = got[i]; if (measuring) ++shown_frames[i]; }
@@ -505,12 +513,17 @@ void session_destroyed(wl_resource* r) {
     std::erase(g->sessions, s);
     delete s;
 }
+void send_constraints(CapSession* s, std::uint32_t w, std::uint32_t h);
 void manager_create_session(wl_client* client, wl_resource* r, std::uint32_t id, wl_resource* source, std::uint32_t) {
     auto* res = wl_resource_create(client, &ext_image_copy_capture_session_v1_interface, wl_resource_get_version(r), id);
     auto* s = new CapSession(); s->res = res; s->output = int(reinterpret_cast<std::intptr_t>(wl_resource_get_user_data(source)));
     wl_resource_set_implementation(res, &session_impl, s, session_destroyed);
     g->sessions.push_back(s);
-    ext_image_copy_capture_session_v1_send_buffer_size(res, kSrcW, kSrcH);
+    send_constraints(s, s->w, s->h);
+}
+void send_constraints(CapSession* s, std::uint32_t w, std::uint32_t h) {
+    auto* res = s->res;
+    ext_image_copy_capture_session_v1_send_buffer_size(res, w, h);
     ext_image_copy_capture_session_v1_send_shm_format(res, WL_SHM_FORMAT_XRGB8888);
     ext_image_copy_capture_session_v1_send_shm_format(res, WL_SHM_FORMAT_ARGB8888);
     if (g->dmabuf_capture && g_gpu) {
@@ -645,6 +658,14 @@ void capture_tick(std::int64_t t, bool first_only) {
         done.push_back(f);
     }
     for (auto* f : done) {
+        std::uint32_t bw = 0, bh = 0;  // a buffer made for other constraints is refused, as by Hyprland
+        if (auto* shm = wl_shm_buffer_get(f->buf.r)) { bw = std::uint32_t(wl_shm_buffer_get_width(shm)); bh = std::uint32_t(wl_shm_buffer_get_height(shm)); }
+        else if (auto* d = static_cast<Dmabuf*>(wl_resource_get_user_data(f->buf.r))) { bw = std::uint32_t(d->width); bh = std::uint32_t(d->height); }
+        if (bw != f->session->w || bh != f->session->h) {
+            ext_image_copy_capture_frame_v1_send_failed(f->res, EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_BUFFER_CONSTRAINTS);
+            ++g->constraint_failures;
+            std::erase(g->captured, f); f->captured = false; continue;
+        }
         const std::uint32_t stamp = g->next_stamp++ & 0xffffffu;
         if (!(g->next_stamp & 0xffffffu)) g->next_stamp = 1;
         if (auto* shm = wl_shm_buffer_get(f->buf.r)) {
@@ -666,10 +687,26 @@ void capture_tick(std::int64_t t, bool first_only) {
         f->session->delivered = true;
         const std::uint64_t sec = std::uint64_t(t / 1'000'000'000), nsec = std::uint64_t(t % 1'000'000'000);
         ext_image_copy_capture_frame_v1_send_transform(f->res, WL_OUTPUT_TRANSFORM_NORMAL);
-        ext_image_copy_capture_frame_v1_send_damage(f->res, 0, 0, std::int32_t(kSrcW), std::int32_t(kSrcH));
+        ext_image_copy_capture_frame_v1_send_damage(f->res, 0, 0, std::int32_t(bw), std::int32_t(bh));
         ext_image_copy_capture_frame_v1_send_presentation_time(f->res, std::uint32_t(sec >> 32), std::uint32_t(sec & 0xffffffffu), std::uint32_t(nsec));
         ext_image_copy_capture_frame_v1_send_ready(f->res);
         std::erase(g->captured, f); f->captured = false;
+    }
+    wl_display_flush_clients(g->display);
+}
+
+void churn_tick() {
+    if (!g->measuring || g->opt.churn.empty()) return;
+    ++g->churn_events;
+    for (auto* s : g->sessions) {
+        if (g->opt.churn == "bounce") {
+            send_constraints(s, 1280, 720);  // the default rule's size for a moment...
+            send_constraints(s, s->w, s->h);  // ...and straight back (one flush, as in one reload)
+            send_constraints(s, s->w, s->h);  // a mode event that changes nothing
+        } else {
+            s->h = s->h == kSrcH ? kOutH : kSrcH;
+            send_constraints(s, s->w, s->h);
+        }
     }
     wl_display_flush_clients(g->display);
 }
@@ -733,7 +770,7 @@ std::uint64_t process_ctx_switches(pid_t pid) {
 void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..3] [--tracking (bwrap)]\n"
-                         "                  [--malloc-shim LIB [--malloc-trace FILE]] [--check]\n");
+                         "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--check]\n");
 }
 }  // namespace
 
@@ -752,9 +789,11 @@ int main(int argc, char** argv) {
         else if (a == "--malloc-shim") opt.malloc_shim = next();
         else if (a == "--malloc-trace") opt.malloc_trace = next();
         else if (a == "--check") opt.check = true;
+        else if (a == "--constraint-churn") opt.churn = next();
         else if (a == "--tracking") opt.tracking = true;
         else { usage(); return 2; }
     }
+    if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
     if (opt.renderer.empty() || opt.outputs < 1 || opt.outputs > 3 || !(opt.hz > 1) || opt.capture_hz < 0 ||
         (opt.mode != "cpu" && opt.mode != "gl-shm" && opt.mode != "gl-dmabuf" && opt.mode != "pattern")) { usage(); return 2; }
     // The renderer's animation is at most 60 s and must outlast the measured window.
@@ -916,8 +955,9 @@ int main(int argc, char** argv) {
         }
         for (ssize_t n; (n = ::read(err_pipe[0], buf, sizeof buf)) > 0;) if (stderr_text.size() < (1 << 20)) stderr_text.append(buf, std::size_t(n));
     };
-    pollfd fds[5] = {{wl_event_loop_get_fd(wl_display_get_event_loop(server.display)), POLLIN, 0}, {vblank_fd, POLLIN, 0},
-                     {capture_fd, POLLIN, 0}, {control[0], POLLIN, 0}, {status[0], POLLIN, 0}};
+    const int churn_fd = capture && !opt.churn.empty() ? make_timer(1000.0 / kChurnMs, 0.5) : -1;
+    pollfd fds[6] = {{wl_event_loop_get_fd(wl_display_get_event_loop(server.display)), POLLIN, 0}, {vblank_fd, POLLIN, 0},
+                     {capture_fd, POLLIN, 0}, {control[0], POLLIN, 0}, {status[0], POLLIN, 0}, {churn_fd, POLLIN, 0}};
     for (;;) {
         const std::int64_t t = now_ns();
         if (!server.measuring && t >= measure_at && !stop_sent) {
@@ -940,7 +980,7 @@ int main(int argc, char** argv) {
             break;
         }
         if (stop_sent && t > stop_deadline) { kill(pid, SIGKILL); waitpid(pid, &child_status, 0); child_exited = true; break; }
-        if (::poll(fds, 5, 2) < 0 && errno != EINTR) break;
+        if (::poll(fds, 6, 2) < 0 && errno != EINTR) break;
         wl_event_loop_dispatch(wl_display_get_event_loop(server.display), 0);
         std::uint64_t expirations = 0;
         if (::read(vblank_fd, &expirations, sizeof expirations) == sizeof expirations) {
@@ -948,6 +988,7 @@ int main(int argc, char** argv) {
             vblank(now_ns());
         }
         if (capture_fd >= 0 && ::read(capture_fd, &expirations, sizeof expirations) == sizeof expirations) capture_tick(now_ns(), opt.capture_hz <= 0);
+        if (churn_fd >= 0 && ::read(churn_fd, &expirations, sizeof expirations) == sizeof expirations) churn_tick();
         drain();
         wl_display_flush_clients(server.display);
     }
@@ -974,6 +1015,11 @@ int main(int argc, char** argv) {
         out["captured_frames_per_s"] = std::round(double(cap) / secs * 10) / 10;
         out["shown_capture_frames_per_s"] = std::round(double(shown) / secs * 10) / 10;
         out["readback_failures"] = server.readback_failures;
+        out["blank_frames"] = server.blank_frames;
+        if (!opt.churn.empty()) {
+            out["constraint_churn"] = opt.churn; out["churn_events"] = server.churn_events;
+            out["constraint_failures"] = server.constraint_failures;
+        }
     }
     out["window_complete"] = window_complete && stop_sent;
     const bool counters = window_complete && stop_sent;  // otherwise the end samples were never taken
@@ -993,7 +1039,8 @@ int main(int argc, char** argv) {
     for (const auto& j : reports) {
         if (j.contains("kind") && j["kind"] == "managed_output_capture") {
             nlohmann::json paths = nlohmann::json::array();
-            for (const auto& o : j["outputs"]) paths.push_back({{"name", o["name"]}, {"path", o["path"]}, {"fallback", o["fallback"]}, {"frames", o["frames"]}});
+            for (const auto& o : j["outputs"]) paths.push_back({{"name", o["name"]}, {"path", o["path"]}, {"fallback", o["fallback"]}, {"frames", o["frames"]},
+                                                                {"reallocations", o.value("reallocations", -1)}, {"constraint_batches", o.value("constraint_batches", -1)}});
             out["capture_paths"] = paths;
             if (j.contains("composition") && j["composition"].is_object()) {
                 const auto& c = j["composition"];
@@ -1021,6 +1068,14 @@ int main(int argc, char** argv) {
         if (opt.mode == "cpu" && out.value("composition", std::string()) != "cpu-blit") fail("not on the CPU composition path");
         if (opt.mode == "gl-dmabuf" && !(out.contains("capture_paths") && out["capture_paths"][0]["path"] == "dmabuf")) fail("not on the dmabuf path");
         if ((opt.mode == "gl-shm" || opt.mode == "cpu") && !(out.contains("capture_paths") && out["capture_paths"][0]["path"] == "shm")) fail("not on the shm path");
+        // Constraint churn (layout changes): no desktop ever goes blank, and constraints that come back to the buffers' own
+        // size re-create nothing (one allocation per desktop for the whole run).
+        if (capture && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
+        if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
+        if (capture && opt.churn == "bounce") {
+            if (!out.contains("capture_paths")) fail("no capture report");
+            else for (const auto& o : out["capture_paths"]) if (o["reallocations"] != 1) fail("constraints that came back re-created capture buffers");
+        }
     }
     wl_display_destroy(server.display);
     g = nullptr; g_gpu = nullptr;

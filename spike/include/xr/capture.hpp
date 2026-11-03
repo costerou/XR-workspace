@@ -65,6 +65,51 @@ private:
     std::vector<DmabufFormat> dmabuf_;
 };
 
+// Capture buffer lifecycle of one session (pure; wayland.cpp does what it decides). The compositor resends constraints
+// whenever the output's mode is touched: Hyprland sends a batch on every monitor modeChanged, a workspace layout change
+// (hl.workspace_rule) re-checks every monitor rule, and a config reload puts each XR-n output through the default rule
+// and straight back to its own. So:
+// - buffers are re-created only for a batch that differs (size or format) from what they were made for, and a batch
+//   that matches them again (a size that changed and changed back) cancels a pending re-creation;
+// - re-creation waits until the events have settled (settle(), called once a dispatch is done) and no frame is in
+//   flight, so several batches in one dispatch re-create at most once;
+// - a buffer-constraints failure waits for the next batch with the buffers it has (it never forgets their plan);
+// - layout_size() is the size of the frame on screen (the last delivered one), so the overview layout changes when
+//   the new content appears, not when constraints arrive. The renderer keeps showing that frame meanwhile.
+class CaptureBuffers {
+public:
+    void constraints(const ShmPlan& plan) { ++batches_; target_ = plan; waiting_ = false; }
+    void constraints_failed() { waiting_ = true; }
+    bool reallocation_pending() const { return target_ && (!allocated_ || !same_buffers(*target_, *allocated_)); }
+    // A frame may be requested into the current buffers.
+    bool may_capture() const { return allocated_ && !waiting_ && !reallocation_pending(); }
+    // True: re-create the buffers for allocated() now (they are recorded as made for it).
+    bool settle(bool frame_in_flight) {
+        if (frame_in_flight || !reallocation_pending()) return false;
+        allocated_ = target_; ++reallocations_; return true;
+    }
+    // A frame landed in the current buffers.
+    void delivered() { if (allocated_) shown_ = Size{float(allocated_->width), float(allocated_->height)}; }
+    std::optional<Size> layout_size() const {
+        if (shown_) return shown_;
+        const auto& p = allocated_ ? allocated_ : target_;
+        if (p && p->width && p->height) return Size{float(p->width), float(p->height)};
+        return std::nullopt;
+    }
+    const std::optional<ShmPlan>& target() const { return target_; }        // latest batch
+    const std::optional<ShmPlan>& allocated() const { return allocated_; }   // what the buffers are made for
+    std::uint64_t batches() const { return batches_; }
+    std::uint64_t reallocations() const { return reallocations_; }
+    static bool same_buffers(const ShmPlan& a, const ShmPlan& b) {
+        return a.width == b.width && a.height == b.height && a.stride == b.stride && a.format == b.format;
+    }
+private:
+    std::optional<ShmPlan> target_, allocated_;
+    std::optional<Size> shown_;
+    bool waiting_ = false;
+    std::uint64_t batches_ = 0, reallocations_ = 0;
+};
+
 struct Rect { std::uint32_t x = 0, y = 0, width = 0, height = 0; };
 // Tiles side by side at one shared height (the largest that fits), each keeping its source aspect
 // (floored to whole pixels); leftover width is split into equal per-tile gaps. Centred vertically

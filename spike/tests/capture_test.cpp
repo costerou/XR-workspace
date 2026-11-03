@@ -30,6 +30,51 @@ int main() {
         CHECK(!c.done());  // a new batch starts empty
     }
 
+    {  // Capture buffer lifecycle under constraint churn (Hyprland layout changes, config reloads)
+        const ShmPlan p1080{1920, 1080, 7680, kShmXrgb8888, 7680u * 1080}, p1200{1920, 1200, 7680, kShmXrgb8888, 7680u * 1200};
+        const ShmPlan p720{1280, 720, 5120, kShmXrgb8888, 5120u * 720}, argb{1920, 1080, 7680, kShmArgb8888, 7680u * 1080};
+        CaptureBuffers b;
+        CHECK(!b.may_capture() && !b.reallocation_pending() && !b.layout_size() && !b.settle(false));
+        b.constraints(p1080);
+        CHECK(b.target() && !b.allocated() && b.reallocation_pending() && !b.may_capture());
+        CHECK(b.layout_size() && b.layout_size()->w == 1920 && b.layout_size()->h == 1080);  // before any frame: the plan
+        CHECK(b.settle(false) && b.allocated()->height == 1080 && b.reallocations() == 1 && b.may_capture());
+        CHECK(!b.settle(false));  // nothing more to do
+        b.delivered();
+        // An unchanged batch (a mode event that changes nothing) keeps the buffers.
+        b.constraints(p1080);
+        CHECK(!b.reallocation_pending() && b.may_capture() && !b.settle(false) && b.reallocations() == 1);
+        // Reload: the default size and straight back in one dispatch re-creates nothing.
+        b.constraints(p720);
+        CHECK(b.reallocation_pending() && !b.may_capture());  // no frame into buffers that are about to go
+        b.constraints(p1080);
+        CHECK(!b.reallocation_pending() && b.may_capture() && !b.settle(false) && b.reallocations() == 1 && b.batches() == 4);
+        // A real change waits for the frame in flight, then re-creates once; the layout keeps the size on screen
+        // until a frame lands in the new buffers.
+        b.constraints(p1200);
+        CHECK(!b.settle(true) && b.reallocation_pending());
+        CHECK(b.layout_size()->h == 1080);
+        CHECK(b.settle(false) && b.reallocations() == 2 && b.allocated()->height == 1200 && b.may_capture());
+        CHECK(b.layout_size()->h == 1080);  // the held 1080 frame is still what is shown
+        b.delivered();
+        CHECK(b.layout_size()->h == 1200);
+        // A format change alone re-creates too.
+        b.constraints(argb);
+        CHECK(b.reallocation_pending() && b.settle(false) && b.allocated()->format == kShmArgb8888 && b.reallocations() == 3);
+        b.delivered();
+        // A buffer-constraints failure keeps the buffers and their plan, waits for the next batch, and an identical batch
+        // resumes capture into the same buffers.
+        b.constraints_failed();
+        CHECK(!b.may_capture() && b.allocated() && !b.reallocation_pending() && !b.settle(false));
+        CHECK(b.layout_size()->w == 1920 && b.layout_size()->h == 1080);  // no placeholder size while waiting
+        b.constraints(argb);
+        CHECK(b.may_capture() && b.reallocations() == 3);
+        b.constraints_failed();
+        b.constraints(p1200);  // or a different one re-creates
+        CHECK(b.reallocation_pending() && b.settle(false) && b.reallocations() == 4 && b.may_capture());
+        CHECK(CaptureBuffers::same_buffers(p1080, p1080) && !CaptureBuffers::same_buffers(p1080, argb) && !CaptureBuffers::same_buffers(p1080, p1200));
+    }
+
     // Zero-copy choice: XRGB before ARGB, LINEAR preferred, only what EGL can import.
     auto all = [](std::uint32_t, std::uint64_t) { return true; };
     const std::uint64_t tiled = 0x0200000020867b04ULL;

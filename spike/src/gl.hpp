@@ -42,6 +42,12 @@ public:
     bool import_dmabuf(std::size_t source, std::size_t slot, const DmabufBuffer&);
     void present_dmabuf(std::size_t source, int slot);
     void drop_dmabuf(std::size_t source);
+    // Capture buffers being re-created: keep the source's current imported frame (its texture and EGL image; the caller
+    // keeps the DmabufBuffer alive) and drop the other slots. It is drawn until present_dmabuf or upload gives the source
+    // a new frame, which releases it. True if a frame is held. drop_dmabuf never drops the held frame.
+    bool hold_dmabuf(std::size_t source);
+    void release_held(std::size_t source);
+    bool holding(std::size_t source) const;
     // Status pop-up drawn head-locked over the next frames (nullptr or alpha 0: none). `image`
     // must outlive the calls; it is re-uploaded only when `generation` changes.
     void set_popup(const HudImage* image, std::uint64_t generation, float alpha);

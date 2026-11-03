@@ -144,16 +144,21 @@ struct Presentation::Impl : SurfaceRequests {
         ext_image_copy_capture_session_v1* session = nullptr;
         ext_image_copy_capture_frame_v1* frame = nullptr;
         SessionConstraints constraints;
-        std::optional<ShmPlan> plan;
+        CaptureBuffers buffers;  // when to (re)create the capture buffers, and the size of the frame on screen
         std::array<std::unique_ptr<Buffer>, 2> slots{};
         int capturing = -1, ready = -1;
         bool stopped = false;
-        std::uint64_t frames = 0, failures = 0, last_ready_ms = 0;
+        std::uint64_t frames = 0, failures = 0, failure_run = 0, last_ready_ms = 0;
+        // While buffers are re-created, the frame on screen stays there until the new buffers deliver one: GPU composition
+        // keeps a dmabuf frame's GL image (GlCompositor::hold_dmabuf; its buffer lives here) or an SHM frame's texture;
+        // the CPU composition keeps the SHM slot itself.
+        std::unique_ptr<DmabufBuffer> held_dbuf;
+        std::unique_ptr<Buffer> held_shm;
         // Zero-copy path (C2b): three GBM buffers imported into GL once; the compositor renders
         // into the slot that is neither the latest frame nor the one GL is sampling.
         enum class Path { None, Shm, Dmabuf } path = Path::None;
         std::optional<SessionConstraints::Batch> batch;
-        bool realloc_pending = false, no_dmabuf = false, dmabuf_failed = false;
+        bool no_dmabuf = false, dmabuf_failed = false;
         std::array<std::unique_ptr<DmabufBuffer>, 3> dbufs{};
         std::array<wl_buffer*, 3> dproxy{};
         std::array<zwp_linux_buffer_params_v1*, 3> params{};
@@ -187,7 +192,7 @@ struct Presentation::Impl : SurfaceRequests {
         Sizes out;
         for (const auto& c : captures) {
             if (out.n == out.v.size()) break;
-            out.v[out.n++] = c->plan && c->plan->width && c->plan->height ? Size{float(c->plan->width), float(c->plan->height)} : Size{1920, 1080};
+            out.v[out.n++] = c->buffers.layout_size().value_or(Size{1920, 1080});
         }
         return out;
     }
@@ -331,29 +336,52 @@ struct Presentation::Impl : SurfaceRequests {
         auto& c = *static_cast<Capture*>(data);
         auto batch = c.constraints.done_all();
         if (!batch.shm) { c.stopped = true; c.owner->closed = true; return; }  // unsupported constraints: fail closed
-        const bool changed = !c.plan || c.plan->width != batch.shm->width || c.plan->height != batch.shm->height ||
-                             c.plan->format != batch.shm->format;
-        c.batch = std::move(batch);
-        if (changed) {
-            if (c.capturing >= 0) { c.realloc_pending = true; return; }  // after the in-flight frame completes or fails
-            c.owner->apply_batch(c); return;
-        }
-        c.owner->capture_next(c);
+        c.buffers.constraints(*batch.shm);
+        c.batch = std::move(batch);  // the latest batch: what a re-creation (settle_captures) allocates for
+        c.owner->capture_next(c);    // same buffers: keep capturing into them; no-op while a re-creation is pending
     }
-    void apply_batch(Capture& c) {
-        c.realloc_pending = false; c.plan = c.batch->shm;
-        if (allocation_enabled) allocate(c);
+    // After each dispatch: re-create the buffers of a capture whose constraints changed, once no frame is in flight
+    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing.
+    void settle_captures() {
+        if (!allocation_enabled) return;
+        for (auto& p : captures) {
+            auto& c = *p;
+            if (c.stopped) continue;
+            if (c.buffers.settle(c.frame != nullptr)) allocate(c);
+            else capture_next(c);
+        }
+    }
+    // Keep what is on screen through a re-creation (see Capture::held_dbuf): the newest frame, drawn or not.
+    void hold_frame(Capture& c) {
+        if (c.path == Capture::Path::Dmabuf && gl) {
+            const int show = c.ready >= 0 ? c.ready : c.presented;
+            if (show >= 0 && c.dbufs[std::size_t(show)]) {
+                if (show != c.presented) gl->present_dmabuf(c.index, show);
+                if (gl->hold_dmabuf(c.index)) {
+                    c.held_dbuf = std::move(c.dbufs[std::size_t(show)]);
+                    if (c.index < uploaded.size()) uploaded[c.index] = c.frames;
+                }
+            }
+        } else if (c.path == Capture::Path::Shm && c.ready >= 0 && c.slots[std::size_t(c.ready)]) {
+            if (gl) {  // the texture keeps the frame; upload the newest one if it was not drawn yet
+                const auto& slot = *c.slots[std::size_t(c.ready)];
+                if (c.index < uploaded.size() && uploaded[c.index] != c.frames && gl->upload(c.index, slot.memory, slot.width, slot.height, slot.stride)) {
+                    uploaded[c.index] = c.frames; c.held_dbuf.reset();
+                }
+            } else c.held_shm = std::move(c.slots[std::size_t(c.ready)]);
+        }
     }
     // (Re)allocate capture targets: dmabuf when everything lines up, otherwise SHM with a reason.
     void allocate(Capture& c) {
+        hold_frame(c);
         c.ready = c.presented = -1; c.path = Capture::Path::None;
-        if (gl) gl->drop_dmabuf(c.index);  // GL lets go of the images before their buffers die
+        if (gl) gl->drop_dmabuf(c.index);  // GL lets go of the images before their buffers die (a held frame stays)
         c.drop_dmabuf();
         for (auto& slot : c.slots) slot.reset();
         if (try_dmabuf(c)) return;  // capture starts once the compositor has created all buffers
         c.drop_dmabuf();
         if (gl) gl->drop_dmabuf(c.index);
-        const auto& plan = *c.plan;
+        const auto& plan = *c.buffers.allocated();
         for (auto& slot : c.slots) { slot = make_shm(plan.width, plan.height, plan.stride, plan.format, "xr-managed-capture");
                                      if (!slot) { c.stopped = true; closed = true; return; } }
         c.path = Capture::Path::Shm;
@@ -366,6 +394,10 @@ struct Presentation::Impl : SurfaceRequests {
         if (!linux_dmabuf) return fail("compositor lacks zwp_linux_dmabuf_v1");
         if (!c.batch || !c.batch->device || c.batch->dmabuf.empty()) return fail("session offers no dmabuf");
         if (!allocator || allocator_device != *c.batch->device) {
+            for (auto& other : captures) {  // held frames were allocated on the old device
+                if (gl) gl->release_held(other->index);
+                other->held_dbuf.reset();
+            }
             std::string why; allocator.reset();
             allocator = DmabufAllocator::open(*c.batch->device, why);
             if (!allocator) { c.no_dmabuf = true; c.fallback = why; return false; }
@@ -374,7 +406,7 @@ struct Presentation::Impl : SurfaceRequests {
         auto choice = choose_dmabuf(c.batch->dmabuf, [&](std::uint32_t f, std::uint64_t m) { return gl->dmabuf_importable(f, m); });
         if (!choice) { c.no_dmabuf = true; return fail("no offered dmabuf format is importable"); }
         c.choice = *choice;
-        const auto w = c.plan->width, h = c.plan->height;
+        const auto w = c.buffers.allocated()->width, h = c.buffers.allocated()->height;
         for (int i = 0; i < 3; ++i) {
             std::string why;
             c.dbufs[i] = allocator->allocate(w, h, *choice, why);
@@ -424,26 +456,27 @@ struct Presentation::Impl : SurfaceRequests {
     static void frame_ready(void* data, ext_image_copy_capture_frame_v1* frame) {
         auto& c = *static_cast<Capture*>(data);
         ext_image_copy_capture_frame_v1_destroy(frame); c.frame = nullptr;
-        c.ready = c.capturing; c.capturing = -1; ++c.frames; c.last_ready_ms = monotonic_ms();
+        c.ready = c.capturing; c.capturing = -1; ++c.frames; c.failure_run = 0; c.last_ready_ms = monotonic_ms();
+        c.buffers.delivered();
         if (c.path == Capture::Path::Dmabuf) ++c.dmabuf_frames;
+        if (!c.owner->gl) c.held_shm.reset();  // CPU composition: this frame replaces a held one
         c.owner->cadence.invalidate();
-        if (c.realloc_pending) { c.owner->apply_batch(c); return; }  // reallocation drops this frame (ready = -1): no upload
-        c.owner->capture_next(c);  // never targets the ready slot, which upload_early reads
+        c.owner->capture_next(c);  // never targets the ready slot, which upload_early reads; no-op if re-creation is pending
         c.owner->upload_early(c);
     }
     static void frame_failed(void* data, ext_image_copy_capture_frame_v1* frame, uint32_t reason) {
         auto& c = *static_cast<Capture*>(data);
-        ext_image_copy_capture_frame_v1_destroy(frame); c.frame = nullptr; c.capturing = -1; ++c.failures;
+        ext_image_copy_capture_frame_v1_destroy(frame); c.frame = nullptr; c.capturing = -1; ++c.failures; ++c.failure_run;
         if (reason == EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_STOPPED) { c.stopped = true; c.owner->closed = true; return; }
+        if (c.failure_run > 1000) { c.stopped = true; c.owner->closed = true; return; }  // consecutive: no frame in between
         if (reason == EXT_IMAGE_COPY_CAPTURE_FRAME_V1_FAILURE_REASON_BUFFER_CONSTRAINTS) {
-            if (c.realloc_pending) { c.owner->apply_batch(c); return; }  // new constraints already arrived
+            if (c.buffers.reallocation_pending()) return;  // new constraints already arrived: settle_captures re-creates
             if (c.path == Capture::Path::Dmabuf && !c.dmabuf_frames) {   // refused before any frame: use SHM
                 c.no_dmabuf = true; c.fallback = "compositor refused dmabuf capture"; c.owner->allocate(c); return;
             }
-            c.plan.reset(); return;  // wait for done
+            c.buffers.constraints_failed(); return;  // wait for done, keeping the buffers and the frame on screen
         }
-        if (c.failures > 1000) { c.stopped = true; c.owner->closed = true; return; }
-        c.owner->capture_next(c);
+        c.owner->capture_next(c);  // no-op while a re-creation is pending
     }
     inline static const ext_image_copy_capture_frame_v1_listener capture_frame_listener{
         frame_transform, frame_damage, frame_time, frame_ready, frame_failed};
@@ -460,8 +493,10 @@ struct Presentation::Impl : SurfaceRequests {
             return;
         const auto& slot = *c.slots[std::size_t(c.ready)];
         (void)wl_display_flush(display);  // the next capture request goes out before this 1-2 ms copy, not after it
-        if (gl->upload(c.index, slot.memory, slot.width, slot.height, slot.stride)) uploaded[c.index] = c.frames;
-        else upload_failed = true;
+        if (gl->upload(c.index, slot.memory, slot.width, slot.height, slot.stride)) {
+            uploaded[c.index] = c.frames;
+            if (!gl->holding(c.index)) c.held_dbuf.reset();
+        } else upload_failed = true;
     }
     std::unique_ptr<Buffer> make_shm(std::uint32_t w, std::uint32_t h, std::uint32_t stride, std::uint32_t format, const char* tag) {
         auto b = std::make_unique<Buffer>(); b->width = w; b->height = h; b->stride = stride; b->bytes = std::size_t(stride) * h;
@@ -476,7 +511,7 @@ struct Presentation::Impl : SurfaceRequests {
         return b;
     }
     void capture_next(Capture& c) {
-        if (c.stopped || c.frame || !c.plan) return;
+        if (c.stopped || c.frame || !c.buffers.may_capture()) return;
         int slot = -1; wl_buffer* target = nullptr;
         if (c.path == Capture::Path::Dmabuf) {
             if (c.pending) return;
@@ -491,7 +526,8 @@ struct Presentation::Impl : SurfaceRequests {
         c.frame = ext_image_copy_capture_session_v1_create_frame(c.session);
         ext_image_copy_capture_frame_v1_add_listener(c.frame, &capture_frame_listener, &c);
         ext_image_copy_capture_frame_v1_attach_buffer(c.frame, target);
-        ext_image_copy_capture_frame_v1_damage_buffer(c.frame, 0, 0, static_cast<int>(c.plan->width), static_cast<int>(c.plan->height));
+        ext_image_copy_capture_frame_v1_damage_buffer(c.frame, 0, 0, static_cast<int>(c.buffers.allocated()->width),
+                                                      static_cast<int>(c.buffers.allocated()->height));
         ext_image_copy_capture_frame_v1_capture(c.frame);
         c.capturing = slot;
     }
@@ -588,6 +624,7 @@ struct Presentation::Impl : SurfaceRequests {
             if (n < 0) return false;
             dispatched += n;
         }
+        if (dispatched) settle_captures();
         const int flushed = wl_display_flush(display);
         if (flushed < 0 && errno != EAGAIN) { wl_display_cancel_read(display); return false; }
         pollfd fds[2] = {{wl_display_get_fd(display), static_cast<short>(POLLIN | (flushed < 0 ? POLLOUT : 0)), 0}, {wake_fd, POLLIN, 0}};
@@ -602,6 +639,8 @@ struct Presentation::Impl : SurfaceRequests {
             if (wl_display_read_events(display) < 0) return false;
         } else wl_display_cancel_read(display);
         if (wl_display_dispatch_pending(display) < 0 || closed) return false;
+        settle_captures();
+        if (closed) return false;
         // Send what the callbacks queued (a capture's next frame request above all) now, not with the next swap or pump.
         // A full socket (EAGAIN) or a broken one is left to the next flush, as before.
         (void)wl_display_flush(display);
@@ -678,9 +717,11 @@ std::string Presentation::capture_report() const {
     std::string out = "{\"kind\":\"managed_output_capture\",\"outputs\":[";
     for (std::size_t i = 0; i < impl_->captures.size(); ++i) {
         const auto& c = *impl_->captures[i];
+        const auto& plan = c.buffers.allocated() ? c.buffers.allocated() : c.buffers.target();
         out += (i ? "," : "") + std::string("{\"name\":\"") + c.name + "\",\"frames\":" + std::to_string(c.frames) +
-               ",\"failures\":" + std::to_string(c.failures) + ",\"width\":" + std::to_string(c.plan ? c.plan->width : 0) +
-               ",\"height\":" + std::to_string(c.plan ? c.plan->height : 0) + ",\"format\":" + std::to_string(c.plan ? c.plan->format : 0) +
+               ",\"failures\":" + std::to_string(c.failures) + ",\"width\":" + std::to_string(plan ? plan->width : 0) +
+               ",\"height\":" + std::to_string(plan ? plan->height : 0) + ",\"format\":" + std::to_string(plan ? plan->format : 0) +
+               ",\"constraint_batches\":" + std::to_string(c.buffers.batches()) + ",\"reallocations\":" + std::to_string(c.buffers.reallocations()) +
                ",\"path\":\"" + (c.path == Impl::Capture::Path::Dmabuf ? "dmabuf" : c.path == Impl::Capture::Path::Shm ? "shm" : "none") +
                "\",\"dmabuf_frames\":" + std::to_string(c.dmabuf_frames) +
                (c.path == Impl::Capture::Path::Dmabuf ? ",\"fourcc\":" + std::to_string(c.choice.fourcc) + ",\"modifier\":" + std::to_string(c.choice.modifier) : std::string()) +
@@ -783,11 +824,11 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             s->captures.push_back(std::move(c));
         }
         // Constraints arrive asynchronously (after the output renders); bounded wait for every session.
-        auto ready = [&] { return std::all_of(s->captures.begin(), s->captures.end(), [](const auto& c) { return c->plan || c->stopped; }); };
+        auto ready = [&] { return std::all_of(s->captures.begin(), s->captures.end(), [](const auto& c) { return c->buffers.target() || c->stopped; }); };
         auto capture_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
         while (!ready() && std::chrono::steady_clock::now() < capture_deadline) if (!s->pump(50)) break;
         std::string missing;
-        for (auto& c : s->captures) if (c->stopped || !c->plan) missing += (missing.empty() ? "" : ",") + c->name;
+        for (auto& c : s->captures) if (c->stopped || !c->buffers.target()) missing += (missing.empty() ? "" : ",") + c->name;
         if (!missing.empty()) return Error{"capture", "capture constraints unavailable for " + missing};
     }
     s->surface = wl_compositor_create_surface(s->compositor);
@@ -809,7 +850,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
         s->frames_at_draw.assign(s->captures.size(), 0);
         s->early_hold.assign(s->captures.size(), 0);
         s->allocation_enabled = true;
-        for (auto& c : s->captures) if (!c->stopped && c->plan && c->capturing < 0) s->allocate(*c);
+        s->settle_captures();  // first allocation of every capture's buffers
         if (s->closed) return Error{"capture", "capture buffer allocation failed"};
         // The capture buffer (dmabuf params) or first frame requests go out now, so the compositor works on them while
         // the fonts load below instead of after. A failed flush is found by the next pump, as before.
@@ -1015,13 +1056,16 @@ Status Presentation::draw_test_pattern() {
             auto& c = *s.captures[i];
             if (c.ready < 0 || c.frames == s.uploaded[i]) continue;
             if (c.path == Impl::Capture::Path::Dmabuf) {  // zero copy: sample the imported slot directly
-                s.gl->present_dmabuf(i, c.ready); c.presented = c.ready; s.uploaded[i] = c.frames; continue;
+                s.gl->present_dmabuf(i, c.ready); c.presented = c.ready; s.uploaded[i] = c.frames;
+                if (!s.gl->holding(i)) c.held_dbuf.reset();  // the new buffers' first frame replaced the held one
+                continue;
             }
             if (!c.slots[c.ready]) continue;
-            const auto& slot = *c.slots[c.ready];  // the slot's own geometry (c.plan may be reset while waiting for constraints)
+            const auto& slot = *c.slots[c.ready];  // the slot's own geometry (it may differ from the latest constraints)
             if (!s.gl->upload(i, slot.memory, slot.width, slot.height, slot.stride))
                 return Error{"gl", "texture upload failed"};
             s.uploaded[i] = c.frames;
+            if (!s.gl->holding(i)) c.held_dbuf.reset();
         }
         std::copy(s.uploaded.begin(), s.uploaded.end(), s.drawn.begin());
         for (std::size_t i = 0; i < s.captures.size() && i < s.early_hold.size(); ++i) {  // see upload_early
@@ -1164,8 +1208,10 @@ Status Presentation::draw_test_pattern() {
         for (std::size_t i = 0; i < content.n; ++i) {
             content.tiles[i] = s.cpu_tiles[i];
             const auto& c = *s.captures[i];
-            if (c.ready < 0 || !c.slots[c.ready]) continue;
-            const auto& slot = *c.slots[c.ready];  // the slot's own geometry (c.plan may be reset while waiting for constraints)
+            // The newest frame, or the one held while the buffers are re-created (Capture::held_shm).
+            const auto* shown = c.ready >= 0 && c.slots[c.ready] ? c.slots[c.ready].get() : c.held_shm.get();
+            if (!shown) continue;
+            const auto& slot = *shown;  // the slot's own geometry (it may differ from the latest constraints)
             content.sources[i] = {static_cast<const std::uint32_t*>(slot.memory), slot.width, slot.height, slot.stride / 4};
             content.frames[i] = c.frames;
         }
