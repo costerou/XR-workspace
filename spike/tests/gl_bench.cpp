@@ -418,6 +418,21 @@ int bench(std::uint32_t w, std::uint32_t h, int frames) {
     };
     const HudFont* font = r.font.get();
     volatile float sink = 0;
+    if (font) {  // the first card a freshly loaded font renders (what the first pop-up / panel / help frame pays)
+        auto first = [&](const char* name, auto&& fn) {
+            std::vector<double> v;
+            for (int k = 0; k < 5; ++k) {
+                std::string why_font;
+                auto fresh = HudFont::load(kHudFontFamily, why_font);
+                if (!fresh) return;
+                const double t = now_us(); fn(fresh.get()); v.push_back(now_us() - t);
+            }
+            const Pct p = pct(v);
+            std::printf("%-26s n=%-6d mean %9.2f us  p50 %9.2f  p99 %9.2f\n", name, 5, p.mean, p.p50, p.p99);
+        };
+        first("first.panel (fresh font)", [&](const HudFont* f) { auto im = render_glass_panel(panel_state(0), f); sink = sink + im.rgba[0]; });
+        first("first.popup (fresh font)", [&](const HudFont* f) { auto im = render_hud_card(view_mode_lines(std::uint8_t(0)), kAccent, f); sink = sink + im.rgba[0]; });
+    }
     if (font) {
         time("font.metrics x100", 2000, [&](int) { for (int k = 0; k < 100; ++k) sink = sink + float(font->metrics(18 + std::uint32_t(k % 3) * 6, k & 1).ascent); });
         time("font.measure x100", 2000, [&](int) { for (int k = 0; k < 100; ++k) sink = sink + float(font->measure("Distance  100%  \xe2\x86\x90\xe2\x86\x92", 24, k & 1)); });

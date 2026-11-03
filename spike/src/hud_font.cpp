@@ -86,6 +86,11 @@ std::unique_ptr<HudFont> HudFont::load(const std::string& family, std::string& w
     if (FT_New_Face(s.library, path.c_str(), 0, &s.regular) || !FT_IS_SCALABLE(s.regular)) { why = "font load failed: " + path; return nullptr; }
     if (!bold_path.empty() && found_bold == family && bold_path != path && FT_New_Face(s.library, bold_path.c_str(), 0, &s.bold)) s.bold = nullptr;
     s.description = family + (s.bold ? " (regular + bold)" : " (regular)");
+    // FreeType sets up a face's hinting (the auto-hinter's analysis of the whole font) on its first hinted glyph load,
+    // about a millisecond per face. Do that here, while loading, instead of inside the frame that renders the first card.
+    // The result is discarded and changes nothing later: every glyph load sets its own size first.
+    for (FT_Face f : {s.regular, s.bold})
+        if (f && !FT_Set_Pixel_Sizes(f, 0, 16)) FT_Load_Char(f, 'o', FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT);
     return out;
 }
 
