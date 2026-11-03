@@ -45,7 +45,11 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
-    specs = plan_outputs(monitors(client.query('monitors')), client.query('workspaces'), consent['run_id'], desktops)
+    workspaces = client.query('workspaces')
+    from .supervisor import CAPTURE_SCOPE
+    adopting = consent.get('capture') == CAPTURE_SCOPE  # a capture (panel) run takes the fallback's windows (adopt.py)
+    if adopting: desktops = adoption_desktops(client, workspaces, fallback, desktops)
+    specs = plan_outputs(monitors(client.query('monitors')), workspaces, consent['run_id'], desktops)
     broker = OwnershipBrokerClient(client, consent['run_id'], session, fallback)
     broker.require_output_ownership()  # no journal or output mutations without a broker
     directory = runtime / 'xr-workspace-spike'
@@ -55,7 +59,20 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
     with managed_owner(directory / 'journal.json'):
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
-                          pose_feed=consent.get('tracking') == 'xrlinuxdriver', store=store, renderer=renderer)
+                          pose_feed=consent.get('tracking') == 'xrlinuxdriver', store=store, renderer=renderer,
+                          adopt=adopting)
+
+
+def adoption_desktops(client, workspaces, fallback, desktops):
+    """The run's desktops, plus more (up to MAX_DESKTOPS) when the fallback has more occupied workspaces than that
+    (adopt.py). Unchanged if the windows cannot be read: adoption then spreads over the desktops there are."""
+    from .adopt import desktop_count, extend_desktops, occupied
+    from .geometry import DEFAULT_DESKTOP
+    current = [dict(DEFAULT_DESKTOP)] * 3 if desktops is None else desktops
+    try: wanted = len(occupied(workspaces, client.query('clients'), fallback))
+    except (OSError, ValueError, TypeError, KeyError, AttributeError): return desktops
+    count = desktop_count(len(current), wanted)
+    return desktops if count == len(current) else extend_desktops(current, count)
 
 
 from contextlib import contextmanager
@@ -182,7 +199,7 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False):
     session = journal.session
     with journal.transaction():
         if journal.operations or journal.broker is not None:
@@ -200,6 +217,12 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                 from .desktops import DesktopManager
                 manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live))
         guard()
+        if adopt and capture and hasattr(client, 'adopt_windows'):
+            # Once, before the renderer starts: the physical monitor's windows onto the desktops, by workspace, in one
+            # compositor tick (adopt.py). Recovery below returns them, like any window on an XR output.
+            from .adopt import adopt as adopt_windows
+            from .send import notify
+            adopt_windows(client, fallback, [s['name'] for s in specs], notify=notify)
         with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store,
                                                                                    fallback, manager) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,

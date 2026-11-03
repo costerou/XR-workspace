@@ -62,6 +62,12 @@ If the panel says "controller not running", click **Start / restart controller**
 
 Your three desktops now appear in the glasses. They are called XR-1, XR-2 and XR-3.
 
+The windows on your normal monitor move into the glasses as the session starts, one workspace per desktop: your first
+workspace with windows goes to XR-1, the next to XR-2, and so on. If you have more workspaces with windows than
+desktops, the session adds desktops, up to four. Past four, the rest go to the last desktop, each still its own
+workspace. Scratchpad workspaces, pinned windows and the VITURE Workspace panel stay on your monitor. Stop brings
+everything back.
+
 ## Everyday use
 
 Move your mouse onto a glasses desktop the same way you would move it onto another monitor. Open apps there as usual.
