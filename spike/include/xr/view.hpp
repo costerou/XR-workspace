@@ -125,7 +125,8 @@ std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float a
                                  int segments = kFreePointerSegments);
 // The supervisor's free-pointer hit testing needs the overview's layout: one status line
 // {"overview_geometry":{"w":W,"h":H,"half":[half_w,half_h],"tiles":[[x,y,w,h],...]}} with canvas px to 2 decimals and the
-// half-FOV tangents to 5 (tools/native_spike/free_pointer.py parse_overview_geometry). Empty if anything is unusable.
+// half-FOV tangents to 5 (tools/native_spike/free_pointer.py parse_overview_geometry), one tile per desktop (1..kMaxDesktops).
+// Empty if anything is unusable.
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h);
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 

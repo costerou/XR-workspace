@@ -260,7 +260,8 @@ std::vector<Vec3> direction_disc(const Canvas& c, float x, float y, float az, fl
 }
 
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h) {
-    if (tiles.empty() || tiles.size() > 3 || !width || !height || width > 8192 || height > 8192 || !(half_w > 0) || !(half_h > 0) ||
+    // One slot per desktop, as many as the run has (1..kMaxDesktops): the supervisor's dot, pills and roll icons need it.
+    if (tiles.empty() || tiles.size() > kMaxDesktops || !width || !height || width > 8192 || height > 8192 || !(half_w > 0) || !(half_h > 0) ||
         !std::isfinite(half_w) || !std::isfinite(half_h)) return {};
     char buf[96];
     std::snprintf(buf, sizeof buf, "{\"overview_geometry\":{\"w\":%u,\"h\":%u,\"half\":[%.5f,%.5f],\"tiles\":[", width, height,

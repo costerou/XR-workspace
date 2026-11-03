@@ -86,6 +86,20 @@ int main(int argc, char** argv) try {
     CHECK(overview_geometry_json(layout, 1920, 1200, NAN, 0.225f).empty());
     const FRect bad[] = {{0, 0, -1, 10}};
     CHECK(overview_geometry_json(bad, 1920, 1200, 0.36f, 0.225f).empty());
+    // Every desktop count the run allows (1..kMaxDesktops) gets its line, never just three: with four desktops (a
+    // profile saved with four, adoption adding one at start, or a pill's Add) the supervisor otherwise never hears the
+    // layout and the dot, the pills and the roll icons never show (dot-missing-overview, installed 37393b1).
+    for (std::size_t n = 1; n <= kMaxDesktops; ++n) {
+        const std::vector<Size> many(n, Size{1920, 1200});
+        const auto row = overview_layout(many, 1920, 1200, 20);
+        const auto json = overview_geometry_json(row, 1920, 1200, 0.41360f, 0.25850f);
+        CHECK(!json.empty());
+        if (!json.empty()) CHECK(nlohmann::json::parse(json).at("overview_geometry").at("tiles").size() == n);
+    }
+    {  // more than the run ever has: no line
+        const std::vector<Size> too_many(kMaxDesktops + 1, Size{1920, 1200});
+        CHECK(overview_geometry_json(overview_layout(too_many, 1920, 1200, 20), 1920, 1200, 0.36f, 0.225f).empty());
+    }
     // The settled spacing, not the eased one, defines the overview.
     ViewAnimator view;
     view.set_target(false, 0, 120, 0);
