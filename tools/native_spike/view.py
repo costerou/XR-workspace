@@ -5,7 +5,8 @@ text navigation otherwise). They run xr_control.py, which sends one frame to thi
 control socket. The selected desktop's monitor gets Hyprland's focus (and the cursor with it).
 
 Maximized and the overview (maximize-follow, 2026-11-03; INAIR Pod style). The overview shows every desktop; a
-maximized desktop (the `zoomed` state: a click on it in the overview, or Ctrl+Alt+Up) fills the view. The viewing mode
+maximized desktop (the `zoomed` state: Ctrl+Alt+Up, or the panel's Maximize) fills the view. A click on a desktop in the
+overview only selects it (anchor-no-click-maximize, 2026-11-03: select_desktop); it never maximizes. The viewing mode
 (T2: anchor, world-locked 3DoF; follow, eases back in front of you; locked, 0DoF head-locked) follows from that state
 (ViewState.mode): the overview is always anchor; a maximized desktop is follow or locked. While maximized, Ctrl+Alt+V
 toggles follow and locked (MAXIMIZED_MODES), and that choice sticks: every later maximize in the run uses it, until
@@ -17,10 +18,10 @@ push) cuts straight to the desktop with no zoom out / turn / zoom in. Ctrl+Alt+H
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
 click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
-selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by a click on a desktop in the
-overview, or, maximized, by pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop;
-neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor crossed onto in Hyprland's layout) was removed on
-2026-11-02.
+selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by the dot moving onto a desktop in
+the overview (that desktop takes the cursor and every window there works as on a normal screen), or, maximized, by
+pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop; neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor
+crossed onto in Hyprland's layout) was removed on 2026-11-02.
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
 Prediction, spacing and the VR video quality settings (quality.py) are saved in layout.json (its `mode` stays for the
@@ -44,10 +45,11 @@ renderer keeps the panel on) and saved to the profile 500 ms after the last chan
 collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
-pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to focus it; inside a
-desktop the real cursor works on windows as usual (a click there goes to the window, so it leaves an open panel
-open). resize_press and resize_release come from modal left-button binds that exist only while the pointer is outside
-the desktops; they are not USER_OPS.
+pill (expand / collapse its panel), press or drag an open panel's sliders, roll a desktop with its arrows, or move onto
+any desktop (no click maximizes: only Ctrl+Alt+Up does); inside a desktop the real cursor works on windows as usual (a
+click there goes to the window, and the unified cursor's non-consuming bind also closes an open panel).
+resize_press and resize_release come from left-button binds: modal (consuming) while the pointer is outside the
+desktops, non-consuming over them (unified_cursor.py); they are not USER_OPS.
 
 Desktop row (desktops.py): an open panel also has Ultrawide, Add new and Remove buttons (free-pointer presses; keys U, N
 and Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
@@ -113,6 +115,15 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
+# Super drags: Hyprland's own window move and resize, Omarchy's `SUPER + mouse:272` / `SUPER + mouse:273`
+# (default/hypr/bindings/tiling.lua; on this build `hyprctl binds -j` lists them as `__lua` binds with mouse false: the
+# Lua drag dispatchers end themselves on release). The run binds the same chords non-consuming, beside them, to see a drag
+# begin, and the buttons' release (ignore_mods: Super may be let go first) to see it end: install_drag_binds_lua,
+# unified_cursor.py. Hyprland runs every bind matching a chord, so this takes nothing from the user's binds.
+SUPER_OPS = ('super_left_press', 'super_right_press', 'super_release')
+SUPER_BINDS = (('SUPER + mouse:272', 'super_left_press'), ('SUPER + mouse:273', 'super_right_press'))
+SUPER_BUTTONS = ('mouse:272', 'mouse:273')
+DRAG_TABLE = 'xr_workspace_drag_binds'
 # Typing mode (module docstring): the one run bind that stays while every other bind is released. Ctrl+Alt+T is free in
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
@@ -130,10 +141,10 @@ PLAYBACK_MENU_OP = 'playback_menu_toggle'
 PLAYBACK_MENU_TOASTS = {True: 'VR video menu hidden: it no longer pops up on play or seek. Ctrl+Alt+C shows it again.',
                         False: 'VR video menu shown: it pops up on play and seek. Ctrl+Alt+C hides it.'}
 # Ctrl+Alt+V in the overview (maximize-follow): nothing to change, the overview is always anchored. Says why, once per press.
-MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (click it, or Ctrl+Alt+Up), '
+MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (select it, then Ctrl+Alt+Up), '
                        'then Ctrl+Alt+V switches it between follow and locked; your choice is kept until XR restarts.')
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
+HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: use any desktop; pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Maximized: follow / locked', 'prediction': 'Toggle pose prediction',
@@ -681,8 +692,10 @@ def _remove_lua(table):
 
 
 def remove_binds_lua():
-    """Run end / reinstall: the view binds, the send-window binds and an open placement panel's modal binds."""
-    return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_menu_binds_lua()
+    """Run end / reinstall: the view binds, the send-window binds, the Super drag binds and an open placement panel's modal
+    binds."""
+    return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_drag_binds_lua() + ' ' + \
+        remove_menu_binds_lua()
 
 
 def install_send_binds_lua(python, client, control_socket, run_id, session):
@@ -698,6 +711,34 @@ def install_send_binds_lua(python, client, control_socket, run_id, session):
 
 def remove_send_binds_lua():
     return _remove_lua('xr_workspace_send_binds')
+
+
+def install_drag_binds_lua(python, client, control_socket, run_id, session):
+    """The run's view of Super drags (SUPER_BINDS): non-consuming, beside the user's own binds, in their own table, in
+    typing mode too (they take no key, and the drags work there). With
+    the real cursor on a desktop, a press tells the run (helper op) and the buttons' next release, whatever the modifiers
+    are by then, does too; other releases run nothing, so a plain click spawns no helper. With the dot free (the grab's
+    table is set) nothing is under the dot, but Hyprland has just started dragging whatever is under the parked cursor:
+    a 1 ms timer ends that drag (outside a bind hl.dsp.window.drag() is the drag's release) and the run hears nothing.
+    pcall'd: a refused bind is left out."""
+    from .resize import GRAB_TABLE
+    for p in (python, client, control_socket):
+        if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
+    for t in (run_id, session):
+        if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
+    presses = ' '.join(f'bind("{chord}", press("{op}"), {{ non_consuming = true }})' for chord, op in SUPER_BINDS)
+    releases = ' '.join(f'bind("{b}", release, {{ release = true, non_consuming = true, ignore_mods = true }})' for b in SUPER_BUTTONS)
+    return (remove_drag_binds_lua() + f' do local t, held = {{}}, false local c = "{python} -I {client} {control_socket} {run_id} {session} " '
+            'local function bind(k, f, o) local ok, b = pcall(hl.bind, k, f, o) if ok and b then t[#t + 1] = b end end '
+            f'local function press(op) return function() if {GRAB_TABLE} then '
+            'hl.timer(function() hl.dispatch(hl.dsp.window.drag()) end, { timeout = 1, type = "oneshot" }) return end '
+            'held = true hl.exec_cmd(c .. op) end end '
+            f'local function release() if held then held = false hl.exec_cmd(c .. "{SUPER_OPS[2]}") end end '
+            f'{presses} {releases} {DRAG_TABLE} = t end')
+
+
+def remove_drag_binds_lua():
+    return _remove_lua(DRAG_TABLE)
 
 
 def install_menu_binds_lua(python, client, control_socket, run_id, session):
@@ -994,15 +1035,19 @@ class ViewControl:
             except (OSError, ValueError, TypeError): pass
         t = threading.Thread(target=work, daemon=True); t.start(); self._threads.append(t)
 
-    def focus_desktop(self, desktop):
-        """A circle-cursor (free pointer) click on `desktop` in the overview: select it and maximize it (follow), leaving the
-        overview, exactly as Ctrl+Alt+Up does on the selected desktop (an open panel collapses first, saved; its output
-        gets Hyprland's monitor focus off the loop; one view frame). The free pointer and the input lock then let go of
-        the mouse as on any zoom-in. Frames (bytes), b'' for a stale click."""
+    def select_desktop(self, desktop):
+        """A circle-cursor (free pointer) click on `desktop` in the overview: select it, and stay in the overview, anchored
+        (anchor-no-click-maximize, 2026-11-03: a click never maximizes; Ctrl+Alt+Up and the panel's Maximize do). The
+        highlight moves there, as Ctrl+Alt+Left / Right move it. The free pointer then brings the real cursor back onto
+        that desktop under the dot, and that warp gives its monitor Hyprland's focus (focus-follows-mouse; no focus thread
+        here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel was already collapsed by
+        the press (free_pointer: Clicks). One view frame, or b'' when stale (zoomed in, typing mode, a VR video, no such
+        desktop) or already selected."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
+        if desktop == self.state.selected: return b''
         self.state.selected = desktop
-        return self.on_message({'op': 'zoom_in', 'payload': {}}) or b''
+        return self._frame()
 
     def switch_desktop(self, desktop):
         """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
@@ -1136,6 +1181,9 @@ class ViewControl:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
+        if isinstance(message, dict) and message.get('op') in SUPER_OPS:  # unified_cursor.py: Super drags
+            on_super = getattr(self.overview_pointer, 'on_super', None)
+            return on_super(message['op']) if on_super is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None

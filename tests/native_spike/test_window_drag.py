@@ -1,12 +1,18 @@
 """Overview window drag (free_pointer.py: Window drag; unified_cursor.py over home; send.py window_at / WindowSender.drop):
-press and hold on a window on a desktop, then drag, moves that window to another desktop; a quick click still zooms in.
+press and hold on a window on a desktop, then drag, moves that window to another desktop; a quick click is the window's.
+
+OFF in the run since anchor-no-click-maximize (2026-11-03: every press, hold and drag on a desktop is its window's;
+OverviewPointer.window_drag). These tests turn it on to keep the mechanism working, under the current pointer model:
+the dot moving onto any desktop gives it the real cursor (desktop mode), so a drag starts by holding still on a window
+there (_hold_home); only next to the open help card is the dot still free over a desktop's content, where moving
+WINDOW_DRAG_PX first also lifts. test_full_interaction.py checks that with it off nothing ever lifts.
 
 Regression (overview-window-drag, 2026-11-03): before it, a press on a desktop in the overview zoomed into it at once
 (OverviewPointer.on_op called _click_desktop on resize_press), so there was no way to hold a press on a window and the
 overview could not move windows between desktops at all. Now a desktop press waits: released quickly (no HOLD_S hold,
-no WINDOW_DRAG_PX of motion) it is the same click and zooms in; held or dragged, it lifts the window under it, shows its
-ghost round the dot and frames the desktop under the dot, and a release over another desktop moves the window there
-(one Hyprland move, follow off) without zooming in or selecting anything.
+no WINDOW_DRAG_PX of motion) it is the same click (then a zoom-in, now a selection); held or dragged, it lifts the
+window under it, shows its ghost round the dot and frames the desktop under the dot, and a release over another desktop
+moves the window there (one Hyprland move, follow off) without zooming in or selecting anything.
 
 Offline only: fake clock, the free-pointer test rig, a fake window sender (and for send.py a fake Hyprland client).
 No compositor, renderer binary or glasses.
@@ -14,7 +20,7 @@ No compositor, renderer binary or glasses.
 import threading
 import unittest
 
-from tools.native_spike import free_pointer as fp, send, view
+from tools.native_spike import free_pointer as fp, orbit, send, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
 from test_free_pointer import G, OUTPUTS, T0, T1, X1, X2, X3, frames, last
@@ -46,6 +52,7 @@ class FakeSender:
 class DragBase(UnifiedBase):
     def setUp(self):
         super().setUp()
+        self.p.window_drag = True  # off in the run since anchor-no-click-maximize; the mechanism is still tested here
         self.sender = self.control.sender = FakeSender()
 
     def tick(self, dt):
@@ -57,9 +64,24 @@ class DragBase(UnifiedBase):
         return self.tick(fp.HOLD_S + 0.01)
 
     def free_on(self, i, q=None):
-        """Free dot onto desktop i (another desktop than home XR-1: the dot only) at tile pixel q (default its centre)."""
+        """The dot from off home's (XR-1's) top edge onto desktop i at tile pixel q (default its centre): desktop i takes
+        the real cursor there (desktop mode, selected) and the sampler's warp lands, so a press reaches its window."""
         self.free()
         self.aim(i, q or centre(G['tiles'][i]))
+        self.assertEqual((self.p.mode, self.p.desktop, self.control.state.selected), ('desktop', i, i))
+        self.at(*self.p.want[2])
+
+    def band_on(self, i):
+        """The free dot over desktop i's content, kept free by the open help card just right of it (the one place the
+        dot stays free over content since the edge band became the resize edge)."""
+        self.free()
+        tile = G['tiles'][i]
+        q = (tile[0] + tile[2] * 0.3, tile[1] + tile[3] / 2)
+        dot = fp.project(G, tile, DEFAULT_PLACEMENT, *q)
+        self.op('help')
+        plane = orbit.plane_at(G, orbit.pointer_ray(G, dot))
+        self.control.set_help_geometry({'card': (plane[0] + 1, plane[1] - 60, 300, 120)})
+        self.dot_to(dot)
         self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', i)))
 
     def dot_to(self, point):
@@ -71,30 +93,35 @@ class DragBase(UnifiedBase):
 
 
 class QuickClickTests(DragBase):
-    def test_a_quick_click_on_another_desktop_still_zooms_into_it(self):
+    def test_a_quick_click_on_another_desktop_is_its_windows(self):
         self.free_on(1)
         out = self.op('resize_press')
-        self.assertIsNone(last(out, 'view'))  # nothing yet: a hold would lift the window instead
+        self.assertIsNone(last(out, 'view'))
         self.tick(fp.HOLD_S / 2)
         out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed']); self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertIsNone(last(out, 'view'))  # the window's click: no maximize, the selection already there
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
         self.assertEqual((self.sender.lookups, self.sender.drops, self.p.window_lifts), ([], [], 0))
 
-    def test_a_click_with_a_little_jitter_still_zooms(self):
-        self.free_on(1)
+    def test_a_click_with_a_little_jitter_next_to_the_help_card_still_selects(self):
+        self.band_on(1)
         self.op('resize_press')
         self.move_canvas(fp.WINDOW_DRAG_PX * 0.7, 0)  # past the pill's CLICK_PX, short of a window drag
         out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed'])
+        self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertFalse(self.control.state.zoomed)
         self.assertEqual(self.p.window_lifts, 0)
 
-    def test_a_quick_click_on_home_still_reaches_the_window_and_zooms(self):
+    def test_a_quick_click_on_home_reaches_the_window_and_nothing_else(self):
         self.at(X1 + 600, 400)
         self.op('resize_press')
         self.tick(fp.HOLD_S / 2)
         self.assertEqual(self.p.mode, 'desktop')
         out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed'])
+        self.assertIsNone(last(out, 'view'))  # the window's click: no maximize, no selection change
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual(self.p.mode, 'desktop')
         self.assertEqual(self.sender.lookups, [])
 
 
@@ -104,6 +131,7 @@ class FreeDragTests(DragBase):
         self.free_on(1, q)
         self.op('resize_press')
         out = self.hold()
+        out += self.tick(0.004)  # (held on a desktop the lift comes after that tick's lookup is taken: the next has it)
         self.assertEqual(self.p.window_lifts, 1)
         self.assertEqual(self.sender.lookups, [('XR-2', (X2 + 480, 540))])  # the window shown at the press
         ghost = last(out, 'overview_pointer')['drag']
@@ -112,18 +140,18 @@ class FreeDragTests(DragBase):
         self.assertTrue(last(out, 'overview_pointer')['held'])
         out = self.onto(2)
         self.assertEqual(last(out, 'overview_pointer')['drag']['target'], 2)  # XR-3 framed
-        self.assertEqual(self.control.state.selected, 0)  # the dot over XR-3 selects nothing
+        self.assertEqual(self.control.state.selected, 1)  # mid-drag the dot over XR-3 selects nothing
         out = self.op('resize_release')
         self.assertEqual(self.sender.drops, [(WINDOW, 'XR-2', (X2 + 480, 540), 'XR-3')])
         self.assertIsNone(last(out, 'view'))
         self.assertFalse(self.control.state.zoomed)  # no zoom
-        self.assertEqual(self.control.state.selected, 0)  # nor a selection
+        self.assertEqual(self.control.state.selected, 1)  # nor a selection
         self.assertEqual(self.p.mode, 'free'); self.assertIsNone(self.p.drag)
         self.assertNotIn('drag', last(out, 'overview_pointer'))  # the ghost and the frame are gone
         self.assertEqual(self.p.window_drops, 1)
 
-    def test_dragging_past_the_threshold_lifts_without_waiting_for_the_hold(self):
-        self.free_on(1)
+    def test_dragging_past_the_threshold_next_to_the_help_card_lifts_without_waiting_for_the_hold(self):
+        self.band_on(1)
         self.op('resize_press')
         out = self.move_canvas(fp.WINDOW_DRAG_PX + 3, 0)
         self.assertEqual(self.p.window_lifts, 1)
@@ -132,11 +160,11 @@ class FreeDragTests(DragBase):
         self.op('resize_release')
         self.assertEqual([d[3] for d in self.sender.drops], ['XR-3'])
 
-    def test_dropping_on_home_moves_it_there_and_the_dot_stays_free(self):
+    def test_dropping_on_another_desktop_never_hands_it_the_cursor_mid_drag(self):
         self.free_on(2)
         self.op('resize_press'); self.hold()
         self.onto(0)
-        self.assertEqual(self.p.mode, 'free')  # never hands back into home mid-drag
+        self.assertEqual(self.p.mode, 'free')  # never hands the cursor to XR-1 mid-drag
         self.op('resize_release')
         self.assertEqual([(d[1], d[3]) for d in self.sender.drops], [('XR-3', 'XR-1')])
         self.assertFalse(self.control.state.zoomed)
@@ -244,7 +272,7 @@ class NoConflictTests(DragBase):
 
     def test_a_roll_icon_press_lifts_no_window(self):
         self.p.set_roll_geometry([None, 1200, None])  # XR-2 rolled: its icon above a top corner
-        self.free_on(1)
+        self.free()
         side = fp.roll_side(1200, 0)
         x, y, w, h = fp.roll_icon_rect(T1, side)
         self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, x + w / 2, y + h / 2))

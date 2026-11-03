@@ -1,8 +1,10 @@
 """Unified cursor (unified_cursor.py): the dot is the one real cursor and only ever controls the selected desktop
-("home"). In the overview, over home the real cursor is the pointer (its clicks and wheel reach the window, a plain
-click also zooms in); past home's edge the dot is free and parked on home, and over another desktop it is only the dot
-(no selection, no warp there) until a click zooms into that desktop. Zoomed in, the cursor is kept on home. Keys move
-home; nothing else changes monitor. Also the generated Lua (run by a real Lua interpreter against a stub `hl`), the
+("home"). In the overview, over home the real cursor is the pointer (its clicks and wheel reach the window, and a
+plain click is the window's alone: it never maximizes); past home's edge the dot is free and parked on home, and over
+another desktop it is only the dot (no selection, no warp there) until a click selects that desktop, still in the
+overview, and the cursor comes back there under the dot. Only Ctrl+Alt+Up maximizes (anchor-no-click-maximize,
+2026-11-03; until then both clicks zoomed in). Zoomed in, the cursor is kept on home. Keys move home; nothing else
+changes monitor. Also the generated Lua (run by a real Lua interpreter against a stub `hl`), the
 sampler thread, bind_check and the run's wiring.
 
 Regression (scope change 2026-11-02): before it, the dot carried the cursor onto whichever desktop it moved into
@@ -75,16 +77,33 @@ class HomeTests(UnifiedBase):
         with self.assertRaises(ValueError): uc.click_binds_lua(*BIND_ARGS[:3], 'bad token', BIND_ARGS[4])
         self.assertLess(len(uc.enter_desktop_lua(*LONG_ARGS, 5440, 540)), 4096)
 
-    def test_a_plain_click_reaches_the_window_and_zooms_into_home(self):
+    def test_a_plain_click_reaches_the_window_and_never_maximizes_home(self):
         self.control.state.selected = 1
         self.at(X2 + 600, 400)
         self.assertEqual(self.op('resize_press', ops=('view',)), [])
         self.assertEqual(self.p.want[1], 'desktop')  # no grab: the press went to the window too
-        out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed'])
+        self.assertEqual(self.op('resize_release', ops=('view',)), [])  # the window's click, nothing more
         self.control.join_focus(2)
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual(self.focused, [])
+        self.assertEqual((self.p.mode, self.p.desktop, self.p.want[1]), ('desktop', 1, 'desktop'))  # still the pointer
+        self.assertEqual((self.p.window_clicks, self.p.focus_clicks), (1, 0))
+        self.assertTrue(self.p.overview())
+        for _ in range(3):  # however many clicks
+            self.op('resize_press'); self.op('resize_release')
+        self.assertFalse(self.control.state.zoomed)
+
+    def test_ctrl_alt_up_still_maximizes_home(self):
+        self.control.state.selected = 1
+        self.at(X2 + 600, 400)
+        self.op('resize_press'); self.op('resize_release')  # a click on a window there first
+        out = self.op('zoom_in')
+        self.control.join_focus(2)
+        self.assertTrue(self.control.state.zoomed)
+        self.assertEqual((last(out, 'view')['selected'], last(out, 'view')['zoomed'], last(out, 'view')['mode']), (1, True, 'follow'))
         self.assertEqual(self.focused, ['XR-2'])
-        self.assertEqual(self.p.release_at, (X2 + 600, 400))
+        self.at(X2 + 600, 400)
+        self.assertEqual(self.p.mode, 'off')  # out of the overview: the free pointer lets go
 
     def test_a_window_drag_or_selection_does_not_zoom(self):
         self.at(X1 + 600, 400)
@@ -124,28 +143,48 @@ class EdgeTests(UnifiedBase):
         self.assertEqual(self.p._at(self.p.want[2])[0], 0)
         self.assertEqual(self.control.state.selected, 0)
 
-    def test_the_dot_over_another_desktop_neither_selects_it_nor_moves_the_cursor(self):
+    def test_the_dot_onto_another_desktop_gives_it_the_real_cursor_under_the_dot(self):
+        # anchor-no-click-maximize: every desktop in the overview is a normal screen. Until then the dot over another
+        # desktop was only the dot (no selection, the cursor parked on home) until a click.
         self.free()
-        serial = self.p.want[0]
         out = self.aim(1, (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2))  # deep into XR-2
-        self.assertEqual(self.p.mode, 'free')
-        self.assertEqual(self.p.hover[:2], ('desktop', 1))
-        self.assertEqual(self.p.want[0], serial)  # the cursor stays parked on XR-1
-        self.assertEqual(self.control.state.selected, 0)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
+        self.assertEqual(self.p.want[1:], ('desktop', (X2 + 960, 540)))  # the cursor goes under the dot, on XR-2
+        self.assertEqual(self.control.state.selected, 1)  # XR-2 is home: highlighted, Ctrl+Alt+Up maximizes it
+        self.assertEqual((last(out, 'view')['selected'], last(out, 'view')['zoomed']), (1, False))
+        self.assertEqual(self.p.entries, 1)
+        out = self.at(X2 + 960, 540)  # the sampler's warp landed: the real cursor is the pointer there
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
         self.assertIsNone(last(out, 'view'))
-        self.assertEqual(self.p.entries, 0)
+        self.at(X2 + 1200, 700)  # hand motion on XR-2 moves the dot over XR-2's surface
+        want = fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 1200 / 1920 * T1[2], T1[1] + 700 / 1080 * T1[3])
+        self.assertAlmostEqual(self.p.pointer[0], want[0], places=2); self.assertAlmostEqual(self.p.pointer[1], want[1], places=2)
 
-    def test_a_click_on_another_desktop_is_the_way_to_switch(self):
+    def test_another_desktops_edge_resizes_it_and_moving_in_enters_it(self):
+        # The border round a desktop is its resize edges (free_pointer.border_handle): a drag there resizes it, a click
+        # does nothing, and the dot moving on in hands that desktop the cursor (there is no click-only band any more).
         self.free()
-        q = (T1[0] + T1[2] * 0.25, T1[1] + T1[3] * 0.75)
-        self.aim(1, q)
-        out = self.op('resize_press') + self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed']); self.assertEqual(last(out, 'view')['selected'], 1)
-        self.control.join_focus(2)
-        self.assertEqual(self.focused, ['XR-2'])
-        x, y = self.p.release_at
-        self.assertEqual(self.p._at((x, y))[0], 1)  # the cursor shows there once the overview lets go
-        self.assertLessEqual(abs(x - (X2 + 480)), 3); self.assertLessEqual(abs(y - 810), 3)
+        self.aim(1, (T1[0] - 4, T1[1] + T1[3] * 0.5))  # just left of XR-2's left edge
+        self.assertEqual((self.p.mode, self.p.hover), ('free', ('edge', 1, 'l')))
+        self.op('resize_press'); self.op('resize_release')
+        self.assertEqual((self.control.state.selected, self.control.state.placements[1]), (0, DEFAULT_PLACEMENT))
+        self.op('resize_press'); self.move_canvas(-T1[2] / 4, 0); self.op('resize_release')  # the left edge outward
+        self.assertLess(self.control.state.placements[1]['distance'], 100)
+        self.assertEqual((self.control.state.selected, self.control.state.zoomed), (0, False))
+        self.aim(1, (T1[0] + 10, T1[1] + T1[3] * 0.5))  # on into its content
+        self.assertEqual((self.p.mode, self.p.desktop, self.control.state.selected), ('desktop', 1, 1))
+
+    def test_inside_another_desktops_corner_is_content_and_outside_it_resizes(self):
+        self.free()
+        self.aim(1, (T1[0] + 6, T1[1] + 6))  # inside XR-2's top-left corner: its content
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
+        self.setUp()
+        self.free()
+        self.aim(1, (T1[0] - 4, T1[1] - 4))  # just outside that corner: the resize handle
+        self.assertEqual((self.p.mode, self.p.hover), ('free', ('corner', 1, 'tl')))
+        self.op('resize_press'); self.op('resize_release')  # a click on a handle: nothing
+        self.assertEqual((self.control.state.selected, self.control.state.placements[1]), (0, DEFAULT_PLACEMENT))
+        self.assertFalse(self.control.state.zoomed)
 
     def test_back_into_home_hands_the_cursor_back_under_the_dot(self):
         self.control.state.placements = [{**DEFAULT_PLACEMENT, 'x': -150, 'y': 80, 'curvature': 60, 'distance': 140},
@@ -268,8 +307,13 @@ class ConfineTests(unittest.TestCase):
 
 
 class FakeUnifiedClient(FakeLockClient):
-    def enter_desktop(self, *args):
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self.focused = []  # enter_desktop's monitor focus, in order (None: none asked)
+
+    def enter_desktop(self, *args, monitor=None):
         self._call('enter', args)
+        with self.lock: self.focused.append(monitor)
         if len(args) == 7: self.cursor = args[-2:]
 
     def confine_cursor(self, x, y, name):
@@ -306,14 +350,21 @@ class SamplerTests(unittest.TestCase):
         client.cursor = (X1 + 1919, 540)
         self.assertTrue(self.wait(lambda: sampler.grabbed))
         self.assertEqual(client.args('lock')[-1][5:], il.park_point(OUTPUTS[0], (X1 + 1919, 540)))
-        self.p.pointer = (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)  # the dot over XR-2: nothing moves there
+        self.p.pointer = (T1[0] + T1[2] / 2 - 1, T1[1] + T1[3] / 2)  # the dot onto XR-2: it takes the cursor there
         self.p.feed(client.cursor, (1.0, 0.0), OUTPUTS, sampler.applied)
-        time.sleep(0.05); self.control.poll()
-        self.assertEqual(client.count('enter'), 1); self.assertEqual(self.control.state.selected, 0)
-        self.p.pointer = (T0[0] + T0[2] / 2 - 1, T0[1] + T0[3] / 2)  # back over home
+        self.assertTrue(self.wait(lambda: client.count('enter') == 2 and sampler.bound and not sampler.grabbed))
+        self.assertEqual(self.p._at(client.args('enter')[-1][5:])[0], 1)
+        self.assertEqual(client.focused[-1], 'XR-2')  # that monitor focused first: the keyboard goes to its window
+        self.assertEqual(self.control.state.selected, 1)
+        client.cursor = (X2, 540)  # its left edge: free again, parked on XR-2 now
+        self.assertTrue(self.wait(lambda: sampler.grabbed and self.p.mode == 'free'))
+        self.assertEqual(self.p._at(client.args('lock')[-1][5:])[0], 1)
+        self.p.pointer = (T0[0] + T0[2] / 2 - 1, T0[1] + T0[3] / 2)  # back over XR-1
         self.p.feed(client.cursor, (1.0, 0.0), OUTPUTS, sampler.applied)
-        self.assertTrue(self.wait(lambda: client.count('enter') == 2))
+        self.assertTrue(self.wait(lambda: client.count('enter') == 3))
         self.assertEqual(self.p._at(client.args('enter')[-1][5:])[0], 0)
+        self.assertEqual(client.focused, [None, 'XR-2', 'XR-1'])  # the first had no warp: the cursor was already there
+        self.assertEqual(self.control.state.selected, 0)
 
     def test_zoomed_in_the_cursor_is_kept_on_home(self):
         self.control.state.zoomed = True
@@ -338,21 +389,51 @@ class SamplerTests(unittest.TestCase):
         self.assertEqual(client.args('confine')[-1], (X3 + fp.INSET_PX, 300, 'XR-3'))
         self.assertEqual(sampler.confines, 3)
 
-    def test_a_click_zooms_in_and_the_cursor_stays_where_it_was_clicked(self):
+    def test_a_click_on_home_stays_in_the_overview_and_ctrl_alt_up_still_maximizes(self):
         self.control.state.selected = 1
         client = FakeUnifiedClient(cursor=(X2 + 500, 300))
         sampler = self.start(client)
         self.assertTrue(self.wait(lambda: sampler.bound and self.p.mode == 'desktop'))
         self.control.on_message({'op': 'resize_press', 'payload': {}})
         out = frames(self.control.on_message({'op': 'resize_release', 'payload': {}}))
+        self.assertIsNone(last(out, 'view'))
+        time.sleep(0.05); self.control.poll()
+        self.assertFalse(self.control.state.zoomed)
+        self.assertTrue(sampler.bound)  # the click binds stay: the overview goes on
+        self.assertEqual((client.count('release'), client.count('lock'), client.count('enter')), (0, 0, 1))
+        self.assertEqual(client.cursor, (X2 + 500, 300))  # nothing moved the cursor
+        self.assertEqual(self.focused, [])
+        out = frames(self.control.on_message({'op': 'zoom_in', 'payload': {}}))  # Ctrl+Alt+Up
         self.assertTrue(last(out, 'view')['zoomed'])
         self.assertTrue(self.wait(lambda: client.count('release') == 1))
-        self.assertEqual(client.args('release'), [(X2 + 500, 300)])
+        self.assertEqual(client.args('release'), [()])  # the cursor shown where it is
         self.control.join_focus(2)
         self.assertEqual(self.focused, ['XR-2'])
         time.sleep(0.05)
-        self.assertEqual(client.count('enter'), 1)
         self.assertEqual(client.count('confine'), 0)  # zoomed into XR-2 with the cursor on XR-2
+
+    def test_a_dot_click_on_another_desktop_brings_the_cursor_onto_it_under_the_dot(self):
+        client = FakeUnifiedClient(cursor=MID1)
+        sampler = self.start(client)
+        self.assertTrue(self.wait(lambda: sampler.bound and self.p.mode == 'desktop'))
+        client.cursor = (X1 + 1919, 540)  # past home's right edge: free, parked on XR-1
+        self.assertTrue(self.wait(lambda: sampler.grabbed and self.p.mode == 'free'))
+        q = (T1[0] + T1[2] * 0.25, T1[1] + T1[3] * 0.75)
+        self.p.pointer = q  # the dot onto XR-2 (flat, at its slot: its tile pixel is the canvas point)
+        self.control.on_message({'op': 'resize_press', 'payload': {}})
+        out = frames(self.control.on_message({'op': 'resize_release', 'payload': {}}))
+        self.assertEqual((last(out, 'view')['selected'], last(out, 'view')['zoomed']), (1, False))
+        self.assertTrue(self.wait(lambda: client.count('enter') == 2 and sampler.bound and not sampler.grabbed))
+        at = client.args('enter')[-1][5:]  # the grab removed, the cursor warped under the dot, the click binds back
+        self.assertEqual(self.p._at(at)[0], 1)
+        self.assertLessEqual(abs(at[0] - (X2 + 480)), 2); self.assertLessEqual(abs(at[1] - 810), 2)
+        time.sleep(0.05); self.control.poll()
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))  # XR-2 is home now
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual((client.count('release'), client.count('confine')), (0, 0))  # still the overview
+        self.assertEqual(client.focused[-1], 'XR-2')  # focused with the warp, in the same eval (enter_desktop_lua)
+        self.control.join_focus(2)
+        self.assertEqual(self.focused, [])  # no separate focus call: it would warp the cursor away from the dot
 
     def test_a_config_reload_reinstalls_the_click_binds(self):
         client = FakeUnifiedClient(cursor=MID1)

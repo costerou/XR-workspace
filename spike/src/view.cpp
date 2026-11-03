@@ -298,6 +298,35 @@ std::vector<Vec3> direction_outline(const Canvas& c, float x, float y, float az,
     return strip;
 }
 
+std::vector<Vec3> direction_marks(const Canvas& c, float x, float y, float az, float el, PointerLook look, float grow) {
+    if (c.view_w <= 0 || c.view_h <= 0 || look == PointerLook::plain) return {};
+    const float cx = std::clamp(x, 0.f, c.view_w), cy = std::clamp(y, 0.f, c.view_h);
+    auto at = [&](float px, float py) { return Vec3{(2 * px / c.view_w - 1) * c.half_w, (1 - 2 * py / c.view_h) * c.half_h, -1.f}; };
+    const float start = kFreePointerRadiusPx + kFreePointerRingPx + kPointerMarkGapPx;  // from the dot's centre, past its ring
+    const float d = float(M_SQRT1_2);
+    std::vector<Vec3> out;
+    // One arrowhead: its base centred `base` px from the dot along (bx, by) (canvas px, y down), pointing along (ux, uy).
+    auto mark = [&](float bx, float by, float base, float ux, float uy) {
+        const float ox = cx + bx * base - ux * grow, oy = cy + by * base - uy * grow, len = kPointerMarkLenPx + 2 * grow, half = kPointerMarkHalfPx + grow;
+        out.push_back(at(ox + ux * len, oy + uy * len));
+        out.push_back(at(ox - uy * half, oy + ux * half));
+        out.push_back(at(ox + uy * half, oy - ux * half));
+    };
+    auto pair = [&](float ux, float uy) { mark(ux, uy, start, ux, uy); mark(-ux, -uy, start, -ux, -uy); };
+    switch (look) {
+        case PointerLook::resize_ew: pair(1, 0); break;
+        case PointerLook::resize_ns: pair(0, 1); break;
+        case PointerLook::resize_nwse: pair(d, d); break;
+        case PointerLook::resize_nesw: pair(d, -d); break;
+        case PointerLook::move: pair(1, 0); pair(0, 1); break;
+        case PointerLook::rotate:  // left and right of the dot, chasing each other clockwise
+            mark(-1, 0, start + kPointerMarkHalfPx, 0, -1); mark(1, 0, start + kPointerMarkHalfPx, 0, 1); break;
+        case PointerLook::plain: break;
+    }
+    turn_to(c, cx, cy, az, el, out);
+    return out;
+}
+
 std::array<FRect, 4> drop_frame(const FRect& t) {
     const float bx = std::min(kDropFramePx, std::max(t.width, 0.f) / 2), by = std::min(kDropFramePx, std::max(t.height, 0.f) / 2);
     return {FRect{t.x, t.y, t.width, by}, FRect{t.x, t.y + t.height - by, t.width, by},

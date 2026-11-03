@@ -72,7 +72,9 @@ public:
     // Overview free pointer (view.hpp canvas_disc): a grey dot of `level` (capped at kFreePointerHeldLevel) in a black ring at
     // canvas (x, y) on the overview's plane, drawn over the desktops and under the cards; visible false: none.
     // `directed`: the dot is drawn in direction (az, el) degrees instead (view.hpp direction_disc), anywhere round you.
-    void set_free_pointer(bool visible, float x, float y, float level, bool directed = false, float az = 0, float el = 0);
+    // `look`: marks round the dot (view.hpp direction_marks) in its grey, each with a black outline as the disc has its ring.
+    void set_free_pointer(bool visible, float x, float y, float level, bool directed = false, float az = 0, float el = 0,
+                          PointerLook look = PointerLook::plain);
     // Window drag (free_pointer.py): a grey w x h canvas px outline (view.hpp direction_outline) round the free pointer,
     // turned with it, and an accent frame (view.hpp drop_frame) on desktop `target` (< 0: none). w or h <= 0: no ghost.
     // Drawn only while the free pointer is.

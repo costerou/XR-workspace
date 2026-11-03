@@ -285,9 +285,10 @@ class LuaTests(unittest.TestCase):
         client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
         client._eval = sent.append
         client.install_view_binds(*ARGS)
-        self.assertEqual(sent, [view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS)])
+        self.assertEqual(sent, [view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS), view.install_drag_binds_lua(*ARGS)])
         sent.clear(); client.reinstall_view_binds(*ARGS)
-        self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS)])
+        self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS),
+                                view.install_drag_binds_lua(*ARGS)])
         sent.clear(); client.remove_view_binds()
         self.assertEqual(sent, [view.remove_binds_lua()])
 

@@ -93,6 +93,7 @@ struct Scenario {
     float expand = 0; bool panel = false, panel_drag = false;
     bool help = false, popup = false, handle = false, pointer = false;
     int drag_target = -1; bool ghost = false;  // overview window drag: the ghost round the dot, the target desktop framed
+    PointerLook look = PointerLook::plain;     // the dot's look: marks round it
     bool upload_each_frame = false;
 };
 
@@ -115,6 +116,10 @@ std::vector<Scenario> scenarios() {
     { Scenario s{"panel_curved_drag"}; s.pills = true; s.expand = 1; s.panel = true; s.panel_drag = true; s.pointer = true;
       s.placements = {tilted_left, curved, tilted_right}; out.push_back(s); }
     { Scenario s{"help_card"}; s.pills = true; s.help = true; s.pointer = true; out.push_back(s); }
+    for (const auto& [name, look] : {std::pair{"look_resize_ew", PointerLook::resize_ew}, std::pair{"look_resize_nwse", PointerLook::resize_nwse},
+                                     std::pair{"look_move", PointerLook::move}, std::pair{"look_rotate", PointerLook::rotate}}) {
+        Scenario s{name}; s.pills = true; s.pointer = true; s.look = look; out.push_back(s);
+    }
     { Scenario s{"window_drag"}; s.pills = true; s.pointer = true; s.ghost = true; s.drag_target = 2; s.placements = {tilted_left, curved, tilted_right};
       out.push_back(s); }
     { Scenario s{"video_card"}; s.kind = Kind::video; s.popup = true; out.push_back(s); }
@@ -169,7 +174,7 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     if (s.expand > 0) glass.top = 1;
     if (s.panel) { glass.content = 1; glass.image = &panel_image(r, s, frame, glass.generation); glass.content_alpha = 1.f; }
     gl.set_glass(glass);
-    gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, s.ghost ? kFreePointerHeldLevel : kFreePointerLevel);
+    gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, s.ghost ? kFreePointerHeldLevel : kFreePointerLevel, false, 0, 0, s.look);
     gl.set_window_drag(s.ghost ? 72.f : 0.f, s.ghost ? 45.f : 0.f, s.drag_target);
     const double t = now_us();
     CHECK(gl.draw_and_swap(tiles, placements, int(s.position), 1.f - s.zoom, head(frame, s.head_motion), half_w, half_h));
@@ -230,6 +235,35 @@ int check(std::uint32_t w, std::uint32_t h) {
             ref[i].push_back(read_rgb(w, h));
             CHECK(glGetError() == GL_NO_ERROR);
         }
+    // The dot's look really draws: each differs from the plain dot only right round it, in the dot's own grey or black
+    // (so at or under the cards' cap), and each look differs from the others.
+    {
+        const auto named = [&](const char* name) { return std::size_t(std::find_if(list.begin(), list.end(), [&](const Scenario& s) { return !std::strcmp(s.name, name); }) - list.begin()); };
+        Scenario base{"plain_dot"}; base.pills = true; base.pointer = true;
+        auto gl = make(w, h, r, why);
+        CHECK(gl != nullptr);
+        if (!gl) return 1;
+        draw_frame(*gl, r, base, 0, w, h, false);
+        const auto dot = read_rgb(w, h);
+        const float cx = float(w) * 0.55f, cy = float(h) * 0.42f, reach = kFreePointerRadiusPx + kFreePointerRingPx + kPointerMarkGapPx + kPointerMarkLenPx + 3 * kPointerMarkHalfPx;
+        const int cap = int(kFreePointerLevel * 255 + 0.5f);
+        std::vector<std::vector<std::uint8_t>> drawn;
+        for (const char* name : {"look_resize_ew", "look_resize_nwse", "look_move", "look_rotate"}) {
+            const auto& px = ref[named(name)][0];
+            std::size_t changed = 0;
+            for (std::uint32_t y = 0; y < h; ++y) for (std::uint32_t x = 0; x < w; ++x) {
+                const std::size_t i = (std::size_t(y) * w + x) * 3;
+                if (px[i] == dot[i] && px[i + 1] == dot[i + 1] && px[i + 2] == dot[i + 2]) continue;
+                ++changed;
+                const float dx = float(x) - cx, dy = float(h - 1 - y) - cy;  // (GL rows run bottom up)
+                if (std::hypot(dx, dy) > reach * 2) { std::fprintf(stderr, "%s: a pixel changed far from the dot (%u,%u)\n", name, x, y); ++failures; }
+                if (std::max({px[i], px[i + 1], px[i + 2]}) > cap + 1) { std::fprintf(stderr, "%s: brighter than the dot\n", name); ++failures; }
+            }
+            CHECK(changed > 20);
+            for (const auto& other : drawn) CHECK(other != px);
+            drawn.push_back(px);
+        }
+    }
     // One long-lived compositor: forward, then backward, then interleaved, so every scenario follows several others.
     std::vector<std::pair<std::size_t, int>> order;
     for (std::size_t i = 0; i < list.size(); ++i) for (int f = 0; f < kFrames; ++f) order.push_back({i, f});

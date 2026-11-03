@@ -194,13 +194,21 @@ class HyprlandClient:
 
     def install_view_binds(self, python, client, control_socket, run_id, session):
         """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
-        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
+        from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(install_binds_lua(python, client, control_socket, run_id, session))
-        try: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+        try:
+            self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+            self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
         except (OSError, ValueError):
             try: self._eval(remove_binds_lua())  # the run will not start: leave no half-installed binds behind
             except (OSError, ValueError): pass
             raise
+
+    def land_window(self, address, workspace, x=None, y=None):
+        """A Super drag's drop (send.WindowSender.land_now): the window onto a workspace and, floating, to layout pixel (x, y),
+        keeping its focus and the cursor; one eval of generated Lua from validated values, never free-form eval."""
+        from .send import land_lua
+        self._eval(land_lua(address, workspace, x, y))
 
     def adopt_windows(self, moves):
         """Run start: the physical monitor's windows onto the XR desktops (adopt.py). Generated Lua only, from a
@@ -216,10 +224,12 @@ class HyprlandClient:
 
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
         """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
-        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
-        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
+        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds. The
+        Super drag binds stay in both: they take no key, and a Super drag works in typing mode too."""
+        from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
         if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+        self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
 
     def set_dpms(self, name, on, keep=None):
         """Privacy mode (Ctrl+Alt+D, privacy.py): the physical output `name` DPMS off (`keep`: the glasses' output,
@@ -382,11 +392,11 @@ class HyprlandClient:
         from .input_lock import lock_pointer_lua
         self._eval(lock_pointer_lua(python, client, control_socket, run_id, session, x, y))
 
-    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None):
-        """Unified overview cursor, desktop mode: any free-mode grab removed, the cursor warped to (x, y) if given, and
-        the non-consuming left-button click binds; one eval of generated Lua."""
+    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None, monitor=None):
+        """Unified overview cursor, desktop mode: `monitor` focused first (with a point), any free-mode grab removed, the
+        cursor warped to (x, y) if given, and the non-consuming left-button click binds; one eval of generated Lua."""
         from .unified_cursor import enter_desktop_lua
-        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y))
+        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y, monitor))
 
     def confine_cursor(self, x, y, name):
         """Unified cursor, zoomed in: the cursor back at (x, y) on the selected desktop's monitor `name`, which gets the

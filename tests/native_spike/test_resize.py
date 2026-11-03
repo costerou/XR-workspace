@@ -96,7 +96,7 @@ class HelpCardFitTests(unittest.TestCase):
         self.assertEqual([[k, a] for k, a, _ in found], view.help_rows())
         starts = [i for i, (_, _, section) in enumerate(found) if section]  # rows starting a section after the first
         self.assertEqual(starts, [sum(view.help_sections()[:n]) for n in range(1, len(view.help_sections()))])
-        self.assertTrue(any('free mouse' in action and 'pills' in action and 'corner' in action
+        self.assertTrue(any('any desktop' in action and 'pills' in action and 'corner' in action
                             for _, action in view.help_rows()))
 
 

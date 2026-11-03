@@ -119,7 +119,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G8 | Open XR-1's pill, then click XR-3's pill | XR-1's panel collapses while XR-3's grows. Only one is ever open. |
 | G9 | With XR-3 open, click in empty space between the desktops | The panel collapses. Nothing else happens. |
 | G10 | Open XR-3, then bring the dot just onto XR-2's edge (as in F13) and click without moving | The panel collapses, XR-2 is selected and the cursor comes back there. |
-| G11 | Open XR-3 again. Move the dot into XR-3 so the normal cursor shows, and click a window there | The window gets the click and the panel stays open: clicks inside a desktop go to its windows, and the run never sees them. |
+| G11 | Open XR-3 again. Move the dot into XR-3, click a window there, then type "run" | The window gets the click and the panel closes (since 2026-11-03), so the letters reach the window: R does not reset XR-3 and U / N do nothing to the desktops. |
 | G12 | Press Escape | The panel collapses. In a terminal, the arrows, Tab, R and Escape type normally again. |
 | G13 | Select XR-1 (Ctrl+Alt+Left), press Ctrl+Alt+L, then Ctrl+Alt+L again | XR-1's pill opens, then closes. |
 | G14 | Zoom into XR-2 (Ctrl+Alt+Right, Ctrl+Alt+Up) and press Ctrl+Alt+L | The view zooms out to the overview, and only then XR-2's pill grows into its panel: the whole morph is seen, as in G4. It does not pop in nearly full size. |
@@ -190,7 +190,7 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot, facing you all the way. It is not stopped one desktop height down or width left of its slot: it goes as far as the dot goes (in anchor mode on round you, see O8). |
 | F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values in degrees. The dot stays where it is. |
 | F9 | Drag XR-1's pill right toward XR-2 at the same height | It stops just before touching XR-2, with a small gap (XR-1's pill strip counts as part of XR-1). Lift it above the row first and it passes over. Dropped within half a degree of its slot it snaps in. O11–O14 test the guard further. |
-| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner. |
+| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner, and the dot shows two diagonal arrows. |
 | F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
 | F13 | Highlight XR-1 (Ctrl+Alt+Left), then on XR-2 push the mouse just past its top edge so the dot shows on the edge, and click without moving | XR-2 is highlighted and the cursor appears there. That click does not reach the window; the next one does. |
@@ -203,6 +203,26 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F20 | Stop the session from the panel while the dot shows (or mid-drag), then left-click on DP-1 | The cursor is visible and the click works. Moves and sizes made are back next session. |
 | F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no pills; nothing moves (the video gate ignores the click ops). |
 | F22 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: moving and resizing never change pixels or scale. |
+| F23 | (Full interaction, 2026-11-03.) Move the dot from XR-1 onto XR-2 and XR-3 in turn; on each, click, right-click, scroll, drag inside a window, select text and type | XR-2 / XR-3 is highlighted as soon as the dot is on it, the cursor is right under the dot, and every click, menu, scroll, drag and key reaches the window under the dot there. Nothing is maximized. |
+| F24 | Repeat F23 on a desktop moved round you and curved (Place tab), rolled (a roll arrow), resized (a corner handle) and set to 150 % (pill's Scale), and click a window's close button right in the desktop's corner | The click lands where the dot is drawn every time, corners included (the close button works; no resize starts). |
+| F25 | Move the dot onto XR-3 and type without clicking | The letters reach XR-3 (the window under the dot, or XR-3's focused window). |
+| F26 | Press and hold on a window for a second, then drag slowly (e.g. select text) | The app gets the long press and the drag; no window outline lifts off. |
+| F27 | Click a pill, a roll arrow, and just outside a corner (then drag there) | Each does its XR action only; no window reacts, and the highlight does not move. |
+| F28 | (One cursor, 2026-11-03.) Sweep the dot slowly from a window out across a desktop's edge, over the space, and back in | No jump and no change of speed at the edge. It is the same dot all the way: plain over the window, two arrows on the edge, plain again further out. Back over the edge it shows the arrows, then the window takes it. |
+| F29 | Push the dot against each of a desktop's four edges and corners from inside | The dot shows two arrows the way that edge or corner resizes: left-right, up-down, or diagonal. A corner also shows the bracket. |
+| F30 | On each edge and corner, press and drag out, then in | The desktop grows and shrinks about its centre, keeping its shape, the edge or corner following the dot. The arrows stay until you let go, even past the handle. Place tab: Distance changes. |
+| F31 | Hover a pill, then a rotate arrow, then a window | Four arrows, then two arrows chasing round the dot, then the plain dot. |
+| F32 | Hold a button down on a window | The dot brightens a little, as on a handle. |
+| F33 | (Super drags, 2026-11-03.) Hold Super and left-drag a tiled window around its desktop | Hyprland's move, as on a monitor; the dot shows four arrows. |
+| F34 | Carry on past the edge, across the gap and onto another desktop, then let go | The dot crosses the gap smoothly; the window waits at the edge with at most a tiny shake, then appears under the dot on the new desktop, which is highlighted. No zoom, turn or switch animation. The window tiles there. `hyprctl clients` shows it on that desktop's workspace. |
+| F35 | The same with a floating window, held by its far end, and let go just inside the new desktop | The window lands on that desktop at once, whole, with the dot still over it, not a monitor's width away. `hyprctl clients` shows it on that desktop's workspace, and it has the focus. |
+| F36 | During a drag, pass the dot over a pill, a roll arrow and a corner | Nothing lights up or moves; no panel opens. Then let go between desktops: the window stays at the edge, and the dot is free. |
+| F37 | Let go of Super before the mouse button mid-drag | The drag ends on the button as usual, and the dot goes on as a normal cursor. |
+| F38 | Hold Super and right-drag a window's corner to the desktop's edge and past it | The window resizes as usual; the mouse stays on that desktop. |
+| F39 | With the dot on a pill or in empty space, Super + click and drag | No desktop moves and no window drags. A tiled window under the parked cursor may flicker once. |
+| F40 | Maximized, Super-drag a window hard against an edge that has a desktop beyond it | The view does not switch. |
+| F41 | Typing mode (Ctrl+Alt+T): Super-drag a window across to another desktop and drop it, then type | The dot shows for the drag, with no pills or arrows, then the normal cursor is back on the new desktop. The window landed there, and the letters reach it. |
+| F42 | Typing mode: Super + right-drag a window past its desktop's edge | It resizes as usual and the cursor stays on that desktop. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 

@@ -2,6 +2,7 @@
 #include "video_ipc.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <iterator>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -45,7 +46,19 @@ bool placement(const Json& value, WirePlacement& out) {
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     const bool directed = p.is_object() && (p.contains("az") || p.contains("el"));
     const bool drag = p.is_object() && p.contains("drag");
-    if (!p.is_object() || p.size() != (directed ? 6u : 4u) + (drag ? 1u : 0u)) return false;
+    const bool looks = p.is_object() && p.contains("look");
+    if (!p.is_object() || p.size() != (directed ? 6u : 4u) + (drag ? 1u : 0u) + (looks ? 1u : 0u)) return false;
+    PointerLook look = PointerLook::plain;
+    if (looks) {
+        static constexpr std::pair<const char*, PointerLook> names[] = {
+            {"resize_ew", PointerLook::resize_ew}, {"resize_ns", PointerLook::resize_ns}, {"resize_nwse", PointerLook::resize_nwse},
+            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate}};
+        if (!p["look"].is_string()) return false;
+        const auto& name = p["look"].get_ref<const std::string&>();
+        const auto* found = std::find_if(std::begin(names), std::end(names), [&](const auto& n) { return name == n.first; });
+        if (found == std::end(names)) return false;
+        look = found->second;
+    }
     for (const char* key : {"visible", "held"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
     std::int32_t xy[2];
@@ -86,7 +99,7 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
             ghost[i] = std::int32_t(v);
         }
     }
-    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1], drag, ghost[0], ghost[1], ghost[2]};
+    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1], drag, ghost[0], ghost[1], ghost[2], look};
     return true;
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {

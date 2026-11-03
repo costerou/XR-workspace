@@ -54,7 +54,8 @@ def decode_control(raw):
                   "placement", "menu_toggle", "menu_desktop_next", "menu_desktop_prev", "menu_field_next", "menu_field_prev",
                   "menu_inc", "menu_dec", "menu_inc_big", "menu_dec_big", "menu_reset", "menu_back",
                   "menu_ultrawide", "menu_add", "menu_delete",
-                  "resize_press", "resize_release", "send_glasses", "send_glasses_1",
+                  "resize_press", "resize_release", "super_left_press", "super_right_press", "super_release",
+                  "send_glasses", "send_glasses_1",
                   "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
                   "help_next", "privacy_display", "playback_menu_toggle"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
