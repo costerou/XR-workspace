@@ -1,7 +1,7 @@
 """Independent watchdog. Caller owns its Popen child, heartbeat FD and recovery adapter."""
 import math
-import multiprocessing
 from dataclasses import dataclass
+import select
 import selectors
 import socket
 import time
@@ -149,12 +149,24 @@ class Supervisor:
     def _send(self, frame, renderer_socket):
         try:
             if frame is None or self.stopping_at is not None: return
+            timed = False
             try:
-                renderer_socket.settimeout(0.25); _send_frame(renderer_socket, frame)
+                data = None if getattr(frame, 'fds', None) else bytes(frame)
+                if data is not None:
+                    # One non-blocking send first: a frame (up to 250 a second while the overview pointer moves) almost
+                    # always fits the socket buffer. Only what does not fit takes the bounded blocking send below, with its
+                    # two timeout switches; the bytes, their order and the 0.25 s bound are the same.
+                    try: sent = renderer_socket.send(data, socket.MSG_DONTWAIT)
+                    except BlockingIOError: sent = 0
+                    if sent == len(data): return
+                timed = True
+                renderer_socket.settimeout(0.25)
+                if data is None: _send_frame(renderer_socket, frame)
+                else: renderer_socket.sendall(data[sent:])
             except OSError:
                 self.disconnect(time.monotonic())
             finally:
-                renderer_socket.settimeout(None)
+                if timed: renderer_socket.settimeout(None)
         finally:
             close_fds = getattr(frame, 'close_fds', None)  # video.FdFrame: our copies of descriptors handed over
             if close_fds is not None: close_fds()
@@ -166,16 +178,21 @@ class Supervisor:
         # Own exactly one spawn worker and one one-way pipe for this run. Spawn
         # (never fork) excludes renderer/control/Wayland sockets and copies client
         # identity state; no thread or process concurrently mutates that client.
-        worker = receiver = sender = None
+        worker = receiver = sender = guard_ready = None
         deadline = 0.0
         try:
             if self.guard is not None and self.child.poll() is None and self.stopping_at is None:
+                import multiprocessing  # only runs with a guard use it; the controller imports this module too
                 context = multiprocessing.get_context('spawn')
                 receiver, sender = context.Pipe(duplex=False)
                 worker = context.Process(target=_guard_worker, args=(self.guard, sender))
                 deadline = time.monotonic() + GUARD_DEADLINE
                 worker.start()
                 sender.close()
+                # receiver.poll() builds a new selector on every call, and this runs on every loop pass (each heartbeat
+                # and pointer sample): one poll object, the same readiness (any revents: a verdict, or EOF / error).
+                guard_ready = select.poll()
+                guard_ready.register(receiver.fileno(), select.POLLIN)
             with selectors.DefaultSelector() as selector:
                 selector.register(heartbeat_socket, selectors.EVENT_READ)
                 if status_socket is not None:
@@ -196,7 +213,7 @@ class Supervisor:
                     if worker is not None and receiver is not None and self.stopping_at is None:
                         if now >= deadline or not worker.is_alive():
                             self.disconnect(now)
-                        elif receiver.poll():
+                        elif guard_ready.poll(0):
                             try: valid = receiver.recv_bytes(1) == b'V'
                             except (EOFError, OSError): valid = False
                             if not valid: self.disconnect(now)

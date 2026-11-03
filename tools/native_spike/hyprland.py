@@ -38,8 +38,38 @@ def ownership_plugin_count(names):
 QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 LIMIT = 1048576
 DEADLINE = 2.0
+# Readback of a monitor change (session mode, parking): Hyprland applies it on a following frame, so the first read
+# after the eval nearly always misses. Read every READBACK_FAST_S for the first READBACK_FAST_FOR_S, then every
+# READBACK_S, instead of waiting READBACK_S for the second read; the deadline and the predicates are unchanged.
+READBACK_FAST_S, READBACK_FAST_FOR_S, READBACK_S = 0.01, 0.25, 0.05
+
+
+def _readback_step(started):
+    return READBACK_FAST_S if time.monotonic() - started < READBACK_FAST_FOR_S else READBACK_S
 
 class OwnershipBlocked(ValueError): pass
+
+
+_ENCODING = None
+
+
+def _read_text(path):
+    """Path(path).read_text() without the pathlib and text-stream setup (every compositor request reads its peer's
+    /proc/<pid>/stat): the whole file, decoded as open() decodes it (the locale's encoding, strict, newlines translated);
+    same errors."""
+    global _ENCODING
+    if _ENCODING is None:
+        import locale
+        _ENCODING = locale.getpreferredencoding(False)  # open()'s text encoding: UTF-8 in UTF-8 mode, else the locale's
+    fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC)
+    try:
+        chunks = []
+        while chunk := os.read(fd, 4096): chunks.append(chunk)
+    finally:
+        os.close(fd)
+    text = b''.join(chunks).decode(_ENCODING)
+    return text.replace('\r\n', '\n').replace('\r', '\n') if '\r' in text else text
+
 
 class HyprlandClient:
     def __init__(self, instance: str, runtime_dir: Path):
@@ -51,20 +81,32 @@ class HyprlandClient:
         self.directory = self.runtime_dir / 'hypr' / instance
         self._peer = None
         self._session = None
+        self._paths = None
+
+    def _strings(self):
+        """String forms of the checked directories and the endpoint directory, for os calls. The overview's cursor
+        sampler makes up to 250 requests a second, so they are built once (again only if either attribute is replaced),
+        not as new Path objects per request."""
+        paths = self._paths
+        if paths is None or paths[0] is not self.runtime_dir or paths[1] is not self.directory:
+            directories = (str(self.runtime_dir), str(self.runtime_dir / 'hypr'), str(self.directory))
+            paths = self._paths = (self.runtime_dir, self.directory, directories, str(self.directory) + '/')
+        return paths[2], paths[3]
 
     def _connect(self, deadline, name='.socket.sock'):
         # No symlink traversal for the selected endpoint or its parents.
-        for path in (self.runtime_dir, self.runtime_dir / 'hypr', self.directory):
-            st = path.lstat()
-            if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o022:
+        directories, prefix = self._strings()
+        uid = os.getuid()
+        for path in directories:
+            st = os.lstat(path)
+            if not stat.S_ISDIR(st.st_mode) or st.st_uid != uid or st.st_mode & 0o022:
                 raise PermissionError('unsafe Hyprland socket directory')
         if name not in ('.socket.sock', '.socket2.sock'): raise ValueError('unknown Hyprland socket')
-        path = self.directory / name
-        st = path.lstat()
-        if not stat.S_ISSOCK(st.st_mode) or st.st_uid != os.getuid(): raise PermissionError('unsafe IPC socket')
+        st = os.lstat(prefix + name)
+        if not stat.S_ISSOCK(st.st_mode) or st.st_uid != uid: raise PermissionError('unsafe IPC socket')
         conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            directory_fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            directory_fd = os.open(directories[2], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             try:
                 while True:
                     remaining = deadline - time.monotonic()
@@ -84,9 +126,9 @@ class HyprlandClient:
                     break
             finally: os.close(directory_fd)
             peer = struct.unpack('3i', conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
-            if peer[1] != os.getuid() or peer[0] <= 0: raise PermissionError('wrong compositor peer')
+            if peer[1] != uid or peer[0] <= 0: raise PermissionError('wrong compositor peer')
             # Kernel process start tick also protects against PID reuse.
-            process = Path(f'/proc/{peer[0]}/stat').read_text()
+            process = _read_text(f'/proc/{peer[0]}/stat')
             start = process.rsplit(')', 1)[1].split()[19]
             identity = (*peer, start)
             if self._peer is not None and self._peer != identity: raise ValueError('compositor peer changed')
@@ -205,7 +247,8 @@ class HyprlandClient:
         self._eval(restore_mode_lua(mode))
         # MonitorRuleManager::add only schedules a reload; render.preChecks applies it.
         # An eval acknowledgement is not a mode-application barrier.
-        deadline, last = time.monotonic() + DEADLINE, None
+        started = time.monotonic()
+        deadline, last = started + DEADLINE, None
         while (remaining := deadline - time.monotonic()) > 0:
             try:
                 last = current(timeout=remaining)
@@ -215,7 +258,7 @@ class HyprlandClient:
                 return mode
             remaining = deadline - time.monotonic()
             if remaining <= 0: break
-            time.sleep(min(0.05, remaining))
+            time.sleep(min(_readback_step(started), remaining))
         observed = ({k: last.get(k) for k in ('name', 'width', 'height', 'refreshRate', 'x', 'y', 'scale')}
                     if last is not None else None)
         raise ValueError(f'session mode {SESSION_MODE} at {mode} not observed within {DEADLINE:g}s; last readback: {observed}')
@@ -231,7 +274,8 @@ class HyprlandClient:
         self._eval(f'hl.monitor({{ output = "{desired["name"]}", mode = "{w}x{h}@{hz:.6f}", '
                    f'position = "{desired["x"]}x{desired["y"]}", scale = {desired["scale"]}, '
                    f'transform = {desired["transform"]} }})')
-        deadline = time.monotonic() + DEADLINE
+        started = time.monotonic()
+        deadline = started + DEADLINE
         while (remaining := deadline - time.monotonic()) > 0:
             snapshot = monitors(self.query('monitors', timeout=remaining))
             found = next((m for m in snapshot if m['name'] == output), None)
@@ -239,7 +283,7 @@ class HyprlandClient:
                     ('id', 'width', 'height', 'x', 'y', 'scale', 'transform', 'disabled', 'dpmsStatus', 'mirrorOf'))
                     and abs(found['refreshRate'] - hz) < .01 and time.monotonic() <= deadline):
                 return found
-            time.sleep(min(.05, max(0, deadline - time.monotonic())))
+            time.sleep(min(_readback_step(started), max(0, deadline - time.monotonic())))
         raise ValueError('presentation placement was not observed before deadline')
 
     def restore_session_mode(self, mode):
@@ -318,8 +362,11 @@ class HyprlandClient:
             raise ValueError(f'compositor rejected bind change: {detail}')
 
     def verified_session(self):
-        # A request establishes the actual SO_PEERCRED process, not a configured echo.
-        self.query('monitors')
+        # A request establishes the actual SO_PEERCRED process, not a configured echo. Any allowlisted query does (the
+        # peer is checked on connect, before sending); the reply is not used, so it is the smallest one. The ownership
+        # broker verifies the session before every broker call and the run's guard every half second: a full monitor
+        # dump each time was most of the compositor's IPC work for a run.
+        self.query('cursorpos')
         pid = self._peer[0]
         if Path(os.readlink(f'/proc/{pid}/exe')).name != 'Hyprland':
             raise ValueError('socket peer is not the selected Hyprland process')
