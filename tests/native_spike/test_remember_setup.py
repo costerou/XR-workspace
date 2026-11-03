@@ -145,6 +145,33 @@ class LoadSetupTests(unittest.TestCase):
         with self.assertRaises(ValueError): profiles.save_profile(self.p.path, MODEL, {**base, 'rolls': [0, 0, 9001]})
         with self.assertRaises(ValueError): profiles.save_profile(self.p.path, MODEL, {**base, 'rolls': None})
 
+    def test_the_backup_is_kept_validated_and_never_restored(self):
+        store = profiles.PlacementStore(self.p.path, MODEL)
+        store.save_desktops(FOUR, PLACED, ROLLS)
+        self.assertIsNone(profiles.load_profile(self.p.path, MODEL)['previous_setup'])
+        store.reset({'desktops': FOUR, 'placements': PLACED, 'rolls': ROLLS, 'spacing': 80})
+        self.assertEqual(profiles.load_profile(self.p.path, MODEL)['previous_setup'], {**SETUP, 'spacing': 80})
+        self.assertEqual(self.p.setup(), (profiles.default_setup(), None))  # a start restores the default, not the backup
+        store.save_desktops([D169], [FLAT], [0])  # later saves keep it
+        store.save([PLACED[0]])
+        self.assertEqual(profiles.load_profile(self.p.path, MODEL)['previous_setup'], {**SETUP, 'spacing': 80})
+        store.reset()  # (a setup the broker refused): the setup alone, the backup and spacing stay
+        self.assertEqual(profiles.load_profile(self.p.path, MODEL)['previous_setup'], {**SETUP, 'spacing': 80})
+        profile = profiles.load_profile(self.p.path, MODEL)
+        for bad in ({**SETUP}, {**SETUP, 'spacing': 9999}, {**SETUP, 'spacing': 80, 'rolls': [1]}, 'flat'):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError): profiles.save_profile(self.p.path, MODEL, {**profile, 'previous_setup': bad})
+                self.p.raw({**profile, 'previous_setup': bad})  # a damaged backup costs only the backup
+                self.assertIsNone(profiles.load_profile(self.p.path, MODEL)['previous_setup'])
+                self.assertIsNone(self.p.setup()[1])
+
+    def test_a_reset_without_live_desktops_backs_up_the_profiles(self):
+        store = profiles.PlacementStore(self.p.path, MODEL)
+        store.save_desktops(FOUR, PLACED, ROLLS)
+        store.reset({'desktops': None, 'placements': PLACED, 'rolls': ROLLS, 'spacing': 60})
+        self.assertEqual(profiles.load_profile(self.p.path, MODEL)['previous_setup']['desktops'], FOUR)
+        self.assertEqual(profiles.load_profile(self.p.path, MODEL)['spacing'], view.DEFAULT_SPACING)
+
     def test_the_roll_bound_is_one_number_everywhere(self):
         root = Path(__file__).resolve().parents[2]
         self.assertEqual(g.MAX_ROLL, fp.MAX_ROLL)

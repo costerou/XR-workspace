@@ -33,9 +33,11 @@ before its output goes), and once the worker is done restarts the guard on the o
 takes the new desktops and placements, so the next session starts with them.
 
 Ctrl+Alt+R (view.RESET_OP) is one more plan, RESET: every desktop back to the default three, 1920x1080 at 100% and flat
-(profiles.default_setup). The three lowest-numbered desktops stay and are reshaped, a fourth goes (its windows to the
-fallback, as Remove), and missing ones are added with the lowest free numbers; one plan, the same broker steps in the
-same safe order.
+(profiles.default_setup). The three lowest-numbered desktops stay and are reshaped, and missing ones are added with the
+lowest free numbers; one plan, the same broker steps in the same safe order. A fourth desktop goes, and its windows go to
+the last desktop that stays (normally XR-3), not to the fallback as Remove's do: just before the removal the worker calls
+`move_windows` (adopt.adopt: whole workspaces, each still its own workspace there, Omarchy's block renumbering included).
+Anything that could not move is still evacuated to the fallback by the removal itself, the safety net of every removal.
 
 Nothing here widens what the session may do: the outputs are the run's own managed outputs (the consent's capture
 scope), created and removed only through the broker, and the windows a removal moves go where Stop would move them.
@@ -78,6 +80,7 @@ class Plan:
     placements: list = field(default_factory=list)
     focus: int | None = None
     resized: list = field(default_factory=list)  # names whose pixel size changes (their capture restarts)
+    windows_to: str | None = None  # RESET: where the removed desktop's windows go first (DesktopManager.move_windows)
 
     def steps(self):
         out = [('remove', self.remove)] if self.remove is not None else []
@@ -111,7 +114,7 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
     placed = {s['name']: dict(p) for s, p in zip(specs, placements)}
     desktops = {s['name']: desktop_of(s) for s in specs}
     target = specs[index]['name']
-    removed = None
+    removed = windows_to = None
     if action == 'ultrawide':
         desktops[target] = toggle_ultrawide(desktops[target])
     elif action == SCALE:
@@ -121,7 +124,7 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
         extra = names[RESET_COUNT:]
         if len(extra) > 1: raise ValueError(f'a reset removes one desktop at most ({len(extra)} over {RESET_COUNT})')
         if extra:
-            removed = by_name[extra[0]]
+            removed, windows_to = by_name[extra[0]], names[RESET_COUNT - 1]
             del desktops[extra[0]], placed[extra[0]]
         while len(desktops) < RESET_COUNT:
             free = next((n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops and f'XR-{n}' not in held), None)
@@ -159,7 +162,8 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
     rest = sorted([(o, n) for o, n in moves if (o, n) not in first], key=lambda m: -m[1]['x'])
     names = [s['name'] for s in after]
     focus = names.index(target) if action not in ('remove', RESET) else None
-    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized)
+    return Plan(action, after, removed, [n for _, n in first + rest], creates, [placed[n] for n in names], focus, resized,
+                windows_to)
 
 
 class DesktopManager:
@@ -167,9 +171,12 @@ class DesktopManager:
 
     `broker`: ownership.OwnershipBrokerClient of the run; `journal`: its journal; `specs`: the outputs the run created
     (managed.plan_outputs). `guard_factory(specs)`: the run's guard for a set of outputs (managed.ManagedGuard).
-    `store`: optional profiles.PlacementStore (save_desktops). `threads=False` runs the steps inline (tests)."""
+    `store`: optional profiles.PlacementStore (save_desktops). `move_windows(source, target)`: optional, moves one output's
+    windows to another before a RESET removal (managed.view_controls; off the supervisor loop, on the worker). `threads=False`
+    runs the steps inline (tests)."""
     def __init__(self, broker, journal, specs, *, guard_factory=None, store=None, threads=True):
         self.broker, self.journal, self.guard_factory, self.store, self.threads = broker, journal, guard_factory, store, threads
+        self.move_windows = None
         self.specs = sorted((dict(s) for s in specs), key=lambda s: number(s['name']))
         if not self.specs: raise ValueError('a run has at least one desktop')
         self.origin = (self.specs[0]['x'], self.specs[0]['y'])
@@ -220,6 +227,8 @@ class DesktopManager:
             for kind, spec in change.steps():
                 if self._stop: raise ValueError('the session is ending')
                 if kind == 'remove':
+                    if change.windows_to is not None and self.move_windows is not None:
+                        self.move_windows(spec['name'], change.windows_to)  # best effort: the removal evacuates what stays
                     if not self.broker.remove_live(spec['id'], spec['name'], self.journal):
                         raise ValueError(f"{spec['name']} could not be removed (a pinned window, or a window that would "
                                          f"not move); it stays")

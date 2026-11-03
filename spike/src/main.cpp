@@ -205,6 +205,7 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
                         const auto& d = std::get<xr::DesktopsPayload>(m->payload);
+                        if (d.ease) presentation.ease_tiles();  // Ctrl+Alt+R: before the captures change
                         presentation.set_desktops(d.outputs, d.renew);
                     }
                     else if (m->op == xr::ControlOp::placement) {

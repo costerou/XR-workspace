@@ -232,6 +232,7 @@ struct Presentation::Impl : SurfaceRequests {
     }
     std::optional<LayoutKey> draw_tiles_key, overview_key, cpu_tiles_key;
     std::vector<FRect> draw_tiles;       // blended_layout for the GL frame
+    TileEase tile_ease;                  // the tiles on their way to it through a desktop change (Ctrl+Alt+R)
     std::string overview_line;           // overview_geometry_json of the settled overview
     std::vector<Rect> cpu_tiles;         // side_by_side for the CPU frame
     std::vector<Placement> resolved;     // resolved_placements() of the frame being drawn
@@ -585,6 +586,8 @@ struct Presentation::Impl : SurfaceRequests {
         for (const auto& name : wanted) joined += (joined.empty() ? "" : ",") + name;
         const auto names = parse_capture_list(joined, selected ? selected->name : std::string());
         if (!names) return;
+        std::vector<std::string> was;  // the tiles of an eased change follow their desktops by name
+        for (const auto& c : captures) was.push_back(c->name);
         auto erase_at = [](auto& v, std::size_t i) { if (i < v.size()) v.erase(v.begin() + std::ptrdiff_t(i)); };
         for (std::size_t i = captures.size(); i-- > 0;) {  // back to front: indices below stay valid
             if (std::find(names->begin(), names->end(), captures[i]->name) != names->end()) continue;
@@ -612,6 +615,14 @@ struct Presentation::Impl : SurfaceRequests {
                 if (c->session) stop_session(*c);
                 c->output = nullptr; c->gone = false; c->stopped = false; c->restart_ms = 0; c->restarts = 0;
             }
+        if (tile_ease.armed(double(monotonic_ms()))) {
+            std::array<int, kMaxDesktops> before;
+            before.fill(-1);
+            const std::size_t n = std::min(captures.size(), before.size());
+            for (std::size_t i = 0; i < n; ++i)
+                if (const auto at = std::find(was.begin(), was.end(), captures[i]->name); at != was.end()) before[i] = int(at - was.begin());
+            tile_ease.reindex(std::span<const int>(before.data(), n));
+        }
         draw_tiles_key.reset(); overview_key.reset(); cpu_tiles_key.reset();
         service_captures();
         cadence.invalidate();
@@ -802,6 +813,7 @@ struct Presentation::Impl : SurfaceRequests {
             (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() ||
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
+        if (s.tile_ease.active()) s.cadence.invalidate();
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -1209,6 +1221,10 @@ std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
     return line;
 }
 void Presentation::resend_roll_geometry() { if (impl_) impl_->roll_geometry_sent.clear(); }
+void Presentation::ease_tiles() {
+    if (impl_) impl_->tile_ease.arm(impl_->capture_sizes().span(), impl_->draw_tiles, double(monotonic_ms()));
+}
+
 std::optional<std::string> Presentation::take_overview_geometry() {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
@@ -1355,7 +1371,8 @@ Status Presentation::draw_test_pattern() {
                 s.draw_tiles_key = key;
             }
         }
-        const auto& tiles = s.draw_tiles;
+        const auto& tiles = s.tile_ease.tiles(s.capture_sizes().span(), s.draw_tiles, s.view.zoom() < 0.01f && !s.view.switching(),
+                                              double(monotonic_ms()));  // Ctrl+Alt+R: on their way to that layout
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
         if (s.presentation) {
             auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });

@@ -105,12 +105,15 @@ tried in the glasses.
 |---|----|--------|
 | M1 | In a session, add a fourth desktop, make XR-2 ultrawide, set XR-3's scale to 125%, move XR-1 up and to the left, curve XR-4, roll XR-2 a few degrees with its roll arrow. Wait 2 s, stop the session and start a new one | Four desktops come back with the same sizes and scales, XR-1 up and left, XR-4 curved, XR-2 rolled. The panel's **Startup options** preview shows four desktops before you start. |
 | M2 | Maximize a desktop, press Ctrl+Alt+V (locked), stop and start again, then maximize | The layout comes back; the maximized desktop follows your head again (follow / locked is not remembered). |
-| M3 | Open a pill, maximize nothing, press **Ctrl+Alt+R** | The pill closes. Every desktop glides back into the flat row in about half a second, level, then XR-4 disappears (its windows go to DP-1) and XR-2 / XR-3 change back to 1920×1080 at 100%. A notification says the desktops were reset. |
+| M3 | Open a pill, press **Ctrl+Alt+R** once and wait 4 s | A notification says "Press Ctrl+Alt+R again to reset all monitors". Nothing else happens: the pill stays open and nothing moves. |
+| M3a | With the same layout (XR-4 holding a window on two workspaces, XR-3 holding one window), press **Ctrl+Alt+R** twice within 3 s | The pill closes. Every desktop glides back into the flat row in about half a second, level, the gaps going back to the default, while XR-4 drops down out of the view. Then the row settles along the same smooth curve as XR-2 and XR-3 go back to 1920×1080 at 100%, with no jump. XR-4's windows are on XR-3, each workspace still its own (not on DP-1). A notification says the monitors were reset and where XR-4's windows went. |
 | M4 | Press Ctrl+Alt+H | The recenter row reads "Ctrl+Alt+Space / R  Recenter / reset to 3 flat desktops". |
-| M5 | Stop and start again | Three flat 1920×1080 desktops. |
-| M6 | Maximize a desktop and press Ctrl+Alt+R | Back to the overview first, then the reset as in M3. |
+| M5 | Stop and start again. Then look at `previous_setup` in `~/.config/viture-workspace/profiles.json` | Three flat 1920×1080 desktops. `previous_setup` holds the four-desktop layout from before the reset, spacing included. |
+| M5a | Press Ctrl+Alt+R twice again on the default layout | The notification confirms it and nothing visible moves. `previous_setup` still holds the four-desktop layout. |
+| M5b | Remove a desktop so there are two, then press Ctrl+Alt+R twice | The two glide flat, then the row narrows smoothly and the new desktop grows out of its slot. |
+| M6 | Maximize a desktop and press Ctrl+Alt+R twice | Back to the overview first, then the reset as in M3a. |
 | M7 | Play a VR video and press Ctrl+Alt+R; press Ctrl+Alt+T (typing mode) and press Ctrl+Alt+R | During the video nothing changes and a notification says to close it first. In typing mode the key reaches the focused app. |
-| M8 | Note anything that looks wrong | How the glide looks, whether the reshape flickers, how long the desktops take to come back, where the notification shows. |
+| M8 | Note anything that looks wrong | How both glides look together, how a desktop looks while its shape changes (the picture stretches for a moment), whether the reshape flickers, how long the desktops take to come back, which workspace XR-3 shows after XR-4's move, where the notifications show. |
 
 ## Glass pills: glasses test script (Cody)
 

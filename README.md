@@ -106,7 +106,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
-| Ctrl+Alt+R | Reset every desktop to three flat 1920×1080 desktops at 100%, and save that as your layout (see [Placing desktops](#placing-desktops)) |
+| Ctrl+Alt+R, twice | Reset every desktop to three flat 1920×1080 desktops at 100%, and save that as your layout (see [Placing desktops](#placing-desktops)) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
@@ -156,12 +156,21 @@ create), the session starts with three flat desktops instead, and the reason is 
 still starts in follow.
 
 **Start over: Ctrl+Alt+R** (new, not yet tried in the glasses). Puts every desktop back to the default: three flat
-1920×1080 desktops at 100%, level, in a row. An open pill closes and a maximized desktop goes back to the overview first.
-The desktops glide back into the row in about half a second, then a fourth desktop is removed (its windows go to your
-normal monitor, as with the pill's Remove), missing ones are added, and every resolution and scale goes back to
-1920×1080 at 100%. Your saved layout is replaced by the default at the same time, so the next session starts that way
-too. A small notification confirms it. Ctrl+Alt+R does nothing while a VR video plays or another desktop change is still
-running (a notification says so), and in typing mode. The help card lists it on the recenter row, as Ctrl+Alt+Space / R.
+1920×1080 desktops at 100%, level, in a row, with the default space between them. It asks first: the first press shows
+a small notification, "Press Ctrl+Alt+R again to reset all monitors", and a second press within three seconds resets. If
+you don't press it again, nothing happens. An open pill closes and a maximized desktop goes back to the overview first.
+
+The whole reset glides. The desktops move back into the row in about half a second while a fourth desktop drops away
+below your view, then the row settles along the same smooth curve as the desktops change size and resolution, and a
+desktop that was missing grows out of its place. The windows on a fourth desktop move to XR-3, each workspace still its
+own, so XR-3 may show one of them afterwards, with its own windows one workspace away. Anything that can't move goes to
+your normal monitor, as with the pill's Remove.
+
+Your saved layout is replaced by the default at the same time, so the next session starts that way too. The layout you
+had is kept as a backup in `~/.config/viture-workspace/profiles.json` (`previous_setup`), one step back: the next reset
+replaces it. There is no key to bring it back yet. A small notification confirms the reset. Ctrl+Alt+R does nothing while
+a VR video plays or another desktop change is still running (a notification says so), and in typing mode. The help card
+lists it on the recenter row, as Ctrl+Alt+Space / R.
 
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.

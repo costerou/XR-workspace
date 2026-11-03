@@ -28,7 +28,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Roll-level icons (every desktop in the overview has two small curved arrows (no button behind them, in the theme's M3 primary) above its top corners, counter-clockwise left and clockwise right; a click turns it that way, straight to level when level lies that way (in anchor mode, judged against gravity from the head tracker), else 2°; a drag from either rolls it either way) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the icon's size, side, arrow and colours, the `roll` frame), `glass_contract` and `placement_contract` (the icon rect and the rolled surface, renderer against supervisor); `tests/native_spike/test_roll_level.py`. Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the icon reads on the OLED panels and how the drag feels are unverified. See [Roll-level icons](#roll-level-icons). |
 | Monitor scale from the glass pill (the open panel's Scale dropdown under its sliders, in Material Design 3: an exposed dropdown and its menu, in the buttons' 18 px font; 100, 125, 150, 175, 200, 250 or 300% (250 and 300 since 2026-11-03), only the steps that divide the desktop's resolution exactly; a pick reshapes that XR desktop's Hyprland output scale live through the broker, like Ultrawide, and the profile keeps it for the next start; `desktops.SCALE`, `ViewControl.scale_box` / `scale_pick`) | Offline tests only: `tests/native_spike/test_scale_dropdown.py` (steps, plan, payload, the pick end to end through the fake broker into the saved profile, pointer hits), ctest `glass` (layout, the box, its indicator and the list in M3 roles), `material` (the drop-down arrows), `glass_contract` (box and list geometry, the steps), `placement_menu_ipc` (the `scale` / `scales` / `picker` fixture cases), the panel's `tst_model.qml` (its desktop editor offers the same steps). Not run in an isolated VM or in the glasses: how the list reads on the OLED panels (seven 20 px items over the sliders), how windows re-lay out after a scale change and how 250% / 300% look are unverified. The panel grew one row (292 px tall). The broker's bound (`spike/ownership/registry.cpp` validDesktop) now takes 2.5 and 3, so the ownership plugin, renderer, supervisor, controller and panel must be installed together. |
 | Live desktops from the glass pill (Ultrawide, Add new, Remove; 1..4 desktops; `tools/native_spike/desktops.py`, the renderer's `desktops` control op, the broker's `reshape` op) | Offline tests only: `tests/native_spike/test_desktops.py` (plans, journaled broker steps with the real journal and the C++ request validator, the supervisor loop, pointer hits, profiles), ctest `ipc`, `glass`, `glass_contract`, `capture`, `ownership`. Not run in an isolated VM or in the glasses: whether Hyprland keeps a capture session through a reshape (the renderer restarts it if not), the new panel row's look, and the guard swap are unverified. The ownership plugin, renderer, supervisor, controller and panel must be installed together. |
-| Remembered monitor setup and the Ctrl+Alt+R reset (every start restores the last session's desktops: count, resolution, scale, placement and levelling roll, with a logged fallback to three flat desktops; Ctrl+Alt+R resets a live run to three flat 1920×1080 desktops at 100% with a 0.45 s ease and replaces the save; see [Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) | Offline tests only: `tests/native_spike/test_remember_setup.py` (round trip, every fallback with its reason, older saves, atomic writes, a run's restore and its end-of-run save, roll saves, a refused create resetting the save), `test_layout_reset.py` (the bind in `view.BINDS`, its chord against the run's and Omarchy's binds, help row, docs, the `RESET` plan, the live reset with the fake broker and real journal, inline and threaded: ease, broker steps, frames, save, toast, maximized, video, typing and failure cases), `tests/xr_controller/test_state.py` (the start scope restores or falls back, the real store's strict read), ctest `help_card`. Not run in an isolated VM or in the glasses: how the ease looks, how long the reshapes and capture restarts take, and where the toast shows are unverified. |
+| Remembered monitor setup and the Ctrl+Alt+R reset (every start restores the last session's desktops: count, resolution, scale, placement and levelling roll, with a logged fallback to three flat desktops; Ctrl+Alt+R, pressed twice within 3 s, resets a live run to three flat 1920×1080 desktops at 100% with the default spacing, animated throughout, and replaces the save, keeping the old layout as a one-step backup; see [Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) | Offline tests only: `tests/native_spike/test_remember_setup.py` (round trip, every fallback with its reason, older saves, atomic writes, a run's restore and its end-of-run save, roll saves, a refused create resetting the save, the backup field), `test_layout_reset.py` (the bind in `view.BINDS`, its chord against the run's and Omarchy's binds, help row, docs, the `RESET` plan, the confirm press, the live reset with the fake broker and real journal, inline and threaded: backup, spacing, ease, drop-away, window move before removal, broker steps, frames, save, toast, maximized, video, typing and failure cases), `tests/xr_controller/test_state.py` (the start scope restores or falls back, the real store's strict read), ctest `view` (`TileEase`), `ipc` (`ease`), `help_card`. Not run in an isolated VM or in the glasses: how the two eases look together, how a tile looks while its aspect changes, how long the reshapes and capture restarts take, which workspace XR-3 shows after XR-4's move, and where the toasts show are unverified. |
 | Seamless workspace layout switches (master / scrolling / floating; Omarchy's toggle rewrites a layout file the config requires, so each switch is a Hyprland config reload) | Offline tests only: ctest `ownership_reload` runs the plugin's `keptThroughReload` against the pinned reload sequence (clear, parse, `ensureMonitorStatus`): during a run a reload keeps the XR-n rules and the rule in effect for every output the config does not name (the glasses' session mode), so it modesets nothing, and the config still wins wherever it names an output. The plugin applies it by hooking `CMonitorRuleManager::clear()`; that hook has not been loaded in an isolated VM or in the glasses. Takes effect only with the new `libxr-ownership.so` installed. |
 | Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
 | Not built yet | Changing a desktop's resolution while running other than the Ultrawide toggle (its scale: the pill's Scale dropdown); head-direction focus. |
@@ -109,7 +109,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+PgUp / PgDn | run | Previous / next help card page (wraps round; nothing while the card is closed) |
 | Ctrl+Alt+T | run, both modes | Typing mode on / off (see [Typing mode](#typing-mode)) |
 | Ctrl+Alt+L | run | Open the selected desktop's placement pill (back to the overview first if maximized), or close the open one |
-| Ctrl+Alt+R | run | Reset every desktop to the default three flat 1920×1080 desktops at 100%, eased, and replace the saved setup with them (see [Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) |
+| Ctrl+Alt+R, twice within 3 s | run | Reset every desktop to the default three flat 1920×1080 desktops at 100% with the default spacing, animated, and replace the saved setup with them, keeping the old layout as a one-step backup (see [Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) |
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
@@ -180,26 +180,44 @@ last desktop). Not part of the setup: spacing, prediction and the VR video quali
 the maximized follow / locked choice, which is never saved, so every start maximizes in follow.
 
 **Ctrl+Alt+R** (`view.RESET_OP` = `layout_reset`, a row of `view.BINDS`, the table every run bind and the key bind
-panel come from) resets a live run to the default (`ViewControl.layout_reset`):
+panel come from) resets a live run to the default (`ViewControl.layout_reset`). The first press only shows the toast
+`Press Ctrl+Alt+R again to reset all monitors`; a second within `RESET_ARM_S` (3 s) resets, and otherwise nothing happens
+(a later press asks again). Then:
 
 1. An open pill collapses (saved) and a maximized desktop un-maximizes to the overview; `maximized_mode` is untouched.
-2. The saved setup is replaced by the default at once (`PlacementStore.reset`).
-3. Every desktop eases from where it is to flat and level over `RESET_ANIM_S` (0.45 s, smootherstep; the turn round you
-   goes the short way): the supervisor loop sends a `placement` frame per tick and the pointer's `roll` frame carries the
-   rolls, with the renderer's own 35 ms placement easing smoothing between ticks. No wire or renderer change.
+2. The saved setup is replaced by the default at once (`PlacementStore.reset`). The layout it replaces, live desktops,
+   placements, rolls and spacing, goes into the profile's `previous_setup`, a one-step backup that the next real reset
+   overwrites. Resetting a layout that already is the default leaves it, so a repeated reset cannot wipe it. Nothing reads
+   it back yet. The spacing returns to its default (`DEFAULT_SPACING`), which the renderer eases on its own 0.22 s curve.
+3. Every desktop eases to flat and level over `RESET_ANIM_S` (0.45 s, smootherstep; the turn round you goes the short
+   way): the supervisor loop sends a `placement` frame per tick and the pointer's `roll` frame carries the rolls, with
+   the renderer's own 35 ms placement easing smoothing between ticks. A desktop the plan will remove eases to
+   `RESET_LEAVING_PLACEMENT` instead, straight down at half size, out of the view, so it leaves rather than vanishes.
 4. One `desktops.RESET` plan through the pill buttons' path (`_start_change`: guard paused, the renderer told first about
    a removal, broker steps on the worker, guard replaced, profile saved): the three lowest-numbered desktops stay and
-   are reshaped to 1920×1080 at 100% (only those whose pixel size changes restart their capture), a fourth is removed
-   (its windows go to the fallback output, as with Remove) and missing ones are added with the lowest free numbers.
-   Already the default three: no broker step.
-5. The live setup is saved and a toast says `Desktops reset: three flat 1920x1080 desktops at 100%. ...` (or why it
-   stopped).
+   are reshaped to 1920×1080 at 100% (only those whose pixel size changes restart their capture), and missing ones are
+   added with the lowest free numbers. A fourth is removed, and just before that its windows go to the last desktop that
+   stays (`DesktopManager.move_windows`, `adopt.adopt`: whole workspaces, each still its own there, with Omarchy's block
+   renumbering, so Hyprland may leave XR-3 showing one of them). A pinned window stays, so the removal is refused as with
+   Remove; anything else that could not move is evacuated to the fallback by the removal, the safety net of every
+   removal. Already the default three: no broker step.
+5. This plan's `desktops` frames carry `ease` (ipc.hpp `DesktopsPayload`), so the tiles do not jump: the overview fits
+   its row to the view, so a desktop more or less, or one new aspect, changes every tile at once. `TileEase` (view.hpp)
+   takes every tile from where it is drawn to the new layout along the same smootherstep over `kTileEaseMs` (0.45 s, the
+   same number as `RESET_ANIM_S`, a test compares). A capture's size changes when its first new frame lands, so each such
+   change starts again from where the tiles are, for as long as the last frame's `kTileEaseArmMs` (2 s) arms it. A new
+   desktop grows out of the middle of its slot. A zoom drops the ease. A tile's picture stretches while its aspect
+   changes. No other `desktops` frame asks for this, so a pill's Add, Remove, Ultrawide and Scale jump as before.
+   The overview pointer hit-tests the final layout during the ease, and the CPU fallback renderer does not ease.
+6. The live setup is saved and a toast says `All monitors reset to three flat 1920x1080 desktops at 100%.`, naming where a
+   removed desktop's windows went, or why the reset stopped. A desktop a refused removal left underfoot comes back flat.
 
-It is ignored, with a toast, while a VR video plays or a desktop change is running, and ignored while one reset is
-already running and in typing mode (its bind is released there). Ctrl+Alt+R is free in Omarchy (its Ctrl+Alt binds are
-Delete, Tab and Shift+Tab; its reminder keys Super+Ctrl+R, Super+Ctrl+Alt+R and Super+Shift+Ctrl+R are other chords)
-and in the run's binds; `bind_check` checks the real config. The help card shows it on the recenter row (`Ctrl+Alt+Space
-/ R`: both put things back) so the card keeps 14 rows at its roomiest text.
+It is ignored, with a toast, while a VR video plays or a desktop change is running (neither counts as the first press),
+and ignored while one reset is already running and in typing mode (its bind is released there). Ctrl+Alt+R is free in
+Omarchy (its Ctrl+Alt binds are Delete, Tab and Shift+Tab; its reminder keys Super+Ctrl+R, Super+Ctrl+Alt+R and
+Super+Shift+Ctrl+R are other chords) and in the run's binds; `bind_check` checks the real config. The help card shows it
+on the recenter row (`Ctrl+Alt+Space / R`: both put things back) so the card keeps 14 rows at its roomiest text. The
+`ease` key is new on the wire, so the renderer and the Python side must come from the same build.
 
 ### Typing mode
 

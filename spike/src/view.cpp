@@ -337,6 +337,69 @@ bool same_placement(const Placement& a, const Placement& b) {
     return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature && a.roll == b.roll;
 }
 
+void TileEase::keep(std::span<const Size> sizes) {
+    count_ = std::min(sizes.size(), sizes_.size());
+    std::copy_n(sizes.begin(), count_, sizes_.begin());
+}
+
+bool TileEase::kept(std::span<const Size> sizes) const {
+    return sizes.size() == count_ && std::equal(sizes.begin(), sizes.end(), sizes_.begin(),
+                                                [](const Size& a, const Size& b) { return a.w == b.w && a.h == b.h; });
+}
+
+void TileEase::arm(std::span<const Size> sizes, std::span<const FRect> drawn, double now_ms) {
+    if (!armed(now_ms) && !active()) {  // already armed: it has been following the tiles
+        const std::size_t n = std::min(drawn.size(), shown_.size());
+        shown_.fill(FRect{});
+        std::copy_n(drawn.begin(), n, shown_.begin());
+        keep(sizes);
+        changed_ = false;
+    }
+    armed_until_ms_ = now_ms + kTileEaseArmMs;
+}
+
+void TileEase::reindex(std::span<const int> before) {
+    const auto was = shown_;
+    bool same = before.size() == count_;  // the finished change's frame names the same desktops: the ease just goes on
+    shown_.fill(FRect{});
+    for (std::size_t i = 0; i < before.size() && i < shown_.size(); ++i) {
+        same = same && before[i] == int(i);
+        if (before[i] >= 0 && std::size_t(before[i]) < was.size()) shown_[i] = was[std::size_t(before[i])];
+    }
+    changed_ = changed_ || !same;
+}
+
+const std::vector<FRect>& TileEase::tiles(std::span<const Size> sizes, const std::vector<FRect>& target, bool overview, double now_ms) {
+    if (!active() && !armed(now_ms)) return target;
+    const std::size_t n = target.size();
+    if (!overview || n > shown_.size()) { start_ms_ = armed_until_ms_ = -1; return target; }
+    if (changed_ || !kept(sizes)) {
+        changed_ = false;
+        keep(sizes);
+        start_ms_ = armed(now_ms) ? now_ms : -1;
+        from_ = shown_;
+        for (std::size_t i = 0; i < n; ++i) {
+            if (from_[i].width > 0) continue;
+            const FRect& t = target[i];  // a new desktop: out of the middle of its slot
+            const float k = kTileEaseBornScale;
+            from_[i] = {t.x + t.width * (1 - k) / 2, t.y + t.height * (1 - k) / 2, t.width * k, t.height * k};
+        }
+    }
+    const float t = active() ? float((now_ms - start_ms_) / kTileEaseMs) : 1.f;
+    if (!(t < 1.f)) {
+        start_ms_ = -1;
+        std::copy_n(target.begin(), n, shown_.begin());
+        return target;
+    }
+    const float e = smootherstep(t);
+    out_.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const FRect &a = from_[i], &b = target[i];
+        out_[i] = shown_[i] = {lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.width, b.width, e), lerp(a.height, b.height, e)};
+    }
+    return out_;
+}
+
 std::optional<float> desktop_tilt(const Canvas& c, const FRect& t, const Placement& pl, const Vec3& up) {
     if (c.view_w <= 0 || c.view_h <= 0 || !(t.width > 0) || !(t.height > 0)) return std::nullopt;
     const float cx = t.x + t.width / 2, cy = t.y + t.height / 2;

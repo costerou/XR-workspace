@@ -15,7 +15,9 @@ load_setup is the start's strict read: the saved setup is used whole or not at a
 corrupt file, or any invalid desktop, placement or roll gives the default three flat 1920x1080 desktops instead
 (default_setup) and the reason, which the controller and the run log. A setup whose outputs the broker then refuses to
 create is reset to the default too (discard_unusable), so the next start does not fail the same way. Ctrl+Alt+R (view.py
-RESET_OP) puts a live run back to the default and saves it (PlacementStore.reset).
+RESET_OP) puts a live run back to the default and saves it (PlacementStore.reset), keeping the layout it replaced, spacing
+included, as a one-step backup in the profile's `previous_setup` (each real reset overwrites it; a reset of a layout that
+already is the default leaves it). Nothing reads the backup back yet: it is there for a future restore, or by hand.
 
 load_profile, by contrast, cleans each field on its own (the panel and the view settings): placements missing for a
 desktop are flat, extra ones are dropped, and rolls missing (profiles saved before rolls were kept) are level.
@@ -36,7 +38,7 @@ MODELS = ('beast', 'luma-ultra', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
                    'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'rolls': [0] * 3, 'tracking': True,
-                   'mode_switch': True, 'fallback': None}
+                   'mode_switch': True, 'fallback': None, 'previous_setup': None}
 
 # The monitor setup a start restores (module docstring), and the default it falls back to: three flat 1920x1080 desktops
 # at 100%, level. Ctrl+Alt+R (view.RESET_OP) resets a live run to the same.
@@ -87,6 +89,15 @@ def load_setup(path, model):
     if not isinstance(data, dict) or data.get('schema') != SCHEMA or not isinstance(data.get('profiles'), dict):
         return default_setup(), f'{path.name} is corrupt (no schema {SCHEMA} profiles)'
     return setup_from(data['profiles'].get(model))
+
+
+def _previous(value):
+    """`value` as a valid `previous_setup` (a monitor setup plus its spacing), or None."""
+    if not isinstance(value, dict): return None
+    setup, reason = setup_from(value)
+    spacing = value.get('spacing')
+    if reason is not None or type(spacing) is not int or not 0 <= spacing <= view.MAX_SPACING: return None
+    return {**setup, 'spacing': spacing}
 
 
 def log(message):
@@ -159,6 +170,7 @@ def _clean(data):
     out['placements'] = [_placement(placements[i]) if i < len(placements) else dict(DEFAULT_PLACEMENT) for i in range(len(desktops))]
     try: out['rolls'] = validate_rolls(data.get('rolls'), len(desktops))
     except ValueError: out['rolls'] = [0] * len(desktops)  # missing (saved before rolls were kept), or invalid: level
+    out['previous_setup'] = _previous(data.get('previous_setup'))
     for key in ('tracking', 'mode_switch'):
         out[key] = data[key] if type(data.get(key)) is bool else True
     out['fallback'] = _fallback(data.get('fallback'))
@@ -193,6 +205,10 @@ def _check(profile):
            'rolls': rolls + [0] * (len(desktops) - len(rolls))}
     if any(type(profile[k]) is not bool for k in ('tracking', 'mode_switch')): raise ValueError('invalid profile')
     if profile['fallback'] is not None: token(profile['fallback'])
+    previous = profile['previous_setup']
+    if previous is not None:
+        out['previous_setup'] = _previous(previous)
+        if out['previous_setup'] is None: raise ValueError('invalid profile')
     return out
 
 
@@ -272,10 +288,19 @@ class PlacementStore:
                                              'placements': validate_placements(placements, len(desktops)),
                                              'rolls': validate_rolls([0] * len(desktops) if rolls is None else rolls, len(desktops))})
 
-    def reset(self):
-        """Ctrl+Alt+R, or a saved setup the broker could not create: the profile's setup becomes the default
-        (default_setup: three flat 1920x1080 desktops at 100%, level). Every other profile field is preserved."""
-        save_profile(self.path, self.model, {**load_profile(self.path, self.model), **default_setup()})
+    def reset(self, previous=None):
+        """The profile's setup becomes the default (default_setup: three flat 1920x1080 desktops at 100%, level): a saved
+        setup the broker could not create, or Ctrl+Alt+R. Ctrl+Alt+R passes `previous`, the layout it replaces ({desktops
+        (None: the profile's), placements, rolls, spacing}): spacing goes back to its default too and that layout is kept
+        as the one-step backup, unless it already is the default, which would only wipe a backup worth keeping. Every other
+        profile field is preserved."""
+        profile = load_profile(self.path, self.model)
+        out = {**profile, **default_setup()}
+        if previous is not None:
+            out['spacing'] = view.DEFAULT_SPACING
+            kept = _previous({**previous, 'desktops': previous['desktops'] or profile['desktops']})
+            if kept is not None and kept != {**default_setup(), 'spacing': view.DEFAULT_SPACING}: out['previous_setup'] = kept
+        save_profile(self.path, self.model, out)
 
 
 class LayoutStore:

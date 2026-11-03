@@ -198,6 +198,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if desktops is not None:
             control.desktops = desktops
             if placements is not None: desktops.store = placements  # the profile takes the new desktops
+            if hasattr(client, 'adopt_windows'): desktops.move_windows = _window_mover(client)  # Ctrl+Alt+R: XR-4 to XR-3
             control.state.wide = desktops.wide()
             control.state.sizes = desktops.desktops()  # the panel's Scale dropdown
         stream = getattr(client, 'event_stream', None)  # config reloads; optional
@@ -232,6 +233,18 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if events is not None: events.close()
         if pointer is not None: pointer.close()
         server.close()
+
+
+def _window_mover(client):
+    """Ctrl+Alt+R removing a desktop: its windows to `target` first, whole workspaces, as adoption moves them (adopt.py);
+    what cannot move goes to the fallback with the removal. Never raises for compositor errors."""
+    from .adopt import adopt
+    from .send import notify
+
+    def move(source, target):
+        adopt(client, source, [target], notify=lambda _: notify(f"Could not move {source}'s windows to {target}: "
+                                                                 f'they go to your normal monitor.'))
+    return move
 
 
 def _restored(store, names, desktops=None):
