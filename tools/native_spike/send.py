@@ -45,7 +45,7 @@ SEND_BINDS = (('CTRL + ALT + G', 'send_glasses'), ('CTRL + ALT + code:10', 'send
               ('CTRL + ALT + code:13', 'send_glasses_4'),
               ('CTRL + ALT + B', 'send_back'))
 ADDRESS = re.compile(r'0x[0-9a-f]{1,16}\Z')
-APP = 'VITURE Workspace'
+APP = 'XR Workspace'  # notification app name and title (the product's name)
 # The one dispatch a send makes (hyprland.HyprlandClient.mutate allowlists exactly this shape). It is the call Omarchy's
 # own move-window-to-workspace bind makes (default/hypr/monitor-workspaces.lua), with follow on.
 MOVE = 'dispatch hl.dsp.window.move({{ workspace = "{workspace}", follow = true, window = "address:{address}" }})'

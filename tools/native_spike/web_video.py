@@ -122,7 +122,8 @@ def validate_url(url, *, allow_local=False):
 
 def validate_web(obj, *, allow_local=False):
     """A {"web"} request object (version 1). Returns a normalised copy; raises VideoRejected with a user-facing reason."""
-    if not isinstance(obj, dict) or obj.get(MARKER) != 1 or set(obj) - WEB_KEYS: raise VideoRejected('not a VITURE browser-video link')
+    if not isinstance(obj, dict) or obj.get(MARKER) != 1 or set(obj) - WEB_KEYS:
+        raise VideoRejected('not an XR Workspace browser-video link')
     out = {}
     page = obj.get('page')
     if page is not None:

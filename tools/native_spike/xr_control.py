@@ -129,7 +129,7 @@ def notify_no_session(environ=os.environ, run=None):
     binary = shutil.which('notify-send', path=environ.get('PATH') or '/usr/bin:/bin')
     if not binary: return False
     try:
-        (run or subprocess.run)([binary, '--app-name', 'VITURE Workspace', '--expire-time', '4000', 'VITURE Workspace',
+        (run or subprocess.run)([binary, '--app-name', 'XR Workspace', '--expire-time', '4000', 'XR Workspace',
                                  NO_SESSION], timeout=2, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, check=False)
         return True
@@ -161,7 +161,7 @@ def notify(text, run=None):
     run = run or subprocess.run
     exe = '/usr/bin/notify-send'
     if not os.access(exe, os.X_OK): return
-    try: run([exe, '--app-name=VITURE XR', '--expire-time=8000', 'VR video', text], capture_output=True, timeout=5, check=False)
+    try: run([exe, '--app-name=XR Workspace', '--expire-time=8000', 'VR video', text], capture_output=True, timeout=5, check=False)
     except (OSError, subprocess.SubprocessError): pass
 
 

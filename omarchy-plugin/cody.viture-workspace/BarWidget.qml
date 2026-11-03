@@ -32,7 +32,7 @@ Ui.BarWidget {
         labelVisible:false
         hasVisualContent:true
         fixedWidth:Style.space(56)
-        tooltipText:client.connected ? "VITURE Workspace · " + (client.snapshot.state || "waiting") : "controller not running"
+        tooltipText:client.connected ? "XR Workspace · " + (client.snapshot.state || "waiting") : "controller not running"
         onPressed: function(mouseButton) {
             if (mouseButton === Qt.RightButton) contextMenu.popup(button, 0, button.height)
             else if (mouseButton === Qt.LeftButton && root.host) root.host.run("omarchy-shell shell toggle cody.viture-workspace")

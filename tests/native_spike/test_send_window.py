@@ -326,6 +326,8 @@ class NoSessionTests(unittest.TestCase):
             self.assertFalse(xr_control.notify_no_session({'PATH': '/usr/bin'}, run=mock.Mock(side_effect=OSError('no'))))
         argv, kw = calls[0]
         self.assertEqual(argv[0], '/usr/bin/notify-send'); self.assertEqual(argv[-1], xr_control.NO_SESSION)
+        # Shown as the product, XR Workspace (app name and title); VITURE names only the glasses.
+        self.assertEqual(argv[argv.index('--app-name') + 1], 'XR Workspace'); self.assertEqual(argv[-2], 'XR Workspace')
         self.assertNotIn('shell', kw)
         with mock.patch('shutil.which', return_value=None):
             self.assertFalse(xr_control.notify_no_session({'PATH': '/usr/bin'}))
@@ -339,6 +341,19 @@ class NoSessionTests(unittest.TestCase):
             self.assertEqual(calls[0][1]['env']['DBUS_SESSION_BUS_ADDRESS'], f'unix:path={runtime}/bus')
             self.assertFalse(send.notify('hi', run=mock.Mock(side_effect=OSError('x')), environ={'PATH': '/usr/bin'}))
         self.assertEqual(calls[0][0][-1], 'hi')
+        argv = calls[0][0]
+        self.assertEqual(argv[argv.index('--app-name') + 1], 'XR Workspace'); self.assertEqual(argv[-2], 'XR Workspace')
+
+    def test_video_notifications_name_xr_workspace(self):
+        # The VR video toasts (supervisor side and the Ctrl+Alt+O / U helper) use the product name as the app name.
+        from tools.native_spike import video
+        for notify in (lambda run: video.notify_send('no video', run=run), lambda run: xr_control.notify('no video', run=run)):
+            calls = []
+            with mock.patch('os.access', return_value=True):
+                notify(lambda argv, **kw: calls.append(argv))
+            self.assertEqual(len(calls), 1)
+            self.assertIn('--app-name=XR Workspace', calls[0])
+            self.assertFalse([a for a in calls[0] if 'VITURE' in a], calls[0])
 
 
 class HelpCardTests(unittest.TestCase):

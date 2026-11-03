@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<title>XR Workspace</title>
+<!-- The panel header's mark: the emblem group of assets/logo.svg, copied as its comment says (viewBox
+     0 0 128 128, transform dropped). Logo.qml draws the wordmark next to it in the theme's font and colours.
+     tests/test_branding.py checks the group still matches the logo's. -->
+<g id="emblem">
+  <defs>
+    <linearGradient id="emblem-tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151b3d"/>
+      <stop offset="1" stop-color="#0b0f24"/>
+    </linearGradient>
+    <linearGradient id="emblem-panel" gradientUnits="userSpaceOnUse" x1="10" y1="40" x2="118" y2="80">
+      <stop offset="0" stop-color="#2fe3e0"/>
+      <stop offset="0.5" stop-color="#5b8cff"/>
+      <stop offset="1" stop-color="#8a5cff"/>
+    </linearGradient>
+    <radialGradient id="emblem-glow" cx="64" cy="100" r="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6f7dff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#6f7dff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#emblem-tile)"/>
+  <rect width="128" height="128" rx="30" fill="url(#emblem-glow)"/>
+  <g id="emblem-panels">
+    <path d="M6.51,76.77 A62,62 0 0 1 35.85,44.76 L48.56,69.71 A34,34 0 0 0 32.48,87.26 Z" fill="url(#emblem-panel)" fill-opacity="0.82"/>
+    <path d="M43.81,41.38 A62,62 0 0 1 84.19,41.38 L75.07,67.85 A34,34 0 0 0 52.93,67.85 Z" fill="url(#emblem-panel)"/>
+    <path d="M92.15,44.76 A62,62 0 0 1 121.49,76.77 L95.52,87.26 A34,34 0 0 0 79.44,69.71 Z" fill="url(#emblem-panel)" fill-opacity="0.82"/>
+    <path d="M16.57,76.35 A53,53 0 0 1 36.31,54.81 L43.88,67.17 A38.5,38.5 0 0 0 29.55,82.82 Z" fill="#0b0f24" fill-opacity="0.62"/>
+    <path d="M50.73,48.69 A53,53 0 0 1 77.27,48.69 L73.64,62.73 A38.5,38.5 0 0 0 54.36,62.73 Z" fill="#0b0f24" fill-opacity="0.62"/>
+    <path d="M91.69,54.81 A53,53 0 0 1 111.43,76.35 L98.45,82.82 A38.5,38.5 0 0 0 84.12,67.17 Z" fill="#0b0f24" fill-opacity="0.62"/>
+  </g>
+  <g id="emblem-viewer" transform="translate(64 103)" fill="#ffffff">
+    <path d="M-21,-6 Q-21,-8 -19,-8 L-4,-8 Q-2,-8 -2,-6 L-2,1 Q-2,6 -8,6 L-15,6 Q-21,6 -21,0 Z"/>
+    <path d="M21,-6 Q21,-8 19,-8 L4,-8 Q2,-8 2,-6 L2,1 Q2,6 8,6 L15,6 Q21,6 21,0 Z"/>
+    <rect x="-3" y="-7" width="6" height="2.6" rx="1.2"/>
+  </g>
+  <rect x="0.75" y="0.75" width="126.5" height="126.5" rx="29.25" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5"/>
+</g>
+</svg>
