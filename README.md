@@ -115,6 +115,7 @@ All of the keys in this list stop working until you press Ctrl+Alt+T again, so t
 other apps' Ctrl+Alt shortcuts do their normal thing. Any open help card or placement pill closes, and a playing video
 gives its keys back too. In the overview the mouse stays a normal cursor (no grey dot) and the pills are hidden until
 you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
+Super + mouse drags still work in typing mode: dragging a window across desktops brings the dot back until you let go.
 A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
 control. The panel's buttons work in both modes.
 
@@ -245,10 +246,11 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
 - **Drag a window to another desktop with Super** (new, not yet tried in the glasses): hold **Super** and drag it with the
   left button, as on any monitor. Past the edge of its desktop the dot carries on through the space between desktops, and
   when it reaches another desktop the window arrives under it, wherever that desktop is placed. A tiled window fits in
-  where you drop it. A floating one changes desktop once its middle is over, so drag it a little further in. Let go between
-  desktops and it stays where it was. While you drag, the pills, roll arrows and resize handles do nothing, and nothing
-  animates. **Super and the right button** resizes the window as usual, and the mouse stays on that desktop until you
-  let go. If the dot is off the desktops, Super and a click do nothing.
+  where you drop it. Let go with the dot on a desktop and the window lands on that desktop, whole and under the dot, even
+  if you were holding a floating window by its far end. Let go between desktops and it stays where it was. While you
+  drag, the pills, roll arrows and resize handles do nothing, and nothing animates. **Super and the right button**
+  resizes the window as usual, and the mouse stays on that desktop until you let go. If the dot is off the desktops, Super
+  and a click do nothing. All of this works in typing mode too.
 - **Moving a window to another desktop by holding it** without Super is switched off for now, so a long press or a slow
   drag in an app stays the app's. **Ctrl+Alt+1–4** and **Ctrl+Alt+G** still send the window you're using.
 - **A held button stays on its desktop.** While you hold a mouse button (dragging inside an app, selecting text) the

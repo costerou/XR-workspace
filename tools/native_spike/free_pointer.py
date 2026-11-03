@@ -802,6 +802,10 @@ class OverviewPointer:
     def active(self):
         return self.overview() and self._layout_ready() and len(self.outputs) > 0
 
+    def _handles_on(self):
+        """The pills and roll arrows show (idle aside): whenever the pointer is on."""
+        return self.active()
+
     def _layout_ready(self):
         """A renderer layout to hit-test with. After a desktop change the last one is kept, and used once it has one slot
         per desktop (until the renderer's next report, which replaces it)."""
@@ -1343,7 +1347,7 @@ class OverviewPointer:
         """`move_handle`: the glass pills show under every desktop in the overview while the pointer moved in the last
         30 s (OLED idle close; an open panel is drawn regardless). hover: the pointer is on that pill or the open panel's
         header (or holds it); active: that pill is being dragged (moved past CLICK_PX)."""
-        visible = self.active() and not idle
+        visible = self._handles_on() and not idle
         d, h = self.drag, self.hover
         if d is not None and d['kind'] == 'pill': target, hover, active = d['index'], True, d['moved']
         elif d is None and self.mode == 'free' and h is not None and h[0] == 'pill': target, hover, active = h[1], True, False
@@ -1356,7 +1360,7 @@ class OverviewPointer:
     def _roll_frame(self, idle):
         """`roll`: every desktop's levelling roll, and the icons shown with the pills (_pills: in the overview, not idle).
         hover / side: the desktop and arrow under the dot or held; active: it is being dragged."""
-        visible = self.active() and not idle
+        visible = self._handles_on() and not idle
         icons = [(side or 'none') if visible else 'none' for side in self._icons()][:MAX_DESKTOPS]
         icons += ['none'] * (MAX_DESKTOPS - len(icons))
         d, h = self.drag, self.hover

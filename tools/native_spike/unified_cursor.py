@@ -61,10 +61,15 @@ scrolling and typing, and a click never maximizes):
     moves, no animation) and the mode is desktop again. No focus call: warping is enough. In Hyprland 0.56.2's source
     moveCursor warps, focuses that monitor and simulates motion; motion during a drag sets the window to its start
     position + the cursor's delta and, floating (a dragged tiled window is, centred on the cursor), gives it to the
-    workspace of the monitor under its middle; the release re-tiles a tiled one there. A drop between desktops leaves
-    the window where it waited and the dot free. A resize: the window keeps the cursor, as for a held left button: it stays
-    on home, pulled back, and never goes free. Maximized, the same binds stop the push past an edge (can_switch). With
-    the dot free nothing is under it, so the bind itself ends the drag Hyprland began on the parked cursor.
+    workspace of the monitor under its middle; the release re-tiles a tiled one there. Dropped with the cursor on a desktop
+    after crossing, the window lands there even if its middle has not crossed (_land, send.WindowSender.land_now: only the
+    window under the press, and only if Hyprland ended the drag on it). A drop between desktops leaves the window where
+    it waited and the dot free. A resize: the window keeps the cursor, as for a held left button: it stays on home,
+    pulled back, and never goes free. Maximized, the same binds stop the push past an edge (can_switch). With the dot free
+    nothing is under it, so the bind itself ends the drag Hyprland began on the parked cursor. In typing mode the binds
+    stay and a move turns the pointer on for as long as it lasts (overview; no pills or arrows: _handles_on), so it
+    crosses as usual and the pointer goes off again at the drop; a resize needs no pointer, the plain confinement keeps
+    its cursor on home.
   * Keys. Ctrl+Alt+Left / Right change the selected desktop: home moves with it, and the cursor and dot go to the middle
     of the new home (OverviewPointer desktop mode there; zoomed in, the confinement moves it). Any other jump of the
     cursor off home in the overview is pulled back home, or let go (away) if it landed on the physical monitor.
@@ -255,7 +260,23 @@ class UnifiedPointer(fp.OverviewPointer):
         self._switch = None  # zoomed in: (home, target) the sampler asked the loop to switch to (EdgePush)
         self.edge_switches = 0  # diagnostics
         self.super_drag = None  # 'move' / 'resize': a Super drag of Hyprland's is under way (on_super)
-        self.carries = 0        # diagnostics: Super drags that left a desktop
+        self.super_crossed = False  # it went through carry mode
+        self.super_token = 0        # whose window lookup counts (_identify)
+        self.landings = 0           # diagnostics: drops that asked for a landing
+        self.super_window = None    # the window under the cursor at its press (send.window_at's dict), once looked up
+        self.carries = 0            # diagnostics: Super drags that left a desktop
+
+    def overview(self):
+        """As free_pointer's, and in typing mode too while a Super move lasts: that is what carries it across the gaps. It
+        needs nothing else of the overview (no pills, _handles_on) and goes off again with the drag. A resize stays on its
+        desktop, which the plain confinement does in typing mode."""
+        s = self.control.state
+        if self.super_drag == 'move' and getattr(s, 'typing', False):
+            return not s.zoomed and not getattr(self.control, 'video_active', False)
+        return super().overview()
+
+    def _handles_on(self):
+        return self.active() and not getattr(self.control.state, 'typing', False)
 
     # --- zoomed in: the push past an edge -------------------------------------------------------------------------
     def can_switch(self):
@@ -390,9 +411,15 @@ class UnifiedPointer(fp.OverviewPointer):
         if op not in view.SUPER_OPS: raise ValueError('unsupported Super drag operation')
         now = self.clock()
         self.last_move = now
-        if op == 'super_release': return self._super_end() or None
+        if op == 'super_release':
+            self._land()
+            return self._super_end() or None
         self.super_drag = 'move' if op == 'super_left_press' else 'resize'
         self.click = None
+        self.super_crossed = False
+        if self.super_drag == 'move': self._identify()
+        if self.mode == 'off' and self.overview():  # typing mode: the last cursor seen is old, wait for the next sample
+            with self._lock: self._abs, self._fresh = None, False
         out = self.control.pill_close() if self.active() and self.control.state.menu_open else b''  # as a click into a window
         if self.active() and self.mode == 'free':  # the hand beat the helper to the edge: the grab must not stay on the drag
             o = self._output(self._home())
@@ -404,11 +431,42 @@ class UnifiedPointer(fp.OverviewPointer):
                     self._set_want('desktop', inside(o, cursor), sync=True)
         return (out + self._frames(False)) or None if self.active() else out or None
 
+    def _identify(self):
+        """A Super move's press: ask (off the loop) which window is under the cursor, the one Hyprland just began dragging.
+        An answer that comes after the next press belongs to no drag."""
+        self.super_window = None
+        sender = getattr(self.control, 'sender', None)
+        if sender is None: return
+        self._token += 1
+        token = self._token
+        self.super_token = token
+        def found(window):  # the sender's worker thread
+            with self._lock:
+                if self.super_token == token: self.super_window = window
+        sender.under_cursor(found)
+
+    def _land(self):
+        """A Super move's release after crossing desktops, with the cursor on one: the window lands on that monitor even if
+        its middle has not crossed (send.WindowSender.land_now, off the loop). Dropped between desktops it stays."""
+        with self._lock: window, self.super_window = self.super_window, None
+        crossed, self.super_crossed = self.super_crossed, False
+        sender, names = getattr(self.control, 'sender', None), self.control.state.names
+        if self.super_drag != 'move' or not crossed or self.mode != 'desktop' or sender is None or self._home() >= len(names): return
+        if isinstance(window, dict) and isinstance(window.get('address'), str) and not window.get('pinned'):
+            self.landings += 1
+            sender.land(window['address'], names[self._home()])
+
     def _super_end(self):
         """The Super drag's button came up (or its release was lost: _desktop_button, the idle close). Dropped between
-        desktops, the dot is free there again; Hyprland left the window where the cursor waited."""
+        desktops, the dot is free there again; Hyprland left the window where the cursor waited. In typing mode the pointer
+        was only on for the drag: it goes off, the dot with it."""
         self.super_drag = None
-        if self.mode != 'carry': return self._frames(False) if self.active() else b''
+        if not self.active():
+            if self.mode == 'off': return b''
+            self.mode, self.hover, self.pointer = 'off', None, None
+            self._set_want('off')
+            return self._frames(False)
+        if self.mode != 'carry': return self._frames(False)
         o = self._output(self.desktop)
         if o is None:
             self.mode, self.desktop, self.pointer = 'away', None, None
@@ -430,6 +488,7 @@ class UnifiedPointer(fp.OverviewPointer):
         self.mode, self.desktop, self.hover, self.last_move = 'carry', i, None, now
         self.exits += 1
         self.carries += 1
+        self.super_crossed = True
         self._set_want('carry', inside(o, cursor, CARRY_INSET_PX), sync=True)
         return b''
 

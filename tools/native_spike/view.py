@@ -714,7 +714,8 @@ def remove_send_binds_lua():
 
 
 def install_drag_binds_lua(python, client, control_socket, run_id, session):
-    """The run's view of Super drags (SUPER_BINDS): non-consuming, beside the user's own binds, in their own table. With
+    """The run's view of Super drags (SUPER_BINDS): non-consuming, beside the user's own binds, in their own table, in
+    typing mode too (they take no key, and the drags work there). With
     the real cursor on a desktop, a press tells the run (helper op) and the buttons' next release, whatever the modifiers
     are by then, does too; other releases run nothing, so a plain click spawns no helper. With the dot free (the grab's
     table is set) nothing is under the dot, but Hyprland has just started dragging whatever is under the parked cursor:

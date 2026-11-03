@@ -13,15 +13,25 @@ dropping it on another. The drag itself stays Hyprland's. What the run does, and
     `cut` or `center`, and maximized a push past an edge does not switch desktops. With the dot off the desktops a 1 ms
     timer ends the drag Hyprland began on whatever was under the parked cursor.
   * Super + right-drag resize: the window keeps the cursor: it stays on that desktop, pulled back, and never goes free.
+  * The landing (Cody, 2026-11-03): Hyprland gives a window to the monitor under its middle, so a floating one held far from
+    it can be dropped with the cursor on another monitor. The window under the press is noted, and at the drop it moves to
+    the cursor's monitor if it is not there. Its workspace move shifts it by the monitors' distance, so an absolute move
+    follows, which leaves it whole on that monitor and still under the cursor. Only the window the drag really held moves.
+  * Typing mode: the drag binds stay through the bind swap (they take no key), a Super move brings the pointer back for as
+    long as it lasts, with no pills or arrows, and it goes off again at the drop. A resize needs no pointer there: the
+    plain confinement keeps the cursor on its desktop.
 
 Offline only: fake clocks, fake compositor clients and a stub `hl` run by a real Lua interpreter. How it feels, and that
 Hyprland does what its source says, is for the glasses run. No compositor, renderer binary or glasses here.
 """
 import json
+from pathlib import Path
+import shutil
+import tempfile
 import time
 import unittest
 
-from tools.native_spike import free_pointer as fp, ipc, resize, unified_cursor as uc, video, view, xr_control
+from tools.native_spike import bind_check, free_pointer as fp, ipc, resize, send, unified_cursor as uc, video, view, xr_control
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
 from test_free_pointer import BIND_ARGS, G, MONITORS, NAMES, OUTPUTS, T0, T1, X1, X2, X3, frames, last
@@ -29,10 +39,27 @@ import test_input_lock as til
 from test_unified_cursor import FakeUnifiedClient, MID1, UnifiedBase
 
 T2 = G['tiles'][2]
+HYPRLAND = shutil.which('Hyprland')
+WINDOW = {'address': '0xabc', 'w': 800, 'h': 600, 'pinned': False}
 
 
 def centre(tile):
     return (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
+
+
+class FakeSender:
+    """send.WindowSender's loop-facing side for a Super drag: lookups answered at once (or held back), landings recorded."""
+    def __init__(self, window=WINDOW, answer=True):
+        self.window, self.answer = window, answer
+        self.asked, self.landed, self.pending = 0, [], []
+
+    def under_cursor(self, done):
+        self.asked += 1
+        if self.answer: done(self.window)
+        else: self.pending.append(done)
+
+    def land(self, address, target):
+        self.landed.append((address, target))
 
 
 class Base(UnifiedBase):
@@ -293,6 +320,363 @@ class SuperResizeTests(Base):
         self.assertEqual((self.p.mode, self.p.want[1]), ('desktop', 'desktop'))
 
 
+class LandingDecisionTests(Base):
+    """When the pointer asks for a landing, and for which window."""
+    def setUp(self):
+        super().setUp()
+        self.sender = self.control.sender = FakeSender()
+
+    def crossed(self):
+        self.carrying()
+        self.onto(1)
+        self.at(*self.p.want[2])
+
+    def test_a_drop_on_another_desktop_lands_the_window_pressed_on_there(self):
+        self.crossed()
+        self.assertEqual(self.sender.asked, 1)  # at the press
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [('0xabc', 'XR-2')])
+        self.assertEqual(self.p.landings, 1)
+        self.assertEqual(self.p.mode, 'desktop')  # the dot stays where it is
+
+    def test_it_goes_by_the_desktop_under_the_cursor_at_the_drop(self):
+        self.crossed()
+        self.at(X2 + 1919, 540)
+        self.cur = self.p.want[2]
+        self.onto(2, (T2[0] + 60, T2[1] + 100))
+        self.at(*self.p.want[2])
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [('0xabc', 'XR-3')])
+
+    def test_back_on_the_desktop_it_left_it_still_checks(self):
+        self.carrying()  # its middle may have gone over while the cursor was away
+        self.onto(0, (T0[0] + T0[2] - 30, T0[1] + T0[3] / 2))
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [('0xabc', 'XR-1')])
+
+    def test_a_drag_that_stayed_on_its_desktop_is_left_alone(self):
+        self.at(X1 + 600, 400)
+        self.super_op('super_left_press')
+        self.at(X1 + 900, 500)
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_a_drop_between_desktops_lands_nowhere(self):
+        self.carrying()
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_no_window_under_the_press_lands_nothing(self):
+        self.sender.window = None  # Super on an empty desktop: Hyprland dragged nothing
+        self.crossed()
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_a_pinned_window_stays(self):
+        self.sender.window = dict(WINDOW, pinned=True)
+        self.crossed()
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_a_resize_never_lands(self):
+        self.at(X1 + 600, 400)
+        self.super_op('super_right_press')
+        self.assertEqual(self.sender.asked, 0)
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_a_lost_release_lands_nothing(self):
+        self.crossed()
+        self.op('resize_press')  # a plain press: the drag ended unseen, so where it landed is not known
+        self.op('resize_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_a_lookup_that_has_not_answered_by_the_drop_lands_nothing(self):
+        self.sender.answer = False
+        self.crossed()
+        self.super_op('super_release')
+        self.assertEqual(self.sender.landed, [])
+
+    def test_a_late_answer_never_lands_on_the_next_drag(self):
+        self.sender.answer = False
+        self.crossed()
+        self.super_op('super_release')
+        late = self.sender.pending.pop()
+        self.at(X2 + 600, 400)
+        self.super_op('super_left_press')
+        late(dict(WINDOW, address='0xdead'))
+        self.assertIsNone(self.p.super_window)
+        self.sender.pending.pop()(WINDOW)
+        self.assertEqual(self.p.super_window, WINDOW)
+
+    def test_no_sender_is_no_landing(self):
+        self.control.sender = None
+        self.crossed()
+        self.super_op('super_release')
+        self.assertEqual(self.p.landings, 0)
+
+
+class FakeHyprland:
+    """The queries a landing makes, and the move it asks for."""
+    def __init__(self, active, cursor=(4490, 400)):
+        self.active, self.cursor, self.moves = active, cursor, []
+        self.monitors = [{**m, 'activeWorkspace': {'id': i + 1}} for i, m in enumerate(MONITORS)]  # XR-1: 2, XR-2: 3, XR-3: 4
+        self.clients = [dict(active)] if isinstance(active, dict) else []
+
+    def query(self, kind, timeout=None):
+        if kind == 'cursorpos': return {'x': self.cursor[0], 'y': self.cursor[1]}
+        return {'monitors': self.monitors, 'activewindow': self.active, 'clients': self.clients}[kind]
+
+    def land_window(self, address, workspace, x=None, y=None):
+        self.moves.append((address, workspace, x, y))
+
+
+class LandingTests(unittest.TestCase):
+    # Dragged by its right end from XR-1: the cursor is over on XR-2, the window's middle (x 4100) still on XR-1.
+    DROPPED = {'address': '0xabc', 'at': [3700, 200], 'size': [800, 600], 'workspace': {'id': 2}, 'floating': True, 'pinned': False}
+
+    def sender(self, active=None, **kw):
+        self.client = FakeHyprland(self.DROPPED if active is None else active, **kw)
+        return send.WindowSender(self.client, NAMES, 'DP-1', notify=None)
+
+    def test_a_floating_window_left_behind_lands_on_the_cursors_monitor(self):
+        self.assertIsNone(self.sender().land_now('0xabc', 'XR-2'))
+        self.assertEqual(self.client.moves, [('0xabc', 3, 4480, 200)])  # on XR-2's workspace, at XR-2's left edge
+
+    def test_the_landing_is_whole_on_the_monitor_and_still_under_the_cursor(self):
+        o = OUTPUTS[1]
+        for at, size, cursor in (([3700, 200], [800, 600], (4490, 400)), ([6000, 900], [800, 600], (6300, 1000)),
+                                 ([4300, -50], [700, 500], (4900, 100)), ([3000, 100], [2400, 1300], (4500, 600))):
+            with self.subTest(at=at, size=size):
+                x, y = send.landing({'at': at, 'size': size}, MONITORS[2])
+                if size[0] <= o['width']:
+                    self.assertTrue(o['x'] <= x and x + size[0] <= o['x'] + o['width'])
+                else: self.assertEqual(x, o['x'])  # too wide: from its left edge
+                if size[1] <= o['height']:
+                    self.assertTrue(o['y'] <= y and y + size[1] <= o['y'] + o['height'])
+                else: self.assertEqual(y, o['y'])
+                self.assertTrue(x <= cursor[0] <= x + size[0] and y <= cursor[1] <= y + size[1])  # the cursor stays on it
+
+    def test_a_window_already_placed_on_the_monitor_does_not_move(self):
+        self.assertEqual(send.landing({'at': [5000, 300], 'size': [800, 600]}, MONITORS[2]), (5000, 300))
+
+    def test_the_monitors_scale_is_in_its_size(self):
+        scaled = {'name': 'XR-2', 'x': 4480, 'y': 0, 'width': 2880, 'height': 1620, 'scale': 2.0}  # 1440 x 810 logical
+        self.assertEqual(send.landing({'at': [5400, 500], 'size': [800, 600]}, scaled), (5120, 210))
+
+    def test_a_tiled_window_goes_by_workspace_alone(self):
+        self.sender({**self.DROPPED, 'floating': False}).land_now('0xabc', 'XR-2')
+        self.assertEqual(self.client.moves, [('0xabc', 3, None, None)])
+
+    def test_a_window_hyprland_took_there_already_is_left_alone(self):
+        self.sender({**self.DROPPED, 'workspace': {'id': 3}}).land_now('0xabc', 'XR-2')
+        self.assertEqual(self.client.moves, [])
+
+    def test_only_the_window_the_drag_ended_on_moves(self):
+        self.sender({**self.DROPPED, 'address': '0xdef'}).land_now('0xabc', 'XR-2')  # Hyprland focuses the one it dragged
+        self.assertEqual(self.client.moves, [])
+        self.sender({}).land_now('0xabc', 'XR-2')
+        self.assertEqual(self.client.moves, [])
+
+    def test_a_pinned_window_or_no_workspace_there_moves_nothing(self):
+        self.sender({**self.DROPPED, 'pinned': True}).land_now('0xabc', 'XR-2')
+        self.assertEqual(self.client.moves, [])
+        s = self.sender()
+        self.client.monitors[2]['activeWorkspace'] = {'id': -99}  # a special workspace
+        s.land_now('0xabc', 'XR-2')
+        self.assertEqual(self.client.moves, [])
+
+    def test_land_runs_off_the_loop_and_a_failure_is_a_notification(self):
+        told = []
+        client = FakeHyprland(self.DROPPED)
+        s = send.WindowSender(client, NAMES, 'DP-1', notify=told.append)
+        s.land('0xabc', 'XR-2')
+        for t in list(s._threads): t.join(2)
+        self.assertEqual(client.moves, [('0xabc', 3, 4480, 200)])
+        def refuse(*a): raise ValueError('rejected')
+        client.land_window = refuse
+        s.land('0xabc', 'XR-2')
+        for t in list(s._threads): t.join(2)
+        self.assertEqual(told, ['Could not move the window.'])
+        s.close()
+        recorded = []
+        client.land_window = lambda *a: recorded.append(a)
+        s.land('0xabc', 'XR-2')  # the run is ending: recovery owns the outputs
+        for t in list(s._threads): t.join(2)
+        self.assertEqual(recorded, [])
+
+    def test_under_cursor_finds_the_window_on_the_desktop_the_cursor_is_on(self):
+        window = {'address': '0xabc', 'mapped': True, 'hidden': False, 'at': [4400, 200], 'size': [800, 600], 'workspace': {'id': 3},
+                  'floating': True, 'pinned': False, 'monitor': 2, 'focusHistoryID': 0, 'fullscreen': 0}
+        got = []
+        client = FakeHyprland(window, cursor=(4500, 400))
+        s = send.WindowSender(client, NAMES, 'DP-1', notify=None)
+        s.under_cursor(got.append)
+        for t in list(s._threads): t.join(2)
+        self.assertEqual(got[0]['address'], '0xabc')
+        client.cursor = (100, 100)  # on the physical monitor
+        s.under_cursor(got.append)
+        for t in list(s._threads): t.join(2)
+        self.assertIsNone(got[1])
+        def gone(*a, **k): raise OSError('gone')
+        client.query = gone
+        s.under_cursor(got.append)
+        for t in list(s._threads): t.join(2)
+        self.assertIsNone(got[2])
+
+    def test_the_client_sends_the_one_eval(self):
+        from tools.native_spike import hyprland as h
+        sent = []
+        client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
+        client._eval = sent.append
+        client.land_window('0xabc', 3, 4480, 200)
+        self.assertEqual(sent, [send.land_lua('0xabc', 3, 4480, 200)])
+
+    def test_bad_values_never_reach_the_lua(self):
+        for args in (('nope', 3, 1, 2), ('0xabc', 0, 1, 2), ('0xabc', '3', 1, 2), ('0xabc', 3, 1.5, 2), ('0xabc', 3, 1, None), ('0xabc', 3, None, 2)):
+            with self.subTest(args=args), self.assertRaises(ValueError): send.land_lua(*args)
+        for bad in ({'at': [1], 'size': [1, 2]}, {'at': None, 'size': [1, 2]}, {'at': [float('nan'), 1], 'size': [1, 2]}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError): send.landing(bad, MONITORS[2])
+
+
+class LandingLuaTests(unittest.TestCase):
+    """land_lua against a stub that does what Hyprland's source does: a workspace move keeps a floating window's offset from
+    its monitor, an absolute move sets the position, a window focus warps the cursor to the window."""
+    STUB, run_lua = til.LuaRunTests.STUB, til.LuaRunTests.run_lua
+    RIG = r'''
+local win = { x = 3700, y = 200, mon = 2560 }
+local log = {}
+hl.dsp.window = { move = function(t) return { kind = "move", t = t } end }
+hl.dsp.focus = function(t) return { kind = "focus", t = t } end
+hl.dsp.cursor.move = function(t) return { kind = "cursor", t = t } end
+hl.get_cursor_pos = function() return { x = 4490.5, y = 400 } end
+hl.dispatch = function(d)
+  if d.kind == "move" and d.t.workspace then
+    assert(d.t.follow == false and d.t.window == "address:0xabc")
+    win.x, win.mon = win.x - win.mon + 4480, 4480
+    log[#log + 1] = "workspace:" .. d.t.workspace .. "@" .. string.format("%d", win.x)
+  elseif d.kind == "move" then log[#log + 1] = "at:" .. d.t.x .. "," .. d.t.y win.x, win.y = d.t.x, d.t.y
+  elseif d.kind == "focus" then log[#log + 1] = "focus:" .. d.t.window
+  else log[#log + 1] = "cursor:" .. d.t.x .. "," .. d.t.y end
+end
+'''
+
+    def test_the_absolute_move_cancels_the_gap_shift(self):
+        out = self.run_lua('\n'.join([self.RIG, send.land_lua('0xabc', 3, 4480, 200), 'print(table.concat(log, " "))', 'print(win.x, win.y)']))
+        self.assertEqual(out[0], ['workspace:3@5620 at:4480,200 focus:address:0xabc cursor:4490.5,400'])  # 5620: the shift
+        self.assertEqual(out[1], ['4480', '200'])
+
+    def test_a_tiled_window_is_only_moved_and_focused(self):
+        out = self.run_lua('\n'.join([self.RIG, send.land_lua('0xabc', 3), 'print(table.concat(log, " "))']))
+        self.assertEqual(out[0], ['workspace:3@5620 focus:address:0xabc cursor:4490.5,400'])
+
+    @unittest.skipUnless(HYPRLAND, 'Hyprland not installed')
+    def test_hyprlands_own_api_takes_every_call(self):
+        # Built, not dispatched: --verify-config runs the Lua with the real `hl` and starts no compositor (bind_check).
+        with tempfile.TemporaryDirectory() as home:
+            hypr = Path(home) / '.config' / 'hypr'; hypr.mkdir(parents=True)
+            lua = send.land_lua('0xabc', 3, 4480, 200).replace('hl.dispatch(', 'assert(').replace('hl.get_cursor_pos()', '{ x = 1, y = 2 }')
+            (hypr / 'hyprland.lua').write_text(lua + '\n')
+            status, lines = bind_check.check(hypr / 'hyprland.lua', HYPRLAND, home)
+            self.assertEqual(status, 0, lines)
+
+
+class TypingModeTests(Base):
+    def typing(self):
+        self.at(X1 + 1500, 500)
+        self.op('typing_toggle')
+        self.control.poll()
+        self.assertEqual((self.p.mode, self.p.want[1]), ('off', 'off'))
+        self.assertFalse(self.p.overview())
+
+    def test_a_super_move_brings_the_dot_back_for_the_drag_and_no_more(self):
+        self.typing()
+        self.super_op('super_left_press')
+        self.assertTrue(self.p.overview())
+        self.at(X1 + 1500, 500)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 0))
+        self.assertEqual((self.p.sent['visible'], self.p.sent['held'], self.p.sent['look']), (True, True, 'move'))
+        self.at(X1 + 1919, 500)
+        self.assertEqual((self.p.mode, self.p.want[1]), ('carry', 'carry'))
+        self.cur = self.p.want[2]
+        q = (T1[0] + T1[2] * 0.25, T1[1] + T1[3] * 0.5)
+        self.onto(1, q)
+        self.assertEqual((self.p.mode, self.control.state.selected, self.p.want[1:]), ('desktop', 1, ('desktop', (X2 + 480, 540))))
+        self.at(*self.p.want[2])
+        out = self.super_op('super_release')
+        self.assertFalse(self.p.overview())
+        self.assertEqual((self.p.mode, self.p.want[1]), ('off', 'off'))  # the sampler lets go and the plain confinement is back
+        self.assertFalse(last(out, 'overview_pointer')['visible'])
+        self.assertTrue(self.control.state.typing)  # still typing mode
+        self.assertEqual(self.control.state.selected, 1)  # on the desktop it was dropped on
+
+    def test_the_pills_and_arrows_stay_hidden_through_it(self):
+        self.typing()
+        self.super_op('super_left_press')
+        out = self.at(X1 + 1500, 500)
+        self.assertFalse(self.p.pills['visible'])
+        self.assertEqual(set(self.p.roll_sent['icons']), {'none'})
+        self.assertFalse(any(f['op'] == 'move_handle' and f['payload']['visible'] for f in out))
+
+    def test_a_drop_lands_the_window_in_typing_mode_too(self):
+        sender = self.control.sender = FakeSender()
+        self.typing()
+        self.super_op('super_left_press')
+        self.at(X1 + 1500, 500); self.at(X1 + 1919, 500)
+        self.cur = self.p.want[2]
+        self.onto(1)
+        self.at(*self.p.want[2])
+        self.super_op('super_release')
+        self.assertEqual(sender.landed, [('0xabc', 'XR-2')])
+
+    def test_dropped_between_desktops_the_pointer_just_goes_off(self):
+        self.typing()
+        self.super_op('super_left_press')
+        self.at(X1 + 1500, 500); self.at(X1 + 1919, 500)
+        self.super_op('super_release')
+        self.assertEqual((self.p.mode, self.p.want[1], self.control.state.selected), ('off', 'off', 0))  # never a free grab
+
+    def test_the_last_cursor_seen_before_typing_mode_is_not_trusted(self):
+        self.typing()
+        self.p.feed((X2 + 100, 300), (0.0, 0.0), OUTPUTS, self.applied())  # old news, from another desktop
+        self.super_op('super_left_press')
+        self.control.poll()
+        self.assertEqual(self.p.want[1], 'away')  # no warp to the middle of home under the drag
+        self.at(X1 + 1500, 500)
+        self.assertEqual((self.p.mode, self.p.want[2]), ('desktop', None))
+
+    def test_a_resize_needs_no_pointer_there(self):
+        self.typing()
+        self.super_op('super_right_press')
+        self.assertFalse(self.p.overview())
+        self.assertEqual((self.p.mode, self.p.want[1]), ('off', 'off'))
+        self.super_op('super_release')
+        self.assertIsNone(self.p.super_drag)
+
+    def test_a_lost_release_ends_it(self):
+        self.typing()
+        self.super_op('super_left_press')
+        self.at(X1 + 1500, 500)
+        self.clock.now += view.OVERLAY_IDLE_CLOSE_S + 1
+        self.control.poll()
+        self.assertIsNone(self.p.super_drag)
+        self.assertEqual(self.p.mode, 'off')
+
+    def test_maximized_in_typing_mode_the_pointer_stays_off(self):
+        self.op('zoom_in')
+        self.op('typing_toggle')
+        self.control.poll()
+        self.super_op('super_left_press')
+        self.assertFalse(self.p.overview())
+        self.super_op('super_release')
+
+    def test_outside_typing_mode_the_pills_stay_up_through_a_drag(self):
+        self.at(X1 + 1500, 500)
+        self.super_op('super_left_press')
+        self.at(X1 + 1510, 500)
+        self.assertTrue(self.p.pills['visible'])
+
+
 class LuaTests(unittest.TestCase):
     """install_drag_binds_lua run against the stub `hl` (test_input_lock.LuaRunTests)."""
     STUB, run_lua = til.LuaRunTests.STUB, til.LuaRunTests.run_lua
@@ -446,6 +830,41 @@ class SamplerTests(unittest.TestCase):
         self.op('super_left_press')
         self.assertTrue(self.wait(lambda: self.p.mode == 'carry' and not sampler.grabbed and sampler.bound))
         self.assertEqual(self.p._at(client.args('enter')[-1][5:])[0], 0)  # the drag goes on from XR-1
+
+    def test_in_typing_mode_a_drag_crosses_and_the_confinement_comes_back_on_the_new_desktop(self):
+        self.control.state.typing = True
+        client = FakeUnifiedClient(cursor=MID1)
+        sampler = uc.UnifiedSampler(client, NAMES, self.p, BIND_ARGS).start(); self.addCleanup(sampler.stop)
+        time.sleep(0.03)
+        self.assertEqual(client.count('enter'), 0)  # pointer off: the plain confinement
+        self.op('super_left_press')
+        self.assertTrue(self.wait(lambda: self.p.mode == 'desktop' and sampler.bound))
+        self.assertEqual(client.args('enter')[-1], BIND_ARGS)  # no warp: the cursor stays under the drag
+        client.cursor = (X1 + 1919, 500)
+        self.assertTrue(self.wait(lambda: self.p.mode == 'carry' and client.count('warp') == 1))
+        q = (T1[0] + T1[2] * 0.25, T1[1] + T1[3] * 0.5)
+        dot = fp.project(G, T1, DEFAULT_PLACEMENT, *q)
+        self.p.pointer = (dot[0] - self.p.gain, dot[1])
+        self.p.feed(client.cursor, (1.0, 0.0), OUTPUTS, sampler.applied)
+        self.assertTrue(self.wait(lambda: self.p.mode == 'desktop' and client.count('warp') == 2))
+        self.assertEqual(self.control.state.selected, 1)
+        self.op('super_release')
+        self.assertTrue(self.wait(lambda: not sampler.bound and client.count('release') == 1))
+        confines = client.count('confine')
+        client.cursor = (X3 + 10, 300)  # pushed off the new home: back onto XR-2, not XR-1
+        self.assertTrue(self.wait(lambda: client.count('confine') > confines))
+        self.assertEqual(self.p._at(client.args('confine')[-1][:2])[0], 1)
+
+    def test_in_typing_mode_a_resize_is_kept_on_its_desktop_by_the_confinement(self):
+        self.control.state.typing = True
+        client = FakeUnifiedClient(cursor=MID1)
+        sampler = uc.UnifiedSampler(client, NAMES, self.p, BIND_ARGS).start(); self.addCleanup(sampler.stop)
+        self.op('super_right_press')
+        client.cursor = (X2 + 10, 300)  # the resize pushed past XR-1's edge
+        self.assertTrue(self.wait(lambda: client.count('confine') == 1))
+        self.assertEqual(client.args('confine')[-1], (X1 + 1919 - fp.INSET_PX, 300, 'XR-1'))
+        self.assertEqual((client.count('enter'), client.count('lock')), (0, 0))  # no pointer, no grab
+        self.op('super_release')
 
     def test_maximized_the_push_past_an_edge_does_not_switch_mid_super_drag(self):
         self.control.state.zoomed = True

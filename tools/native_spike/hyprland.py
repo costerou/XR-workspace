@@ -204,6 +204,12 @@ class HyprlandClient:
             except (OSError, ValueError): pass
             raise
 
+    def land_window(self, address, workspace, x=None, y=None):
+        """A Super drag's drop (send.WindowSender.land_now): the window onto a workspace and, floating, to layout pixel (x, y),
+        keeping its focus and the cursor; one eval of generated Lua from validated values, never free-form eval."""
+        from .send import land_lua
+        self._eval(land_lua(address, workspace, x, y))
+
     def adopt_windows(self, moves):
         """Run start: the physical monitor's windows onto the XR desktops (adopt.py). Generated Lua only, from a
         validated plan of workspace ids, window addresses and XR output names; never free-form eval."""
@@ -218,13 +224,12 @@ class HyprlandClient:
 
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
         """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
-        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send, Super drag and placement-panel
-        binds."""
+        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds. The
+        Super drag binds stay in both: they take no key, and a Super drag works in typing mode too."""
         from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
-        if not typing:
-            self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
-            self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
+        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+        self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
 
     def set_dpms(self, name, on, keep=None):
         """Privacy mode (Ctrl+Alt+D, privacy.py): the physical output `name` DPMS off (`keep`: the glasses' output,

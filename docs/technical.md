@@ -142,7 +142,8 @@ Settings, including placements, are saved per glasses model.
 without stopping the run: an open placement pill and the help card close, and the run's bind table
 (`xr_workspace_binds`) is reinstalled with only the Ctrl+Alt+T bind in it. Every other run bind is released: the view
 keys, the send-window keys, the open pill's keys, the overview free pointer (its left-button bind; the hidden cursor
-comes back, and the dot and the pills hide), and a playing video's bare Space, arrow, Tab and Escape keys. Arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts then reach the focused window.
+comes back, and the dot and the pills hide), and a playing video's bare Space, arrow, Tab and Escape keys. Arrows, Space, Tab, Esc and other apps' Ctrl+Alt shortcuts then reach the focused window. The Super drag binds stay: they take no key, and
+[Super drags](#super-drags) work in typing mode too.
 Ctrl+Alt+T again reinstalls the full set. The binds use the same runtime `hl.bind` tables as the rest of the run
 (`view.install_binds_lua(..., typing=True)`, `HyprlandClient.reinstall_view_binds(..., typing=...)`); no Hyprland
 submap and no config file is involved. A config reload (theme switch) reinstalls whichever set matches the current mode.
@@ -340,7 +341,7 @@ desktops' slots. The cursor is read 250 times a second in the overview with the 
 change wakes the supervisor loop at once; the renderer draws the dot on the next frame (`overview_pointer` op) and eases
 placements (35 ms time constant), so drags look smooth at the display's rate.
 
-The free pointer is off in typing mode (Ctrl+Alt+T: the cursor stays a normal cursor everywhere), while zoomed in and
+The free pointer is off in typing mode (Ctrl+Alt+T: the cursor stays a normal cursor everywhere, but for the length of a [Super move](#super-drags)), while zoomed in and
 while a VR video plays (`resize_press` / `resize_release` are in `IGNORED_WHILE_PLAYING`). It stays on while a
 placement panel is open: it is how you use the panel. Leaving the overview removes the left-button binds and shows the
 cursor again. A drag in progress (pill, corner or slider) ends and is saved when a video opens, on zoom-in and after
@@ -496,9 +497,31 @@ cannot strand the dot: a plain press ends the drag in the run, and so do 30 s wi
 - In Hyprland a warp during a drag moves the window (`moveCursor` -> `simulateMouseMovement` -> `moveMouse`: start position +
   the cursor's delta) and, while it is floating, gives it to the active workspace of the monitor under its **middle**
   (`assignToSpace`). A dragged tiled window floats, centred on the cursor, so it changes monitor with the cursor and re-tiles
-  there on release. A floating window keeps its offset from the cursor, so held far from its middle it changes monitor
-  only once its middle is over, as on any multi-monitor desktop.
+  there on release. A floating window keeps its offset from the cursor, so held far from its middle it can still belong to
+  the old monitor at the drop: the landing below takes it over.
 - Dropped between desktops, the window stays where it waited and the dot is free there.
+
+**The landing.** A drag that crossed desktops and was dropped with the cursor on one ends with the window on that monitor,
+even if its middle had not crossed (Cody, 2026-11-03). The press asks which window is under the cursor (`WindowSender.under_cursor`,
+off the loop). The drop asks for the landing (`_land`, `WindowSender.land_now`, off the loop), which does nothing if the window is
+there already, and moves nothing unless that window is the active one: Hyprland focuses the window it was dragging when a drag
+ends, so a Super drag that held nothing, or a lookup that found a different window, can never move an innocent one. No answer
+by the drop, a pinned window, or a lost release: no landing.
+
+Otherwise `send.land_lua`, in one eval, moves the window to that monitor's active workspace (silently) and, if it floats, to
+`send.landing`. Hyprland's workspace move keeps a floating window's offset from its monitor (`moveWindowToWorkspace`: `POSTOMON`
++ the new monitor's position), which would land it the monitors' distance from where it was dropped, so the absolute move after it
+cancels that shift. `landing` keeps the window as near as it can be to where the drag left it, which is still under the cursor,
+but whole on that monitor, since the rest of the layout is some other desktop elsewhere round you. Wider or taller than the
+monitor, it starts at the monitor's left or top edge. In every case the cursor stays on the window. The silent move hands the
+focus on and a window focus warps the cursor to the window, so the eval focuses it and puts the cursor straight back where it
+was (`hl.get_cursor_pos`). A tiled window gets the workspace move alone and tiles there.
+
+**In typing mode** the drag binds stay through the bind swap. A move turns the pointer on for as long as it lasts
+(`UnifiedPointer.overview`): the dot and its `move` look show, the pills and roll arrows do not (`_handles_on`), it crosses
+and lands as above, and at the drop the pointer goes off and the plain confinement takes over, on the desktop the window was
+dropped on. A resize needs no pointer: the confinement keeps its cursor on home. Maximized in typing mode the
+pointer stays off and a drag stays on its desktop.
 
 **A resize** is monitor-bound: the window keeps the cursor, as for a held left button. It stays on that desktop, pulled back if
 Hyprland lets it onto another monitor, and the dot never goes free. The dot shows `resize_nwse`.

@@ -215,12 +215,14 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F32 | Hold a button down on a window | The dot brightens a little, as on a handle. |
 | F33 | (Super drags, 2026-11-03.) Hold Super and left-drag a tiled window around its desktop | Hyprland's move, as on a monitor; the dot shows four arrows. |
 | F34 | Carry on past the edge, across the gap and onto another desktop, then let go | The dot crosses the gap smoothly; the window waits at the edge with at most a tiny shake, then appears under the dot on the new desktop, which is highlighted. No zoom, turn or switch animation. The window tiles there. `hyprctl clients` shows it on that desktop's workspace. |
-| F35 | The same with a floating window, held near one side, onto a desktop placed above or behind a neighbour | It reaches the new desktop as soon as its middle is over. Let go earlier and it stays with the old one. |
+| F35 | The same with a floating window, held by its far end, and let go just inside the new desktop | The window lands on that desktop at once, whole, with the dot still over it, not a monitor's width away. `hyprctl clients` shows it on that desktop's workspace, and it has the focus. |
 | F36 | During a drag, pass the dot over a pill, a roll arrow and a corner | Nothing lights up or moves; no panel opens. Then let go between desktops: the window stays at the edge, and the dot is free. |
 | F37 | Let go of Super before the mouse button mid-drag | The drag ends on the button as usual, and the dot goes on as a normal cursor. |
 | F38 | Hold Super and right-drag a window's corner to the desktop's edge and past it | The window resizes as usual; the mouse stays on that desktop. |
 | F39 | With the dot on a pill or in empty space, Super + click and drag | No desktop moves and no window drags. A tiled window under the parked cursor may flicker once. |
 | F40 | Maximized, Super-drag a window hard against an edge that has a desktop beyond it | The view does not switch. |
+| F41 | Typing mode (Ctrl+Alt+T): Super-drag a window across to another desktop and drop it, then type | The dot shows for the drag, with no pills or arrows, then the normal cursor is back on the new desktop. The window landed there, and the letters reach it. |
+| F42 | Typing mode: Super + right-drag a window past its desktop's edge | It resizes as usual and the cursor stays on that desktop. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
