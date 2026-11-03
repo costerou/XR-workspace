@@ -62,12 +62,21 @@ int main() {
     auto control_mode = xr::decode_control(view(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false})"));
     require(std::holds_alternative<xr::ControlMessage>(control_mode) &&
             !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).typing);
-    require(!v.cut && !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).cut);  // optional, false
+    require(!v.center);  // optional, false
+    auto centred = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":true})"));
+    require(std::holds_alternative<xr::ControlMessage>(centred) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(centred).payload).center);
     auto cut = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"cut":true})"));
-    require(std::holds_alternative<xr::ControlMessage>(cut) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(cut).payload).cut);
+    require(std::holds_alternative<xr::ControlMessage>(cut) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(cut).payload).cut &&
+            !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(cut).payload).center && !v.cut);
+    auto both = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":false,"cut":true})"));
+    require(std::holds_alternative<xr::ControlMessage>(both));
     for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"cut":1})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"cut":true})",
-                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"cut":true,"x":1})"})
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"cut":true,"center":true,"x":1})"})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
+    for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":1})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"center":true})",
+                            R"({"zoomed":true,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":true,"x":1})"})
         require(std::holds_alternative<xr::Error>(xr::decode_control(view(bad))));
     for (const char* bad : {R"({"zoomed":true,"selected":0,"spacing":0})", R"({"zoomed":true,"selected":0,"spacing":0,"mode":"orbit"})",
                             R"({"zoomed":true,"selected":0,"spacing":0,"mode":1})", R"({"zoomed":1,"selected":0,"spacing":0,"mode":"anchor"})", R"({"zoomed":true,"selected":4,"spacing":0})",

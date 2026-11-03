@@ -88,30 +88,29 @@ int main() {
     a.set_target(true, 9, 9999, 3000); a.advance(4000);  // selection and spacing are clamped
     CHECK(a.selected() == 2 && a.spacing() == float(kMaxSpacing));
 
-    // Cursor switch with Ctrl+Alt+A's animation off (anchor mode, 2026-11-03): zoomed in, a cut shows the target at once at its placement. No
-    // zoom out, no turn and so no turn back (the anchor-mode look_turn easing 1 -> 0 while zooming in looked like going to
-    // the other desktop and back). A later plain frame for the same selection changes nothing.
+    // Cursor switch with its animation off (anchor mode, 2026-11-03): zoomed in, a cut shows the target at once at its
+    // placement: no zoom out, no turn, nothing landed for anchor mode's room. A later plain frame changes nothing.
     {
         ViewAnimator v;
         v.set_target(false, 0, 40, 0); v.advance(1000);
         v.set_target(true, 0, 40, 1000); v.advance(2000);
-        v.set_target(true, 2, 40, 2000, true);
-        CHECK(!v.switching() && !v.animating() && v.zoom() == 1 && v.look() == 0 && v.position() == 2 && v.focus() == 2 &&
-              v.selected() == 2);
+        v.set_target(true, 2, 40, 2000, false, true);
+        CHECK(!v.switching() && !v.animating() && v.zoom() == 1 && v.look() == 0 && v.turn() == 0 && v.position() == 2 &&
+              v.focus() == 2 && v.selected() == 2 && v.take_landed_turns().empty());
         for (double t = 2000; t <= 3000; t += 10) {
-            v.advance(t); CHECK(v.zoom() == 1 && v.look() == 0 && v.focus() == 2 && !v.switching());
+            v.advance(t); CHECK(v.zoom() == 1 && v.look() == 0 && v.turn() == 0 && v.focus() == 2 && !v.switching());
         }
         v.set_target(true, 2, 40, 3000); v.advance(3010); CHECK(!v.animating() && v.focus() == 2);
-        // A key switch in flight (mid-turn) is dropped by a cut, which lands on its own target.
-        v.set_target(true, 0, 40, 4000); v.advance(4300); CHECK(v.switching() && v.zoom() == 0 && v.look() > 0);
-        v.set_target(true, 1, 40, 4300, true);
-        CHECK(!v.switching() && v.zoom() == 1 && v.look() == 0 && v.focus() == 1);
-        v.advance(5000); CHECK(!v.animating() && v.focus() == 1);
+        // A key switch in flight (mid-turn) is dropped by a cut, unlanded, which lands on its own target.
+        v.set_target(true, 0, 40, 4000); v.advance(4300); CHECK(v.switching() && v.zoom() == 0 && v.turn() > 0);
+        v.set_target(true, 1, 40, 4300, false, true);
+        CHECK(!v.switching() && v.zoom() == 1 && v.look() == 0 && v.turn() == 0 && v.focus() == 1 && !v.turn_centred());
+        v.advance(5000); CHECK(!v.animating() && v.focus() == 1 && v.take_landed_turns().empty());
         // The keys still animate after a cut, and in the overview a cut is a plain selection.
         v.set_target(true, 2, 40, 6000); v.advance(6100); CHECK(v.switching());
         v.advance(8000); CHECK(!v.switching() && v.focus() == 2);
         v.set_target(false, 2, 40, 9000); v.advance(10000);
-        v.set_target(false, 0, 40, 10000, true); CHECK(v.zoom() == 0 && v.position() == 0 && !v.switching());
+        v.set_target(false, 0, 40, 10000, false, true); CHECK(v.zoom() == 0 && v.position() == 0 && !v.switching());
     }
     // Regression (2026-11-02, animations back): zoom in and out ease over the duration and never snap; in the overview
     // Ctrl+Alt+Left / Right just moves the selection (nothing zoomed to animate).

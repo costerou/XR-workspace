@@ -102,13 +102,13 @@ HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
 TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
-# Ctrl+Alt+A: whether a cursor switch in anchor mode (the push past an edge, ViewControl.switch_desktop) animates (on, the
-# default: the renderer's zoom out / turn / zoom in) or jumps (off: the frame's `cut`, the renderer shows the new desktop
-# zoomed in at its placement at once and never turns the view, so it stays where you look). Saved with the view settings
-# as `cursor_switch_animate`. Follow and locked modes and Ctrl+Alt+Left / Right always animate. Ctrl+Alt+A is free in
-# Omarchy (its Ctrl+Alt chords are Super+Ctrl+Alt+*, Ctrl+Alt+Delete and Ctrl+Alt+Tab); bind_check.py checks the real config.
+# Ctrl+Alt+A: toggles ViewState.cursor_switch_animate (ViewControl.cursor_switch_flags): on (the default) an anchor-mode
+# cursor switch pans to and centres the next desktop; off it jumps there at once, the view never turned (it stays where
+# you look). Saved with the view settings, so it survives XR restarts. Follow and locked modes and Ctrl+Alt+Left / Right
+# are unaffected. Ctrl+Alt+A is free in Omarchy (its Ctrl+Alt chords are Super+Ctrl+Alt+*, Ctrl+Alt+Delete and
+# Ctrl+Alt+Tab); bind_check.py checks the real config.
 CURSOR_ANIM_OP = 'cursor_anim_toggle'
-CURSOR_ANIM_TOASTS = {True: 'Cursor switch animation on: anchor mode animates to the next desktop. Ctrl+Alt+A turns it off.',
+CURSOR_ANIM_TOASTS = {True: 'Cursor switch animation on: anchor mode pans to the next desktop. Ctrl+Alt+A turns it off.',
                       False: 'Cursor switch animation off: anchor mode jumps to the next desktop, the view stays put. '
                              'Ctrl+Alt+A turns it on.'}
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
@@ -121,7 +121,7 @@ HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overvi
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
-                CURSOR_ANIM_OP: 'Anchor: cursor switch animates / jumps'}
+                CURSOR_ANIM_OP: 'Anchor: animate cursor switch on / off'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -314,7 +314,9 @@ class ViewState:
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.mode, self.prediction = mode, prediction
-        # Ctrl+Alt+A (CURSOR_ANIM_OP): anchor-mode cursor switches animate (True) or jump (False). Saved.
+        # A cursor switch (ViewControl.switch_desktop) animates: in anchor mode it pans to and centres the desktop. False:
+        # in anchor mode it cuts at once and the view stays where the head looks. Follow and locked ignore it. Toggled by
+        # Ctrl+Alt+A (CURSOR_ANIM_OP) and saved with the view settings (ViewControl.cursor_switch_flags reads it).
         self.cursor_switch_animate = cursor_switch_animate
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
@@ -705,10 +707,9 @@ class ViewControl:
         self.next_id += 1
         return frame
 
-    def _frame(self, cut=False):
-        """A view frame; `cut` (a cursor switch, switch_desktop): the renderer shows the new selection at once, with no
-        zoom out / turn / zoom in (spike/include/xr/ipc.hpp ViewPayload)."""
-        frame = view_frame(self.run_id, self.session, self.next_id, {**self.state.view(), 'cut': True} if cut else self.state.view())
+    def _frame(self, **flags):
+        """A view frame, with a cursor switch's flags (cursor_switch_flags) added to the payload."""
+        frame = view_frame(self.run_id, self.session, self.next_id, {**self.state.view(), **flags})
         self.next_id += 1
         return frame
 
@@ -883,22 +884,29 @@ class ViewControl:
 
     def switch_desktop(self, desktop):
         """Zoomed in, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
-        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do. Whether it animates is
-        decided here: in anchor mode with Ctrl+Alt+A's cursor_switch_animate off, the frame's `cut` has the renderer show
-        it zoomed in at its placement at once, the view never turned (free look: it stays where you look); otherwise (the
-        default, and always in follow and locked) the renderer zooms out, turns to it and zooms in. Every desktop stays
-        where it is placed. The sampler gives its monitor focus and brings the cursor in over the matching edge (no focus
-        thread here: that would warp the cursor to the middle). One view frame, or b'' when stale (not zoomed in, typing
-        mode, a VR video, no such desktop, already selected)."""
+        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so the renderer zooms
+        out, turns to it and zooms in, every desktop staying where it is placed. The frame's `center` makes the anchor-mode
+        turn start from the centre of the view, so it pans straight to the desktop the cursor is on and centres it there
+        (pushing back pans to and centres the other); follow and locked centre it already. cursor_switch_flags decides
+        (anchor mode with the animation off: a cut instead). The sampler gives its monitor focus and
+        brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
+        One view frame, or b'' when stale (not zoomed in, typing mode, a VR video, no such desktop, already selected)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
         if not self.state.zoomed or self.state.typing or self.video_active: return b''
         self.last_input = self.clock()
         self.state.selected = desktop
-        animate = self.state.mode != 'anchor' or self.state.cursor_switch_animate
-        return self._frame() if animate else self._frame(cut=True)
+        return self._frame(**self.cursor_switch_flags())
+
+    def cursor_switch_flags(self):
+        """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Animated (default):
+        `center`, so in anchor mode the switch pans straight to the desktop and lands with it centred (follow and locked
+        ignore it: they centre it already). Anchor mode with ViewState.cursor_switch_animate off: `cut`, no animation and
+        no turn of the view, so it stays wherever the head looks. Follow and locked always animate as before."""
+        if not self.state.cursor_switch_animate and self.state.mode == 'anchor': return {'cut': True}
+        return {'center': True}
 
     def _cursor_anim_toggle(self):
-        """Ctrl+Alt+A: anchor-mode cursor switches animate / jump (CURSOR_ANIM_OP), saved, with a toast. No frame: the
+        """Ctrl+Alt+A: ViewState.cursor_switch_animate flips (cursor_switch_flags), saved, with a toast. No frame: the
         renderer's view is unchanged until the next cursor switch."""
         self.state.cursor_switch_animate = not self.state.cursor_switch_animate
         try: self.settings.save(self.state.settings())

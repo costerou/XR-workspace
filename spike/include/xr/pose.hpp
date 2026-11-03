@@ -105,6 +105,10 @@ public:
     void set_mode(ViewMode mode, double now_ms);
     void recenter();  // the reference moved to the current head: the aim (anchor: the canvas centre) is straight ahead
     void set_aim(Quat aim) { aim_ = aim; }  // per frame, before update()
+    // Anchor: turn the world-locked canvas by `turn` (canvas frame: anchor' = anchor * turn), e.g. a landed desktop switch
+    // (view.hpp ViewAnimator::take_landed_turn): conj(aim_rotation(from)) * aim_rotation(to) keeps the view where the
+    // switch's camera turn (look_turn at 1) left it. Takes effect at once; a mode blend into anchor heads for the turned pose.
+    void turn_anchor(Quat turn);
     Quat aim() const { return aim_; }
     ViewMode mode() const { return mode_; }
     // Advance with the head's relative orientation; returns the canvas anchor for this frame.

@@ -94,7 +94,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
 | Ctrl+Alt+V | Change how the desktops follow your head (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
-| Ctrl+Alt+A | Anchor mode: pushing the mouse to another desktop animates there (on by default) or jumps there at once, the view staying where you look. Remembered between sessions |
+| Ctrl+Alt+A | Anchor mode: pushing the mouse to another desktop pans there and centres it (on by default) or jumps there at once, the view staying where you look. Remembered between sessions |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (zooms out to the overview first) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
@@ -222,8 +222,7 @@ In the overview your mouse is no longer stuck inside the desktops:
   another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
 - **Push the mouse past an edge to switch** (new, not yet tried in the glasses): zoomed in, keep pushing the mouse past
   an edge of the desktop and the view switches to the desktop placed that way round you, with the same zoom out, turn
-  and zoom in as Ctrl+Alt+Left / Right. In anchor mode **Ctrl+Alt+A** turns that animation off: the mouse jumps to the
-  new desktop at once and the view stays where you look (press it again to bring the animation back; remembered). It goes by where the desktops are placed, so pushing up reaches a desktop you put
+  and zoom in as Ctrl+Alt+Left / Right. In anchor mode the view pans straight to that desktop and centres it; follow and locked behave as before (the desktop fits the glasses). In anchor mode **Ctrl+Alt+A** turns that animation off: the mouse jumps to the new desktop at once and the view stays where you look (press it again to bring the animation back; remembered). It goes by where the desktops are placed, so pushing up reaches a desktop you put
   above, and a desktop off at an angle is reached from the side it is nearest. The mouse comes in at the matching edge
   of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
   beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)

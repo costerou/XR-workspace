@@ -157,5 +157,200 @@ int main() {
         CHECK(!v.switching());
         CHECK(quat_angle(last, cancel ? Quat{} : aim_for(2, 1)) < 1e-5f);
     }
-    std::cout << "focused desktop centred in locked and follow, anchor recentre, switches continuous\n";
+    // Regression (2026-11-03): in anchor mode a switch (Ctrl+Alt+Left / Right) turned the view to the target, then phase 3
+    // eased the camera turn back to 0 with the room still pinned, so the view panned back to the desktop it left. Now the
+    // camera turn holds through phase 3 and the landed turn moves the anchor: the target is ahead, continuously, and stays.
+    // Drawn as wayland.cpp does: view_from(head, anchor) * look_turn(look_from, look_to, turn) (anchor keeps sizes).
+    for (int cancel = 0; cancel < 3; ++cancel) {  // 0: lands; 1: zoomed out mid-turn (eases back); 2: zoomed out in phase 3
+        ViewAnimator v(220, 300);
+        ModeController m;
+        double t = 0;
+        const Quat head = axis_angle(0, 0, 1, 10);
+        m.update(head, t);
+        v.set_target(true, 0, 40, t);
+        for (; t < 400; t += 1) v.advance(t);
+        auto drawn = [&](double now) {
+            v.advance(now);
+            if (const auto l = v.take_landed_turn()) {
+                const auto a = focus_direction(kCanvas, overview, kPlaced, (*l)[0]), b = focus_direction(kCanvas, overview, kPlaced, (*l)[1]);
+                m.turn_anchor(quat_mul(quat_conj(aim_rotation(a[0], a[1])), aim_rotation(b[0], b[1])));
+            }
+            const Mat3 hv = view_from(head, m.update(head, now));
+            const auto lt = look_turn(kCanvas, overview, kPlaced, v.look_from(), v.look_to(), v.turn());
+            Mat3 out{};
+            for (int r = 0; r < 3; ++r)
+                for (int c = 0; c < 3; ++c) out[r * 3 + c] = hv[r * 3] * lt[c] + hv[r * 3 + 1] * lt[3 + c] + hv[r * 3 + 2] * lt[6 + c];
+            return out;
+        };
+        // Where desktop i's overview direction (slot + orbit) is drawn: a unit vector in view space.
+        auto dir_of = [&](const Mat3& view, std::size_t i) {
+            const auto d = focus_direction(kCanvas, overview, kPlaced, i);
+            const float ca = std::cos(d[0]), sa = std::sin(d[0]), ce = std::cos(d[1]), se = std::sin(d[1]);
+            return apply(view, {sa * ce, se, -ca * ce});
+        };
+        auto angle = [](std::array<float, 3> p, std::array<float, 3> q) {
+            const float d = p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+            return std::acos(std::clamp(d, -1.f, 1.f));
+        };
+        const auto ahead0 = dir_of(drawn(t), 0);  // where desktop 0 is seen before the switch
+        v.set_target(true, 2, 40, t);
+        auto last = ahead0;
+        float worst = 0;
+        bool done = false;
+        for (double end = t + 1500; t < end; t += 1) {
+            if (cancel == 1 && !done && t > 400 + 220 + 150) { v.set_target(false, 2, 40, t); done = true; }
+            if (cancel == 2 && !done && t > 400 + 220 + 300 + 100) { v.set_target(false, 2, 40, t); done = true; }
+            const Mat3 view = drawn(t);
+            const auto now = dir_of(view, 0);
+            worst = std::max(worst, angle(now, last));
+            last = now;
+            // Through the zoom in (phase 3) and after it the target sits where desktop 0 was seen: no pan back.
+            if (cancel == 0 && t > 400 + 220 + 300) CHECK(angle(dir_of(view, 2), ahead0) < rad(0.05f));
+        }
+        CHECK(worst < rad(2));  // per ms: never a jump, also when cancelled or when the turn hands over to the room
+        CHECK(!v.switching() && !v.take_landed_turn());
+        const Mat3 rest = drawn(t);
+        if (cancel == 1) CHECK(angle(dir_of(rest, 0), ahead0) < rad(0.05f));  // cancelled mid-turn: eased back to 0
+        else CHECK(angle(dir_of(rest, 2), ahead0) < rad(0.05f));  // landed (or zoomed out on it): stays on the target
+        // ...and the room is world-locked there: turning the head does not bring the old desktop back.
+        if (cancel != 1) {
+            const Quat turned_head = m.update(axis_angle(0, 0, 1, -35), t += 8);
+            CHECK(quat_angle(turned_head, m.update(head, t += 8)) < 1e-5f);
+        }
+    }
+    // A switch back lands back where it started (the turns compose).
+    {
+        ViewAnimator v(220, 300);
+        ModeController m;
+        v.set_target(true, 1, 40, 0);
+        v.advance(400);
+        double t = 500;
+        for (std::uint32_t to : {0u, 2u, 1u}) {
+            v.set_target(true, to, 40, t);
+            v.advance(t += 1000);
+            const auto l = v.take_landed_turn();
+            CHECK(l && (*l)[1] == to);
+            const auto a = focus_direction(kCanvas, overview, kPlaced, (*l)[0]), b = focus_direction(kCanvas, overview, kPlaced, (*l)[1]);
+            m.turn_anchor(quat_mul(quat_conj(aim_rotation(a[0], a[1])), aim_rotation(b[0], b[1])));
+        }
+        CHECK(quat_angle(m.update(Quat{}, 5000), Quat{}) < 1e-4f);
+    }
+    // Cursor switch (cursor-switch-no-anim, 2026-11-03): in anchor mode the cursor pushed onto another desktop pans the
+    // view straight to it and centres it, then it stays; pushing back pans to and centres the other one. Always one move,
+    // never back. The head looks off to the side of desktop 0 (not centred on it), so a plain switch (target where 0 was)
+    // would leave the target off centre. Drawn as wayland.cpp does: the turn from the view's centre at the switch's start
+    // (view_centre of the last drawn view; look_turn_from), its landed turn folded into the anchor from that direction.
+    for (int cancel = 0; cancel < 2; ++cancel) {  // 1: zoomed out in phase 3 (the turn lands at once, still centred)
+        ViewAnimator v(220, 300);
+        ModeController m;
+        double t = 0;
+        const Quat head = quat_mul(axis_angle(0, 0, 1, 14), axis_angle(0, 1, 0, -6));  // yawed and pitched off desktop 0
+        m.update(head, t);
+        v.set_target(true, 0, 40, t);
+        for (; t < 400; t += 1) v.advance(t);
+        Mat3 last_drawn = view_from(head, m.update(head, t));
+        bool have = false; std::uint32_t serial = 0; std::array<float, 2> centre{};
+        auto centre_of = [&](std::uint32_t s) { return have && serial == s ? centre : view_centre(last_drawn); };
+        auto drawn = [&](double now) {
+            v.advance(now);
+            for (const auto& l : v.take_landed_turns()) {
+                const auto a = l.centred ? centre_of(l.serial) : focus_direction(kCanvas, overview, kPlaced, l.from);
+                const auto b = focus_direction(kCanvas, overview, kPlaced, l.to);
+                m.turn_anchor(quat_mul(quat_conj(aim_rotation(a[0], a[1])), aim_rotation(b[0], b[1])));
+            }
+            if (v.turn_centred() && !(have && serial == v.serial())) { have = true; serial = v.serial(); centre = view_centre(last_drawn); }
+            const Mat3 hv = view_from(head, m.update(head, now));
+            const auto lt = v.turn_centred() ? look_turn_from(kCanvas, overview, kPlaced, centre_of(v.serial()), v.look_to(), v.turn())
+                                             : look_turn(kCanvas, overview, kPlaced, v.look_from(), v.look_to(), v.turn());
+            Mat3 out{};
+            for (int r = 0; r < 3; ++r)
+                for (int c = 0; c < 3; ++c) out[r * 3 + c] = hv[r * 3] * lt[c] + hv[r * 3 + 1] * lt[3 + c] + hv[r * 3 + 2] * lt[6 + c];
+            return last_drawn = out;
+        };
+        auto off = [&](const Mat3& view, std::size_t i) {  // degrees between the view's centre and desktop i's direction
+            const auto d = focus_direction(kCanvas, overview, kPlaced, i);
+            const float ca = std::cos(d[0]), sa = std::sin(d[0]), ce = std::cos(d[1]), se = std::sin(d[1]);
+            const auto p = apply(view, {sa * ce, se, -ca * ce});
+            return std::acos(std::clamp(-p[2], -1.f, 1.f)) * 180.f / kPi;
+        };
+        CHECK(off(drawn(t), 0) > 5.f);  // not looking straight at desktop 0
+        for (const std::uint32_t to : {2u, 0u, 2u}) {  // there, back, there again
+            const std::uint32_t from = v.selected();
+            v.set_target(true, to, 40, t, true);
+            Mat3 prev = drawn(t);
+            float worst = 0, closest = 180;
+            bool done = false;
+            for (const double end = t + 1500; t < end; t += 1) {
+                if (cancel && !done && t > end - 1500 + 220 + 300 + 100) { v.set_target(false, to, 40, t, true); done = true; }
+                const Mat3 view = drawn(t);
+                float step = 0;  // how far the view moved this ms (its centre ray)
+                {
+                    const auto a = view_centre(prev), b = view_centre(view);
+                    step = std::hypot(std::remainder(a[0] - b[0], 2 * kPi) * std::cos(a[1]), a[1] - b[1]);
+                }
+                worst = std::max(worst, step);
+                // One move: once the target is closest it never drifts off again (no pan back, no pan elsewhere).
+                const float o = off(view, to);
+                CHECK(o <= closest + 0.05f);
+                closest = std::min(closest, o);
+                prev = view;
+            }
+            CHECK(worst < rad(2));  // per ms: continuous, also when the turn hands over to the room
+            CHECK(!v.switching() && v.take_landed_turns().empty());
+            const Mat3 rest = drawn(t);
+            CHECK(off(rest, to) < 0.05f);  // centred in view
+            CHECK(off(rest, from) > 5.f);
+            // ...and world-locked there: the room does not move with the head (anchor).
+            const Quat away = m.update(axis_angle(0, 0, 1, -35), t += 8);
+            CHECK(quat_angle(away, m.update(head, t += 8)) < 1e-5f);
+            if (cancel) break;
+        }
+    }
+    // Follow and locked (fit to the glasses, centred by the aim) never see `center`: a cursor switch drives everything they
+    // read (zoom, look, focus, position: focus_aim, blended_layout, zoomed_placements) exactly as a key switch does, ms by
+    // ms, also retargeted, queued and zoomed out mid-switch. The centring is anchor mode's camera turn only (wayland.cpp).
+    {
+        ViewAnimator key(220, 300), cursor(220, 300);
+        for (auto* v : {&key, &cursor}) { v->set_target(true, 0, 40, 0); v->advance(400); }
+        const struct { double at; bool zoomed; std::uint32_t to; } steps[] = {
+            {400, true, 2}, {500, true, 1}, {800, true, 0}, {2500, true, 2}, {2900, false, 2}, {3600, true, 2}, {4500, true, 1}};
+        std::size_t next = 0;
+        for (double t = 400; t < 6000; t += 1) {
+            for (; next < std::size(steps) && steps[next].at <= t; ++next) {
+                key.set_target(steps[next].zoomed, steps[next].to, 40, t);
+                cursor.set_target(steps[next].zoomed, steps[next].to, 40, t, true);
+            }
+            key.advance(t); cursor.advance(t);
+            CHECK(key.zoom() == cursor.zoom() && key.look() == cursor.look() && key.focus() == cursor.focus() &&
+                  key.position() == cursor.position() && key.switching() == cursor.switching());
+            const Quat a = aim_for(key.focus(), focus_weight(key)), b = aim_for(cursor.focus(), focus_weight(cursor));
+            CHECK(a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w);  // the follow / locked aim, bit for bit
+        }
+    }
+    // A key switch (not centred) is unchanged: the target comes where the desktop it left was seen.
+    {
+        ViewAnimator v(220, 300);
+        v.set_target(true, 0, 40, 0); v.advance(400);
+        v.set_target(true, 2, 40, 400);
+        CHECK(!v.turn_centred());
+        v.advance(2000);
+        const auto l = v.take_landed_turns();
+        CHECK(l.size() == 1 && !l[0].centred && l[0].from == 0 && l[0].to == 2);
+        v.set_target(true, 0, 40, 2000, true);
+        CHECK(v.turn_centred() && v.serial() == 2);
+        v.set_target(true, 1, 40, 2010);  // retargeted while zooming out by a key: no longer centred
+        CHECK(!v.turn_centred());
+    }
+    // view_centre: the identity view looks straight ahead; a view aimed at (az, el) is centred there.
+    {
+        const auto c0 = view_centre(view_from(Quat{}, Quat{}));
+        CHECK(std::fabs(c0[0]) < 1e-6f && std::fabs(c0[1]) < 1e-6f);
+        for (float az : {-120.f, -30.f, 15.f, 80.f})
+            for (float el : {-40.f, 0.f, 25.f}) {
+                const auto c = view_centre(view_from(Quat{}, aim_rotation(rad(az), rad(el))));
+                CHECK(std::fabs(c[0] - rad(az)) < 1e-4f && std::fabs(c[1] - rad(el)) < 1e-4f);
+            }
+    }
+    std::cout << "focused desktop centred in locked and follow, anchor recentre, switches continuous, anchor switch stays, "
+                 "cursor switch centres\n";
 }

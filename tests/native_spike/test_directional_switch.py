@@ -1,7 +1,7 @@
 """Directional desktop switching (neighbors.py, unified_cursor.EdgePush): zoomed in, pushing the cursor past an edge of
 the selected desktop switches to the desktop placed that way round you in 3D (yaw / pitch / roll as drawn), not just the
-next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in; in anchor mode with
-Ctrl+Alt+A's animation off an instant cut, the view frame's `cut`) and every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
+next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in; in anchor mode it
+pans straight to the desktop and centres it, the frame's `center`) and every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
 
 Regression: dot-cursor monitor switching was removed on 2026-11-02 (the cursor never left home); it comes back here,
 chosen by placement. Overview click-to-zoom and the Ctrl+Alt arrows are unchanged (test_unified_cursor.py).
@@ -15,7 +15,7 @@ import unittest
 from tools.native_spike import free_pointer as fp, neighbors as nb, orbit, unified_cursor as uc, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
-from test_free_pointer import BIND_ARGS, G, NAMES, OUTPUTS, X1, X2, X3, frames, last
+from test_free_pointer import BIND_ARGS, G, MONITORS, NAMES, OUTPUTS, X1, X2, X3, frames, last
 from test_unified_cursor import FakeUnifiedClient, UnifiedBase
 
 T = G['tiles']
@@ -203,7 +203,7 @@ class ControlTests(UnifiedBase):
     def test_switch_desktop_is_the_key_switch_zoomed_in(self):
         self.op('zoom_in')
         out = frames(self.control.switch_desktop(2))
-        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True})  # animates
+        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True, 'center': True})
         self.assertEqual(self.control.state.placements, flat())  # nothing is moved
         for stale in (2, 5, -1, 'x'): self.assertEqual(self.control.switch_desktop(stale), b'')
         self.op('zoom_out')
@@ -213,32 +213,40 @@ class ControlTests(UnifiedBase):
         self.control.state.typing = False; self.control.video_active = True
         self.assertEqual(self.control.switch_desktop(0), b'')
 
-    def test_anchor_with_the_animation_off_a_cursor_switch_cuts(self):
-        # Ctrl+Alt+A (2026-11-03): anchor mode with cursor_switch_animate off, the push past an edge cuts straight to the
-        # target (`cut`: no zoom out / turn / zoom in, no camera move). Ctrl+Alt+Left / Right and every other view frame
-        # keep the renderer's animations (no `cut` key at all).
+    def test_the_cursor_switch_animation_flag(self):
+        # cursor_switch_animate (default on; Ctrl+Alt+A toggles it): on, every mode gets `center` (anchor: pan to
+        # and centre). Off: anchor mode cuts (`cut`: no animation, no turn, the view stays where the head looks); follow and
+        # locked are unchanged (`center`, which they ignore). The keys never carry either flag.
+        self.op('zoom_in')
+        s = self.control.state
+        self.assertIs(s.cursor_switch_animate, True)
+        self.assertNotIn('cursor_switch_animate', s.view())  # never sent to the renderer; saved (s.settings()) since Ctrl+Alt+A
+        self.assertIs(s.settings()['cursor_switch_animate'], True)
+        for animate, mode, flags in ((True, 'anchor', {'center': True}), (True, 'follow', {'center': True}),
+                                     (True, 'locked', {'center': True}), (False, 'anchor', {'cut': True}),
+                                     (False, 'follow', {'center': True}), (False, 'locked', {'center': True})):
+            with self.subTest(animate=animate, mode=mode):
+                s.cursor_switch_animate, s.mode = animate, mode
+                self.assertEqual(self.control.cursor_switch_flags(), flags)
+                target = (s.selected + 1) % len(s.names)
+                self.assertEqual(last(frames(self.control.switch_desktop(target)), 'view'), {**s.view(), **flags})
+                self.assertEqual(s.selected, target)  # the switch itself always happens
+                key = last(self.op('next' if s.selected < len(s.names) - 1 else 'prev'), 'view')
+                self.assertNotIn('cut', key); self.assertNotIn('center', key)
+
+    def test_ctrl_alt_a_turns_the_anchor_animation_off_and_on(self):
+        # The key drives the same flag: off, the push past an edge (and the loop's own switch) cuts; back on, it centres.
         self.assertEqual(self.control.state.mode, 'anchor')
-        self.control.on_message({'op': view.CURSOR_ANIM_OP})
+        self.assertIsNone(self.control.on_message({'op': view.CURSOR_ANIM_OP}))  # no frame of its own
         self.assertFalse(self.control.state.cursor_switch_animate)
         self.op('zoom_in')
-        self.assertIs(last(frames(self.control.switch_desktop(1)), 'view')['cut'], True)
-        self.assertEqual(self.control.state.selected, 1)
-        self.assertNotIn('cut', self.control.state.view())  # the state itself never holds it: the next frame animates
-        for op in ('next', 'prev', 'zoom_out', 'zoom_in', 'spacing_up'):
-            self.assertNotIn('cut', last(self.op(op), 'view'), op)
+        self.assertIs(last(frames(self.control.switch_desktop(1)), 'view').get('cut'), True)
         self.p.request_switch(self.control.state.selected, 2)
-        self.assertIs(last(frames(self.control.poll()), 'view')['cut'], True)  # the loop's switch is the cut one
-        self.control.on_message({'op': view.CURSOR_ANIM_OP})  # back on: animates again
-        self.assertNotIn('cut', last(frames(self.control.switch_desktop(0)), 'view'))
-
-    def test_follow_and_locked_always_animate_a_cursor_switch(self):
-        self.control.state.cursor_switch_animate = False  # the toggle is anchor-only
-        self.op('zoom_in')
-        for mode, desktop in (('follow', 1), ('locked', 2)):
-            self.control.state.mode = mode
-            out = last(frames(self.control.switch_desktop(desktop)), 'view')
-            self.assertNotIn('cut', out, mode)
-            self.assertEqual(out['selected'], desktop)
+        out = last(frames(self.control.poll()), 'view')
+        self.assertIs(out.get('cut'), True); self.assertNotIn('center', out)
+        self.control.on_message({'op': view.CURSOR_ANIM_OP})
+        out = last(frames(self.control.switch_desktop(0)), 'view')
+        self.assertIs(out.get('center'), True); self.assertNotIn('cut', out)
 
     def test_the_pointer_reads_the_placed_layout(self):
         self.assertEqual([self.p.neighbour(e) for e in ('left', 'right', 'up')], [None, 1, None])
@@ -314,6 +322,57 @@ class SamplerTests(unittest.TestCase):
         while time.monotonic() < deadline and not any(a[2] == 'XR-2' for a in client.args('confine')): time.sleep(0.005)
         self.assertIn((X2 + 960, 1079 - uc.ENTRY_PX, 'XR-2'), client.args('confine'))
         self.assertEqual(self.control.state.placements[1], at_direction(1, 0, 25))  # it stays where it was placed
+
+    def hand(self, client, delta, seconds):
+        """The hand keeps moving by `delta` logical px every 5 ms (relative, as a mouse does, from wherever the cursor was
+        put), Hyprland keeping it on some monitor. Returns every view frame's `selected`, in order."""
+        def onto_a_monitor(c):
+            on = [m for m in MONITORS if m['x'] <= c[0] < m['x'] + m['width'] and m['y'] <= c[1] < m['y'] + m['height']]
+            if on: return c
+            return min(((min(max(c[0], m['x']), m['x'] + m['width'] - 1), min(max(c[1], m['y']), m['y'] + m['height'] - 1))
+                        for m in MONITORS), key=lambda q: abs(q[0] - c[0]) + abs(q[1] - c[1]))
+        selected, deadline = [], time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            client.cursor = onto_a_monitor((client.cursor[0] + delta[0], client.cursor[1] + delta[1]))
+            selected += [f['payload']['selected'] for f in frames(self.control.poll()) if f['op'] == 'view']
+            time.sleep(0.005)
+        return selected
+
+    def test_a_cursor_switch_goes_straight_to_the_destination_and_stays(self):
+        # cursor-switch-no-anim (2026-11-03): "the view goes to the other monitor and then goes back". The cursor path
+        # asks the renderer for exactly one switch, to the desktop the cursor ends up on, and nothing after it: the hand
+        # still pushing through the switch animation (and past the cooldown) never selects another desktop or the old
+        # one. Here the 3D order differs from Hyprland's row (XR-2 above, XR-3 to the right).
+        placed = [at_direction(0, 0, 0), at_direction(1, 0, 25), at_direction(2, 25, 0)]
+        for start, delta, destination in (((X1 + 1700, 300), (4, 0), 2),   # right: across XR-2 in the row, to XR-3
+                                          ((X1 + 960, 200), (0, -4), 1)):  # up: the clamped top edge, to XR-2 above
+            with self.subTest(destination=destination):
+                self.control.state.selected = 0
+                self.control.state.set_placements(placed)
+                client = FakeUnifiedClient(cursor=start)
+                sampler = self.start(client)
+                self.assertEqual(self.hand(client, delta, uc.SWITCH_COOLDOWN_S + 0.6), [destination])
+                self.assertEqual(self.control.state.selected, destination)
+                self.assertEqual(client.args('confine')[-1][2], NAMES[destination])  # the cursor and focus are there
+                self.assertEqual(self.p.edge_switches, 1)
+                sampler.stop(); self.p.edge_switches = 0
+
+    def test_a_cursor_switch_frame_is_the_key_switch_frame_centred(self):  # (the flag on: the default)
+        # The renderer animates a cursor switch as Ctrl+Alt+Left / Right (the same frame), plus `center`: in anchor mode it
+        # lands with the desktop the cursor is on centred in view (spike focus_center_test). The keys never send it, and
+        # the state never holds it.
+        self.control.state.selected = 0
+        cursor = last(frames(self.control.switch_desktop(1)), 'view')
+        self.control.state.selected = 0
+        key = last(frames(self.control.on_message({'op': 'next', 'payload': {}})), 'view')
+        self.assertEqual(cursor, {**key, 'center': True})
+        self.assertNotIn('center', self.control.state.view())
+        for op in ('prev', 'next', 'zoom_out', 'zoom_in'):
+            self.assertNotIn('center', last(frames(self.control.on_message({'op': op, 'payload': {}})), 'view'), op)
+
+    def test_the_push_rests_until_the_switch_animation_has_landed(self):
+        # spike ViewAnimator defaults: zoom out 220 ms, turn 300 ms, zoom in 220 ms. No second push lands mid-animation.
+        self.assertGreater(uc.SWITCH_COOLDOWN_S, (220 + 300 + 220) / 1000)
 
     def test_nothing_that_way_stays_put(self):
         client = FakeUnifiedClient(cursor=(X1 + 960, 500))

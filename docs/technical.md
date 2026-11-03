@@ -108,7 +108,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
-| Ctrl+Alt+A | run | Anchor mode: a cursor switch (push past an edge) animates (default) or jumps with no camera move; saved as `cursor_switch_animate` |
+| Ctrl+Alt+A | run | Anchor mode: a cursor switch (push past an edge) pans to and centres the desktop (default) or cuts with no camera move (`ViewControl.cursor_switch_flags`); saved as `cursor_switch_animate` |
 | Ctrl+Alt+D | run | Privacy mode: main physical display off / on (DPMS), so only the glasses show content (see [Privacy mode](#privacy-mode-main-display-off)) |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
@@ -362,9 +362,10 @@ still for the whole overview and let no click or wheel reach a window.
   directly behind has no bearing. With no overview layout reported yet, right and left are the next and previous in the
   row and up and down nothing. Once the push reaches 48 px (`PUSH_PX`, each part within 0.25 s of the last, on one
   edge), the loop selects that desktop (`ViewControl.switch_desktop`, the Ctrl+Alt+Left / Right path, so the renderer
-  zooms out, turns and zooms in and no desktop moves; in anchor mode with Ctrl+Alt+A's `cursor_switch_animate` off, the
-  view frame carries `"cut": true` instead and the renderer shows the new desktop zoomed in at its placement at once,
-  the view never turned; follow and locked always animate) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
+  zooms out, turns and zooms in and no desktop moves; its view frame carries `"center": true`, so in anchor mode the turn
+  starts from the centre of the view and the camera pans straight to the new desktop and leaves it centred, world-locked
+  there, and pushing back pans to and centres the other one; anchor mode only: follow and locked ignore `center` and fit the
+  desktop to the glasses as before) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
   opposite edge of the new home, as far along it as it left, and focuses that monitor (`confine_lua`). Then no push
   counts for 0.8 s. Over an edge Hyprland lets the cursor cross (onto the next XR monitor or the physical one) the
   overshoot counts and the cursor goes back as above; a jump over 400 px is a warp and never counts. At an edge
@@ -378,7 +379,7 @@ still for the whole overview and let no click or wheel reach a window.
   removes the whole table (`xr_control.py` `REMOVE_RESIZE_BINDS`).
 
 Not covered: how the push past an edge feels in the glasses (the 48 px threshold, the 12 px nudge at a clamped edge
-next to a top bar, the 0.8 s rest after a switch); `tests/native_spike/test_directional_switch.py`
+next to a top bar, the 0.8 s rest against the renderer's switch animation); `tests/native_spike/test_directional_switch.py`
 checks the neighbour picking, the push and the sampler offline only. The zoomed-in confinement is reactive, so for up to one 4 ms sample the cursor (and focus-follows-mouse)
 can be on the neighbouring monitor before it is put back; touchpad scrolling while free, which Hyprland cannot bind; a
 desktop config with `binds.pass_mouse_when_bound`; and a starved sampler thread. To check in the glasses: zoomed in,

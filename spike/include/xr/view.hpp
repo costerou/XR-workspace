@@ -155,12 +155,19 @@ constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx 
 // The turn is a view (camera) rotation only: no placement ever changes, and at rest look() is 0. During phase 1 another
 // switch retargets it; later ones queue and run once this one lands. Zooming out mid-switch zooms out from where the view
 // is and eases any turn back to 0.
-// A cut (set_target's `cut`, the cursor pushed past an edge) zoomed in skips all three: the target is shown at once, fully
-// zoomed in at its placement, the view never turned (any switch or turn in flight is dropped). Spacing still eases.
+// A centred switch (set_target's `center`: the cursor pushed past an edge, tools/native_spike/unified_cursor.py) animates
+// the same, but in anchor mode its turn starts from the direction at the centre of the view when it began rather than from
+// the desktop being left, so it pans straight to the target and lands with the target centred in view (wayland.cpp).
+// A cut (set_target's `cut`: an anchor-mode cursor switch with its animation off) zoomed in skips all three: the target is
+// shown at once, fully zoomed in at its placement, the view never turned; any switch or turn in flight is dropped
+// unlanded (nothing to hand over to the room). Spacing still eases.
 class ViewAnimator {
 public:
+    // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
+    struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
     explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
-    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool cut = false);
+    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
+                    bool cut = false);
     void advance(double now_ms);
     bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active; }
     bool switching() const { return switch_.active; }
@@ -168,24 +175,44 @@ public:
     float position() const { return float(shown_); }  // the desktop the zoom is on (the one being left in phase 1)
     std::uint32_t focus() const { return shown_; }
     float look() const;      // [0,1]: how far the view is turned from look_from() toward look_to()
+    // Anchor mode's camera turn toward look_to(), [0,1]. Unlike look() it does not ease back in phase 3: it holds 1 while
+    // zooming into the target, so the view stays on it. Once the switch lands the turn is handed over to the room
+    // (take_landed_turn -> ModeController::turn_anchor) and turn() drops to 0 in the same frame. Cancelled mid-turn
+    // (zooming out in phase 2) it eases back to 0 like look(); cancelled in phase 3 the turn lands at once.
+    float turn() const;
+    // The turn of the switch(es) that landed since the last call, as {from, to} (look_from / look_to); consecutive landed
+    // turns merge (first from, last to: aim turns telescope). nullopt if none.
+    std::optional<std::array<std::uint32_t, 2>> take_landed_turn();
+    // Every switch that landed since the last call, in order; consecutive uncentred ones merge as above. A centred one
+    // never merges: its turn starts from its own direction (the view's centre), not from a desktop.
+    std::vector<LandedTurn> take_landed_turns();
+    // The most recent switch (the one whose turn turn() reports, also while it eases back): its serial (one per switch
+    // started) and whether it is centred.
+    std::uint32_t serial() const { return serial_; }
+    bool turn_centred() const { return turn_centred_; }
     std::uint32_t look_from() const { return look_from_; }
     std::uint32_t look_to() const { return look_to_; }
     float spacing() const;
     float target_spacing() const { return to_spacing_; }  // where spacing() is heading (the overview's settled layout)
     std::uint32_t selected() const { return to_selected_; }
 private:
-    void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms);
+    void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center);
     float duration_, turn_;
     double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
     float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
-    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0;
+    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0, from_turn_ = 0;
+    void land_turn(std::uint32_t from, std::uint32_t to, bool centred);
+    std::vector<LandedTurn> landed_;
+    std::uint32_t serial_ = 0;
+    bool turn_centred_ = false;
     std::uint32_t to_selected_ = 0, shown_ = 0, look_from_ = 0, look_to_ = 0;
     struct Switch {
         bool active = false, queued = false;
         double start_ms = 0;
         float zoom = 1, out_ms = 0;  // the zoom it started from; phase 1's length
         std::uint32_t from = 0, to = 0, next = 0;
-        float zoom_now = 1, look_now = 0;
+        bool center = false, next_center = false;
+        float zoom_now = 1, look_now = 0, turn_now = 0;
     } switch_;
 };
 // Where desktop `index` is round you: the direction {azimuth, elevation} (radians; +az right, +el up, place_point's) of
@@ -197,7 +224,8 @@ std::array<float, 2> focus_direction(const Canvas& canvas, std::span<const FRect
 // How far follow and locked modes centre the view on ViewAnimator::focus() (0 = the overview's own centre straight ahead,
 // 1 = the focused desktop straight ahead): zoom() + look(), at most 1. Continuous through zooms and every phase of a
 // switch: zooming out of the current desktop it eases to the overview's centre, the turn pans to the target (look 0 -> 1)
-// and zooming in keeps the target centred (zoom + look = 1). In anchor mode the room stays put and look_turn turns instead.
+// and zooming in keeps the target centred (zoom + look = 1). In anchor mode the room stays put and look_turn turns instead
+// (by ViewAnimator::turn), the landed turn then moving the anchor (ModeController::turn_anchor) so the view stays on the target.
 float focus_weight(const ViewAnimator& view);
 // The view turn of a desktop switch at `look` (ViewAnimator::look): a rotation applied to world points before the head's
 // view (draw with view * look_turn), turning desktop `from`'s overview direction (slot in `overview` plus its orbit) toward
@@ -205,4 +233,11 @@ float focus_weight(const ViewAnimator& view);
 // range) it is the identity. Row-major, GL frame.
 std::array<float, 9> look_turn(const Canvas& canvas, std::span<const FRect> overview, std::span<const Placement> placements,
                                std::size_t from, std::size_t to, float look);
+// The same turn from direction `from` ({azimuth, elevation}, focus_direction's) instead of a desktop's: a centred switch
+// turns from view_centre(...) so at look 1 `to`'s direction is at the centre of the view it started from.
+std::array<float, 9> look_turn_from(const Canvas& canvas, std::span<const FRect> overview, std::span<const Placement> placements,
+                                    std::array<float, 2> from, std::size_t to, float look);
+// The direction {azimuth, elevation} (focus_direction's) of the canvas point drawn at the centre of a view (a drawn
+// row-major GL view rotation: canvas -> eye, straight ahead -z).
+std::array<float, 2> view_centre(const std::array<float, 9>& view);
 }
