@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 452 140" width="452" height="140" role="img" aria-labelledby="t">
-<title id="t">VITURE Workspace</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 356 140" width="356" height="140" role="img" aria-labelledby="t">
+<title id="t">XR Workspace</title>
 <style>
   .wm { fill: #141a33; }
   .wm2 { fill: #4a5378; }
@@ -45,7 +45,7 @@
   <rect x="0.75" y="0.75" width="126.5" height="126.5" rx="29.25" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5"/>
 </g>
 <g id="wordmark" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
-  <text class="wm" x="156" y="72" font-size="52" font-weight="800" letter-spacing="3">VITURE</text>
+  <text class="wm" x="156" y="72" font-size="52" font-weight="800" letter-spacing="3">XR</text>
   <text class="wm2" x="158" y="114" font-size="36" font-weight="500" letter-spacing="0.5">Workspace</text>
 </g>
 </svg>

@@ -1,5 +1,5 @@
 [Unit]
-Description=VITURE Workspace controller (never starts XR automatically)
+Description=XR Workspace controller (never starts XR automatically)
 After=graphical-session.target
 PartOf=graphical-session.target
 

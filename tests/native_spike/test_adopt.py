@@ -70,6 +70,19 @@ class PlanTests(unittest.TestCase):
         moves = adopt.plan([ws(1)], [win('0x1', 1, cls=adopt.PANEL_CLASS, title='Settings')], 'DP-1', XR3)
         self.assertEqual(moves['workspaces'], [(1, 'XR-1')])
 
+    def test_the_panel_is_titled_xr_workspace_and_its_old_title_still_stays(self):
+        # Renamed from "VITURE Workspace" (2026-11-03). A shell still running the old panel QML (rescanPlugins does not
+        # reload it) shows the old title; that window must stay on the physical monitor too.
+        self.assertEqual(adopt.PANEL_TITLE, 'XR Workspace')
+        for title in ('XR Workspace', 'VITURE Workspace'):
+            self.assertTrue(adopt.stays(win('0xf0', 1, cls=adopt.PANEL_CLASS, title=title)), title)
+            self.assertEqual(adopt.plan([ws(1)], [win('0xf0', 1, cls=adopt.PANEL_CLASS, title=title)], 'DP-1', XR3),
+                             {'workspaces': [], 'windows': []}, title)
+        # Only the shell's own window: an app that happens to use either title still moves.
+        for title in ('XR Workspace', 'VITURE Workspace'):
+            self.assertFalse(adopt.stays(win('0x1', 1, cls='kitty', title=title)), title)
+        self.assertFalse(adopt.stays(win('0x1', 1, cls=adopt.PANEL_CLASS, title='XR Workspace (2)')))
+
     def test_unknown_pinned_state_is_treated_as_pinned(self):
         bad = win('0x1', 1); del bad['pinned']
         self.assertEqual(adopt.plan([ws(1)], [bad, win('0x2', 1)], 'DP-1', XR3)['windows'], [('0x2', 'XR-1')])

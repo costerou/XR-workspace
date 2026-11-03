@@ -60,6 +60,17 @@ function largeLayoutWarning(desktops) {
     return desktops.reduce(function(sum, d) { return sum + d.width * d.height; }, 0) > 3 * 1920 * 1080;
 }
 
+// The glasses as the pre-start panel names them (the controller's model ids, tools/native_spike/profiles.py MODELS).
+function glassesName(model) {
+    return ({"luma-ultra": "Luma Ultra", "beast": "Beast"})[model] || "Glasses";
+}
+
+// The one line under Start: which glasses and which of their outputs the session would use.
+function startStatus(snapshot) {
+    const s = snapshot || {};
+    return glassesName(s.model) + (s.output ? " on " + s.output : "");
+}
+
 function barColorRole(state) {
     if (state === "running") return "accent";
     if (["recovery-needed", "cli-recovery", "failed"].indexOf(state) >= 0) return "warning";

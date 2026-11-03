@@ -374,7 +374,7 @@ def notify_send(text, *, run=subprocess.run):
     """A desktop notification (mako on Omarchy). The focused desktop is in the glasses, so Cody sees it there."""
     exe = '/usr/bin/notify-send'
     if not os.access(exe, os.X_OK): return
-    run([exe, '--app-name=VITURE XR', '--expire-time=8000', 'VR video', str(text)[:300]], stdin=subprocess.DEVNULL,
+    run([exe, '--app-name=XR Workspace', '--expire-time=8000', 'VR video', str(text)[:300]], stdin=subprocess.DEVNULL,
         capture_output=True, timeout=5, check=False)
 
 

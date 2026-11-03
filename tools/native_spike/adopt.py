@@ -13,11 +13,11 @@ return windows to) onto its XR desktops, right after the desktops are created an
     each monitor its own block of ten workspace numbers (default/hypr/monitor-workspaces.lua); a moved workspace joins
     its desktop's block under the same slot, as Omarchy's own move-workspace-to-monitor does, so Omarchy's reconcile
     (a pill's Add, a theme switch) leaves it where it was put instead of sending it back to the physical monitor.
-  * What stays: special (scratchpad) workspaces, pinned windows and the VITURE Workspace panel itself (a window of the
-    Omarchy shell, `org.quickshell` titled "VITURE Workspace"). A workspace that holds one of those stays on the
-    physical monitor with it; its other windows move one by one, in layout order (top to bottom, left to right), onto
-    the workspace their desktop shows. Recovery refuses to evacuate an XR output with a pinned window or a special
-    workspace on it, so neither is ever put there.
+  * What stays: special (scratchpad) workspaces, pinned windows and the XR Workspace panel itself (a window of the
+    Omarchy shell, `org.quickshell` titled "XR Workspace", or "VITURE Workspace" before the rename). A workspace that
+    holds one of those stays on the physical monitor with it; its other windows move one by one, in layout order (top
+    to bottom, left to right), onto the workspace their desktop shows. Recovery refuses to evacuate an XR output with a
+    pinned window or a special workspace on it, so neither is ever put there.
   * One Hyprland eval (generated Lua, fixed shape, every value validated) makes all the moves, in one compositor tick:
     no intermediate layout is drawn. A plan too large for one eval is split; each part is still one tick.
 
@@ -32,7 +32,10 @@ import re
 from .geometry import MAX_DESKTOPS, is_ultrawide, toggle_ultrawide, validate_desktop
 
 PANEL_CLASS = 'org.quickshell'
-PANEL_TITLE = 'VITURE Workspace'   # packaging/viture-workspace.desktop StartupWMClass / Panel.qml title
+PANEL_TITLE = 'XR Workspace'       # packaging/viture-workspace.desktop StartupWMClass / Panel.qml title
+# The panel's title before the rename to XR Workspace (2026-11-03). A shell still running the old panel QML
+# (rescanPlugins does not reload it; omarchy-restart-shell does) shows it, and that window must stay put too.
+LEGACY_PANEL_TITLES = ('VITURE Workspace',)
 ADDRESS = re.compile(r'0x[0-9a-f]{1,16}\Z')
 OUTPUT = re.compile(r'XR-[1-9]\Z')
 EVAL_LIMIT = 4096                  # hyprland.HyprlandClient._eval
@@ -44,8 +47,9 @@ def _regular(workspace):
 
 
 def stays(window):
-    """A window that never leaves the physical monitor: pinned, or the VITURE Workspace panel."""
-    return window.get('pinned') is not False or (window.get('class') == PANEL_CLASS and window.get('title') == PANEL_TITLE)
+    """A window that never leaves the physical monitor: pinned, or the XR Workspace panel."""
+    return window.get('pinned') is not False or (window.get('class') == PANEL_CLASS
+                                                 and window.get('title') in (PANEL_TITLE,) + LEGACY_PANEL_TITLES)
 
 
 def occupied(workspaces, clients, monitor):

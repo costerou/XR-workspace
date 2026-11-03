@@ -23,6 +23,7 @@ Item {
     property int settingsId: 0
     readonly property var snapshot: client.snapshot
     readonly property bool busy: commandId !== 0
+    readonly property bool prestart: client.connected && snapshot.state === "idle"
     function open(payload) { if (payload && Number.isInteger(payload.desktop)) selectedDesktop=payload.desktop; error=""; opened=true; client.send({op:"status"}); loadSettings() }
     function close() { opened=false }
     function dismiss() { if (shell && typeof shell.hide === "function") shell.hide((manifest && manifest.id) || "cody.viture-workspace"); else close() }
@@ -71,7 +72,8 @@ Item {
     FloatingWindow {
         id:window
         visible:root.opened
-        title:"VITURE Workspace"
+        // Also the desktop entry's StartupWMClass and adopt.py PANEL_TITLE: keep the three equal.
+        title:"XR Workspace"
         implicitWidth:700; implicitHeight:860
         color:Commons.Color.background
         onClosed:root.dismiss()
@@ -103,7 +105,9 @@ Item {
                 height:implicitHeight
                 spacing:14
                 RowLayout {
-                    Label { text:"VITURE Workspace"; font.pixelSize:22; font.bold:true; color:Commons.Color.foreground; Layout.fillWidth:true }
+                    // The pre-start page (Launcher) shows the logo large under this row; every other page has it here.
+                    Logo { size:48; visible:!root.prestart }
+                    Item { Layout.fillWidth:true }
                     Button { text:"Close"; onClicked:root.dismiss() }
                 }
                 Label { text:root.error || (client.connected ? root.snapshot.reason || "" : "controller not running"); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }

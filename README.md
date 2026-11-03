@@ -1,8 +1,8 @@
-<p align="center"><img src="assets/logo.svg" width="420" alt="VITURE Workspace logo"></p>
+<p align="center"><img src="assets/logo.svg" width="330" alt="XR Workspace logo"></p>
 
-# VITURE Workspace
+# XR Workspace
 
-VITURE Workspace turns your VITURE glasses into a big multi-screen desk on Omarchy. Put the glasses on and you see
+XR Workspace turns your VITURE glasses into a big multi-screen desk on Omarchy. Put the glasses on and you see
 three extra desktops floating in front of you. They stay where you put them when you turn your head, and you can use
 them with your normal keyboard and mouse.
 
@@ -47,26 +47,35 @@ The background helper never starts anything in the glasses by itself. It waits f
 
 ### 2. Open the panel
 
-Plug in the glasses, then open **VITURE Workspace** from the app launcher. You can also add the small **XR** widget to
+Plug in the glasses, then open **XR Workspace** from the app launcher. You can also add the small **XR** widget to
 your bar and click it.
 
 If the panel says "controller not running", click **Start / restart controller**.
 
 ### 3. Start a session
 
-1. Optional: click a desktop to change its resolution or scale. Everything else (where it sits, ultrawide, adding or
-   removing desktops, view mode, spacing, cursor follow, pose prediction) is set in the glasses during the session.
-2. Press **Start XR session**.
-3. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
-4. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
+1. Press the big **Start XR** button.
+2. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
+3. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
 
 Your three desktops now appear in the glasses. They are called XR-1, XR-2 and XR-3.
 
 The windows on your normal monitor move into the glasses as the session starts, one workspace per desktop: your first
 workspace with windows goes to XR-1, the next to XR-2, and so on. If you have more workspaces with windows than
-desktops, the session adds desktops, up to four. Past four, the rest go to the last desktop, each still its own
-workspace. Scratchpad workspaces, pinned windows and the VITURE Workspace panel stay on your monitor. Stop brings
-everything back.
+desktops, the rest go to the last desktop, each still its own workspace. Scratchpad workspaces, pinned windows and the
+XR Workspace panel stay on your monitor. Stop brings everything back.
+
+**Before a session** the panel shows little more than the Start button. Everything else (where each desktop sits,
+ultrawide, adding or removing desktops, view mode, spacing, cursor follow, pose prediction, videos) is set in the
+glasses during the session. Press Ctrl+Alt+H there for the keys.
+
+Two things can show up next to Start:
+
+- **Return windows to.** If more than one other monitor is connected and none of them is your saved choice, pick the
+  one your windows go back to when the session stops. Start waits until you do.
+- **Startup options** (click to open). These are the few settings that can't change once a session runs: each
+  desktop's resolution and scale (click a desktop), head tracking, the Luma Ultra's 120 Hz switch, and which monitor
+  windows return to. You rarely need them.
 
 ## Everyday use
 
@@ -244,7 +253,7 @@ and while a video plays, and they hide after 30 seconds without moving the mouse
 pill stays until you close it or until 30 seconds pass without input.
 
 Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
-edit the desktop in the panel.
+edit the desktop under **Startup options** in the panel.
 
 **Desktops all around you** (new, not yet tried in the glasses). Carrying a desktop round you works in the overview,
 where the desktops always stay fixed in the room (anchor, see above):
@@ -337,9 +346,9 @@ a web video you choose to play.
 Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a desktop's glass pill: under its sliders are
 **Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
 that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
-your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. The next
-session starts with the desktops you ended with. Other resolutions and scales are still set in the panel before
-starting.
+your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. Every new
+session starts with three desktops again. Other resolutions and scales are set under **Startup options** in the panel
+before starting.
 
 **Which glasses are tested?**
 The Luma Ultra has been used in real sessions. On the Beast only basic display tests have run. See
