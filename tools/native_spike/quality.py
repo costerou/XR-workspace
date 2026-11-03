@@ -87,8 +87,9 @@ def renderer_payload(quality):
     return {'action': 'quality', **validate(quality)}
 
 
-def menu_payload(quality, visible, selected):
-    """`video` frame payload drawing the menu on the controls card: one row per setting, the selected one marked."""
+def menu_payload(quality, visible, selected, extra=()):
+    """`video` frame payload drawing the menu on the controls card: one row per setting, then the `extra` rows (rows that
+    are not video settings: the TRON grid, environment.menu_row), the selected one marked."""
     quality = clean(quality)
-    rows = [{'label': s.label, 'value': value_label(s, quality[s.key])} for s in SETTINGS]
-    return {'action': 'menu', 'visible': bool(visible), 'selected': selected % len(SETTINGS) if visible else 0, 'rows': rows}
+    rows = [{'label': s.label, 'value': value_label(s, quality[s.key])} for s in SETTINGS] + [dict(r) for r in extra]
+    return {'action': 'menu', 'visible': bool(visible), 'selected': selected % len(rows) if visible else 0, 'rows': rows}

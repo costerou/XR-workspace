@@ -25,7 +25,9 @@ not about video through unchanged.
 Quality menu (Q; quality.py): drawn on the controls card in place of its usual body. While it is open Up/Down pick a
 setting, Left/Right (and Shift+Left/Right) change it, Tab moves to the next setting, Escape or Q closes it; Space still
 plays / pauses. Every change is sent to the renderer at once (`quality` frame) and saved with the view settings
-(layout.json or the glasses profile). The settings are sent after every open, so a new renderer gets them too.
+(layout.json or the glasses profile). The settings are sent after every open, so a new renderer gets them too. Its last
+row is the TRON grid behind the desktops (environment.py: Off, TRON cyan, Theme colour), not a video setting: a video
+replaces the grid, so a change there shows when the video closes.
 """
 import json
 import os
@@ -37,7 +39,7 @@ import stat
 import subprocess
 import threading
 
-from . import quality
+from . import environment, quality
 from .view import (CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, PLAYBACK_MENU_OP, PLAYBACK_MENU_TOASTS, SAFE_PATH,
                    SAFE_TOKEN, _binds_lua, _remove_lua)
 from .resize import RESIZE_OPS
@@ -465,7 +467,11 @@ class VideoControl:
     def _menu_frame(self, visible):
         if not visible and not self.menu: return b''
         self.menu = visible
-        return self._frame(quality.menu_payload(self.quality(), visible, self.menu_row))
+        return self._frame(quality.menu_payload(self.quality(), visible, self.menu_row, self._menu_extra()))
+
+    def _menu_extra(self):
+        """The quality menu's rows after the video settings: the TRON grid (environment.py)."""
+        return [environment.menu_row(environment.environment(self.view.state))]
 
     def _quality_frame(self):
         return self._frame(quality.renderer_payload(self.quality()))
@@ -481,13 +487,17 @@ class VideoControl:
 
     def _on_menu_key(self, op):
         """A video key while the quality menu is open; None if it is not a menu key (handled as usual)."""
-        rows = len(quality.SETTINGS)
+        rows = len(quality.SETTINGS) + len(self._menu_extra())
         if op in ('video_quality', 'video_exit'): return self._menu_frame(False)
         if op in ('video_up', 'video_down', 'video_format'):
             self.menu_row = (self.menu_row + (-1 if op == 'video_up' else 1)) % rows
             return self._menu_frame(True)
         if op in SEEK_S:
-            out = self._set_quality(quality.step(self.quality(), self.menu_row, -1 if SEEK_S[op] < 0 else 1))
+            delta = -1 if SEEK_S[op] < 0 else 1
+            if self.menu_row < len(quality.SETTINGS):
+                out = self._set_quality(quality.step(self.quality(), self.menu_row, delta))
+            else:  # the TRON grid's row: applied and saved by the view control
+                out = self.view.set_environment(environment.stepped(environment.environment(self.view.state), delta))
             return out + self._menu_frame(True)
         return None
 

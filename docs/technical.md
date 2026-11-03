@@ -112,6 +112,8 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
 | Ctrl+Alt+D | run | Privacy mode: main physical display off / on (DPMS), so only the glasses show content (see [Privacy mode](#privacy-mode-main-display-off)) |
+| Ctrl+Alt+E | run | The TRON grid behind the desktops on / off, with a fade (see [The TRON grid](#the-tron-grid)) |
+| Ctrl+Alt+Shift+E | run | The TRON grid's colour: cyan / the theme accent; turns it on if it was off |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
 | Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step). Left/right: 0.2°, Shift 15°, and it carries on past 180° to the other side. Down/up: 0.2°, Shift 10°, and it stops at ±90°. Not stopped by other desktops |
@@ -153,6 +155,63 @@ different chord), and in this project's binds; `python -m tools.native_spike.bin
 Ctrl+Alt+P has its own help card row. Cursor follow (Ctrl+Alt+F: the view switched to the monitor the cursor crossed
 onto) was removed on 2026-11-02; a `cursor_follow` saved in layout.json or a profile is ignored, and the renderer's
 `view` payload still carries `cursor_follow: false` because the installed renderer's decoder requires the key.
+
+### The TRON grid
+
+**Ctrl+Alt+E** fades an optional 360° environment in and out behind the desktops (0.6 s); **Ctrl+Alt+Shift+E** crossfades
+its colour between classic cyan and the Omarchy theme accent (0.4 s) and turns it on if it was off, so the key always
+shows what it did. Offline tests only: nothing about it has been tried in the glasses.
+
+*What is drawn.* `spike/src/environment_gl.cpp`: one fullscreen triangle whose fragment shader casts the view ray into a
+procedural scene (no textures, no extra framebuffer, GLES2 with `OES_standard_derivatives`). A black sky; a floor plane
+1.6 m below the eye with lines every 2 m and a brighter one every 10 m, anti-aliased from the screen derivatives (lines
+finer than a pixel fade to their average instead of shimmering), a soft halo for the bloom and a distance fade; a thin
+bright horizon with a haze either side; a ring of ridge outlines up to about 5° high, with gaps between the ranges; and on
+about one line in five a light trail at 8, 12 or 16 m/s. The animation clock wraps every 32 s, a common multiple of the
+trails' periods, so the wrap never shows.
+
+*World-locked, always.* The renderer gives the pass `environment_view(relative, reference)`
+(`spike/include/xr/environment.hpp`): the head pose, prediction included, relative to the recentre reference turned to
+level. It takes only the reference's heading about gravity (the pose feed's z axis), so a recentre with the head tipped
+leaves the floor flat. The desktops' `view` and the mode controller's anchor are never involved, so anchor, follow, locked
+and a maximized desktop all see the same room. A recentre turns the grid to the new heading, as it does the desktops.
+
+*Over it.* The pass replaces the frame's black clear. Desktops are opaque and drawn after it, so their pixels are the same
+as without it (`environment_render` compares them). The pills and cards already blend, premultiplied. The highlighted
+desktop's glow and border were drawn opaque "over black": with the grid up the glow blends with `GL_MAX` (added, where the
+GL has neither ES 3 nor `EXT_blend_minmax`) and the border is laid over it, so neither blacks out a box round the selected
+desktop. With level 0 the pass is skipped and that path is as it was: `gl_bench --hashes` gives the same frame hashes as
+before the feature. A VR video replaces the grid as it replaces the desktops; the setting stays.
+
+*The glasses.* The shader scales each pixel so that its brightest channel stays under 191/255 (hue kept), and the sky and
+the floor between the lines stay exactly black, so see-through (`environment_render` checks both, looking every way
+round). A slight dither breaks up the dim haze's banding, never on black.
+
+*The setting.* `tools/native_spike/environment.py`: `{"on": false, "color": "cyan"}` by default, saved with the view
+settings (`environment` in layout.json for CLI runs and in the glasses model's profile for panel runs), and restored at each
+XR start. An older file without it loads as off. The renderer gets an `environment` frame (`{"on":bool,"color":"cyan"|"theme"}`,
+`spike/include/xr/ipc.hpp`) on each change and at a start only if it is on, so an older renderer never sees one while the
+grid stays off; a malformed one is dropped without stopping the renderer. The panel's `set_settings` reaches a running
+session as those same two ops (`environment.operations`). A theme switch's `style` frame recolours a grid in the theme colour.
+The quality menu's last row (Q, while a video plays) is the same setting: Off, TRON cyan, Theme colour.
+
+*The binds* are in `view.BINDS`, so the help card (one row, "Ctrl+Alt+E / Shift+E"), `bind_check` and typing mode treat them
+like any run bind. Omarchy binds Super+Ctrl+E, Super+Shift+E, Super+Ctrl+Shift+E and Super+Ctrl+Alt+E, all different chords.
+
+*Cost*, measured with `gl_bench --bench --frames 1000 --size 1920x1200` (the glasses' native buffer; GPU time from
+`EXT_disjoint_timer_query`, CPU the draw call), 2026-11-03, on surfaceless EGL, so no compositor or capture is included.
+The glasses render on the RX 7800 XT (`DRI_PRIME=pci-0000_03_00_0`); the integrated GPU, gl_bench's default here, is the
+worst case:
+
+| GPU | Scenario | GPU off | GPU on | CPU off (p50) | CPU on (p50) | Frames over 8.3 ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| RX 7800 XT | maximized | 22 µs | 70 µs | 1.9 µs | 2.6 µs | 0 |
+| RX 7800 XT | overview, pills, dot | 26 µs | 71 µs | 4.9 µs | 5.6 µs | 0 |
+| RX 7800 XT | overview, head moving | 25 µs | 70 µs | 4.8 µs | 5.5 µs | 0 |
+| Radeon 610M (the Ryzen's iGPU) | overview, pills, dot | 371 µs | 2573 µs | 8.2 µs | 19.7 µs | 0 |
+
+So about 0.05 ms of the 8.3 ms frame on the glasses' GPU, the same in every scenario: the pass shades each pixel once
+whatever is in front of it. Its shader compiles at renderer start, not on the first frame it shows.
 
 ### Privacy mode (main display off)
 
@@ -779,6 +838,18 @@ when they fit a page; the overlay turns and wraps pages and reopens on page 1; t
 `help_geometry_json` maps them onto the canvas; text only shrinks as the output gets shorter, and the card is laid out
 again when the output size changes. `tests/native_spike/test_help_pages.py` covers the page keys, the `sections` /
 `turn` frame, the `help_geometry` line and the free pointer's clicks on the card.
+
+The TRON grid adds two ctest tests. `environment` (`spike/tests/environment_test.cpp`): the line colours under the cap for
+every kind of theme, the fade and crossfade, the levelled world-locked view from any recentre reference, and the `environment`
+frame over `tests/native_spike/fixtures/environment_payloads.json`, which `tests/native_spike/test_environment.py` runs the
+supervisor over too. `environment_render` (`spike/tests/environment_render_test.cpp`) draws the grid with the real compositor
+on surfaceless EGL behind three synthetic desktops at 1920x1200: off is bit for bit a compositor that never had it; on, the
+desktops' pixels do not change and the glow leaves no black halo; looking every way round nothing passes 191/255, most of the
+view stays dark and the sky stays black; the horizon sits where the pitch puts it, a whole turn gives the same frame, and in locked
+mode the grid turns while the desktops do not; the fade, the theme colour and the seamless clock wrap. It also writes preview
+PNGs (zlib) to `build/release/environment-previews/`, or to the directory given as its argument. `gl_bench`'s `*_env` scenarios
+add the grid to the fresh-compositor comparison, so it can leave no GL state behind, and to `--bench`. `test_environment.py`
+covers the setting, the keys, saving and restoring and the quality menu's row.
 
 The placement round you, with every desktop facing you (see
 [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), adds

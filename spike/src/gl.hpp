@@ -78,6 +78,11 @@ public:
     // Drawn only while the free pointer is.
     void set_window_drag(float w, float h, int target);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow, and the M3 scheme's seed (theme)
+    // TRON grid (xr/environment.hpp): drawn first, behind everything, in place of the black clear, world-locked by `world`
+    // (environment_view; world -> eye, row-major), at fade `level` (<= 0: not drawn at all, the frame is exactly as
+    // without it), lines in `line` (under kEnvironmentCap), animated by `seconds`. draw_and_swap only (a VR video replaces
+    // it). False if this GL cannot draw it (its shaders failed): nothing is drawn then.
+    bool set_environment(float level, const std::array<float, 3>& line, float seconds, const Mat3& world);
     // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
     // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.
     // The help card and the glass pills are not drawn: the supervisor closes them before a video opens.

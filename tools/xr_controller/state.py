@@ -13,6 +13,7 @@ from tools.native_spike.panel_consent import build_consent, write_consent, load_
 from tools.native_spike.profiles import _check, startup_desktops
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
+from tools.native_spike import environment
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
@@ -172,6 +173,7 @@ class Controller:
                     if delta%SPACING_STEP: raise ValueError('live spacing must use 20 pixel steps')
                     operations += ['spacing_up' if delta>0 else 'spacing_down']*(abs(delta)//SPACING_STEP)
                 if 'prediction' in settings and target['prediction']!=current['prediction']: operations.append('prediction')
+                if 'environment' in settings: operations += environment.operations(current['environment'],target['environment'])
                 if len(operations)>8: raise ValueError('too many live operations; use smaller steps')
                 for operation in operations:
                     if not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')

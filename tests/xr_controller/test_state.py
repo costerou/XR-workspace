@@ -140,6 +140,20 @@ class StateTests(unittest.TestCase):
         self.c.live['view']=dict(zoomed=True,mode='follow')  # a maximized desktop, following (the last status)
         reply=self.c.request(dict(op='set_settings',settings={'mode':'locked','spacing':60,'prediction':False}))
         self.assertTrue(reply['ok'],reply); self.assertEqual(operations,['mode_next','spacing_up','prediction'])
+    def test_running_environment_forwarded(self):
+        # The TRON grid travels to a run like the other view settings, as relative operations (environment.py); the
+        # supervisor saves what it applied, so the controller writes nothing itself.
+        self.journal(); self.units.active=True; self.c.tick(); operations=[]
+        self.units.control=lambda r,s,op: operations.append(op) or True
+        reply=self.c.request(dict(op='set_settings',settings={'environment':{'on':True,'color':'theme'}}))
+        self.assertTrue(reply['ok'],reply); self.assertEqual(operations,['environment_color'])
+        operations.clear()
+        reply=self.c.request(dict(op='set_settings',settings={'environment':{'on':True,'color':'cyan'}}))
+        self.assertTrue(reply['ok'],reply); self.assertEqual(operations,['environment_toggle'])
+        self.assertFalse(self.c.request(dict(op='set_settings',settings={'environment':{'on':True,'color':'red'}}))['ok'])
+    def test_environment_saved_while_idle(self):
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'environment':{'on':True,'color':'theme'}}))['ok'])
+        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['environment'],{'on':True,'color':'theme'})
     def test_running_mode_follows_the_live_view(self):
         # Maximize-follow: the overview is always anchor and a maximized desktop follow or locked, so a panel mode button
         # is one mode_next from the live view (never counted from the saved mode, which no longer changes), or refused.

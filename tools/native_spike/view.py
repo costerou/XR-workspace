@@ -75,6 +75,10 @@ Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach the focused window. Ctr
 never saved and every run starts in control mode. Config reloads keep the current mode (after_reload in managed.py
 reinstalls the matching set). Panel buttons keep working.
 
+TRON grid (environment.py): Ctrl+Alt+E fades an optional 360 degree environment in and out behind the desktops, Ctrl+Alt+
+Shift+E switches its colour (cyan / the theme accent). Run binds with one help card row, off in typing mode like the others.
+The setting is saved with the view settings; the renderer turns the grid with the head pose whatever the viewing mode.
+
 Legacy cleanup: builds before the glass pills had a menu "mouse mode" (Ctrl+Alt+M) with its own left-button binds and
 hidden cursor. A run of such a build that died in mouse mode left those behind; remove_menu_binds_lua() (and the bind
 helper xr_control.py, which still accepts the old op names for this only) removes them and shows the cursor again, a
@@ -88,7 +92,10 @@ import re
 import threading
 import time
 
+from . import environment as _environment
 from . import quality as _quality
+from .environment import COLOR_BIND as ENVIRONMENT_COLOR_BIND, COLOR_OP as ENVIRONMENT_COLOR_OP, \
+    TOGGLE_BIND as ENVIRONMENT_BIND, TOGGLE_OP as ENVIRONMENT_OP
 from .geometry import MAX_DESKTOPS
 from .privacy import PRIVACY_BIND, PRIVACY_OP
 from .send import SEND_OPS
@@ -109,7 +116,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
          ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
          PRIVACY_BIND,  # Ctrl+Alt+D: main display off / on (privacy.py)
-         ('CTRL + ALT + C', 'playback_menu_toggle'))  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
+         ('CTRL + ALT + C', 'playback_menu_toggle'),  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
+         ENVIRONMENT_BIND, ENVIRONMENT_COLOR_BIND)  # Ctrl+Alt+E, Ctrl+Alt+Shift+E: the TRON grid (environment.py)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -142,7 +150,8 @@ HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overvie
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
-                PLAYBACK_MENU_OP: 'VR video: hide / show playback controls'}
+                PLAYBACK_MENU_OP: 'VR video: hide / show playback controls',
+                ENVIRONMENT_OP: 'TRON grid on / off', ENVIRONMENT_COLOR_OP: 'TRON grid: cyan / theme colour'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -156,7 +165,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP)
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, ENVIRONMENT_OP, ENVIRONMENT_COLOR_OP)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -185,18 +194,20 @@ EXTRA_HELP_ROWS = ()
 
 # Help card sections, in order: the op naming each row (a pair's first op). The renderer keeps a section on one page when
 # it fits one and draws a faint rule between sections. An op in BINDS but in no section lands in the last one.
-HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recenter'),  # moving around the desktops
-                 ('mode_next', 'prediction', 'typing_toggle', PRIVACY_OP),              # modes
+HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'spacing_down', 'recenter'),          # moving around the desktops
+                 ('mode_next', 'prediction', 'typing_toggle', PRIVACY_OP, ENVIRONMENT_OP),  # modes
                  ('menu_toggle', 'video_open'),                                          # placement and VR video
                  ('help', 'help_prev'))                                                  # this card
 
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action); the second may be a
 # tuple of ops, all on the one row ('Ctrl+Alt+O / U / C').
-HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+HELP_PAIRS = {'prev': ('next', 'Previous / next desktop'),  # shares a row so the TRON grid's keeps the card at its roomiest text
+              'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               # docs/web-video.md; Ctrl+Alt+C shares the row, so the card keeps its row count (help_card_test: roomiest text)
               'video_open': (('video_paste', PLAYBACK_MENU_OP), 'VR video: file / web link / hide controls'),
-              'help_prev': ('help_next', 'Help: previous / next page')}
+              'help_prev': ('help_next', 'Help: previous / next page'),
+              ENVIRONMENT_OP: (ENVIRONMENT_COLOR_OP, 'TRON grid: on, off / cyan, theme')}
 
 
 def _pair_seconds(op):
@@ -358,7 +369,7 @@ def warp_cursor_lua(x, y):
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None):
+    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None, environment=None):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if type(prediction) is not bool: raise ValueError('invalid prediction')
         # Every run starts in the overview, anchored (maximize-follow): `zoomed` is the maximized state, and the viewing
@@ -373,6 +384,8 @@ class ViewState:
         # saved with the view settings. Missing or invalid settings fall back to quality.DEFAULTS.
         from .quality import clean
         self.video_quality = clean(video_quality)
+        # The TRON grid (environment.py: read it with environment.environment); saved with the view settings.
+        self.environment = _environment.clean(environment)
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
@@ -545,7 +558,7 @@ class ViewState:
         """The saved view settings. `mode` stays for the saved file's schema (profiles.py, an installed panel), always
         'anchor': every run starts in the anchored overview and the saved mode is never read (maximize-follow)."""
         return {'spacing': self.spacing, 'mode': 'anchor', 'prediction': self.prediction,
-                'video_quality': dict(self.video_quality)}
+                'video_quality': dict(self.video_quality), 'environment': dict(self.environment)}
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
@@ -579,14 +592,15 @@ def settings_path():
 
 
 DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True,
-                    'video_quality': dict(_quality.DEFAULTS)}  # quality.py owns its defaults
+                    'video_quality': dict(_quality.DEFAULTS),  # quality.py owns its defaults
+                    'environment': dict(_environment.DEFAULTS)}  # as environment.py does its own
 
 
 def load_settings(path):
     """Each field validated on its own; anything invalid or missing falls back to its default. A `cursor_follow`
     saved before 2026-11-02 and a `cursor_switch_animate` saved before 2026-11-03 (Ctrl+Alt+A) are ignored (both
     features were removed)."""
-    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS)}
+    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS), 'environment': dict(_environment.DEFAULTS)}
     try:
         data = json.loads(Path(path).read_text())
     except (OSError, ValueError):
@@ -596,6 +610,7 @@ def load_settings(path):
     if data.get('mode') in MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
     out['video_quality'] = _quality.video_quality(data)
+    out['environment'] = _environment.environment(data)
     return out
 
 
@@ -612,7 +627,8 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
-            and type(settings.get('prediction')) is bool and _quality.is_valid(settings.get('video_quality')))
+            and type(settings.get('prediction')) is bool and _quality.is_valid(settings.get('video_quality'))
+            and _environment.is_valid(settings.get('environment')))
 
 
 def load_spacing(path):
@@ -772,7 +788,7 @@ class ViewControl:
         self.supervisor = supervisor
 
     def initial_frame(self):
-        return self._frame() + self._placement_frame(initial=True) + self._style_frame()
+        return self._frame() + self._placement_frame(initial=True) + self._style_frame() + self._environment_frame(initial=True)
 
     def _placement_frame(self, initial=False):
         from .geometry import DEFAULT_PLACEMENT
@@ -781,6 +797,23 @@ class ViewControl:
         frame = placement_frame(self.run_id, self.session, self.next_id, self.state.placements)
         self.next_id += 1
         return frame
+
+    def _environment_frame(self, initial=False):
+        """The TRON grid's setting for the renderer; a run's start sends it only if it is on (the renderer starts off)."""
+        if initial and not self.state.environment['on']: return b''
+        frame = _environment.renderer_frame(self.run_id, self.session, self.next_id, self.state.environment)
+        self.next_id += 1
+        return frame
+
+    def set_environment(self, env):
+        """The TRON grid changes (a key, or the quality menu's row): applied live and saved with the view settings. The
+        renderer's frame, b'' if nothing changed."""
+        env = _environment.validate(env)
+        if env == self.state.environment: return b''
+        self.state.environment = env
+        try: self.settings.save(self.state.settings())
+        except (OSError, ValueError): pass  # best effort, like the other view settings: the run keeps going
+        return self._environment_frame()
 
     def _style_frame(self):
         """Theme border colour for the highlight; empty if unknown or unchanged. Never fatal."""
@@ -1139,6 +1172,10 @@ class ViewControl:
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None
+        if isinstance(message, dict) and message.get('op') == ENVIRONMENT_OP:  # Ctrl+Alt+E: the TRON grid fades in / out
+            return self.set_environment(_environment.toggled(self.state.environment)) or None
+        if isinstance(message, dict) and message.get('op') == ENVIRONMENT_COLOR_OP:  # Ctrl+Alt+Shift+E: its colour
+            return self.set_environment(_environment.recolored(self.state.environment)) or None
         if isinstance(message, dict) and message.get('op') == PRIVACY_OP:  # the compositor call runs off the loop
             if self.privacy is not None: self.privacy.request()
             return None

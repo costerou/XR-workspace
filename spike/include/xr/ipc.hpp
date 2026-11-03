@@ -13,7 +13,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
-                       overview_pointer, roll, desktops };
+                       overview_pointer, roll, desktops, environment };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -132,8 +132,14 @@ struct RollPayload {
 // (before the supervisor removes the output, so its going is expected). `renew` (optional, names from `outputs`): restart
 // those captures (the supervisor reshaped the output). Malformed: rejected like any malformed frame (the renderer stops).
 struct DesktopsPayload { std::vector<std::string> outputs, renew; };
+// The TRON grid behind the desktops (xr/environment.hpp; tools/native_spike/environment.py), display only:
+// {"on":bool,"color":"cyan"|"theme"} (exactly those keys). on: fade in / out; color: classic cyan or the theme accent
+// (the `style` op's colour). Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
+constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
+struct EnvironmentPayload { bool on = false; std::uint8_t color = 0; };  // color: 0 cyan, 1 theme (EnvironmentColor)
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
-                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload>;
+                                    ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
+                                    EnvironmentPayload>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -143,11 +149,11 @@ struct ControlMessage {
 };
 Result<ControlMessage> decode_control(std::string_view frame);
 // A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle,
-// overview_pointer or roll payload. It
+// overview_pointer, roll or environment payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
     return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
-           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode;
+           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode;
 }
 class ControlQueue {
 public:

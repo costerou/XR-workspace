@@ -203,6 +203,9 @@ int main(int argc, char** argv) {
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
                     }
+                    else if (m->op == xr::ControlOp::environment) {  // the TRON grid; malformed ones were dropped above
+                        if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->on, e->color);
+                    }
                     else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
                         const auto& d = std::get<xr::DesktopsPayload>(m->payload);
                         presentation.set_desktops(d.outputs, d.renew);

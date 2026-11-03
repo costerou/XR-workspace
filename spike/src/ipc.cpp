@@ -274,6 +274,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
         else if (name == "roll") op = ControlOp::roll;
         else if (name == "desktops") op = ControlOp::desktops;
+        else if (name == "environment") op = ControlOp::environment;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -369,6 +370,12 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             DesktopsPayload set;
             if (!desktops(j["payload"], set)) return invalid();
             payload = std::move(set);
+        } else if (op == ControlOp::environment) {
+            const auto& p = j["payload"];
+            const auto color = p.size() == 2 && p.contains("color") && p["color"].is_string() ? p["color"].get<std::string>() : "";
+            if (!p.contains("on") || !p["on"].is_boolean() || (color != "cyan" && color != "theme"))
+                return Error{kInvalidEnvironmentCode, "Ignored malformed environment payload"};
+            payload = EnvironmentPayload{p["on"].get<bool>(), std::uint8_t(color == "theme" ? 1 : 0)};
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

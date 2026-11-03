@@ -123,7 +123,8 @@ class MenuTests(unittest.TestCase):
         out = self.payloads('video_quality')
         self.assertEqual(out[0], {'action': 'controls', 'visible': True})
         self.assertEqual(out[1], {'action': 'menu', 'visible': True, 'selected': 0,
-                                  'rows': [{'label': 'Texture filter', 'value': 'Catmull-Rom'}, {'label': 'Deband', 'value': 'Off'}]})
+                                  'rows': [{'label': 'Texture filter', 'value': 'Catmull-Rom'}, {'label': 'Deband', 'value': 'Off'},
+                                           {'label': 'TRON grid', 'value': 'Off'}]})  # environment.py's row
         self.assertTrue(self.v.snapshot()['quality_menu'])
         for p in out: video.validate_renderer_payload(p)
         self.assertEqual(self.payloads('video_quality'), [{**out[1], 'visible': False, 'selected': 0}])  # Q again closes
@@ -149,7 +150,8 @@ class MenuTests(unittest.TestCase):
         self.op('video_quality')
         for op in ('video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big'):
             self.assertNotIn('seek', [p['action'] for p in self.payloads(op)])
-        self.assertEqual([p['selected'] for p in (self.payloads('video_up')[0], self.payloads('video_up')[0])], [1, 0])  # wraps
+        self.assertEqual([p['selected'] for p in (self.payloads('video_up')[0], self.payloads('video_up')[0])], [2, 1])  # wraps
+        self.payloads('video_up')  # back on the first row
         self.assertEqual(self.payloads('video_format')[0]['selected'], 1)  # Tab: next setting, not the next format
         self.assertEqual(self.v.format['stereo'], 'tb')
         self.assertEqual([p['action'] for p in self.payloads('video_pause')], ['pause'])  # Space still plays / pauses

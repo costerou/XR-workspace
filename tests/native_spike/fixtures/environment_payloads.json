@@ -1,0 +1,22 @@
+{
+  "comment": "The renderer's `environment` payload (the TRON grid, spike/include/xr/ipc.hpp EnvironmentPayload). The renderer's decoder (spike/tests/environment_test.cpp) and the supervisor's frame builder (tools/native_spike/environment.py, tests/native_spike/test_environment.py) both run over this file. Each valid entry gives the decoded colour (0 cyan, 1 theme).",
+  "valid": [
+    {"payload": {"on": true, "color": "cyan"}, "on": true, "color": 0},
+    {"payload": {"on": false, "color": "cyan"}, "on": false, "color": 0},
+    {"payload": {"on": true, "color": "theme"}, "on": true, "color": 1},
+    {"payload": {"color": "theme", "on": false}, "on": false, "color": 1}
+  ],
+  "invalid": [
+    {},
+    {"on": true},
+    {"color": "cyan"},
+    {"on": 1, "color": "cyan"},
+    {"on": "true", "color": "cyan"},
+    {"on": true, "color": "red"},
+    {"on": true, "color": "Cyan"},
+    {"on": true, "color": 0},
+    {"on": true, "color": null},
+    {"on": true, "color": "cyan", "level": 1},
+    {"on": null, "color": "theme"}
+  ]
+}

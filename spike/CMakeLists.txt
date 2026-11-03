@@ -273,7 +273,7 @@ if(XR_ENABLE_PRESENTATION)
   pkg_check_modules(FONT REQUIRED IMPORTED_TARGET freetype2 fontconfig)
   # video.cpp: VR video maths + controls card state; material*.cpp: the Material Design 3 palette, tokens and drawing.
   add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp src/glass_theme.cpp src/material.cpp
-              src/material_draw.cpp)
+              src/material_draw.cpp src/environment.cpp)
   target_link_libraries(xr_hud PUBLIC xr_types xr_pose xr_view PRIVATE PkgConfig::FONT)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
@@ -338,7 +338,7 @@ if(XR_ENABLE_PRESENTATION)
   add_test(NAME capture COMMAND capture_test)
   pkg_check_modules(GPU REQUIRED IMPORTED_TARGET egl glesv2 wayland-egl gbm libdrm)
   add_library(xr_presentation STATIC src/wayland.cpp src/presentation.cpp src/gl.cpp src/hud_gl.cpp src/dmabuf.cpp
-    src/video_gl.cpp src/video_player.cpp src/video_mode.cpp ${PROTOCOL_SOURCES})
+    src/video_gl.cpp src/video_player.cpp src/video_mode.cpp src/environment_gl.cpp ${PROTOCOL_SOURCES})
   target_include_directories(xr_presentation PRIVATE "${GENERATED}")
   target_link_libraries(xr_presentation PUBLIC xr_types xr_metrics xr_capture xr_view xr_pose xr_predict xr_hud PRIVATE PkgConfig::WAYLAND PkgConfig::GPU)
   add_executable(xr-native-spike src/main.cpp)
@@ -360,12 +360,32 @@ if(XR_ENABLE_PRESENTATION)
   # GlCompositor frames on surfaceless EGL (create_offscreen): a long-lived compositor draws every scenario frame exactly
   # like a fresh one (ctest); --bench and --hashes time and fingerprint the draw path. gl.cpp and hud_gl.cpp are compiled
   # into it a second time with their GL calls counted (tests/gl_call_counts.hpp). Skipped without EGL.
-  add_executable(gl_bench tests/gl_bench.cpp tests/gl_bench_gl.cpp tests/gl_bench_hud_gl.cpp)
+  add_executable(gl_bench tests/gl_bench.cpp tests/gl_bench_gl.cpp tests/gl_bench_hud_gl.cpp tests/gl_bench_environment_gl.cpp)
   target_include_directories(gl_bench PRIVATE src tests)
   target_link_libraries(gl_bench PRIVATE xr_hud xr_view xr_pose PkgConfig::GPU PkgConfig::WAYLAND)
   target_compile_options(gl_bench PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-subobject-linkage)  # gl.cpp included as a header
   add_test(NAME gl_frame COMMAND gl_bench)
   set_tests_properties(gl_frame PROPERTIES SKIP_RETURN_CODE 77)
+  # The TRON grid (xr/environment.hpp): colours, fade, the levelled world-locked view and the `environment` frame.
+  if(TARGET xr_ipc)
+    add_executable(environment_test tests/environment_test.cpp)
+    target_link_libraries(environment_test PRIVATE xr_hud xr_ipc nlohmann_json::nlohmann_json)
+    target_compile_options(environment_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME environment COMMAND environment_test "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/environment_payloads.json")
+  endif()
+  # ... and drawn behind the desktops on surfaceless EGL (exit 77 without it). `environment_render_test DIR` also writes
+  # the offscreen preview PNGs there (zlib); ctest writes them into the build directory's environment-previews/.
+  find_package(ZLIB)
+  add_executable(environment_render_test tests/environment_render_test.cpp)
+  target_include_directories(environment_render_test PRIVATE src)
+  target_link_libraries(environment_render_test PRIVATE xr_presentation PkgConfig::GPU)
+  if(ZLIB_FOUND)
+    target_compile_definitions(environment_render_test PRIVATE XR_HAVE_ZLIB)
+    target_link_libraries(environment_render_test PRIVATE ZLIB::ZLIB)
+  endif()
+  target_compile_options(environment_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME environment_render COMMAND environment_render_test "${CMAKE_CURRENT_BINARY_DIR}/environment-previews")
+  set_tests_properties(environment_render PROPERTIES SKIP_RETURN_CODE 77)
   foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump placement_geometry_dump)
     target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endforeach()
