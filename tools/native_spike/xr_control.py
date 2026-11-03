@@ -97,10 +97,9 @@ REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
                        'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
                        'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
                        'end end')
-# Same text as view.remove_drag_binds_lua() (tests compare): a Super drag with no run listening drops the run's own binds
-# beside the user's (which never stopped working).
-REMOVE_DRAG_BINDS = ('for _, b in ipairs(xr_workspace_drag_binds or {}) do '
-                     'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_drag_binds = nil')
+# Same text as view.remove_drag_binds_lua() (tests compare): a Super drag with no run listening disarms the run's own
+# binds beside the user's (which never stopped working; removing them would erase the user's too).
+REMOVE_DRAG_BINDS = 'xr_workspace_drag_run = nil'
 # Same text as overview_cursor.SHOW_LUA (tests compare): the real cursor a dead run hid in the overview comes back. Sent
 # after every stale cleanup's own code below; after REMOVE_RESIZE_BINDS, whose grab record still says hidden.
 SHOW_OVERVIEW_CURSOR = ('do local s = xr_workspace_overview_cursor xr_workspace_overview_cursor = nil if s then '

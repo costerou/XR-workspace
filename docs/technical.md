@@ -571,10 +571,19 @@ from its source at the installed commit (`efb5099`), not observed.
 
 **Seeing it.** `view.install_drag_binds_lua` adds its own table (`xr_workspace_drag_binds`) with the run binds (not in typing
 mode). `SUPER + mouse:272` and `:273` are bound *non-consuming*: Hyprland runs every bind matching a chord, so the user's
-still fire, and `bind_check` loads these but does not count them as clashes. `mouse:272` and `:273` are bound on release
+still fire, and `bind_check` loads these but does not count them as clashes. The same two chords are bound again on release
 with `ignore_mods`, because a release bind otherwise needs the press's modifiers and Super may be let go first; they run
 nothing unless a Super press came first, so a plain click spawns no helper. The ops are `view.SUPER_OPS`. A lost release
 cannot strand the dot: a plain press ends the drag in the run, and so do 30 s without pointer movement.
+
+**These binds are never removed.** `Keybind:remove()` erases every bind with the same modifiers and key (see
+[Key bind panel](#key-bind-panel)), so removing the run's `SUPER + mouse:272` would delete Omarchy's "Move window" until the
+next config reload. They are made once per Hyprland config and armed by `xr_workspace_drag_run`, the bind helper's command
+line: a run's end, a reinstall and a stale run's cleanup (`view.remove_drag_binds_lua`, `xr_control.REMOVE_DRAG_BINDS`) only
+clear it, and without it they do nothing, the helper included. A config reload drops them, and the next install makes them
+again. The release binds carry the Super chords, not the bare buttons, because `ignore_mods` keeps the modmask: bare ones
+would go every time the free pointer's or input lock's binds on those buttons are removed. Read from Hyprland's source at
+`efb5099`; not run on a live compositor.
 
 **A move across desktops.** Inside a desktop nothing changes. At its edge the pointer goes to `carry`, not free:
 

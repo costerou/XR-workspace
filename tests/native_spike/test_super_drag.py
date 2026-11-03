@@ -681,7 +681,7 @@ class LuaTests(unittest.TestCase):
     """install_drag_binds_lua run against the stub `hl` (test_input_lock.LuaRunTests)."""
     STUB, run_lua = til.LuaRunTests.STUB, til.LuaRunTests.run_lua
     RIG = r'''
-local fired, execs, drags = {}, {}, 0
+local fired, execs, drags, made, removes = {}, {}, 0, 0, 0
 local timers = {}
 hl.dsp.window = { drag = function() return { drag = true } end }
 hl.get_current_submap = function() return "" end
@@ -693,7 +693,8 @@ hl.bind = function(chord, action, opts)
   local key = chord .. ((opts and opts.release) and "^" or "")
   fired[key] = { f = action, o = opts }
   state.binds[key] = "fn"
-  return setmetatable({ remove = function() state.binds[key] = nil end }, { __tostring = function() return "HL.Keybind" end })
+  made = made + 1
+  return setmetatable({ remove = function() removes = removes + 1 state.binds[key] = nil end }, { __tostring = function() return "HL.Keybind" end })
 end
 local function press(k) fired[k].f() end
 local function run_timers() for _, t in ipairs(timers) do print("timer", t.o.timeout, t.o.type) t.f() end timers = {} end
@@ -706,36 +707,56 @@ local function list() return "[" .. table.concat(execs, " ") .. "]" end
     def test_the_binds_are_non_consuming_and_the_releases_ignore_modifiers(self):
         out = self.run_lua('\n'.join([self.RIG, self.binds(),
             'for _, k in ipairs({ "SUPER + mouse:272", "SUPER + mouse:273" }) do print(k, tostring(fired[k].o.non_consuming), tostring(fired[k].o.release)) end',
-            'for _, k in ipairs({ "mouse:272^", "mouse:273^" }) do print(k, tostring(fired[k].o.non_consuming), tostring(fired[k].o.ignore_mods)) end',
+            'for _, k in ipairs({ "SUPER + mouse:272^", "SUPER + mouse:273^" }) do print(k, tostring(fired[k].o.non_consuming), tostring(fired[k].o.ignore_mods)) end',
             'print("count", #xr_workspace_drag_binds)']))
         self.assertEqual(out, [['SUPER + mouse:272', 'true', 'nil'], ['SUPER + mouse:273', 'true', 'nil'],
-                               ['mouse:272^', 'true', 'true'], ['mouse:273^', 'true', 'true'], ['count', '4']])
+                               ['SUPER + mouse:272^', 'true', 'true'], ['SUPER + mouse:273^', 'true', 'true'], ['count', '4']])
 
     def test_a_drag_over_a_desktop_tells_the_run_once_each_way(self):
         out = self.run_lua('\n'.join([self.RIG, self.binds(),
-            'press("mouse:272^")', 'print("plain release", list())',  # a plain click: nothing runs
-            'press("SUPER + mouse:272")', 'print("press", list())', 'press("mouse:272^")', 'print("release", list())',
-            'press("mouse:272^")', 'print("again", list())',
-            'press("SUPER + mouse:273")', 'press("mouse:273^")', 'print("right", list())', 'print("drags", drags)']))
+            'press("SUPER + mouse:272^")', 'print("plain release", list())',  # a plain click: nothing runs
+            'press("SUPER + mouse:272")', 'print("press", list())', 'press("SUPER + mouse:272^")', 'print("release", list())',
+            'press("SUPER + mouse:272^")', 'print("again", list())',
+            'press("SUPER + mouse:273")', 'press("SUPER + mouse:273^")', 'print("right", list())', 'print("drags", drags)']))
         self.assertEqual(out, [['plain release', '[]'], ['press', '[super_left_press]'],
                                ['release', '[super_left_press super_release]'], ['again', '[super_left_press super_release]'],
                                ['right', '[super_left_press super_release super_right_press super_release]'], ['drags', '0']])
 
     def test_with_the_dot_free_the_drag_on_the_parked_cursor_is_ended_and_the_run_hears_nothing(self):
         out = self.run_lua('\n'.join([self.RIG, self.binds(), 'xr_workspace_grab = {}',
-            'press("SUPER + mouse:272")', 'run_timers()', 'press("mouse:272^")',
-            'press("SUPER + mouse:273")', 'run_timers()', 'press("mouse:273^")', 'print("run", list())', 'print("drags", drags)']))
+            'press("SUPER + mouse:272")', 'run_timers()', 'press("SUPER + mouse:272^")',
+            'press("SUPER + mouse:273")', 'run_timers()', 'press("SUPER + mouse:273^")', 'print("run", list())', 'print("drags", drags)']))
         self.assertEqual(out, [['timer', '1', 'oneshot'], ['timer', '1', 'oneshot'], ['run', '[]'], ['drags', '2']])
 
     def test_run_end_and_a_reinstall_leave_one_set(self):
-        out = self.run_lua('\n'.join([self.RIG, self.binds(), self.binds(), 'print("twice", #xr_workspace_drag_binds)',
-                                      view.remove_binds_lua(), 'print("gone", tostring(xr_workspace_drag_binds))']))
-        self.assertEqual(out, [['twice', '4'], ['gone', 'nil']])
+        out = self.run_lua('\n'.join([self.RIG, self.binds(), self.binds(), 'print("twice", #xr_workspace_drag_binds, made)']))
+        self.assertEqual(out, [['twice', '4', '4']])
+
+    def test_the_binds_are_never_removed_so_the_users_on_the_same_chords_survive(self):
+        # Hyprland's Keybind:remove() erases every bind with the same modifiers and key (KeybindManager.cpp removeKeybind),
+        # so removing the run's SUPER + mouse:272 / 273 would delete the user's Move window and Resize window with them. A
+        # run's end, and a stale run's cleanup, only disarm them; the next run arms them again, in no doubled set.
+        out = self.run_lua('\n'.join([self.RIG, self.binds(), 'press("SUPER + mouse:272")', 'press("SUPER + mouse:272^")',
+            view.remove_binds_lua(), 'print("ended", list(), removes, #xr_workspace_drag_binds)',
+            'press("SUPER + mouse:272")', 'press("SUPER + mouse:272^")', 'print("disarmed", list())',
+            self.binds(), 'press("SUPER + mouse:273")', 'press("SUPER + mouse:273^")',
+            'print("armed", list(), removes, made)',
+            xr_control.REMOVE_DRAG_BINDS, 'press("SUPER + mouse:272")', 'print("stale", #execs, removes)']))
+        self.assertEqual(out, [['ended', '[super_left_press super_release]', '0', '4'],
+                               ['disarmed', '[super_left_press super_release]'],
+                               ['armed', '[super_left_press super_release super_right_press super_release]', '0', '4'],
+                               ['stale', '4', '0']])
+
+    def test_a_config_reload_drops_the_binds_and_the_next_install_makes_them_again(self):
+        out = self.run_lua('\n'.join([self.RIG, self.binds(),
+            'for _, b in ipairs(xr_workspace_drag_binds) do getmetatable(b).__tostring = function() return "HL.Keybind(expired)" end end',
+            self.binds(), 'print("again", #xr_workspace_drag_binds, made, removes)']))
+        self.assertEqual(out, [['again', '4', '8', '0']])
 
     def test_a_refused_bind_is_left_out(self):
         out = self.run_lua('\n'.join([self.RIG, 'local plain = hl.bind hl.bind = function(k, a, o) if k == "SUPER + mouse:273" then error("no") end return plain(k, a, o) end',
                                       self.binds(), 'print("count", #xr_workspace_drag_binds)']))
-        self.assertEqual(out, [['count', '3']])
+        self.assertEqual(out, [['count', '2']])  # its press and its release
 
     def test_paths_and_tokens_are_checked_and_the_dead_run_cleanup_is_the_same_text(self):
         with self.assertRaises(ValueError): view.install_drag_binds_lua('/usr/bin/python3;rm', *BIND_ARGS[1:])

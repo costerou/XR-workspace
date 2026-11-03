@@ -186,7 +186,7 @@ class HyprlandViewRequestTests(unittest.TestCase):
         self.assertEqual(sent[0], '/dispatch hl.dsp.focus({monitor="XR-3"})')
         self.assertTrue(sent[1].startswith('/eval local c = "') and ' xr_workspace_binds = {' in sent[1])
         self.assertIn(' xr_workspace_send_binds = {', sent[2])  # send-window binds: their own eval
-        self.assertIn(f' {view.DRAG_TABLE} = t end', sent[3])    # the Super drag binds too
+        self.assertIn(f' {view.DRAG_TABLE} = t end end', sent[3])    # the Super drag binds too
         self.assertEqual(sent[4], '/eval ' + view.remove_binds_lua())
         for bad in ('dispatch hl.dsp.focus({monitor="DP-1"})', 'dispatch hl.dsp.exec_cmd("x")', 'eval os.execute("x")'):
             with self.assertRaises(ValueError): c.mutate(bad)

@@ -80,7 +80,7 @@ class BindLuaTests(unittest.TestCase):
         # The Super drag binds come straight back: they take no key, and a Super drag works in typing mode too.
         self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS, typing=True), view.install_drag_binds_lua(*ARGS)])
         for table in ('xr_workspace_binds = nil', 'xr_workspace_send_binds = nil', 'xr_workspace_menu_binds = nil',
-                      'xr_workspace_mouse_binds = nil', f'{view.DRAG_TABLE} = nil'):
+                      'xr_workspace_mouse_binds = nil', f'{view.DRAG_RUN} = nil'):
             self.assertIn(table, sent[0])
         self.assertLessEqual(len(sent[0]), 4096)
         sent.clear(); client.reinstall_view_binds(*ARGS, typing=False)
