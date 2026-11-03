@@ -1208,13 +1208,13 @@ class ViewControl:
             self.last_input = self.clock()  # any run key, click or panel change keeps an open card or panel up
         if isinstance(message, dict) and message.get('op') == 'placement':
             return self._on_placement(message.get('payload'))
+        if isinstance(message, dict) and message.get('op') == 'resize_cancel':  # resize.CANCEL_OP: Super went down
+            return self.overview_pointer.super_down() if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') == TYPING_OP:
             return self._typing_toggle()
         if isinstance(message, dict) and self.state.typing and message.get('op') in IGNORED_WHILE_TYPING: return None
         if isinstance(message, dict) and message.get('op') in MENU_OPS:
             return self._on_menu(message['op'])
-        if isinstance(message, dict) and message.get('op') == 'resize_cancel':  # resize.CANCEL_OP: Super went down
-            return self.overview_pointer.super_down() if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
