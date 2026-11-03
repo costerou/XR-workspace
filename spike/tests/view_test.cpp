@@ -77,30 +77,84 @@ int main() {
     a.set_target(false, 0, 40, 0); a.advance(1000);
     CHECK(!a.animating() && a.zoom() == 0 && a.position() == 0);
     a.set_target(true, 2, 40, 1000);
-    CHECK(a.position() == 2);  // the switch is instant (no advance needed); the zoom eases
+    CHECK(a.position() == 2);  // zooming in from the overview: on the selection at once; the zoom eases
     a.advance(1100); CHECK(a.animating() && a.zoom() > 0 && a.zoom() < 1 && a.position() == 2);
     a.advance(1200); CHECK(!a.animating() && a.zoom() == 1 && a.position() == 2 && a.selected() == 2);
-    a.set_target(true, 1, 120, 1200); a.advance(1300);
-    CHECK(a.position() == 1 && a.spacing() > 40 && a.spacing() < 120);
+    a.set_target(true, 1, 120, 1200); a.advance(1300);  // zoomed: the switch animates (zooming out of 2 first)
+    CHECK(a.switching() && a.position() == 2 && a.selected() == 1 && a.zoom() < 1 && a.spacing() > 40 && a.spacing() < 120);
     a.advance(2000); CHECK(a.zoom() == 1 && a.position() == 1 && a.spacing() == 120);
     a.set_target(false, 1, 120, 2000); a.advance(2100); CHECK(a.zoom() > 0 && a.zoom() < 1 && a.position() == 1);
     a.advance(3000); CHECK(a.zoom() == 0 && !a.animating());
     a.set_target(true, 9, 9999, 3000); a.advance(4000);  // selection and spacing are clamped
     CHECK(a.selected() == 2 && a.spacing() == float(kMaxSpacing));
 
-    // Regression (Ctrl+Alt+Left / Right): switching desktops snaps straight to the target, zoomed in or not, in every
-    // viewing mode (the animator has no mode), the zoom untouched; quick presses never pass through a fraction.
+    // Regression (2026-11-02, animations back): zoom in and out ease over the duration and never snap; in the overview
+    // Ctrl+Alt+Left / Right just moves the selection (nothing zoomed to animate).
     CHECK(smootherstep(0) == 0 && smootherstep(1) == 1 && near(smootherstep(0.5f), 0.5f, 1e-3f));
-    for (const bool zoomed : {true, false}) {
-        ViewAnimator m;  // defaults: 220 ms zoom
-        m.set_target(zoomed, 0, 40, 0); m.advance(1000);
-        CHECK(!m.animating() && m.position() == 0);
-        for (const std::uint32_t to : {1u, 2u, 1u, 0u, 2u}) {
-            const double at = 1000 + 50.0 * to;
-            m.set_target(zoomed, to, 40, at);
-            CHECK(m.position() == float(to) && m.selected() == to && m.zoom() == (zoomed ? 1.f : 0.f));
-            m.advance(at + 1); CHECK(m.position() == float(to) && m.zoom() == (zoomed ? 1.f : 0.f));
+    {
+        ViewAnimator v;  // defaults: 220 ms zoom, 300 ms turn
+        v.set_target(false, 0, 40, 0); v.advance(1000);
+        v.set_target(true, 0, 40, 1000);
+        float last = 0;
+        for (double t = 1000; t <= 1220; t += 10) {
+            v.advance(t); CHECK(v.zoom() >= last && v.zoom() - last < 0.12f && v.look() == 0 && !v.switching()); last = v.zoom();
         }
+        CHECK(v.zoom() == 1 && !v.animating());
+        v.set_target(false, 0, 40, 2000); v.advance(2110); CHECK(v.zoom() > 0.3f && v.zoom() < 0.7f);
+        v.advance(2220); CHECK(v.zoom() == 0 && !v.animating());
+        for (const std::uint32_t to : {1u, 2u, 1u, 0u}) {
+            v.set_target(false, to, 40, 3000); CHECK(v.position() == float(to) && !v.switching() && v.zoom() == 0);
+        }
+    }
+    // Ctrl+Alt+Left / Right zoomed in (every viewing mode: the animator has no mode): zoom out of the current desktop, turn
+    // the view toward the target, zoom into it. Continuous throughout; at rest the view is never turned.
+    {
+        ViewAnimator v(220, 300);
+        v.set_target(true, 1, 40, 0); v.advance(1000);
+        CHECK(v.zoom() == 1 && v.position() == 1 && !v.animating());
+        v.set_target(true, 2, 40, 1000);
+        CHECK(v.switching() && v.selected() == 2 && v.position() == 1 && v.zoom() == 1 && v.look() == 0);
+        CHECK(v.look_from() == 1 && v.look_to() == 2);
+        float pz = 1, pl = 0;
+        int phase = 1;
+        for (double t = 1000; t <= 1730; t += 5) {
+            v.advance(t);
+            const float z = v.zoom(), l = v.look();
+            CHECK(std::fabs(z - pz) < 0.06f && std::fabs(l - pl) < 0.06f);  // no jumps
+            if (t < 1220) { CHECK(phase == 1 && v.position() == 1 && l == 0 && z <= pz); }                // 1: zoom out of 1
+            else if (t < 1520) { phase = 2; CHECK(v.position() == 2 && z == 0 && l >= pl && l <= 1); }  // 2: turn toward 2
+            else if (t < 1740) { phase = 3; CHECK(v.position() == 2 && z >= pz && l <= pl + 1e-3f); }   // 3: zoom into 2
+            if (t == 1370) CHECK(l > 0.3f && l < 0.7f);  // mid-turn
+            pz = z; pl = l;
+        }
+        v.advance(1740); CHECK(!v.switching() && !v.animating() && v.zoom() == 1 && v.look() == 0 && v.position() == 2);
+        // Retargeted while still zooming out: aims the same switch elsewhere.
+        v.set_target(true, 1, 40, 2000); v.advance(2100);
+        v.set_target(true, 0, 40, 2100); CHECK(v.look_from() == 2 && v.look_to() == 0);
+        v.advance(2900); CHECK(!v.switching() && v.position() == 0 && v.zoom() == 1);
+        // Back to where it came from before the turn: it zooms straight back in.
+        v.set_target(true, 1, 40, 3000); v.advance(3100);
+        const float back = v.zoom();
+        v.set_target(true, 0, 40, 3100); CHECK(!v.switching() && v.zoom() == back && v.position() == 0 && v.look() == 0);
+        v.advance(3400); CHECK(v.zoom() == 1 && !v.animating());
+        // A press mid-turn queues: the switch lands, then the next runs from there.
+        v.set_target(true, 1, 40, 4000); v.advance(4300);
+        v.set_target(true, 2, 40, 4300); CHECK(v.switching() && v.look_to() == 1);
+        v.advance(4800); CHECK(v.switching() && v.look_from() == 1 && v.look_to() == 2);
+        v.advance(5500); CHECK(!v.switching() && v.position() == 2 && v.zoom() == 1 && v.look() == 0);
+        // Zooming out mid-turn: zoom and turn ease back to the plain overview from where they are.
+        v.set_target(true, 0, 40, 6000); v.advance(6350);
+        const float turn = v.look();
+        CHECK(turn > 0 && v.zoom() == 0);
+        v.set_target(false, 0, 40, 6350); CHECK(!v.switching() && v.look() == turn && v.zoom() == 0);
+        v.advance(6460); CHECK(v.look() > 0 && v.look() < turn);
+        v.advance(6600); CHECK(v.look() == 0 && v.zoom() == 0 && !v.animating() && v.position() == 0);
+        // Zooming out mid-zoom-out of a switch keeps the zoom on the desktop being left (no jump), then shows the selection.
+        v.set_target(true, 1, 40, 7000); v.advance(7500);
+        v.set_target(true, 2, 40, 8000); v.advance(8100);
+        const float leaving = v.zoom();
+        v.set_target(false, 2, 40, 8100); CHECK(v.position() == 1 && v.zoom() == leaving);
+        v.advance(8400); CHECK(v.zoom() == 0 && v.position() == 2);
     }
 
     {  // Per-desktop placement (orbit round you, distance, curvature). Every desktop always faces you.
@@ -305,6 +359,47 @@ int main() {
         CHECK(zoom_draw_order(back_to_front, 0.5f, 2) == (std::vector<std::size_t>{1, 0, 2}));
         CHECK(zoom_draw_order(back_to_front, 0.49f, 1) == back_to_front && zoom_draw_order(back_to_front, 0, 2) == back_to_front);
         CHECK(zoom_draw_order(back_to_front, 1, 7) == back_to_front);
+    }
+    // The switch's view turn (look_turn) is a camera rotation only: identity at rest, a proper rotation, and at look 1 the
+    // target's direction (slot plus where it was dragged) comes exactly where the desktop being left was, upright.
+    {
+        const auto ov = overview_layout(eq, 1920, 1200, 40);
+        auto centre_of = [&](const FRect& t, const Placement& p) { return place_point(cv, t, p, t.x + t.width / 2, t.y + t.height / 2); };
+        auto mul = [](const std::array<float, 9>& m, Vec3 p) {
+            return Vec3{m[0] * p.x + m[1] * p.y + m[2] * p.z, m[3] * p.x + m[4] * p.y + m[5] * p.z, m[6] * p.x + m[7] * p.y + m[8] * p.z};
+        };
+        const std::array<float, 9> identity{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        const std::vector<Placement> own{Placement{-0.4f, 0.1f, 1.3f, 0.5f}, Placement{0.2f, -0.1f, 1.f, 0.f}, Placement{1.2f, 0.3f, 1.6f, 1.f}};
+        CHECK(look_turn(cv, ov, own, 1, 2, 0) == identity && look_turn(cv, ov, own, 1, 7, 1) == identity);
+        CHECK(look_turn(Canvas{}, ov, own, 1, 2, 1) == identity);
+        for (const auto& [from, to] : {std::pair{1u, 2u}, std::pair{2u, 0u}, std::pair{0u, 1u}})
+            for (float u : {0.25f, 0.5f, 1.f}) {
+                const auto m = look_turn(cv, ov, own, from, to, u);
+                const Vec3 ex = mul(m, {1, 0, 0}), ey = mul(m, {0, 1, 0}), ez = mul(m, {0, 0, 1});
+                CHECK(near(len(ex), 1, 1e-5f) && near(len(ey), 1, 1e-5f) && near(dot(ex, ey), 0, 1e-5f) && near(dot(ex, ez), 0, 1e-5f));
+                CHECK(close3(cross(ex, ey), ez, 1e-5f));  // no mirror
+                if (u < 1) continue;
+                const Vec3 a = unit(centre_of(ov[from], own[from])), b = unit(centre_of(ov[to], own[to]));
+                CHECK(close3(mul(m, b), a, 1e-4f));
+                // Upright: the target's up (toward the zenith along its meridian) lands on the left desktop's up.
+                auto up = [&](Vec3 d) { return unit(sub(Vec3{0, 1, 0}, Vec3{d.x * d.y, d.y * d.y, d.z * d.y})); };
+                CHECK(close3(mul(m, up(b)), up(a), 1e-4f));
+            }
+        // Every frame of a switch draws every desktop where it was dragged (the turn is the camera's, never a placement):
+        // the placements the renderer resolves keep each desktop's overview direction and land back on its own placement.
+        ViewAnimator v(220, 300);
+        v.set_target(true, 0, 40, 0); v.advance(1000); v.set_target(true, 2, 40, 1000);
+        for (double t = 1000; t <= 1750; t += 25) {
+            v.advance(t);
+            const auto tl = blended_layout(eq, 1920, 1200, 40, v.zoom(), v.position());
+            const auto pl = zoomed_placements(cv, ov, tl, own, v.zoom(), v.position());
+            for (std::size_t i = 0; i < 3; ++i) {
+                const Vec3 was = unit(centre_of(ov[i], own[i])), now = unit(centre_of(tl[i], pl[i]));
+                CHECK(close3(was, now, 1e-4f));
+            }
+            if (v.zoom() == 0) for (std::size_t i = 0; i < 3; ++i) CHECK(same_placement(pl[i], own[i]));
+        }
+        CHECK(!v.switching() && look_turn(cv, ov, own, v.look_from(), v.look_to(), v.look()) == identity);
     }
     // The orbit's x eases the short way round: a desktop crossing behind you (+-pi) stays behind you.
     Placement from_behind; from_behind.x = 3.1f;

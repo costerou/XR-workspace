@@ -144,6 +144,34 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
     return out;
 }
 
+std::array<float, 9> look_turn(const Canvas& c, std::span<const FRect> overview, std::span<const Placement> placements,
+                               std::size_t from, std::size_t to, float look) {
+    std::array<float, 9> m{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const float u = clampf(look, 0, 1);
+    if (!(u > 0) || from >= overview.size() || to >= overview.size() || c.view_w <= 0 || c.view_h <= 0) return m;
+    auto placed = [&](std::size_t i) {
+        const Dir s = slot_direction(c, overview[i]);
+        const Placement p = i < placements.size() ? placements[i] : Placement{};
+        return Dir{s.az + p.x, s.el + p.y};
+    };
+    const Dir a = placed(from), b = placed(to);
+    const Dir l{a.az + u * std::remainder(b.az - a.az, 2 * float(M_PI)), lerp(a.el, b.el, u)};  // the short way round
+    // R(d) = Az(d.az) . El(d.el) carries straight ahead to direction d, upright (place_point's turn). m = R(a) . R(l)^T.
+    auto rot = [](Dir d) {
+        const float ca = std::cos(d.az), sa = std::sin(d.az), ce = std::cos(d.el), se = std::sin(d.el);
+        // Az: x' = ca x - sa z, z' = sa x + ca z. El: y' = ce y - se z, z' = se y + ce z.
+        return std::array<float, 9>{ca, -sa * se, -sa * ce, 0, ce, -se, sa, ca * se, ca * ce};
+    };
+    const auto ra = rot(a), rl = rot(l);
+    for (int r = 0; r < 3; ++r)
+        for (int col = 0; col < 3; ++col) {
+            float v = 0;
+            for (int k = 0; k < 3; ++k) v += ra[r * 3 + k] * rl[col * 3 + k];  // R(l)^T[k][col] = R(l)[col][k]
+            m[r * 3 + col] = v;
+        }
+    return m;
+}
+
 std::vector<std::size_t> zoom_draw_order(std::vector<std::size_t> order, float zoom, std::size_t target) {
     if (!(zoom >= 0.5f)) return order;
     const auto it = std::find(order.begin(), order.end(), target);
@@ -233,17 +261,71 @@ bool same_placement(const Placement& a, const Placement& b) {
     return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature;
 }
 
+void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms) {
+    switch_ = {};
+    switch_.active = true; switch_.start_ms = now_ms; switch_.zoom = clampf(zoom, 0, 1); switch_.out_ms = duration_ * switch_.zoom;
+    switch_.from = from; switch_.to = to; switch_.zoom_now = switch_.zoom;
+    shown_ = from; look_from_ = from; look_to_ = to; look_t_ = 1.f; from_look_ = 0;
+    from_zoom_ = to_zoom_ = 1.f; t_ = 1.f;  // the zoom tween waits at 1 for the switch to land
+}
+
 void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {
     advance(now_ms);
-    from_zoom_ = zoom(); from_spacing_ = this->spacing();
-    to_zoom_ = zoomed ? 1.f : 0.f;
-    to_selected_ = std::min(selected, kMaxIndex);  // a desktop switch is instant: no slide between desktops
-    to_spacing_ = float(std::min(spacing, kMaxSpacing));
-    start_ms_ = now_ms; t_ = 0.f;
+    selected = std::min(selected, kMaxIndex);
+    const float spacing_target = float(std::min(spacing, kMaxSpacing));
+    if (spacing_target != to_spacing_) {
+        from_spacing_ = this->spacing(); to_spacing_ = spacing_target; spacing_start_ms_ = now_ms; spacing_t_ = 0.f;
+    }
+    const float z = zoom();
+    auto tween_zoom = [&](float to) {
+        const float look_now = look();
+        switch_.active = switch_.queued = false;
+        if (look_now > 0) { from_look_ = look_now; look_start_ms_ = now_ms; look_t_ = 0.f; }  // ease any turn back
+        from_zoom_ = z; to_zoom_ = to; start_ms_ = now_ms; t_ = 0.f;
+    };
+    if (switch_.active) {
+        const bool zooming_out = now_ms - switch_.start_ms < switch_.out_ms;
+        if (!zoomed) {
+            tween_zoom(0.f);  // zoom out from here; shown_ keeps the desktop on screen until the overview
+        } else if (selected == switch_.to) {
+            switch_.queued = false;
+        } else if (zooming_out && selected == switch_.from) {
+            tween_zoom(1.f);  // back before the turn began: zoom straight back in
+        } else if (zooming_out) {
+            switch_.to = look_to_ = selected;  // the turn has not started: just aim it elsewhere
+        } else {
+            switch_.queued = true; switch_.next = selected;  // runs once this switch lands
+        }
+    } else if (zoomed && selected != shown_ && (to_zoom_ == 1.f || z > 0.f)) {  // zoomed (or partly): animate the switch
+        start_switch(shown_, selected, z, now_ms);
+    } else {
+        if (float(zoomed) != to_zoom_) tween_zoom(zoomed ? 1.f : 0.f);
+        // Zooming out, the desktop being left stays the zoom's until the overview; otherwise the selection is shown at once.
+        if (!(to_zoom_ == 0.f && z > 0.f)) shown_ = selected;
+    }
+    to_selected_ = selected;
 }
 void ViewAnimator::advance(double now_ms) {
     if (t_ < 1.f) t_ = duration_ > 0 ? clampf(float((now_ms - start_ms_) / duration_), 0, 1) : 1.f;
+    if (spacing_t_ < 1.f) spacing_t_ = duration_ > 0 ? clampf(float((now_ms - spacing_start_ms_) / duration_), 0, 1) : 1.f;
+    if (look_t_ < 1.f) look_t_ = duration_ > 0 ? clampf(float((now_ms - look_start_ms_) / duration_), 0, 1) : 1.f;
+    if (!switch_.active && t_ >= 1.f) shown_ = to_selected_;
+    while (switch_.active) {
+        auto& w = switch_;
+        const double e = now_ms - w.start_ms, out = w.out_ms, turn = out + turn_, in = turn + duration_;
+        if (e < out) { w.zoom_now = w.zoom * (1 - smoothstep(float(e / out))); w.look_now = 0; shown_ = w.from; return; }
+        shown_ = w.to;
+        if (e < turn) { w.zoom_now = 0; w.look_now = turn_ > 0 ? smootherstep(float((e - out) / turn_)) : 1.f; return; }
+        if (e < in) { const float s = smoothstep(float((e - turn) / duration_)); w.zoom_now = s; w.look_now = 1 - s; return; }
+        // Landed: zoomed into the target, the view untouched. A queued switch starts where this one ended.
+        const bool again = w.queued && w.next != w.to;
+        const std::uint32_t from = w.to, next = w.next;
+        w.active = false; w.zoom_now = 1; w.look_now = 0;
+        if (!again) { shown_ = from; break; }
+        start_switch(from, next, 1.f, w.start_ms + in);
+    }
 }
-float ViewAnimator::zoom() const { return lerp(from_zoom_, to_zoom_, smoothstep(t_)); }
-float ViewAnimator::spacing() const { return lerp(from_spacing_, to_spacing_, smoothstep(t_)); }
+float ViewAnimator::zoom() const { return switch_.active ? switch_.zoom_now : lerp(from_zoom_, to_zoom_, smoothstep(t_)); }
+float ViewAnimator::look() const { return switch_.active ? switch_.look_now : from_look_ * (1 - smoothstep(look_t_)); }
+float ViewAnimator::spacing() const { return lerp(from_spacing_, to_spacing_, smoothstep(spacing_t_)); }
 }

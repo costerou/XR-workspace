@@ -4,6 +4,7 @@
 // zoom 1 = the desktop at `position` fills the view, neighbours continue to either side.
 // Sources may differ in size: all tiles share one height and keep their own aspect, so resolution
 // affects sharpness, not apparent size.
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -111,24 +112,50 @@ std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t w
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 
 // Time-based animation toward targets (no frame-rate dependence). Zoom and spacing ease with smoothstep over
-// `duration_ms`. Switching desktops (Ctrl+Alt+Left / Right, cursor follow, a dot click) is instant in every viewing mode:
-// position() is the selected desktop at once, with no slide.
+// `duration_ms`; selecting another desktop in the overview just moves the highlight.
+// Switching desktops while zoomed in (Ctrl+Alt+Left / Right, cursor follow) animates in three phases, in every viewing mode:
+//   1. zoom out from the current desktop to the overview (duration_ms times the zoom it started from; position() stays on it);
+//   2. turn: look() eases 0 -> 1 over `turn_ms` with smootherstep, the view turning from look_from() toward look_to()
+//      (look_turn), the overview held (zoom 0);
+//   3. zoom into the target (duration_ms) while look() eases back to 0, so it lands where it was dragged.
+// The turn is a view (camera) rotation only: no placement ever changes, and at rest look() is 0. During phase 1 another
+// switch retargets it; later ones queue and run once this one lands. Zooming out mid-switch zooms out from where the view
+// is and eases any turn back to 0.
 class ViewAnimator {
 public:
-    explicit ViewAnimator(float duration_ms = 220.f) : duration_(duration_ms) {}
+    explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms);
     void advance(double now_ms);
-    bool animating() const { return t_ < 1.f; }
+    bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active; }
+    bool switching() const { return switch_.active; }
     float zoom() const;      // eased current zoom in [0,1]
-    float position() const { return float(to_selected_); }  // the selected desktop: switching never animates
+    float position() const { return float(shown_); }  // the desktop the zoom is on (the one being left in phase 1)
+    std::uint32_t focus() const { return shown_; }
+    float look() const;      // [0,1]: how far the view is turned from look_from() toward look_to()
+    std::uint32_t look_from() const { return look_from_; }
+    std::uint32_t look_to() const { return look_to_; }
     float spacing() const;
     float target_spacing() const { return to_spacing_; }  // where spacing() is heading (the overview's settled layout)
     std::uint32_t selected() const { return to_selected_; }
 private:
-    float duration_;
-    double start_ms_ = 0;
-    float t_ = 1.f;
-    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40;
-    std::uint32_t to_selected_ = 0;
+    void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms);
+    float duration_, turn_;
+    double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
+    float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
+    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0;
+    std::uint32_t to_selected_ = 0, shown_ = 0, look_from_ = 0, look_to_ = 0;
+    struct Switch {
+        bool active = false, queued = false;
+        double start_ms = 0;
+        float zoom = 1, out_ms = 0;  // the zoom it started from; phase 1's length
+        std::uint32_t from = 0, to = 0, next = 0;
+        float zoom_now = 1, look_now = 0;
+    } switch_;
 };
+// The view turn of a desktop switch at `look` (ViewAnimator::look): a rotation applied to world points before the head's
+// view (draw with view * look_turn), turning desktop `from`'s overview direction (slot in `overview` plus its orbit) toward
+// `to`'s. At look 1 `to`'s direction comes exactly where `from`'s was, upright; at look 0 (and whenever an index is out of
+// range) it is the identity. Row-major, GL frame.
+std::array<float, 9> look_turn(const Canvas& canvas, std::span<const FRect> overview, std::span<const Placement> placements,
+                               std::size_t from, std::size_t to, float look);
 }
