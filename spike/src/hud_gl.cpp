@@ -29,7 +29,7 @@ std::unique_ptr<GlHud> GlHud::create() {
     GLint linked = 0; glGetProgramiv(out->program_, GL_LINK_STATUS, &linked);
     if (!linked) return nullptr;
     out->pos_ = glGetAttribLocation(out->program_, "pos"); out->uv_ = glGetAttribLocation(out->program_, "uv");
-    out->sampler_ = glGetUniformLocation(out->program_, "tex"); out->alpha_ = glGetUniformLocation(out->program_, "alpha");
+    out->alpha_ = glGetUniformLocation(out->program_, "alpha");
     GLuint tex = 0; glGenTextures(1, &tex); out->texture_ = tex;
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -60,7 +60,10 @@ void GlHud::draw_at(const HudImage& image, std::uint64_t generation, float alpha
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, texture_);
     if (generation != uploaded_) {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(image.width), GLsizei(image.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.rgba.data());
+        if (image.width == tex_w_ && image.height == tex_h_)  // same size (a slider value, a pop-up's text): keep the storage
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GLsizei(image.width), GLsizei(image.height), GL_RGBA, GL_UNSIGNED_BYTE, image.rgba.data());
+        else
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(image.width), GLsizei(image.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.rgba.data());
         uploaded_ = generation; tex_w_ = image.width; tex_h_ = image.height;
     }
     const float w = float(tex_w_), h = float(tex_h_);  // 1:1: the image is rasterised at output size
@@ -71,7 +74,7 @@ void GlHud::draw_at(const HudImage& image, std::uint64_t generation, float alpha
     const GLfloat positions[] = {l, t, r, t, l, b, r, b};
     const GLfloat uvs[] = {0, 0, 1, 0, 0, 1, 1, 1};  // row 0 of the card is its top
     glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glUseProgram(program_); glUniform1i(sampler_, 0); glUniform1f(alpha_, std::min(alpha, 1.f));
+    glUseProgram(program_); glUniform1f(alpha_, std::min(alpha, 1.f));  // sampler `tex` = unit 0: its link-time value
     glVertexAttribPointer(GLuint(pos_), 2, GL_FLOAT, GL_FALSE, 0, positions);
     glVertexAttribPointer(GLuint(uv_), 2, GL_FLOAT, GL_FALSE, 0, uvs);
     glEnableVertexAttribArray(GLuint(pos_)); glEnableVertexAttribArray(GLuint(uv_));
