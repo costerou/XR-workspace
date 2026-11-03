@@ -38,6 +38,8 @@ is open; the overview free pointer clicks a pill to expand it (collapsing any ot
 the panel, to collapse it. While a panel is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R,
 Escape) is installed and it is removed again on close: Up/Down pick the setting, Left/Right adjust it (Shift: big step),
 Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that desktop back flat, Escape collapses.
+An open panel also follows the focus: when the selection moves to another desktop in the overview that desktop's panel
+opens and the old one collapses (ViewControl.follow_focus). With every pill collapsed a selection change opens nothing.
 Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu` frame
 (open + desktop = the expanded pill; while the free pointer holds a slider, also `surface`, the press-time placement the
 renderer keeps the panel on) and saved to the profile 500 ms after the last change, or at once when the panel
@@ -913,6 +915,15 @@ class ViewControl:
         return (out + self._menu_update(lambda: self.state.apply_menu(op))) or None
 
     # --- the overview free pointer's pill clicks and sliders (free_pointer.OverviewPointer) ------------------------------
+    def follow_focus(self):
+        """The selection just moved to another desktop in the overview: an open panel goes with it, that desktop's pill
+        expanding and the old one collapsing (its changes saved at once, the panel's keys staying), as Tab does. With every
+        pill collapsed nothing opens. Renderer frames (bytes), b'' if the panel stayed."""
+        s = self.state
+        if not s.menu_open or s.zoomed or s.typing or self.video_active or s.selected == s.menu_desktop: return b''
+        self.flush()
+        return self._menu_update(lambda: s.open_menu(s.selected) or False)
+
     def pill_click(self, desktop):
         """A click on `desktop`'s pill (or its open panel's header): expand it, collapsing any other (only one is open),
         or collapse it if it is the open one. Same path as Ctrl+Alt+L: the modal keys are installed / removed, a
@@ -1289,6 +1300,7 @@ class ViewControl:
             except (OSError, ValueError): pass
         if self.state.view() != before:
             out += self._frame(cut=True) if direct and self.state.selected != before['selected'] else self._frame()
+        if self.state.selected != before['selected']: out += self.follow_focus()
         return out or None
 
     def _on_placement(self, payload):

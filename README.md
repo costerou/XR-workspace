@@ -219,6 +219,11 @@ degrees, so a single small step may not change the number there; the panel's **P
 keys and sliders don't stop at other desktops, so they can push one desktop over another. Only dragging the pill (below)
 keeps them apart.
 
+**While a pill is open** (new, not yet tried in the glasses) your desktops ease up a little, so the whole panel fits in view
+with your head level, key hints included, and ease back down when it closes. A background stays where it is. **The open pill
+follows the selected desktop:** select another desktop in the overview (Ctrl+Alt+Left / Right) and its pill opens as the old one
+closes. If no pill is open, selecting a desktop opens nothing.
+
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 

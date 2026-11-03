@@ -370,6 +370,7 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
+    PanelShift panel_shift;    // the view pitched down while a panel is open, so all of it shows (glass.hpp glass_panel_shift)
     // The background behind the desktops and a VR video (xr/environment.hpp): world-locked when drawn, in the theme colour.
     EnvironmentFade environment;
     Background environment_background = Background::none;  // the one drawn: None's fade-out keeps the last one to the end
@@ -805,7 +806,7 @@ struct Presentation::Impl : SurfaceRequests {
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
             (s.help_drawn && !s.help.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
-            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || (s.gl && s.environment.animating(now)) ||
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || (s.gl && s.environment.animating(now)) || s.panel_shift.animating(now) ||
             (s.environment_drawn && !s.environment.on()) ||  // its fade; settled it needs no frames of its own: see environment.hpp
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
@@ -939,7 +940,8 @@ std::string Presentation::capture_report() const {
     out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
            ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
-           ",\"renders\":" + std::to_string(impl_->glass.renders()) + "}";
+           ",\"renders\":" + std::to_string(impl_->glass.renders()) +
+           ",\"view_shift_mrad\":" + std::to_string(int(std::lround(impl_->panel_shift.value(double(monotonic_ms())) * 1000.f))) + "}";
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
     out += ",\"overview_pointer\":{\"shown\":" + std::to_string(impl_->free_pointer.shown) + "}";
@@ -1406,6 +1408,7 @@ Status Presentation::draw_test_pattern() {
                 return Error{"gl", "draw or swap failed"};
             s.video->after_swap();
             s.help_drawn = s.glass_drawn = false;
+            s.panel_shift.set(0.f, video_now);  // a video closes the panel
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
             return {};
@@ -1429,16 +1432,24 @@ Status Presentation::draw_test_pattern() {
             glass.roll_hover = s.roll.hover; glass.roll_hover_side = s.roll.side; glass.roll_level = s.roll.active ? kGlassActive : kGlassHover;
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
+            float shift = 0;  // for the panel as it is drawn: on the surface a held slider keeps it on
+            const int open = overview && s.glass.open() ? s.glass.content_desktop() : -1;
+            if (open >= 0 && std::size_t(open) < tiles.size()) {
+                const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
+                shift = glass_panel_shift(canvas, tiles[std::size_t(open)], glass.surface && glass.surface_desktop == open ? *glass.surface : s.target_placement(std::size_t(open)));
+            }
+            s.panel_shift.set(shift, help_now);
         }
         const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
                                float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f);
         s.gl->set_window_drag(float(s.free_pointer.ghost_w), float(s.free_pointer.ghost_h), free_pointer ? s.free_pointer.target : -1);
-        s.last_head = head;
+        const float panel_shift = s.panel_shift.value(double(monotonic_ms()));
+        s.last_head = glass_view_shift(head, panel_shift);  // the help card's hit box is worked out on the canvas as drawn
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
-        s.last_drawn = s.turned(head);
+        s.last_drawn = glass_view_shift(s.turned(head), panel_shift);
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), 1.f - s.view.zoom(), s.last_drawn, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();

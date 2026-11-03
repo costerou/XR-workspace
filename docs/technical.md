@@ -99,7 +99,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Keys | When | Action |
 | --- | --- | --- |
 | Ctrl+Alt+Up / Down | run | Maximize the selected desktop (follow) / back to the overview (anchor) |
-| Ctrl+Alt+Left / Right | run | Previous / next desktop |
+| Ctrl+Alt+Left / Right | run | Previous / next desktop; an open placement panel goes with the selection |
 | Ctrl+Alt+[ / ] | run | Less / more space between desktops |
 | Ctrl+Alt+Space | run | Recenter |
 | Ctrl+Alt+V | run | Maximized: follow / locked (0DoF). In the overview (always anchor, 3DoF) nothing changes; a toast says why |
@@ -218,8 +218,8 @@ renderer. The open panel shows it through `placement_menu`'s `background`, `brig
 *The bind* is in `view.BINDS`, so the help card, `bind_check` and typing mode treat it like any run bind. Omarchy binds
 Super+Ctrl+E, Super+Shift+E, Super+Ctrl+Shift+E and Super+Ctrl+Alt+E, all different chords.
 
-*Panel geometry.* The two rows make the panel 360 px tall (it was 292). From a desktop in the default row, with your head
-level, its last 24 px (the key hints) end below the view; tilting your head a little down shows them.
+*Panel geometry.* The two rows make the panel 360 px tall (it was 292), so it would run past the bottom of the view with your
+head level. While it is open the view shifts down to fit it ([Placement pills](#placement-pills)).
 
 *Cost*, measured with `gl_bench --bench --frames 1000 --size 1920x1200` (the glasses' native buffer; GPU time from
 `EXT_disjoint_timer_query`, CPU the draw call), 2026-11-03, on surfaceless EGL, so no compositor or capture is included.
@@ -742,6 +742,20 @@ visible; the pill only starts growing once the overview is reached, so the whole
 (Ctrl+Alt+Up) closes an open panel first, saved, with its keys released. Everything here is covered by offline tests
 only. It has not been run in an isolated VM or tried in the glasses.
 
+**The view shifts while a panel is open.** The panel hangs under its desktop, further than the view reaches with your head
+level, so the renderer pitches the camera down just enough for its bottom edge to end 12 canvas px inside the view
+(`glass.hpp` `glass_panel_shift`: 0.8° for the middle desktop of the default row and 1.1° for the outer two, at most 15°), easing over the panel's 260 ms morph and back
+when it closes. It covers looking straight at the desktop, and looking level at its height from straight ahead, where the
+row's outer desktops sit lower in the view. It is worked out from the panel's size, not from your head, so it stays put while
+you look round and does not change as the panel moves along the row. It is a camera offset at draw time (`glass_view_shift`):
+nothing moves on the canvas, so the supervisor's hit testing needs no change, and the help card's hit box is worked out with
+the shifted view. Desktops, pills, panel and dot shift together. The background does not, since it is world-locked.
+
+**An open panel follows the focus.** When the selection moves to another desktop in the overview (Ctrl+Alt+Left / Right, or the
+pointer selecting one), `ViewControl.follow_focus` opens that desktop's panel and closes the old one, saved at once, as Tab does:
+the modal keys stay, the highlighted setting stays, an open list closes. With every pill collapsed a selection change opens nothing.
+A key that moves no selection (the end of the row) moves no panel. Tab / Shift+Tab still move the panel without moving the selection.
+
 This replaces the earlier placement menu: a head-locked card in the middle of the view, with a mouse mode (Ctrl+Alt+M)
 that drew its own pointer over the card. The card, Ctrl+Alt+M, mouse mode, the renderer's `menu_pointer` op and its
 `menu_geometry` status line are gone. The overview free pointer does that job now.
@@ -896,6 +910,10 @@ covers the panel's new rows, `glass_contract` their geometry and the table again
 `--bench`. `capture_e2e_environment_*` send the real renderer its `environment` frame on both GL paths and check that frames keep
 flowing and no desktop goes blank. `test_environment.py` covers the setting, the key, saving and restoring, the panel's dropdown,
 switch and slider down to their hit tests, and the quality menu's row.
+
+`capture_e2e_open_panel` opens a panel in the real renderer and requires the view to have shifted (`view_shift_mrad` in the
+renderer's exit report); every other `capture_e2e_*` run requires it to be 0. The shift's geometry and ease are in `glass`.
+`tests/native_spike/test_panel_follows_focus.py` covers the panel following the selection.
 
 The placement round you, with every desktop facing you (see
 [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), adds

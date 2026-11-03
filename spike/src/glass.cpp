@@ -74,6 +74,50 @@ FRect glass_panel(const FRect& t) {
     return {t.x + (t.width - kPanelW) / 2, t.y + t.height + kGlassPillGap, kPanelW, kPanelH};
 }
 
+float glass_panel_shift(const Canvas& c, const FRect& tile, const Placement& on) {
+    if (c.view_w <= 0 || c.view_h <= 0 || tile.width <= 0 || tile.height <= 0) return 0;
+    const FRect panel = glass_panel(tile);
+    auto at = [&](float gx) {  // the panel's bottom edge at glass x `gx`
+        const auto [x, y] = glass_to_desktop(tile, on, gx, panel.y + panel.height);
+        return place_point(c, tile, on, x, y);
+    };
+    const Vec3 centre = place_point(c, tile, on, tile.x + tile.width / 2, tile.y + tile.height / 2), bottom = at(tile.x + tile.width / 2);
+    // Looking straight at the desktop: the angle from its centre down to the panel's bottom edge.
+    const float dot = centre.x * bottom.x + centre.y * bottom.y + centre.z * bottom.z;
+    const float ax = centre.y * bottom.z - centre.z * bottom.y, ay = centre.z * bottom.x - centre.x * bottom.z,
+                az = centre.x * bottom.y - centre.y * bottom.x;
+    float needed = std::atan2(std::sqrt(ax * ax + ay * ay + az * az), dot);
+    // Level at the desktop's height, from straight ahead: a corner the view reaches, further away from the view's centre.
+    const float length = std::sqrt(centre.x * centre.x + centre.y * centre.y + centre.z * centre.z);
+    const float e = length > 0 ? std::asin(std::clamp(centre.y / length, -1.f, 1.f)) : 0.f, ce = std::cos(e), se = std::sin(e);
+    for (const float gx : {panel.x, panel.x + panel.width}) {
+        const Vec3 p = at(gx);
+        const float y = ce * p.y + se * p.z, z = ce * p.z - se * p.y;
+        if (z < 0 && std::fabs(p.x / z) <= c.half_w) needed = std::max(needed, std::atan2(-y, -z));
+    }
+    const float limit = std::atan(c.half_h * (1 - 2 * kPanelShiftMarginPx / c.view_h));
+    return std::clamp(needed - limit, 0.f, kPanelShiftMax);
+}
+
+Mat3 glass_view_shift(const Mat3& v, float angle) {
+    if (angle == 0.f) return v;
+    const float s = std::sin(angle), k = std::cos(angle);  // about the eye's x axis: what is straight ahead moves up
+    return {v[0], v[1], v[2], k * v[3] - s * v[6], k * v[4] - s * v[7], k * v[5] - s * v[8],
+            s * v[3] + k * v[6], s * v[4] + k * v[7], s * v[5] + k * v[8]};
+}
+
+void PanelShift::set(float target, double now_ms) {
+    if (target == to_) return;
+    from_ = value(now_ms); to_ = target; start_ms_ = now_ms;
+}
+
+float PanelShift::value(double now_ms) const {
+    const float t = clamp01(float((now_ms - start_ms_) / kPanelShiftMs));
+    return from_ + (to_ - from_) * (t * t * (3 - 2 * t));
+}
+
+bool PanelShift::animating(double now_ms) const { return now_ms - start_ms_ < kPanelShiftMs; }
+
 FRect roll_icon(const FRect& t, std::uint32_t side, float distance) {
     if (t.width <= 0 || t.height <= 0 || side > 1) return {};
     const float d = distance > 0 ? distance : 1.f, size = kRollIconPx * d;

@@ -893,12 +893,12 @@ class OverviewPointer:
         return None
 
     def _select(self, i):
-        """The desktop the pointer went into (or clicked) becomes the selected one: Ctrl+Alt+Up zooms into it. Returns a
-        view frame if that changed."""
+        """The desktop the pointer went into (or clicked) becomes the selected one: Ctrl+Alt+Up zooms into it, and an open
+        panel goes with it (view.ViewControl.follow_focus). Returns a view frame if that changed."""
         s = self.control.state
         if i >= len(s.names) or s.selected == i: return b''
         s.selected = i
-        return self.control._frame()
+        return self.control._frame() + self.control.follow_focus()
 
     def _enter(self, i, q):
         """Free -> desktop mode on desktop i at tile pixel q: the cursor comes back there, visible."""
