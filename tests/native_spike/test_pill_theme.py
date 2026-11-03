@@ -5,10 +5,14 @@ of a run and after every config reload (an Omarchy theme switch). There is no pi
 glass_theme ctest (spike/tests/glass_theme_test.cpp)."""
 import json
 from pathlib import Path
+import selectors
+import socket
 import tempfile
 import unittest
+from unittest import mock
 
-from tools.native_spike import view
+from tools.native_spike import video, view
+from tools.native_spike.supervisor import Supervisor
 from tools.native_spike.profiles import LayoutStore
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
@@ -66,6 +70,53 @@ class PillThemeTests(unittest.TestCase):
         replies.append(THEMES[2][0])
         out = frames(c.on_events(b'configreloaded>>\n'))
         self.assertEqual([(f['op'], f['payload']) for f in out], [('style', {'border': [0xf2, 0xfc, 0xff]})])
+
+
+class InstalledPathThemeSwitchTests(unittest.TestCase):
+    """The installed run's wiring end to end, without a compositor: managed.py hands the supervisor a VideoControl wrapping
+    the ViewControl, Hyprland's socket2 bytes arrive on the event socket, and the `style` frame goes out on the renderer
+    socket, where Presentation::set_accent recolours the pills, border and glow together. Each theme switch, the same
+    as omarchy-theme-set's `hyprctl reload`, recolours a running session: no restart."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        self.replies = [THEMES[0][0]]
+        self.view = view.ViewControl(view.ViewState(NAMES), 'run', 'session', lambda n: None, LayoutStore(Path(tmp.name) / 'l.json'),
+                                     None, border=lambda: self.replies[-1])
+        self.addCleanup(self.view.join_focus, 2)
+        self.control = video.VideoControl(self.view, threads=False)
+        self.sup = Supervisor(mock.Mock(), lambda: None, control=self.control)
+        self.hypr, self.view.events = socket.socketpair()
+        self.renderer, self.renderer_peer = socket.socketpair()
+        for s in (self.hypr, self.view.events, self.renderer, self.renderer_peer): self.addCleanup(s.close)
+        self.view.events.setblocking(False); self.renderer_peer.settimeout(1)
+        self.selector = selectors.DefaultSelector(); self.addCleanup(self.selector.close)
+        self.selector.register(self.control.events, selectors.EVENT_READ)  # what Supervisor.run registers
+        self.sup._send(self.control.initial_frame(), self.renderer)
+        self.assertEqual(self.read()[-1], ('style', {'border': [0x8d, 0x8d, 0x8d]}))
+
+    def read(self):
+        data = b''
+        while not data.endswith(b'\n'): data += self.renderer_peer.recv(65536)
+        return [(f['op'], f['payload']) for f in frames(data)]
+
+    def switch(self, events):
+        self.hypr.sendall(events)
+        for key, _ in self.selector.select(1): self.sup._events_ready(self.renderer, self.selector)
+
+    def test_every_theme_switch_reaches_the_renderer_as_a_style_frame(self):
+        for reply, rgb in THEMES[1:] + THEMES[:1]:
+            with self.subTest(rgb=rgb):
+                self.replies.append(reply)
+                self.switch(b'activewindow>>kitty,x\nconfigreloaded>>\n')  # among other events, as socket2 sends them
+                self.assertEqual(self.read(), [('style', {'border': list(rgb)})])
+        self.assertEqual(self.view.reloads, len(THEMES))
+
+    def test_a_reload_event_split_across_reads_still_recolours(self):
+        self.replies.append(THEMES[3][0])
+        self.switch(b'configrel')
+        self.switch(b'oaded>>\n')
+        self.assertEqual(self.read(), [('style', {'border': [0x33, 0xcc, 0xff]})])
 
 
 if __name__ == '__main__':

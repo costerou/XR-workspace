@@ -77,7 +77,7 @@ struct GlCompositor::Impl {
     GLint pos = -1, uv = -1, sampler = -1, color_pos = -1, color = -1;
     GLint glow_pos = -1, glow_px = -1, glow_rect = -1, glow_color = -1, glow_falloff = -1, glow_view = -1, glow_half_fov = -1;
     GLint view = -1, half_fov = -1, color_view = -1, color_half_fov = -1;
-    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, tint = -1, look = -1, edge = -1, shadow_dy = -1, opacity = -1; } glass_loc;
+    struct { GLint pos = -1, px = -1, view = -1, half_fov = -1, rect = -1, radius = -1, tint = -1, hair = -1, look = -1, edge = -1, shadow_dy = -1, opacity = -1; } glass_loc;
     struct { GLint pos = -1, uv = -1, view = -1, half_fov = -1, tex = -1, alpha = -1; } panel_loc;
     GLuint panel_texture = 0; std::uint64_t panel_uploaded = 0;
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
@@ -262,6 +262,7 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
         g.pos = glGetAttribLocation(p, "pos"); g.px = glGetAttribLocation(p, "px");
         g.view = glGetUniformLocation(p, "view"); g.half_fov = glGetUniformLocation(p, "half_fov");
         g.rect = glGetUniformLocation(p, "rect"); g.radius = glGetUniformLocation(p, "radius"); g.tint = glGetUniformLocation(p, "tint");
+        g.hair = glGetUniformLocation(p, "hair");
         g.look = glGetUniformLocation(p, "look"); g.edge = glGetUniformLocation(p, "edge");
         g.shadow_dy = glGetUniformLocation(p, "shadow_dy"); g.opacity = glGetUniformLocation(p, "opacity");
     }
@@ -543,6 +544,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glUniform4f(s.glass_loc.rect, r.x + r.width / 2, r.y + r.height / 2, r.width / 2, r.height / 2);
             glUniform1f(s.glass_loc.radius, radius);
             glUniform3f(s.glass_loc.tint, look.tint[0], look.tint[1], look.tint[2]);
+            glUniform3f(s.glass_loc.hair, look.hair[0], look.hair[1], look.hair[2]);
             glUniform4f(s.glass_loc.look, look.fill, look.gloss, look.gloss_px, look.level);
             glUniform4f(s.glass_loc.edge, look.border_top, look.border_bottom, look.shadow, look.shadow_sigma);
             glUniform1f(s.glass_loc.shadow_dy, look.shadow_dy); glUniform1f(s.glass_loc.opacity, opacity);

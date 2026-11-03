@@ -1,7 +1,8 @@
 // The glass pills' theme colour (glass_theme.hpp). For the border colour of every theme Omarchy ships, the pill's glass
-// takes the theme's hue (much more of it than the old fifth) at one brightness, keeps its gloss and hairline, brightens
-// on hover and drag, and stays under the 191/255 OLED cap in every state without clipping its body; grey themes give
-// grey glass; the open panel stays dark behind its text. The panel's band and slider fills are the theme colour at the
+// is that colour itself, scaled by one factor: its hue, saturation and lightness follow the border (pale themes give
+// pale pills, the grey themes give their own different greys), its hairline is the theme colour too, it keeps its
+// gloss, brightens on hover and drag, and stays under the 191/255 OLED cap in every state without clipping its body;
+// grey themes give grey glass; the open panel stays dark behind its text. The panel's band and slider fills are the theme colour at the
 // cards' dimmed level, and nothing else on the panel changes with the theme. A theme switch (Presentation::set_accent ->
 // GlassPills::set_accent) re-renders an open panel once, under a new generation (so the compositor uploads it), without
 // restarting its animation.
@@ -103,21 +104,42 @@ int main() {
     CHECK(near3(glass_theme_hue({nan, nan, nan}, 0.3f, 0.42f), {0.3f, 0.3f, 0.3f}));
     CHECK(near(glass_luma({1, 1, 1}), 1.f) && near(glass_luma({0, 1, 0}), 0.7152f));
 
-    // glass_theme_tint: the pill carries kGlassTintPill of the theme hue, the open panel kGlassTintPanel, in between a blend.
+    // glass_theme_pill: the accent times kGlassPillScale, unless that is too dark to see (then its hue at the floor luma,
+    // or with its brightest channel at kGlassPillScale if that comes first).
+    for (const auto& th : kThemes) {
+        const Rgb a = rgb(th.hex), pill = glass_theme_pill(a);
+        const Rgb scaled{a[0] * kGlassPillScale, a[1] * kGlassPillScale, a[2] * kGlassPillScale};
+        if (glass_luma(scaled) >= kGlassPillMinLuma) CHECK_THEME(near3(pill, scaled), th.name);
+        else CHECK_THEME((near(glass_luma(pill), kGlassPillMinLuma) || near(top(pill), kGlassPillScale, 1e-6f)) && top(pill) <= kGlassPillScale + 1e-6f, th.name);  // a pure blue reaches the peak first
+        if (saturation(a) > 0.02f && top(a) >= 1.f / 255.f) CHECK_THEME(hue_gap(pill, a) < 0.1f && near(saturation(pill), saturation(a), 1e-4f), th.name);
+    }
+    CHECK(glass_theme_pill({2.f, -1.f, 0.5f}) == glass_theme_pill({1.f, 0.f, 0.5f}));
+
+    // glass_theme_tint: the pill at t = 0, the open panel (the hue at one luma, kGlassTintPanel of it over slate) at 1,
+    // in between a blend.
     {
-        const Rgb a = rgb(0xe68e0d), h = glass_theme_hue(a, kGlassTintLuma, kGlassTintPeak);
-        for (const auto& [t, share] : {std::pair{0.f, kGlassTintPill}, std::pair{1.f, kGlassTintPanel}, std::pair{-3.f, kGlassTintPill}, std::pair{4.f, kGlassTintPanel}}) {
+        const Rgb a = rgb(0xe68e0d), h = glass_theme_hue(a, kGlassTintLuma, kGlassTintPeak), pill = glass_theme_pill(a);
+        for (const auto& [t, want_panel] : {std::pair{0.f, false}, std::pair{1.f, true}, std::pair{-3.f, false}, std::pair{4.f, true}}) {
             const Rgb tint = glass_theme_tint(a, t);
-            for (std::size_t i = 0; i < 3; ++i) CHECK(near(tint[i], kGlassSlate[i] + (h[i] - kGlassSlate[i]) * share));
+            for (std::size_t i = 0; i < 3; ++i)
+                CHECK(near(tint[i], want_panel ? kGlassSlate[i] + (h[i] - kGlassSlate[i]) * kGlassTintPanel : pill[i]));
         }
         const Rgb mid = glass_theme_tint(a, 0.5f), p = glass_theme_tint(a, 0), q = glass_theme_tint(a, 1);
         for (std::size_t i = 0; i < 3; ++i) CHECK(near(mid[i], (p[i] + q[i]) / 2));
         CHECK(saturation(p) > saturation(mid) && saturation(mid) > saturation(q));  // the panel is calmer behind its text
     }
 
+    // glass_theme_hair: the accent's hue, half of it kHairLevel grey; greys give kHairLevel grey.
+    for (const auto& th : kThemes) {
+        const Rgb a = rgb(th.hex), hair = glass_theme_hair(a, kHairLevel);
+        CHECK_THEME(near(top(hair), kHairLevel, 1e-5f), th.name);
+        if (saturation(a) > 0.02f && top(a) >= 1.f / 255.f) CHECK_THEME(hue_gap(hair, a) < 0.1f, th.name);
+        if (saturation(a) == 0.f) CHECK_THEME(near3(hair, {kHairLevel, kHairLevel, kHairLevel}), th.name);
+    }
+
     // The look, theme by theme, through glass_look and glass_shade (the CPU mirror of the shader the compositor runs).
     const FRect tile{100, 300, 459, 258};
-    float pill_luma_lo = 1, pill_luma_hi = 0, level_lo = 1, level_hi = 0;
+    std::vector<std::pair<float, float>> pills;  // shipped themes: (base pill luma, shown centre luma)
     for (const auto& th : kThemes) {
         const Rgb a = rgb(th.hex);
         for (float t : {0.f, 0.4f, 1.f}) {
@@ -146,29 +168,37 @@ int main() {
                 prev_centre = glass_luma(centre); prev_rim = glass_luma(rim);
                 if (level != kGlassIdle) continue;
                 if (t == 0.f) {
-                    // The collapsed pill shows (black is see-through on the OLED panels) and has the theme's hue, with most
-                    // of its saturation, and much more of it than the old fifth-of-the-accent tint had.
-                    CHECK_THEME(top(centre) > 0.3f, th.name);
+                    // The collapsed pill shows (black is see-through on the OLED panels) and is the theme colour: its hue
+                    // and nearly all of its saturation (a little gloss reaches the middle), much more of it than the old
+                    // fifth-of-the-accent tint had.
+                    CHECK_THEME(top(centre) > 0.12f, th.name);
                     if (saturation(a) >= 0.25f) {
-                        CHECK_THEME(hue_gap(centre, a) < 6.f, th.name);
-                        CHECK_THEME(saturation(centre) >= 0.8f * saturation(a), th.name);
+                        CHECK_THEME(hue_gap(centre, a) < 3.f, th.name);
+                        CHECK_THEME(saturation(centre) >= 0.85f * saturation(a), th.name);
                         CHECK_THEME(saturation(centre) > 1.2f * saturation(old_tint(a)), th.name);
                     }
                     if (saturation(a) == 0.f) CHECK_THEME(saturation(centre) < 0.05f, th.name);  // grey themes: grey glass
-                    if (th.shipped) { pill_luma_lo = std::min(pill_luma_lo, glass_luma(centre)); pill_luma_hi = std::max(pill_luma_hi, glass_luma(centre)); }
-                    if (near(glass_luma(glass_theme_hue(a, kGlassTintLuma, kGlassTintPeak)), kGlassTintLuma)) {  // not capped first
-                        level_lo = std::min(level_lo, glass_luma(centre)); level_hi = std::max(level_hi, glass_luma(centre));
-                    }
+                    // The rim carries the theme colour as well (hairline over the gloss).
+                    if (saturation(a) >= 0.25f) CHECK_THEME(hue_gap(rim, a) < 20.f, th.name);
+                    if (th.shipped) pills.push_back({glass_luma(glass_theme_pill(a)), glass_luma(centre)});
                 }
                 if (t == 1.f) CHECK_THEME(glass_luma(centre) < 0.2f && top(centre) < 0.4f, th.name);  // dark behind the text
             }
         }
     }
-    // One brightness: every theme whose hue reaches the luma target gives a pill just as bright, however light or dark its
-    // border colour (the old tint followed it: kanagawa's pill was ~40% brighter than flexoki-light's). Deep blues, whose
-    // brightest channel reaches the peak first, are a little darker, never dim.
-    CHECK(level_hi - level_lo < 0.02f && level_lo > 0.25f);
-    CHECK(pill_luma_lo > 0.18f && pill_luma_hi < 0.36f);
+    // The pill's brightness follows the border's: a lighter border colour gives a lighter pill, theme for theme (the
+    // old look gave every theme one brightness, so the grey themes all came out the same slate).
+    std::sort(pills.begin(), pills.end());
+    for (std::size_t i = 1; i < pills.size(); ++i) CHECK(pills[i].second >= pills[i - 1].second - 1e-5f);
+    auto centre_of = [&](std::uint32_t hex) {
+        const FRect r = glass_morph(tile, 0);
+        return colour(glass_shade(glass_look(rgb(hex), kGlassIdle, 0), r, glass_radius(tile, 0), r.x + r.width / 2, r.y + r.height / 2, 1.f));
+    };
+    // vantablack, white, lumon and kanagawa: four different pills (lumon and kanagawa light, white darker than vantablack).
+    const Rgb vanta = centre_of(0x8d8d8d), white = centre_of(0x6e6e6e), lumon = centre_of(0xf2fcff), kanagawa = centre_of(0xdcd7ba);
+    CHECK(glass_luma(vanta) > glass_luma(white) + 0.03f && glass_luma(lumon) > glass_luma(vanta) + 0.1f);
+    CHECK(glass_luma(kanagawa) > glass_luma(vanta) + 0.08f && !near3(kanagawa, lumon, 0.01f));
+    CHECK(lumon[2] > lumon[0] && kanagawa[0] > kanagawa[2]);  // lumon's faint blue, kanagawa's warm paper
     // Switching themes changes the glass (the compositor recomputes glass_look from its accent every frame).
     CHECK(glass_look(rgb(0x7aa2f7), kGlassIdle, 0).tint != glass_look(rgb(0xe68e0d), kGlassIdle, 0).tint);
     CHECK(glass_look(rgb(0x8d8d8d), kGlassIdle, 0).tint == glass_look(kGlassThemeDefault, kGlassIdle, 0).tint);

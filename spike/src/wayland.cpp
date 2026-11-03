@@ -121,6 +121,9 @@ struct Presentation::Impl : SurfaceRequests {
     std::uint32_t width = 0, height = 0;
     bool configured = false, closed = false;
     PatternCadence cadence;
+    // The theme colour last set by the supervisor's `style` op (the default until then) and how many changed it: the
+    // run's status shows a theme switch reached the renderer (the pills, the border and the glow all draw from it).
+    std::array<std::uint8_t, 3> accent{0x8d, 0x8d, 0x8d}; std::uint64_t accent_updates = 0;
     std::vector<std::uint32_t> required_globals;
     // Managed-output capture (allowlisted names only; frames stay in these SHM buffers).
     bool capture_requested = false;
@@ -676,6 +679,8 @@ std::string Presentation::capture_report() const {
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
     out += ",\"overview_pointer\":{\"shown\":" + std::to_string(impl_->free_pointer.shown) + "}";
+    out += ",\"theme\":{\"accent\":[" + std::to_string(impl_->accent[0]) + "," + std::to_string(impl_->accent[1]) + "," +
+           std::to_string(impl_->accent[2]) + "],\"updates\":" + std::to_string(impl_->accent_updates) + "}";
     const auto mode = impl_->modes.mode();
     out += ",\"tracking\":{\"requested\":" + std::string(impl_->tracking_requested ? "true" : "false") +
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
@@ -819,6 +824,7 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (!impl_ || !impl_->gl) return;
     impl_->gl->set_accent(r, g, b);                              // highlight border, glow and the pills' glass
     impl_->glass.set_accent({r / 255.f, g / 255.f, b / 255.f});  // an open panel's highlights (glass_theme.hpp)
+    if (impl_->accent != std::array<std::uint8_t, 3>{r, g, b}) { impl_->accent = {r, g, b}; ++impl_->accent_updates; }
     impl_->cadence.invalidate();
 }
 void Presentation::video_open(int fd, const VideoFormat& format, const std::string& title) {

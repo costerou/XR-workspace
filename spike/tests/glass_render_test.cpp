@@ -80,6 +80,7 @@ int main() {
         glUniform4f(glGetUniformLocation(glass, "rect"), r.x + r.width / 2, r.y + r.height / 2, r.width / 2, r.height / 2);
         glUniform1f(glGetUniformLocation(glass, "radius"), radius);
         glUniform3f(glGetUniformLocation(glass, "tint"), k.tint[0], k.tint[1], k.tint[2]);
+        glUniform3f(glGetUniformLocation(glass, "hair"), k.hair[0], k.hair[1], k.hair[2]);
         glUniform4f(glGetUniformLocation(glass, "look"), k.fill, k.gloss, k.gloss_px, k.level);
         glUniform4f(glGetUniformLocation(glass, "edge"), k.border_top, k.border_bottom, k.shadow, k.shadow_sigma);
         glUniform1f(glGetUniformLocation(glass, "shadow_dy"), k.shadow_dy); glUniform1f(glGetUniformLocation(glass, "opacity"), opacity);
@@ -140,9 +141,10 @@ int main() {
         glDeleteTextures(1, &tex);
     }
     // Theme colours (glass_theme.hpp): saturated, pale and deep Omarchy borders (matte-black, catppuccin-latte, lumon,
-    // hackerman) and pure blue, dragged (the brightest state): the shader still matches glass_shade, and over black the
-    // glass, and the open panel with its themed highlights on it, stay under the cap.
-    for (const std::uint32_t hex : {0xe68e0du, 0x1e66f5u, 0xf2fcffu, 0x26a269u, 0x0000ffu}) {
+    // hackerman), pure blue, white and vantablack grey, dragged (the brightest state): the shader, its hairline in the
+    // theme colour too, still matches glass_shade, and over black the glass, and the open panel with its themed
+    // highlights on it, stay under the cap.
+    for (const std::uint32_t hex : {0xe68e0du, 0x1e66f5u, 0xf2fcffu, 0x26a269u, 0x0000ffu, 0xffffffu, 0x8d8d8du}) {
         const std::array<float, 3> accent{float(hex >> 16) / 255.f, float((hex >> 8) & 255u) / 255.f, float(hex & 255u) / 255.f};
         for (float t : {0.f, 1.f}) {
             const auto look = glass_look(accent, kGlassActive, t);

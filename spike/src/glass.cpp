@@ -97,9 +97,10 @@ float glass_radius(const FRect& t, float k) {
 GlassLook glass_look(std::array<float, 3> accent, float level, float t) {
     t = clamp01(t);
     GlassLook k;
-    const auto tint = glass_theme_tint(accent, t);  // the theme's hue at one brightness (glass_theme.hpp)
+    const auto tint = glass_theme_tint(accent, t);  // the theme colour itself on the pill (glass_theme.hpp)
     const float bright = lerp(1.3f, 0.8f, t);
     for (std::size_t i = 0; i < 3; ++i) k.tint[i] = tint[i] * bright;
+    k.hair = glass_theme_hair(accent, kHairLevel);  // the edge in the theme colour, as the border is
     k.fill = lerp(0.9f, 0.82f, t);
     k.gloss = lerp(0.22f, 0.10f, t);
     k.gloss_px = lerp(kGlassPillH * 0.6f, 30.f, t);
@@ -136,7 +137,7 @@ std::array<float, 4> glass_shade(const GlassLook& k, const FRect& rect, float ra
     for (auto& v : c) v = v * (1 - g) + kGlossLevel * g;
     a = a + g * (1 - a);
     const float b = clamp01(1.f - std::fabs(d + 0.5f)) * std::min(lerp(k.border_top, k.border_bottom, t) * k.level, 1.f);
-    for (auto& v : c) v = v * (1 - b) + kHairLevel * b;
+    for (std::size_t i = 0; i < 3; ++i) c[i] = c[i] * (1 - b) + k.hair[i] * b;
     a = a + b * (1 - a);
     for (auto& v : c) v *= inside;
     a *= inside;
@@ -151,8 +152,8 @@ std::array<float, 4> glass_shade(const GlassLook& k, const FRect& rect, float ra
 const char* glass_fragment_shader() {
     return "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n"
            "varying vec2 p; uniform vec4 rect; uniform float radius; uniform vec3 tint; uniform vec4 look; uniform vec4 edge;\n"
-           "uniform float shadow_dy; uniform float opacity;\n"
-           "const float kCap = 0.74901961; const float kGloss = 0.86; const float kHair = 0.88;\n"
+           "uniform vec3 hair; uniform float shadow_dy; uniform float opacity;\n"
+           "const float kCap = 0.74901961; const float kGloss = 0.86;\n"
            "float box(vec2 q) { vec2 d = abs(q) - (rect.zw - vec2(radius));\n"
            "  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius; }\n"
            "void main() {\n"
@@ -166,7 +167,7 @@ const char* glass_fragment_shader() {
            "  float g = min(look.y * look.w, 1.0) * (1.0 - smoothstep(0.0, max(look.z, 0.001), top));\n"
            "  c = c * (1.0 - g) + vec3(kGloss) * g; a = a + g * (1.0 - a);\n"
            "  float b = clamp(1.0 - abs(d + 0.5), 0.0, 1.0) * min(mix(edge.x, edge.y, t) * look.w, 1.0);\n"
-           "  c = c * (1.0 - b) + vec3(kHair) * b; a = a + b * (1.0 - a);\n"
+           "  c = c * (1.0 - b) + hair * b; a = a + b * (1.0 - a);\n"
            "  c *= inside; a *= inside;\n"
            "  float ds = max(box(p - rect.xy - vec2(0.0, shadow_dy)), 0.0);\n"
            "  float sigma = max(edge.w, 0.001);\n"

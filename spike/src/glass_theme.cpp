@@ -17,13 +17,28 @@ std::array<float, 3> glass_theme_hue(std::array<float, 3> accent, float luma, fl
     return {a[0] * scale, a[1] * scale, a[2] * scale};
 }
 
+std::array<float, 3> glass_theme_pill(std::array<float, 3> accent) {
+    const std::array<float, 3> a{unit(accent[0]), unit(accent[1]), unit(accent[2])};
+    const std::array<float, 3> pill{a[0] * kGlassPillScale, a[1] * kGlassPillScale, a[2] * kGlassPillScale};
+    if (glass_luma(pill) >= kGlassPillMinLuma) return pill;
+    return glass_theme_hue(a, kGlassPillMinLuma, kGlassPillScale);  // too dark to see: lifted, its hue kept
+}
+
 std::array<float, 3> glass_theme_tint(std::array<float, 3> accent, float t) {
     t = unit(t);
+    const auto pill = glass_theme_pill(accent);
     const auto hue = glass_theme_hue(accent, kGlassTintLuma, kGlassTintPeak);
-    const float share = kGlassTintPill + (kGlassTintPanel - kGlassTintPill) * t;
     std::array<float, 3> out{};
-    for (std::size_t i = 0; i < 3; ++i) out[i] = kGlassSlate[i] + (hue[i] - kGlassSlate[i]) * share;
+    for (std::size_t i = 0; i < 3; ++i) {
+        const float panel = kGlassSlate[i] + (hue[i] - kGlassSlate[i]) * kGlassTintPanel;
+        out[i] = pill[i] + (panel - pill[i]) * t;
+    }
     return out;
+}
+
+std::array<float, 3> glass_theme_hair(std::array<float, 3> accent, float level) {
+    const auto hue = glass_theme_hue(accent, 1.f, level);  // a luma of 1 is never reached first: the peak sets it
+    return {(hue[0] + level) / 2, (hue[1] + level) / 2, (hue[2] + level) / 2};
 }
 
 std::array<float, 3> glass_theme_highlight(std::array<float, 3> accent) {
