@@ -314,7 +314,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   Or hold either bracket and drag the dot round the desktop to roll it either
   way, up to 90°; it rests at level as you pass it. The roll is saved with the rest of your layout.
 - **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
-  (and its panel when open), the two roll arrows above its top corners, and the resize handles just outside its edges
+  (and its panel when open), the two roll brackets round its top corners, and the resize handles just outside its edges
   and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
   never maximizes the desktop. To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the desktop under the
   dot grows where it is to fill your view, then follows your head.
@@ -323,7 +323,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   when it reaches another desktop the window arrives under it, wherever that desktop is placed. A tiled window fits in
   where you drop it. Let go with the dot on a desktop and the window lands on that desktop, whole and under the dot, even
   if you were holding a floating window by its far end. Let go between desktops and it stays where it was. While you
-  drag, the pills, roll arrows and resize handles do nothing, and nothing animates. **Super and the right button**
+  drag, the pills, roll brackets and resize handles do nothing, and nothing animates. **Super and the right button**
   resizes the window as usual, and the mouse stays on that desktop until you let go. If the dot is off the desktops, Super
   and a click do nothing. All of this works in typing mode too.
 - **Moving a window to another desktop by holding it** without Super is switched off for now, so a long press or a slow

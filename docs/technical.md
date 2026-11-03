@@ -325,7 +325,7 @@ To try it in the glasses (needs the renderer, supervisor and panel QML from this
 
 | Step | Do | Expect |
 | --- | --- | --- |
-| K1 | Start XR, press Ctrl+Alt+K | The panel fades in with 25 rows ("1 / 25", 10 shown, "15 more"); status says no conflicts (or names them) |
+| K1 | Start XR, press Ctrl+Alt+K | The panel fades in with 26 rows ("1 / 26", 10 shown, "16 more"); status says no conflicts (or names them) |
 | K2 | Type letters, press Super+Q | Nothing reaches the focused window and no Omarchy bind runs; the status says Esc closes the panel |
 | K3 | Down to *Next desktop*, Enter, then Ctrl+Alt+J | The chip shows "Press keys..." then Ctrl+Alt+J (filled); close the panel; Ctrl+Alt+J switches desktops, Ctrl+Alt+Right does nothing |
 | K4 | Ctrl+Alt+H | The help card lists Ctrl+Alt+J for *Next desktop* |
@@ -466,7 +466,7 @@ whatever the desktop's). `free_pointer.hit` tests them in this order, `zone_of` 
 
 | Zone | Hit region | Action | The dot's look (`look`) |
 | --- | --- | --- | --- |
-| Control | the help card, then the open placement panel's body (`panel_rect`, 480 x 292 under the desktop, drawn over everything else) | sliders, Scale, Ultrawide / Add / Remove; page arrows | plain |
+| Control | the help card, then the open placement panel's body (`panel_rect`, 480 x 326 under the desktop, drawn over everything else) | sliders, Resolution, Scale, Ultrawide / Add / Remove; page arrows | plain |
 | Resize, corner | the corner's square (`corner_zone`, 10–28 px half-size) within the border | drag along the diagonal | `resize_nwse` (top-left, bottom-right), `resize_nesw` (top-right, bottom-left); also the L-bracket |
 | Move | a pill zone: the drawn pill padded 10 px (`PILL_PAD_X`, `PILL_PAD_Y`), plus the 10 px gap up to the bottom edge (`on_pill`); an open panel's header strip is the pill | click: open / close the panel; drag: move the desktop round you | `move`: four arrows |
 | Rotate | a rotate bracket's arms: at least 6 px outside the desktop and within 10 px of the stroke (`on_roll`), wherever no corner, pill or desktop's content is; it takes the edge's border from 6 px out | click: level / 2° step; drag: roll | `rotate`: two arrows chasing round the dot |
