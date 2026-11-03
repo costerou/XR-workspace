@@ -639,7 +639,7 @@ class WebVideoGatingTests(unittest.TestCase):
 class BindHelperTests(unittest.TestCase):
     def test_ctrl_alt_u(self):
         self.assertIn(('CTRL + ALT + U', 'video_paste'), view.BINDS)
-        self.assertIn(['Ctrl+Alt+O / U', 'VR video: file / copied web link'], view.help_rows())
+        self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], view.help_rows())
 
     def test_paste_sends_the_clipboard_as_video_open(self):
         sent, told = [], []

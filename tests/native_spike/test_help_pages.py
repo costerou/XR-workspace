@@ -53,7 +53,7 @@ class BindAndRowTests(unittest.TestCase):
     def test_ops_outside_every_section_and_extra_rows_still_show(self):
         with mock.patch.object(view, 'HELP_SECTIONS', (('zoom_in',),)), mock.patch.object(view, 'EXTRA_HELP_ROWS', (('Mouse', 'Free pointer'),)):
             rows, sections = view.help_rows(), view.help_sections()
-        self.assertEqual(len(rows), len(view.BINDS) - len(view.HELP_PAIRS) + 1)
+        self.assertEqual(len(rows), len(view.BINDS) - sum(len(view._pair_seconds(op)) for op in view.HELP_PAIRS) + 1)
         self.assertEqual(sections, [len(rows) - 1, 1])
         self.assertEqual(rows[-1], ['Mouse', 'Free pointer'])
 

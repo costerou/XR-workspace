@@ -34,8 +34,8 @@ panel shows *Streaming from <site> (progressive / hls / dash) · position / leng
 
 If something cannot play, a desktop notification and the panel say why: *the site refused the stream (HTTP 403)…*,
 *DRM-protected*, *a flat (non-VR) video*, and so on. The notification appears on the focused desktop, which is in the
-glasses. Ctrl+Alt+H's card lists the key as **Ctrl+Alt+O / U — VR video: file / copied web link** (one row, so the
-card keeps its 12-row fit).
+glasses. Ctrl+Alt+H's card lists the key as **Ctrl+Alt+O / U / C — VR video: file / web link / hide controls** (one
+row, shared with the playback controls toggle, so the card keeps its fit).
 
 ## Design
 

@@ -282,6 +282,41 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(frames(self.op('recenter'))[0]['op'], 'recenter')  # the existing recenter, passed through
         self.assertEqual(frames(self.op('prediction'))[0]['op'], 'view')
 
+    def test_ctrl_alt_c_hides_and_shows_the_playback_menu_with_a_toast(self):
+        # Ctrl+Alt+C (2026-11-03): the playback menu (controls card) stays hidden on open and on keys until shown again.
+        self.assertIn(('CTRL + ALT + C', view.PLAYBACK_MENU_OP), view.BINDS)
+        self.assertFalse(view.PLAYBACK_MENU_OP.startswith('video_'))  # ipc routes video_* ops to video.validate_request
+        self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], view.help_rows())  # shares the VR video row
+        told = []
+        self.view.notify = told.append
+        self.assertIsNone(self.op(view.PLAYBACK_MENU_OP))  # no video: only the setting and its toast
+        self.assertTrue(self.v.menu_hidden and self.v.snapshot()['menu_hidden'])
+        out = self.open()
+        self.assertEqual([f['payload']['action'] for f in frames(out)], ['open', 'controls'])
+        self.assertEqual(frames(out)[-1]['payload'], {'action': 'controls', 'visible': False})  # hidden right after open
+        self.assertFalse(self.v.controls)
+        self.assertEqual([f['payload'] for f in frames(self.op('video_pause'))], [{'action': 'pause'}])  # no pop-up
+        self.assertEqual(frames(self.op('video_seek_fwd'))[-1]['payload'], {'action': 'seek', 'seconds': 10})
+        self.assertFalse(self.v.controls)
+        self.assertEqual(frames(self.op('video_controls'))[0]['payload'], {'action': 'controls', 'visible': True})  # on demand
+        self.op('video_controls')
+        shown = frames(self.op(view.PLAYBACK_MENU_OP))  # shown again: the card appears at once
+        self.assertEqual([f['payload'] for f in shown], [{'action': 'controls', 'visible': True}])
+        self.assertFalse(self.v.menu_hidden)
+        self.v.controls = False
+        self.assertEqual(frames(self.op('video_pause'))[0]['payload'], {'action': 'controls', 'visible': True})  # pops up
+        hidden = frames(self.op(view.PLAYBACK_MENU_OP))
+        self.assertEqual([f['payload'] for f in hidden], [{'action': 'controls', 'visible': False}])
+        self.view.join_focus()
+        self.assertEqual(told, [view.PLAYBACK_MENU_TOASTS[True], view.PLAYBACK_MENU_TOASTS[False], view.PLAYBACK_MENU_TOASTS[True]])
+        self.assertIn('Ctrl+Alt+C', told[0])
+        self.view.state.typing = True  # its bind is gone in typing mode: a stale key does nothing
+        self.assertIsNone(self.op(view.PLAYBACK_MENU_OP))
+        self.assertTrue(self.v.menu_hidden)
+        frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': view.PLAYBACK_MENU_OP,
+                             'payload': {}}) + '\n').encode()
+        self.assertEqual(decode_control(frame)['op'], view.PLAYBACK_MENU_OP)
+
     def test_exit_returns_to_the_desktops(self):
         self.open()
         self.assertEqual(frames(self.op('video_exit'))[0]['payload'], {'action': 'close'})
@@ -401,7 +436,7 @@ class TransportTests(unittest.TestCase):
 class BindTests(unittest.TestCase):
     def test_ctrl_alt_o_and_the_modal_keys(self):
         self.assertIn(('CTRL + ALT + O', 'video_open'), view.BINDS)
-        self.assertIn(['Ctrl+Alt+O / U', 'VR video: file / copied web link'], view.help_rows())
+        self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], view.help_rows())
         lua = view.install_binds_lua('/usr/bin/python3', '/repo/tools/native_spike/xr_control.py', '/run/user/1000/x/control.sock', 'run1', 's1')
         self.assertLess(len(lua), 4096)
         modal = video.install_video_binds_lua('/usr/bin/python3', '/repo/tools/native_spike/xr_control.py', '/run/user/1000/x/control.sock', 'run1', 's1')
