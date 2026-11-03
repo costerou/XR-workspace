@@ -6,9 +6,9 @@ return windows to) onto its XR desktops, right after the desktops are created an
   * Workspace by workspace. The occupied regular workspaces of the fallback, in id order, go to XR-1, XR-2, ... in
     turn: the first occupied one to XR-1, the second to XR-2, and so on (workspace 1 -> XR-1, 2 -> XR-2 when they are
     1, 2, ...). A gap in the numbers does not skip a desktop, so nothing waits on the last desktop while one is empty.
-  * More occupied workspaces than desktops: the run starts with more desktops (desktop_count), up to MAX_DESKTOPS, each
-    the size of the last one (16:9 if that one is ultrawide, as a pill's Add). Past MAX_DESKTOPS the remaining
-    workspaces go to the last desktop, still each its own workspace there.
+  * More occupied workspaces than desktops: a run always starts with its own three (profiles.startup_desktops); the
+    remaining workspaces go to the last desktop, still each its own workspace there. (desktop_count and
+    extend_desktops, which once added desktops for them, are kept as helpers but no start uses them.)
   * A workspace moves whole (Hyprland's workspace move), so its windows stay together in their layout. Omarchy gives
     each monitor its own block of ten workspace numbers (default/hypr/monitor-workspaces.lua); a moved workspace joins
     its desktop's block under the same slot, as Omarchy's own move-workspace-to-monitor does, so Omarchy's reconcile

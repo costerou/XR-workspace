@@ -10,7 +10,7 @@ from pathlib import Path
 import secrets
 import subprocess
 from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE
-from tools.native_spike.profiles import _check
+from tools.native_spike.profiles import _check, startup_desktops
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MODES, SPACING_STEP
@@ -182,7 +182,7 @@ class Controller:
             if ownership_plugin_count(o.get('plugins') or []): raise ValueError('ownership plugin already loaded')
             scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
                 tracking='xrlinuxdriver' if p['tracking'] else False,mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
-                desktops=p['desktops'],**o['installed'])
+                desktops=startup_desktops(p['desktops']),**o['installed'])  # always three (profiles.py)
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
             self.last_failure=None

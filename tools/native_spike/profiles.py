@@ -5,8 +5,9 @@ presentation-only and can change during a run. Profiles saved before placements 
 saved with the removed yaw / pitch / roll settings keep everything else (geometry.legacy_placement).
 
 A profile holds 1..geometry.MAX_DESKTOPS desktops and one placement each. A run saves its live desktops back (a pill's Add,
-Remove or Ultrawide: desktops.py), so the next session starts with them. Placements missing for a desktop are flat; extra
-ones are dropped.
+Remove or Ultrawide: desktops.py) and its placements, but every XR start begins fresh (startup_desktops, and
+managed.view_controls): three desktops, all flat, whatever count and placements were saved. Placements missing for a
+desktop are flat; extra ones are dropped.
 """
 import json
 import os
@@ -22,6 +23,16 @@ MODELS = ('beast', 'luma-ultra', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
                    'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'tracking': True, 'mode_switch': True, 'fallback': None}
+
+
+STARTUP_DESKTOPS = 3
+
+
+def startup_desktops(saved):
+    """Every XR start's desktops: always three. The saved ones' size and scale (the panel's desktop editor) are kept
+    for the first three; a saved count (a pill's Add / Remove) is not: missing ones are 1920x1080 at 100%."""
+    kept = [validate_desktop(dict(d)) for d in list(saved or [])[:STARTUP_DESKTOPS]]
+    return kept + [dict(DEFAULT_DESKTOP) for _ in range(STARTUP_DESKTOPS - len(kept))]
 
 
 def profiles_path():

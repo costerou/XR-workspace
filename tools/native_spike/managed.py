@@ -73,7 +73,8 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
     workspaces = client.query('workspaces')
     from .supervisor import CAPTURE_SCOPE
     adopting = consent.get('capture') == CAPTURE_SCOPE  # a capture (panel) run takes the fallback's windows (adopt.py)
-    if adopting: desktops = adoption_desktops(client, workspaces, fallback, desktops)
+    # Every start has the run's own desktops (three from the panel, profiles.startup_desktops): adoption spreads the
+    # fallback's windows over them rather than adding desktops for more occupied workspaces.
     specs = plan_outputs(monitors(client.query('monitors')), workspaces, consent['run_id'], desktops)
     broker = OwnershipBrokerClient(client, consent['run_id'], session, fallback)
     broker.require_output_ownership()  # no journal or output mutations without a broker
@@ -86,18 +87,6 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=consent.get('tracking') == 'xrlinuxdriver', store=store, renderer=renderer,
                           adopt=adopting)
-
-
-def adoption_desktops(client, workspaces, fallback, desktops):
-    """The run's desktops, plus more (up to MAX_DESKTOPS) when the fallback has more occupied workspaces than that
-    (adopt.py). Unchanged if the windows cannot be read: adoption then spreads over the desktops there are."""
-    from .adopt import desktop_count, extend_desktops, occupied
-    from .geometry import DEFAULT_DESKTOP
-    current = [dict(DEFAULT_DESKTOP)] * 3 if desktops is None else desktops
-    try: wanted = len(occupied(workspaces, client.query('clients'), fallback))
-    except (OSError, ValueError, TypeError, KeyError, AttributeError): return desktops
-    count = desktop_count(len(current), wanted)
-    return desktops if count == len(current) else extend_desktops(current, count)
 
 
 from contextlib import contextmanager
@@ -116,6 +105,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
     from . import view
     from .ipc import PrivateServer
     from .profiles import LayoutStore
+    from .geometry import DEFAULT_PLACEMENT
     store = store or LayoutStore(view.settings_path())
     video = None  # VR video (video.py) wraps the view control
     server = PrivateServer(client.runtime_dir, run_id, session)
@@ -154,8 +144,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
         from .profiles import PlacementStore, ProfileStore
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
-        try: initial = placements.load() if placements is not None else None
-        except (OSError, ValueError): initial = None
+        # Every start is flat: the profile's saved placements are not restored (the run still saves its own to it).
+        initial = [dict(DEFAULT_PLACEMENT) for _ in capture] if placements is not None else None
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'],
                                                    saved['prediction'], _initial_placements(initial, capture),
                                                    saved.get('cursor_switch_animate', True)), run_id, session,
