@@ -58,11 +58,10 @@ constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
 static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its footer's top (free_pointer.py PANEL_H)");
 
-// Roll-level icons (tools/native_spike/free_pointer.py roll_icon_rect / ROLL_*, compared by the glass_contract ctest): when
-// a desktop is not level (view.hpp desktop_tilt, the supervisor deciding from the renderer's `roll_geometry` line), a
-// curved arrow alone (no button behind it) sits kRollIconGap above its top corner on the side that is higher, on the
-// desktop's own surface: above the top-left corner a counter-clockwise one, above the top-right a clockwise one, the way
-// a click (level at once) or a drag (roll toward level, never past it) turns the desktop. Its square (the hit box, padded
+// Roll-level icons (tools/native_spike/free_pointer.py roll_icon_rect / ROLL_*, compared by the glass_contract ctest): in
+// the overview every desktop shows two curved arrows alone (no button behind them), kRollIconGap above its top corners,
+// on the desktop's own surface: above the top-left corner a counter-clockwise one, above the top-right a clockwise one,
+// the way a click (to level when it lies that way, else a step) or a drag (either way) turns the desktop. Its square (the hit box, padded
 // by free_pointer.py ROLL_PAD) is kRollIconPx across as you
 // see it whatever the desktop's size: its tile px are scaled by the desktop's distance. Side 0 = top-left (counter-
 // clockwise), 1 = top-right (clockwise).
@@ -132,11 +131,13 @@ struct GlassFrame {
     // press (the desktop itself follows its live placement). The supervisor measures the drag on that same surface, so
     // the knob stays under the pointer. Empty: the panel rides on its desktop's live placement.
     int surface_desktop = -1; std::optional<Placement> surface;
-    // Roll-level icons (drawn with the pills: `pills` true): per desktop -1 none, else the side (roll_icon); the hovered
-    // or dragged one is drawn at `roll_level`.
+    // Roll-level icons (drawn with the pills: `pills` true): per desktop -1 none, 0 / 1 that side (roll_icon), 2 both;
+    // the hovered or dragged one (desktop `roll_hover`, side `roll_hover_side`) is drawn at `roll_level`.
     std::array<int, kPlacementMenuDesktopCount> roll_icon{-1, -1, -1, -1};
-    int roll_hover = -1; float roll_level = kGlassIdle;
+    int roll_hover = -1, roll_hover_side = -1; float roll_level = kGlassIdle;
 };
+// The sides (0 top-left / counter-clockwise, 1 top-right / clockwise) a GlassFrame::roll_icon entry shows.
+constexpr bool roll_icon_shows(int icon, std::uint32_t side) { return icon == 2 || (icon >= 0 && std::uint32_t(icon) == side); }
 // Renderer placement from wire units (ipc.hpp WirePlacement: x / y the orbit round you in tenths of a degree, distance in
 // percent, curvature in degrees) to radians and a distance factor: what set_placements applies.
 Placement placement_from_wire(const MenuPlacement& wire);

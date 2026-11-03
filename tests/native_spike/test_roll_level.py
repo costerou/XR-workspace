@@ -1,7 +1,7 @@
-"""Roll-level icons, supervisor side (free_pointer.py): the renderer's `roll_geometry` line, which icon a desktop shows
-(above its higher top corner, the way that levels it, none when level or unmeasured), the icon's fixed apparent size,
-hit testing on rolled desktops (the icon before the corner), a click that levels at once, a drag that rolls toward level
-and never past it, the `roll` frame, and the icons hiding with the pills.
+"""Roll-level icons, supervisor side (free_pointer.py): the renderer's `roll_geometry` line, both arrows on every desktop
+in the overview (level, tilted or unmeasured), which arrow levels it, the icon's fixed apparent size, hit testing on
+rolled desktops (the icon before the corner), a click (to level when it lies that way, else a step that way), a drag
+that rolls either way, the `roll` frame, and the icons hiding with the pills.
 
 Offline only: a fake clock, the renderer's overview geometry fixture. No compositor, renderer binary or glasses.
 """
@@ -31,6 +31,39 @@ class PureTests(unittest.TestCase):
         self.assertIsNone(fp.roll_side(None, 0))         # not measured (no tracking, not anchor mode)
         self.assertEqual(fp.roll_side(100, -400), 'ccw')  # rolled past level the other way
 
+    def test_a_click_turns_the_arrows_way_to_level_or_a_step(self):
+        # The arrow that points toward level levels it at once; the other one (and both on a level or unmeasured
+        # desktop) turns it ROLL_STEP its own way: counter-clockwise positive.
+        self.assertEqual(fp.roll_click(300, 0, 'cw'), -300)
+        self.assertEqual(fp.roll_click(300, 0, 'ccw'), fp.ROLL_STEP)
+        self.assertEqual(fp.roll_click(-300, 0, 'ccw'), 300)
+        self.assertEqual(fp.roll_click(-300, 0, 'cw'), -fp.ROLL_STEP)
+        for tilt in (0, None, 40):
+            self.assertEqual(fp.roll_click(tilt, 0, 'ccw'), fp.ROLL_STEP)
+            self.assertEqual(fp.roll_click(tilt, 0, 'cw'), -fp.ROLL_STEP)
+        self.assertEqual(fp.roll_click(0, fp.ROLL_STEP, 'cw'), 0)  # one step back the other way: level again
+        self.assertEqual(fp.roll_click(None, fp.MAX_ROLL - 50, 'ccw'), fp.MAX_ROLL)  # bounded
+        self.assertEqual(fp.roll_click(None, -fp.MAX_ROLL, 'cw'), -fp.MAX_ROLL)
+        self.assertEqual(fp.roll_click(15000, 0, 'cw'), -fp.MAX_ROLL)
+        with self.assertRaises(ValueError): fp.roll_click(0, 0, 'both')
+
+    def test_a_drag_turns_either_way_with_a_detent_at_level(self):
+        self.assertEqual(fp.roll_drag(None, 0, 1234.4), 1234)
+        self.assertEqual(fp.roll_drag(None, 0, -1234.4), -1234)
+        self.assertEqual(fp.roll_drag(300, 0, -500), -500)          # past level: free
+        self.assertEqual(fp.roll_drag(300, 0, 500), 500)            # away from level: free too
+        self.assertEqual(fp.roll_drag(300, 0, -280), -300)          # within ROLL_LEVEL of level: rests there
+        self.assertEqual(fp.roll_drag(0, 0, 30), 0)                 # a level desktop needs more than ROLL_LEVEL to leave
+        self.assertEqual(fp.roll_drag(0, 0, 60), 60)
+        self.assertEqual(fp.roll_drag(None, 100, 20000), fp.MAX_ROLL)
+        self.assertEqual(fp.roll_drag(None, -100, -20000), -fp.MAX_ROLL)
+
+    def test_icon_sides(self):
+        self.assertEqual(fp.roll_icon_sides('both'), ('ccw', 'cw'))
+        self.assertEqual(fp.roll_icon_sides('cw'), ('cw',))
+        self.assertEqual(fp.roll_icon_sides('none'), ())
+        self.assertEqual(fp.roll_icon_sides(None), ())
+
     def test_the_icon_is_one_size_whatever_the_desktop(self):
         for tile in ((100, 300, 459, 258), (0, 0, 4000, 2000), (10, 40, 120, 60)):
             l, r = fp.roll_icon_rect(tile, 'ccw'), fp.roll_icon_rect(tile, 'cw')
@@ -56,11 +89,13 @@ class PureTests(unittest.TestCase):
             with self.assertRaises(ValueError): fp.parse_roll_geometry(bad)
 
     def test_roll_frame(self):
-        state = {'roll': [-300, 0, 9000, 0], 'icons': ['cw', 'none', 'ccw', 'none'], 'hover': 0, 'active': True}
+        state = {'roll': [-300, 0, 9000, 0], 'icons': ['cw', 'none', 'ccw', 'both'], 'hover': 0, 'side': 'cw', 'active': True}
         f = json.loads(fp.roll_frame('run', 's', 9, state))
         self.assertEqual((f['op'], f['request_id'], f['payload']), ('roll', 9, state))
+        json.loads(fp.roll_frame('run', 's', 9, fp.ROLL_HIDDEN))
         for bad in ({**state, 'roll': [0, 0, 0]}, {**state, 'roll': [0, 0, 0, 9001]}, {**state, 'icons': ['up', 'none', 'none', 'none']},
-                    {**state, 'hover': 4}, {**state, 'active': 1}, {**state, 'x': 1}):
+                    {**state, 'hover': 4}, {**state, 'active': 1}, {**state, 'x': 1}, {**state, 'side': 'up'},
+                    {**state, 'side': 'none'}, {**state, 'hover': -1}, {k: v for k, v in state.items() if k != 'side'}):
             with self.assertRaises(ValueError): fp.roll_frame('run', 's', 9, bad)
 
     def test_a_rolled_desktop_is_hit_where_it_is_drawn(self):
@@ -90,6 +125,21 @@ class PureTests(unittest.TestCase):
             point = fp.project(g, tiles[i], placements[i], x + w_ / 2, y + h / 2)
             self.assertNotEqual((fp.hit(g, placements, point) or ('',))[0], 'roll')
 
+    def test_every_arrow_of_four_desktops_is_hit_when_all_show_both(self):
+        # The overview shows both arrows on every desktop; with the usual 20 px spacing each one is reachable, rolled
+        # either way, whatever is nearer.
+        w = (1920 - 5 * 20) / 4
+        tiles = [(20 + i * (w + 20), 450.0, w, w * 9 / 16) for i in range(4)]
+        g = {'w': 1920, 'h': 1200, 'half': (0.41421356, 0.25888), 'tiles': tiles}
+        for roll in (0, 1500, -1500):
+            placements = [{**FLAT, 'roll': roll}] * 4
+            for i in range(4):
+                for side in fp.ROLL_SIDES:
+                    x, y, w_, h = fp.roll_icon_rect(tiles[i], side)
+                    for fx, fy in ((0.5, 0.5), (0.1, 0.1), (0.9, 0.9)):
+                        point = fp.project(g, tiles[i], placements[i], x + w_ * fx, y + h * fy)
+                        self.assertEqual(fp.hit(g, placements, point, icons=['both'] * 4), ('roll', i, side), (i, side, roll, fx, fy))
+
     def test_the_icon_wins_over_the_corner_it_sits_above_and_only_when_shown(self):
         x, y, w, h = fp.roll_icon_rect(T0, 'cw')
         point = fp.project(G, T0, FLAT, x + w - 3, y + h - 1)  # inside the top-right corner's grab zone too
@@ -97,6 +147,17 @@ class PureTests(unittest.TestCase):
         self.assertEqual(fp.hit(G, placements, point)[:2], ('corner', 0))
         self.assertEqual(fp.hit(G, placements, point, icons=['cw', None, None]), ('roll', 0, 'cw'))
         self.assertEqual(fp.hit(G, placements, point, icons=['ccw', None, None])[:2], ('corner', 0))  # the other side's
+        self.assertEqual(fp.hit(G, placements, point, icons=['both', None, None]), ('roll', 0, 'cw'))
+        # Both icons always show, so the corner keeps the gap under its icon and everything beyond the desktop's side:
+        # a resize grabbed from just outside the corner still resizes. The padding up and inward stays the icon's.
+        for side, corner in (('cw', 'tr'), ('ccw', 'tl')):
+            x, y, w, h = fp.roll_icon_rect(T0, side)
+            out = x + w + 2 if side == 'cw' else x - 2
+            for q, want in (((out, y + h - 2), ('corner', 0, corner)),                        # beyond the side
+                            ((x + w / 2, y + h + 2), ('corner', 0, corner)),                  # the gap under it
+                            ((x + w / 2, y - 2), ('roll', 0, side)),                          # padding above
+                            ((x - 2 if side == 'cw' else x + w + 2, y + h / 2), ('roll', 0, side))):  # inward
+                self.assertEqual(fp.hit(G, placements, fp.project(G, T0, FLAT, *q), icons=['both'] * 3), want, (side, q))
 
 
 class PointerTests(Base):
@@ -107,10 +168,14 @@ class PointerTests(Base):
     def roll(self, fs):
         return last(fs, 'roll')
 
-    def test_icons_show_only_on_a_tilted_desktop_and_hide_when_idle(self):
+    def test_both_icons_show_on_every_desktop_in_the_overview_and_hide_when_idle(self):
+        # Regression (Cody, 2026-11-03): the icons showed only on a desktop more than half a degree off level (and none at
+        # all where the tilt is not measured: follow mode, no tracking), so a level desktop could not be rolled at all.
+        # Every desktop shows both arrows in the overview now, tilted (XR-1), unmeasured (XR-2) or level (XR-3).
         self.free()
         r = self.p.roll_sent  # went out with the first overview frames
-        self.assertEqual(r, {'roll': [0, 0, 0, 0], 'icons': ['cw', 'none', 'none', 'none'], 'hover': -1, 'active': False})
+        self.assertEqual(r, {'roll': [0, 0, 0, 0], 'icons': ['both', 'both', 'both', 'none'], 'hover': -1, 'side': 'none',
+                             'active': False})
         self.clock.now += 31
         r = self.roll(frames(self.control.poll()))
         self.assertEqual(r['icons'], ['none'] * 4)
@@ -132,89 +197,100 @@ class PointerTests(Base):
     def test_a_click_levels_it_at_once(self):
         self.free()
         hover = self.roll(self.to(*icon_centre(T0, 'cw')))
-        self.assertEqual((hover['hover'], hover['active']), (0, False))
+        self.assertEqual((hover['hover'], hover['side'], hover['active']), (0, 'cw', False))
         self.assertEqual(self.p.hover, ('roll', 0, 'cw'))
         r = self.roll(self.press() + self.release())
         self.assertEqual(r['roll'], [-300, 0, 0, 0])
-        self.assertEqual(r['icons'], ['none'] * 4)  # level now: no icon
+        self.assertEqual(r['icons'], ['both', 'both', 'both', 'none'])  # level now: still both, it can go either way
         self.assertEqual(self.p.roll_clicks, 1)
         self.assertEqual(self.state.placements, [FLAT] * 3)  # a session roll, never a saved placement
         self.assertEqual(self.store.saves, 0)
+        hover = self.roll(self.to(*icon_centre(T0, 'ccw', roll=-300)))  # the other arrow lights up on its own
+        self.assertEqual((hover['hover'], hover['side']), (0, 'ccw'))
 
-    def test_a_drag_rolls_toward_level_and_never_past_it(self):
+    def turned(self, tile, start, deg, roll=0):
+        """`start` turned counter-clockwise as you see it by `deg` round the desktop's centre."""
+        cx, cy = fp.project(G, tile, {**FLAT, 'roll': roll}, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
+        a = math.atan2(cy - start[1], start[0] - cx) + math.radians(deg)
+        r = math.hypot(start[0] - cx, start[1] - cy)
+        return cx + r * math.cos(a), cy - r * math.sin(a)
+
+    def test_a_drag_rolls_either_way_past_level_and_back(self):
         self.free()
         start = icon_centre(T0, 'cw')
         self.to(*start)
         self.press()
-        cx, cy = fp.project(G, T0, FLAT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)
-        def turned(deg):  # the press point turned clockwise as you see it by deg round the desktop's centre
-            a = math.atan2(cy - start[1], start[0] - cx) - math.radians(deg)
-            r = math.hypot(start[0] - cx, start[1] - cy)
-            return cx + r * math.cos(a), cy - r * math.sin(a)
-        r = self.roll(self.to(*turned(1)))
+        r = self.roll(self.to(*self.turned(T0, start, -1)))
         self.assertTrue(r['active'])
+        self.assertEqual((r['hover'], r['side']), (0, 'cw'))
         self.assertAlmostEqual(r['roll'][0], -100, delta=3)
-        self.assertEqual(r['icons'][0], 'cw')  # 2 degrees still to go
-        r = self.roll(self.to(*turned(10)))  # far past level: stops there
-        self.assertEqual(r['roll'][0], -300)
-        r = self.roll(self.to(*turned(-5)) + self.to(*turned(-6)))  # back the other way: never past where it started
-        self.assertEqual(self.p.rolls[0], 0)
+        self.to(*self.turned(T0, start, -2.9))  # within half a degree of level: it rests there
+        self.assertEqual(self.p.rolls[0], -300)
+        self.to(*self.turned(T0, start, -10))  # on past level
+        self.assertAlmostEqual(self.p.rolls[0], -1000, delta=3)
+        self.to(*self.turned(T0, start, 6))  # back the other way, past where it started
+        self.assertAlmostEqual(self.p.rolls[0], 600, delta=3)
         self.release()
         self.assertEqual(self.p.roll_drags, 1)
         self.assertEqual(self.p.roll_clicks, 0)
 
     def test_both_directions_on_every_desktop(self):
-        # A desktop turned clockwise shows the counter-clockwise icon above its top-left corner, one turned counter-
-        # clockwise the clockwise icon above its top-right; a click on either levels it at once, and a drag the way its
-        # arrow points rolls it toward level, never past it, never the other way.
+        # Regression (Cody, 2026-11-03: "rolling still only goes one way"): each desktop showed only the arrow that
+        # levels it, a drag was clamped between its roll at the press and level, and a level desktop showed nothing, so
+        # a desktop could only ever be turned toward level. Now on every desktop, tilted either way, level or unmeasured,
+        # both arrows are there; a click on each turns it its own way (to level when level lies that way, else a step),
+        # and a drag from either arrow turns it both ways.
         self.free()
         for i, tile in enumerate(G['tiles']):
-            for tilt in (300, -300, 2500, -2500):
-                side = 'cw' if tilt > 0 else 'ccw'
+            for tilt in (300, -300, 2500, -2500, 0, None):
                 tilts = [None] * 3; tilts[i] = tilt
                 self.control.set_roll_geometry(tilts)
-                self.p.rolls = [0] * 4
-                self.assertEqual(self.p._icons()[i], side)
-                self.to(*icon_centre(tile, side))
-                self.assertEqual(self.p.hover, ('roll', i, side))
-                r = self.roll(self.press() + self.release())
-                self.assertEqual(r['roll'][i], -tilt, (i, tilt))
-                self.assertEqual(r['icons'], ['none'] * 4)
-                # Drag: back to unlevelled, then turn the dot the arrow's way round the desktop's centre.
-                self.p.rolls = [0] * 4
-                start = icon_centre(tile, side)
-                self.to(*start)
-                self.press()
-                cx, cy = fp.project(G, tile, FLAT, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
-                way = -1 if side == 'cw' else 1  # counter-clockwise positive, as you see it
-                radius, a0 = math.hypot(start[0] - cx, start[1] - cy), math.atan2(cy - start[1], start[0] - cx)
-                def turned(deg): return cx + radius * math.cos(a0 + way * math.radians(deg)), cy - radius * math.sin(a0 + way * math.radians(deg))
-                self.to(*turned(1))
-                self.assertAlmostEqual(self.p.rolls[i], way * 100, delta=3)
-                self.assertEqual(math.copysign(1, self.p.rolls[i]), math.copysign(1, -tilt))  # toward level
-                self.to(*turned(40))
-                self.assertEqual(self.p.rolls[i], -tilt)  # stops at level
-                self.to(*turned(-10))
-                self.assertEqual(self.p.rolls[i], 0)  # never the other way past where it started
-                self.release()
+                for side in fp.ROLL_SIDES:
+                    way = 1 if side == 'ccw' else -1  # counter-clockwise positive, as you see it
+                    self.p.rolls = [0] * 4
+                    self.assertEqual(self.p._icons()[i], 'both')
+                    self.to(*icon_centre(tile, side))
+                    self.assertEqual(self.p.hover, ('roll', i, side), (i, tilt, side))
+                    r = self.roll(self.press() + self.release())
+                    want = -tilt if tilt is not None and abs(tilt) > fp.ROLL_LEVEL and -tilt * way > 0 else way * fp.ROLL_STEP
+                    self.assertEqual(r['roll'][i], want, (i, tilt, side))
+                    self.assertEqual(math.copysign(1, r['roll'][i]), way)  # always the arrow's way
+                    self.assertEqual(r['icons'][i], 'both')
+                    # Drag: from 0, turn the dot round the desktop's centre one way, then the other, past the start.
+                    for first in (1, -1):
+                        self.p.rolls = [0] * 4
+                        start = icon_centre(tile, side)
+                        self.to(*start)
+                        self.press()
+                        self.to(*self.turned(tile, start, first * 5))
+                        self.assertAlmostEqual(self.p.rolls[i], first * 500, delta=5, msg=(i, tilt, side, first))
+                        self.to(*self.turned(tile, start, -first * 5))
+                        self.assertAlmostEqual(self.p.rolls[i], -first * 500, delta=5, msg=(i, tilt, side, first))
+                        self.release()
 
     def test_hit_testing_uses_the_rolled_desktop(self):
         self.control.set_roll_geometry([3000, None, None])  # 30 degrees off
         self.free()
-        self.p.rolls[0] = -1500  # half levelled: the icon is still up, on the turned surface
-        self.assertEqual(self.p._icons()[0], 'cw')
+        self.p.rolls[0] = -1500  # half levelled: the icons are on the turned surface
         self.to(*icon_centre(T0, 'cw', roll=-1500))
         self.assertEqual(self.p.hover, ('roll', 0, 'cw'))
+        self.to(*icon_centre(T0, 'ccw', roll=-1500))
+        self.assertEqual(self.p.hover, ('roll', 0, 'ccw'))
         self.to(*icon_centre(T0, 'cw', roll=0))  # where it would be unrolled: nothing there
         self.assertNotEqual(self.p.hover, ('roll', 0, 'cw'))
 
-    def test_a_new_tilt_from_the_renderer_brings_the_icon_back(self):
+    def test_a_new_tilt_from_the_renderer_changes_which_arrow_levels(self):
         self.free()
-        self.to(*icon_centre(T0, 'cw'))
+        self.to(*icon_centre(T1, 'ccw'))
+        self.press(); self.release()  # XR-2 not measured: a step counter-clockwise
+        self.assertEqual(self.p.rolls[1], fp.ROLL_STEP)
+        self.control.set_roll_geometry([300, -600, 0])  # XR-2 now measured: tilted clockwise, the step not enough
+        self.to(*icon_centre(T1, 'ccw', roll=fp.ROLL_STEP))
         self.press(); self.release()
-        self.control.set_roll_geometry([300, -250, 0])  # XR-2 now measured: tilted clockwise
-        r = self.roll(self.by(1, 0))
-        self.assertEqual(r['icons'], ['none', 'ccw', 'none', 'none'])
+        self.assertEqual(self.p.rolls[1], 600)  # level lies counter-clockwise: straight there
+        self.to(*icon_centre(T1, 'ccw', roll=600))  # where the turned desktop's arrow is now
+        self.press(); self.release()
+        self.assertEqual(self.p.rolls[1], 600 + fp.ROLL_STEP)  # level now: a step on past it
 
 
 class StatusLineTests(unittest.TestCase):

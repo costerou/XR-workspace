@@ -121,8 +121,10 @@ public:
     // Roll-level icons and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about
     // its line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement, every
     // zoom); `icons` per desktop -1 none, 0 above the top-left corner (counter-clockwise), 1 above the top-right
-    // (clockwise), drawn with the pills (overview only); `hover` the desktop whose icon is brighter, brightest when `active`.
-    void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover, bool active);
+    // (clockwise), 2 both, drawn with the pills (overview only); `hover` / `side` the desktop and arrow that is brighter,
+    // brightest when `active`.
+    void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
+                  std::int8_t side, bool active);
     // How far each desktop is from level as you see it, without its levelling roll (view.hpp desktop_tilt against the
     // world's up from the pose feed): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a
     // degree (counter-clockwise positive), or null where it cannot be measured (no head tracking, not in anchor mode or
