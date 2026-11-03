@@ -255,6 +255,18 @@ struct Presentation::Impl : SurfaceRequests {
         resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position());
         return resolved;
     }
+    // A desktop switch's view turn (ViewAnimator::look, view.hpp look_turn) applied to this frame's head rotation: the
+    // camera turns, never a placement. Call after resolved_placements (it reads `own`). Identity turn at rest.
+    Mat3 turned(const Mat3& head) const {
+        if (!(view.look() > 0.f)) return head;
+        const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
+        const Mat3 m = look_turn(Canvas{float(width), float(height), half_w, half_h}, overview, own, view.look_from(), view.look_to(),
+                                 view.look());
+        Mat3 out{};
+        for (int r = 0; r < 3; ++r)
+            for (int c = 0; c < 3; ++c) out[r * 3 + c] = head[r * 3] * m[c] + head[r * 3 + 1] * m[3 + c] + head[r * 3 + 2] * m[6 + c];
+        return out;
+    }
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
     std::string pose_prefix;
@@ -1093,11 +1105,11 @@ Status Presentation::draw_test_pattern() {
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
         // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
-        const bool handle = s.handle.visible && s.view.zoom() < 0.01f;
+        const bool handle = s.handle.visible && s.view.zoom() < 0.01f && !s.view.switching();
         s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);
         {  // Glass pills and the open placement panel: overview only (a zoom hides them, and holds an expanding pill's
            // morph until the overview is reached: GlassPills::frame), never moving on their own.
-            const bool overview = s.view.zoom() < 0.01f;
+            const bool overview = s.view.zoom() < 0.01f && !s.view.switching();  // not while a switch turns through it
             GlassFrame glass = s.glass.frame(overview, help_now);
             glass.pills = s.pills.visible && overview;
             if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
@@ -1108,12 +1120,14 @@ Status Presentation::draw_test_pattern() {
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
         }
-        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f;  // overview only; world-locked on the canvas
+        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
                                float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f);
         s.last_head = head;
-        if (!s.gl->draw_and_swap(tiles, s.resolved_placements(tiles), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
+        const auto& placed = s.resolved_placements(tiles);
+        // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
+        if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), 1.f - s.view.zoom(), s.turned(head), s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
