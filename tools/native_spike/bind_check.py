@@ -1,6 +1,6 @@
 """Do this run's keybinds clash with the desktop's own? Checked offline with Hyprland's own config loader.
 
-    python -m tools.native_spike.bind_check [--config FILE] [--hyprland BINARY]
+    python -m tools.native_spike.bind_check [--config FILE] [--hyprland BINARY] [--keybinds FILE]
 
 The user's Hyprland config (by default ~/.config/hypr/hyprland.lua: Omarchy's defaults plus the user's files) is
 loaded by `Hyprland --verify-config`, which runs the Lua config with the real `hl` API but starts no compositor. It
@@ -12,7 +12,9 @@ desktop-mode click binds) the same way, so Hyprland also checks that
 ours load. The run's chords (view.BINDS, send.SEND_BINDS, MENU_BINDS, the free pointer's resize_press / resize_release,
 input_lock.OTHER_BUTTONS and WHEEL) are then compared with the desktop's and with each other. A digit and its keycode (1 and code:10, as Omarchy binds workspace
 digits) count as the same key. The Super drag binds (view.SUPER_BINDS) are loaded and counted but not compared: they sit on
-the desktop's own window move and resize chords on purpose, non-consuming. The running compositor is never contacted.
+the desktop's own window move and resize chords on purpose, non-consuming. The run and send binds are the key bind
+panel's (keybinds.py: Ctrl+Alt+K, saved in ~/.config/viture-workspace/keybinds.json, --keybinds), and the panel's own
+submap and key subscription (keybinds.panel_on_lua) are loaded too. The running compositor is never contacted.
 
 Exit status: 0 no clash, 1 clash found, 2 could not check (no Hyprland binary, config or harness error).
 """
@@ -49,9 +51,18 @@ def normalize(chord):
     return frozenset(MODS.get(p.upper(), p.upper()) for p in parts[:-1] if p), DIGIT_CODES.get(key, key)
 
 
-def run_chords():
-    """(set name, chord, op) for every bind this project installs during a run."""
-    out = [('run', c, op) for c, op in view.BINDS] + [('send', c, op) for c, op in send.SEND_BINDS]
+def _keymap(path=None):
+    from . import keybinds  # keybinds imports this module (normalize)
+    return keybinds.load(path or keybinds.config_path())
+
+
+def run_chords(keymap=None):
+    """(set name, chord, op) for every bind this project installs during a run (the run and send binds with `keymap`'s
+    keys: the key bind panel's, keybinds.KeyMap; None: the defaults. check() passes the saved ones)."""
+    from . import keybinds
+    keymap = keymap or keybinds.KeyMap()
+    out = [('run', keymap.overrides.get(op, c), op) for c, op in view.BINDS] + \
+        [('send', keymap.overrides.get(op, c), op) for c, op in send.SEND_BINDS]
     out += [('menu', c, op) for c, op in view.MENU_BINDS]
     # The overview free pointer's left button (free mode only: pill and corner drags, pill clicks, panel sliders).
     out += [('pointer', resize.RESIZE_BUTTON, op) for op in resize.RESIZE_OPS]
@@ -64,9 +75,15 @@ def _lua_string(s):
     return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
 
 
-def harness_lua(config, out):
-    chunks = [view.install_binds_lua(*DUMMY_ARGS, typing=True), view.remove_binds_lua(),  # typing mode's toggle-only set
-              view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
+def harness_lua(config, out, keymap=None):
+    from . import keybinds
+    keymap = keymap or keybinds.KeyMap()
+    binds = tuple((keymap.chord(op), op) for op in keybinds.RUN_OPS)
+    sends = tuple((keymap.chord(op), op) for op in keybinds.SEND_OPS)
+    chunks = [view.install_binds_lua(*DUMMY_ARGS, typing=True, binds=binds), view.remove_binds_lua(),  # typing mode's toggle-only set
+              view.install_binds_lua(*DUMMY_ARGS, binds=binds), view.install_send_binds_lua(*DUMMY_ARGS, binds=sends),
+              # The key bind panel: its submap's catch-all and its key subscription load, and the panel closes again.
+              keybinds.panel_on_lua(*DUMMY_ARGS), keybinds.PANEL_OFF_LUA,
               view.install_menu_binds_lua(*DUMMY_ARGS), resize.install_resize_binds_lua(*DUMMY_ARGS),
               input_lock.lock_binds_lua(*DUMMY_ARGS),  # into the free pointer's table, removed with it
               resize.remove_resize_binds_lua(),
@@ -91,7 +108,16 @@ hl.bind = function(keys, ...) out:write(phase, "\\tbind\\t", clean(keys), "\\n")
 hl.unbind = function(keys, ...) out:write(phase, "\\tunbind\\t", clean(keys), "\\n") return unbind(keys, ...) end
 local ok, err = pcall(dofile, {_lua_string(config)})
 out:write("desktop\\tloaded\\t", ok and "ok" or clean(err), "\\n")
+out:flush()
 phase = "run"
+-- Verify mode has no event manager: a submap switch (the key bind panel's) would post to it and crash Hyprland 0.56.2.
+-- Only our generated Lua runs from here: dispatches do nothing, and a submap switch is kept in Lua so the panel's own
+-- check that it entered its submap (keybinds.panel_on_lua) still holds.
+local submap = ""
+local dsp_submap = hl.dsp.submap
+hl.dsp.submap = function(name) dsp_submap(name) return {{ xr_submap = name }} end
+hl.dispatch = function(d) if type(d) == "table" and d.xr_submap then submap = d.xr_submap == "reset" and "" or d.xr_submap end return true end
+hl.get_current_submap = function() return submap end
 local ran, why = pcall(function()
 {ours}
 end)
@@ -112,11 +138,11 @@ def desktop_chords(records):
     return bound
 
 
-def clashes(records):
+def clashes(records, keymap=None):
     """Human-readable clash lines (empty: none). A press/release pair on one button is one bind, not a clash."""
     desktop = desktop_chords(records)
     problems, seen = [], {}
-    for where, chord, op in run_chords():
+    for where, chord, op in run_chords(keymap):
         key = normalize(chord)
         if key in desktop: problems.append(f'{chord} ({where}: {op}) is already bound by the desktop config as {desktop[key][0]}')
         for other_where, other_op in seen.get(key, []):
@@ -141,8 +167,9 @@ def _isolated_home(home, config_dir):
     return tmp
 
 
-def check(config=None, hyprland=None, home=None, timeout=60):
+def check(config=None, hyprland=None, home=None, timeout=60, keybinds_file=None):
     """(exit status, report lines)."""
+    keymap = _keymap(keybinds_file)
     home = Path(home or os.environ.get('HOME') or Path.home())
     config = Path(config) if config else home / '.config' / 'hypr' / 'hyprland.lua'
     binary = hyprland or shutil.which('Hyprland')
@@ -152,7 +179,7 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     try:
         copied = tmp / '.config' / 'hypr' / config.name
         out, harness = tmp / 'binds.tsv', tmp / 'harness.lua'
-        harness.write_text(harness_lua(str(copied), str(out)))
+        harness.write_text(harness_lua(str(copied), str(out), keymap))
         env = {'HOME': str(tmp), 'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'XDG_CONFIG_HOME': str(tmp / '.config'),
                'XDG_STATE_HOME': str(tmp / '.local' / 'state'), 'XDG_RUNTIME_DIR': str(tmp), 'LANG': 'C.UTF-8'}
         # Omarchy's config reads these; a made-up instance matches no compositor socket (verify mode opens none anyway).
@@ -170,12 +197,15 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     if loaded.get('run') != 'ok': return 2, [f"this project's bind Lua failed to load: {loaded.get('run', 'no result')}"]
     report = [f'Hyprland --verify-config: {verdict.splitlines()[0] if verdict else "no verdict"} ({r.returncode})',
               f'desktop config: {len(desktop_chords(records))} chords bound']
-    problems = clashes(records)
+    problems = clashes(records, keymap)
     if r.returncode != 0: return 2, report + ['Hyprland reported config errors (above); results may be incomplete']
     if problems: return 1, report + problems
-    labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords() if w == 'menu'}))
-    sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
-    return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), '
+    from . import keybinds
+    labels = ', '.join(sorted({view.chord_label(c) for w, c, _ in run_chords(keymap) if w == 'menu'}))
+    sends = ', '.join(view.chord_label(keymap.chord(op)) for op in keybinds.SEND_OPS)
+    custom = f', {len(keymap.overrides)} changed in the key bind panel' if keymap.overrides else ''
+    return 0, report + [f'no clash: {len(view.BINDS)} run binds{custom} (typing toggle {view.chord_label(keymap.chord(view.TYPING_OP))}, '
+                        f'key bind panel {view.chord_label(keymap.chord(view.BINDS_PANEL_OP))}), send-window binds ({sends}), '
                         f'placement panel binds ({labels}), the free pointer\'s left button (and the unified cursor\'s '
                         'non-consuming click binds) and the input lock\'s other buttons and wheel']
 
@@ -184,8 +214,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog='python -m tools.native_spike.bind_check', description=__doc__.split('\n\n')[0])
     parser.add_argument('--config', help='Hyprland Lua config (default ~/.config/hypr/hyprland.lua)')
     parser.add_argument('--hyprland', help='Hyprland binary (default: Hyprland on PATH)')
+    parser.add_argument('--keybinds', help='saved key bind panel keys (default ~/.config/viture-workspace/keybinds.json)')
     args = parser.parse_args(argv)
-    status, lines = check(args.config, args.hyprland)
+    status, lines = check(args.config, args.hyprland, keybinds_file=args.keybinds)
     for line in lines: print(line)
     return status
 

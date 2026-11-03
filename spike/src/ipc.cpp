@@ -216,6 +216,41 @@ bool move_handle(const Json& p, MoveHandlePayload& out) {
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>()};
     return true;
 }
+// binds_panel.hpp BindPanelState: printable ASCII text of `lo`..`hi` characters.
+bool ascii_text(const Json& value, std::size_t lo, std::size_t hi) {
+    if (!value.is_string()) return false;
+    const auto& s = value.get_ref<const std::string&>();
+    return s.size() >= lo && s.size() <= hi && std::all_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; });
+}
+bool binds(const Json& p, BindPanelState& out) {
+    if (!p.is_object() || !p.contains("visible") || !p["visible"].is_boolean()) return false;
+    out = {};
+    out.visible = p["visible"].get<bool>();
+    if (!out.visible) return p.size() == 1;
+    if (p.size() != 7 || !ascii_text(p.value("title", Json()), 1, kMaxBindLabel) || !ascii_text(p.value("hint", Json()), 1, kMaxBindText) ||
+        !ascii_text(p.value("status", Json()), 0, kMaxBindText) || !p.contains("alert") || !p["alert"].is_boolean() ||
+        !p.contains("rows") || !p["rows"].is_array() || p["rows"].empty() || p["rows"].size() > kMaxBindRows ||
+        !p.contains("selected") || !p["selected"].is_number_unsigned() || p["selected"].get<std::uint64_t>() >= p["rows"].size())
+        return false;
+    out.title = p["title"].get<std::string>(); out.hint = p["hint"].get<std::string>(); out.status = p["status"].get<std::string>();
+    out.alert = p["alert"].get<bool>();
+    out.selected = std::uint32_t(p["selected"].get<std::uint64_t>());
+    for (const auto& r : p["rows"]) {
+        if (!r.is_object() || r.size() != 4 || !ascii_text(r.value("action", Json()), 1, kMaxBindLabel) ||
+            !ascii_text(r.value("keys", Json()), 1, kMaxBindLabel) || !ascii_text(r.value("note", Json()), 0, kMaxBindText) ||
+            !r.contains("state") || !r["state"].is_string())
+            return false;
+        BindRow row{r["action"].get<std::string>(), r["keys"].get<std::string>(), r["note"].get<std::string>(), BindRowState::normal};
+        const auto& state = r["state"].get_ref<const std::string&>();
+        if (state == "normal") row.state = BindRowState::normal;
+        else if (state == "custom") row.state = BindRowState::custom;
+        else if (state == "conflict") row.state = BindRowState::conflict;
+        else if (state == "capture") row.state = BindRowState::capture;
+        else return false;
+        out.rows.push_back(std::move(row));
+    }
+    return true;
+}
 bool roll(const Json& p, RollPayload& out) {
     if (!p.is_object() || p.size() != 5 || !p.contains("roll") || !p["roll"].is_array() || p["roll"].size() != kMaxDesktops || !p.contains("icons") ||
         !p["icons"].is_array() || p["icons"].size() != kMaxDesktops || !p.contains("hover") || !p["hover"].is_number_integer() ||
@@ -287,6 +322,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
         else if (name == "roll") op = ControlOp::roll;
         else if (name == "desktops") op = ControlOp::desktops;
+        else if (name == "binds") op = ControlOp::binds;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -385,6 +421,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             RollPayload r;
             if (!roll(j["payload"], r)) return Error{kInvalidRollCode, "Ignored malformed roll payload"};
             payload = r;
+        } else if (op == ControlOp::binds) {
+            BindPanelState panel;
+            if (!binds(j["payload"], panel)) return Error{kInvalidBindsCode, "Ignored malformed binds payload"};
+            payload = std::move(panel);
         } else if (op == ControlOp::desktops) {
             DesktopsPayload set;
             if (!desktops(j["payload"], set)) return invalid();

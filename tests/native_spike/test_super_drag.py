@@ -684,6 +684,7 @@ class LuaTests(unittest.TestCase):
 local fired, execs, drags = {}, {}, 0
 local timers = {}
 hl.dsp.window = { drag = function() return { drag = true } end }
+hl.get_current_submap = function() return "" end
 local plain_dispatch = hl.dispatch
 hl.dispatch = function(p) if p.drag then drags = drags + 1 else plain_dispatch(p) end end
 hl.exec_cmd = function(c) execs[#execs + 1] = c:match("(%S+)$") end

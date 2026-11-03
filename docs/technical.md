@@ -31,6 +31,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Live desktops from the glass pill (Ultrawide, Add new, Remove; 1..4 desktops; `tools/native_spike/desktops.py`, the renderer's `desktops` control op, the broker's `reshape` op) | Offline tests only: `tests/native_spike/test_desktops.py` (plans, journaled broker steps with the real journal and the C++ request validator, the supervisor loop, pointer hits, profiles), ctest `ipc`, `glass`, `glass_contract`, `capture`, `ownership`. Not run in an isolated VM or in the glasses: whether Hyprland keeps a capture session through a reshape (the renderer restarts it if not), the new panel row's look, and the guard swap are unverified. The ownership plugin, renderer, supervisor, controller and panel must be installed together. |
 | Seamless workspace layout switches (master / scrolling / floating; Omarchy's toggle rewrites a layout file the config requires, so each switch is a Hyprland config reload) | Offline tests only: ctest `ownership_reload` runs the plugin's `keptThroughReload` against the pinned reload sequence (clear, parse, `ensureMonitorStatus`): during a run a reload keeps the XR-n rules and the rule in effect for every output the config does not name (the glasses' session mode), so it modesets nothing, and the config still wins wherever it names an output. The plugin applies it by hooking `CMonitorRuleManager::clear()`; that hook has not been loaded in an isolated VM or in the glasses. Takes effect only with the new `libxr-ownership.so` installed. |
 | Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
+| Key bind panel (Ctrl+Alt+K: every run key listed with its keys, changed live in the glasses, saved in `keybinds.json`; conflicts with each other and with Hyprland / Omarchy binds found on load and on every change, refused or left off, shown on red rows and in a toast; see [Key bind panel](#key-bind-panel)) | Offline tests only: `tests/native_spike/test_keybinds.py` (chords, the saved file, `hyprctl binds` parsing, conflicts, every panel key, live rebinding through a fake compositor client, the help card, the helper, the wire, the start-up check in `managed.view_controls`), ctest `binds_panel` (fit at every scale, scrolling, the row states' M3 roles, the cap, the fade) and `ipc`, and `bind_check` (Hyprland's own Lua loader takes the panel's submap, catch-all and key subscription). Not run in an isolated VM and not tried in the glasses: Hyprland's `input.keyboard.key` event, `hl.is_key_down` and `hl.exec_cmd` from an event callback have never run on a live compositor here, so whether the keys reach the panel is unverified (see the failsafes there). |
 | Not built yet | Changing a desktop's resolution while running other than the Ultrawide toggle (its scale: the pill's Scale dropdown); head-direction focus. |
 
 ## How it fits together
@@ -106,6 +107,11 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+V | run | Maximized: follow / locked (0DoF). In the overview (always anchor, 3DoF) nothing changes; a toast says why |
 | Ctrl+Alt+P | run | Toggle pose prediction (on by default) |
 | Ctrl+Alt+H | run | Show the help card in the glasses |
+| Ctrl+Alt+K | run | The key bind panel: every run key, changed live (see [Key bind panel](#key-bind-panel)) |
+| Up / Down, PgUp / PgDn, Home / End | key bind panel open | Pick a bind |
+| Enter | key bind panel open | Change the picked bind: the next key combination becomes it (Esc cancels) |
+| R / Shift+R twice | key bind panel open | The picked bind / every bind back to its default |
+| Esc, or the panel's own keys | key bind panel open | Close the panel (Esc three times always gives the keyboard back) |
 | Ctrl+Alt+PgUp / PgDn | run | Previous / next help card page (wraps round; nothing while the card is closed) |
 | Ctrl+Alt+T | run, both modes | Typing mode on / off (see [Typing mode](#typing-mode)) |
 | Ctrl+Alt+L | run | Open the selected desktop's placement pill (back to the overview first if maximized), or close the open one |
@@ -158,6 +164,90 @@ different chord), and in this project's binds; `python -m tools.native_spike.bin
 Ctrl+Alt+P has its own help card row. Cursor follow (Ctrl+Alt+F: the view switched to the monitor the cursor crossed
 onto) was removed on 2026-11-02; a `cursor_follow` saved in layout.json or a profile is ignored, and the renderer's
 `view` payload still carries `cursor_follow: false` because the installed renderer's decoder requires the key.
+
+### Key bind panel
+
+**Ctrl+Alt+K** (a run bind like the others, so it can be changed too) opens a head-locked Material Design 3 card in the
+glasses listing every run bind the panel can change: the view keys (`view.BINDS`) and the send-window keys
+(`send.SEND_BINDS`), 25 in all, each with its action and its keys (`tools/native_spike/keybinds.py`; the renderer's
+`binds` op, `spike/include/xr/binds_panel.hpp`). The modal keys of an open pill or a playing video are fixed and not
+listed. Ctrl+Alt+K was picked because it is free: Omarchy's only Ctrl+Alt binds are Delete (close all windows), Tab and
+Shift+Tab (focus the next / previous monitor), its K binds are Super+Ctrl+K and Super+Alt+K, and no XR bind used it
+(checked against `hyprctl binds` on 2026-11-03 and by `bind_check`). K for keys.
+
+**Keys while it is open.** The panel is modal: every key goes to it and nothing else sees it (no window, no Omarchy or XR
+bind) until it closes. Up / Down, PgUp / PgDn (8 rows) and Home / End pick a row; Enter waits for the next key
+combination, which becomes the bind, saved and reinstalled at once (`HyprlandClient.reinstall_view_binds` with the
+panel's keys; no XR restart). A bind needs Ctrl, Alt or Super (Shift may join them) and a letter, digit, F-key, arrow,
+navigation key, Space, Tab, Enter, Backspace or punctuation; Esc cancels the change (and stays the panel's). R puts the
+picked row back to its default, Shift+R twice within 4 s every row. Esc, or the panel's own keys, close it. It closes by
+itself after `OVERLAY_IDLE_CLOSE_S` (30 s) without a key, like the help card, and a change waits at most 15 s. Typing
+mode, a VR video, the help card and a placement pill each close it; while it is open the overview free pointer gives the
+mouse back (`free_pointer.OverviewPointer.overview`). The help card's Ctrl+Alt+H row is now **Ctrl+Alt+H / K**, and it
+shows the keys as the panel set them.
+
+**How the keys reach it.** Hyprland 0.56's `Keybind:remove()` erases every bind with the same modifiers and key, in every
+submap (`src/config/lua/objects/LuaKeybind.cpp keybindRemove`): binding each possible combination to catch the next one
+and removing them afterwards would delete Omarchy's binds on the same keys. So the panel binds no keys at all. Opening it
+(`keybinds.panel_on_lua`) enters a Hyprland submap of its own, `xr_workspace_keys`, holding one catch-all bind (made once
+per Hyprland config and never removed) that swallows every key while the submap is active, and subscribes to Hyprland's
+`input.keyboard.key` event, which reports every key press, with its keycode, before any bind runs. For each press the
+subscription reads which of Ctrl, Alt, Shift and Super are held (`hl.is_key_down` on their keycodes) and runs the bind
+helper (`xr_control.py ... binds_key MODS CODE`); the run decides what the key means. Keys are named from their keycode
+with the US layout (Omarchy's default and this host's `/etc/vconsole.conf`), digits as keycodes (`code:10`...) the way
+Omarchy and the send keys bind them. Closing (`keybinds.PANEL_OFF_LUA`) drops the subscription and leaves the submap,
+never a submap of the user's; it is part of `view.remove_binds_lua()`, so a run's end, a typing-mode switch and a config
+reload all leave the keyboard free (a reload keeps Hyprland's current submap while it drops every runtime bind; an open
+panel's subscription is then put back).
+
+Failsafes, in case the keyboard is held: Esc three times in a row closes the panel in the compositor itself, whatever
+the run and the helper do; the subscription closes it after 90 s without a key (a Lua timer); the run closes it after
+30 s idle; if the run is gone, the next key's helper finds no run and gives the keyboard back (`xr_control.
+LEAVE_KEY_PANEL`); and if the subscription cannot be made, the panel never takes the keyboard and a toast says so.
+
+**Conflicts** (`keybinds.find_conflicts`). Two XR binds on one chord would both run, and an XR bind on a chord the
+desktop also binds would delete the desktop's bind when the run removes its own at the end (the removal rule above). So
+the desktop's binds are read live from plain `hyprctl binds` (`HyprlandClient.binds_text`; the JSON form leaves a
+keycode bind's key empty in 0.56) at every start, before the run binds go in, and whenever the panel opens. The run's
+own binds are told apart there by count.
+- A new bind on keys another XR bind already uses, or that a Hyprland / Omarchy bind holds, is refused: the panel keeps
+  waiting, the row (the other XR bind's, or the one being changed) turns red and says what holds those keys, and a toast
+  repeats it.
+- On load, a saved or default bind whose keys a described Hyprland bind holds (every Omarchy bind has a description) is
+  not installed ("off"), and a later XR bind on the same keys as an earlier one is off too. Those rows are red with their
+  note, the status line counts them, and a toast at the start names the first one. An undescribed Hyprland bind on the
+  same keys (a user's plain `hl.bind`, or the leftovers of a run that crashed, which a Hyprland reload clears) is flagged
+  the same way but still installed, as before the panel existed.
+
+**Saved** in `~/.config/viture-workspace/keybinds.json` (next to `layout.json` / `profiles.json`, mode 0600):
+`{"schema": 1, "binds": {"next": "CTRL + ALT + J"}}`, only the binds that differ from their default. A missing,
+unreadable or invalid file or entry means the defaults. With every default in place the generated bind Lua is exactly
+what it was before the panel. `bind_check` checks the saved keys too (`--keybinds FILE`).
+
+**Look** (`binds_panel.hpp`). The help card's surface (an extra-large rounded surface container with a 1 px outline-variant
+edge) in the M3 scheme of the Omarchy theme colour, every role under the 191/255 OLED cap. A headline with the picked
+row's place ("7 / 25"); one list item per bind, its keys in a chip on the right (outlined; filled primary-container when
+not the default); the picked row on a secondary-container band, a conflict on an error-container band with its note as a
+second line (and a primary focus ring when picked), the row being changed with "Press keys..." in a primary-outlined
+chip; "N more" above and below when rows are scrolled out; the key hint and a status line (on-error-container when it is
+an alert). Ten rows at a time at 1920×1200 @1.25 (fewer at the smallest text at scale 2); the window scrolls only when
+the picked row would leave it. It fades like the help card, in the same place, on top of it.
+
+To try it in the glasses (needs the renderer, supervisor and panel QML from this branch installed together):
+
+| Step | Do | Expect |
+| --- | --- | --- |
+| K1 | Start XR, press Ctrl+Alt+K | The panel fades in with 25 rows ("1 / 25", 10 shown, "15 more"); status says no conflicts (or names them) |
+| K2 | Type letters, press Super+Q | Nothing reaches the focused window and no Omarchy bind runs; the status says Esc closes the panel |
+| K3 | Down to *Next desktop*, Enter, then Ctrl+Alt+J | The chip shows "Press keys..." then Ctrl+Alt+J (filled); close the panel; Ctrl+Alt+J switches desktops, Ctrl+Alt+Right does nothing |
+| K4 | Ctrl+Alt+H | The help card lists Ctrl+Alt+J for *Next desktop* |
+| K5 | Enter on any row, then Ctrl+Alt+L | Refused: the *Placement pill* row turns red with its note, a toast says so, the panel keeps waiting |
+| K6 | Then Ctrl+Alt+Delete | Refused: "Hyprland binds Ctrl+Alt+Delete to Close all windows" on the row and in a toast; no window closes |
+| K7 | Esc, Esc | The change is cancelled, then the panel closes; Super binds work again |
+| K8 | Reopen, R on *Next desktop*; Shift+R twice | Back to Ctrl+Alt+Right; then every bind back; `keybinds.json` holds `"binds": {}` |
+| K9 | Reopen, Esc three times quickly | The panel is gone in the compositor at once (the third Esc is never sent) |
+| K10 | Reopen and wait 30 s; reopen and switch the Omarchy theme | It closes by itself; after the theme reload it is still open and still takes the keys |
+| K11 | Stop XR with the panel open | Keys and Super binds work normally afterwards (`hyprctl submap` is empty) |
 
 ### Privacy mode (main display off)
 
@@ -1035,13 +1125,23 @@ and the `view`, `hud`, `glass`, `ipc` and `placement_menu_ipc` ctests were updat
 ([Bumping desktops out of the way](#bumping-desktops-out-of-the-way)) adds `tests/native_spike/test_bump.py`, and the
 `view` (the glide) and `ipc` (the frame's `glide`) ctests. All of these are offline.
 
+The key bind panel adds `tests/native_spike/test_keybinds.py` (chords and labels, the saved file, plain `hyprctl binds`
+parsing and counting the run's own binds out, conflicts and which binds go off, every panel key, live rebinding through a
+fake compositor client, refusals and toasts, the idle close and the change timeout, the help card, the bind helper's
+`binds_key`, the control wire, the generated Lua and the eval limit with the longest keys, the start-up check in
+`managed.view_controls`, and the payload limits against `binds_panel.hpp`) and the `binds_panel` ctest
+(`spike/tests/binds_panel_test.cpp`: ten rows fit 1920×1200 @1.25 and every scale up to 2 fits, also during the fade-in
+drop; nothing passes the cap and everything is premultiplied; the picked, conflict, custom and capture rows use their M3
+roles; the size depends on the conflicts only; long text stays out of the padding; the scroll window; the overlay's
+fade, redraws, viewport and theme colour). `XR_BINDS_PANEL_DUMP=dir` makes it write the sample cards as PPMs.
+
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
 ```sh
 python -m tools.native_spike.bind_check
 ```
 
-It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. A digit and its keycode (`1` and `code:10`, the way Omarchy binds workspace digits) count as the same key. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads.
+It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. A digit and its keycode (`1` and `code:10`, the way Omarchy binds workspace digits) count as the same key. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads; it has no event manager either, so a submap switch would crash it, and the check makes `hl.dispatch` inert while this project's Lua loads (keeping the key bind panel's submap switch in Lua, so the panel's own check that it entered its submap still runs). The run and send keys are the key bind panel's saved ones (`--keybinds FILE`), and the panel's submap, catch-all and key subscription are loaded too.
 
 Tests use synthetic collectors, fake sockets and temporary directories. They never open a real display or device, and their output is never published as host evidence. Build and link success does not show that the plugin loads at runtime against the installed compositor.
 

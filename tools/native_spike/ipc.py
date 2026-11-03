@@ -57,7 +57,8 @@ def decode_control(raw):
                   "resize_press", "resize_release", "super_left_press", "super_right_press", "super_release",
                   "send_glasses", "send_glasses_1",
                   "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
-                  "help_next", "privacy_display", "playback_menu_toggle"): raise ValueError("invalid operation")
+                  "help_next", "privacy_display", "playback_menu_toggle", "binds_toggle", "binds_key"):
+        raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")
@@ -69,6 +70,11 @@ def decode_control(raw):
         if set(payload) != {"desktops"} or not isinstance(desktops, list) or not 1 <= len(desktops) <= MAX_DESKTOPS:
             raise ValueError("invalid placement")
         payload["desktops"] = [validate_placement(d) for d in desktops]
+    elif op == "binds_key":
+        # A key pressed while the key bind panel is open (keybinds.py): Hyprland's modmask and the xkb keycode.
+        if set(payload) != {"mods", "code"} or any(type(payload[k]) is not int for k in payload) or \
+                not 0 <= payload["mods"] <= 255 or not 8 <= payload["code"] <= 255:
+            raise ValueError("invalid key")
     elif payload: raise ValueError("unexpected payload")
     return message
 
