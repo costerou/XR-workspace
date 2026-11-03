@@ -149,7 +149,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         # Every start is flat: the profile's saved placements are not restored (the run still saves its own to it).
         initial = [dict(DEFAULT_PLACEMENT) for _ in capture] if placements is not None else None
         # Every start is in the overview, anchored, and a maximize follows until Ctrl+Alt+V picks locked (maximize-follow):
-        # no saved mode is read; spacing, prediction, the VR video quality and the TRON grid still are.
+        # no saved mode is read; spacing, prediction, the VR video quality and the background still are.
         control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'],
                                                    placements=_initial_placements(initial, capture),
                                                    video_quality=video_quality(saved),

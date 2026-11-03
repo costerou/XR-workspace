@@ -476,6 +476,53 @@
    ],
    "scale": 150,
    "scales": []
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "brightness",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "background": "grid",
+   "brightness": 40
+  },
+  {
+   "open": true,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "background": "none",
+   "brightness": 200,
+   "background_picker": true
+  },
+  {
+   "open": false,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "background": "grid",
+   "brightness": 10,
+   "background_picker": false
   }
  ],
  "invalid": [
@@ -2489,6 +2536,143 @@
      }
     ],
     "picker": true
+   }
+  },
+  {
+   "why": "unknown background",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "background": "cyan"
+   }
+  },
+  {
+   "why": "background not a name",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "background": 1
+   }
+  },
+  {
+   "why": "brightness under its range",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "brightness": 9
+   }
+  },
+  {
+   "why": "brightness over its range",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "brightness": 201
+   }
+  },
+  {
+   "why": "brightness not a number",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "brightness": "100"
+   }
+  },
+  {
+   "why": "background_picker not a bool",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "background_picker": 1
+   }
+  },
+  {
+   "why": "the Background list open on a closed panel",
+   "payload": {
+    "open": false,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "background_picker": true
+   }
+  },
+  {
+   "why": "both lists open",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "picker": true,
+    "background_picker": true
    }
   }
  ]

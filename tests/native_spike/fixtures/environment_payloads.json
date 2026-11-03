@@ -1,22 +1,29 @@
 {
-  "comment": "The renderer's `environment` payload (the TRON grid, spike/include/xr/ipc.hpp EnvironmentPayload). The renderer's decoder (spike/tests/environment_test.cpp) and the supervisor's frame builder (tools/native_spike/environment.py, tests/native_spike/test_environment.py) both run over this file. Each valid entry gives the decoded colour (0 cyan, 1 theme).",
+  "comment": "The renderer's `environment` payload (the background, spike/include/xr/ipc.hpp EnvironmentPayload). The renderer's decoder (spike/tests/environment_test.cpp) and the supervisor's frame builder (tools/native_spike/environment.py, tests/native_spike/test_environment.py) both run over this file. Each valid entry gives what it decodes to: `background` an index into kBackgrounds, and its `setting`, the saved form the supervisor builds it from.",
   "valid": [
-    {"payload": {"on": true, "color": "cyan"}, "on": true, "color": 0},
-    {"payload": {"on": false, "color": "cyan"}, "on": false, "color": 0},
-    {"payload": {"on": true, "color": "theme"}, "on": true, "color": 1},
-    {"payload": {"color": "theme", "on": false}, "on": false, "color": 1}
+    {"payload": {"background": "none", "brightness": 100}, "background": 0, "brightness": 100,
+     "setting": {"background": "none", "last": "grid", "brightness": 100}},
+    {"payload": {"background": "grid", "brightness": 100}, "background": 1, "brightness": 100,
+     "setting": {"background": "grid", "last": "grid", "brightness": 100}},
+    {"payload": {"background": "grid", "brightness": 10}, "background": 1, "brightness": 10,
+     "setting": {"background": "grid", "last": "grid", "brightness": 10}},
+    {"payload": {"brightness": 200, "background": "grid"}, "background": 1, "brightness": 200,
+     "setting": {"background": "grid", "last": "grid", "brightness": 200}}
   ],
   "invalid": [
     {},
-    {"on": true},
-    {"color": "cyan"},
-    {"on": 1, "color": "cyan"},
-    {"on": "true", "color": "cyan"},
-    {"on": true, "color": "red"},
-    {"on": true, "color": "Cyan"},
-    {"on": true, "color": 0},
-    {"on": true, "color": null},
-    {"on": true, "color": "cyan", "level": 1},
-    {"on": null, "color": "theme"}
+    {"background": "grid"},
+    {"brightness": 100},
+    {"background": "red", "brightness": 100},
+    {"background": "Grid", "brightness": 100},
+    {"background": 1, "brightness": 100},
+    {"background": null, "brightness": 100},
+    {"background": "grid", "brightness": 9},
+    {"background": "grid", "brightness": 201},
+    {"background": "grid", "brightness": 100.5},
+    {"background": "grid", "brightness": "100"},
+    {"background": "grid", "brightness": -1},
+    {"background": "grid", "brightness": 100, "color": "cyan"},
+    {"on": true, "color": "cyan"}
   ]
 }

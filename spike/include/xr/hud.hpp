@@ -219,11 +219,12 @@ private:
 // placement panel (`open`, `desktop`), the selected field, and every desktop's placement. The panel itself is drawn by
 // glass.hpp; these are the field table and formatting it shares with the tests.
 constexpr std::size_t kPlacementMenuFields = 4, kPlacementMenuDesktopCount = kMaxDesktops;
+constexpr std::size_t kPlacementMenuBrightness = kPlacementMenuFields;  // `field` value: the background's Brightness row is selected
 // {x, y, distance, curvature} in the wire units of ipc.hpp WirePlacement (every desktop always faces you: no facing field).
 using MenuPlacement = std::array<std::int32_t, kPlacementMenuFields>;
 struct PlacementMenuState {
     bool open = false;
-    std::uint32_t desktop = 0, field = 0;  // 0..count-1, 0..3 (out of range: drawn with nothing selected)
+    std::uint32_t desktop = 0, field = 0;  // 0..count-1, 0..3 or kPlacementMenuBrightness (out of range: drawn with nothing selected)
     std::array<MenuPlacement, kPlacementMenuDesktopCount> placements{};
     // The panel's desktop row (Ultrawide / Add / Remove): how many desktops the run has, each one's output number (the n
     // of XR-n, in capture order: a removed desktop leaves a gap), whether the open desktop is ultrawide, the Remove button
@@ -237,6 +238,11 @@ struct PlacementMenuState {
     std::uint16_t scale = 0;
     std::uint8_t scales = 0;
     bool picker = false;
+    // The Background dropdown and Brightness slider (glass.hpp glass_background_box; xr/environment.hpp), the same in every
+    // desktop's panel: the background (index into kBackgrounds), its brightness in percent, and the dropdown's list open.
+    std::uint8_t background = 0;
+    std::uint16_t brightness = 100;
+    bool background_picker = false;
     bool operator==(const PlacementMenuState&) const = default;
 };
 // Slider range of each field, {lo, hi}: the same bounds the renderer accepts (ipc.cpp kPlacementBounds, tested).

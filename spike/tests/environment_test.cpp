@@ -1,12 +1,12 @@
-// The TRON grid's pure parts (xr/environment.hpp) and its control frame (ipc.hpp EnvironmentPayload):
-//   * the line colours: cyan, or the theme accent's hue as a neon, every one under the 191/255 OLED cap (its brightest
-//     channel on it), a grey theme grey, odd input (black, NaN) still a valid colour;
-//   * the fade: 0 until switched on, eased to 1 over kEnvironmentFadeMs, continuous when reversed mid-fade, a colour
-//     crossfade over kEnvironmentColorMs, and nothing left to draw once faded out;
+// The background's pure parts (xr/environment.hpp) and its control frames (ipc.hpp EnvironmentPayload, PlacementMenuPayload):
+//   * the backgrounds' table;
+//   * the line colour: the theme's own, scaled only to stay under the 191/255 OLED cap or to show at all, any input valid;
+//   * the fade: 0 until switched on, eased to 1 over kEnvironmentFadeMs, continuous when reversed mid-fade;
 //   * the view: world-locked and level whatever the recentre reference was (the world's up is gravity's up, the heading
 //     is the reference's), equal to the plain world view when the reference is level;
 //   * the `environment` frame: every valid fixture payload decodes, every invalid one is dropped with
-//     kInvalidEnvironmentCode, which the renderer ignores without stopping (main.cpp).
+//     kInvalidEnvironmentCode, which the renderer ignores without stopping (main.cpp);
+//   * the placement panel's background fields on a `placement_menu` frame.
 #include "xr/environment.hpp"
 #include "xr/ipc.hpp"
 #include <cmath>
@@ -30,60 +30,55 @@ Quat axis_angle(float x, float y, float z, float deg) {
 // Driver frame (x forward, y left, z up) to GL (x right, y up, z back), as pose.cpp kDriverToGl.
 std::array<float, 3> to_gl(std::array<float, 3> v) { return {-v[1], v[2], -v[0]}; }
 
+void backgrounds() {
+    CHECK(kBackgroundCount >= 2);
+    CHECK(kBackgrounds[std::size_t(Background::none)].name == "none" && kBackgrounds[std::size_t(Background::grid)].name == "grid");
+    CHECK(background_index("none") == 0 && background_index("grid") == std::size_t(Background::grid));
+    CHECK(background_index("Grid") == kBackgroundCount && background_index("") == kBackgroundCount);
+    for (const auto& b : kBackgrounds) CHECK(!b.label.empty() && b.label.size() <= 24);  // the quality menu's kMaxQualityText
+    CHECK(kBrightnessMin < kBrightnessDefault && kBrightnessDefault < kBrightnessMax);
+}
+
 void colours() {
-    for (const MdRgb accent : {MdRgb{0x7a / 255.f, 0xa2 / 255.f, 0xf7 / 255.f}, MdRgb{0.f, 0.f, 0.f}, MdRgb{1.f, 1.f, 1.f}})
-        CHECK(environment_line_color(EnvironmentColor::cyan, accent) == kEnvironmentCyan);
-    CHECK(near(most(kEnvironmentCyan), kEnvironmentCap) && kEnvironmentCyan[0] == 0.f && kEnvironmentCyan[2] > kEnvironmentCyan[1]);
-    // Theme colours keep their hue, stay colourful, and sit on the cap.
+    // In range: the theme colour itself.
+    for (const MdRgb accent : {MdRgb{0.4f, 0.5f, 0.6f}, MdRgb{kEnvironmentCap, 0.1f, 0.3f}, MdRgb{0.3f, kEnvironmentFloor, 0.f}})
+        CHECK(environment_line_color(accent) == accent);
+    // Over the cap: all three scale together, so hue and saturation stay; the brightest sits on the cap.
     for (const MdRgb accent : {MdRgb{0x7a / 255.f, 0xa2 / 255.f, 0xf7 / 255.f}, MdRgb{0xf7 / 255.f, 0x76 / 255.f, 0x8e / 255.f},
-                               MdRgb{0x9e / 255.f, 0xce / 255.f, 0x6a / 255.f}, MdRgb{0xe0 / 255.f, 0xaf / 255.f, 0x68 / 255.f},
-                               MdRgb{0.25f, 0.1f, 0.4f}}) {
-        const auto c = environment_line_color(EnvironmentColor::theme, accent);
-        const auto a = md_hct(accent), h = md_hct(c);
-        const float dh = std::fabs(std::remainder(a.hue - h.hue, 360.f));
-        if (dh > 12.f) std::fprintf(stderr, "theme hue %.1f -> %.1f\n", a.hue, h.hue);
-        CHECK(dh <= 12.f);
-        CHECK(h.chroma >= 0.05f);  // still a colour (as much of its chroma as fits the gamut at the neon tone)
-        CHECK(near(most(c), kEnvironmentCap, 1e-3f) && std::min({c[0], c[1], c[2]}) >= 0.f);
+                               MdRgb{0x9e / 255.f, 0xce / 255.f, 0x6a / 255.f}, MdRgb{1.f, 1.f, 1.f}, MdRgb{0.f, 1.f, 0.f}}) {
+        const auto c = environment_line_color(accent);
+        CHECK(near(most(c), kEnvironmentCap, 1e-5f));
+        const float k = kEnvironmentCap / most(accent);
+        for (int i = 0; i < 3; ++i) CHECK(near(c[std::size_t(i)], accent[std::size_t(i)] * k, 1e-5f));
     }
-    // A grey theme gives a grey grid, black a grey one too; garbage stays a valid colour.
-    const auto grey = environment_line_color(EnvironmentColor::theme, {0x8d / 255.f, 0x8d / 255.f, 0x8d / 255.f});
-    CHECK(near(grey[0], grey[1], 3e-3f) && near(grey[1], grey[2], 3e-3f) && near(most(grey), kEnvironmentCap, 1e-3f));
-    const auto black = environment_line_color(EnvironmentColor::theme, {0, 0, 0});
-    CHECK(near(most(black), kEnvironmentCap, 1e-3f));
+    // A near-black theme colour would not show on the see-through panels: lifted, its hue kept; black is grey.
+    const MdRgb dark{0.02f, 0.04f, 0.08f};
+    const auto lifted = environment_line_color(dark);
+    CHECK(near(most(lifted), kEnvironmentFloor, 1e-5f) && near(lifted[0] / lifted[2], dark[0] / dark[2], 1e-4f));
+    const auto black = environment_line_color({0, 0, 0});
+    CHECK(near(black[0], kEnvironmentFloor) && black[0] == black[1] && black[1] == black[2]);
     const float nan = std::numeric_limits<float>::quiet_NaN();
-    const auto odd = environment_line_color(EnvironmentColor::theme, {nan, 2.f, -1.f});
-    for (float v : odd) CHECK(std::isfinite(v) && v >= 0.f && v <= kEnvironmentCap + 1e-4f);
+    for (float v : environment_line_color({nan, 2.f, -1.f})) CHECK(std::isfinite(v) && v >= 0.f && v <= kEnvironmentCap + 1e-4f);
 }
 
 void fade() {
     EnvironmentFade f;
     CHECK(f.level(0) == 0.f && !f.animating(0) && !f.on());
-    CHECK(f.set(false, kEnvironmentCyan, 0) == false);  // nothing changes
-    CHECK(f.set(true, kEnvironmentCyan, 1000));
+    CHECK(f.set(false, 0) == false);  // nothing changes
+    CHECK(f.set(true, 1000));
     CHECK(f.level(1000) == 0.f && f.animating(1000));
     CHECK(near(f.level(1000 + kEnvironmentFadeMs / 2), 0.5f));
     CHECK(f.level(1000 + kEnvironmentFadeMs) == 1.f && !f.animating(1000 + kEnvironmentFadeMs) && f.level(5000) == 1.f);
     float last = 0;
     for (double t = 1000; t <= 1000 + kEnvironmentFadeMs; t += 10) { CHECK(f.level(t) + 1e-6f >= last); last = f.level(t); }
-    CHECK(!f.set(true, kEnvironmentCyan, 2000));  // already on
+    CHECK(!f.set(true, 2000));  // already on
     // Off mid-fade-in: the fade turns round from where it was, with no jump.
     EnvironmentFade g;
-    g.set(true, kEnvironmentCyan, 0);
+    g.set(true, 0);
     const float at = g.level(200);
-    CHECK(g.set(false, kEnvironmentCyan, 200));
+    CHECK(g.set(false, 200));
     CHECK(near(g.level(200), at) && g.level(200 + kEnvironmentFadeMs) == 0.f);
     CHECK(!g.animating(200 + kEnvironmentFadeMs));
-    // Colour: the first one is taken as is; a change crossfades.
-    EnvironmentFade h;
-    const MdRgb red{kEnvironmentCap, 0, 0};
-    h.set(true, red, 0);
-    CHECK(h.color(0) == red);
-    CHECK(h.set(true, kEnvironmentCyan, 1000));
-    CHECK(h.color(1000) == red && h.color(1000 + kEnvironmentColorMs) == kEnvironmentCyan && h.animating(1000));
-    const auto mid = h.color(1000 + kEnvironmentColorMs / 2);
-    CHECK(near(mid[0], kEnvironmentCap / 2, 1e-3f) && near(mid[2], kEnvironmentCap / 2, 1e-3f));
-    CHECK(!h.animating(1000 + kEnvironmentColorMs));
 }
 
 void views() {
@@ -122,34 +117,53 @@ void frames(const char* fixture) {
     std::ifstream in(fixture);
     if (!in) { std::fprintf(stderr, "cannot read %s\n", fixture); ++failures; return; }
     const auto data = nlohmann::json::parse(in);
-    auto frame = [](const nlohmann::json& payload) {
-        return nlohmann::json{{"schema", 1}, {"request_id", 7}, {"run_id", "r1"}, {"session", "s1"}, {"op", "environment"},
-                              {"payload", payload}}.dump() + "\n";
+    auto frame = [](const char* op, const nlohmann::json& payload) {
+        return nlohmann::json{{"schema", 1}, {"request_id", 7}, {"run_id", "r1"}, {"session", "s1"}, {"op", op}, {"payload", payload}}.dump() + "\n";
     };
     for (const auto& v : data["valid"]) {
-        const auto decoded = decode_control(frame(v["payload"]));
+        const auto decoded = decode_control(frame("environment", v["payload"]));
         const auto* m = std::get_if<ControlMessage>(&decoded);
         CHECK(m && m->op == ControlOp::environment);
         if (!m) continue;
         const auto& p = std::get<EnvironmentPayload>(m->payload);
-        CHECK(p.on == v["on"].get<bool>() && p.color == v["color"].get<int>());
+        CHECK(p.background == v["background"].get<int>() && p.brightness == v["brightness"].get<int>());
     }
     for (const auto& v : data["invalid"]) {
-        const auto decoded = decode_control(frame(v));
+        const auto decoded = decode_control(frame("environment", v));
         const auto* e = std::get_if<Error>(&decoded);
         CHECK(e && e->code == kInvalidEnvironmentCode && ignorable_control_error(*e));
     }
     // Through the queue: a dropped payload is no replay and stops nothing; a good one after it is taken.
     ControlQueue q("r1", "s1");
-    const auto bad = q.push(frame(nlohmann::json{{"on", 1}, {"color", "cyan"}}));
+    const auto bad = q.push(frame("environment", nlohmann::json{{"background", 1}, {"brightness", 100}}));
     CHECK(std::holds_alternative<Error>(bad));
-    CHECK(std::holds_alternative<std::monostate>(q.push(frame(data["valid"][0]["payload"]))));
+    CHECK(std::holds_alternative<std::monostate>(q.push(frame("environment", data["valid"][0]["payload"]))));
     const auto m = q.pop();
     CHECK(m && m->op == ControlOp::environment);
+    // The placement panel's fields.
+    const nlohmann::json placement{{"x", 0}, {"y", 0}, {"distance", 100}, {"curvature", 0}};
+    auto menu = [&](nlohmann::json extra) {
+        nlohmann::json p{{"open", true}, {"desktop", 0}, {"field", "x"}, {"placements", nlohmann::json::array({placement})}};
+        for (const auto& [k, v] : extra.items()) p[k] = v;
+        return decode_control(frame("placement_menu", p));
+    };
+    auto payload = [](const Result<ControlMessage>& r) { return std::get<PlacementMenuPayload>(std::get<ControlMessage>(r).payload); };
+    const auto plain = menu(nlohmann::json::object());
+    CHECK(payload(plain).background == 0 && payload(plain).brightness == kBrightnessDefault && !payload(plain).background_picker);
+    const auto full = menu({{"background", "grid"}, {"brightness", 40}, {"background_picker", true}, {"field", "brightness"}});
+    CHECK(payload(full).background == 1 && payload(full).brightness == 40 && payload(full).background_picker &&
+          payload(full).field == kPlacementMenuBrightness);
+    for (const auto& bad_field : {nlohmann::json{{"background", "nope"}}, nlohmann::json{{"brightness", 5}}, nlohmann::json{{"brightness", "40"}},
+                                  nlohmann::json{{"background_picker", 1}}, nlohmann::json{{"background_picker", true}, {"picker", true}},
+                                  nlohmann::json{{"background_picker", true}, {"open", false}}, nlohmann::json{{"field", "gain"}}}) {
+        const auto e = menu(bad_field);
+        CHECK(std::holds_alternative<Error>(e) && std::get<Error>(e).code == kInvalidMenuCode);
+    }
 }
 }  // namespace
 
 int main(int argc, char** argv) {
+    backgrounds();
     colours();
     fade();
     views();

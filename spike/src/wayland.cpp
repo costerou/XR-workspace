@@ -370,13 +370,11 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
-    // The TRON grid behind the desktops (xr/environment.hpp): its fade and colour crossfade; world-locked when drawn.
+    // The background behind the desktops and a VR video (xr/environment.hpp): world-locked when drawn, in the theme colour.
     EnvironmentFade environment;
-    std::uint8_t environment_color = 0;  // EnvironmentColor: 0 cyan, 1 the theme accent
+    Background environment_background = Background::none;  // the one drawn: None's fade-out keeps the last one to the end
+    std::uint16_t environment_brightness = kBrightnessDefault;
     bool environment_drawn = false;      // last frame drew it: draw once more after it has faded out
-    MdRgb environment_line() const {
-        return environment_line_color(EnvironmentColor(environment_color), {accent[0] / 255.f, accent[1] / 255.f, accent[2] / 255.f});
-    }
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
     struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
     struct FreePointer {
@@ -1106,15 +1104,16 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->help.set_accent(seed);
     if (impl_->video) impl_->video->set_accent(seed);
     if (impl_->accent != std::array<std::uint8_t, 3>{r, g, b}) { impl_->accent = {r, g, b}; ++impl_->accent_updates; }
-    if (impl_->environment_color == std::uint8_t(EnvironmentColor::theme))  // a theme switch recolours the grid (a crossfade)
-        impl_->environment.set(impl_->environment.on(), impl_->environment_line(), double(monotonic_ms()));
     impl_->cadence.invalidate();
 }
-void Presentation::set_environment(bool on, std::uint8_t color) {
-    if (!impl_) return;  // kept even before the first configure creates the compositor: a saved grid is the run's first frames
+void Presentation::set_environment(std::uint8_t background, std::uint16_t brightness) {
+    if (!impl_) return;  // kept even before the first configure creates the compositor: a saved one is the run's first frames
     auto& s = *impl_;
-    s.environment_color = color == std::uint8_t(EnvironmentColor::theme) ? color : std::uint8_t(EnvironmentColor::cyan);
-    if (s.environment.set(on, s.environment_line(), double(monotonic_ms()))) s.cadence.invalidate();
+    const auto chosen = background < kBackgroundCount ? Background(background) : Background::none;
+    if (chosen != Background::none) s.environment_background = chosen;
+    s.environment_brightness = brightness;
+    s.environment.set(chosen != Background::none, double(monotonic_ms()));
+    s.cadence.invalidate();
 }
 void Presentation::video_open(int fd, const VideoFormat& format, const std::string& title) {
     if (!impl_ || !impl_->gl) { if (fd >= 0) ::close(fd); return; }  // needs GPU composition
@@ -1331,7 +1330,7 @@ Status Presentation::draw_test_pattern() {
         if (!s.tracking_requested && s.modes.mode() == ViewMode::anchor)
             head = view_from(Quat{}, s.modes.update(Quat{}, double(monotonic_ms())));
         Mat3 world = head;  // VR video: world-locked to the recentre reference in every viewing mode
-        Mat3 environment_world{1, 0, 0, 0, 1, 0, 0, 0, 1};  // the TRON grid: world-locked and level (environment_view)
+        Mat3 environment_world{1, 0, 0, 0, 1, 0, 0, 0, 1};  // the background: world-locked and level (environment_view)
         timespec read_ts{};
         clock_gettime(CLOCK_MONOTONIC, &read_ts);  // the wp_presentation clock domain (checked in LatencyTracker)
         const std::uint64_t read_ns = std::uint64_t(read_ts.tv_sec) * 1'000'000'000ull + std::uint64_t(read_ts.tv_nsec);
@@ -1388,13 +1387,22 @@ Status Presentation::draw_test_pattern() {
         const float popup = s.popups.alpha(double(monotonic_ms()));
         s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
         s.popup_drawn = popup > 0.f;
+        {  // The background behind everything, whatever the viewing mode: the head pose turns it, never the desktops' anchor.
+            const double now = double(monotonic_ms());
+            const float level = s.environment.level(now);
+            s.gl->set_environment(level, s.environment_background, float(s.environment_brightness),
+                                  float(std::fmod(now / 1000.0, kEnvironmentLoopS)), environment_world);
+            s.environment_drawn = level > 0.f;
+        }
         if (s.video && s.video->active()) {  // VR video replaces the desktops; help card and placement panel are closed (video.py)
             const double video_now = double(monotonic_ms());
             if (!s.video->prepare(video_now)) return Error{"gl", "video update failed"};
             float card_alpha = 0; std::uint64_t card_generation = 0;
             const HudImage* card = s.video->card(video_now, card_alpha, card_generation);
             const float fov = s.fov_deg > 0 ? s.fov_deg : 46.f;
-            if (!s.gl->draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) { s.video->draw(world, fov, w, h); }, card, card_generation, card_alpha))
+            // The background behind the video, in each eye's viewport: what a 180° or fisheye picture leaves of the sphere.
+            const VideoMode::Behind behind = [&](float half_w, float half_h) { return s.gl->draw_environment(half_w, half_h); };
+            if (!s.gl->draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) { s.video->draw(world, fov, w, h, behind); }, card, card_generation, card_alpha))
                 return Error{"gl", "draw or swap failed"};
             s.video->after_swap();
             s.help_drawn = s.glass_drawn = false;
@@ -1428,12 +1436,6 @@ Status Presentation::draw_test_pattern() {
                                float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f);
         s.gl->set_window_drag(float(s.free_pointer.ghost_w), float(s.free_pointer.ghost_h), free_pointer ? s.free_pointer.target : -1);
         s.last_head = head;
-        {  // The TRON grid behind everything, whatever the viewing mode: the head pose turns it, never the desktops' anchor.
-            const double now = double(monotonic_ms());
-            const float level = s.environment.level(now);
-            s.gl->set_environment(level, s.environment.color(now), float(std::fmod(now / 1000.0, kEnvironmentLoopS)), environment_world);
-            s.environment_drawn = level > 0.f;
-        }
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.
         s.last_drawn = s.turned(head);

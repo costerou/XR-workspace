@@ -62,7 +62,7 @@ class ViewStateTests(unittest.TestCase):
         # Bind helper and supervisor agree; the helper also keeps the old menu mouse mode's op names, for cleanup only.
         self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS
                          + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP)
-                         + (view.ENVIRONMENT_OP, view.ENVIRONMENT_COLOR_OP) + xr_control.LEGACY_OPS)
+                         + (view.ENVIRONMENT_OP,) + xr_control.LEGACY_OPS)
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
             frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': op, 'payload': {}}) + '\n').encode()
@@ -76,7 +76,7 @@ class BindTests(unittest.TestCase):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
         self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste', view.TYPING_OP, view.PRIVACY_OP,
-                                               view.PLAYBACK_MENU_OP, view.ENVIRONMENT_OP, view.ENVIRONMENT_COLOR_OP} | set(view.HELP_PAGE_OPS),
+                                               view.PLAYBACK_MENU_OP, view.ENVIRONMENT_OP} | set(view.HELP_PAGE_OPS),
                          set(view.HELP_ACTIONS))  # video.py, web_video.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
@@ -238,7 +238,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         c.on_message({'op': 'spacing_up'})
         self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'anchor', 'prediction': True,
                                                              'video_quality': {'filter': 'catmull-rom', 'deband': False},
-                                                             'environment': {'on': False, 'color': 'cyan'}})
+                                                             'environment': {'background': 'none', 'last': 'grid', 'brightness': 100}})
         self.assertEqual(view.ViewState(NAMES).maximized_mode, 'follow')  # a fresh XR start: follow again
         self.assertEqual(view.MAXIMIZED_MODES, ('follow', 'locked'))
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
@@ -278,7 +278,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.settings.write_text('{"spacing": 60, "mode": "follow", "prediction": false, "cursor_switch_animate": false}')
         loaded = view.load_settings(self.settings)
         self.assertEqual(loaded, {'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': {'filter': 'catmull-rom', 'deband': False},
-                                  'environment': {'on': False, 'color': 'cyan'}})
+                                  'environment': {'background': 'none', 'last': 'grid', 'brightness': 100}})
         c = self.control(view.ViewState(NAMES, spacing=loaded['spacing'], prediction=loaded['prediction']))
         self.assertIsNone(c.on_message({'op': 'cursor_anim_toggle'}))  # a stale op: nothing
         c.on_message({'op': 'spacing_up'})
@@ -290,7 +290,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.settings.write_text('{"spacing": 80}')  # file written before modes existed
         self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'prediction': True,
                                                              'video_quality': {'filter': 'catmull-rom', 'deband': False},
-                                                             'environment': {'on': False, 'color': 'cyan'}})
+                                                             'environment': {'background': 'none', 'last': 'grid', 'brightness': 100}})
         self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1, "prediction": "on", '
                                  '"cursor_switch_animate": 0}')
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)
@@ -315,10 +315,9 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(sum(shown['payload']['sections']), len(rows))
         self.assertNotIn('turn', shown['payload'])
         keys = [k for k, _ in rows]
-        def covered(label):  # its own row, or one half of a paired row such as 'Ctrl+Alt+[ / ]' or 'Ctrl+Alt+E / Shift+E'
+        def covered(label):  # its own row, or one half of a paired row such as 'Ctrl+Alt+[ / ]'
             prefix, key = label[:label.rfind('+') + 1], label[label.rfind('+') + 1:]
-            return label in keys or any(k.startswith(prefix) and key in k[len(prefix):].split(' / ') for k in keys) or \
-                any(k.startswith('Ctrl+Alt+') and label.removeprefix('Ctrl+Alt+') in k[len('Ctrl+Alt+'):].split(' / ') for k in keys)
+            return label in keys or any(k.startswith(prefix) and key in k[len(prefix):].split(' / ') for k in keys)
         for chord, op in view.BINDS:
             with self.subTest(op=op): self.assertTrue(covered(view.chord_label(chord)))
         self.assertIn(['Ctrl+Alt+[ / ]', 'Less / more space between desktops'], rows)

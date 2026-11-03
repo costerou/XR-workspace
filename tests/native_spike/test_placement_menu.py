@@ -60,7 +60,7 @@ BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_o
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
 BASE_PROFILE_KEYS = {'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'spacing',
                      'tracking', 'video_quality', 'environment'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
-# video_quality: the VR video quality menu (quality.py, 2026-11-03); environment: the TRON grid (environment.py, 2026-11-03)
+# video_quality: the VR video quality menu (quality.py, 2026-11-03); environment: the background (environment.py, 2026-11-03)
 # Real-shaped bind arguments (2026-11-01): the live controller's checkout path, a token_hex(16) run id (state.py) and a
 # sha256-hex session id (HyprlandClient.verified_session).
 LIVE_BIND_ARGS = ('/usr/bin/python3', '/home/cody/.t3/worktrees/viture-workspace/feature-per-desktop-transform/tools/native_spike/xr_control.py',
@@ -84,6 +84,7 @@ NEEDS_WIRING = unittest.skipUnless(WIRING, 'needs MENU-WIRING: the control socke
 
 MENU_ROW_KEYS = {'names', 'wide', 'armed', 'busy'}  # the open panel's desktop row (desktops.py), all optional
 MENU_SCALE_KEYS = {'scale', 'scales', 'picker'}       # its Scale dropdown, all optional
+MENU_BACKGROUND_KEYS = {'background', 'brightness', 'background_picker'}  # its background rows (environment.py), all optional
 SCALE_STEPS = (100, 125, 150, 175, 200, 250, 300)     # geometry.SCALES in percent
 
 
@@ -92,13 +93,14 @@ def check_menu_payload(p):
     open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders).
     Since desktops can be added and removed in XR: one placement per desktop (1..MAX_DESKTOPS), and the desktop row:
     'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'."""
-    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS:
+    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or \
+            set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS - MENU_BACKGROUND_KEYS:
         raise ValueError('payload must have exactly open, desktop, field, placements (and the optional surface and row keys)')
     if type(p['open']) is not bool: raise ValueError('open must be a bool')
     g.validate_placements(p['placements'])
     n = len(p['placements'])
     if type(p['desktop']) is not int or not 0 <= p['desktop'] < n: raise ValueError('desktop must index the placements')
-    if not isinstance(p['field'], str) or p['field'] not in MENU_FIELDS: raise ValueError('unknown field')
+    if not isinstance(p['field'], str) or p['field'] not in MENU_FIELDS + ('brightness',): raise ValueError('unknown field')
     if 'surface' in p:
         if p['open'] is not True: raise ValueError('surface only with an open panel')
         g.validate_placement(p['surface'])
@@ -106,9 +108,12 @@ def check_menu_payload(p):
         names = p['names']
         if (not isinstance(names, list) or len(names) != n or any(type(x) is not int or not 1 <= x <= g.MAX_DESKTOPS for x in names)
                 or names != sorted(set(names))): raise ValueError('names must be increasing XR numbers, one per desktop')
-    for key in ('wide', 'armed', 'busy', 'picker'):
+    for key in ('wide', 'armed', 'busy', 'picker', 'background_picker'):
         if key in p and type(p[key]) is not bool: raise ValueError(f'{key} must be a bool')
     if p.get('picker') and p['open'] is not True: raise ValueError('the Scale list opens only on an open panel')
+    if p.get('background_picker') and (p['open'] is not True or p.get('picker')): raise ValueError('the Background list needs an open panel, alone')
+    if 'background' in p and p['background'] not in ('none', 'grid'): raise ValueError('background must be a kBackgrounds name')
+    if 'brightness' in p and (type(p['brightness']) is not int or not 10 <= p['brightness'] <= 200): raise ValueError('brightness out of range')
     if 'scale' in p and (type(p['scale']) is not int or p['scale'] not in SCALE_STEPS): raise ValueError('scale must be a step')
     if 'scales' in p:
         s = p['scales']
@@ -227,7 +232,7 @@ class MenuSchemaTests(unittest.TestCase):
 
     def test_fixture_covers_every_field_and_bound(self):
         valid = self.cases['valid']
-        self.assertEqual({p['field'] for p in valid}, set(MENU_FIELDS))
+        self.assertEqual({p['field'] for p in valid}, set(MENU_FIELDS) | {'brightness'})
         self.assertEqual({p['desktop'] for p in valid}, set(range(g.MAX_DESKTOPS)))
         self.assertEqual({len(p['placements']) for p in valid}, set(range(1, g.MAX_DESKTOPS + 1)))  # 1..4 desktops
         self.assertEqual({p['open'] for p in valid}, {True, False})
@@ -341,14 +346,15 @@ class MenuNavigationTests(unittest.TestCase):
     def test_field_next_and_prev_wrap_in_contract_order(self):
         m = Menu(self); m.goto(field='x')
         order = ['x']
-        for _ in MENU_FIELDS:
+        rows = list(MENU_FIELDS) + ['brightness']  # the background's Brightness row comes after the placement sliders
+        for _ in rows:
             m.send('menu_field_next'); order.append(m.menu['field'])
-        self.assertEqual(order, list(MENU_FIELDS) + ['x'])
-        m.send('menu_field_prev'); self.assertEqual(m.menu['field'], 'curvature')
+        self.assertEqual(order, rows + ['x'])
+        m.send('menu_field_prev'); self.assertEqual(m.menu['field'], 'brightness')
         back = []
-        for _ in MENU_FIELDS:
+        for _ in rows:
             m.send('menu_field_prev'); back.append(m.menu['field'])
-        self.assertEqual(back, list(reversed(MENU_FIELDS))[1:] + ['curvature'])
+        self.assertEqual(back, list(reversed(rows))[1:] + ['brightness'])
 
     def test_navigation_does_not_change_placements_or_save(self):
         m = Menu(self, initial=[TILTED] * 3); m.open()
@@ -818,7 +824,7 @@ class NoScopeChangeTests(unittest.TestCase):
         self.assertNotIn('menu', json.dumps(profiles.DEFAULT_PROFILE))
         self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'prediction': True,  # cursor_follow removed
                                                  'video_quality': {'filter': 'catmull-rom', 'deband': False},
-                                             'environment': {'on': False, 'color': 'cyan'}})
+                                             'environment': {'background': 'none', 'last': 'grid', 'brightness': 100}})
 
     def test_placement_bounds_unchanged(self):
         # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); distance's floor went from 50 to

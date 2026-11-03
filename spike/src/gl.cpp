@@ -96,9 +96,10 @@ struct GlCompositor::Impl {
     PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_modifiers = nullptr;
     std::uint64_t imported_frames = 0;
     std::unique_ptr<GlHud> video_hud;    // VR video controls card (own texture); created with the others (retried on use)
-    // TRON grid (environment_gl.hpp): compiled at setup (not on the first frame it shows); absent if its shaders failed.
+    // The background (environment_gl.hpp): compiled at setup (not on the first frame it shows); absent if its shaders failed.
     std::unique_ptr<EnvironmentPass> environment;
-    float env_level = 0, env_seconds = 0; std::array<float, 3> env_line{}; Mat3 env_view{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    float env_level = 0, env_gain = 1, env_seconds = 0; Background env_background = Background::none; Mat3 env_view{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    bool env_visible() const { return environment && env_level > 0.f && env_background != Background::none; }
     bool blend_max = false;  // GL_MAX blending (ES 3 or EXT_blend_minmax): the highlight's glow over the grid stays under the cap
     void drop(Imported& i) {
         for (auto& t : i.tex) if (t) { glDeleteTextures(1, &t); t = 0; }
@@ -440,10 +441,20 @@ void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->accent[0] = r / 255.f; impl_->accent[1] = g / 255.f; impl_->accent[2] = b / 255.f;
 }
 
-bool GlCompositor::set_environment(float level, const std::array<float, 3>& line, float seconds, const Mat3& world) {
+bool GlCompositor::set_environment(float level, Background background, float brightness, float seconds, const Mat3& world) {
     auto& s = *impl_;
-    s.env_level = std::isfinite(level) ? std::min(level, 1.f) : 0.f; s.env_line = line; s.env_seconds = seconds; s.env_view = world;
+    s.env_level = std::isfinite(level) ? std::min(level, 1.f) : 0.f; s.env_background = background;
+    s.env_gain = brightness / 100.f; s.env_seconds = seconds; s.env_view = world;
     return s.environment != nullptr;
+}
+
+bool GlCompositor::draw_environment(float half_w, float half_h) {
+    auto& s = *impl_;
+    if (!s.env_visible()) return false;
+    s.environment->draw(s.env_background, s.env_view, half_w, half_h, s.env_level, s.env_gain,
+                        environment_line_color({s.accent[0], s.accent[1], s.accent[2]}), s.env_seconds);
+    s.current = s.environment->program(s.env_background);
+    return true;
 }
 
 void GlCompositor::resize(std::uint32_t width, std::uint32_t height, std::uint32_t px_width, std::uint32_t px_height) {
@@ -609,16 +620,13 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             !(g.content_alpha <= 0.f) && im.width && im.height && im.rgba.size() == std::size_t(im.width) * im.height * 4)
             s.upload_panel(im, g.generation);
     }
-    // The TRON grid covers every pixel in place of the clear; off (level 0), the frame is drawn exactly as without it.
-    const bool environment = s.environment && s.env_level > 0.f;
-    if (environment) {
-        s.environment->draw(s.env_view, half_w, half_h, s.env_level, s.env_line, s.env_seconds);
-        s.current = s.environment->program();
-    } else { glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
+    // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as without it.
+    const bool environment = draw_environment(half_w, half_h);
+    if (!environment) { glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
     if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
         // Drawn first over black, so no blending is needed: glow, then border, then the tiles (back to front) cover
         // the interior. The frame lies on the highlighted desktop's own surface (same placement and curvature). Over the
-        // TRON grid the glow adds to it and the border is laid over it (premultiplied), so neither blacks out a halo.
+        // background the glow is the brighter of the two and the border is laid over it (premultiplied), so neither blacks out a halo.
         const auto h = std::size_t(highlight);
         const auto& t = tiles[h];
         const FRect framed{t.x - kBorderPx, t.y - kBorderPx, t.width + 2 * kBorderPx, t.height + 2 * kBorderPx};

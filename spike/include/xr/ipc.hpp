@@ -68,6 +68,10 @@ struct PlacementMenuPayload {
     // The Scale dropdown (optional): "scale" percent (0 if absent), "scales" percents increasing (bit i set for
     // glass.hpp kScalePercents[i]), "picker" (its list open; open panels only).
     std::uint16_t scale = 0; std::uint8_t scales = 0; bool picker = false;
+    // The background (optional; the same for every desktop's panel): "background" a kBackgrounds name, "brightness" its
+    // percent, "background_picker" its dropdown's list open (open panels only, never with "picker"). `field` may also be
+    // "brightness": the Brightness row is the selected one (field = kPlacementMenuBrightness).
+    std::uint8_t background = 0; std::uint16_t brightness = 100; bool background_picker = false;
 };
 constexpr std::uint32_t kMaxPointerPx = 8192;
 // Overview corner-resize handle (tools/native_spike/resize.py), display only:
@@ -132,11 +136,11 @@ struct RollPayload {
 // (before the supervisor removes the output, so its going is expected). `renew` (optional, names from `outputs`): restart
 // those captures (the supervisor reshaped the output). Malformed: rejected like any malformed frame (the renderer stops).
 struct DesktopsPayload { std::vector<std::string> outputs, renew; };
-// The TRON grid behind the desktops (xr/environment.hpp; tools/native_spike/environment.py), display only:
-// {"on":bool,"color":"cyan"|"theme"} (exactly those keys). on: fade in / out; color: classic cyan or the theme accent
-// (the `style` op's colour). Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
+// The background behind the desktops and a VR video (xr/environment.hpp; tools/native_spike/environment.py), display only:
+// {"background":name,"brightness":percent} (exactly those keys): a kBackgrounds name ("none" fades it out) and
+// kBrightnessMin..kBrightnessMax. Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
 constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
-struct EnvironmentPayload { bool on = false; std::uint8_t color = 0; };  // color: 0 cyan, 1 theme (EnvironmentColor)
+struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightness = 100; };  // background: index into kBackgrounds
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
                                     EnvironmentPayload>;

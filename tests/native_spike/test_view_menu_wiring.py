@@ -39,7 +39,8 @@ class MenuStateTests(unittest.TestCase):
         s.apply('next')
         for op in view.MENU_OPS[1:]:
             self.assertFalse(s.apply_menu(op))
-        self.assertEqual(s.menu(), {'open': False, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3, 'names': [1, 2, 3], 'wide': False, 'armed': False, 'busy': False})
+        self.assertEqual(s.menu(), {'open': False, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3, 'names': [1, 2, 3], 'wide': False, 'armed': False, 'busy': False,
+                                     'background': 'none', 'brightness': 100, 'background_picker': False})
         s.apply_menu('menu_toggle')
         self.assertEqual((s.menu_open, s.menu_desktop), (True, 1))
         s.apply_menu('menu_toggle')
@@ -50,9 +51,10 @@ class MenuStateTests(unittest.TestCase):
         s.apply_menu('menu_desktop_prev'); self.assertEqual(s.menu_desktop, 2)
         s.apply_menu('menu_desktop_next'); self.assertEqual(s.menu_desktop, 0)
         seen = []
-        for _ in PLACEMENT_KEYS:
+        for _ in PLACEMENT_KEYS + ('brightness',):  # the background's Brightness row comes after the placement sliders
             seen.append(s.menu_field); s.apply_menu('menu_field_next')
-        self.assertEqual(tuple(seen), PLACEMENT_KEYS); self.assertEqual(s.menu_field, 'x')
+        self.assertEqual(tuple(seen), PLACEMENT_KEYS + ('brightness',)); self.assertEqual(s.menu_field, 'x')
+        s.apply_menu('menu_field_prev'); self.assertEqual(s.menu_field, 'brightness')
         s.apply_menu('menu_field_prev'); self.assertEqual(s.menu_field, 'curvature')
 
     def test_two_output_run_cycles_two_desktops_with_one_placement_each(self):
@@ -108,7 +110,8 @@ class MenuControlTests(unittest.TestCase):
         c = self.control()
         opened = self.send(c, 'menu_toggle')
         self.assertEqual([f['op'] for f in opened], ['placement_menu'])
-        self.assertEqual(opened[0]['payload'], {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3, 'names': [1, 2, 3], 'wide': False, 'armed': False, 'busy': False})
+        self.assertEqual(opened[0]['payload'], {'open': True, 'desktop': 0, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3, 'names': [1, 2, 3], 'wide': False, 'armed': False, 'busy': False,
+                                     'background': 'none', 'brightness': 100, 'background_picker': False})
         self.assertEqual([f['op'] for f in self.send(c, 'menu_field_next')], ['placement_menu'])
         out = self.send(c, 'menu_inc_big')
         self.assertEqual([f['op'] for f in out], ['placement', 'placement_menu'])

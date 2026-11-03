@@ -103,8 +103,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
 | Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
-| Ctrl+Alt+E | The TRON grid behind your desktops: on or off (see below) |
-| Ctrl+Alt+Shift+E | The TRON grid's colour: cyan or your theme's colour |
+| Ctrl+Alt+E | The background behind your desktops: off, and back to the last one you used (see below) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
@@ -136,17 +135,23 @@ what you are looking at, as on the INAIR Pod:
 Ctrl+Alt+V in the overview changes nothing; a small notification says why. The little card in the glasses names the
 mode when the session starts and when Ctrl+Alt+V changes it, not on every maximize.
 
-**The TRON grid** (new, not yet tried in the glasses). Press **Ctrl+Alt+E** and a TRON-style world fades in behind your
-desktops: a black sky, a glowing grid floor running off to a bright horizon, a ring of neon mountain outlines in the
-distance, and light trails racing along the grid lines. It stays put in the room whatever the desktops do, so you can
-look all the way round, up and down, also while a desktop is maximized or locked to your view. Press Ctrl+Alt+E again and
-it fades away. Your desktops, pills and the grey dot sit on top of it exactly as before, and the black parts stay
-see-through.
+**The background** (new, not yet tried in the glasses). By default there is nothing behind your desktops: black, which you
+see through. Open any desktop's pill (Ctrl+Alt+L) and the **Background** dropdown offers **None** or **Grid**, the TRON grid:
+a black sky, a glowing grid floor running off to a bright horizon, a ring of mountain outlines in the distance, and light
+trails racing along the grid lines. It fades in behind your desktops and stays put in the room whatever they do, so you can
+look all the way round, up and down, also while a desktop is maximized or locked to your view.
 
-**Ctrl+Alt+Shift+E** switches its colour between classic cyan and your Omarchy theme's colour (and turns it on if it
-was off). A theme change recolours it too. Your choice is remembered per pair of glasses and comes back at your next XR
-start. A VR video covers it, as it covers the desktops; the video's quality menu (Q) has a row for it, and a change there
-shows when the video closes. Ctrl+Alt+Space (recenter) also turns the grid to face the way you look.
+- **Ctrl+Alt+E**, or the switch beside the dropdown, turns it off and back on. It goes between None and the last background
+  you used.
+- **Brightness**, the slider under the dropdown, goes from 10% to 200%; 100% is the normal look. Black stays black at any
+  setting and nothing gets brighter than the glasses' safe limit. With the pill open, Up / Down reach it too and Left / Right
+  change it.
+- **The colour is your theme's**, the same colour as the desktops' borders and glow. A theme change recolours it at once.
+- **Behind a VR video** it stays where it is: you see it round a 180° or fisheye video. A 360° video covers all of it. The
+  video's quality menu (Q) has a Background row too.
+
+Your desktops, pills and the grey dot sit on top of it exactly as before. Your choice is remembered per pair of glasses and
+comes back at your next XR start.
 
 **Sending windows.** Ctrl+Alt+G sends a window to the desktop you have maximized, or the one highlighted in the
 overview. The number keys work on any keyboard layout. A pinned window can't be sent; unpin it first. If nothing can be
@@ -314,7 +319,7 @@ While a video plays:
 
 **Quality menu:** press **Q** while a video plays. The controls card shows the video's quality settings. Up and Down
 pick a setting, Left and Right change it, and Q or Esc closes the menu. Changes show at once and are remembered for
-your next videos, per pair of glasses. There are two video settings, plus a row for the [TRON grid](#everyday-use). **Texture filter** is *Catmull-Rom* (the default, crisp), *Sharp*
+your next videos, per pair of glasses. There are two video settings, plus a [Background](#everyday-use) row. **Texture filter** is *Catmull-Rom* (the default, crisp), *Sharp*
 (crisper, with a little ringing), *Bilinear* (softer) or *Nearest pixels* (hard pixel edges). **Deband** is *Off* (the default) or *On*; it smooths the stepped bands you can see in skies and gradients.
 
 Videos with copy protection, or links that need you to be logged in, won't play. The panel or a notification will tell

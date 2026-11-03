@@ -366,7 +366,7 @@ if(XR_ENABLE_PRESENTATION)
   target_compile_options(gl_bench PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-subobject-linkage)  # gl.cpp included as a header
   add_test(NAME gl_frame COMMAND gl_bench)
   set_tests_properties(gl_frame PROPERTIES SKIP_RETURN_CODE 77)
-  # The TRON grid (xr/environment.hpp): colours, fade, the levelled world-locked view and the `environment` frame.
+  # The background (xr/environment.hpp): its table, colour, fade, the levelled world-locked view and its control frames.
   if(TARGET xr_ipc)
     add_executable(environment_test tests/environment_test.cpp)
     target_link_libraries(environment_test PRIVATE xr_hud xr_ipc nlohmann_json::nlohmann_json)
@@ -458,9 +458,9 @@ if(XR_ENABLE_PRESENTATION)
     endforeach()
     # Constraint churn as a Hyprland layout change or config reload sends it: no desktop goes blank, constraints that come
     # back re-create nothing, and a real size change keeps the last frame up until the new buffers deliver one.
-    foreach(MODE gl-shm gl-dmabuf)  # the TRON grid through the real renderer: its frame, the fade, the desktops still shown
+    foreach(MODE gl-shm gl-dmabuf)  # the background through the real renderer: its frame, the fade, the desktops still shown
       add_test(NAME capture_e2e_environment_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
-        --environment cyan --renderer "$<TARGET_FILE:xr-native-spike>")
+        --environment grid --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_environment_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
     foreach(CHURN bounce resize)

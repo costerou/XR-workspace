@@ -8,7 +8,7 @@ import sys
 
 dump, root = sys.argv[1], sys.argv[2]
 sys.path.insert(0, root)
-from tools.native_spike import free_pointer as fp, geometry, view  # noqa: E402
+from tools.native_spike import environment, free_pointer as fp, geometry, view  # noqa: E402
 
 data = json.loads(subprocess.run([dump], check=True, capture_output=True, text=True).stdout)
 c = data['constants']
@@ -18,7 +18,11 @@ mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': 
           'roll_icon_px': fp.ROLL_ICON_PX, 'roll_icon_gap': fp.ROLL_ICON_GAP,
           'actions_top': fp.PANEL_ACTIONS_TOP, 'action_h': fp.PANEL_ACTION_H, 'action_w': fp.PANEL_ACTION_W,
           'action_gap': fp.PANEL_ACTION_GAP, 'actions': len(fp.PANEL_ACTIONS), 'max_desktops': fp.MAX_DESKTOPS,
-          'scale_top': fp.PANEL_SCALE_TOP, 'scale_item_h': fp.PANEL_SCALE_ITEM_H, 'scale_list_gap': fp.PANEL_SCALE_LIST_GAP}
+          'scale_top': fp.PANEL_SCALE_TOP, 'scale_item_h': fp.PANEL_SCALE_ITEM_H, 'scale_list_gap': fp.PANEL_SCALE_LIST_GAP,
+          'background_top': fp.PANEL_BACKGROUND_TOP, 'brightness_top': fp.PANEL_BRIGHTNESS_TOP,
+          'background_item_h': fp.PANEL_BACKGROUND_ITEM_H, 'background_list_gap': fp.PANEL_BACKGROUND_LIST_GAP,
+          'brightness_min': environment.BRIGHTNESS_BOUNDS[0], 'brightness_max': environment.BRIGHTNESS_BOUNDS[1],
+          'brightness_default': environment.DEFAULT_BRIGHTNESS}
 assert set(mirror) == set(c), (sorted(mirror), sorted(c))
 for name, value in mirror.items():
     assert abs(value - c[name]) < 1e-3, (name, value, c[name])
@@ -32,6 +36,14 @@ for i, want in enumerate(data['scale_items']):
     got = fp.scale_item_rect(i)
     assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
 assert data['scale_percents'] == list(view.SCALE_PERCENTS) == [round(s * 100) for s in geometry.SCALES], data['scale_percents']
+# The Background dropdown, its switch and the backgrounds themselves (environment.BACKGROUNDS, environment.hpp kBackgrounds).
+for got, want in ((fp.PANEL_BACKGROUND_BOX, data['background_box']), (fp.PANEL_BACKGROUND_SWITCH, data['background_switch'])):
+    assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (got, want)
+assert [tuple(b) for b in data['backgrounds']] == list(environment.BACKGROUNDS), data['backgrounds']
+assert len(data['background_items']) == len(environment.BACKGROUNDS)
+for i, want in enumerate(data['background_items']):
+    got = fp.background_item_rect(i)
+    assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
 for case in data['cases']:
     tile = tuple(case['tile'])
     rolls = [fp.roll_icon_rect(tile, 'ccw', 1.0), fp.roll_icon_rect(tile, 'cw', 1.0), fp.roll_icon_rect(tile, 'ccw', 0.5),

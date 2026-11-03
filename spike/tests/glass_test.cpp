@@ -61,11 +61,23 @@ int main() {
     CHECK(kPanelFooterTop + float(kPanelHintPx) <= kPanelH && kGrabberTop + kGrabberH < kPanelHeaderH);
     // Four rows (left / right, down / up, distance, curvature: every desktop faces you, so there is no facing setting).
     static_assert(kPlacementMenuFields == 4);
-    // Then the Scale row (one row: label and dropdown box), then the desktop row (Ultrawide / Add / Remove) between it
-    // and the footer, inside the paddings.
-    CHECK(kPanelScaleTop == kPanelRowsTop + 4 * kPanelRowH && kPanelActionsTop == kPanelScaleTop + kPanelRowH + 6 &&
+    // Then the Scale row (one row: label and dropdown box), the Background and Brightness rows, then the desktop row
+    // (Ultrawide / Add / Remove) between them and the footer, inside the paddings.
+    CHECK(kPanelScaleTop == kPanelRowsTop + 4 * kPanelRowH && kPanelBackgroundTop == kPanelScaleTop + kPanelRowH &&
+          kPanelBrightnessTop == kPanelBackgroundTop + kPanelRowH && kPanelActionsTop == kPanelBrightnessTop + kPanelRowH + 6 &&
           kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
-    CHECK(kPanelFooterTop == 262.f && kPanelH == 292.f);
+    CHECK(kPanelFooterTop == 330.f && kPanelH == 360.f);
+    {  // the Background box and its switch share a row, right of the label column up to the padding; its list above it
+        const FRect box = glass_background_box(), sw = glass_background_switch();
+        CHECK(box.x == kPanelTrackX0 && box.y >= kPanelBackgroundTop && box.y + box.height <= kPanelBackgroundTop + kPanelRowH);
+        CHECK(sw.x >= box.x + box.width && near(sw.x + sw.width, kPanelW - kPanelPad) && sw.y == box.y && sw.height == box.height);
+        for (std::size_t i = 0; i < kBackgroundCount; ++i) {
+            const FRect r = glass_background_item(i);
+            CHECK(r.x == box.x && r.width == box.width && r.height == kBackgroundItemH && r.y >= kPanelHeaderH);
+        }
+        CHECK(near(glass_background_item(kBackgroundCount - 1).y + kBackgroundItemH + kBackgroundListGap, box.y));
+        CHECK(glass_background_item(kBackgroundCount).width == 0.f);
+    }
     {  // the Scale box sits in its row, right of the label column up to the padding; its list above it, under the header
         const FRect box = glass_scale_box();
         CHECK(box.x == kPanelTrackX0 && near(box.x + box.width, kPanelW - kPanelPad) && box.y >= kPanelScaleTop &&
@@ -263,6 +275,54 @@ int main() {
                 const float label = float(f->measure(glass_panel_action_label(1, false), 18, true));
                 CHECK(first >= 0 && float(first) < r.x + (r.width - (16 + 6 + label)) / 2 + 9);  // the plus, not the label
             }
+        }
+        {  // the Background rows: the box shows the choice, the switch its state, the slider its value, under the cap
+            const auto& m = glass_theme_scheme(kGlassThemeDefault);
+            auto px_at = [](const HudImage& panel_im, float x, float y) {
+                const auto* p = &panel_im.rgba[(std::size_t(y) * panel_im.width + std::size_t(x)) * 4];
+                return std::array<int, 4>{p[0], p[1], p[2], p[3]};
+            };
+            auto is = [](std::array<int, 4> got, std::array<float, 3> c, float a) {
+                for (int k = 0; k < 3; ++k) if (std::abs(got[std::size_t(k)] - int(std::lround(c[std::size_t(k)] * a * 255))) > 1) return false;
+                return std::abs(got[3] - int(std::lround(a * 255))) <= 1;
+            };
+            PlacementMenuState none = st; none.background = 0; none.background_picker = false;
+            PlacementMenuState grid = none; grid.background = 1;
+            const auto in = render_glass_panel(none, f), ig = render_glass_panel(grid, f);
+            CHECK(in.rgba != ig.rgba);
+            const FRect sw = glass_background_switch(), box = glass_background_box();
+            auto rect_differs = [&](const HudImage& a, const HudImage& b, const FRect& r) {
+                for (int y = int(r.y); y < int(r.y + r.height); ++y)
+                    for (int x = int(r.x); x < int(r.x + r.width); ++x)
+                        for (std::size_t c = 0; c < 4; ++c)
+                            if (a.rgba[(std::size_t(y) * a.width + std::size_t(x)) * 4 + c] != b.rgba[(std::size_t(y) * b.width + std::size_t(x)) * 4 + c]) return true;
+                return false;
+            };
+            CHECK(rect_differs(in, ig, box) && rect_differs(in, ig, sw));
+            CHECK(!rect_differs(in, ig, {0, 0, kPanelW, kPanelBackgroundTop - 2}));  // nothing above the row moves
+            // On: the track is the primary, the handle at its right end; off: the track is the dark container, the handle left.
+            const auto on_track = px_at(ig, sw.x + 6, sw.y + sw.height / 2), off_track = px_at(in, sw.x + sw.width - 3, sw.y + sw.height / 2);
+            CHECK(is(on_track, m.primary, 1.f) && !is(off_track, m.primary, 1.f));
+            CHECK(!is(px_at(ig, sw.x + sw.width - sw.height / 2, sw.y + sw.height / 2), m.primary, 1.f));  // the on handle
+            // The slider's knob follows the percent; a row with no background is dimmed, and selected it gets the band.
+            const float cy = kPanelBrightnessTop + kPanelRowH / 2;
+            PlacementMenuState dim = grid; dim.brightness = 10;
+            PlacementMenuState top = grid; top.brightness = 200;
+            const auto id = render_glass_panel(dim, f), it = render_glass_panel(top, f);
+            CHECK(is(px_at(id, kPanelKnobLo, cy), m.primary, 1.f) && is(px_at(it, kPanelKnobHi, cy), m.primary, 1.f));
+            CHECK(!is(px_at(id, kPanelKnobHi, cy), m.primary, 1.f));
+            CHECK(!is(px_at(in, kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * 90.f / 190.f, cy), m.primary, 1.f));  // None: disabled
+            CHECK(is(px_at(ig, kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * 90.f / 190.f, cy), m.primary, 1.f));   // 100%, at 90 of 190
+            PlacementMenuState selected = grid; selected.field = kPlacementMenuBrightness;
+            CHECK(render_glass_panel(selected, f).rgba != ig.rgba);
+            // The open list, over what is above its box, every item shown; the rows themselves stay; under the cap.
+            PlacementMenuState open = grid; open.background_picker = true;
+            const auto io = render_glass_panel(open, f);
+            CHECK(rect_differs(ig, io, glass_background_item(0)) && rect_differs(ig, io, glass_background_item(kBackgroundCount - 1)));
+            CHECK(!rect_differs(ig, io, {0, kPanelBrightnessTop, kPanelW, kPanelRowH}));
+            for (const auto* im : {&in, &ig, &id, &it, &io})
+                for (std::size_t k = 0; k < im->rgba.size(); k += 4)
+                    for (std::size_t c = 0; c < 3; ++c) CHECK(im->rgba[k + c] <= kCardMaxLevel);
         }
         {  // the Scale row: the box shows the scale; the open list covers the sliders and shows every step, under the cap
             const auto row_top = std::uint32_t(kPanelScaleTop), row_bottom = std::uint32_t(kPanelScaleTop + kPanelRowH);

@@ -124,7 +124,7 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(out[0], {'action': 'controls', 'visible': True})
         self.assertEqual(out[1], {'action': 'menu', 'visible': True, 'selected': 0,
                                   'rows': [{'label': 'Texture filter', 'value': 'Catmull-Rom'}, {'label': 'Deband', 'value': 'Off'},
-                                           {'label': 'TRON grid', 'value': 'Off'}]})  # environment.py's row
+                                           {'label': 'Background', 'value': 'None'}]})  # environment.py's row
         self.assertTrue(self.v.snapshot()['quality_menu'])
         for p in out: video.validate_renderer_payload(p)
         self.assertEqual(self.payloads('video_quality'), [{**out[1], 'visible': False, 'selected': 0}])  # Q again closes

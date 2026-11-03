@@ -173,10 +173,11 @@ class Controller:
                     if delta%SPACING_STEP: raise ValueError('live spacing must use 20 pixel steps')
                     operations += ['spacing_up' if delta>0 else 'spacing_down']*(abs(delta)//SPACING_STEP)
                 if 'prediction' in settings and target['prediction']!=current['prediction']: operations.append('prediction')
-                if 'environment' in settings: operations += environment.operations(current['environment'],target['environment'])
                 if len(operations)>8: raise ValueError('too many live operations; use smaller steps')
                 for operation in operations:
                     if not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')
+                if 'environment' in settings and target['environment']!=current['environment']:  # absolute, like placements
+                    if not self.units.control(self.run['run_id'],self.run['session'],environment.SET_OP,target['environment']): raise ValueError('run control unavailable')
                 # The supervisor saves actual applied values; never claim these send-only operations applied.
                 return dict(forwarded=True)
             model=self.observed['model']; profile=self.store.load(model)

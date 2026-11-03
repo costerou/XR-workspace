@@ -1,16 +1,22 @@
-// The TRON grid drawn by the real compositor (GlCompositor::draw_and_swap on surfaceless EGL, the glasses' 1920x1200
+// The Grid background drawn by the real compositor (GlCompositor::draw_and_swap on surfaceless EGL, the glasses' 1920x1200
 // buffer under scale 1.25) behind three synthetic desktops, the glass pills, the cursor dot and the highlight:
-//   * off (level 0) the frame is bit for bit the frame of a compositor that never heard of it;
-//   * on, every desktop's pixels are exactly as they are with it off (the desktops stay fully readable), and the
-//     highlight's glow adds to the grid instead of blacking out a halo round the selected desktop;
+//   * None (or level 0) the frame is bit for bit the frame of a compositor that never heard of it;
+//   * on, every desktop's pixels are exactly as they are with None, and the highlight's glow adds to the grid instead of
+//     blacking out a halo round the selected desktop;
 //   * the grid alone, looking every way round: nothing passes the 191/255 OLED cap, most of the view stays black
 //     (see-through), something is drawn (the horizon ahead, the floor below), and the sky straight up is black;
 //   * world-locked: the horizon is where the head pitch puts it, a whole turn draws the same frame, and in locked mode
 //     (desktops head-locked) the grid still turns with the head while the desktops do not;
-//   * the fade scales it, the theme colour changes its hue, the pulses move and loop seamlessly (kEnvironmentLoopS).
-// With a directory argument it also writes preview PNGs there (needs zlib): the overview ahead and looking round,
-// maximized (follow / locked), the theme colour, half faded, and off. Exit 77 (skipped) without EGL/GLES.
+//   * its colour is the theme's, the accent the highlight border is drawn in: every lit pixel has that hue, and a theme
+//     switch recolours the very next frame; the fade and the brightness scale it, black stays black at any brightness and
+//     nothing passes the cap at the brightest; the pulses move and loop seamlessly (kEnvironmentLoopS);
+//   * behind a 180 degree video (VideoSphere over draw_environment, in a draw_scene_and_swap): the picture exactly as
+//     without it, the rest of the view exactly the grid.
+// With a directory argument it also writes preview PNGs there (needs zlib): the overview ahead and looking round, maximized
+// (follow / locked), theme colours, half faded, brightness, None, the placement panel with the Background list open and with
+// the Brightness slider held, and a 180 degree video. Exit 77 (skipped) without EGL/GLES.
 #include "gl.hpp"
+#include "video_gl.hpp"
 #include "xr/environment.hpp"
 #include "xr/glass.hpp"
 #include "xr/hud.hpp"
@@ -95,8 +101,8 @@ std::array<Desktop, 3> desktops(const HudFont* font) {
     for (std::size_t l = 0; l < code.size(); ++l)
         d[1].text(font, code[l], 100, 150 + int(l) * 44, 28, l == 4 ? std::array<int, 3>{86, 95, 137} : std::array<int, 3>{187, 154, 247});
     d[2].text(font, "XR Workspace", 100, 190, 64, {200, 210, 235}, true);
-    const std::vector<std::string> page{"Toggle a TRON style grid behind your desktops.", "Ctrl+Alt+E     grid on / off",
-                                        "Ctrl+Alt+Shift+E     cyan / theme colour", "Look round: it stays put in the room."};
+    const std::vector<std::string> page{"Choose a background behind your desktops.", "Ctrl+Alt+E     background on / off",
+                                        "Its colour is your theme's.", "Look round: it stays put in the room."};
     for (std::size_t l = 0; l < page.size(); ++l) d[2].text(font, page[l], 100, 300 + int(l) * 56, 34, {170, 180, 210});
     return d;
 }
@@ -120,22 +126,7 @@ Quat look(float yaw, float pitch) {
 }
 const Mat3 kIdentity{1, 0, 0, 0, 1, 0, 0, 0, 1};
 
-struct Frame {
-    bool desktops = true, pills = false, pointer = false;
-    float zoom = 0;                 // 0 overview, 1 maximized (desktop 1)
-    int highlight = 1;
-    Mat3 view = kIdentity;          // the desktops' rotation (anchor: the head; locked / follow: identity here)
-    bool environment = true; bool touch = true;  // touch false: never call set_environment (a compositor without it)
-    float level = 1; MdRgb line = kEnvironmentCyan; float seconds = 3.25f; Mat3 world = kIdentity;
-};
-Image draw(GlCompositor& gl, const Frame& f) {
-    const std::vector<Size> sizes(3, Size{float(kDesktopW), float(kDesktopH)});
-    const auto tiles = f.desktops ? blended_layout(sizes, float(kCanvasW), float(kCanvasH), 40.f, f.zoom, 1.f) : std::vector<FRect>{};
-    GlassFrame glass; glass.pills = f.pills && f.zoom < 0.01f;
-    gl.set_glass(glass);
-    gl.set_free_pointer(f.pointer && f.zoom < 0.01f, float(kCanvasW) * 0.58f, float(kCanvasH) * 0.47f, kFreePointerLevel);
-    if (f.touch) gl.set_environment(f.environment ? f.level : 0.f, f.line, f.seconds, f.world);
-    CHECK(gl.draw_and_swap(tiles, std::vector<Placement>(tiles.size()), f.desktops ? f.highlight : -1, 1.f - f.zoom, f.view, g_half_w, g_half_h));
+Image read() {
     Image im{kPxW, kPxH, std::vector<std::uint8_t>(std::size_t(kPxW) * kPxH * 3)};
     std::vector<std::uint8_t> rgba(std::size_t(kPxW) * kPxH * 4);
     glFinish(); glReadPixels(0, 0, GLsizei(kPxW), GLsizei(kPxH), GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
@@ -144,6 +135,55 @@ Image draw(GlCompositor& gl, const Frame& f) {
             std::memcpy(&im.rgb[(std::size_t(y) * kPxW + x) * 3], &rgba[(std::size_t(kPxH - 1 - y) * kPxW + x) * 4], 3);
     CHECK(glGetError() == GL_NO_ERROR);
     return im;
+}
+
+struct Frame {
+    bool desktops = true, pills = false, pointer = false;
+    float zoom = 0;                 // 0 overview, 1 maximized (desktop 1)
+    int highlight = 1;
+    Mat3 view = kIdentity;          // the desktops' rotation (anchor: the head; locked / follow: identity here)
+    bool environment = true; bool touch = true;  // touch false: never call set_environment (a compositor without it)
+    float level = 1, brightness = 100, seconds = 3.25f; Mat3 world = kIdentity;
+    const HudImage* panel = nullptr;  // desktop 1's pill open into its placement panel, showing this
+};
+Image draw(GlCompositor& gl, const Frame& f) {
+    const std::vector<Size> sizes(3, Size{float(kDesktopW), float(kDesktopH)});
+    const auto tiles = f.desktops ? blended_layout(sizes, float(kCanvasW), float(kCanvasH), 40.f, f.zoom, 1.f) : std::vector<FRect>{};
+    GlassFrame glass; glass.pills = f.pills && f.zoom < 0.01f;
+    static std::uint64_t generation = 0;
+    if (f.panel) { glass.expand[1] = 1; glass.top = 1; glass.content = 1; glass.image = f.panel; glass.generation = ++generation; glass.content_alpha = 1; }
+    gl.set_glass(glass);
+    gl.set_free_pointer(f.pointer && f.zoom < 0.01f, float(kCanvasW) * 0.58f, float(kCanvasH) * 0.47f, kFreePointerLevel);
+    if (f.touch) gl.set_environment(f.level, f.environment ? Background::grid : Background::none, f.brightness, f.seconds, f.world);
+    CHECK(gl.draw_and_swap(tiles, std::vector<Placement>(tiles.size()), f.desktops ? f.highlight : -1, 1.f - f.zoom, f.view, g_half_w, g_half_h));
+    return read();
+}
+// A 180 degree video as wayland.cpp and VideoMode::draw do it: the background, then the picture over it where it reaches.
+Image draw_video(GlCompositor& gl, VideoSphere& sphere, GLuint picture, const Frame& f) {
+    VideoFormat format; format.projection = VideoProjection::equirect180;
+    gl.set_environment(f.level, f.environment ? Background::grid : Background::none, f.brightness, f.seconds, f.world);
+    CHECK(gl.draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) {
+        glViewport(0, 0, GLsizei(w), GLsizei(h)); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
+        const bool behind = gl.draw_environment(g_half_w, g_half_h);
+        sphere.draw(picture, false, format, 0, f.world, g_half_w, g_half_h, behind);
+    }, nullptr, 0, 0.f));
+    return read();
+}
+GLuint picture_texture() {  // a video frame, nowhere black: a dusk sky and a low sun; an RGBA texture with mipmaps, as the player makes
+    constexpr int W = 1024, H = 512;
+    std::vector<std::uint8_t> rgba(std::size_t(W) * H * 4);
+    for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+            const float t = float(y) / H, sun = std::exp(-(std::pow((float(x) - 900.f) / 90.f, 2.f) + std::pow((float(y) - 300.f) / 60.f, 2.f)));
+            auto* p = &rgba[(std::size_t(y) * W + std::size_t(x)) * 4];
+            p[0] = std::uint8_t(std::min(255.f, 40 + 190 * t + 90 * sun)); p[1] = std::uint8_t(std::min(255.f, 24 + 90 * t + 150 * sun));
+            p[2] = std::uint8_t(std::min(255.f, 90 - 40 * t + 60 * sun)); p[3] = 255;
+        }
+    GLuint tex = 0; glGenTextures(1, &tex); glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, W, H, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    return tex;
 }
 
 std::uint8_t channel_max(const Image& im, std::size_t i) { return std::max({im.rgb[i * 3], im.rgb[i * 3 + 1], im.rgb[i * 3 + 2]}); }
@@ -210,7 +250,7 @@ int main(int argc, char** argv) {
     }
     gl = make(content, why);
     if (!gl) { std::printf("SKIP: %s\n", why.c_str()); return 77; }
-    CHECK(gl->set_environment(0.f, kEnvironmentCyan, 0.f, kIdentity));  // the pass compiled
+    CHECK(gl->set_environment(0.f, Background::none, 100.f, 0.f, kIdentity));  // the pass compiled
     (void)draw(*gl, base);
     {
         const Image b = draw(*gl, off);
@@ -334,19 +374,60 @@ int main(int argc, char** argv) {
         CHECK(changed_outside > 1000);
     }
 
-    // 5. The fade scales it; the theme colour changes its hue; the pulses move and loop seamlessly.
+    // 5. Its colour is the theme's; the fade and the brightness scale it; the pulses move and loop seamlessly.
     {
         Frame full = grid_only; full.world = world(0, -30);
         Frame half = full; half.level = 0.5f;
         const Image a = draw(*gl, full), b = draw(*gl, half);
-        double sa = 0, sb = 0;
-        for (std::size_t k = 0; k < a.rgb.size(); ++k) { sa += a.rgb[k]; sb += b.rgb[k]; }
-        CHECK(sa > 0 && std::fabs(sb / sa - 0.5) < 0.03);
-        Frame red = full; red.line = environment_line_color(EnvironmentColor::theme, {0xf7 / 255.f, 0x76 / 255.f, 0x8e / 255.f});
-        const Image c = draw(*gl, red);
-        double r = 0, bl = 0, ar = 0, ab = 0;
-        for (std::size_t i = 0; i < c.rgb.size() / 3; ++i) { r += c.rgb[i * 3]; bl += c.rgb[i * 3 + 2]; ar += a.rgb[i * 3]; ab += a.rgb[i * 3 + 2]; }
-        CHECK(r > bl && ab > 4 * ar);  // the red theme is red, cyan has (almost) no red
+        auto sum = [](const Image& im) { double t = 0; for (const auto v : im.rgb) t += v; return t; };
+        const double sa = sum(a);
+        CHECK(sa > 0 && std::fabs(sum(b) / sa - 0.5) < 0.03);
+        // Every lit pixel of the grid has the highlight border's own colour: the same channels in the same proportion, under
+        // the cap, for a blue, a rose and a green theme, and the very next frame after a theme switch.
+        for (const std::array<std::uint8_t, 3> accent : {kTokyo, std::array<std::uint8_t, 3>{0xf7, 0x76, 0x8e}, std::array<std::uint8_t, 3>{0x9e, 0xce, 0x6a}}) {
+            gl->set_accent(accent[0], accent[1], accent[2]);
+            Frame wide = grid_only; wide.world = world(30, -14);
+            const Image im = draw(*gl, wide);
+            const float top = float(std::max({accent[0], accent[1], accent[2]}));
+            std::size_t lit = 0, off = 0;
+            for (std::size_t i = 0; i < std::size_t(kPxW) * kPxH; ++i) {
+                const auto m = channel_max(im, i);
+                if (m < 100) continue;
+                ++lit;
+                for (std::size_t c = 0; c < 3; ++c) off += std::fabs(float(im.rgb[i * 3 + c]) / float(m) - float(accent[c]) / top) > 0.03f;
+            }
+            if (off) std::fprintf(stderr, "theme %02x%02x%02x: %zu channels of %zu lit pixels off its colour\n", accent[0], accent[1], accent[2], off, lit);
+            CHECK(lit > 500 && off == 0);
+        }
+        gl->set_accent(kTokyo[0], kTokyo[1], kTokyo[2]);
+        // ... and the border itself is that colour, uncapped: the same frame, on the highlighted desktop's edge.
+        {
+            const PxRect t = tile_px(1, 0.f, 0);
+            const auto* p = &with.rgb[(std::size_t(t.y0 + (t.y1 - t.y0) / 2) * kPxW + std::size_t(t.x0 - 4)) * 3];
+            CHECK(p[0] == kTokyo[0] && p[1] == kTokyo[1] && p[2] == kTokyo[2]);
+        }
+        // Brightness: it scales the scene, black stays exactly black at both ends, and the brightest stays under the cap.
+        Frame dim = full; dim.brightness = 50;
+        Frame most = full; most.brightness = 200;
+        Frame least = full; least.brightness = 10;
+        const Image id = draw(*gl, dim), im = draw(*gl, most), il = draw(*gl, least);
+        CHECK(std::fabs(sum(id) / sa - 0.5) < 0.04);
+        CHECK(sum(il) < 0.16 * sa && sum(il) > 0);
+        CHECK(sum(im) > 1.3 * sa);
+        std::size_t over = 0, black = 0, black_most = 0;
+        for (std::size_t i = 0; i < std::size_t(kPxW) * kPxH; ++i) {
+            over += channel_max(im, i) > kCap;
+            black += channel_max(a, i) == 0; black_most += channel_max(im, i) == 0;
+        }
+        CHECK(over == 0);
+        // (Only the far floor's faint average of its lines, under half a level at 100%, comes up to one.)
+        if (double(black_most) <= 0.93 * double(black)) std::fprintf(stderr, "black pixels: %zu at 100%%, %zu at 200%%\n", black, black_most);
+        CHECK(black > std::size_t(kPxW) * kPxH / 2 && double(black_most) > 0.93 * double(black));
+        for (const float percent : {10.f, 100.f, 200.f}) {  // the sky, at any brightness
+            Frame sky = grid_only; sky.world = world(0, 60); sky.brightness = percent;
+            const Image is = draw(*gl, sky);
+            CHECK(std::all_of(is.rgb.begin(), is.rgb.end(), [](std::uint8_t v) { return v == 0; }));
+        }
         // Over the floor out to the horizon something is always running somewhere: the frame changes with the clock...
         Frame wide = grid_only; wide.world = world(20, -12);
         const Image w0 = draw(*gl, wide);
@@ -361,31 +442,70 @@ int main(int argc, char** argv) {
         CHECK(off_by_more < w0.rgb.size() / 2000);
     }
 
-    // Previews: the environment with the monitors in front.
+    // 6. Behind a 180 degree video: the picture exactly as without it, the rest exactly the grid, looking past its edge.
+    std::string sphere_why;
+    auto sphere = VideoSphere::create(sphere_why);
+    CHECK(sphere != nullptr);
+    const GLuint picture = sphere ? picture_texture() : 0;
+    if (sphere) {
+        Frame v = grid_only; v.world = world(90, -6);  // the picture's left edge down the middle of the view
+        const Image grid = draw(*gl, v);
+        Frame none = v; none.environment = false;
+        const Image plain_video = draw_video(*gl, *sphere, picture, none), both = draw_video(*gl, *sphere, picture, v);
+        std::size_t inside = 0, outside = 0, wrong = 0;
+        for (std::size_t i = 0; i < std::size_t(kPxW) * kPxH; ++i) {
+            const bool on_picture = channel_max(plain_video, i) != 0;  // the picture is nowhere black
+            (on_picture ? inside : outside) += 1;
+            wrong += std::memcmp(&both.rgb[i * 3], on_picture ? &plain_video.rgb[i * 3] : &grid.rgb[i * 3], 3) != 0;
+        }
+        if (wrong) std::fprintf(stderr, "behind a video: %zu wrong pixels (%zu on the picture, %zu off it)\n", wrong, inside, outside);
+        CHECK(inside > 100000 && outside > 100000 && wrong == 0);
+    }
+
+    // Previews: the background with the monitors in front.
     if (argc > 1) {
 #ifdef XR_HAVE_ZLIB
         const std::filesystem::path dir = argv[1];
         std::error_code ec; std::filesystem::create_directories(dir, ec);
-        struct Shot { const char* file; Frame f; };
+        struct Shot { const char* file; Frame f; std::array<std::uint8_t, 3> accent = kTokyo; };
         std::vector<Shot> shots;
-        { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6); shots.push_back({"overview-ahead.png", f}); }
+        const Frame ahead = [&] { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6); return f; }();
+        shots.push_back({"overview-ahead.png", ahead});
         { Frame f = base; f.world = world(55, -10); f.view = anchor_view(55, -10); shots.push_back({"overview-look-left.png", f}); }
         { Frame f = base; f.world = world(-20, -42); f.view = anchor_view(-20, -42); f.seconds = 7.5f; shots.push_back({"overview-look-down.png", f}); }
         { Frame f = base; f.world = world(180, -8); f.view = anchor_view(180, -8); shots.push_back({"look-behind.png", f}); }
         { Frame f = base; f.zoom = 1; f.world = world(0, -9); shots.push_back({"maximized-follow.png", f}); }
         { Frame f = base; f.zoom = 1; f.world = world(-45, -12); shots.push_back({"maximized-locked-head-turned-right.png", f}); }
-        { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6);
-          f.line = environment_line_color(EnvironmentColor::theme, {kTokyo[0] / 255.f, kTokyo[1] / 255.f, kTokyo[2] / 255.f});
-          shots.push_back({"overview-theme-tokyo-night.png", f}); }
-        { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6);
-          f.line = environment_line_color(EnvironmentColor::theme, {0xf7 / 255.f, 0x76 / 255.f, 0x8e / 255.f});
-          shots.push_back({"overview-theme-rose.png", f}); }
-        { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6); f.level = 0.5f; shots.push_back({"overview-fading-half.png", f}); }
-        { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6); f.environment = false; shots.push_back({"overview-off.png", f}); }
+        shots.push_back({"overview-theme-rose.png", ahead, {0xf7, 0x76, 0x8e}});
+        shots.push_back({"overview-theme-green.png", ahead, {0x9e, 0xce, 0x6a}});
+        shots.push_back({"overview-theme-amber.png", ahead, {0xe0, 0xaf, 0x68}});
+        { Frame f = ahead; f.level = 0.5f; shots.push_back({"overview-fading-half.png", f}); }
+        { Frame f = ahead; f.brightness = 40; shots.push_back({"overview-brightness-40.png", f}); }
+        { Frame f = ahead; f.brightness = 200; shots.push_back({"overview-brightness-200.png", f}); }
+        { Frame f = ahead; f.environment = false; shots.push_back({"overview-none.png", f}); }
+        // The placement panel: Grid chosen with the Background list open, and the Brightness row selected at 40%.
+        PlacementMenuState menu; menu.open = true; menu.desktop = 1; menu.background = std::uint8_t(Background::grid);
+        menu.placements[0] = menu.placements[1] = menu.placements[2] = {0, 0, 100, 0};
+        menu.scale = 125; menu.scales = 0x7f;
+        PlacementMenuState list = menu; list.background_picker = true;
+        PlacementMenuState slider = menu; slider.field = kPlacementMenuBrightness; slider.brightness = 40;
+        const std::array<float, 3> tokyo{kTokyo[0] / 255.f, kTokyo[1] / 255.f, kTokyo[2] / 255.f};
+        const HudImage list_image = render_glass_panel(list, font.get(), tokyo), slider_image = render_glass_panel(slider, font.get(), tokyo);
+        const Frame low = [&] { Frame f = base; f.world = world(0, -14); f.view = anchor_view(0, -14); return f; }();  // the panel in view
+        { Frame f = low; f.panel = &list_image; shots.push_back({"panel-background-dropdown.png", f}); }
+        { Frame f = low; f.panel = &slider_image; f.brightness = 40; shots.push_back({"panel-brightness-slider.png", f}); }
         for (const auto& s : shots) {
+            gl->set_accent(s.accent[0], s.accent[1], s.accent[2]);
             const bool ok = write_png(dir / s.file, draw(*gl, s.f));
             CHECK(ok);
             std::printf("preview %s %s\n", (dir / s.file).c_str(), ok ? "written" : "FAILED");
+        }
+        gl->set_accent(kTokyo[0], kTokyo[1], kTokyo[2]);
+        if (sphere) {
+            Frame v = grid_only; v.world = world(84, -8);
+            const bool ok = write_png(dir / "video-180-grid-behind.png", draw_video(*gl, *sphere, picture, v));
+            CHECK(ok);
+            std::printf("preview %s %s\n", (dir / "video-180-grid-behind.png").c_str(), ok ? "written" : "FAILED");
         }
 #else
         std::printf("note: built without zlib; no previews written\n");

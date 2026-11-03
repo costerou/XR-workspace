@@ -4,24 +4,16 @@
 
 namespace xr {
 namespace {
-// The theme colour as a neon: its own hue, at least this much OKLCH chroma (unless it is a grey), at this L* tone.
-constexpr float kThemeMinChroma = 0.16f, kThemeGreyChroma = 0.03f, kThemeTone = 72.f;
-MdRgb to_cap(MdRgb c) {
-    for (auto& v : c) v = std::isfinite(v) ? std::clamp(v, 0.f, 1.f) : 0.f;
-    const float most = std::max({c[0], c[1], c[2]});
-    if (most <= 1e-6f) return {kEnvironmentCap, kEnvironmentCap, kEnvironmentCap};  // black theme: a grey grid
-    for (auto& v : c) v = v / most * kEnvironmentCap;
-    return c;
-}
 float ease(double t) { const float s = float(std::clamp(t, 0.0, 1.0)); return s * s * (3 - 2 * s); }
 }
 
-MdRgb environment_line_color(EnvironmentColor color, MdRgb accent) {
-    if (color != EnvironmentColor::theme) return kEnvironmentCyan;
+MdRgb environment_line_color(MdRgb accent) {
     for (auto& v : accent) v = std::isfinite(v) ? std::clamp(v, 0.f, 1.f) : 0.f;
-    const MdHct hct = md_hct(accent);
-    const float chroma = hct.chroma < kThemeGreyChroma ? hct.chroma : std::max(hct.chroma, kThemeMinChroma);
-    return to_cap(md_color(hct.hue, chroma, kThemeTone));
+    const float most = std::max({accent[0], accent[1], accent[2]});
+    if (most < 1e-3f) return {kEnvironmentFloor, kEnvironmentFloor, kEnvironmentFloor};  // black: no hue to keep
+    const float scale = most > kEnvironmentCap ? kEnvironmentCap / most : most < kEnvironmentFloor ? kEnvironmentFloor / most : 1.f;
+    for (auto& v : accent) v *= scale;
+    return accent;
 }
 
 Quat heading(Quat q) {
@@ -38,20 +30,10 @@ Mat3 environment_view(Quat head_relative, const std::optional<Quat>& reference) 
     return view_from(head_relative, anchor);
 }
 
-bool EnvironmentFade::set(bool on, MdRgb color, double now_ms) {
-    bool changed = false;
-    if (on != on_) {
-        from_level_ = level(now_ms); level_ms_ = now_ms; on_ = on;
-        changed = true;
-    }
-    if (!seen_color_) {
-        changed = changed || color != to_color_;
-        from_color_ = to_color_ = color; seen_color_ = true;
-    } else if (color != to_color_) {
-        from_color_ = this->color(now_ms); to_color_ = color; color_ms_ = now_ms;
-        changed = true;
-    }
-    return changed;
+bool EnvironmentFade::set(bool on, double now_ms) {
+    if (on == on_) return false;
+    from_level_ = level(now_ms); level_ms_ = now_ms; on_ = on;
+    return true;
 }
 
 float EnvironmentFade::level(double now_ms) const {
@@ -59,13 +41,5 @@ float EnvironmentFade::level(double now_ms) const {
     return from_level_ + (target - from_level_) * ease((now_ms - level_ms_) / kEnvironmentFadeMs);
 }
 
-MdRgb EnvironmentFade::color(double now_ms) const {
-    const float s = ease((now_ms - color_ms_) / kEnvironmentColorMs);
-    return {from_color_[0] + (to_color_[0] - from_color_[0]) * s, from_color_[1] + (to_color_[1] - from_color_[1]) * s,
-            from_color_[2] + (to_color_[2] - from_color_[2]) * s};
-}
-
-bool EnvironmentFade::animating(double now_ms) const {
-    return now_ms - level_ms_ < kEnvironmentFadeMs || now_ms - color_ms_ < kEnvironmentColorMs;
-}
+bool EnvironmentFade::animating(double now_ms) const { return now_ms - level_ms_ < kEnvironmentFadeMs; }
 }

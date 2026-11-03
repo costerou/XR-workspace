@@ -72,7 +72,7 @@ class ProfileTests(unittest.TestCase):
         store = profiles.ProfileStore(self.path, 'beast')
         self.assertEqual(store.load(), view.DEFAULT_SETTINGS)
         sharp = {'filter': 'nearest', 'deband': True}
-        grid = {'on': True, 'color': 'theme'}
+        grid = {'background': 'grid', 'last': 'grid', 'brightness': 60}
         store.save({'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': sharp, 'environment': grid})
         self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': sharp, 'environment': grid})
         with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'cursor_follow': True, 'prediction': False,
@@ -81,7 +81,7 @@ class ProfileTests(unittest.TestCase):
                                                         'cursor_switch_animate': True, 'video_quality': sharp, 'environment': grid})
         with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'prediction': False})  # every key
         with self.assertRaises(ValueError): store.save({**view.DEFAULT_SETTINGS, 'video_quality': {'filter': 'cubic', 'deband': False}})
-        with self.assertRaises(ValueError): store.save({**view.DEFAULT_SETTINGS, 'environment': {'on': True, 'color': 'red'}})
+        with self.assertRaises(ValueError): store.save({**view.DEFAULT_SETTINGS, 'environment': {'background': 'red', 'last': 'grid', 'brightness': 100}})
         after = profiles.load_profile(self.path, 'beast')
         self.assertEqual({k: after[k] for k in ('desktops', 'tracking', 'mode_switch', 'fallback')},
                          {k: full[k] for k in ('desktops', 'tracking', 'mode_switch', 'fallback')})

@@ -60,7 +60,7 @@ const char* kVertex = "#version 300 es\nin vec2 pos; out vec2 ndc; void main() {
 const char* kFragment =
     "#version 300 es\nprecision highp float;\n"
     "in vec2 ndc; out vec4 color; uniform highp sampler2D tex; uniform mat3 view; uniform vec2 half_fov; uniform float projection;\n"
-    "uniform vec4 rect; uniform float fov; uniform float flip; uniform float cubic;\n"
+    "uniform vec4 rect; uniform float fov; uniform float flip; uniform float cubic; uniform float behind;\n"
     "const float PI = 3.14159265358979;\n"
     "vec3 keys(vec2 t, vec2 size, vec2 lo, vec2 hi) {\n"
     "  vec2 p = t * size - 0.5; vec2 i = floor(p); vec2 f = p - i; float a = cubic;\n"
@@ -100,6 +100,7 @@ const char* kFragment =
     "    if (flip > 0.5) { a0.y = 1.0 - (rect.y + rect.w); a1.y = 1.0 - rect.y; }\n"
     "    c = mix(keys(t, size, a0 + 0.5 / size, a1 - 0.5 / size), c, smoothstep(0.75, 1.0, texels));\n"
     "  }\n"
+    "  if (!inside && behind > 0.5) discard;\n"  // the background drawn before this pass shows there
     "  color = inside ? vec4(c, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);\n"
     "}\n";
 GLuint compile(GLenum type, const char* source) {
@@ -126,14 +127,14 @@ std::unique_ptr<VideoSphere> VideoSphere::create(std::string& why) {
     out->pos_ = glGetAttribLocation(p, "pos"); out->tex_ = glGetUniformLocation(p, "tex"); out->view_ = glGetUniformLocation(p, "view");
     out->half_ = glGetUniformLocation(p, "half_fov"); out->projection_ = glGetUniformLocation(p, "projection");
     out->rect_ = glGetUniformLocation(p, "rect"); out->fov_ = glGetUniformLocation(p, "fov"); out->flip_ = glGetUniformLocation(p, "flip");
-    out->cubic_ = glGetUniformLocation(p, "cubic");
+    out->cubic_ = glGetUniformLocation(p, "cubic"); out->behind_ = glGetUniformLocation(p, "behind");
     out->forced_ = video_filter_parse(std::getenv("XR_VIDEO_FILTER"), out->filter_);
     return out;
 }
 
 VideoSphere::~VideoSphere() { if (program_) glDeleteProgram(program_); }
 
-void VideoSphere::draw(unsigned texture, bool flip_y, const VideoFormat& format, int eye, const Mat3& view, float half_w, float half_h) {
+void VideoSphere::draw(unsigned texture, bool flip_y, const VideoFormat& format, int eye, const Mat3& view, float half_w, float half_h, bool behind) {
     const Mat3 column_major = transpose(view);
     const auto r = eye_rect(format.stereo, eye);
     const float fov = float(format.fov_deg < kFisheyeFovMinDeg ? kFisheyeFovMinDeg : format.fov_deg > kFisheyeFovMaxDeg ? kFisheyeFovMaxDeg
@@ -150,6 +151,7 @@ void VideoSphere::draw(unsigned texture, bool flip_y, const VideoFormat& format,
     glUniform1f(fov_, fov);
     glUniform1f(flip_, flip_y ? 1.f : 0.f);
     glUniform1f(cubic_, video_filter_cubic_a(filter_));
+    glUniform1f(behind_, behind ? 1.f : 0.f);
     glVertexAttribPointer(GLuint(pos_), 2, GL_FLOAT, GL_FALSE, 0, quad);
     glEnableVertexAttribArray(GLuint(pos_));
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

@@ -20,7 +20,10 @@ int main() {
         {"roll_icon_px", kRollIconPx}, {"roll_icon_gap", kRollIconGap},
         {"actions_top", kPanelActionsTop}, {"action_h", kPanelActionH}, {"action_w", kPanelActionW}, {"action_gap", kPanelActionGap},
         {"actions", float(kPanelActions)}, {"max_desktops", float(kMaxDesktops)},
-        {"scale_top", kPanelScaleTop}, {"scale_item_h", kScaleItemH}, {"scale_list_gap", kScaleListGap}};
+        {"scale_top", kPanelScaleTop}, {"scale_item_h", kScaleItemH}, {"scale_list_gap", kScaleListGap},
+        {"background_top", kPanelBackgroundTop}, {"brightness_top", kPanelBrightnessTop}, {"background_item_h", kBackgroundItemH},
+        {"background_list_gap", kBackgroundListGap}, {"brightness_min", float(kBrightnessMin)}, {"brightness_max", float(kBrightnessMax)},
+        {"brightness_default", float(kBrightnessDefault)}};
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
@@ -31,6 +34,11 @@ int main() {
     for (std::size_t i = 0; i < kScaleSteps; ++i) out += std::string(i ? "," : "") + rect(glass_scale_item(i));
     out += "],\"scale_percents\":[";
     for (std::size_t i = 0; i < kScaleSteps; ++i) out += std::string(i ? "," : "") + std::to_string(unsigned(kScalePercents[i]));
+    out += "],\"background_box\":" + rect(glass_background_box()) + ",\"background_switch\":" + rect(glass_background_switch()) + ",\"background_items\":[";
+    for (std::size_t i = 0; i < kBackgroundCount; ++i) out += std::string(i ? "," : "") + rect(glass_background_item(i));
+    out += "],\"backgrounds\":[";
+    for (std::size_t i = 0; i < kBackgroundCount; ++i)
+        out += std::string(i ? "," : "") + "[\"" + std::string(kBackgrounds[i].name) + "\",\"" + std::string(kBackgrounds[i].label) + "\"]";
     out += "],\"cases\":[";
     const FRect tiles[] = {{100, 300, 459, 258}, {0, 0, 4000, 2000}, {10, 20, 120, 60}, {5, 5, 40, 30}, {-200.5f, 410.25f, 812, 457}};
     first = true;

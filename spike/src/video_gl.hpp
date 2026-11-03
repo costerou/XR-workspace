@@ -28,15 +28,17 @@ public:
     ~VideoSphere();
     // Draw `eye` of the frame in `texture` (RGBA; row 0 = top of the picture, or the bottom with `flip_y`) into the
     // current viewport, seen through tan(half FOV) `half_w`/`half_h` with the world -> eye rotation `view`. Pixels
-    // outside the picture are black. Blending off; overwrites the viewport.
-    void draw(unsigned texture, bool flip_y, const VideoFormat& format, int eye, const Mat3& view, float half_w, float half_h);
+    // outside the picture are black, or with `behind` left as they are (a background was drawn there first). Blending off;
+    // overwrites the viewport.
+    void draw(unsigned texture, bool flip_y, const VideoFormat& format, int eye, const Mat3& view, float half_w, float half_h,
+              bool behind = false);
     void set_filter(VideoFilter f) { filter_ = f; }
     VideoFilter filter() const { return filter_; }
     bool forced() const { return forced_; }  // XR_VIDEO_FILTER named a filter: it wins over the quality setting
 private:
     VideoSphere() = default;
     unsigned program_ = 0;
-    int pos_ = -1, tex_ = -1, view_ = -1, half_ = -1, projection_ = -1, rect_ = -1, fov_ = -1, flip_ = -1, cubic_ = -1;
+    int pos_ = -1, tex_ = -1, view_ = -1, half_ = -1, projection_ = -1, rect_ = -1, fov_ = -1, flip_ = -1, cubic_ = -1, behind_ = -1;
     VideoFilter filter_ = VideoFilter::catmull_rom;
     bool forced_ = false;
 };

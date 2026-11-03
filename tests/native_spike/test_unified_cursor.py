@@ -453,7 +453,7 @@ class CursorFollowRemovedTests(unittest.TestCase):
             path.write_text('{"spacing": 60, "mode": "follow", "cursor_follow": true, "prediction": false}')
             self.assertEqual(view.load_settings(path), {'spacing': 60, 'mode': 'follow', 'prediction': False,
                                                         'video_quality': {'filter': 'catmull-rom', 'deband': False},
-                                                        'environment': {'on': False, 'color': 'cyan'}})
+                                                        'environment': {'background': 'none', 'last': 'grid', 'brightness': 100}})
 
 
 class WiringTests(unittest.TestCase):

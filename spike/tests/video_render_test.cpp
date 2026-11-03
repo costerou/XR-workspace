@@ -11,7 +11,9 @@
 //     reopen() plays the next file or stream in the same player with nothing of the previous one shown, and closing a
 //     playing video does not wait for mpv's 200 ms frame timeout;
 //  6. the quality menu's settings (VideoQuality) apply live through VideoMode: the texture filter on the drawn frame's
-//     texture and mpv's deband, while it keeps playing, and they carry over to the next video.
+//     texture and mpv's deband, while it keeps playing, and they carry over to the next video;
+//  7. the background behind a video (VideoMode::draw `background`): called once per output eye, it shows wherever a 180
+//     degree picture does not reach and the picture is drawn over it, and a 360 degree picture is not drawn over it at all.
 // Exit 77 (skipped) without EGL/GLES. argv: [ffmpeg path] [scratch dir].
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -587,6 +589,56 @@ void quality_live(const std::string& dir) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &t.fb); glDeleteRenderbuffers(1, &t.rb);
     std::puts("quality: filter and deband applied live");
 }
+
+// 7. What goes behind a video, through VideoMode::draw: green here, one viewport at a time (a clear ignores the viewport).
+void background_behind(const std::string& dir) {
+    const std::string clip = dir + "/h264-360-mono.mp4";
+    if (!std::filesystem::exists(clip)) { std::puts("background: SKIP (no clip)"); return; }
+    VideoMode mode;
+    constexpr int W = 192, H = 64;  // 3:1, the glasses' side-by-side mode: two output eyes
+    const auto t = target(W, H);
+    const Mat3 ahead{1, 0, 0, 0, 1, 0, 0, 0, 1}, behind{-1, 0, 0, 0, 1, 0, 0, 0, -1};
+    int calls = 0;
+    const VideoMode::Behind green = [&](float half_w, float half_h) {
+        ++calls;
+        CHECK(half_w > 0 && half_h > 0);
+        GLint v[4]; glGetIntegerv(GL_VIEWPORT, v);
+        glEnable(GL_SCISSOR_TEST); glScissor(v[0], v[1], v[2], v[3]);
+        glClearColor(0, 1, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+        return true;
+    };
+    double now = 0;
+    auto frame = [&](const Mat3& view) {
+        now += 8; CHECK(mode.prepare(now));
+        calls = 0;
+        glBindFramebuffer(GL_FRAMEBUFFER, t.fb); mode.draw(view, 46.f, W, H, green); mode.after_swap();
+    };
+    auto is_green = [&](int x, int y) {
+        std::uint8_t p[4]; glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, p);
+        return p[0] == 0 && p[1] == 255 && p[2] == 0;
+    };
+    frame(ahead);  // nothing open: the background alone, in both eyes
+    CHECK(calls == 2 && is_green(W / 4, H / 2) && is_green(3 * W / 4, H / 2));
+    mode.open(::open(clip.c_str(), O_RDONLY | O_CLOEXEC), {}, "b", nullptr, now, false);  // 360 degrees: it covers everything
+    bool playing = false;
+    for (int i = 0; i < 2500 && !playing; ++i) {
+        frame(ahead); playing = mode.state() == VideoState::playing;
+        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
+    CHECK(playing);
+    frame(behind);
+    CHECK(calls == 0 && !is_green(W / 4, H / 2) && !is_green(3 * W / 4, H / 2));
+    VideoFormat half_sphere; half_sphere.projection = VideoProjection::equirect180;
+    mode.set_format(half_sphere);
+    frame(ahead);  // ahead: the picture, drawn over the background in each eye
+    CHECK(calls == 2 && !is_green(W / 4, H / 2) && !is_green(3 * W / 4, H / 2));
+    frame(behind);  // turned round, past the picture's edge: the background, in each eye
+    CHECK(calls == 2 && is_green(W / 4, H / 2) && is_green(3 * W / 4, H / 2));
+    mode.close();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &t.fb); glDeleteRenderbuffers(1, &t.rb);
+    std::puts("background: shown behind a 180 degree picture, in each eye, and skipped behind a 360 degree one");
+}
 #endif
 }  // namespace
 
@@ -600,6 +652,7 @@ int main(int argc, char** argv) {
     decode(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
     reuse_and_close(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
     quality_live(argc > 2 ? argv[2] : "video-samples");
+    background_behind(argc > 2 ? argv[2] : "video-samples");
 #else
     (void)argc; (void)argv;
     std::puts("decode: SKIP (built without libmpv)");

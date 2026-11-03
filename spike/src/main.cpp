@@ -180,6 +180,8 @@ int main(int argc, char** argv) {
                             state.count = menu->count; state.numbers = menu->numbers;
                             state.wide = menu->wide; state.armed = menu->armed; state.busy = menu->busy;
                             state.scale = menu->scale; state.scales = menu->scales; state.picker = menu->picker;
+                            state.background = menu->background; state.brightness = menu->brightness;
+                            state.background_picker = menu->background_picker;
                             std::optional<std::array<std::int32_t, 4>> surface;
                             if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
                                 surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};
@@ -203,8 +205,8 @@ int main(int argc, char** argv) {
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
                     }
-                    else if (m->op == xr::ControlOp::environment) {  // the TRON grid; malformed ones were dropped above
-                        if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->on, e->color);
+                    else if (m->op == xr::ControlOp::environment) {  // the background; malformed ones were dropped above
+                        if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->background, e->brightness);
                     }
                     else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
                         const auto& d = std::get<xr::DesktopsPayload>(m->payload);

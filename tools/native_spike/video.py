@@ -26,8 +26,8 @@ Quality menu (Q; quality.py): drawn on the controls card in place of its usual b
 setting, Left/Right (and Shift+Left/Right) change it, Tab moves to the next setting, Escape or Q closes it; Space still
 plays / pauses. Every change is sent to the renderer at once (`quality` frame) and saved with the view settings
 (layout.json or the glasses profile). The settings are sent after every open, so a new renderer gets them too. Its last
-row is the TRON grid behind the desktops (environment.py: Off, TRON cyan, Theme colour), not a video setting: a video
-replaces the grid, so a change there shows when the video closes.
+row is the background (environment.py: None, Grid), not a video setting: it stays behind the video, so it shows round a 180
+degree or fisheye picture (a 360 degree one covers it), and behind the desktops once the video closes.
 """
 import json
 import os
@@ -470,7 +470,7 @@ class VideoControl:
         return self._frame(quality.menu_payload(self.quality(), visible, self.menu_row, self._menu_extra()))
 
     def _menu_extra(self):
-        """The quality menu's rows after the video settings: the TRON grid (environment.py)."""
+        """The quality menu's rows after the video settings: the background (environment.py)."""
         return [environment.menu_row(environment.environment(self.view.state))]
 
     def _quality_frame(self):
@@ -496,7 +496,7 @@ class VideoControl:
             delta = -1 if SEEK_S[op] < 0 else 1
             if self.menu_row < len(quality.SETTINGS):
                 out = self._set_quality(quality.step(self.quality(), self.menu_row, delta))
-            else:  # the TRON grid's row: applied and saved by the view control
+            else:  # the background's row: applied and saved by the view control
                 out = self.view.set_environment(environment.stepped(environment.environment(self.view.state), delta))
             return out + self._menu_frame(True)
         return None

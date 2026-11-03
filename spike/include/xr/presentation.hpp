@@ -92,10 +92,10 @@ public:
     // WirePlacement (every desktop always faces you); entries beyond the captured outputs are ignored. GPU composition only.
     void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
-    // The TRON grid behind the desktops (xr/environment.hpp; ipc.hpp EnvironmentPayload): fades in (`on`) or out, in
-    // `color` 0 cyan or 1 the theme accent (set_accent). World-locked in every viewing mode; hidden while a VR video
-    // plays. GPU composition only.
-    void set_environment(bool on, std::uint8_t color);
+    // The background behind the desktops and a VR video (xr/environment.hpp; ipc.hpp EnvironmentPayload): `background` an
+    // index into kBackgrounds (0, None, fades it out), `brightness` in percent. World-locked in every viewing mode, in the
+    // theme colour (set_accent). GPU composition only.
+    void set_environment(std::uint8_t background, std::uint16_t brightness);
     // VR video (docs/vr-video.md; capture runs with GPU composition only). While open the glasses show the head-tracked
     // video (world-locked to the recentre reference whatever the viewing mode) and its controls card instead of the
     // desktops. `fd` is the file the supervisor opened; ownership is taken, also when video is unavailable.

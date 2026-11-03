@@ -57,11 +57,14 @@ def decode_control(raw):
                   "resize_press", "resize_release", "send_glasses", "send_glasses_1",
                   "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
                   "help_next", "privacy_display", "playback_menu_toggle", "environment_toggle",
-                  "environment_color"): raise ValueError("invalid operation")
+                  "environment"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")
         token(payload["output_id"])
+    elif op == "environment":  # the controller: the whole setting, absolute (environment.py)
+        from .environment import validate
+        message["payload"] = validate(payload)
     elif op == "placement":
         # Absolute per-desktop placements (1..MAX_DESKTOPS, one per managed output in order); presentation only.
         from .geometry import MAX_DESKTOPS, validate_placement

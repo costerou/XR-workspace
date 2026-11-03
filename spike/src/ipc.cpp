@@ -1,4 +1,6 @@
 #include "xr/ipc.hpp"
+#include "xr/environment.hpp"
+#include "xr/hud.hpp"
 #include "video_ipc.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -40,6 +42,21 @@ bool placement(const Json& value, WirePlacement& out) {
         if (v < b.lo || v > b.hi) return false;
         *fields[i] = std::int32_t(v);
     }
+    return true;
+}
+// The background's fields, on an `environment` frame and on a placement_menu frame.
+bool background_name(const Json& v, std::uint8_t& out) {
+    if (!v.is_string()) return false;
+    const auto i = background_index(v.get_ref<const std::string&>());
+    if (i >= kBackgroundCount) return false;
+    out = std::uint8_t(i);
+    return true;
+}
+bool brightness_percent(const Json& v, std::uint16_t& out) {
+    if (!v.is_number_unsigned()) return false;
+    const auto n = v.get<std::uint64_t>();
+    if (n < kBrightnessMin || n > kBrightnessMax) return false;
+    out = std::uint16_t(n);
     return true;
 }
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
@@ -95,7 +112,8 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     // dropdown (the list open only on an open panel).
     if (!p.is_object()) return false;
     std::size_t optional = 0;
-    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker"}) optional += p.contains(key);
+    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker", "background", "brightness", "background_picker"})
+        optional += p.contains(key);
     if (p.size() != 4 + optional || !p.contains("open") || !p["open"].is_boolean() || !p.contains("placements") ||
         !p["placements"].is_array() || p["placements"].empty() || p["placements"].size() > kPlacementMenuDesktops ||
         !p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= p["placements"].size() ||
@@ -103,11 +121,11 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
         return false;
     const auto& field = p["field"].get_ref<const std::string&>();
     const auto* named = std::find_if(std::begin(kPlacementBounds), std::end(kPlacementBounds), [&](const Bound& b) { return field == b.key; });
-    if (named == std::end(kPlacementBounds)) return false;
+    if (named == std::end(kPlacementBounds) && field != "brightness") return false;
     out = {};
     out.open = p["open"].get<bool>();
     out.desktop = p["desktop"].get<std::uint32_t>();
-    out.field = std::uint32_t(named - std::begin(kPlacementBounds));
+    out.field = named == std::end(kPlacementBounds) ? std::uint32_t(kPlacementMenuBrightness) : std::uint32_t(named - std::begin(kPlacementBounds));
     out.count = std::uint32_t(p["placements"].size());
     for (std::size_t i = 0; i < out.count; ++i)
         if (!placement(p["placements"][i], out.placements[i])) return false;
@@ -124,12 +142,15 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
         }
     }
     for (auto [key, flag] : {std::pair{"wide", &out.wide}, std::pair{"armed", &out.armed}, std::pair{"busy", &out.busy},
-                             std::pair{"picker", &out.picker}})
+                             std::pair{"picker", &out.picker}, std::pair{"background_picker", &out.background_picker}})
         if (p.contains(key)) {
             if (!p[key].is_boolean()) return false;
             *flag = p[key].get<bool>();
         }
-    if (out.picker && !out.open) return false;
+    if ((out.picker || out.background_picker) && !out.open) return false;
+    if (out.picker && out.background_picker) return false;
+    if (p.contains("background") && !background_name(p["background"], out.background)) return false;
+    if (p.contains("brightness") && !brightness_percent(p["brightness"], out.brightness)) return false;
     auto step = [](const Json& v) -> int {  // index into kScalePercents, -1 if v is not one of them
         if (!v.is_number_unsigned()) return -1;
         const auto n = v.get<std::uint64_t>();
@@ -372,10 +393,11 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = std::move(set);
         } else if (op == ControlOp::environment) {
             const auto& p = j["payload"];
-            const auto color = p.size() == 2 && p.contains("color") && p["color"].is_string() ? p["color"].get<std::string>() : "";
-            if (!p.contains("on") || !p["on"].is_boolean() || (color != "cyan" && color != "theme"))
+            EnvironmentPayload e;
+            if (p.size() != 2 || !p.contains("background") || !background_name(p["background"], e.background) ||
+                !p.contains("brightness") || !brightness_percent(p["brightness"], e.brightness))
                 return Error{kInvalidEnvironmentCode, "Ignored malformed environment payload"};
-            payload = EnvironmentPayload{p["on"].get<bool>(), std::uint8_t(color == "theme" ? 1 : 0)};
+            payload = e;
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }
