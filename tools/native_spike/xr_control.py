@@ -57,12 +57,18 @@ REMOVE_RESIZE_BINDS = ('for _, b in ipairs(xr_workspace_resize_binds or {}) do '
                        'pcall(hl.config, { cursor = { invisible = s.invisible } }) '
                        'if s.home then pcall(function() hl.dispatch(hl.dsp.cursor.move({ x = s.home.x, y = s.home.y })) end) end '
                        'end end')
+# Same text as overview_cursor.SHOW_LUA (tests compare): the real cursor a dead run hid in the overview comes back. Sent
+# after every stale cleanup's own code below; after REMOVE_RESIZE_BINDS, whose grab record still says hidden.
+SHOW_OVERVIEW_CURSOR = ('do local s = xr_workspace_overview_cursor xr_workspace_overview_cursor = nil if s then '
+                        'if xr_workspace_grab then xr_workspace_grab.invisible = s.invisible '
+                        'else pcall(hl.config, { cursor = { invisible = s.invisible } }) end end end')
 
 
 def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
     """A panel key with no run listening: the supervisor died with a placement panel open. Remove its modal binds so the
     arrows, Tab, R and Escape work again (and an older build's mouse-mode left button and hidden cursor, LEGACY_OPS).
-    Fixed Lua only, on the compositor that ran this bind (its own environment)."""
+    Fixed Lua only, on the compositor that ran this bind (its own environment). Every cleanup (`code`, the left
+    button's too) also shows a cursor the dead run hid in the overview (SHOW_OVERVIEW_CURSOR)."""
     runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
     if not runtime.startswith('/') or not INSTANCE.match(instance): return False
     try:
@@ -70,7 +76,7 @@ def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
             s.settimeout(0.5); s.connect(f'{runtime}/hypr/{instance}/.socket.sock')
             uid = struct.unpack('3i', s.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
             if uid != os.getuid(): return False
-            s.sendall(('/eval ' + code).encode())
+            s.sendall(('/eval ' + code + ' ' + SHOW_OVERVIEW_CURSOR).encode())
             return s.recv(64).strip() == b'ok'
     except OSError:
         return False

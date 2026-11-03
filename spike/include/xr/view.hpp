@@ -67,8 +67,8 @@ Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, f
 bool same_placement(const Placement& a, const Placement& b);
 constexpr float kPlacementEaseMs = 35.f;
 // Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
-// world-locked like the desktops' slots, drawn only while the mouse is outside the desktops (inside one, the captured
-// cursor shows). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at
+// world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
+// the real one). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at
 // or under the cards' 191/255 cap (micro-OLED retention); the supervisor hides it after 30 s without pointer movement.
 constexpr float kFreePointerLevel = 170.f / 255.f, kFreePointerHeldLevel = 184.f / 255.f;
 constexpr float kFreePointerRadiusPx = 6.f, kFreePointerRingPx = 2.f;

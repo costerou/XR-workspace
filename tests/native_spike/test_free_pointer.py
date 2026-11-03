@@ -255,7 +255,8 @@ class ModeTests(PointerBase):
         self.assertEqual(self.p.want[1], 'away')  # no binds, cursor untouched: clicks go to windows
         self.assertAlmostEqual(self.p.pointer[0], T0[0] + T0[2] / 2, places=2)
         self.assertAlmostEqual(self.p.pointer[1], T0[1] + T0[3] / 2, places=2)
-        self.assertIsNone(last(out, 'overview_pointer'))  # no dot: the captured cursor shows
+        self.assertEqual(last(out, 'overview_pointer'), {'visible': True, 'x': round(T0[0] + T0[2] / 2), 'y': round(T0[1] + T0[3] / 2),
+                                                         'held': False})  # the dot there: the cursor itself is hidden
         self.assertTrue(last(out, 'move_handle')['visible'])  # the pills are up in the overview
 
     def test_the_edge_hands_over_to_the_free_pointer(self):
@@ -297,7 +298,7 @@ class ModeTests(PointerBase):
         self.assertEqual(self.p.mode, 'free')
         out = self.move_canvas(0, 2)
         self.assertEqual(self.p.mode, 'desktop')
-        self.assertFalse(last(out, 'overview_pointer')['visible'])
+        self.assertTrue(last(out, 'overview_pointer')['visible'])  # the dot stays: the cursor comes back hidden
         target = self.p.want[2]
         self.assertEqual(target[0], X1 + 960)
         self.assertGreaterEqual(target[1] - 0, fp.ENTER_PX / GAIN - 1)

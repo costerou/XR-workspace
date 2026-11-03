@@ -326,7 +326,7 @@ class StaleMenuBindTests(unittest.TestCase):
         self.assertEqual(xr_control.REMOVE_MENU_BINDS, view.remove_menu_binds_lua())
         self.assertTrue(xr_control.drop_stale_menu_binds(self.env))
         self.thread.join(2)
-        self.assertEqual(self.received, [('/eval ' + view.remove_menu_binds_lua()).encode()])
+        self.assertEqual(self.received, [('/eval ' + view.remove_menu_binds_lua() + ' ' + xr_control.SHOW_OVERVIEW_CURSOR).encode()])
 
     def test_dead_run_menu_key_cleans_up_and_view_keys_do_not(self):
         from unittest import mock
