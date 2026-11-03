@@ -10,15 +10,22 @@ or the panel; web_video.py relays the stream through ffmpeg into a pipe, and the
 (never the path again, so the file cannot be swapped in between), detects the format, and hands the renderer that open
 descriptor over the run's private control socket (SCM_RIGHTS). The renderer never sees or opens a path.
 
-While a video plays, modal bare-key binds (VIDEO_BINDS: Space, arrows, Shift+arrows, Tab, Up/Down, Escape) exist, as an
+While a video plays, modal bare-key binds (VIDEO_BINDS: Space, arrows, Shift+arrows, Tab, Up/Down, Escape, Q) exist, as an
 open placement panel's do; they are removed on exit, at run end, and by the bind helper if a key finds no run. The help
 card closes and an open placement panel collapses when a video opens. Desktop view keys (zoom, switch, spacing, viewing
 mode, the placement pills) are ignored while it plays; Ctrl+Alt+Space recenters the video, Ctrl+Alt+P
-toggles prediction and Ctrl+Alt+H shows the controls card.
+toggles prediction and Ctrl+Alt+H shows the controls card. Ctrl+Alt+C (view.PLAYBACK_MENU_OP) hides the controls card
+for the rest of the run: it no longer pops up on open or on a play / seek / format key (Up / Down and Ctrl+Alt+H still
+show it, and so does a playback error); pressed again, it shows the card and the pop-ups come back.
 
 The controls card follows the OLED rules of the help card: dimmed (nothing above 191/255), never moved, and closed after
 view.OVERLAY_IDLE_CLOSE_S seconds without a video key. VideoControl wraps view.ViewControl and passes everything that is
 not about video through unchanged.
+
+Quality menu (Q; quality.py): drawn on the controls card in place of its usual body. While it is open Up/Down pick a
+setting, Left/Right (and Shift+Left/Right) change it, Tab moves to the next setting, Escape or Q closes it; Space still
+plays / pauses. Every change is sent to the renderer at once (`quality` frame) and saved with the view settings
+(layout.json or the glasses profile). The settings are sent after every open, so a new renderer gets them too.
 """
 import json
 import os
@@ -30,18 +37,23 @@ import stat
 import subprocess
 import threading
 
-from .view import CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, SAFE_PATH, SAFE_TOKEN, _binds_lua, _remove_lua
+from . import quality
+from .view import (CONFIGRELOADED, MENU_OPS, OVERLAY_IDLE_CLOSE_S, PLAYBACK_MENU_OP, PLAYBACK_MENU_TOASTS, SAFE_PATH,
+                   SAFE_TOKEN, _binds_lua, _remove_lua)
 from .resize import RESIZE_OPS
 from .send import SEND_OPS
 
+# The quality menu's keys (quality.py; docs/vr-video.md#quality-menu): Q opens and closes it, Up / Down pick a setting
+# while it is open (and show / hide the card, as before, while it is not).
+QUALITY_OPS = ('video_quality', 'video_up', 'video_down')
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
-             'video_format', 'video_controls', 'video_exit')
-KEY_OPS = VIDEO_OPS[1:]  # no payload: the modal binds and the panel's buttons
+             'video_format', 'video_controls', 'video_exit') + QUALITY_OPS
+KEY_OPS = VIDEO_OPS[1:9]  # no payload: the panel's buttons (and binds); QUALITY_OPS are binds only
 SEEK_S = {'video_seek_back': -10, 'video_seek_fwd': 10, 'video_seek_back_big': -60, 'video_seek_fwd_big': 60}
 # Modal binds while a video plays (Hyprland Lua key strings). Ctrl+Alt+O (open) is a run bind in view.BINDS.
 VIDEO_BINDS = (('space', 'video_pause'), ('left', 'video_seek_back'), ('right', 'video_seek_fwd'),
                ('SHIFT + left', 'video_seek_back_big'), ('SHIFT + right', 'video_seek_fwd_big'), ('Tab', 'video_format'),
-               ('up', 'video_controls'), ('down', 'video_controls'), ('Escape', 'video_exit'))
+               ('up', 'video_up'), ('down', 'video_down'), ('Escape', 'video_exit'), ('q', 'video_quality'))
 # Desktop view keys that do nothing while a video plays (their effect would be invisible, and the panel's keys would
 # clash): the view keys, the placement pills' keys (Ctrl+Alt+L and an open panel's arrows, Tab, R, Escape) and the
 # overview free pointer's clicks (pill and corner drags, pill clicks, panel sliders). The video collapses an open panel
@@ -130,14 +142,34 @@ def validate_renderer_payload(p):
     if not isinstance(p, dict) or not isinstance(p.get('action'), str): raise ValueError('invalid video payload')
     a = p['action']
     keys = {'open': {'action', 'projection', 'stereo', 'fov', 'title'}, 'format': {'action', 'projection', 'stereo', 'fov'},
-            'close': {'action'}, 'pause': {'action'}, 'seek': {'action', 'seconds'}, 'controls': {'action', 'visible'}}
+            'close': {'action'}, 'pause': {'action'}, 'seek': {'action', 'seconds'}, 'controls': {'action', 'visible'},
+            'quality': {'action', *quality.KEYS}, 'menu': {'action', 'visible', 'selected', 'rows'}}
     if a not in keys or set(p) != keys[a]: raise ValueError('invalid video payload')
+    if a == 'quality': quality.validate({k: p[k] for k in quality.KEYS})
+    if a == 'menu': _validate_menu(p)
     if a in ('open', 'format'): validate_format({k: p[k] for k in ('projection', 'stereo', 'fov')})
     if a == 'open' and not _title_ok(p['title']): raise ValueError('invalid video title')
     if a == 'seek' and (type(p['seconds']) is not int or p['seconds'] == 0 or not -3600 <= p['seconds'] <= 3600):
         raise ValueError('invalid seek')
     if a == 'controls' and type(p['visible']) is not bool: raise ValueError('invalid controls')
     return p
+
+
+MAX_MENU_ROWS = 8  # renderer: kMaxQualityRows
+
+
+def _menu_text_ok(t):
+    return isinstance(t, str) and 1 <= len(t) <= quality.MAX_LABEL and all(0x20 <= ord(c) < 0x7f for c in t)
+
+
+def _validate_menu(p):
+    rows = p['rows']
+    if type(p['visible']) is not bool or not isinstance(rows, list) or not 1 <= len(rows) <= MAX_MENU_ROWS:
+        raise ValueError('invalid quality menu')
+    if any(not isinstance(r, dict) or set(r) != {'label', 'value'} or not _menu_text_ok(r['label'])
+           or not _menu_text_ok(r['value']) for r in rows):
+        raise ValueError('invalid quality menu')
+    if type(p['selected']) is not int or not 0 <= p['selected'] < len(rows): raise ValueError('invalid quality menu')
 
 
 def video_frame(run_id, session, request_id, payload):
@@ -390,6 +422,8 @@ class VideoControl:
         self.title = self.format = self.source = None
         self.warnings, self.error = [], None
         self.controls = False
+        self.menu_hidden = False  # Ctrl+Alt+C: the controls card stays hidden unless asked for (view.PLAYBACK_MENU_OP)
+        self.menu, self.menu_row = False, 0  # the quality menu on the card (quality.py); never saved, starts closed
         self.last_input = self.opened_at = self.error_seen_at = None
         self.supervisor = None
         self.opens = 0
@@ -419,12 +453,61 @@ class VideoControl:
 
     def _controls_frame(self, visible):
         if visible == self.controls: return b''
+        out = self._menu_frame(False) if not visible else b''  # the menu is on the card: hiding the card closes it
         self.controls = visible
-        return self._frame({'action': 'controls', 'visible': visible})
+        return out + self._frame({'action': 'controls', 'visible': visible})
+
+    # quality menu (quality.py)
+    def quality(self):
+        """The current video quality settings: the accessor over the view state, which saves them."""
+        return quality.video_quality(self.view.state)
+
+    def _menu_frame(self, visible):
+        if not visible and not self.menu: return b''
+        self.menu = visible
+        return self._frame(quality.menu_payload(self.quality(), visible, self.menu_row))
+
+    def _quality_frame(self):
+        return self._frame(quality.renderer_payload(self.quality()))
+
+    def _set_quality(self, settings):
+        """Apply live (renderer) and save with the view settings (layout.json / the glasses profile)."""
+        settings = quality.validate(settings)
+        if settings == self.quality(): return b''
+        self.view.state.video_quality = settings
+        try: self.view.settings.save(self.view.state.settings())
+        except (OSError, ValueError): pass  # best effort, like the other view settings: the run keeps going
+        return self._quality_frame()
+
+    def _on_menu_key(self, op):
+        """A video key while the quality menu is open; None if it is not a menu key (handled as usual)."""
+        rows = len(quality.SETTINGS)
+        if op in ('video_quality', 'video_exit'): return self._menu_frame(False)
+        if op in ('video_up', 'video_down', 'video_format'):
+            self.menu_row = (self.menu_row + (-1 if op == 'video_up' else 1)) % rows
+            return self._menu_frame(True)
+        if op in SEEK_S:
+            out = self._set_quality(quality.step(self.quality(), self.menu_row, -1 if SEEK_S[op] < 0 else 1))
+            return out + self._menu_frame(True)
+        return None
+
+    def _hide_if_hidden(self):
+        """After an open frame (the renderer shows the card on open): hide it again when the menu is hidden."""
+        return self._controls_frame(False) if self.menu_hidden else b''
+
+    def _menu_toggle(self):
+        """Ctrl+Alt+C: the playback menu hidden / shown, with a toast. Shown while a video plays: the card appears now."""
+        if getattr(self.view.state, 'typing', False): return None  # its bind is gone in typing mode: a stale key
+        self.menu_hidden = not self.menu_hidden
+        self.view._tell(PLAYBACK_MENU_TOASTS[self.menu_hidden])
+        if not self.active: return None
+        self.last_input = self.clock()
+        return self._controls_frame(not self.menu_hidden) or None
 
     # control socket
     def on_message(self, message):
         op = message.get('op') if isinstance(message, dict) else None
+        if op == PLAYBACK_MENU_OP: return self._menu_toggle()
         if op in VIDEO_OPS:
             self.view.last_input = self.last_input = self.clock()
             return self._on_video(op, message.get('payload') or {})
@@ -454,9 +537,13 @@ class VideoControl:
                 target(*args)
             return None  # poll() sends the open frame with the descriptor
         if not self.active: return None
+        if self.menu:
+            out = self._on_menu_key(op)
+            if out is not None: return self._controls_frame(True) + out or None
+        if op == 'video_quality': return (self._controls_frame(True) + self._menu_frame(True)) or None
         if op == 'video_exit': return self._close() or None
-        if op == 'video_controls': return self._controls_frame(not self.controls) or None
-        out = self._controls_frame(True)
+        if op in ('video_controls', 'video_up', 'video_down'): return self._controls_frame(not self.controls) or None
+        out = b'' if self.menu_hidden else self._controls_frame(True)
         if op == 'video_pause': out += self._frame({'action': 'pause'})
         elif op in SEEK_S and self.stream is not None:  # a pipe cannot seek: poll() restarts the relay once the keys settle
             if not self.stream.request_seek(SEEK_S[op], self.clock()): self.error = 'a live stream cannot seek'
@@ -513,10 +600,13 @@ class VideoControl:
         self.stream, self.origin, self.opening, self.stream_retries = stream, 'web' if stream else 'file', False, 0
         self.title = title
         out += self._frame({'action': 'open', **fmt, 'title': self.title})
+        out += self._quality_frame()  # the renderer applies it to this and later videos; its menu starts closed
+        self.menu = False
         now = self.clock()
         self.active, self.format, self.source, self.warnings, self.error = True, fmt, source, list(warnings), None
         self.view.video_active = True  # free pointer off (its sampler stops reading the cursor; binds removed, cursor shown)
         self.controls = True  # the renderer shows the card on open
+        out += self._hide_if_hidden()
         self.last_input = self.opened_at = now
         self.error_seen_at = None
         self.opens += 1
@@ -528,14 +618,15 @@ class VideoControl:
         try: fd = self.stream.start(at)
         except (VideoRejected, OSError, ValueError) as exc:
             return self._close(str(exc) or 'the stream could not be restarted')
-        self.controls = True  # the renderer shows the card on open
+        self.controls, self.menu = True, False  # the renderer shows the card on open, its menu closed; quality is kept
         self.opened_at, self.error_seen_at, self.last_input = now, None, now
-        return FdFrame(self._frame({'action': 'open', **self.format, 'title': self.title}), [fd])
+        out = self._frame({'action': 'open', **self.format, 'title': self.title})
+        return FdFrame(out + self._hide_if_hidden(), [fd])
 
     def _close(self, error=None):
         if self.stream is not None: self.stream.stop(); self.stream = None
         if not self.active: return b''
-        self.active, self.controls = False, False
+        self.active, self.controls, self.menu = False, False, False  # the renderer's close resets its card and menu
         self.view.video_active = False
         if error: self.error = error
         self._sync_binds()
@@ -617,8 +708,10 @@ class VideoControl:
         return {'active': self.active, 'title': self.title, 'format': dict(self.format) if self.format else None,
                 'label': format_label(self.format) if self.format else None, 'source': self.source,
                 'state': state or ('loading' if self.active else 'off'), 'controls': self.controls,
+                'menu_hidden': self.menu_hidden,
                 'warnings': list(self.warnings), 'error': self.error, 'ops': list(KEY_OPS), 'opening': self.opening,
                 'origin': self.origin if self.active else None,
+                'quality': self.quality(), 'quality_menu': self.menu and self.active,
                 'stream': self.stream.snapshot() if self.active and self.stream is not None else None}
 
     def status_reply(self, status):

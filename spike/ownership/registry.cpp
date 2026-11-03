@@ -140,9 +140,11 @@ std::string Registry::create(const std::string& session,const std::string& run,c
         if(e.state=="live" && (!e.object->live || !backend.verified(e.object,e.spec))) e.state="invalid";
         return e.state;
     }
+    // A slot whose output was removed with proof ("dead": a pill's Remove) may be created again (a pill's Add takes the
+    // lowest free XR-n, tools/native_spike/desktops.py); any other prior entry still holds it.
     for(const auto& [key, prior]:entries) {
         (void)key;
-        if(prior.run==run && prior.spec.at("name")==spec.at("name")) throw std::runtime_error("run slot already used");
+        if(prior.run==run && prior.state!="dead" && prior.spec.at("name")==spec.at("name")) throw std::runtime_error("run slot already used");
     }
     if(entries.size()>=96 || backend.collision(spec)) throw std::runtime_error("collision/capacity");
     auto& e=entries.emplace(id,Entry{session,run,spec,nullptr,"pending"}).first->second;

@@ -153,6 +153,8 @@ int main(int argc, char** argv) {
                         case xr::VideoAction::seek: presentation.video_seek(v.seconds); break;
                         case xr::VideoAction::format: presentation.video_format(v.format); break;
                         case xr::VideoAction::controls: presentation.video_controls(v.visible); break;
+                        case xr::VideoAction::quality: presentation.video_quality(v.quality); break;
+                        case xr::VideoAction::menu: presentation.video_menu(v.visible, v.rows, v.selected); break;
                         }
                         continue;
                     }

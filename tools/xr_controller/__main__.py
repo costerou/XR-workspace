@@ -140,19 +140,21 @@ class Host:
 def recover_run(consent_path,journal):
     from tools.native_spike.panel_consent import load_panel_consent
     from tools.native_spike.managed import recover_managed
-    from .install import verify_pinned
+    from .install import verify_recovery_pin
     raw=read_private_json(consent_path)
     consent=load_panel_consent(consent_path,raw['instance'],raw['output'])
     data_home=Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))
-    pinned=load_installed(data_home)
-    if pinned['plugin']!=consent['plugin']: raise ValueError('recovery plugin pin mismatch')
-    verify_pinned(pinned['plugin'])
+    # Recover with the plugin this run pinned, even if an install has since upgraded
+    # installed.json: that older broker is the one still loaded and holding the journal's state.
+    plugin=consent['plugin']
+    try: verify_recovery_pin(plugin,data_home)
+    except ValueError as exc: raise ValueError(f'recovery plugin pin unavailable: {exc}') from None
     client=HyprlandClient(consent['instance'],Path(os.environ['XDG_RUNTIME_DIR']))
     # Recover only the consented broker; never load a replacement with a new epoch.
     if ownership_plugin_count(client.plugins_loaded())!=1: raise ValueError('consented ownership plugin unavailable for recovery')
     result=recover_managed(client,consent,Path(journal))
     if result['complete']:
-        client.plugin_unload(pinned['plugin']['path'],data_home=data_home)
+        client.plugin_unload(plugin['path'],data_home=data_home,recovery_pin=plugin)
         if ownership_plugin_count(client.plugins_loaded()): raise ValueError('plugin unload not confirmed')
     return 0 if result['complete'] else 2
 

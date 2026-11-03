@@ -277,8 +277,14 @@ While a video plays:
 | Left / Right | Back / forward 10 seconds (hold Shift for 60 seconds) |
 | Tab | Try the next video format, if the picture looks wrong |
 | Up / Down | Show or hide the controls |
+| Q | Open or close the quality menu (see below) |
 | Ctrl+Alt+Space | Recenter the video |
 | Esc | Back to your desktops |
+
+**Quality menu:** press **Q** while a video plays. The controls card shows the video's quality settings. Up and Down
+pick a setting, Left and Right change it, and Q or Esc closes the menu. Changes show at once and are remembered for
+your next videos, per pair of glasses. There are two settings. **Texture filter** is *Catmull-Rom* (the default, crisp), *Sharp*
+(crisper, with a little ringing), *Bilinear* (softer) or *Nearest pixels* (hard pixel edges). **Deband** is *Off* (the default) or *On*; it smooths the stepped bands you can see in skies and gradients.
 
 Videos with copy protection, or links that need you to be logged in, won't play. The panel or a notification will tell
 you why. See [docs/vr-video.md](docs/vr-video.md) and [docs/web-video.md](docs/web-video.md) for formats and limits.

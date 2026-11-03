@@ -240,11 +240,12 @@ class RendererSendTests(unittest.TestCase):
         sup = self.supervisor()
         a, b = socket.socketpair(); self.addCleanup(a.close); self.addCleanup(b.close)
         frames = [(json.dumps({'op': 'overview_pointer', 'n': i}) + '\n').encode() for i in range(200)]
+        big = b'x' * (1 << 20) + b'\n'  # larger than the socket buffer: partly non-blocking, the rest blocking
+        total = sum(map(len, frames)) + len(big)  # fixed up front, so the reader cannot stop before the big frame
         received = bytearray()
-        reader = threading.Thread(target=lambda: [received.extend(b.recv(65536)) for _ in iter(lambda: len(received) < sum(map(len, frames)), False)])
+        reader = threading.Thread(target=lambda: [received.extend(b.recv(65536)) for _ in iter(lambda: len(received) < total, False)])
         reader.start()
         for f in frames: sup._send(f, a)
-        big = b'x' * (1 << 20) + b'\n'  # larger than the socket buffer: partly non-blocking, the rest blocking
         frames.append(big)
         sup._send(big, a)
         reader.join(10)

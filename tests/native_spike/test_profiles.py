@@ -71,11 +71,14 @@ class ProfileTests(unittest.TestCase):
         profiles.save_profile(self.path, 'beast', full)
         store = profiles.ProfileStore(self.path, 'beast')
         self.assertEqual(store.load(), view.DEFAULT_SETTINGS)
-        store.save({'spacing': 60, 'mode': 'follow', 'prediction': False, 'cursor_switch_animate': False})
-        self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False, 'cursor_switch_animate': False})
+        sharp = {'filter': 'nearest', 'deband': True}
+        store.save({'spacing': 60, 'mode': 'follow', 'prediction': False, 'cursor_switch_animate': False, 'video_quality': sharp})
+        self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False, 'cursor_switch_animate': False,
+                                        'video_quality': sharp})
         with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'cursor_follow': True, 'prediction': False,
                                                         'cursor_switch_animate': True})
-        with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'prediction': False})  # all four keys
+        with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'prediction': False})  # every key
+        with self.assertRaises(ValueError): store.save({**view.DEFAULT_SETTINGS, 'video_quality': {'filter': 'cubic', 'deband': False}})
         after = profiles.load_profile(self.path, 'beast')
         self.assertEqual({k: after[k] for k in ('desktops', 'tracking', 'mode_switch', 'fallback')},
                          {k: full[k] for k in ('desktops', 'tracking', 'mode_switch', 'fallback')})

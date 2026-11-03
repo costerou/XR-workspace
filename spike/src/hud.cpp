@@ -599,7 +599,22 @@ HudImage render_video_card(const VideoCardState& v, std::array<float, 3> accent,
     const Cell format = cell(card_detail(video_format_label(v.format, ascii)), font);
     const Cell detail = cell(card_detail(v.detail), font);
     std::vector<Cell> hints;
-    {
+    // The quality menu (Q) replaces the format line and the key hints: one row per setting, the selected one on a faint
+    // accent band with its value between arrows.
+    struct MenuCells { Cell label, value; };
+    std::vector<MenuCells> menu;
+    if (v.menu)
+        for (std::size_t i = 0; i < v.menu_rows.size(); ++i) {
+            const bool sel = i == v.menu_selected;
+            const auto& r = v.menu_rows[i];
+            menu.push_back({cell(sel ? card_key(r.label) : card_detail(r.label), font),
+                            cell(sel ? card_key("< " + r.value + " >") : card_detail(r.value), font)});
+        }
+    if (v.menu) {
+        const auto all = video_menu_hints(ascii);  // keys two per line, then the closing note
+        for (std::size_t i = 0; i + 2 < all.size(); i += 2) hints.push_back(cell(card_footer(all[i] + kHintGap + all[i + 1]), font));
+        hints.push_back(cell(card_footer(all.back()), font));
+    } else {
         const auto all = video_card_hints(ascii);
         std::string line;
         for (std::size_t i = 0; i < all.size(); ++i) {
@@ -611,9 +626,13 @@ HudImage render_video_card(const VideoCardState& v, std::array<float, 3> accent,
     const std::uint32_t bar_h = std::uint32_t(kBorder) * 3, status_w = status.box.width + std::uint32_t(kColumnGap) + clock.box.width;
     std::uint32_t content_w = std::max({title.box.width, status_w, format.box.width, detail.box.width, 560u});
     for (const auto& h : hints) content_w = std::max(content_w, h.box.width);
+    for (const auto& m : menu) content_w = std::max(content_w, m.label.box.width + std::uint32_t(kColumnGap) + m.value.box.width);
     const std::uint32_t status_h = row_ascent(status, clock) + row_descent(status, clock);
+    const auto menu_row_h = [](const MenuCells& m) { return row_ascent(m.label, m.value) + row_descent(m.label, m.value) + std::uint32_t(kRowGap); };
+    std::uint32_t body_h = height(format.box);
+    if (v.menu) { body_h = 0; for (const auto& m : menu) body_h += menu_row_h(m); }
     std::uint32_t content_h = height(title.box) + std::uint32_t(kSectionGap) + status_h + std::uint32_t(kRowGap) + bar_h +
-                              std::uint32_t(kRowGap) + height(format.box) + std::uint32_t(kSectionGap);
+                              std::uint32_t(kRowGap) + body_h + std::uint32_t(kSectionGap);
     if (!v.detail.empty()) content_h += height(detail.box) + std::uint32_t(kRowGap);
     for (std::size_t i = 0; i < hints.size(); ++i) content_h += height(hints[i].box) + (i + 1 < hints.size() ? std::uint32_t(kRowGap) / 2 : 0);
     HudImage im;
@@ -634,8 +653,22 @@ HudImage render_video_card(const VideoCardState& v, std::array<float, 3> accent,
         for (std::uint32_t x = 0; x < content_w; ++x)
             over(im, left + int(x), int(top + y), accent, x < filled ? 1.f : kHighlightAlpha);
     top += bar_h + std::uint32_t(kRowGap);
-    draw_cell(im, format, left, top, format.box.ascent, font);
-    top += height(format.box);
+    if (v.menu) {
+        for (std::size_t i = 0; i < menu.size(); ++i) {
+            const auto& m = menu[i];
+            const std::uint32_t h = menu_row_h(m), a = row_ascent(m.label, m.value);
+            if (i == v.menu_selected)
+                for (std::uint32_t y = 0; y < h; ++y)
+                    for (std::uint32_t x = 0; x < content_w + std::uint32_t(kRowGap); ++x)
+                        over(im, left - int(kRowGap) / 2 + int(x), int(top - std::uint32_t(kRowGap) / 2 + y), accent, kHighlightAlpha);
+            draw_cell(im, m.label, left, top, a, font);
+            draw_cell(im, m.value, left + int(content_w - m.value.box.width), top, a, font);
+            top += h;
+        }
+    } else {
+        draw_cell(im, format, left, top, format.box.ascent, font);
+        top += height(format.box);
+    }
     if (!v.detail.empty()) { top += std::uint32_t(kRowGap); draw_cell(im, detail, left, top, detail.box.ascent, font); top += height(detail.box); }
     top += std::uint32_t(kSectionGap);
     draw_divider(im, top, accent);

@@ -231,9 +231,10 @@ class ControlTests(unittest.TestCase):
         out = self.open()
         self.assertEqual(os.fstat(out.fds[0]).st_ino, self.clip.stat().st_ino)
         self.assertEqual(self.probed, [self.clip.stat().st_ino])  # probed the very file that is sent
-        [f] = frames(out)
+        f, q = frames(out)
         self.assertEqual(f['op'], 'video')
         self.assertEqual(f['payload'], {'action': 'open', 'projection': '360', 'stereo': 'tb', 'fov': 180, 'title': 'Beach_360_TB.mp4'})
+        self.assertEqual(q['payload'], {'action': 'quality', 'filter': 'catmull-rom', 'deband': False})  # the saved quality, after it
         snap = self.v.snapshot()
         self.assertTrue(snap['active']); self.assertEqual(snap['label'], '360° top-bottom 3D'); self.assertTrue(snap['controls'])
         self.assertEqual(snap['state'], 'loading')
@@ -251,7 +252,7 @@ class ControlTests(unittest.TestCase):
         self.assertTrue(self.view.help_visible and self.view.state.menu_open)
         out = self.open()
         ops = [(f['op'], f['payload'].get('visible', f['payload'].get('open'))) for f in frames(out)]
-        self.assertEqual(ops[-1][0], 'video')
+        self.assertEqual(ops[-2][0], 'video')
         self.assertIn(('placement_menu', False), ops); self.assertIn(('help', False), ops)
         self.assertFalse(self.view.help_visible or self.view.state.menu_open)
         self.join_binds(); self.assertEqual(self.menu_binds, [True, False])
@@ -281,6 +282,41 @@ class ControlTests(unittest.TestCase):
         self.assertFalse(self.view.help_visible)
         self.assertEqual(frames(self.op('recenter'))[0]['op'], 'recenter')  # the existing recenter, passed through
         self.assertEqual(frames(self.op('prediction'))[0]['op'], 'view')
+
+    def test_ctrl_alt_c_hides_and_shows_the_playback_menu_with_a_toast(self):
+        # Ctrl+Alt+C (2026-11-03): the playback menu (controls card) stays hidden on open and on keys until shown again.
+        self.assertIn(('CTRL + ALT + C', view.PLAYBACK_MENU_OP), view.BINDS)
+        self.assertFalse(view.PLAYBACK_MENU_OP.startswith('video_'))  # ipc routes video_* ops to video.validate_request
+        self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], view.help_rows())  # shares the VR video row
+        told = []
+        self.view.notify = told.append
+        self.assertIsNone(self.op(view.PLAYBACK_MENU_OP))  # no video: only the setting and its toast
+        self.assertTrue(self.v.menu_hidden and self.v.snapshot()['menu_hidden'])
+        out = self.open()
+        self.assertEqual([f['payload']['action'] for f in frames(out)], ['open', 'quality', 'controls'])  # quality: the Q menu's saved settings
+        self.assertEqual(frames(out)[-1]['payload'], {'action': 'controls', 'visible': False})  # hidden right after open
+        self.assertFalse(self.v.controls)
+        self.assertEqual([f['payload'] for f in frames(self.op('video_pause'))], [{'action': 'pause'}])  # no pop-up
+        self.assertEqual(frames(self.op('video_seek_fwd'))[-1]['payload'], {'action': 'seek', 'seconds': 10})
+        self.assertFalse(self.v.controls)
+        self.assertEqual(frames(self.op('video_controls'))[0]['payload'], {'action': 'controls', 'visible': True})  # on demand
+        self.op('video_controls')
+        shown = frames(self.op(view.PLAYBACK_MENU_OP))  # shown again: the card appears at once
+        self.assertEqual([f['payload'] for f in shown], [{'action': 'controls', 'visible': True}])
+        self.assertFalse(self.v.menu_hidden)
+        self.v.controls = False
+        self.assertEqual(frames(self.op('video_pause'))[0]['payload'], {'action': 'controls', 'visible': True})  # pops up
+        hidden = frames(self.op(view.PLAYBACK_MENU_OP))
+        self.assertEqual([f['payload'] for f in hidden], [{'action': 'controls', 'visible': False}])
+        self.view.join_focus()
+        self.assertEqual(told, [view.PLAYBACK_MENU_TOASTS[True], view.PLAYBACK_MENU_TOASTS[False], view.PLAYBACK_MENU_TOASTS[True]])
+        self.assertIn('Ctrl+Alt+C', told[0])
+        self.view.state.typing = True  # its bind is gone in typing mode: a stale key does nothing
+        self.assertIsNone(self.op(view.PLAYBACK_MENU_OP))
+        self.assertTrue(self.v.menu_hidden)
+        frame = (json.dumps({'schema': 1, 'request_id': 5, 'run_id': 'run', 'session': 's', 'op': view.PLAYBACK_MENU_OP,
+                             'payload': {}}) + '\n').encode()
+        self.assertEqual(decode_control(frame)['op'], view.PLAYBACK_MENU_OP)
 
     def test_exit_returns_to_the_desktops(self):
         self.open()
@@ -401,7 +437,7 @@ class TransportTests(unittest.TestCase):
 class BindTests(unittest.TestCase):
     def test_ctrl_alt_o_and_the_modal_keys(self):
         self.assertIn(('CTRL + ALT + O', 'video_open'), view.BINDS)
-        self.assertIn(['Ctrl+Alt+O / U', 'VR video: file / copied web link'], view.help_rows())
+        self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], view.help_rows())
         lua = view.install_binds_lua('/usr/bin/python3', '/repo/tools/native_spike/xr_control.py', '/run/user/1000/x/control.sock', 'run1', 's1')
         self.assertLess(len(lua), 4096)
         modal = video.install_video_binds_lua('/usr/bin/python3', '/repo/tools/native_spike/xr_control.py', '/run/user/1000/x/control.sock', 'run1', 's1')
@@ -416,7 +452,9 @@ class BindTests(unittest.TestCase):
         self.assertEqual(xr_control.VIDEO_OPS, video.VIDEO_OPS)
         self.assertEqual(xr_control.REMOVE_VIDEO_BINDS, video.remove_video_binds_lua())
         self.assertEqual(set(video.SEEK_S) | {'video_pause', 'video_format', 'video_controls', 'video_exit'}, set(video.KEY_OPS))
-        self.assertEqual({op for _, op in video.VIDEO_BINDS}, set(video.KEY_OPS))
+        # Up / Down are video_up / video_down (the card toggle while the quality menu is closed); video_controls is the
+        # panel's button and Ctrl+Alt+H.
+        self.assertEqual({op for _, op in video.VIDEO_BINDS}, set(video.KEY_OPS) - {'video_controls'} | set(video.QUALITY_OPS))
 
     def test_bind_helper_picks_a_file_and_sends_its_path(self):
         with tempfile.TemporaryDirectory() as tmp:

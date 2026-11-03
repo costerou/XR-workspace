@@ -388,8 +388,10 @@ int main() {
         CHECK(zoom_draw_order(back_to_front, 1, 7) == back_to_front);
     }
     // Anchor mode keeps a resized desktop's size (regression, 2026-11-03: a desktop resized bigger than the zoom-fit size
-    // shrank back to it on zoom-in). keep_size: the zoomed desktop, like every other, is seen exactly as in the overview at
-    // every zoom (each corner's direction from the eye). Without it (follow / locked) it still fits the view (distance 1).
+    // shrank back to it on zoom-in). keep_size: a zoomed desktop seen bigger than the fit is seen exactly as in the overview
+    // at every zoom (each corner's direction from the eye), like every other desktop. Without it (follow / locked) it fits.
+    // Zooming in must still zoom (regression, 2026-11-03: keeping every size made overview -> zoom a no-op in anchor mode):
+    // a desktop at its default size, or resized but still smaller than the fit, grows to fill the view (distance 1).
     {
         const auto ov = overview_layout(eq, 1920, 1200, 40);
         auto width_deg = [&](const FRect& t, const Placement& p) {
@@ -398,24 +400,37 @@ int main() {
             return std::acos(std::clamp(dot(l, r), -1.f, 1.f)) * 180.f / pi;
         };
         for (std::size_t target = 0; target < 3; ++target)
-            for (const float d : {0.2f, 0.25f, 1.6f}) {  // resized bigger than the fit (0.2, 0.25) and smaller (1.6)
+            for (const float d : {0.2f, 0.25f, 0.5f, 1.f, 1.6f}) {  // bigger than the fit (0.2, 0.25); smaller (0.5, 1, 1.6)
+                const bool bigger = d < 0.3f;
                 std::vector<Placement> own{Placement{-0.4f, 0.1f, 1.3f, 0.f}, Placement{}, Placement{0.3f, -0.1f, 0.8f, 0.f}};
                 own[target] = Placement{0.2f, 0.1f, d, 0.f};
                 for (float z : {0.f, 0.5f, 1.f}) {
                     const auto tl = blended_layout(eq, 1920, 1200, 40, z, float(target));
                     const auto kept = zoomed_placements(cv, ov, tl, own, z, float(target), true);
-                    for (std::size_t i = 0; i < 3; ++i)
+                    for (std::size_t i = 0; i < 3; ++i) {
+                        if (i == target && !bigger && z > 0) continue;  // it grows (below)
                         for (const auto& [u, v] : {std::pair{0.f, 0.f}, std::pair{1.f, 0.f}, std::pair{0.5f, 0.5f}, std::pair{1.f, 1.f}})
                             CHECK(close3(unit(place_point(cv, tl[i], kept[i], tl[i].x + u * tl[i].width, tl[i].y + v * tl[i].height)),
                                          unit(place_point(cv, ov[i], own[i], ov[i].x + u * ov[i].width, ov[i].y + v * ov[i].height)), 1e-4f));
+                    }
                 }
                 const auto zl = zoomed_layout(eq, 1920, 1200, 40, float(target));
                 const auto kept = zoomed_placements(cv, ov, zl, own, 1, float(target), true);
                 const auto fit = zoomed_placements(cv, ov, zl, own, 1, float(target));
-                CHECK(fit[target].distance == 1.f && kept[target].distance != 1.f);
                 const float was = width_deg(ov[target], own[target]);
-                CHECK(near(width_deg(zl[target], kept[target]), was, 1e-2f));
-                if (d < 0.3f) CHECK(width_deg(zl[target], fit[target]) < was - 1.f);  // fitting would have shrunk it
+                CHECK(fit[target].distance == 1.f);
+                if (bigger) {
+                    CHECK(kept[target].distance < 1.f && near(width_deg(zl[target], kept[target]), was, 1e-2f));
+                    CHECK(width_deg(zl[target], fit[target]) < was - 1.f);  // fitting would have shrunk it
+                } else {
+                    CHECK(same_placement(kept[target], fit[target]));  // zoomed in, it fills the view
+                    CHECK(width_deg(zl[target], kept[target]) > was + 1.f);  // it grew: the zoom zooms
+                }
+                // Halfway in, it is on its way: never smaller than in the overview, never past the fit.
+                const auto hl = blended_layout(eq, 1920, 1200, 40, 0.5f, float(target));
+                const auto half = zoomed_placements(cv, ov, hl, own, 0.5f, float(target), true);
+                const float h = width_deg(hl[target], half[target]);
+                CHECK(h > was - 1e-2f && (bigger || h < width_deg(zl[target], kept[target]) + 1e-2f));
                 for (std::size_t i = 0; i < 3; ++i) {
                     if (i == target) continue;
                     CHECK(same_placement(kept[i], fit[i]));  // the others are the same in every mode

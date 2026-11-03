@@ -9,11 +9,13 @@
 //  5. playback speed and timing (docs/vr-video.md#performance): VA-API decodes with zero copy on the context's own GPU
 //     (never vaapi-copy when a render node is known), no frame goes on screen more than a display interval early,
 //     reopen() plays the next file or stream in the same player with nothing of the previous one shown, and closing a
-//     playing video does not wait for mpv's 200 ms frame timeout.
+//     playing video does not wait for mpv's 200 ms frame timeout;
+//  6. the quality menu's settings (VideoQuality) apply live through VideoMode: the texture filter on the drawn frame's
+//     texture and mpv's deband, while it keeps playing, and they carry over to the next video.
 // Exit 77 (skipped) without EGL/GLES. argv: [ffmpeg path] [scratch dir].
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <GLES2/gl2.h>
+#include <GLES3/gl3.h>
 #include <GLES2/gl2ext.h>
 #include <chrono>
 #include <cmath>
@@ -30,6 +32,7 @@
 #include "xr/video.hpp"
 #include "hud_gl.hpp"
 #include "video_gl.hpp"
+#include "video_mode.hpp"
 #include "video_player.hpp"
 
 using namespace xr;
@@ -71,7 +74,8 @@ void projection_matches_cpu() {
         auto* p = &tex[(std::size_t(y) * T + x) * 4]; p[0] = std::uint8_t(x); p[1] = std::uint8_t(y); p[2] = 200; p[3] = 255;
     }
     GLuint id = 0; glGenTextures(1, &id); glBindTexture(GL_TEXTURE_2D, id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    // Linear, as a video texture is sampled: the cubic reproduces a linear gradient exactly, so the CPU maths still hold.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, T, T, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex.data());
     std::string why;
@@ -118,6 +122,117 @@ void projection_matches_cpu() {
     glDeleteTextures(1, &id);
 }
 
+// A video texture as VideoPlayer sets it up (video_gl.hpp: immutable, full mip chain, trilinear, anisotropic) from RGBA rows.
+GLuint video_texture(int w, int h, const std::vector<std::uint8_t>& rgba) {
+    GLuint id = 0; glGenTextures(1, &id); glBindTexture(GL_TEXTURE_2D, id);
+    video_texture_filtering();
+    glTexStorage2D(GL_TEXTURE_2D, GLsizei(video_texture_levels(std::uint32_t(w), std::uint32_t(h))), GL_RGBA8, w, h);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    return id;
+}
+template <class F> std::vector<std::uint8_t> picture(int w, int h, F rgb) {
+    std::vector<std::uint8_t> px(std::size_t(w) * h * 4);
+    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+        auto* p = &px[(std::size_t(y) * w + x) * 4]; const auto c = rgb(x, y); p[0] = c[0]; p[1] = c[1]; p[2] = c[2]; p[3] = 255;
+    }
+    return px;
+}
+const Mat3 kAhead{1, 0, 0, 0, 1, 0, 0, 0, 1}, kBehind{-1, 0, 0, 0, 1, 0, 0, 0, -1};  // behind: the 360° seam at the centre
+
+// 1b. Sampling (docs/vr-video.md#sampling): sharper than bilinear where magnified, no aliasing where minified, no mip
+//     line along the 360° seam, nothing of the other eye at an eye's edge.
+void sampling() {
+    using A = std::array<std::uint8_t, 3>;
+    CHECK(video_filter_from(nullptr) == VideoFilter::catmull_rom && video_filter_from("bogus") == VideoFilter::catmull_rom);
+    CHECK(video_filter_from("bilinear") == VideoFilter::bilinear && video_filter_from("sharp") == VideoFilter::sharp);
+    CHECK(video_filter_cubic_a(VideoFilter::bilinear) == 0.f && video_filter_cubic_a(VideoFilter::catmull_rom) == -0.5f);
+    CHECK(video_texture_levels(8192, 4096) == 14 && video_texture_levels(7680, 3840) == 13 && video_texture_levels(1, 1) == 1);
+    std::string why;
+    auto sphere = VideoSphere::create(why);
+    CHECK(sphere && sphere->filter() == VideoFilter::catmull_rom);
+    if (!sphere) { std::fprintf(stderr, "  %s\n", why.c_str()); return; }
+    constexpr int W = 240, H = 150;
+    [[maybe_unused]] const auto t = target(W, H);
+    const VideoFormat mono{};
+    auto draw = [&](GLuint tex, const VideoFormat& f, int eye, const Mat3& view, float hw, float hh) {
+        glViewport(0, 0, W, H); glClearColor(1, 0, 1, 1); glClear(GL_COLOR_BUFFER_BIT);
+        sphere->draw(tex, false, f, eye, view, hw, hh);
+        return read(W, H);
+    };
+    // Magnified ~40x: a black|white step at the centre of the view. The steepest step between neighbouring pixels is the
+    // edge's sharpness: 1/40 of the range per pixel for bilinear, about 1.25x that for Catmull-Rom (its slope at a step).
+    {
+        const auto step = video_texture(64, 32, picture(64, 32, [](int x, int) { return x < 32 ? A{0, 0, 0} : A{255, 255, 255}; }));
+        auto steepest = [&](VideoFilter f) {
+            sphere->set_filter(f);
+            const auto px = draw(step, mono, 0, kAhead, 0.3f, 0.19f);
+            int most = 0, lo = 255, hi = 0;
+            for (int x = 1; x < W; ++x) most = std::max(most, std::abs(at(px, W, x, H / 2)[0] - at(px, W, x - 1, H / 2)[0]));
+            for (int x = 0; x < W; ++x) { lo = std::min<int>(lo, at(px, W, x, H / 2)[0]); hi = std::max<int>(hi, at(px, W, x, H / 2)[0]); }
+            CHECK(lo == 0 && hi == 255);
+            return most;
+        };
+        const int bilinear = steepest(VideoFilter::bilinear), catmull = steepest(VideoFilter::catmull_rom), sharp = steepest(VideoFilter::sharp);
+        sphere->set_filter(VideoFilter::catmull_rom);
+        std::printf("sampling: magnified edge, steepest step bilinear %d, catmull-rom %d, sharp %d (of 255)\n", bilinear, catmull, sharp);
+        CHECK(bilinear >= 4 && catmull * 100 >= bilinear * 115 && sharp >= bilinear);
+        glDeleteTextures(1, &step);
+    }
+    // Minified (~8 texels per pixel at the centre, more towards the poles): a one-texel checker should average to grey.
+    // Without mipmaps (the texture before) it aliases into black/white noise. Where the footprint is ~16:1 or longer
+    // (near the poles), 16x anisotropic filtering takes its probes from level 0 and a Nyquist checker still beats a
+    // little there, so the check is on the share of pixels near grey.
+    {
+        const auto pixels = picture(2048, 1024, [](int x, int y) { return (x + y) % 2 ? A{255, 255, 255} : A{0, 0, 0}; });
+        const auto checker = video_texture(2048, 1024, pixels);
+        GLuint plain = 0; glGenTextures(1, &plain); glBindTexture(GL_TEXTURE_2D, plain);  // the old texture: linear, no mipmaps
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2048, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        auto grey = [&](GLuint tex) {
+            const auto px = draw(tex, mono, 0, kAhead, 3.f, 2.f);
+            int near = 0;
+            for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) near += std::abs(at(px, W, x, y)[0] - 128) <= 24;
+            return 100.0 * near / (W * H);
+        };
+        const double now = grey(checker), before = grey(plain);
+        std::printf("sampling: minified checker, %.1f%% of pixels within 24 of grey (%.1f%% without mipmaps)\n", now, before);
+        CHECK(now >= 98.0 && before + 20.0 < now);
+        glDeleteTextures(1, &checker); glDeleteTextures(1, &plain);
+    }
+    // The 360° seam, looking straight at it, minified: outer quarters green, middle red. A seam picking the smallest
+    // mip would show a column of the whole frame's average (yellow-brown).
+    {
+        const auto seam = video_texture(1024, 512, picture(1024, 512, [](int x, int) { return x < 256 || x >= 768 ? A{0, 255, 0} : A{255, 0, 0}; }));
+        int bad = 0;
+        for (int k = 0; k < 4; ++k) {  // the seam between, then inside, the GPU's 2x2 derivative quads (a pixel is ~0.025 rad)
+            const float a = 3.14159265f + 0.006f * float(k), c = std::cos(a), s = std::sin(a);
+            const auto px = draw(seam, mono, 0, Mat3{c, 0, s, 0, 1, 0, -s, 0, c}, 3.f, 2.f);
+            for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) { const auto* p = at(px, W, x, y); bad += !(p[1] > 230 && p[0] < 25); }
+        }
+        std::printf("sampling: 360 seam, %d of %d pixels not green\n", bad, 4 * W * H);
+        CHECK(bad == 0);
+        glDeleteTextures(1, &seam);
+    }
+    // Side-by-side 360°: each eye's edge (behind the viewer) borders the other eye's picture; magnified, so the cubic's
+    // taps reach over it unless clamped inside the eye.
+    {
+        const auto sbs = video_texture(128, 64, picture(128, 64, [](int x, int) { return x < 64 ? A{255, 0, 0} : A{0, 255, 0}; }));
+        const VideoFormat f{VideoProjection::equirect360, VideoStereo::sbs, 180};
+        for (int eye = 0; eye < 2; ++eye) {
+            const auto px = draw(sbs, f, eye, kBehind, 0.3f, 0.19f);
+            int bleed = 0;
+            for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) bleed += at(px, W, x, y)[eye == 0 ? 1 : 0] != 0;
+            if (bleed) std::fprintf(stderr, "  eye %d: %d pixels of the other eye\n", eye, bleed);
+            CHECK(bleed == 0);
+        }
+        glDeleteTextures(1, &sbs);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &t.fb); glDeleteRenderbuffers(1, &t.rb);
+    CHECK(glGetError() == GL_NO_ERROR);
+}
+
 // 2. Controls card through the real GlHud over black: nothing brighter than kCardMaxLevel.
 void card_is_dim() {
     constexpr int W = 1536, H = 960;
@@ -129,7 +244,7 @@ void card_is_dim() {
     auto font = HudFont::load(kHudFontFamily, why);
     VideoControlsOverlay overlay; overlay.set_font(std::move(font));
     overlay.set_visible(true, 0);
-    VideoCardState s{"Concert_VR180_LR.mp4", {VideoProjection::equirect180, VideoStereo::sbs, 180}, VideoState::playing, 61, 3725, ""};
+    VideoCardState s{"Concert_VR180_LR.mp4", {VideoProjection::equirect180, VideoStereo::sbs, 180}, VideoState::playing, 61, 3725, "", false, {}, 0};
     overlay.update(s, 0);
     glViewport(0, 0, W, H); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
     hud->draw(overlay.image(), overlay.generation(), overlay.alpha(1000), W, H);
@@ -222,6 +337,16 @@ void decode(const std::string& ffmpeg, const std::string& dir) {
         const bool upright = tl == yellow && tr == green && bl == red && br == blue;
         if (!upright) std::fprintf(stderr, "  %s: tl %s tr %s bl %s br %s\n", c.name, name(tl), name(tr), name(bl), name(br));
         CHECK(upright);
+        // The mip chain is regenerated from each new picture: level 2 shows the same quadrants.
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, player->texture(), 2);
+        auto probe2 = [&](float u, float v) {
+            std::uint8_t p[4]{};
+            glReadPixels(int(u * (tw >> 2)), int(v * (th >> 2)), 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, p);
+            return classify(p);
+        };
+        const bool mipped = probe2(0.25f, 0.25f) == yellow && probe2(0.75f, 0.25f) == green && probe2(0.25f, 0.75f) == red && probe2(0.75f, 0.75f) == blue;
+        if (!mipped) std::fprintf(stderr, "  %s: mip level 2 does not show the picture\n", c.name);
+        CHECK(mipped);
         glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &fb);
         // Through the projection pass: looking up-left lands in the top-left quadrant of the eye's image for 360° video.
         if (c.format.projection == VideoProjection::equirect360) {
@@ -405,6 +530,63 @@ void reuse_and_close(const std::string& ffmpeg, const std::string& dir) {
     CHECK(fcntl(fd, F_GETFD) >= 0);  // untouched
     ::close(fd);
 }
+
+// 6. Quality settings through the renderer's VideoMode, as the `quality` frame applies them.
+void quality_live(const std::string& dir) {
+    const std::string quads = dir + "/h264-360-mono.mp4";
+    if (!std::filesystem::exists(quads)) { std::puts("quality: SKIP (no clip)"); return; }
+    VideoMode mode;
+    CHECK(mode.quality() == VideoQuality{});  // the defaults: Catmull-Rom, no deband (what the renderer does without a frame)
+    CHECK(mode.quality().filter == VideoFilter::catmull_rom);
+    const auto t = target(64, 64);
+    const Mat3 identity{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    double now = 0;
+    auto frame = [&] {  // as the compositor: prepare (mpv leaves framebuffer 0 bound), bind the output, draw, swap
+        now += 8; CHECK(mode.prepare(now));
+        glBindFramebuffer(GL_FRAMEBUFFER, t.fb); mode.draw(identity, 46.f, 64, 64); mode.after_swap();
+    };
+    // The magnification filter; minification always stays trilinear (the player's mipmaps), whatever the setting.
+    auto filter = [] { GLint f = 0; glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, &f); GLint m = 0;
+                       glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &m); return m == GL_LINEAR_MIPMAP_LINEAR ? f : -1; };
+    auto until_playing = [&] {
+        for (int i = 0; i < 2500; ++i) {
+            frame();
+            if (mode.state() == VideoState::playing) return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        }
+        return false;
+    };
+    mode.open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), {}, "q", nullptr, now, false);
+    CHECK(until_playing());
+    frame();
+    CHECK(filter() == GL_LINEAR);
+    CHECK(mode.report().find("\"filter\":\"catmull-rom\"") != std::string::npos);
+    for (auto f : {VideoFilter::sharp, VideoFilter::bilinear}) {  // the cubic ones and bilinear share GL_LINEAR
+        mode.set_quality({f, false});
+        frame();
+        CHECK(filter() == GL_LINEAR);
+        CHECK(mode.report().find(std::string("\"filter\":\"") + video_filter_name(f) + "\"") != std::string::npos);
+    }
+    mode.set_quality({VideoFilter::nearest, true});  // live: the next drawn frame
+    frame();
+    CHECK(filter() == GL_NEAREST);
+    for (int i = 0; i < 30; ++i) { frame(); std::this_thread::sleep_for(std::chrono::milliseconds(4)); }
+    CHECK(mode.state() == VideoState::playing);  // deband on did not break playback
+    CHECK(mode.report().find("\"filter\":\"nearest\",\"forced\":false,\"setting\":\"nearest\",\"deband\":true") != std::string::npos);
+    CHECK(mode.report().find("\"quality_errors\":0") != std::string::npos);  // mpv took `deband` (each open sets it too)
+    CHECK(mode.report().find("\"quality_set\":0") == std::string::npos);
+    mode.close();
+    mode.open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), {}, "q", nullptr, now, false);  // kept for the next video
+    CHECK(until_playing());
+    frame();
+    CHECK(filter() == GL_NEAREST);
+    mode.set_quality({});
+    frame();
+    CHECK(filter() == GL_LINEAR);
+    mode.close();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &t.fb); glDeleteRenderbuffers(1, &t.rb);
+    std::puts("quality: filter and deband applied live");
+}
 #endif
 }  // namespace
 
@@ -412,10 +594,12 @@ int main(int argc, char** argv) {
     if (!make_context()) { std::puts("SKIP: no surfaceless EGL / GLES2 context"); return 77; }
     std::printf("GL: %s / %s\n", reinterpret_cast<const char*>(glGetString(GL_RENDERER)), reinterpret_cast<const char*>(glGetString(GL_VERSION)));
     projection_matches_cpu();
+    sampling();
     card_is_dim();
 #ifdef XR_HAVE_MPV
     decode(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
     reuse_and_close(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
+    quality_live(argc > 2 ? argv[2] : "video-samples");
 #else
     (void)argc; (void)argv;
     std::puts("decode: SKIP (built without libmpv)");

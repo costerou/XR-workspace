@@ -79,9 +79,14 @@ struct ResizeHandlePayload { bool visible = false; std::uint32_t desktop = 0, co
 //   {"action":"format", projection, stereo, fov}   {"action":"close"}   {"action":"pause"} (toggle)
 //   {"action":"seek","seconds":-3600..3600, nonzero}   {"action":"controls","visible":bool}
 // `title` is 1..kMaxHelpText printable ASCII characters. Anything else is rejected like any malformed frame.
-enum class VideoAction : std::uint8_t { open, close, pause, seek, format, controls };
+enum class VideoAction : std::uint8_t { open, close, pause, seek, format, controls, quality, menu };
 constexpr std::int32_t kMaxVideoSeekS = 3600;
-struct VideoPayload { VideoAction action = VideoAction::close; VideoFormat format; std::string title; std::int32_t seconds = 0; bool visible = false; };
+struct VideoPayload {
+    VideoAction action = VideoAction::close; VideoFormat format; std::string title; std::int32_t seconds = 0; bool visible = false;
+    VideoQuality quality;                    // quality: the settings to apply (video.hpp)
+    std::vector<VideoMenuRow> rows;          // menu: its rows (1..kMaxQualityRows) and the highlighted one
+    std::uint32_t selected = 0;
+};
 // Overview glass pills (tools/native_spike/resize.py pill_frame), display only: {"visible":bool,"desktop":0..kMaxDesktops-1,"hover":bool,
 // "active":bool}. visible = a pill under every desktop; `desktop` with hover = the brighter one under the pointer, with
 // active = being dragged. Malformed: rejected with kInvalidMoveHandleCode and dropped, like resize_handle.

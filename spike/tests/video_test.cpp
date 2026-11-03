@@ -124,6 +124,15 @@ void payloads(const char* fixture) {
         if (action == "open") CHECK(v.action == VideoAction::open && v.title == p["title"].get<std::string>() && v.format.fov_deg == p["fov"].get<std::uint32_t>());
         if (action == "seek") CHECK(v.action == VideoAction::seek && v.seconds == p["seconds"].get<std::int32_t>());
         if (action == "controls") CHECK(v.action == VideoAction::controls && v.visible == p["visible"].get<bool>());
+        if (action == "quality") {
+            const std::map<std::string, VideoFilter> filters{{"catmull-rom", VideoFilter::catmull_rom}, {"sharp", VideoFilter::sharp},
+                                                             {"bilinear", VideoFilter::bilinear}, {"nearest", VideoFilter::nearest}};
+            CHECK(v.action == VideoAction::quality && v.quality.deband == p["deband"].get<bool>() &&
+                  v.quality.filter == filters.at(p["filter"].get<std::string>()));
+        }
+        if (action == "menu")
+            CHECK(v.action == VideoAction::menu && v.visible == p["visible"].get<bool>() && v.selected == p["selected"].get<std::uint32_t>() &&
+                  v.rows.size() == p["rows"].size() && v.rows.back().value == p["rows"].back()["value"].get<std::string>());
     }
     for (const auto& p : data["invalid"]) {
         const auto decoded = decode_control(frame(p, id++));
@@ -138,7 +147,7 @@ void payloads(const char* fixture) {
 }
 
 void card() {
-    VideoCardState s{"beach_360.mp4", {VideoProjection::equirect180, VideoStereo::sbs, 180}, VideoState::playing, 75, 300, ""};
+    VideoCardState s{"beach_360.mp4", {VideoProjection::equirect180, VideoStereo::sbs, 180}, VideoState::playing, 75, 300, "", false, {}, 0};
     for (int pass = 0; pass < 2; ++pass) {
         std::string why;
         auto font = pass ? HudFont::load(kHudFontFamily, why) : nullptr;
@@ -153,6 +162,29 @@ void card() {
             CHECK(brightest > 80);              // and still readable
         }
     }
+    // The quality menu on the card: the same OLED limits, rows in place of the format line and hints, and a re-render
+    // when the selection or a value changes.
+    VideoCardState m = s;
+    m.state = VideoState::playing; m.detail.clear();
+    const auto plain = render_video_card(m, {});
+    m.menu = true; m.menu_rows = {{"Texture filter", "Catmull-Rom"}, {"Deband", "Off"}}; m.menu_selected = 0;
+    for (int pass = 0; pass < 2; ++pass) {
+        std::string why;
+        auto font = pass ? HudFont::load(kHudFontFamily, why) : nullptr;
+        const auto im = render_video_card(m, {}, font.get());
+        std::uint8_t brightest = 0;
+        for (std::size_t i = 0; i < im.rgba.size(); i += 4)
+            for (int c = 0; c < 3; ++c) brightest = std::max(brightest, im.rgba[i + std::size_t(c)]);
+        CHECK(brightest <= kCardMaxLevel && brightest > 80);
+    }
+    const auto first = render_video_card(m, {});
+    CHECK(first.rgba != plain.rgba);
+    m.menu_selected = 1;
+    const auto second = render_video_card(m, {});
+    CHECK(second.rgba != first.rgba);
+    m.menu_rows.push_back({"Third", "On"});
+    CHECK(render_video_card(m, {}).height > second.height);  // a row more: a taller card
+    CHECK(!(m == s));
     VideoControlsOverlay overlay;
     CHECK(overlay.alpha(0) == 0.f);
     CHECK(overlay.set_visible(true, 0));

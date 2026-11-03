@@ -82,9 +82,11 @@ def lay_out(desktops, origin):
     return out
 
 
-def plan(specs, placements, action, index, origin=None):
+def plan(specs, placements, action, index, origin=None, held=()):
     """The broker steps for `action` on desktop `index` of `specs` (the run's live outputs in name order, with ids).
-    `placements`: one per spec. ValueError if the action cannot be done (Add at MAX_DESKTOPS, Remove of the last one)."""
+    `placements`: one per spec. `held`: names Add must not take besides those of `specs` (DesktopManager.held: a failed
+    create's journal record holds its name until recovery). ValueError if the action cannot be done (Add at
+    MAX_DESKTOPS or with no free name, Remove of the last one)."""
     if action not in ACTIONS: raise ValueError('unknown desktop action')
     if not specs or type(index) is not int or not 0 <= index < len(specs): raise ValueError('no such desktop')
     if len(placements) != len(specs): raise ValueError('one placement per desktop required')
@@ -99,7 +101,8 @@ def plan(specs, placements, action, index, origin=None):
         desktops[target] = toggle_ultrawide(desktops[target])
     elif action == 'add':
         if len(specs) >= MAX_DESKTOPS: raise ValueError(f'at most {MAX_DESKTOPS} desktops')
-        free = next(n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops)
+        free = next((n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops and f'XR-{n}' not in held), None)
+        if free is None: raise ValueError('no free desktop name until the session restarts')
         model = desktops[target]
         target = f'XR-{free}'
         desktops[target] = toggle_ultrawide(model) if is_ultrawide(model) else model
@@ -150,6 +153,12 @@ class DesktopManager:
     # what the run's other parts read
     def names(self):
         return [s['name'] for s in self.specs]
+
+    def held(self):
+        """Every name the run's journal still holds (journal.live_outputs: its outputs, and a failed create's record until
+        recovery), which ownership.create_live refuses to create again. Add picks among the others."""
+        try: return {o['name'] for o in self.journal.live_outputs()}
+        except OSError as exc: raise ValueError(f'the run journal could not be read: {exc}') from exc
 
     def desktops(self):
         return [desktop_of(s) for s in self.specs]

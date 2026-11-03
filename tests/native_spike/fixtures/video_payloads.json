@@ -12,7 +12,14 @@
     {"action": "seek", "seconds": -60},
     {"action": "seek", "seconds": 3600},
     {"action": "controls", "visible": true},
-    {"action": "controls", "visible": false}
+    {"action": "controls", "visible": false},
+    {"action": "quality", "filter": "catmull-rom", "deband": false},
+    {"action": "quality", "filter": "sharp", "deband": false},
+    {"action": "quality", "filter": "bilinear", "deband": true},
+    {"action": "quality", "filter": "nearest", "deband": true},
+    {"action": "menu", "visible": true, "selected": 1, "rows": [{"label": "Texture filter", "value": "Catmull-Rom"}, {"label": "Deband", "value": "Off"}]},
+    {"action": "menu", "visible": false, "selected": 0, "rows": [{"label": "Texture filter", "value": "Nearest pixels"}]},
+    {"action": "menu", "visible": true, "selected": 7, "rows": [{"label": "a", "value": "1"}, {"label": "b", "value": "2"}, {"label": "c", "value": "3"}, {"label": "d", "value": "4"}, {"label": "e", "value": "5"}, {"label": "f", "value": "6"}, {"label": "g", "value": "7"}, {"label": "123456789012345678901234", "value": "123456789012345678901234"}]}
   ],
   "invalid": [
     {},
@@ -38,6 +45,22 @@
     {"action": "seek", "seconds": "10"},
     {"action": "seek", "seconds": 18446744073709551615},
     {"action": "controls", "visible": 1},
-    {"action": "controls"}
+    {"action": "controls"},
+    {"action": "quality", "filter": "cubic", "deband": false},
+    {"action": "quality", "filter": "catmull_rom", "deband": false},
+    {"action": "quality", "filter": "bilinear", "deband": 1},
+    {"action": "quality", "filter": "bilinear"},
+    {"action": "quality", "filter": "bilinear", "deband": false, "scale": 2},
+    {"action": "menu", "visible": true, "selected": 0, "rows": []},
+    {"action": "menu", "visible": true, "selected": 2, "rows": [{"label": "a", "value": "1"}, {"label": "b", "value": "2"}]},
+    {"action": "menu", "visible": true, "selected": -1, "rows": [{"label": "a", "value": "1"}]},
+    {"action": "menu", "visible": "yes", "selected": 0, "rows": [{"label": "a", "value": "1"}]},
+    {"action": "menu", "visible": true, "selected": 0, "rows": [{"label": "", "value": "1"}]},
+    {"action": "menu", "visible": true, "selected": 0, "rows": [{"label": "a", "value": "1234567890123456789012345"}]},
+    {"action": "menu", "visible": true, "selected": 0, "rows": [{"label": "café", "value": "1"}]},
+    {"action": "menu", "visible": true, "selected": 0, "rows": [{"label": "a", "value": "1", "hint": "x"}]},
+    {"action": "menu", "visible": true, "selected": 0, "rows": [["a", "1"]]},
+    {"action": "menu", "visible": true, "rows": [{"label": "a", "value": "1"}]},
+    {"action": "menu", "visible": true, "selected": 0, "rows": [{"label": "a", "value": "1"}, {"label": "b", "value": "2"}, {"label": "c", "value": "3"}, {"label": "d", "value": "4"}, {"label": "e", "value": "5"}, {"label": "f", "value": "6"}, {"label": "g", "value": "7"}, {"label": "h", "value": "8"}, {"label": "i", "value": "9"}]}
   ]
 }
