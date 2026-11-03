@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
                         if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
-                            presentation.set_roll(r->roll, r->icons, r->hover, r->active);
+                            presentation.set_roll(r->roll, r->icons, r->hover, r->side, r->active);
                     }
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))

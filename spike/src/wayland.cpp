@@ -255,7 +255,7 @@ struct Presentation::Impl : SurfaceRequests {
         if (i < rolls.size()) p.roll = float(rolls[i]) / 100.f * float(M_PI) / 180.f;
         return p;
     }
-    struct RollIcons { std::array<std::int8_t, kMaxDesktops> icons{-1, -1, -1, -1}; std::int32_t hover = -1; bool active = false; std::uint64_t updates = 0; } roll;
+    struct RollIcons { std::array<std::int8_t, kMaxDesktops> icons{-1, -1, -1, -1}; std::int32_t hover = -1; std::int8_t side = -1; bool active = false; std::uint64_t updates = 0; } roll;
     std::string roll_geometry_sent;      // last roll_geometry line handed to the supervisor
     double roll_geometry_ms = -1e9;      // when it was sent
     bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
@@ -1163,11 +1163,11 @@ void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32
     impl_->cadence.invalidate();
 }
 void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
-                            bool active) {
+                            std::int8_t side, bool active) {
     if (!impl_) return;
     auto& s = *impl_;
     s.rolls = roll;
-    s.roll.icons = icons; s.roll.hover = hover; s.roll.active = active; ++s.roll.updates;
+    s.roll.icons = icons; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
     s.cadence.invalidate();
 }
 std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
@@ -1376,7 +1376,7 @@ Status Presentation::draw_test_pattern() {
             if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
                 glass.surface->roll = s.target_placement(std::size_t(glass.surface_desktop)).roll;
             for (std::size_t i = 0; i < glass.roll_icon.size(); ++i) glass.roll_icon[i] = s.roll.icons[i];
-            glass.roll_hover = s.roll.hover; glass.roll_level = s.roll.active ? kGlassActive : kGlassHover;
+            glass.roll_hover = s.roll.hover; glass.roll_hover_side = s.roll.side; glass.roll_level = s.roll.active ? kGlassActive : kGlassHover;
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
         }

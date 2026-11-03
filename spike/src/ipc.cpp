@@ -180,9 +180,9 @@ bool move_handle(const Json& p, MoveHandlePayload& out) {
     return true;
 }
 bool roll(const Json& p, RollPayload& out) {
-    if (!p.is_object() || p.size() != 4 || !p.contains("roll") || !p["roll"].is_array() || p["roll"].size() != kMaxDesktops || !p.contains("icons") ||
+    if (!p.is_object() || p.size() != 5 || !p.contains("roll") || !p["roll"].is_array() || p["roll"].size() != kMaxDesktops || !p.contains("icons") ||
         !p["icons"].is_array() || p["icons"].size() != kMaxDesktops || !p.contains("hover") || !p["hover"].is_number_integer() ||
-        !p.contains("active") || !p["active"].is_boolean())
+        !p.contains("side") || !p["side"].is_string() || !p.contains("active") || !p["active"].is_boolean())
         return false;
     for (std::size_t i = 0; i < kMaxDesktops; ++i) {
         const auto& n = p["roll"][i];
@@ -196,12 +196,19 @@ bool roll(const Json& p, RollPayload& out) {
         if (name == "none") out.icons[i] = -1;
         else if (name == "ccw") out.icons[i] = 0;
         else if (name == "cw") out.icons[i] = 1;
+        else if (name == "both") out.icons[i] = 2;
         else return false;
     }
     const auto& h = p["hover"];
     const auto top = std::int64_t(kMaxDesktops) - 1;
     if (h.is_number_unsigned() ? h.get<std::uint64_t>() > std::uint64_t(top) : (h.get<std::int64_t>() < -1 || h.get<std::int64_t>() > top)) return false;
     out.hover = std::int32_t(h.get<std::int64_t>());
+    const auto& side = p["side"].get_ref<const std::string&>();
+    if (side == "none") out.side = -1;
+    else if (side == "ccw") out.side = 0;
+    else if (side == "cw") out.side = 1;
+    else return false;
+    if ((out.hover < 0) != (out.side < 0)) return false;
     out.active = p["active"].get<bool>();
     return true;
 }

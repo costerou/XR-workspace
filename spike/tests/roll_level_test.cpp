@@ -215,34 +215,50 @@ int main() {
         CHECK(!near(a[0], b[0], 0.1f) && !near(a[2], b[2], 0.1f));  // another theme, another arrow
     }
 
-    // The `roll` frame: kMaxDesktops (four) rolls and icons, a hover and active; anything else is dropped without stopping.
+    // The `roll` frame: kMaxDesktops (four) rolls and icons ("both" on every desktop in the overview), a hover with its
+    // side and active; anything else is dropped without stopping.
     {
-        const auto good = decode_control(frame("{\"roll\":[-300,0,9000,-9000],\"icons\":[\"cw\",\"none\",\"ccw\",\"cw\"],\"hover\":0,\"active\":true}"));
+        const auto good = decode_control(frame("{\"roll\":[-300,0,9000,-9000],\"icons\":[\"cw\",\"none\",\"ccw\",\"both\"],\"hover\":0,\"side\":\"cw\",\"active\":true}"));
         CHECK(std::holds_alternative<ControlMessage>(good));
         if (const auto* m = std::get_if<ControlMessage>(&good)) {
             CHECK(m->op == ControlOp::roll);
             const auto& r = std::get<RollPayload>(m->payload);
             CHECK(r.roll[0] == -300 && r.roll[1] == 0 && r.roll[2] == 9000 && r.roll[3] == -9000);
-            CHECK(r.icons[0] == 1 && r.icons[1] == -1 && r.icons[2] == 0 && r.icons[3] == 1 && r.hover == 0 && r.active);
+            CHECK(r.icons[0] == 1 && r.icons[1] == -1 && r.icons[2] == 0 && r.icons[3] == 2 && r.hover == 0 && r.side == 1 && r.active);
         }
-        const auto none = decode_control(frame("{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}"));
+        const auto none = decode_control(frame("{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false}"));
         CHECK(std::holds_alternative<ControlMessage>(none));
+        const auto left = decode_control(frame("{\"roll\":[0,0,0,0],\"icons\":[\"both\",\"both\",\"both\",\"both\"],\"hover\":3,\"side\":\"ccw\",\"active\":false}"));
+        if (const auto* m = std::get_if<ControlMessage>(&left)) {
+            const auto& r = std::get<RollPayload>(m->payload);
+            CHECK(r.icons == (std::array<std::int8_t, kMaxDesktops>{2, 2, 2, 2}) && r.hover == 3 && r.side == 0);
+        } else CHECK(false);
         for (const char* bad : {
-                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,0,9001],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,0,18446744073709551615],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0.5,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"left\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",
-                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":4,\"active\":false}",
-                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-2,\"active\":false}",
-                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":0}",
-                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1}",
-                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false,\"x\":1}"}) {
+                 "{\"roll\":[0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false}",
+                 "{\"roll\":[0,0,0,9001],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false}",
+                 "{\"roll\":[0,0,0,18446744073709551615],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false}",
+                 "{\"roll\":[0,0.5,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"left\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":4,\"side\":\"cw\",\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-2,\"side\":\"none\",\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":0}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\"}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"active\":false}",  // no side (the old 4-key frame)
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"both\",\"both\",\"both\",\"both\"],\"hover\":0,\"side\":\"none\",\"active\":false}",  // hover without a side
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"both\",\"both\",\"both\",\"both\"],\"hover\":-1,\"side\":\"cw\",\"active\":false}",  // a side without a hover
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"both\",\"both\",\"both\",\"both\"],\"hover\":0,\"side\":\"up\",\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"both\",\"both\",\"both\",\"both\"],\"hover\":0,\"side\":1,\"active\":false}",
+                 "{\"roll\":[0,0,0,0],\"icons\":[\"none\",\"none\",\"none\",\"none\"],\"hover\":-1,\"side\":\"none\",\"active\":false,\"x\":1}"}) {
             const auto r = decode_control(frame(bad));
             const auto* e = std::get_if<Error>(&r);
             CHECK(e && e->code == kInvalidRollCode && ignorable_control_error(*e));
         }
     }
+
+    // Which sides a desktop's icon entry shows: both arrows for "both" (every desktop in the overview), one for a side.
+    CHECK(!roll_icon_shows(-1, 0) && !roll_icon_shows(-1, 1));
+    CHECK(roll_icon_shows(0, 0) && !roll_icon_shows(0, 1) && !roll_icon_shows(1, 0) && roll_icon_shows(1, 1));
+    CHECK(roll_icon_shows(2, 0) && roll_icon_shows(2, 1));
 
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::puts("roll_level: ok");

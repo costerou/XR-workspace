@@ -125,7 +125,7 @@ struct GlCompositor::Impl {
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 20> key{}; };
     Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2], ghost_mesh, drop_mesh[4];
-    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, band_meshes, head_meshes;  // per desktop
+    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, band_meshes, head_meshes;  // per desktop (band / head: and side)
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
     // glass: `rect` is glass px under the desktop (view.hpp glass_mesh: fixed size whatever the desktop's distance).
@@ -573,8 +573,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     const Canvas canvas{float(s.width), float(s.height), half_w, half_h};
     s.resolved.resize(tiles.size());
     for (std::size_t i = 0; i < tiles.size(); ++i) s.resolved[i] = i < placements.size() ? placements[i] : Placement{};
-    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes, &s.band_meshes, &s.head_meshes})
+    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes})
         if (v->size() < tiles.size()) v->resize(tiles.size());
+    for (auto* v : {&s.band_meshes, &s.head_meshes})  // per desktop and side (roll icons): 2 * desktop + side
+        if (v->size() < 2 * tiles.size()) v->resize(2 * tiles.size());
     // A vertex attribute from the mesh buffer bound by build(): `size` floats at `offset` in vertices of `stride` floats.
     auto attrib = [](GLint loc, int size, int stride, int offset) {
         glVertexAttribPointer(static_cast<GLuint>(loc), size, GL_FLOAT, GL_FALSE, stride * GLsizei(sizeof(GLfloat)),
@@ -664,10 +666,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
             const FRect r = glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
-            if (g.pills && i < g.roll_icon.size() && g.roll_icon[i] >= 0) {
-                // Roll-level icon: a curved arrow above the higher top corner.
-                const auto side = std::uint32_t(g.roll_icon[i]);
-                const float roll_level = int(i) == g.roll_hover ? g.roll_level : kGlassIdle;
+            for (std::uint32_t side = 0; g.pills && i < g.roll_icon.size() && side < 2; ++side) {
+                // Roll-level icons: a curved arrow above each top corner (counter-clockwise left, clockwise right).
+                if (!roll_icon_shows(g.roll_icon[i], side)) continue;
+                const float roll_level = int(i) == g.roll_hover && int(side) == g.roll_hover_side ? g.roll_level : kGlassIdle;
                 // Just the arrow, no button behind it, on the desktop's surface (surface px, where the supervisor's hit
                 // box is), in the monitor border's and glow's colour: the live theme accent.
                 const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);
@@ -676,10 +678,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
                 const auto colour = roll_arrow_color(accent, roll_level);
                 program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
                 glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
-                GLsizei n = s.build_points(s.band_meshes[i], canvas, tiles[i], glass_on(i), icon, float(side), arrow.band);
+                GLsizei n = s.build_points(s.band_meshes[2 * i + side], canvas, tiles[i], glass_on(i), icon, float(side), arrow.band);
                 attrib(s.color_pos, 3, 3, 0);
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
-                n = s.build_points(s.head_meshes[i], canvas, tiles[i], glass_on(i), icon, float(side) + 2, arrow.head);
+                n = s.build_points(s.head_meshes[2 * i + side], canvas, tiles[i], glass_on(i), icon, float(side) + 2, arrow.head);
                 attrib(s.color_pos, 3, 3, 0);
                 glDrawArrays(GL_TRIANGLES, 0, n);
             }
