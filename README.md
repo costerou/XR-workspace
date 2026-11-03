@@ -185,8 +185,8 @@ With a pill open:
   that desktop changes size on the spot, without restarting XR or touching your other monitors: its windows stay on it
   and it stays where it is in the glasses. Within one shape (16:9 to 16:9) it also keeps its size in the glasses; only
   how sharp it is and how much fits on it change. A new shape makes it wider or narrower where it is. It keeps its scale
-  if that still fits the new size, else it takes the nearest one that does. Click **Scale** for 100% to 300%; steps that would not
-  give whole pixels at this resolution are greyed out. The next session starts with both.
+  if that still fits the new size, else it takes the nearest one that does. Click **Scale** for 100% to 300%; steps that
+  would not give whole pixels at this resolution are greyed out. The next session starts with both.
 - **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click inside a desktop
   with the normal cursor goes to the window there and leaves the pill open.
 
