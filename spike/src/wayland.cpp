@@ -182,14 +182,12 @@ struct Presentation::Impl : SurfaceRequests {
         for (std::size_t i = 0; i < eased.size(); ++i) if (!same_placement(eased[i], target_placement(i))) return true;
         return false;
     }
-    std::vector<Placement> resolved_placements() const {
-        std::vector<Placement> out;
-        const float zoom = view.zoom(), position = view.position();
-        for (std::size_t i = 0; i < captures.size(); ++i) {
-            const Placement p = i < eased.size() ? eased[i] : target_placement(i);
-            out.push_back(zoomed_placement(p, zoom, position, i));  // the zoomed desktop flat in front, the rest at their slots
-        }
-        return out;
+    std::vector<Placement> resolved_placements(std::span<const FRect> tiles) const {
+        std::vector<Placement> own;
+        for (std::size_t i = 0; i < captures.size(); ++i) own.push_back(i < eased.size() ? eased[i] : target_placement(i));
+        // The zoomed desktop stays where it is round you (its dragged place) and grows there; the rest follow as its row.
+        const auto overview = overview_layout(capture_sizes(), float(width), float(height), view.spacing());
+        return zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position());
     }
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
@@ -932,7 +930,7 @@ Status Presentation::draw_test_pattern() {
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel);
         s.last_head = head;
-        if (!s.gl->draw_and_swap(tiles, s.resolved_placements(), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
+        if (!s.gl->draw_and_swap(tiles, s.resolved_placements(tiles), int(s.view.selected()), 1.f - s.view.zoom(), head, s.half_w, s.half_h))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};

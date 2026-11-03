@@ -50,16 +50,19 @@ Vec3 place_point(const Canvas& canvas, const FRect& tile, const Placement& place
 // vertex. One column when flat; more as curvature grows. u,v = position within `tile` (0..1 on the tile itself).
 struct MeshVertex { Vec3 world; float u = 0, v = 0, px = 0, py = 0; };
 std::vector<MeshVertex> tile_mesh(const Canvas& canvas, const FRect& tile, const Placement& placement, const FRect& rect);
-// Zooming into a desktop brings it flat in front of you: weight 1 removes its orbit and distance (curvature is part of
-// its shape and is kept; the zoomed tile is centred, so it lies in the canvas plane). zoom_weight is zoom times closeness of `position` to `index`.
+// Zooming into a desktop brings it to distance 1 (it fills the view): weight 1 removes its orbit and distance (curvature is
+// part of its shape and is kept). zoom_weight is zoom times closeness of `position` to `index`.
 float zoom_weight(float zoom, float position, std::size_t index);
 Placement faded(const Placement& placement, float weight);
-// The placement desktop `index` is drawn with at `zoom` / `position` (ViewAnimator's eased values): faded(placement,
-// zoom_weight(...)), so the zoomed desktop flies flat in front of you, and then every desktop's orbit (x, y) scaled by
-// 1 - zoom, so while zoomed the others are back at their row slots beside it (an orbit is an absolute angle round you,
-// which does not fit the zoomed layout's spread-out slots). Their distance and curvature are kept. zoom 0
-// (the overview): `placement` unchanged.
-Placement zoomed_placement(const Placement& placement, float zoom, float position, std::size_t index);
+// The placements the desktops are drawn with at `zoom` / `position` (ViewAnimator's eased values), `overview` being the
+// settled overview layout (where the orbits were dragged) and `tiles` the blended layout being drawn. Zooming goes to the
+// desktop where it is: the zoomed desktop keeps the direction round you it has in the overview (its slot plus its orbit)
+// all the way in, while its distance fades to 1 (faded(placement, zoom_weight(...))) so it grows to fill the view there.
+// The others follow it as its row: at full zoom each is at its zoomed-row slot turned by the zoomed desktop's direction,
+// keeping its distance and curvature. Between two desktops (fractional position) the direction blends the short way round.
+// zoom 0 (the overview): `placements` unchanged. `placements` shorter than `tiles` leaves the rest at the default.
+std::vector<Placement> zoomed_placements(const Canvas& canvas, std::span<const FRect> overview, std::span<const FRect> tiles,
+                                         std::span<const Placement> placements, float zoom, float position);
 // Back-to-front draw order by distance of each desktop's centre (painter's algorithm; intersecting desktops
 // are not split). `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);
