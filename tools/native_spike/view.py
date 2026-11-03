@@ -836,12 +836,14 @@ class ViewControl:
     def _settle(self):
         """The layout changed (set_overview_geometry): desktops that overlap now, a restored setup's, or after a spacing or
         desktop change, are pushed apart (bump.settle), the open panel's and the selected desktop staying put, gliding and
-        saved like any move. Not under a drag or a desktop change: it stays due until they are over. Frames (bytes)."""
+        saved like any move. Not under a drag, a desktop change or a layout reset (which places every desktop itself): it
+        stays due until they are over. Frames (bytes)."""
         if not self._settle_due: return b''
         from . import bump
         s, op = self.state, self.overview_pointer
         g = self._overview_layout()
-        if g is None or getattr(op, 'drag', None) is not None or s.desktops_busy: return b''
+        if g is None or getattr(op, 'drag', None) is not None or s.desktops_busy or getattr(self, 'reset', None) is not None:
+            return b''
         self._settle_due = False
         placements, moved = bump.settle(g, s.placements, ([s.menu_desktop] if s.menu_open else []) + [s.selected])
         if not moved: return b''

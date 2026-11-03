@@ -680,6 +680,16 @@ class RunTests(unittest.TestCase):
         self.assertIsNotNone(c.poll())
         CollisionTests.assert_clear(self, G, c.state.placements)
 
+    def test_it_waits_for_a_layout_reset_which_places_every_desktop_itself(self):
+        # Ctrl+Alt+R (remember-layout-reset-bind, its `reset` state) restores the spacing, so a new layout arrives mid-reset.
+        stuck = at(1, x=60)
+        c = run_control(g=None, placements=stuck)
+        c.reset = object()
+        c.set_overview_geometry(G)
+        self.assertIsNone(c.poll()); self.assertEqual(c.state.placements, stuck)
+        c.reset = None
+        self.assertIsNotNone(c.poll())
+
     def test_a_layout_for_other_desktops_waits_for_the_right_one(self):
         stuck = at(1, x=60)
         c = run_control(g=None, placements=stuck)

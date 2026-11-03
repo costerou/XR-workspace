@@ -105,13 +105,6 @@ std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect>
 struct CornerHandle { FRect horizontal, vertical; };
 CornerHandle corner_handle(const FRect& tile, std::uint32_t corner);
 constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 255.f;
-// The overview's drag handles are the glass pills under each desktop (glass.hpp glass_pill), which also open its placement panel.
-// Placement easing: the drawn placement approaches the latest one with time constant `tau_ms` (exponential, frame-rate
-// independent) and lands on it exactly once within a hair, so drags at the pointer's ~30-60 Hz look smooth at 120 Hz.
-// The orbit's x eases the short way round, so a desktop crossing behind you never swings back through the front.
-Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
-bool same_placement(const Placement& a, const Placement& b);
-constexpr float kPlacementEaseMs = 35.f;
 // A glide (a `placement` frame's glide, ipc.hpp: a discrete edit that bumped desktops out of the way, bump.py): `t` of the
 // way (0..1, clamped) from `from` to `to` along smootherstep, so it starts and lands with no jump in speed, never overshoots
 // and is exactly `to` at t >= 1. Every desktop of the frame takes the same t, so they move out of each other's way
@@ -124,6 +117,13 @@ Placement glide_toward(const Placement& from, const Placement& to, float t);
 struct PlacementGlide { std::vector<Placement> from; double start_ms = 0; float ms = 0; };
 bool start_glide(PlacementGlide& glide, const std::vector<Placement>& drawn, double now_ms, std::uint32_t ms);
 void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>& targets, float dt_ms, double now_ms, PlacementGlide& glide);
+// The overview's drag handles are the glass pills under each desktop (glass.hpp glass_pill), which also open its placement panel.
+// Placement easing: the drawn placement approaches the latest one with time constant `tau_ms` (exponential, frame-rate
+// independent) and lands on it exactly once within a hair, so drags at the pointer's ~30-60 Hz look smooth at 120 Hz.
+// The orbit's x eases the short way round, so a desktop crossing behind you never swings back through the front.
+Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
+bool same_placement(const Placement& a, const Placement& b);
+constexpr float kPlacementEaseMs = 35.f;
 // Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
 // or in its direction round you when the frame gives one (direction_disc; the supervisor always does), world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
 // the real one). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at
