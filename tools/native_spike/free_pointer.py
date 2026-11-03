@@ -38,7 +38,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
         the knob stays under the pointer. On release the panel joins its desktop again.
       - elsewhere in the open panel: nothing (it stays open).
       - corner: resize (the `distance` placement), as before.
-      - desktop: focus it and hand the cursor back right there.
+      - desktop: select it, focus its monitor in Hyprland (view.ViewControl.focus_desktop), hand the cursor back there.
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
     collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
     still starts its drag or click, a desktop is still focused, empty space does nothing more).
@@ -671,6 +671,7 @@ class OverviewPointer:
                 out += self.control.pill_slide(i, h[2], slider_fraction(h[3]), surface=self.drag['placement'])
             elif h is not None and h[0] == 'desktop':  # focus it and hand the cursor back right there
                 self.focus_clicks += 1
+                out += self.control.focus_desktop(h[1])  # selected, and its monitor gets Hyprland's focus (off the loop)
                 out += self._enter(h[1], h[2])
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
