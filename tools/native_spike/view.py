@@ -1213,10 +1213,10 @@ class ViewControl:
         if isinstance(message, dict) and self.state.typing and message.get('op') in IGNORED_WHILE_TYPING: return None
         if isinstance(message, dict) and message.get('op') in MENU_OPS:
             return self._on_menu(message['op'])
-        if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
-            return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') == 'resize_cancel':  # resize.CANCEL_OP: Super went down
             return self.overview_pointer.super_down() if self.overview_pointer is not None else None
+        if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
+            return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None

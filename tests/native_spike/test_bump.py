@@ -13,6 +13,8 @@ import math
 from pathlib import Path
 import random
 import re
+import shutil
+import subprocess
 import tempfile
 import time
 import unittest
@@ -684,11 +686,11 @@ class RunTests(unittest.TestCase):
         # Ctrl+Alt+R (remember-layout-reset-bind, its `reset` state) restores the spacing, so a new layout arrives mid-reset.
         stuck = at(1, x=60)
         c = run_control(g=None, placements=stuck)
-        c.reset = object()
+        c.reset = {}
         c.set_overview_geometry(G)
-        self.assertIsNone(c.poll()); self.assertEqual(c.state.placements, stuck)
+        self.assertEqual(c._settle(), b''); self.assertEqual(c.state.placements, stuck)
         c.reset = None
-        self.assertIsNotNone(c.poll())
+        self.assertNotEqual(c._settle(), b'')
 
     def test_a_layout_for_other_desktops_waits_for_the_right_one(self):
         stuck = at(1, x=60)
@@ -986,8 +988,29 @@ class BindRuleTests(unittest.TestCase):
                     input_lock.lock_binds_lua(*args)):
             self.assertNotIn('ignore_mods', lua)
 
+    @unittest.skipUnless(shutil.which('Hyprland'), 'needs Hyprland (--verify-config only: no compositor)')
+    def test_hyprland_takes_the_super_keys_binds(self):
+        # Through the real hl API, in a throwaway HOME, as bind_check does: both pcall'd binds taken, with their options.
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            out = tmp / 'binds.txt'
+            config = tmp / 'hyprland.lua'
+            config.write_text(resize.install_resize_binds_lua(*bind_check.DUMMY_ARGS) + f"""
+local f = assert(io.open("{out}", "w"))
+for _, b in ipairs({resize.BIND_TABLE}) do f:write(tostring(b.key), " ", tostring(b.non_consuming), " ", tostring(b.ignore_mods), "\\n") end
+f:close()
+""")
+            env = {'HOME': str(tmp), 'PATH': '/usr/bin:/bin', 'XDG_CONFIG_HOME': str(tmp), 'XDG_STATE_HOME': str(tmp), 'XDG_RUNTIME_DIR': str(tmp),
+                   'LANG': 'C.UTF-8'}
+            done = subprocess.run([shutil.which('Hyprland'), '--verify-config', '-c', str(config)], env=env, cwd=tmp, timeout=30,
+                                  capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, done.stdout[-400:])
+            binds = out.read_text().splitlines()
+        self.assertEqual(len(binds), 4)
+        self.assertEqual(binds[2:], [f'{key} true true' for key in resize.SUPER_KEYS])
+
     def test_the_cancel_op_reaches_the_run_and_a_dead_run_cleans_up_on_it(self):
-        self.assertEqual(xr_control.CANCEL_OP, resize.CANCEL_OP)
+        self.assertIn(resize.CANCEL_OP, xr_control.HELPER_OPS)
         frame = (json.dumps({'schema': 1, 'request_id': 1, 'run_id': 'run', 'session': 's', 'op': resize.CANCEL_OP, 'payload': {}}) + '\n').encode()
         self.assertEqual(ipc.decode_control(frame)['op'], resize.CANCEL_OP)
         with mock.patch.object(xr_control, 'drop_stale_menu_binds') as drop:

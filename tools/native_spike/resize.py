@@ -38,7 +38,7 @@ from .geometry import MAX_DESKTOPS
 RESIZE_OPS = ('resize_press', 'resize_release')
 CORNERS = ('tl', 'tr', 'bl', 'br')
 RESIZE_BUTTON = 'mouse:272'   # left button
-CANCEL_OP = 'resize_cancel'   # Super went down (OverviewPointer.super_down); xr_control.CANCEL_OP, ipc.decode_control
+CANCEL_OP = 'resize_cancel'   # Super went down (OverviewPointer.super_down); xr_control.HELPER_OPS, ipc.decode_control
 SUPER_KEYS = ('Super_L', 'Super_R')
 # Free pointer (free_pointer.py): the cursor's visibility and position from before it was hidden, restored by every
 # removal of the left-button binds (including xr_control.py's stale-bind cleanup after a run died in free mode).

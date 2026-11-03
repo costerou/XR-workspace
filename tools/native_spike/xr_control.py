@@ -40,8 +40,8 @@ REMOVE_VIDEO_BINDS = ('for _, b in ipairs(xr_workspace_video_binds or {}) do '
 # Ctrl+Alt+D (privacy.PRIVACY_OP) with no run listening: the run died with the main display off. Every monitor's DPMS on
 # (fixed Lua, the same text as privacy.WAKE_ALL_LUA; tests compare).
 WAKE_ALL_DISPLAYS = 'hl.dispatch(hl.dsp.dpms({action="on"}))'
-HELPER_OPS = ('video_paste',)  # handled here: becomes video_open with the clipboard's web video
-CANCEL_OP = 'resize_cancel'  # resize.CANCEL_OP (tests compare): Super went down while the left button is the run's
+HELPER_OPS = ('video_paste', 'resize_cancel')  # the first handled here: becomes video_open with the clipboard's web video;
+# the second resize.CANCEL_OP (tests compare), outside OPS: not a key of the view, Super went down while the left button is ours
 MAX_CLIPBOARD = 16384  # web_video.MAX_CLIPBOARD (the control frame limit)
 VIDEO_FILTER = 'Videos | *.mp4 *.MP4 *.mkv *.MKV *.webm *.mov *.MOV *.m4v *.avi *.ts *.m2ts'
 # TOKEN and INSTANCE stay module attributes (compiled on first use, __getattr__ below); the key path checks tokens with
@@ -227,7 +227,7 @@ def send(path, run_id, session, op, payload):
 def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
     if len(argv) != 5: return 2
     path, run_id, session, op = argv[1:]
-    if op not in OPS + VIDEO_OPS + HELPER_OPS + (CANCEL_OP,) or not _is_token(run_id) or not _is_token(session) or not path.startswith('/'): return 2
+    if op not in OPS + VIDEO_OPS + HELPER_OPS or not _is_token(run_id) or not _is_token(session) or not path.startswith('/'): return 2
     payload = {}
     if op == 'video_open':
         try: send(path, run_id, session, 'video_exit', {})  # a playing video hides the desktop the picker opens on

@@ -66,9 +66,7 @@ def _lua_string(s):
 def harness_lua(config, out):
     chunks = [view.install_binds_lua(*DUMMY_ARGS, typing=True), view.remove_binds_lua(),  # typing mode's toggle-only set
               view.install_binds_lua(*DUMMY_ARGS), view.install_send_binds_lua(*DUMMY_ARGS),
-              view.install_menu_binds_lua(*DUMMY_ARGS),
-              # The two Super keys' non-consuming binds are pcall'd in there, so check they were taken.
-              resize.install_resize_binds_lua(*DUMMY_ARGS) + f' assert(#{resize.BIND_TABLE} == 4, "the Super keys\' binds were refused")',
+              view.install_menu_binds_lua(*DUMMY_ARGS), resize.install_resize_binds_lua(*DUMMY_ARGS),
               input_lock.lock_binds_lua(*DUMMY_ARGS),  # into the free pointer's table, removed with it
               resize.remove_resize_binds_lua(),
               # The unified cursor's desktop-mode left button (non-consuming; pcall'd, so check both were taken).
@@ -174,8 +172,7 @@ def check(config=None, hyprland=None, home=None, timeout=60):
     sends = ', '.join(view.chord_label(c) for c, _ in send.SEND_BINDS)
     return 0, report + [f'no clash: {len(view.BINDS)} run binds (typing toggle {view.chord_label(view.TYPING_BIND[0])}), send-window binds ({sends}), '
                         f'placement panel binds ({labels}), the free pointer\'s left button (and the unified cursor\'s '
-                        'non-consuming click binds and the Super keys\' non-consuming binds) and the input lock\'s other '
-                        'buttons and wheel']
+                        'non-consuming click binds) and the input lock\'s other buttons and wheel']
 
 
 def main(argv=None):
