@@ -1,13 +1,15 @@
-"""Unified cursor: the dot is the one real cursor, and it only ever controls the selected desktop.
+"""Unified cursor: the dot is the one real cursor, and in the overview every desktop under it is a normal screen.
 
 Design (dot-unified-cursor, 2026-11-02; replaces the input lock's held cursor for the run, input_lock.py; scope change the
 same day: the cursor never switches desktops or monitors; dot-directional-switch, 2026-11-03: zoomed in, a push past
-home's edge switches to the desktop placed that way):
+home's edge switches to the desktop placed that way; anchor-no-click-maximize, 2026-11-03: in the overview the dot gives
+the real cursor to whichever desktop it moves onto, so every window on every desktop takes clicks, drags, right-clicks,
+scrolling and typing, and a click never maximizes):
   * Home. The real cursor belongs to the selected desktop's monitor (view.ViewState.selected, "home"), zoomed in and in
-    the overview. It never crosses onto another monitor in Hyprland's layout by hand: switching desktops is a key
-    (Ctrl+Alt+Left / Right), a click on another desktop in the overview, which selects it (never maximizes it:
-    anchor-no-click-maximize, 2026-11-03), or, zoomed in, a push past home's edge (below). Cursor follow (Ctrl+Alt+F)
-    is gone (view.py).
+    the overview. It never crosses onto another monitor in Hyprland's layout by hand (that layout is not where the
+    desktops are round you): switching desktops is the dot moving onto another desktop in the overview (below), a key
+    (Ctrl+Alt+Left / Right), or, zoomed in, a push past home's edge (below). Cursor follow (Ctrl+Alt+F) is gone
+    (view.py).
   * Zoomed in (and in typing mode or during a VR video, whenever the overview pointer is off): the sampler keeps the
     cursor on home (confine_target). A cursor pushed onto another XR monitor, or off home onto the physical monitor,
     is put straight back at the nearest point inside home (INSET_PX in) and home gets Hyprland's monitor focus back
@@ -25,29 +27,34 @@ home's edge switches to the desktop placed that way):
     again. Nothing placed that way: the plain confinement above, and the cursor stays on home at the edge.
   * Overview, over home (free_pointer desktop mode). The real cursor is the pointer: hand motion moves it, and the dot is
     drawn where it maps onto home's surface (free_pointer._from_logical; every viewing mode). It is hidden
-    (overview_cursor.py), but hover, focus-follows-mouse, every button and the wheel reach the window under it. The left
-    button is bound non-consuming (click_binds_lua: the window gets it as usual) to resize_press / resize_release, for
-    the window drag below. A click there is the window's alone: it never maximizes home (anchor-no-click-maximize,
-    2026-11-03; until then a press and release no more than free_pointer.CLICK_PX apart also zoomed in). Only
-    Ctrl+Alt+Up maximizes. While the button is held the dot never turns free and the cursor stays on home (pulled back
-    if Hyprland let it onto another monitor), so the window gets its release.
-    Window drag (free_pointer.py): holding the button free_pointer.HOLD_S with the dot no more than CLICK_PX from the
-    press lifts the window under it instead (_lift_home): the dot turns free right there, as at an edge (the grab
-    parks the hidden cursor and takes the release), the ghost follows it, and the release over another desktop moves
-    the window there. Moving first is the window's own drag or selection and never lifts it.
-  * Overview, off home (free mode). The cursor reaching home's edge pixel turns the dot free: the cursor is hidden and
-    parked just inside home where it left (input_lock.park_point; leash input_lock.LEASH_PX), and its motion moves the
-    dot through space. Over pills, corners, panels, the help card and the other desktops it is only the dot: the free
-    grab is the input lock's (input_lock.lock_pointer_lua), so no button or wheel reaches a window, and the dot on
-    another desktop neither selects it nor moves the cursor there. A click on another desktop selects it and stays in
-    the overview (free_pointer._click_desktop): it becomes home and the real cursor comes back onto it under the dot
-    (desktop mode; the warp gives its monitor Hyprland's focus). That is how the cursor changes monitor. Moving
-    ENTER_PX back into home hands the real cursor back there, under the dot.
+    (overview_cursor.py), but hover, focus-follows-mouse, every button, the wheel and the keyboard reach the window under
+    it, as on any monitor. The left button is bound non-consuming (click_binds_lua: the window gets it as usual) to
+    resize_press / resize_release, so the run sees it too: a press closes an open placement panel (its modal keys would
+    otherwise take the typing meant for the window) and starts the held-button guard below. A click there is the
+    window's alone: it never maximizes home (anchor-no-click-maximize, 2026-11-03; until then a press and release no
+    more than free_pointer.CLICK_PX apart also zoomed in). Only Ctrl+Alt+Up maximizes. While the button is held the dot
+    never turns free and the cursor stays on home (pulled back if Hyprland let it onto another monitor), so a drag inside
+    an app keeps going and the window gets its release.
+    Window drag (free_pointer.py; off, OverviewPointer.window_drag): with it on, holding the button free_pointer.HOLD_S
+    with the dot no more than CLICK_PX from the press lifts the window under it instead (_lift_home): the dot turns free
+    right there, as at an edge (the grab parks the hidden cursor and takes the release), the ghost follows it, and the
+    release over another desktop moves the window there. Moving first is the window's own drag or selection.
+  * Overview, off the desktops (free mode). The cursor reaching home's edge pixel turns the dot free: the cursor is
+    hidden and parked just inside home where it left (input_lock.park_point; leash input_lock.LEASH_PX), and its motion
+    moves the dot through space. Over pills, corners, roll arrows, panels and the help card (the XR handles, all outside
+    the desktops' content: free_pointer.hit) it is only the dot: the free grab is the input lock's
+    (input_lock.lock_pointer_lua), so no button or wheel reaches a window there. Moving ENTER_PX onto any desktop's
+    content hands the real cursor to that desktop, under the dot (free_pointer.OverviewPointer._enter: the dot's hit
+    point through free_pointer.surface_to_layout), and makes it home (selected; the highlight moves there and
+    Ctrl+Alt+Up maximizes it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so
+    the keyboard goes to that monitor's focused window and focus-follows-mouse picks the window under the dot. A click
+    in the ENTER_PX band does the same (free_pointer._click_desktop); it reaches no window itself.
   * Keys. Ctrl+Alt+Left / Right change the selected desktop: home moves with it, and the cursor and dot go to the middle
     of the new home (OverviewPointer desktop mode there; zoomed in, the confinement moves it). Any other jump of the
     cursor off home in the overview is pulled back home, or let go (away) if it landed on the physical monitor.
   * Compositor state. One bind table (resize.BIND_TABLE) holds whichever set is live: the click binds over home, the
-    lock grab while free, and every switch replaces it in a single eval (enter_desktop_lua / the lock grab). Run end
+    lock grab while free, and every switch replaces it in a single eval (enter_desktop_lua / the lock grab). No key is
+    bound by the pointer: the keyboard is the focused window's (an open placement panel's modal keys are view.py's). Run end
     (PointerSampler.stop), a config reload (re-applied) and a dead run (its next left click still reaches the window and
     runs the bind helper, which removes the whole table) clean it up as before.
 """
@@ -83,10 +90,17 @@ def click_binds_lua(python, client, control_socket, run_id, session):
     return f'do local t = {resize.BIND_TABLE} or {{}} {resize.BIND_TABLE} = t local c = "{base} " {binds} end'
 
 
-def enter_desktop_lua(python, client, control_socket, run_id, session, x=None, y=None):
+def enter_desktop_lua(python, client, control_socket, run_id, session, x=None, y=None, monitor=None):
     """Into desktop mode: any free-mode grab removed (the cursor's own visibility back; overview_cursor keeps it
-    hidden), the cursor warped to layout pixel (x, y) if given, then the click binds. One eval."""
-    return fp.release_pointer_lua(x, y) + ' ' + click_binds_lua(python, client, control_socket, run_id, session)
+    hidden), the cursor warped to layout pixel (x, y) if given, then the click binds. One eval. With `monitor` (and a
+    point), that output gets Hyprland's monitor focus first, so the keyboard goes to its focused window whatever the
+    focus-follows-mouse setting; the warp after it then puts the cursor under the dot (a monitor focus alone moves it
+    to that monitor's last window), and focus-follows-mouse picks the window there."""
+    focus = ''
+    if monitor is not None and x is not None:
+        if not isinstance(monitor, str) or not view.MANAGED.match(monitor): raise ValueError('focus is limited to managed outputs')
+        focus = f'pcall(function() hl.dispatch(hl.dsp.focus({{ monitor = "{monitor}" }})) end) '
+    return focus + fp.release_pointer_lua(x, y) + ' ' + click_binds_lua(python, client, control_socket, run_id, session)
 
 
 def confine_lua(x, y, name):
@@ -342,11 +356,6 @@ class UnifiedPointer(fp.OverviewPointer):
         cursor = (o['x'] + local[0], o['y'] + local[1]) if local is not None else self._abs
         return il.park_point(o, cursor)
 
-    def _enter(self, i, q):
-        """The free dot went into desktop i: only home takes the real cursor back. Another desktop stays the dot's (a
-        click there selects it, making it home); it is not selected."""
-        return super()._enter(i, q) if i == self._home() else b''
-
     def _follow(self, now):
         """Free mode: a parked cursor more than JUMP_PX away was moved by something other than the hand. On home: the
         real cursor is the pointer there again. Elsewhere on the XR monitors: parked back on home. Off them: let go."""
@@ -380,25 +389,31 @@ class UnifiedPointer(fp.OverviewPointer):
         return super().on_op(op)
 
     def _desktop_button(self, op):
-        """Over home, the non-consuming left button: the window already has it. The press is noted for a hold that lifts
-        the window (_hold_home); a click is the window's alone and never maximizes home (anchor-no-click-maximize)."""
+        """Over home, the non-consuming left button: the window already has it. The press closes an open placement panel
+        (a click into a window is a click outside it, and its modal keys would take the typing meant for the window) and
+        is noted for the held-button guard (and, with window_drag on, a hold that lifts the window: _hold_home); a click
+        is the window's alone and never maximizes home (anchor-no-click-maximize)."""
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
         self.last_move = now  # input: the dot and pills come back
         live = self.active() and self.mode == 'desktop' and self.pointer is not None
+        out = b''
         if op == 'resize_press':
             self.click = {'start': self.pointer, 'at': now, 'moved': False} if live and not idle else None
+            if live and self.control.state.menu_open:
+                self.outside_closes += 1
+                out += self.control.pill_close()
         else:
             self.click = None
             self.window_clicks += 1
-        return (self._handle() + self._pills(False) + self._pointer_frame(False)) or None
+        return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
 
 
     def _hold_home(self, now):
-        """Over home with the button down: moving more than CLICK_PX first is the window's own drag (never lifts); held
-        HOLD_S still, the window under the cursor lifts (_lift_home)."""
+        """Over home with the button down, window_drag on: moving more than CLICK_PX first is the window's own drag
+        (never lifts); held HOLD_S still, the window under the cursor lifts (_lift_home). Off: nothing, ever."""
         c = self.click
-        if c['moved'] or self.pointer is None or c['start'] is None: return b''
+        if not self.window_drag or c['moved'] or self.pointer is None or c['start'] is None: return b''
         if math.hypot(self.pointer[0] - c['start'][0], self.pointer[1] - c['start'][1]) > fp.CLICK_PX:
             c['moved'] = True
             return b''
@@ -436,6 +451,7 @@ class UnifiedSampler(il.LockedSampler):
         self._outside = None  # previous cursor sample outside the overview
         self.push = EdgePush()  # zoomed in: the push past home's edge that switches desktops
         self._pending = None    # (target, edge, fraction along it, asked at): a switch asked of the loop, not yet seen
+        self.outputs = []       # the XR monitors as last read (resize.outputs_from_monitors), for enter_desktop's focus
 
     def _run(self):
         outputs, refreshed = [], None
@@ -446,6 +462,7 @@ class UnifiedSampler(il.LockedSampler):
                     self.names_changed = False  # a pill's Add / Remove (set_names): read the monitors again at once
                     outputs = resize.outputs_from_monitors(self.client.query('monitors', timeout=0.5), self.names)
                     refreshed = now
+                    self.outputs = outputs
             except (OSError, ValueError, TypeError, KeyError):
                 self.errors += 1
             if not self.pointer.overview():
@@ -528,9 +545,9 @@ class UnifiedSampler(il.LockedSampler):
                 self.grabbed, self.bound, self.park, self._last = True, False, point, point
             elif kind == 'desktop' and self.bound and not self.grabbed:  # the click binds are in: only the cursor moves
                 if point is not None: self.client.warp_cursor(*point)
-            elif kind == 'desktop':
+            elif kind == 'desktop':  # into a desktop from free mode (or away): that monitor focused, the cursor under the dot
                 self.ever_grabbed = True
-                self.client.enter_desktop(*self.bind_args, *(point or ()))
+                self.client.enter_desktop(*self.bind_args, *(point or ()), monitor=self._monitor(point))
                 self.grabbed, self.bound = False, True
                 if point is not None: self._last = point
             elif kind == 'off':
@@ -542,6 +559,11 @@ class UnifiedSampler(il.LockedSampler):
             self.errors += 1
             return  # retried on the next sample
         self.applied = serial
+
+    def _monitor(self, point):
+        """The name of the run's XR monitor holding layout point `point`, or None."""
+        o = _output_at(self.outputs, point) if point is not None else None
+        return self.names[o['index']] if o is not None and 0 <= o['index'] < len(self.names) else None
 
     def _release(self):
         """Out of the overview: binds gone, the cursor shown where it is."""

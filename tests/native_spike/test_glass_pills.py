@@ -1198,7 +1198,7 @@ class WireTests(unittest.TestCase):
 class HelpCardTextTests(unittest.TestCase):
     def test_the_rows_name_the_pills_and_stay_short(self):
         self.assertEqual(view.HELP_ACTIONS['menu_toggle'], 'Placement pill of the selected desktop')
-        self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: click selects; pills, corners')
+        self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: use any desktop; pills, corners')
         self.assertLessEqual(max(len(a) for a in view.HELP_ACTIONS.values()), 42)  # the card's width is another thread's
         rows = dict(view.help_rows())
         self.assertEqual(rows['Ctrl+Alt+L'], 'Placement pill of the selected desktop')

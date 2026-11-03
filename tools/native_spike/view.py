@@ -18,9 +18,9 @@ push) cuts straight to the desktop with no zoom out / turn / zoom in. Ctrl+Alt+H
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
 click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
-selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by a click on a desktop in the
-overview (it selects that desktop and stays in the overview), or, maximized, by pushing the cursor past an edge toward
-a desktop placed that way round you (switch_desktop; neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor
+selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by the dot moving onto a desktop in
+the overview (that desktop takes the cursor and every window there works as on a normal screen), or, maximized, by
+pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop; neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor
 crossed onto in Hyprland's layout) was removed on 2026-11-02.
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
@@ -45,10 +45,11 @@ renderer keeps the panel on) and saved to the profile 500 ms after the last chan
 collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
-pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to select it (no
-maximize: only Ctrl+Alt+Up maximizes); inside a desktop the real cursor works on windows as usual (a click there goes
-to the window, so it leaves an open panel open). resize_press and resize_release come from modal left-button binds that
-exist only while the pointer is outside the desktops; they are not USER_OPS.
+pill (expand / collapse its panel), press or drag an open panel's sliders, roll a desktop with its arrows, or move onto
+any desktop (no click maximizes: only Ctrl+Alt+Up does); inside a desktop the real cursor works on windows as usual (a
+click there goes to the window, and the unified cursor's non-consuming bind also closes an open panel).
+resize_press and resize_release come from left-button binds: modal (consuming) while the pointer is outside the
+desktops, non-consuming over them (unified_cursor.py); they are not USER_OPS.
 
 Desktop row (desktops.py): an open panel also has Ultrawide, Add new and Remove buttons (free-pointer presses; keys U, N
 and Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
@@ -134,7 +135,7 @@ PLAYBACK_MENU_TOASTS = {True: 'VR video menu hidden: it no longer pops up on pla
 MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (select it, then Ctrl+Alt+Up), '
                        'then Ctrl+Alt+V switches it between follow and locked; your choice is kept until XR restarts.')
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: click selects; pills, corners',
+HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: use any desktop; pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Maximized: follow / locked', 'prediction': 'Toggle pose prediction',

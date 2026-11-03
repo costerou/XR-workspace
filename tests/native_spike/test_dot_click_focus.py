@@ -166,29 +166,28 @@ class LockedClickSelectTests(LockBase):
         self.assertEqual(self.control.state.placements, placements)  # no pill drag
         self.assertFalse(self.control.state.menu_open)  # nor a pill click
 
-    def test_a_click_on_the_inner_half_of_a_corner_selects_and_a_drag_there_still_resizes(self):
+    def test_inside_a_corner_is_content_and_only_outside_it_resizes(self):
+        # anchor-no-click-maximize: a resize handle is the corner square's part outside the desktop; inside it is content.
         self.at(X2 + 960, 540)
-        inner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] - 4, T0[1] + 4)  # XR-1's top-right corner zone, on it
+        inner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] - 4, T0[1] + 4)  # inside XR-1's top-right corner
         self.dot_to(inner)
-        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
+        self.assertEqual(self.p.hover[:2], ('desktop', 0))
+        self.control.state.selected = 2
         self.click()
         self.assertFalse(self.control.state.zoomed); self.assertEqual(self.control.state.selected, 0)
         self.assertEqual(self.control.state.placements[0], DEFAULT_PLACEMENT)
         self.assert_parked_on(0)
         self.assertIsNone(self.p.drag)
-        self.click()  # again: still the overview, still XR-1
-        self.assertFalse(self.control.state.zoomed); self.assertEqual(self.control.state.selected, 0)
+        outer = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] + 4, T0[1] - 4)  # just outside it
+        self.dot_to(outer)
+        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
         self.control.state.selected = 1
-        self.op('resize_press'); self.move_canvas(30, -30); self.op('resize_release')  # a resize is not a click
+        self.click()  # a click on the handle: nothing (no resize, no selection)
+        self.assertEqual((self.control.state.selected, self.control.state.placements[0]), (1, DEFAULT_PLACEMENT))
+        self.op('resize_press'); self.move_canvas(30, -30); self.op('resize_release')  # a drag there resizes
         self.assertLess(self.control.state.placements[0]['distance'], 100)
         self.assertFalse(self.control.state.zoomed)
         self.assertEqual(self.control.state.selected, 1)
-        corner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2], T0[1])  # the resized desktop's
-        self.dot_to((corner[0] + 4, corner[1] - 4))  # the outer half, off the desktop: a click there is nothing
-        self.assertEqual(self.p.hover[:2], ('corner', 0))
-        self.click()
-        self.assertEqual(self.control.state.selected, 1)
-        self.assertFalse(self.control.state.zoomed)
         self.assertEqual(self.focused, [])
 
 

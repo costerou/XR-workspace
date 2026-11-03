@@ -186,8 +186,10 @@ class HitTests(unittest.TestCase):
         self.assertIsNone(hit_at(G, FLAT, (T0[0] + 20, T0[1] - 40)))
         self.assertEqual(hit_at(G, FLAT, (T0[0] - 8, T0[1] - 8)), ('corner', 0, 'tl'))  # outside the desktop: now reachable
         self.assertEqual(hit_at(G, FLAT, (T0[0] + T0[2] + 10, T0[1] + T0[3] + 10)), ('corner', 0, 'br'))
-        self.assertEqual(hit_at(G, FLAT, (T1[0] + T1[2] - 3, T1[1] + 2)), ('corner', 1, 'tr'))
-        self.assertEqual(hit_at(G, FLAT, (T1[0] + 3, T1[1] + T1[3] - 3)), ('corner', 1, 'bl'))
+        self.assertEqual(hit_at(G, FLAT, (T1[0] + T1[2] + 3, T1[1] - 2)), ('corner', 1, 'tr'))
+        self.assertEqual(hit_at(G, FLAT, (T1[0] - 3, T1[1] + T1[3] + 3)), ('corner', 1, 'bl'))
+        for inner in ((T1[0] + T1[2] - 3, T1[1] + 2), (T1[0] + 3, T1[1] + T1[3] - 3)):  # inside a corner: content
+            self.assertEqual(hit_at(G, FLAT, inner)[:2], ('desktop', 1))  # (anchor-no-click-maximize)
         h = hit_at(G, FLAT, (T1[0] + 200, T1[1] + 100))
         self.assertEqual(h[:2], ('desktop', 1)); self.assertAlmostEqual(h[2][0], T1[0] + 200, places=2)
         self.assertIsNone(hit_at(G, FLAT, ((T0[0] + T0[2] + T1[0]) / 2, T0[1] + 150)))  # between desktops

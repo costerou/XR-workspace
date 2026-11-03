@@ -123,9 +123,9 @@ what you are looking at, as on the INAIR Pod:
 
 - **The overview** shows all your desktops, and they always stay fixed in the room (**anchor**). Turn your head to
   look at a different one. Every session starts here.
-- **Maximized:** select a desktop in the overview (click it, or Ctrl+Alt+Left / Right), then press **Ctrl+Alt+Up**
-  (or the panel's **Maximize**). It fills your view and **follows** your head: it eases back in front of you when you
-  turn. Clicking a desktop only selects it; it never maximizes it. Press **Ctrl+Alt+V** to **lock** it to your view
+- **Maximized:** in the overview, move the mouse onto a desktop (or pick it with Ctrl+Alt+Left / Right), then press
+  **Ctrl+Alt+Up** (or the panel's **Maximize**). It fills your view and **follows** your head: it eases back in front
+  of you when you turn. Clicking in a desktop never maximizes it. Press **Ctrl+Alt+V** to **lock** it to your view
   instead, like a normal screen glued to your face, and again to go back to follow. Your choice sticks: every desktop
   you maximize after that uses it, until you press Ctrl+Alt+V again. Each new XR start begins with follow.
 - **Back to the overview** (Ctrl+Alt+Down, Ctrl+Alt+L or a pill): the desktops are fixed in the room again, exactly
@@ -180,8 +180,8 @@ With a pill open:
 - **Click on a slider** and it jumps to that spot. Hold the button and drag along it to change it live; the desktop
   follows, while the pill stays put under the dot until you let go. Letting go saves it.
 - **Drag the top strip** of the open pill to move the desktop, the same as dragging the closed pill.
-- **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click inside a desktop
-  with the normal cursor goes to the window there and leaves the pill open.
+- **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click on a window goes
+  to that window and closes the pill too, so what you type next goes to the window, not to the pill's keys.
 
 | Keys (pill open) | What it does |
 | --- | --- |
@@ -205,13 +205,16 @@ These keys only take over while a pill is open. After it closes, the arrows, Tab
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 
 **With the mouse in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
-In the overview your mouse is no longer stuck inside the desktops:
+In the overview your mouse is no longer stuck inside the desktops, and every desktop works like a normal screen:
 
-- **The dot is your mouse.** Only a small grey dot is drawn, and over the selected desktop the real mouse pointer is
-  right under it. Hover, right-click, scroll, drag and resize windows there as on any monitor.
-- **Push the dot past the edge of the selected desktop** and it keeps going into the space around it, to the pills,
-  corners and the other desktops. Over another desktop it is only a pointer for clicking: the mouse never works there,
-  and the desktop isn't selected until you click it.
+- **The dot is your mouse.** Only a small grey dot is drawn, and over a desktop the real mouse pointer is right under
+  it. Hover, click, right-click, scroll, drag and resize windows there and type into them, as on any monitor.
+- **Push the dot past the edge of a desktop** and it keeps going into the space around it, to the pills, corners and
+  the other desktops. Move it onto another desktop (changed 3 November 2026, not yet tried in the glasses) and the
+  mouse works there at once: that desktop becomes the selected one (it gets the highlight), your keyboard goes to it,
+  and its windows take every click, drag, right-click, scroll and key, wherever it is placed, however it is curved,
+  rolled or sized, and whatever its scale. The first 4 glasses pixels inside a desktop's edge are a small margin where
+  the dot is still the dot (so it doesn't flicker at the edge): a click there only selects that desktop.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
   slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
@@ -220,7 +223,8 @@ In the overview your mouse is no longer stuck inside the desktops:
   get past a neighbour, lift it clear of the row first, or carry it round behind you. A desktop that already overlaps
   another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
   that doesn't move opens the pill instead of moving anything.
-- **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
+- **Resize a desktop:** put the dot just outside a corner of a desktop until a small grey bracket appears (the handle
+  is outside the desktop, so a window's corner, like its close button, stays the window's). Drag outward to make
   it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Resizing doesn't stop at other desktops.
@@ -229,21 +233,16 @@ In the overview your mouse is no longer stuck inside the desktops:
   straight to level if level lies that way (say you recentred with your head tipped to one side; judged against
   gravity in anchor mode), else 2° further. Or hold either arrow and drag the dot round the desktop to roll it either
   way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
-- **Click a desktop** (changed 3 November 2026, not yet tried in the glasses): a click never maximizes a desktop any
-  more. On the selected desktop the click simply goes to the window under the dot, as on any monitor. On another
-  desktop the click selects that desktop and the view stays in the overview: it gets the highlight and the focus, and
-  the mouse comes back there right under the dot, so your next click goes to the window there (the first click itself
-  doesn't reach a window). To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the selected desktop
-  grows where it is to fill your view, then follows your head.
-- **Move a window to another desktop** (new, not yet tried in the glasses): press on the window and hold the button for
-  a moment, then drag. A small outline of the window follows the dot and the desktop under it gets a coloured frame.
-  Let go over that desktop and the window moves there, onto the workspace it shows. Nothing is maximized and the
-  selected desktop stays the same. Let go anywhere else (its own desktop, a pill, empty space) and nothing moves. On a
-  desktop other than the selected one you can also just start dragging. On the selected desktop, moving before you've
-  held still drags inside the window as usual. A quick click is just a click (see above). Pinned windows can't be
-  moved this way.
-- **The mouse stays on its desktop.** It only ever works the selected desktop. In the overview, moving the dot over
-  another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
+- **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
+  (and its panel when open), the two roll arrows above its top corners, and the resize handles just outside its
+  corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
+  never maximizes the desktop. To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the desktop under the
+  dot grows where it is to fill your view, then follows your head.
+- **Moving a window to another desktop by holding it** is switched off for now, so a long press or a slow drag in an
+  app stays the app's. Use **Ctrl+Alt+1–4** or **Ctrl+Alt+G** to send the window you're using to another desktop.
+- **A held button stays on its desktop.** While you hold a mouse button (dragging inside an app, selecting text) the
+  mouse stays on that desktop until you let go, even at its edge. The selected desktop is the one under the dot;
+  Ctrl+Alt+Left / Right still pick one too.
 - **Push the mouse past an edge to switch** (new, not yet tried in the glasses): maximized, keep pushing the mouse past
   an edge of the desktop and the view switches to the desktop placed that way round you, as Ctrl+Alt+Left / Right do:
   straight to it, with no trip through the overview, and it comes in front of you (follow) or stays locked to your view.

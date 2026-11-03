@@ -382,11 +382,11 @@ class HyprlandClient:
         from .input_lock import lock_pointer_lua
         self._eval(lock_pointer_lua(python, client, control_socket, run_id, session, x, y))
 
-    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None):
-        """Unified overview cursor, desktop mode: any free-mode grab removed, the cursor warped to (x, y) if given, and
-        the non-consuming left-button click binds; one eval of generated Lua."""
+    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None, monitor=None):
+        """Unified overview cursor, desktop mode: `monitor` focused first (with a point), any free-mode grab removed, the
+        cursor warped to (x, y) if given, and the non-consuming left-button click binds; one eval of generated Lua."""
         from .unified_cursor import enter_desktop_lua
-        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y))
+        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y, monitor))
 
     def confine_cursor(self, x, y, name):
         """Unified cursor, zoomed in: the cursor back at (x, y) on the selected desktop's monitor `name`, which gets the
