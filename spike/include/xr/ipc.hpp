@@ -112,11 +112,11 @@ struct OverviewPointerPayload {
     bool directed = false; std::int32_t az = 0, el = 0;  // az / el given (1/100 degree)
     bool drag = false; std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // a window drag in progress
 };
-// Roll-level icons (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
+// Roll brackets (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
 // {"roll":[r,...],"icons":[i,...],"hover":-1..kMaxDesktops-1,"side":s,"active":bool}. roll: each desktop's levelling roll
 // (view.hpp Placement::roll) in hundredths of a degree, counter-clockwise as you see it, -kMaxRoll..kMaxRoll. icons: "none",
-// "ccw" (the icon above the top-left corner), "cw" (above the top-right; glass.hpp roll_icon) or "both". hover: the desktop
-// whose icon is under the pointer or held (-1: none), side: which of its icons ("ccw" / "cw"; "none" exactly when hover is
+// "ccw" (the arrow bracket round the top-left corner), "cw" (round the top-right; glass.hpp roll_bracket) or "both". hover:
+// the desktop whose bracket is under the pointer or held (-1: none), side: which of them ("ccw" / "cw"; "none" exactly when hover is
 // -1); active: it is being dragged. Exactly kMaxDesktops entries each, in managed-output order
 // (desktops beyond this run's outputs are ignored). Malformed: rejected with kInvalidRollCode and dropped, like move_handle.
 constexpr const char* kInvalidRollCode = "invalid_roll";

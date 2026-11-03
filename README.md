@@ -223,10 +223,14 @@ In the overview your mouse is no longer stuck inside the desktops:
   it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Resizing doesn't stop at other desktops.
-- **Level or roll a desktop:** every desktop in the overview has two small curved arrows in your theme's colour above
-  its top corners: counter-clockwise on the left, clockwise on the right. Click one and the desktop turns that way:
-  straight to level if level lies that way (say you recentred with your head tipped to one side; judged against
-  gravity in anchor mode), else 2° further. Or hold either arrow and drag the dot round the desktop to roll it either
+- **Level or roll a desktop:** every desktop in the overview has two arrow brackets in your theme's colour wrapped
+  round its top corners, just outside its border: the left one turns it counter-clockwise, the right one clockwise. They
+  stay on the corners as you move or resize the desktop, and grow and shrink with it. Click a bracket's arm (not the
+  bend round the corner, which resizes like the corner, nor right against the edge) and the desktop turns that way:
+  straight to level if level lies that way (say you recentred with your head tipped to one side; judged against gravity
+  in anchor mode), else 2° further. A desktop's picture, and any desktop covering a bracket, keeps its clicks. Press R
+  in its open pill to put the desktop back flat in its slot and level.
+  Or hold either bracket and drag the dot round the desktop to roll it either
   way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
 - **Maximize a desktop:** click it with the dot. The window under the dot gets the click and the desktop is maximized,
   as Ctrl+Alt+Up does: it grows where it is to fill your view, then follows your head. It gets the focus and the
@@ -271,7 +275,7 @@ where the desktops always stay fixed in the room (anchor, see above):
   Right and press Ctrl+Alt+Up, even when it is behind you. Back in the overview every desktop is where you left it.
 - **Out of the mouse's reach.** For a desktop far round you, the mouse can only reach its pill, not its corners, its
   open pill panel or the desktop itself. Use the keys: Ctrl+Alt+Left / Right selects it, Ctrl+Alt+L opens its pill,
-  the arrows change it and R puts it back flat in its slot.
+  the arrows change it and R puts it back flat in its slot and level.
 
 All of this is checked by offline tests only. It has not been tried in an isolated VM or in the glasses.
 

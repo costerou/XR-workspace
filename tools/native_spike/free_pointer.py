@@ -54,7 +54,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     desktop on its own); a release anywhere else (its own desktop, a pill, empty space) puts nothing anywhere. Which
     window: the one shown at the press (send.window_at, looked up off the loop once it lifts); none there (an empty
     desktop), pinned windows and the help card's own clicks drag nothing. Only a press on a desktop's surface starts it:
-    pills, corners (resize), the roll icons, an open panel and the help card are hit first and keep their own drags. On
+    pills, corners (resize), the roll brackets, an open panel and the help card are hit first and keep their own drags. On
     the selected desktop (unified_cursor.py, desktop mode) the press already went to the window, so only holding still
     there lifts it (moving first is the window's own drag or selection); the lift then turns the dot free, as at an edge.
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
@@ -86,19 +86,25 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     it. A click on the previous arrow turns to the previous page, on the next arrow or the indicator to the next
     (view.ViewControl.help_turn, the same frame as Ctrl+Alt+PgUp / PgDn); anywhere else on the card does nothing. A
     click on the card never collapses an open placement panel.
-  * Roll-level icons (glass.hpp roll_icon / roll_arrow, mirrored here: roll_icon_rect and the ROLL_* constants; the
-    `glass_contract` ctest compares them): in anchor mode the renderer reports how far each desktop is from level as you
-    see it, gravity from the head tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted, or a
-    pitched one seen off to the side, leaves desktops rolled). This class owns each desktop's levelling roll (`rolls`,
-    hundredths of a degree, for this run only) and sends it with the icons in the `roll` frame. Every desktop shows both
-    icons in the overview, level or not, measured or not ('both'), ROLL_ICON_PX across as you see it whatever the
-    desktop's size: above its top-left corner a counter-clockwise arrow, above its top-right a clockwise one. A click
-    turns the desktop the arrow's way (roll_click): straight to level when level lies that way (the arrow roll_side
-    picks), else ROLL_STEP further. Pressing and dragging either one rolls the desktop with the dot round its centre,
-    either way, up to MAX_ROLL, with a ROLL_LEVEL detent at level. The icons are hit-tested before the corners (their hit
-    box, roll_hit_rect, leaves the corner its gap and the outside) and hide with the pills. Every hit test and cursor
-    mapping uses the rolled surface (orbit.place_point's
-    'roll'); the pill drag and the no-overlap guard ignore the roll (a few degrees at most changes nothing there).
+  * Roll brackets (glass.hpp roll_arm / roll_distance / on_roll_bracket, mirrored here: roll_arm, roll_scale,
+    roll_distance, on_roll and the ROLL_* constants; the `glass_contract` ctest compares them; ROLL_* were roll-level
+    icons above the corners until 2026-11-03): in anchor mode the renderer reports how far each desktop is from level as
+    you see it, gravity from the head tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted,
+    or a pitched one seen off to the side, leaves desktops rolled). This class owns each desktop's levelling roll
+    (`rolls`, hundredths of a degree, for this run only) and sends it with the brackets (the wire's `icons`) in the `roll`
+    frame. Every desktop shows both in the overview, level or not, measured or not ('both'): an arrow bracket hugging its
+    top-left corner from outside, turning counter-clockwise, and one round its top-right, clockwise. Each runs ROLL_GAP
+    outside the edge from roll_arm in along the top, round the corner and roll_arm down the side to its arrowhead, all in
+    tile px on the desktop's surface, so it moves, scales and rolls with the desktop (a resize keeps it the same share of
+    the desktop). A click turns the desktop the bracket's way (roll_click): straight to level when level lies that way
+    (the side roll_side picks), else ROLL_STEP further. Pressing and dragging either one rolls the desktop with the dot
+    round its centre, either way, up to MAX_ROLL, with a ROLL_LEVEL detent at level. R on a desktop's open panel levels
+    it (level: as its placement goes back flat in its slot). Hit region (on_roll): ROLL_EDGE_CLEAR or more outside the
+    desktop (the band along its edges is the edge resize's), within ROLL_HEAD_HALF + ROLL_PAD of the stroke's centre
+    line, and only where nothing else is: any desktop's content, a resize corner's zone and the pills all win over it
+    (hit), and the renderer draws the brackets under them. The brackets hide with the pills. Every hit test and cursor mapping uses the
+    rolled surface (orbit.place_point's 'roll'); the pill drag and the no-overlap guard ignore the roll (a few degrees at
+    most changes nothing there).
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
     is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
@@ -174,14 +180,22 @@ POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
-# Roll-level icons (glass.hpp kRollIconPx / kRollIconGap: size and gap above the top corner as you see it, tile px times the
-# desktop's distance), the padding that still grabs one, how far from level (1/100 degree) a desktop shows one, and the
-# wire's bound on a levelling roll (ipc.hpp kMaxRoll).
-ROLL_ICON_PX, ROLL_ICON_GAP, ROLL_PAD = 22.0, 8.0, 4.0
+# Roll brackets (glass.hpp kRoll*: tile px on the desktop's surface, so they move and scale with it): the gap from the
+# desktop's edge to the stroke's centre line, the stroke, the arrowhead's length and half width, the padding past what is
+# drawn that still grabs one, and the arm along each edge (a share of the shorter side, clamped); how far from level (1/100
+# degree) counts as level, and the wire's bound on a levelling roll (ipc.hpp kMaxRoll).
+ROLL_GAP, ROLL_STROKE, ROLL_HEAD_LEN, ROLL_HEAD_HALF, ROLL_PAD = 12.0, 4.0, 12.0, 6.0, 4.0
+ROLL_ARM_SHARE, ROLL_ARM_MIN, ROLL_ARM_MAX_SHARE = 0.22, 36.0, 0.45
+# The hit-zone contract round a desktop, from the inside out: its content (its apps' own clicks, drags and scrolling);
+# the band ROLL_EDGE_CLEAR wide just outside every edge (the selected desktop's border), left to the edge's resize zone,
+# and the corners' zones (corner_zone), which reach round each corner inside and out; then the brackets, from
+# ROLL_EDGE_CLEAR out, along their arms; then empty space. A bracket never takes a press from any of the others.
+ROLL_EDGE_CLEAR = 6.0
 ROLL_LEVEL = 50
 ROLL_STEP = 200  # a click on an arrow that does not point toward level turns the desktop 2 degrees that way
 MAX_ROLL = 9000
-ROLL_SIDES = ('ccw', 'cw')  # glass.hpp roll_icon side 0 (above the top-left corner) and 1 (above the top-right)
+LEVEL_SETTLE_S = 0.5  # after R, a desktop's measured tilts this long level it again (OverviewPointer.level)
+ROLL_SIDES = ('ccw', 'cw')  # glass.hpp roll_bracket side 0 (round the top-left corner) and 1 (round the top-right)
 ROLL_ICONS = ('none',) + ROLL_SIDES + ('both',)  # what a desktop shows (ipc.hpp RollPayload icons: -1, 0, 1, 2)
 ROLL_HIDDEN = {'roll': [0] * geometry.MAX_DESKTOPS, 'icons': ['none'] * geometry.MAX_DESKTOPS, 'hover': -1, 'side': 'none',
                'active': False}  # the renderer's start
@@ -222,29 +236,53 @@ def parse_roll_geometry(value):
     return out
 
 
-def roll_icon_rect(tile, side, distance=1.0):
-    """The roll-level icon (glass.hpp roll_icon): (x, y, w, h) tile px on the desktop's surface, ROLL_ICON_GAP above its
-    top-left ('ccw') or top-right ('cw') corner, flush with that side, scaled by `distance` (the wire's percent / 100)
-    so it is ROLL_ICON_PX across as you see it."""
-    if side not in ROLL_SIDES: raise ValueError('invalid roll icon side')
+def roll_arm(tile):
+    """A roll bracket's arm (glass.hpp roll_arm): tile px from the desktop's corner to the arm's end, along the top edge and
+    down the side. ROLL_ARM_SHARE of the shorter side, at least ROLL_ARM_MIN, at most ROLL_ARM_MAX_SHARE of it; 0 if empty."""
+    tw, th = tile[2], tile[3]
+    if not (tw > 0 and th > 0): return 0.0
+    m = min(tw, th)
+    return min(max(ROLL_ARM_SHARE * m, ROLL_ARM_MIN), ROLL_ARM_MAX_SHARE * m)
+
+
+def roll_scale(tile):
+    """What the bracket's stroke, gap, head and padding are scaled by (glass.hpp roll_scale): 1, less on a desktop too small
+    for ROLL_ARM_MIN arms; 0 if empty."""
+    arm = roll_arm(tile)
+    return min(1.0, arm / ROLL_ARM_MIN) if arm > 0 else 0.0
+
+
+def roll_distance(tile, side, q):
+    """Distance (tile px) from tile point `q` to the centre line of desktop's `side` bracket (glass.hpp roll_distance): its
+    top arm ROLL_GAP above the top edge from roll_arm in to the corner, the quarter circle round the corner and its side arm
+    ROLL_GAP beyond the side ('ccw': the left, 'cw': the right) down to the arrow's tip."""
+    if side not in ROLL_SIDES: raise ValueError('invalid roll side')
+    arm = roll_arm(tile)
+    if not arm > 0: return math.inf
+    tx, ty, tw, _ = tile
+    gap = ROLL_GAP * roll_scale(tile)
+    x, y = (q[0] - (tx + tw)) if side == 'cw' else (tx - q[0]), q[1] - ty  # x outward past the side, y down
+    top = math.hypot(x - min(max(x, -arm), 0.0), y + gap)
+    down = math.hypot(x - gap, y - min(max(y, 0.0), arm))
+    arc = abs(math.hypot(x, y) - gap) if x >= 0 and y <= 0 else math.inf
+    return min(top, down, arc)
+
+
+def on_roll(tile, side, q):
+    """True if tile point `q` (None: missed) is in the bracket's hit region (glass.hpp on_roll_bracket): at least
+    ROLL_EDGE_CLEAR * roll_scale outside the desktop (its content and the band along its edges stay theirs) and within
+    (ROLL_HEAD_HALF + ROLL_PAD) * roll_scale of its centre line. Where it overlaps a corner's resize zone the corner wins
+    (hit)."""
+    if q is None: return False
     tx, ty, tw, th = tile
-    d = distance if distance > 0 else 1.0
-    size = ROLL_ICON_PX * d
-    return (tx + tw - size if side == 'cw' else tx, ty - ROLL_ICON_GAP * d - size, size, size)
-
-
-def roll_hit_rect(tile, side, distance=1.0):
-    """The icon's hit box (x0, y0, x1, y1), tile px: its square padded by ROLL_PAD up and toward the middle of the top
-    edge, but not past the desktop's side or down into the gap above its corner. Both icons show on every desktop, so
-    the corner's resize zone, which reaches out round the corner, keeps that gap and everything beyond the desktop's
-    side: a corner drag from outside still resizes."""
-    x, y, w, h = roll_icon_rect(tile, side, distance)
-    pad = ROLL_PAD * (distance if distance > 0 else 1.0)
-    return (x if side == 'ccw' else x - pad, y - pad, x + w + pad if side == 'ccw' else x + w, y + h)
+    s = roll_scale(tile)
+    e = ROLL_EDGE_CLEAR * s
+    if tx - e < q[0] < tx + tw + e and ty - e < q[1] < ty + th + e: return False
+    return roll_distance(tile, side, q) <= (ROLL_HEAD_HALF + ROLL_PAD) * s
 
 
 def roll_side(tilt, roll):
-    """The arrow that levels a desktop: 'cw' (above its top-right corner) if it is turned counter-clockwise from level by
+    """The bracket that levels a desktop: 'cw' (round its top-right corner) if it is turned counter-clockwise from level by
     more than ROLL_LEVEL (its top-right corner is the higher one), 'ccw' if clockwise, None if level or not measured
     (`tilt` None). `tilt` from the renderer (without the roll), `roll` the levelling roll applied, both 1/100 degree."""
     if tilt is None: return None
@@ -257,7 +295,7 @@ def roll_click(tilt, roll, side):
     """The levelling roll after a click on desktop's `side` arrow: straight to level when that arrow points toward level
     (roll_side), else ROLL_STEP further that way (counter-clockwise positive), within +-MAX_ROLL. Both ways always work,
     on a level desktop and on one whose tilt is not measured (follow mode, no tracking) too."""
-    if side not in ROLL_SIDES: raise ValueError('invalid roll icon side')
+    if side not in ROLL_SIDES: raise ValueError('invalid roll side')
     if tilt is not None and roll_side(tilt, roll) == side: target = -tilt
     else: target = roll + (ROLL_STEP if side == 'ccw' else -ROLL_STEP)
     return min(max(int(target), -MAX_ROLL), MAX_ROLL)
@@ -270,6 +308,12 @@ def roll_drag(tilt, start, turn):
     r = min(max(round(start + turn), -MAX_ROLL), MAX_ROLL)
     if tilt is not None and abs(tilt + r) <= ROLL_LEVEL and -MAX_ROLL <= -tilt <= MAX_ROLL: r = -tilt
     return r
+
+
+def level_roll(tilt):
+    """The levelling roll that levels a desktop (R on its open panel, OverviewPointer.level): -tilt where its tilt from
+    level is measured (anchor mode with head tracking), within +-MAX_ROLL; else 0, no roll (upright as placed)."""
+    return 0 if tilt is None else min(max(-int(tilt), -MAX_ROLL), MAX_ROLL)
 
 
 def roll_icon_sides(icon):
@@ -490,11 +534,10 @@ def front_order(g, placements):
 def hit(g, placements, pointer, open_=None, icons=None, picker=False):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
-    ('panel', i)); then the roll-level icons front to back, drawn over every desktop: ('roll', index, 'ccw'|'cw')
-    (`icons`: per desktop None, 'ccw', 'cw' or 'both', roll_icon_sides); then each desktop front to back: ('corner', index,
-    'tl'|'tr'|'bl'|'br'), ('pill', index),
-    ('desktop', index, (px, py) tile pixel). None if nothing. Tested along the dot's ray (orbit.pointer_ray, where the
-    renderer draws the dot), so anything placed anywhere round you can be reached."""
+    ('panel', i)). Then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index), ('desktop',
+    index, (px, py) tile pixel); then, where none of those is, the roll brackets: ('roll', index, 'ccw'|'cw') (`icons`: per
+    desktop None, 'ccw', 'cw' or 'both', roll_icon_sides). None if nothing. Tested along the dot's ray (orbit.pointer_ray,
+    where the renderer draws the dot), so anything placed anywhere round you can be reached."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
@@ -504,30 +547,38 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False):
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_, picker)
     order = front_order(g, placements)
-    # The roll-level icons are drawn over every desktop (with the glass, after all the tiles), so they are tested before
-    # any desktop's corners, pill or surface: a nearer neighbour (tight spacing, four desktops, a rolled neighbour's
-    # corner swinging up) never takes the click meant for the icon above its next desktop's corner.
+    qs = {i: unproject(g, g['tiles'][i], placements[i], pointer) for i in order}
+    below = None  # a corner, pill or desktop under the dot: it takes the press
     for i in order:
-        sides = roll_icon_sides(icons[i] if icons is not None and i < len(icons) else None)
-        if not sides: continue
-        tile = g['tiles'][i]
-        q = unproject(g, tile, placements[i], pointer)
+        q = qs[i]
         if q is None: continue
-        d = placements[i]['distance'] / 100
-        for side in sides:
-            x0, y0, x1, y1 = roll_hit_rect(tile, side, d)
-            if x0 <= q[0] <= x1 and y0 <= q[1] <= y1: return ('roll', i, side)
-    for i in order:
         tile = g['tiles'][i]
-        q = unproject(g, tile, placements[i], pointer)
         tx, ty, tw, th = tile
-        if q is not None:
-            z = corner_zone(tile)
-            for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
-                if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
-            if on_pill(tile, desktop_to_glass(tile, placements[i], q)): return ('pill', i)
-            if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
-    return None
+        z = corner_zone(tile)
+        corner = next((c for c, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th)))
+                       if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z), None)
+        if corner is not None: below = ('corner', i, corner)
+        elif on_pill(tile, desktop_to_glass(tile, placements[i], q)): below = ('pill', i)
+        elif tx <= q[0] < tx + tw and ty <= q[1] < ty + th: below = ('desktop', i, q)
+        else: continue
+        break
+    # A bracket only ever takes a press where nothing else is: a desktop's content (its apps' own clicks, drags and
+    # scrolling), a resize corner's zone (which reaches round the corner, inside and out, so the bend round the corner
+    # resizes) and a pill all win over it. The renderer draws the brackets before every desktop and under the glass
+    # (gl.cpp), so a bracket shows exactly where it can be pressed. Where two brackets overlap (tight spacing: neighbours'
+    # side arms share the gap) the one whose stroke is nearer the dot as you see it wins (tile px over the distance
+    # factor), the nearer desktop on a tie.
+    if below is not None: return below
+    best = None
+    for rank, i in enumerate(order):
+        q, sides = qs[i], roll_icon_sides(icons[i] if icons is not None and i < len(icons) else None)
+        if q is None or not sides: continue
+        tile, d = g['tiles'][i], placements[i]['distance'] / 100
+        for side in sides:
+            if on_roll(tile, side, q):
+                key = (roll_distance(tile, side, q) / (d if d > 0 else 1.0), rank)
+                if best is None or key < best[0]: best = (key, ('roll', i, side))
+    return best[1] if best is not None else None
 
 
 def on_pill(tile, q):
@@ -668,7 +719,8 @@ class OverviewPointer:
         self.rolls = [0] * MAX_DESKTOPS  # each desktop's levelling roll, 1/100 degree (this run only)
         self.roll_names = list(control.state.names)  # whose roll each entry is (desktops_changed keeps them by name)
         self.roll_sent = {**ROLL_HIDDEN, 'roll': [0] * MAX_DESKTOPS, 'icons': ['none'] * MAX_DESKTOPS}
-        self.roll_clicks = self.roll_drags = 0  # diagnostics
+        self.roll_clicks = self.roll_drags = self.roll_levels = 0  # diagnostics
+        self.levelling = {}  # desktop name -> until when its tilt reports level it again (R: level)
         self.last_move = clock()
         self.shown, self.pills, self.sent = dict(resize.HIDDEN), dict(resize.PILLS_HIDDEN), dict(POINTER_HIDDEN)
         self.want = (0, 'off', None)  # (serial, 'off'|'away'|'desktop'|'free', layout point or None); read by the sampler
@@ -717,8 +769,30 @@ class OverviewPointer:
         self._poke()
 
     def set_roll_geometry(self, tilts):
+        """The renderer's tilts (parse_roll_geometry). A desktop R just levelled (level) is levelled again on a measured one
+        until LEVEL_SETTLE_S after the key."""
         self.tilts = list(tilts)
+        now = self.clock()
+        self.levelling = {n: until for n, until in self.levelling.items() if now <= until}
+        for i, name in enumerate(self.control.state.names[:MAX_DESKTOPS]):
+            if name in self.levelling and i < len(self.tilts) and self.tilts[i] is not None: self.rolls[i] = level_roll(self.tilts[i])
         self._poke()
+
+    def level(self, i):
+        """R on desktop i's open panel (view.ViewControl._on_menu, menu_reset): as its placement goes back flat in its slot,
+        its rotation goes back to level (level_roll): no levelling roll, or, where its tilt from level is measured, the
+        roll that cancels it. The reset may move the desktop, and with it its tilt, which the renderer reports only when it
+        changes, so its measured tilts in the next LEVEL_SETTLE_S level it again where it went (set_roll_geometry). A
+        bracket drag on it ends. Returns the `roll` frame (b'' if nothing changed)."""
+        names = self.control.state.names
+        if not 0 <= i < min(len(names), MAX_DESKTOPS): return b''
+        d = self.drag
+        if d is not None and d['kind'] == 'roll' and d['index'] == i: self.drag = None
+        self.rolls[i] = level_roll(self._tilt(i))
+        now = self.clock()
+        self.levelling[names[i]] = now + LEVEL_SETTLE_S
+        self.roll_levels += 1
+        return self._roll_frame(now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S)
 
     def summon(self):
         self.summoned = True
@@ -808,8 +882,8 @@ class OverviewPointer:
         return self.tilts[i] if i < len(self.tilts) else None
 
     def _icons(self):
-        """Per desktop the roll-level icons it shows: both arrows on every desktop, level or not, measured or not (a
-        desktop can always be rolled either way; the icons only hide with the pills, _roll_frame)."""
+        """Per desktop the roll brackets it shows (the wire's icons): both on every desktop, level or not, measured or not
+        (a desktop can always be rolled either way; they only hide with the pills, _roll_frame)."""
         return ['both'] * len(self.control.state.placements)
 
     def _around(self):
@@ -1046,6 +1120,7 @@ class OverviewPointer:
                 out += self.control.scale_close()  # a press on the panel away from the open Scale list closes it
             if h is not None and h[0] == 'roll':
                 i, tile = h[1], self._tile(h[1])
+                if i < len(self.control.state.names): self.levelling.pop(self.control.state.names[i], None)  # yours now
                 p = self._placement(i)
                 centre = project(self.geometry, tile, p, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
                 self.drag = {'kind': 'roll', 'index': i, 'side': h[2], 'start': self.pointer, 'from': self.rolls[i],
@@ -1239,7 +1314,7 @@ class OverviewPointer:
         return self._send(resize.pill_frame, want)
 
     def _roll_frame(self, idle):
-        """`roll`: every desktop's levelling roll, and the icons shown with the pills (_pills: in the overview, not idle).
+        """`roll`: every desktop's levelling roll, and the brackets shown with the pills (_pills: in the overview, not idle).
         hover / side: the desktop and arrow under the dot or held; active: it is being dragged."""
         visible = self.active() and not idle
         icons = [(side or 'none') if visible else 'none' for side in self._icons()][:MAX_DESKTOPS]
