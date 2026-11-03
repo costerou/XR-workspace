@@ -192,6 +192,14 @@ pixel and coming back needs 4 px inside, so the two modes never flap at an edge.
 cursor to another desktop (focus, send-window) is followed, not treated as motion. A cursor on the physical monitor is
 left alone; Ctrl+Alt+Down brings it into the middle of the selected desktop.
 
+Only the dot is drawn. While the pointer is on the desktops, in either mode, the real cursor is hidden and the dot is
+the one pointer in the glasses: inside a desktop it sits where the cursor is on that desktop's surface, so where the
+list above says the cursor is visible, the dot is what you see. Only what is drawn changes: what the cursor does inside
+a desktop is as described above. The normal cursor comes back on the physical monitor, when the view zooms in, in typing mode, during a VR video and
+when the run ends (`tools/native_spike/overview_cursor.py`). A run that is killed rather than stopped can leave it
+hidden: the next run's start, a Hyprland config reload, or a left click or panel key the dead run left bound brings it
+back.
+
 With the dot:
 
 - **Move a desktop: drag its pill.** The grab zone is the drawn pill with 10 px around it (`PILL_PAD_X`, `PILL_PAD_Y`)

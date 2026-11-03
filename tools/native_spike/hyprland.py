@@ -294,6 +294,16 @@ class HyprlandClient:
         from .view import warp_cursor_lua
         self._eval(warp_cursor_lua(x, y))
 
+    def hide_overview_cursor(self):
+        """Circle only: the real cursor hidden while the overview's dot is the pointer; generated Lua only."""
+        from .overview_cursor import HIDE_LUA
+        self._eval(HIDE_LUA)
+
+    def show_overview_cursor(self):
+        """Circle only: the cursor's own visibility back (a no-op unless hide_overview_cursor hid it); generated Lua only."""
+        from .overview_cursor import SHOW_LUA
+        self._eval(SHOW_LUA)
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

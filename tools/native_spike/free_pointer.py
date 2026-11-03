@@ -62,10 +62,14 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
     is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
-  * OLED care: the dot is grey at 170/255 (184 while held; cards and glass cap at 191), drawn only in free mode, never
+  * OLED care: the dot is grey at 170/255 (184 while held; cards and glass cap at 191), drawn only in DOT_MODES, never
     moves on its own, and hides with the pills and bracket after OVERLAY_IDLE_CLOSE_S without pointer movement (an
     open panel stays until the view's own idle close, which pointer motion over it postpones). A click while hidden
     only wakes them.
+  * Circle only (overview_cursor.py, display only): the dot is the overview's only pointer. In desktop mode too it is
+    drawn, where the cursor maps onto the desktop, and the real cursor is hidden there as in free mode; it still does
+    everything desktop mode says above. The sampler hides and shows it; it shows again away, outside the overview and
+    at run end.
   * Threads: the sampler reads `cursorpos` every SAMPLE_S (250 Hz) in the overview and does every compositor call
     (binds, hide/show, warps); the supervisor loop owns all state and frames. A run that dies in free mode leaves
     the left-button bind; the next click runs xr_control.py, which removes it and shows the cursor again.
@@ -78,6 +82,7 @@ import time
 
 from . import resize, view
 from .geometry import PLACEMENT_BOUNDS
+from .overview_cursor import DOT_MODES, OverviewCursor
 
 SAMPLE_S = 1 / 250        # cursor reads per second in the overview (faster than the glasses' 120 Hz)
 IDLE_S = 0.1              # not in the overview: just notice when it is again
@@ -745,9 +750,9 @@ class OverviewPointer:
         return self._send(resize.pill_frame, want)
 
     def _pointer_frame(self, idle):
-        """The dot: only in free mode (in a desktop the real cursor shows), hidden when idle."""
+        """The dot: in desktop and free mode (the real cursor is hidden in both: overview_cursor.py), hidden when idle."""
         p = self.pointer
-        if self.mode == 'free' and p is not None and not idle and self.active():
+        if self.mode in DOT_MODES and p is not None and not idle and self.active():
             want = {'visible': True, 'x': int(math.floor(p[0] + 0.5)), 'y': int(math.floor(p[1] + 0.5)), 'held': self.drag is not None}
         else:
             want = {**self.sent, 'visible': False, 'held': False}
@@ -770,6 +775,7 @@ class PointerSampler:
         self._last = None         # previous cursor sample (motion is measured from it)
         self._regrabbed_at = None
         self.errors = self.samples = self.recentres = 0
+        self.cursor = OverviewCursor(pointer.control)  # circle only: the real cursor hidden while the dot is the pointer
 
     def start(self):
         self._thread.start()
@@ -782,12 +788,14 @@ class PointerSampler:
             try: self.client.remove_resize_binds()  # also shows the cursor again and puts it back
             except (OSError, ValueError, TypeError, KeyError): pass
             self.grabbed = False
+        self.cursor.stop(self.client)  # and the overview's hidden cursor (any order with the line above is safe)
 
     def _run(self):
         outputs, refreshed = [], None
         while not self._stop.is_set():
             if not self.pointer.overview():
                 self._release()
+                self.cursor.step(self.client, False)  # the normal cursor outside the overview
                 self.applied = None  # re-apply the current want when the overview is back
                 self._last = None
                 self._stop.wait(IDLE_S)
@@ -800,6 +808,7 @@ class PointerSampler:
             except (OSError, ValueError, TypeError, KeyError):
                 self.errors += 1
             self._apply()
+            self.cursor.step(self.client, self.pointer.mode in DOT_MODES)  # hidden while the dot is the pointer
             cursor, motion = self._sample()
             self.pointer.feed(cursor, motion, outputs, self.applied if self.applied is not None else -1)
             self._recentre(cursor)
