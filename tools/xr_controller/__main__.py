@@ -13,7 +13,7 @@ import sys
 import time
 from tools.native_spike.hyprland import HyprlandClient, ownership_plugin_count
 from tools.native_spike.ipc import private_dir, read_private_json, check_peer, token, strict_json, MAX_FRAME
-from tools.native_spike.profiles import load_profile, save_profile, profiles_path
+from tools.native_spike.profiles import load_profile, load_setup, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
 from .detect import identify
 from .install import install, load_installed
@@ -31,6 +31,7 @@ def isolated(module,*args):
 class Store:
     def load(self,model): return load_profile(profiles_path(),model)
     def save(self,model,profile): save_profile(profiles_path(),model,profile)
+    def setup(self,model): return load_setup(profiles_path(),model)  # what a start restores (strict; Controller.begin_start)
 
 
 # What `systemctl is-active` prints, per unit. It exits 0 for a unit in ACTIVE_STATES; anything else is not alive.

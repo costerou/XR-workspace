@@ -30,7 +30,7 @@ constexpr double kGlassExpandMs = 260, kGlassCollapseMs = 200;  // the pill <-> 
 constexpr float kGlassPillShare = 0.24f, kGlassPillMinW = 64.f, kGlassPillMaxW = 160.f, kGlassPillH = 14.f, kGlassPillGap = 10.f;
 FRect glass_pill(const FRect& tile);
 // Expanded panel: kPanelW x kPanelH, centred under the desktop, its top where the pill's top is.
-constexpr float kPanelW = 480.f, kPanelH = 360.f, kPanelRadius = 18.f;
+constexpr float kPanelW = 480.f, kPanelH = 394.f, kPanelRadius = 18.f;
 FRect glass_panel(const FRect& tile);
 // The shape `t` (eased 0..1) of the way from pill to panel, and its corner radius (the pill is fully rounded).
 FRect glass_morph(const FRect& tile, float t);
@@ -41,16 +41,42 @@ float glass_radius(const FRect& tile, float t);
 constexpr float kPanelHeaderH = 42.f, kPanelRowsTop = 46.f, kPanelRowH = 34.f, kPanelPad = 22.f;
 constexpr float kPanelTrackX0 = 184.f, kPanelTrackX1 = 374.f, kPanelKnobR = 7.f;
 constexpr float kPanelKnobLo = kPanelTrackX0 + kPanelKnobR, kPanelKnobHi = kPanelTrackX1 - kPanelKnobR;
-// Under the sliders, the Scale row (one kPanelRowH row at kPanelScaleTop): the label "Scale" and an M3 exposed dropdown
+// Under the sliders, the Resolution row (one kPanelRowH row at kPanelResolutionTop): the label "Resolution" and an M3
+// exposed dropdown menu (glass_resolution_box, the Scale box's twin) showing the desktop's pixel size ("1920x1080") and a
+// drop-down arrow. A click on the box opens its list, an M3 menu kResListGap above the box, drawn over the slider rows
+// and as wide as their selected band (glass_resolution_list): one column per desktops.hpp kResolutionGroups shape
+// (16:9, 16:10, Ultrawide), its name on top (glass_resolution_heading) and its kResolutions sizes under it
+// (glass_resolution_item); the current size on the secondary container, every size M3 disabled while busy. The box and
+// the items use the desktop row's button font (M3 label large, kButtonLabelPx in glass.cpp). Picking one resizes that
+// desktop's output live (tools/native_spike/desktops.py RESOLUTION); free_pointer.py mirrors the geometry
+// (glass_contract compares).
+constexpr float kPanelResolutionTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH;  // 182
+constexpr float kResBoxX = kPanelTrackX0, kResBoxH = 26.f, kResBoxW = kPanelW - kPanelPad - kResBoxX;  // 274 wide
+constexpr float kResBoxY = kPanelResolutionTop + (kPanelRowH - kResBoxH) / 2;  // 186
+constexpr float kResItemH = 23.f, kResListGap = 2.f;
+constexpr float kResListX = 10.f, kResListW = kPanelW - 2 * kResListX;      // 460 wide: a column of 153 px per shape
+constexpr float kResListH = float(kResolutionRows + 1) * kResItemH;         // the headings, then the largest group
+constexpr float kResListY = kResBoxY - kResListGap - kResListH;             // 46
+// The open list covers the four slider rows exactly (no row shows half hidden above it), under the header.
+static_assert(kResListY == kPanelRowsTop && kResListY >= kPanelHeaderH, "the open list covers the slider rows");
+FRect glass_resolution_box();                       // panel px
+FRect glass_resolution_list();                      // panel px: the open list's whole area
+FRect glass_resolution_heading(std::size_t group);  // panel px; empty for group >= kResolutionGroupCount
+FRect glass_resolution_item(std::size_t i);         // panel px; empty for i >= kResolutionCount
+// Whether size `i` can be picked now: nothing is busy (every listed size is one the desktop can take).
+bool glass_resolution_enabled(std::size_t i, const PlacementMenuState& state);
+// Text of a size as drawn: "1920x1080"; "--" for 0 x 0 (unknown).
+std::string glass_resolution_label(std::uint16_t width, std::uint16_t height);
+// Under that, the Scale row (one kPanelRowH row at kPanelScaleTop): the label "Scale" and an M3 exposed dropdown
 // menu (glass_scale_box: a filled text field) showing the desktop's Hyprland output scale ("125%") and a drop-down arrow.
 // A click on the box opens its list, an M3 menu: one item per desktops.hpp kScalePercents step (100..300%), top down
-// (glass_scale_item), kScaleListGap above the box, drawn over the slider rows; the current step on the secondary
-// container, steps that do not divide the desktop's resolution (or any while busy) M3 disabled. The box and the items
-// use the desktop row's button font (M3 label large, kButtonLabelPx in glass.cpp). Picking one reshapes that desktop's
-// output (tools/native_spike/desktops.py SCALE); free_pointer.py mirrors the geometry (glass_contract compares).
-constexpr float kPanelScaleTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH;  // 182
-constexpr float kScaleBoxX = kPanelTrackX0, kScaleBoxH = 26.f, kScaleBoxW = kPanelW - kPanelPad - kScaleBoxX;  // 274 wide
-constexpr float kScaleBoxY = kPanelScaleTop + (kPanelRowH - kScaleBoxH) / 2;  // 186
+// (glass_scale_item), kScaleListGap above the box, drawn over the Resolution row and the slider rows; the current step on
+// the secondary container, steps that do not divide the desktop's resolution (or any while busy) M3 disabled. The box and
+// the items use the desktop row's button font (M3 label large, kButtonLabelPx in glass.cpp). Picking one reshapes that
+// desktop's output (tools/native_spike/desktops.py SCALE); free_pointer.py mirrors the geometry (glass_contract compares).
+constexpr float kPanelScaleTop = kPanelResolutionTop + kPanelRowH;  // 216
+constexpr float kScaleBoxX = kPanelTrackX0, kScaleBoxH = kResBoxH, kScaleBoxW = kPanelW - kPanelPad - kScaleBoxX;  // 274 wide
+constexpr float kScaleBoxY = kPanelScaleTop + (kPanelRowH - kScaleBoxH) / 2;  // 220
 constexpr float kScaleItemH = 20.f, kScaleListGap = 2.f;  // seven steps fit between the header and the box
 FRect glass_scale_box();                   // panel px
 FRect glass_scale_item(std::size_t step);  // panel px; empty for step >= kScaleSteps
@@ -66,14 +92,14 @@ std::string glass_scale_label(std::uint16_t percent);
 // the rows above it. The Brightness row (at kPanelBrightnessTop): a slider like the placement ones, on their knob range,
 // filled from 100%, kBrightnessMin..kBrightnessMax, M3 disabled with no background. free_pointer.py mirrors the geometry
 // (glass_contract compares).
-constexpr float kPanelBackgroundTop = kPanelScaleTop + kPanelRowH;  // 216
+constexpr float kPanelBackgroundTop = kPanelScaleTop + kPanelRowH;  // 250
 constexpr float kBackgroundSwitchW = 46.f, kBackgroundSwitchH = 26.f, kBackgroundBoxGap = 12.f;
 constexpr float kBackgroundSwitchX = kPanelW - kPanelPad - kBackgroundSwitchW;  // 412
 constexpr float kBackgroundBoxX = kPanelTrackX0, kBackgroundBoxH = kScaleBoxH;
 constexpr float kBackgroundBoxW = kBackgroundSwitchX - kBackgroundBoxGap - kBackgroundBoxX;  // 216 wide
-constexpr float kBackgroundBoxY = kPanelBackgroundTop + (kPanelRowH - kBackgroundBoxH) / 2;  // 220
+constexpr float kBackgroundBoxY = kPanelBackgroundTop + (kPanelRowH - kBackgroundBoxH) / 2;  // 254
 constexpr float kBackgroundItemH = kScaleItemH, kBackgroundListGap = kScaleListGap;
-constexpr float kPanelBrightnessTop = kPanelBackgroundTop + kPanelRowH;  // 250
+constexpr float kPanelBrightnessTop = kPanelBackgroundTop + kPanelRowH;  // 284
 FRect glass_background_box();                    // panel px
 FRect glass_background_switch();                 // panel px
 FRect glass_background_item(std::size_t item);   // panel px; empty for item >= kBackgroundCount
@@ -84,11 +110,11 @@ static_assert(kBackgroundBoxY - kBackgroundListGap - float(kBackgroundCount) * k
 // Ultrawide (toggles the desktop between 16:9 and ultrawide), Add (a new desktop), Remove (this desktop; asks for a second
 // click). tools/native_spike/desktops.py does the work; free_pointer.py mirrors the geometry (glass_contract compares).
 constexpr std::size_t kPanelActions = 3;
-constexpr float kPanelActionsTop = kPanelBrightnessTop + kPanelRowH + 6.f;  // 290
+constexpr float kPanelActionsTop = kPanelBrightnessTop + kPanelRowH + 6.f;  // 324
 constexpr float kPanelActionH = 32.f, kPanelActionW = 138.f, kPanelActionGap = 11.f;
 static_assert(kPanelPad * 2 + kPanelActionW * float(kPanelActions) + kPanelActionGap * float(kPanelActions - 1) == kPanelW,
               "the desktop row spans the panel between its paddings");
-constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 330
+constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 364
 constexpr std::uint32_t kPanelTextPx = 24, kPanelHintPx = 18, kPanelActionPx = 20;  // em sizes with the system font
 FRect glass_panel_action(std::size_t action);  // panel px; empty for action >= kPanelActions
 // Button labels as drawn (the pixel font is ASCII; so are these). Remove reads "Remove?" while armed.
@@ -123,21 +149,46 @@ constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
 static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its footer's top (free_pointer.py PANEL_H)");
 
-// Roll-level icons (tools/native_spike/free_pointer.py roll_icon_rect / ROLL_*, compared by the glass_contract ctest): in
-// the overview every desktop shows two curved arrows alone (no button behind them), kRollIconGap above its top corners,
-// on the desktop's own surface: above the top-left corner a counter-clockwise one, above the top-right a clockwise one,
-// the way a click (to level when it lies that way, else a step) or a drag (either way) turns the desktop. Its square (the hit box, padded
-// by free_pointer.py ROLL_PAD) is kRollIconPx across as you
-// see it whatever the desktop's size: its tile px are scaled by the desktop's distance. Side 0 = top-left (counter-
-// clockwise), 1 = top-right (clockwise).
-constexpr float kRollIconPx = 22.f, kRollIconGap = 8.f;
-FRect roll_icon(const FRect& tile, std::uint32_t side, float distance);
-// The arrow filling the icon's square, canvas px: one plain curved arrow, a thick half-turn arc over the top (a triangle strip, outer
-// then inner per step) and a large arrowhead (one triangle) at its end, clockwise for side 1, its mirror image (counter-
-// clockwise) for side 0: the way a click or drag on it turns the desktop. Empty for an empty icon.
-struct RollArrow { std::vector<std::array<float, 2>> band; std::array<std::array<float, 2>, 3> head{}; };
-RollArrow roll_arrow(const FRect& icon, std::uint32_t side);
-// The arrow's colour: an M3 icon in the theme's primary (glass_theme_scheme of the accent, GlCompositor::set_accent, live
+// Roll brackets (tools/native_spike/free_pointer.py roll_arm / roll_distance / on_roll / ROLL_*, compared by the
+// glass_contract ctest): in the overview every desktop has two arrow brackets hugging its top corners just outside its
+// border, on the desktop's own surface. Round the top-left corner one turns counter-clockwise, round the top-right one
+// clockwise: the way a click (to level when it lies that way, else a step) or a drag (either way) on it turns the
+// desktop. Each is one stroke kRollGap outside the desktop's edge (clear of the selected desktop's 6 px border): from
+// roll_arm in along the top edge (a round cap), over the corner (a quarter circle about it) and roll_arm down the side
+// to its arrowhead, which points down that side, the way the corner goes when the desktop turns that way. All of it is
+// tile px on the desktop's surface, so a bracket moves, scales and rolls with its desktop: a resize (its distance) or a
+// move (its orbit) carries it along, and it stays the same share of the desktop. Side 0 = top-left (counter-clockwise),
+// 1 = top-right (clockwise). The wire still calls them icons (ipc.hpp RollPayload, GlassFrame::roll_icon).
+constexpr float kRollGap = 12.f, kRollStroke = 4.f, kRollHeadLen = 12.f, kRollHeadHalf = 6.f, kRollPad = 4.f;
+constexpr float kRollArmShare = 0.22f, kRollArmMin = 36.f, kRollArmMaxShare = 0.45f;
+// The hit-zone contract round a desktop (free_pointer.py ROLL_EDGE_CLEAR, hit), from the inside out: its content (its
+// apps); a band kRollEdgeClear wide just outside every edge (the selected desktop's border) for the edge's resize zone,
+// and the corners' resize zones round each corner; then the brackets along their arms; then empty space.
+constexpr float kRollEdgeClear = 6.f;
+static_assert(kRollGap - kRollHeadHalf >= kRollEdgeClear, "everything drawn lies past the edge band");
+static_assert(kRollGap - kRollHeadHalf >= 6.f && kRollGap - kRollStroke / 2 >= 6.f,
+              "a bracket stays clear of the selected desktop's 6 px border (gl.cpp kBorderPx)");
+static_assert(kRollHeadLen < kRollArmMin, "the head fits the shortest arm");
+// The arm along each edge, tile px from the corner to the arm's end (the cap's centre, the arrow's tip): kRollArmShare of
+// the desktop's shorter side, at least kRollArmMin, never past kRollArmMaxShare of it (so the two brackets never meet).
+// 0 for an empty tile.
+float roll_arm(const FRect& tile);
+// The stroke, gap, head and padding are scaled by this: 1, less on a desktop too small for kRollArmMin arms. 0 when empty.
+float roll_scale(const FRect& tile);
+// Distance (tile px) from (px, py) to the bracket's centre line (top arm, corner arc, side arm to the tip). Infinite for
+// an empty tile or side > 1.
+float roll_distance(const FRect& tile, std::uint32_t side, float px, float py);
+// The hit region (free_pointer.py on_roll): at least kRollEdgeClear * roll_scale outside the desktop and within
+// (kRollHeadHalf + kRollPad) * roll_scale of the centre line, so it covers everything drawn plus kRollPad. Only where
+// nothing else is: any desktop's content, a corner's resize zone and a pill all win over it (free_pointer.py hit), and the
+// renderer draws the brackets under them.
+bool on_roll_bracket(const FRect& tile, std::uint32_t side, float px, float py);
+// The bracket as drawn, tile px: the stroke as a triangle strip (outer then inner edge per point, from the top arm's end
+// round the corner to the head's base) and, as triangles, the arrowhead and the round cap at the top arm's end. Empty for
+// an empty tile or side > 1.
+struct RollBracket { std::vector<std::array<float, 2>> band, head; };
+RollBracket roll_bracket(const FRect& tile, std::uint32_t side);
+// The bracket's colour: an M3 icon in the theme's primary (glass_theme_scheme of the accent, GlCompositor::set_accent, live
 // with the Omarchy theme); hovered or dragged (level above kGlassIdle) it is lifted along the primary palette toward its
 // tone 98 (MaterialScheme::primary_bright), all the way at kGlassActive. Under the OLED cap in every state.
 std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level);
@@ -184,8 +235,9 @@ const char* glass_fragment_shader();
 // --- Panel content -----------------------------------------------------------------------------------------------------
 // The open panel's text and sliders for the selected desktop (state.desktop), kPanelW x kPanelH, premultiplied, on a
 // transparent background (the glass is drawn under it): header "XR-n" / "Placement", one row per field (label, slider
-// filled from the flat value, value with units; the selected row on a faint accent band), the Scale row (and its list
-// while state.picker: over the slider rows), the Background row and the Brightness row (and the Background list while
+// filled from the flat value, value with units; the selected row on a faint accent band), the Resolution row (and its
+// list while state.resolution_picker: over the slider rows), the Scale row (and its list while state.picker: over the
+// Resolution and slider rows), the Background row and the Brightness row (and the Background list while
 // state.background_picker: over the rows above it), the desktop row (Ultrawide lit
 // while the desktop is ultrawide, Remove lit while armed, buttons that do nothing now dimmed), and a key-hint footer.
 // Material Design 3 parts in `accent`'s scheme (glass_theme_scheme): text in on-surface / on-surface-variant, the selected
@@ -219,8 +271,10 @@ struct GlassFrame {
     // press (the desktop itself follows its live placement). The supervisor measures the drag on that same surface, so
     // the knob stays under the pointer. Empty: the panel rides on its desktop's live placement.
     int surface_desktop = -1; std::optional<Placement> surface;
-    // Roll-level icons (drawn with the pills: `pills` true): per desktop -1 none, 0 / 1 that side (roll_icon), 2 both;
-    // the hovered or dragged one (desktop `roll_hover`, side `roll_hover_side`) is drawn at `roll_level`.
+    // Roll brackets (drawn with the pills: `pills` true): per desktop -1 none, 0 / 1 that side (roll_bracket), 2 both;
+    // the hovered or dragged one (desktop `roll_hover`, side `roll_hover_side`) is drawn at `roll_level`. They are drawn
+    // before every desktop (any desktop's content covers them, the glass goes over them), on their desktop's live
+    // placement, never on the held panel's `surface`.
     std::array<int, kPlacementMenuDesktopCount> roll_icon{-1, -1, -1, -1};
     int roll_hover = -1, roll_hover_side = -1; float roll_level = kGlassIdle;
 };

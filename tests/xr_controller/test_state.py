@@ -1,8 +1,11 @@
+import contextlib
 import copy
+import io
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 from tools.native_spike.profiles import DEFAULT_PROFILE
 from tools.native_spike.geometry import DEFAULT_DESKTOP
 from tools.native_spike.panel_consent import load_panel_consent, build_consent
@@ -48,14 +51,41 @@ class StateTests(unittest.TestCase):
         self.c.request(dict(op='cancel'))
         self.assertIsNone(self.c.snapshot()['pending'])
 
-    def test_start_scope_is_always_three_desktops(self):
-        # A saved count (a pill's Add) and saved placements are not restored at start (profiles.startup_desktops).
-        wide={'width':2560,'height':1080,'scale':1.0}
-        self.c.store.profile.update(desktops=[wide]*4,placements=[dict(x=10,y=0,distance=150,curvature=30)]*4)
-        self.assertEqual(self.begin()['scope']['desktops'],[wide]*3)
+    def test_start_scope_restores_the_saved_desktops(self):
+        # remember-layout-reset-bind: the last session's count, resolutions and scales come back (profiles.load_setup).
+        wide={'width':2560,'height':1080,'scale':1.0}; sharp={'width':2560,'height':1440,'scale':1.25}
+        self.c.store.profile.update(desktops=[wide,sharp,wide,DEFAULT_DESKTOP],placements=[dict(x=10,y=0,distance=150,curvature=30)]*4,
+                                    rolls=[0,250,-90,0])
+        with contextlib.redirect_stderr(io.StringIO()) as log: scope=self.begin()['scope']
+        self.assertEqual(scope['desktops'],[wide,sharp,wide,DEFAULT_DESKTOP])
+        self.assertIn('restoring the saved monitor setup (4 desktops: 2560x1080@1, 2560x1440@1.25',log.getvalue())
         self.c.request(dict(op='cancel'))
-        self.c.store.profile.update(desktops=[wide],placements=[dict(x=0,y=0,distance=100,curvature=0)])
-        self.assertEqual(self.begin()['scope']['desktops'],[wide,DEFAULT_DESKTOP,DEFAULT_DESKTOP])
+        self.c.store.profile.update(desktops=[wide],placements=[dict(x=0,y=0,distance=100,curvature=0)],rolls=[0])
+        with contextlib.redirect_stderr(io.StringIO()): self.assertEqual(self.begin()['scope']['desktops'],[wide])  # one is a setup too
+
+    def test_start_scope_falls_back_to_three_flat_desktops_with_the_reason_logged(self):
+        from tools.native_spike import profiles
+        reasons=iter(['profiles.json is corrupt (not JSON)',profiles.NOTHING_SAVED])
+        self.c.store.setup=lambda model:(profiles.default_setup(),next(reasons))  # as the real store's strict read reports
+        with contextlib.redirect_stderr(io.StringIO()) as log: scope=self.begin()['scope']
+        self.assertEqual(scope['desktops'],[DEFAULT_DESKTOP]*3)
+        self.assertIn('saved monitor setup not used: profiles.json is corrupt (not JSON); three flat desktops instead',log.getvalue())
+        self.c.request(dict(op='cancel'))
+        with contextlib.redirect_stderr(io.StringIO()) as log: self.assertEqual(self.begin()['scope']['desktops'],[DEFAULT_DESKTOP]*3)
+        self.assertIn('no saved monitor setup yet; three flat desktops',log.getvalue())
+
+    def test_the_real_store_reads_the_saved_setup_strictly(self):
+        from tools.xr_controller.__main__ import Store as RealStore
+        from tools.native_spike import profiles
+        with tempfile.TemporaryDirectory() as config, mock.patch.dict(os.environ,{'XDG_CONFIG_HOME':config}):
+            path=profiles.profiles_path(); store=RealStore()
+            self.assertEqual(store.setup('beast'),(profiles.default_setup(),profiles.NOTHING_SAVED))
+            wide={'width':2560,'height':1080,'scale':1.0}
+            profiles.PlacementStore(path,'beast').save_desktops([wide]*2,[dict(x=5,y=0,distance=90,curvature=0)]*2,[100,-100])
+            self.assertEqual(store.setup('beast'),({'desktops':[wide]*2,'placements':[dict(x=5,y=0,distance=90,curvature=0)]*2,'rolls':[100,-100]},None))
+            path.write_text('{"schema": 2, "profiles": {"beast": {"desktops": [{"width": 1921, "height": 1080, "scale": 1.0}]}}}')
+            setup,reason=store.setup('beast')
+            self.assertEqual(setup,profiles.default_setup()); self.assertIn('saved desktops are invalid',reason)
 
     def test_runner_failure_stays_visible_until_next_start(self):
         import json

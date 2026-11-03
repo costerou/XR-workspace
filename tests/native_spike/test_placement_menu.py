@@ -58,8 +58,10 @@ BASE_CAPABILITIES = ['zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spaci
 BASE_QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
-BASE_PROFILE_KEYS = {'desktops', 'fallback', 'mode', 'mode_switch', 'placements', 'prediction', 'spacing',
-                     'tracking', 'video_quality', 'environment'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
+BASE_PROFILE_KEYS = {'desktops', 'environment', 'fallback', 'mode', 'mode_switch', 'placements', 'previous_setup', 'prediction',
+                     'rolls', 'spacing', 'tracking', 'video_quality'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
+# rolls: each desktop's levelling roll, saved with the monitor setup since remember-layout-reset-bind (2026-11-03);
+# previous_setup: the layout Ctrl+Alt+R last replaced, a one-step backup
 # video_quality: the VR video quality menu (quality.py, 2026-11-03); environment: the background (environment.py, 2026-11-03)
 # Real-shaped bind arguments (2026-11-01): the live controller's checkout path, a token_hex(16) run id (state.py) and a
 # sha256-hex session id (HyprlandClient.verified_session).
@@ -86,15 +88,19 @@ MENU_ROW_KEYS = {'names', 'wide', 'armed', 'busy'}  # the open panel's desktop r
 MENU_SCALE_KEYS = {'scale', 'scales', 'picker'}       # its Scale dropdown, all optional
 MENU_BACKGROUND_KEYS = {'background', 'brightness', 'background_picker'}  # its background rows (environment.py), all optional
 SCALE_STEPS = (100, 125, 150, 175, 200, 250, 300)     # geometry.SCALES in percent
+MENU_RESOLUTION_KEYS = {'resolution', 'resolution_picker'}  # its Resolution dropdown, all optional
+RESOLUTION_BOUNDS = ((640, 7680), (480, 4320))        # width, height: even (geometry.CUSTOM_BOUNDS)
 
 
 def check_menu_payload(p):
     """Reference validator for the 'placement_menu' payload, straight from the shared contract. Since the glass pills an
     open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders).
     Since desktops can be added and removed in XR: one placement per desktop (1..MAX_DESKTOPS), and the desktop row:
-    'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'."""
+    'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'. Then the Scale dropdown ('scale', 'scales',
+    'picker'), the Resolution dropdown above it ('resolution': [width, height]; 'resolution_picker') and the Background one
+    ('background', 'brightness', 'background_picker'), at most one list open, only on an open panel."""
     if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or \
-            set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS - MENU_BACKGROUND_KEYS:
+            set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS - MENU_RESOLUTION_KEYS - MENU_BACKGROUND_KEYS:
         raise ValueError('payload must have exactly open, desktop, field, placements (and the optional surface and row keys)')
     if type(p['open']) is not bool: raise ValueError('open must be a bool')
     g.validate_placements(p['placements'])
@@ -108,10 +114,17 @@ def check_menu_payload(p):
         names = p['names']
         if (not isinstance(names, list) or len(names) != n or any(type(x) is not int or not 1 <= x <= g.MAX_DESKTOPS for x in names)
                 or names != sorted(set(names))): raise ValueError('names must be increasing XR numbers, one per desktop')
-    for key in ('wide', 'armed', 'busy', 'picker', 'background_picker'):
+    for key in ('wide', 'armed', 'busy', 'picker', 'resolution_picker', 'background_picker'):
         if key in p and type(p[key]) is not bool: raise ValueError(f'{key} must be a bool')
     if p.get('picker') and p['open'] is not True: raise ValueError('the Scale list opens only on an open panel')
-    if p.get('background_picker') and (p['open'] is not True or p.get('picker')): raise ValueError('the Background list needs an open panel, alone')
+    lists = [bool(p.get(k)) for k in ('picker', 'resolution_picker', 'background_picker')]
+    if any(lists) and p['open'] is not True: raise ValueError('a dropdown list opens only on an open panel')
+    if sum(lists) > 1: raise ValueError('one dropdown list at a time')
+    if 'resolution' in p:
+        r = p['resolution']
+        if not isinstance(r, list) or len(r) != 2 or any(type(v) is not int or v % 2 or not lo <= v <= hi
+                                                         for v, (lo, hi) in zip(r, RESOLUTION_BOUNDS)):
+            raise ValueError('resolution must be an even [width, height] within the desktop bounds')
     if 'background' in p and p['background'] not in ('none', 'grid'): raise ValueError('background must be a kBackgrounds name')
     if 'brightness' in p and (type(p['brightness']) is not int or not 10 <= p['brightness'] <= 200): raise ValueError('brightness out of range')
     if 'scale' in p and (type(p['scale']) is not int or p['scale'] not in SCALE_STEPS): raise ValueError('scale must be a step')

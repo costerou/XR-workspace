@@ -47,7 +47,7 @@ class BindAndRowTests(unittest.TestCase):
         self.assertTrue(all(n >= 1 for n in sections))
         self.assertEqual(len(rows), len({k for k, _ in rows}))
         self.assertEqual(rows[0][0], 'Ctrl+Alt+Up')                        # moving around first
-        self.assertEqual(rows[sum(sections[:-1])][0], 'Ctrl+Alt+H')         # this card's keys last
+        self.assertEqual(rows[sum(sections[:-1])], ['Ctrl+Alt+H / K', 'Help/binds; Ctrl+Alt+G/B: window to XR/back'])  # this card's keys last, with the key bind panel's (keybinds.py)
         self.assertEqual(rows[-1][0], 'Ctrl+Alt+PgUp / PgDn')
 
     def test_ops_outside_every_section_and_extra_rows_still_show(self):
@@ -140,7 +140,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(fp.help_hit(CARD, centre(CARD['indicator'])), ('help', 'indicator'))
         self.assertEqual(fp.help_hit(CARD, (600, 320)), ('help', 'card'))
         self.assertIsNone(fp.help_hit(CARD, (550, 320)))
-        self.assertEqual(fp.help_hit(CARD, (550, 320), margin=fp.ENTER_PX * 3), ('help', 'card'))
+        self.assertEqual(fp.help_hit(CARD, (550, 320), margin=fp.HELP_CLEAR_PX * 3), ('help', 'card'))
         self.assertIsNone(fp.help_hit(None, (600, 320)))
 
 
@@ -206,9 +206,9 @@ class PointerTests(PointerBase):
         self.at(X2 + 960, 540)
         card = CARD['card']
         self.onto((card[0] + 10, 600, 0, 0))
-        self.move_canvas(-10 - fp.ENTER_PX / 2, 0)  # just off the card's left edge, over the left desktop
+        self.move_canvas(-10 - fp.HELP_CLEAR_PX / 2, 0)  # just off the card's left edge, over the left desktop
         self.assertEqual(self.p.mode, 'free')
-        self.move_canvas(-fp.ENTER_PX * 2, 0)
+        self.move_canvas(-fp.HELP_CLEAR_PX * 2, 0)
         self.assertEqual(self.p.mode, 'desktop')
 
 

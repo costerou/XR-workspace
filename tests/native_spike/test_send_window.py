@@ -285,9 +285,10 @@ class LuaTests(unittest.TestCase):
         client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
         client._eval = sent.append
         client.install_view_binds(*ARGS)
-        self.assertEqual(sent, [view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS)])
+        self.assertEqual(sent, [view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS), view.install_drag_binds_lua(*ARGS)])
         sent.clear(); client.reinstall_view_binds(*ARGS)
-        self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS)])
+        self.assertEqual(sent, [view.remove_binds_lua() + ' ' + view.install_binds_lua(*ARGS), view.install_send_binds_lua(*ARGS),
+                                view.install_drag_binds_lua(*ARGS)])
         sent.clear(); client.remove_view_binds()
         self.assertEqual(sent, [view.remove_binds_lua()])
 
@@ -358,7 +359,7 @@ class NoSessionTests(unittest.TestCase):
 
 class HelpCardTests(unittest.TestCase):
     def test_help_row_names_the_send_keys(self):
-        row = dict(view.help_rows())['Ctrl+Alt+H']
+        row = dict(view.help_rows())['Ctrl+Alt+H / K']  # the key bind panel (Ctrl+Alt+K) shares the row
         self.assertIn('Ctrl+Alt+G', row); self.assertIn('B', row)
         self.assertLessEqual(len(row), 48)  # ipc.hpp kMaxHelpText
         self.assertIn(row, (ROOT / 'spike/tests/help_card_test.cpp').read_text())  # the fit test uses the real row

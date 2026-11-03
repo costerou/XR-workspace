@@ -3,6 +3,7 @@
 #include "xr/video.hpp"
 #include "xr/view.hpp"
 #include "xr/desktops.hpp"
+#include "xr/binds_panel.hpp"
 #include <array>
 #include <deque>
 #include <optional>
@@ -13,7 +14,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
-                       overview_pointer, roll, desktops, environment };
+                       overview_pointer, roll, desktops, environment, binds };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -42,8 +43,12 @@ struct HelpPayload {
 // object exactly those four keys (the removed yaw / pitch / roll are rejected), every field an integer inside
 // kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS): x / y the orbit round you in tenths of a
 // degree (view.hpp Placement), distance in percent, curvature in degrees. Every desktop always faces you.
+// Optional "glide": 1..kMaxPlacementGlideMs milliseconds (tools/native_spike/view.py GLIDE_MS): every desktop slides to its
+// new placement together along one smootherstep curve over that time (view.hpp glide_toward), instead of the quick
+// exponential easing; the supervisor asks for it when a discrete edit bumped other desktops out of the way (bump.py).
 struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, curvature = 0; };
-struct PlacementPayload { std::vector<WirePlacement> desktops; };
+constexpr std::uint32_t kMaxPlacementGlideMs = 1000;
+struct PlacementPayload { std::vector<WirePlacement> desktops; std::uint32_t glide_ms = 0; };
 // Placement panel (a glass pill expanded: a pill click or Ctrl+Alt+L in the supervisor; Ctrl+Alt+P is pose prediction),
 // display only (the supervisor owns the state and applies placements with `placement`):
 // {"open":bool,"desktop":0..n-1,"field":"x"|"y"|"distance"|"curvature","placements":[n placements]}, n = 1..kMaxDesktops
@@ -68,6 +73,9 @@ struct PlacementMenuPayload {
     // The Scale dropdown (optional): "scale" percent (0 if absent), "scales" percents increasing (bit i set for
     // glass.hpp kScalePercents[i]), "picker" (its list open; open panels only).
     std::uint16_t scale = 0; std::uint8_t scales = 0; bool picker = false;
+    // The Resolution dropdown (optional): "resolution" [width, height] (0 x 0 if absent; desktops.hpp bounds, even),
+    // "resolution_picker" (its list open; open panels only, never with "picker").
+    std::uint16_t resolution_w = 0, resolution_h = 0; bool resolution_picker = false;
     // The background (optional; the same for every desktop's panel): "background" a kBackgrounds name, "brightness" its
     // percent, "background_picker" its dropdown's list open (open panels only, never with "picker"). `field` may also be
     // "brightness": the Brightness row is the selected one (field = kPlacementMenuBrightness).
@@ -108,6 +116,8 @@ struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool
 // Optionally also "drag":{"w":int,"h":int,"target":int} while a window is being dragged to another desktop
 // (free_pointer.py window drag): the ghost, a w x h canvas px outline (1..kMaxGhostPx each) centred on the dot, and the
 // desktop it would land on (-1..kMaxDesktops-1, -1: none), framed in the accent colour.
+// Optionally also "look":string over a handle (free_pointer.py POINTER_LOOKS, view.hpp PointerLook): "resize_ew", "resize_ns",
+// "resize_nwse", "resize_nesw", "move" or "rotate"; absent: the plain dot.
 // Malformed: rejected with kInvalidOverviewPointerCode and dropped, like move_handle.
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
 constexpr std::int32_t kMaxPointerAz = 18000, kMaxPointerEl = 9000, kMaxGhostPx = 512;
@@ -115,12 +125,13 @@ struct OverviewPointerPayload {
     bool visible = false; std::int32_t x = 0, y = 0; bool held = false;
     bool directed = false; std::int32_t az = 0, el = 0;  // az / el given (1/100 degree)
     bool drag = false; std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // a window drag in progress
+    PointerLook look = PointerLook::plain;
 };
-// Roll-level icons (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
+// Roll brackets (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
 // {"roll":[r,...],"icons":[i,...],"hover":-1..kMaxDesktops-1,"side":s,"active":bool}. roll: each desktop's levelling roll
 // (view.hpp Placement::roll) in hundredths of a degree, counter-clockwise as you see it, -kMaxRoll..kMaxRoll. icons: "none",
-// "ccw" (the icon above the top-left corner), "cw" (above the top-right; glass.hpp roll_icon) or "both". hover: the desktop
-// whose icon is under the pointer or held (-1: none), side: which of its icons ("ccw" / "cw"; "none" exactly when hover is
+// "ccw" (the arrow bracket round the top-left corner), "cw" (round the top-right; glass.hpp roll_bracket) or "both". hover:
+// the desktop whose bracket is under the pointer or held (-1: none), side: which of them ("ccw" / "cw"; "none" exactly when hover is
 // -1); active: it is being dragged. Exactly kMaxDesktops entries each, in managed-output order
 // (desktops beyond this run's outputs are ignored). Malformed: rejected with kInvalidRollCode and dropped, like move_handle.
 constexpr const char* kInvalidRollCode = "invalid_roll";
@@ -134,8 +145,13 @@ struct RollPayload {
 // distinct XR-1..XR-kMaxDesktops names (never the presentation output; parse_capture_list rules), in any order: a name
 // not captured yet starts a capture once Hyprland advertises that output, a captured name left out stops its capture
 // (before the supervisor removes the output, so its going is expected). `renew` (optional, names from `outputs`): restart
-// those captures (the supervisor reshaped the output). Malformed: rejected like any malformed frame (the renderer stops).
-struct DesktopsPayload { std::vector<std::string> outputs, renew; };
+// those captures (the supervisor reshaped the output). `ease` (optional bool; Ctrl+Alt+R): the tiles ease to the layout
+// this change leads to, instead of jumping (view.hpp TileEase). Malformed: rejected like any malformed frame (the renderer
+// stops).
+struct DesktopsPayload { std::vector<std::string> outputs, renew; bool ease = false; };
+// The key bind panel (tools/native_spike/keybinds.py), display only: binds_panel.hpp BindPanelState, whose comment has the
+// wire form. Malformed: rejected with kInvalidBindsCode and dropped, like placement_menu (a redraw is not worth a session).
+constexpr const char* kInvalidBindsCode = "invalid_binds";
 // The background behind the desktops and a VR video (xr/environment.hpp; tools/native_spike/environment.py), display only:
 // {"background":name,"brightness":percent} (exactly those keys): a kBackgrounds name ("none" fades it out) and
 // kBrightnessMin..kBrightnessMax. Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
@@ -143,7 +159,7 @@ constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
 struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightness = 100; };  // background: index into kBackgrounds
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
-                                    EnvironmentPayload>;
+                                    EnvironmentPayload, BindPanelState>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -153,11 +169,12 @@ struct ControlMessage {
 };
 Result<ControlMessage> decode_control(std::string_view frame);
 // A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle,
-// overview_pointer, roll or environment payload. It
+// overview_pointer, roll, environment or binds payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
     return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
-           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode;
+           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode ||
+           e.code == kInvalidBindsCode;
 }
 class ControlQueue {
 public:

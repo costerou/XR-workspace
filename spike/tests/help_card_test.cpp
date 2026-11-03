@@ -94,18 +94,18 @@ void check_fit(const HudImage& im, std::uint32_t w, std::uint32_t h, const std::
 
 std::vector<HelpRow> help_rows() {  // exactly view.help_rows(), sections marked (tests/native_spike/test_resize.py checks)
     return {{"Ctrl+Alt+Up", "Maximize the selected desktop"},
-            {"Ctrl+Alt+Down", "Overview: free mouse, pills, corners"},
+            {"Ctrl+Alt+Down", "Overview: use any desktop; pills, corners"},
             {"Ctrl+Alt+Left / Right", "Previous / next desktop"},
             {"Ctrl+Alt+[ / ]", "Less / more space between desktops"},
-            {"Ctrl+Alt+Space", "Recenter the view"},
+            {"Ctrl+Alt+Space / R", "Recenter / reset to 3 flat desktops"},
             {"Ctrl+Alt+V", "Maximized: follow / locked", true},
             {"Ctrl+Alt+P", "Toggle pose prediction"},
             {"Ctrl+Alt+T", "Typing mode: XR keys off / on"},
             {"Ctrl+Alt+D", "Privacy: main display off / on"},
             {"Ctrl+Alt+E", "Background: none / last used"},
-            {"Ctrl+Alt+L", "Placement pill of the selected desktop", true},
+            {"Ctrl+Alt+L", "Placement pill; R in it resets, levels", true},
             {"Ctrl+Alt+O / U / C", "VR video: file / web link / hide controls"},
-            {"Ctrl+Alt+H", "Help; Ctrl+Alt+G/B: window to glasses/back", true},
+            {"Ctrl+Alt+H / K", "Help/binds; Ctrl+Alt+G/B: window to XR/back", true},
             {"Ctrl+Alt+PgUp / PgDn", "Help: previous / next page"}};
 }
 // `n` rows in sections of `section` rows, distinct text per row.

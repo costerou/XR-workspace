@@ -3,7 +3,9 @@
 #include "xr/metrics.hpp"
 #include "xr/video.hpp"
 #include "xr/hud.hpp"
+#include "xr/binds_panel.hpp"
 #include "xr/desktops.hpp"
+#include "xr/view.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -90,7 +92,10 @@ public:
     void recenter();
     // Per-desktop placement in capture order, each {x, y, distance, curvature} in the validated wire units of ipc.hpp
     // WirePlacement (every desktop always faces you); entries beyond the captured outputs are ignored. GPU composition only.
-    void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements);
+    // `glide_ms` > 0 (ipc.hpp PlacementPayload glide): every desktop glides from where it is drawn to its new placement
+    // together over that time (view.hpp glide_toward); 0: the drawn placements ease toward it (ease_toward), and a glide
+    // still under way ends there, eased on from where it got to.
+    void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements, std::uint32_t glide_ms = 0);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
     // The background behind the desktops and a VR video (xr/environment.hpp; ipc.hpp EnvironmentPayload): `background` an
     // index into kBackgrounds (0, None, fades it out), `brightness` in percent. World-locked in every viewing mode, in the
@@ -112,6 +117,9 @@ public:
     // section sizes (empty: one section). `turn` -1 / +1 flips a shown card to the previous / next page (hud.hpp).
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows,
                   const std::vector<std::uint32_t>& sections = {}, std::int32_t turn = 0);
+    // Key bind panel (binds_panel.hpp; Ctrl+Alt+K in the supervisor): fades in/out in the middle of the view like the help
+    // card, over it (the supervisor never shows both). Display only.
+    void set_binds(const BindPanelState& state);
     // Placement panel (display only; placements are applied by set_placements): with `open`, desktop `desktop`'s glass
     // pill expands into its placement panel (glass.hpp) and any other collapses; closed, every pill is a pill again.
     // `desktop` 0..count-1, `field` 0..3 in WirePlacement order; `placements` for every desktop in set_placements' units,
@@ -123,6 +131,8 @@ public:
     // stop, new names start once Hyprland advertises them, `renew` restarts those captures. Captures stay in name order,
     // which is the order of every per-desktop list (placements, the overview's tiles).
     void set_desktops(const std::vector<std::string>& outputs, const std::vector<std::string>& renew = {});
+    // The tiles ease to the layout the next set_desktops leads to, instead of jumping (view.hpp TileEase): call it first.
+    void ease_tiles();
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.
@@ -131,10 +141,10 @@ public:
     // frosted capsule under every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging).
     // Overview only, never moving on its own. GPU composition only.
     void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
-    // Roll-level icons and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about
+    // Roll brackets and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about
     // its line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement, every
-    // zoom); `icons` per desktop -1 none, 0 above the top-left corner (counter-clockwise), 1 above the top-right
-    // (clockwise), 2 both, drawn with the pills (overview only); `hover` / `side` the desktop and arrow that is brighter,
+    // zoom); `icons` per desktop -1 none, 0 the bracket round the top-left corner (counter-clockwise), 1 round the top-right
+    // (clockwise), 2 both, drawn with the pills (overview only); `hover` / `side` the desktop and bracket that is brighter,
     // brightest when `active`.
     void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
                   std::int8_t side, bool active);
@@ -151,9 +161,11 @@ public:
     // Overview only (hidden while zoomed or zooming), never moving on its own. GPU composition only. `directed`: drawn in
     // direction (az, el) (1/100 degree, ipc.hpp OverviewPointerPayload) instead, anywhere round you (view.hpp direction_disc).
     // ghost_w / ghost_h > 0: a window is being dragged (ipc.hpp OverviewPointerPayload drag): its ghost outline round the dot
-    // and, target >= 0, the desktop it would land on framed in the accent.
+    // and, target >= 0, the desktop it would land on framed in the accent. `look`: what a press would do there, drawn as
+    // marks round the dot (view.hpp PointerLook).
     void set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed = false, std::int32_t az = 0,
-                              std::int32_t el = 0, std::int32_t ghost_w = 0, std::int32_t ghost_h = 0, std::int32_t target = -1);
+                              std::int32_t el = 0, std::int32_t ghost_w = 0, std::int32_t ghost_h = 0, std::int32_t target = -1,
+                              PointerLook look = PointerLook::plain);
     // The overview's canvas and settled desktop slots (view.hpp overview_geometry_json) when they changed since the last
     // call; the supervisor hit-tests the free pointer with them. GPU composition only.
     std::optional<std::string> take_overview_geometry();

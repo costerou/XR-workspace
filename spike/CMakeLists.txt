@@ -272,8 +272,9 @@ if(XR_ENABLE_PRESENTATION)
   # approved 2026-10-31). Missing font at runtime -> built-in pixel font, reported.
   pkg_check_modules(FONT REQUIRED IMPORTED_TARGET freetype2 fontconfig)
   # video.cpp: VR video maths + controls card state; material*.cpp: the Material Design 3 palette, tokens and drawing.
+  # binds_panel.cpp: the key bind panel's card (Ctrl+Alt+K, tools/native_spike/keybinds.py).
   add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp src/glass_theme.cpp src/material.cpp
-              src/material_draw.cpp src/environment.cpp)
+              src/material_draw.cpp src/environment.cpp src/binds_panel.cpp)
   target_link_libraries(xr_hud PUBLIC xr_types xr_pose xr_view PRIVATE PkgConfig::FONT)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
@@ -291,6 +292,13 @@ if(XR_ENABLE_PRESENTATION)
     target_compile_options(help_card_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endif()
   add_test(NAME help_card COMMAND help_card_test)
+  # Key bind panel card (binds_panel.hpp): fit at every scale, scrolling, the row states' M3 roles, the OLED cap, the fade.
+  add_executable(binds_panel_test tests/binds_panel_test.cpp)
+  target_link_libraries(binds_panel_test PRIVATE xr_hud)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(binds_panel_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME binds_panel COMMAND binds_panel_test)
   # Glass pills (glass.hpp): geometry, look, panel content, animation.
   add_executable(glass_test tests/glass_test.cpp)
   target_link_libraries(glass_test PRIVATE xr_hud)

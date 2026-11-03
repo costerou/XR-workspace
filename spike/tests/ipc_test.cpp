@@ -156,9 +156,23 @@ int main() {
     require(pp.desktops.size() == 3 && pp.desktops[0].distance == 100 && pp.desktops[1].x == -1800 && pp.desktops[1].y == 900 &&
             pp.desktops[1].distance == 200 && pp.desktops[1].curvature == 120 && pp.desktops[2].x == 1800 && pp.desktops[2].y == -900 &&
             pp.desktops[2].distance == 10 && pp.desktops[2].curvature == 0);
+    require(pp.glide_ms == 0);  // no glide: the quick exponential easing
     // Key order does not matter.
     require(std::holds_alternative<xr::ControlMessage>(
         xr::decode_control(placement(R"({"desktops":[{"curvature":3,"distance":75,"y":-1,"x":2}]})"))));
+    // Optional glide (bumping, view.py GLIDE_MS): 1..kMaxPlacementGlideMs whole milliseconds, either side of "desktops".
+    for (const auto& [payload, ms] : {std::pair{R"({"desktops":[)" + flat + R"(],"glide":240})", 240u},
+                                      std::pair{R"({"glide":1,"desktops":[)" + flat + "]}", 1u},
+                                      std::pair{R"({"desktops":[)" + flat + R"(],"glide":1000})", 1000u}}) {
+        auto gd = xr::decode_control(placement(payload));
+        require(std::holds_alternative<xr::ControlMessage>(gd));
+        require(std::get<xr::PlacementPayload>(std::get<xr::ControlMessage>(gd).payload).glide_ms == ms);
+    }
+    for (const std::string& bad : {R"({"desktops":[)" + flat + R"(],"glide":0})", R"({"desktops":[)" + flat + R"(],"glide":1001})",
+                                  R"({"desktops":[)" + flat + R"(],"glide":-5})", R"({"desktops":[)" + flat + R"(],"glide":2.5})",
+                                  R"({"desktops":[)" + flat + R"(],"glide":true})", R"({"desktops":[)" + flat + R"(],"glide":"240"})",
+                                  R"({"desktops":[)" + flat + R"(],"glide":240,"extra":1})", std::string(R"({"glide":240})")})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(placement(bad))));
     auto with = [&](const std::string& key, const std::string& value) {
         auto p = flat; const auto at = p.find("\"" + key + "\":") + key.size() + 3;
         return p.substr(0, at) + value + p.substr(p.find_first_of(",}", at));
@@ -228,10 +242,15 @@ int main() {
         require(dp && dp->outputs == std::vector<std::string>({"XR-1", "XR-4"}) && dp->renew == std::vector<std::string>({"XR-4"}));
         auto plain = xr::decode_control(set(R"({"outputs":["XR-2"]})"));
         require(std::holds_alternative<xr::ControlMessage>(plain) && std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(plain).payload).renew.empty());
+        require(!std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(plain).payload).ease);  // only when asked
+        auto eased = xr::decode_control(set(R"({"outputs":["XR-2"],"renew":["XR-2"],"ease":true})"));  // Ctrl+Alt+R
+        require(std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(eased).payload).ease);
+        require(!std::get<xr::DesktopsPayload>(std::get<xr::ControlMessage>(xr::decode_control(set(R"({"outputs":["XR-2"],"ease":false})"))).payload).ease);
         for (const char* bad : {R"({})", R"({"outputs":[]})", R"({"outputs":["XR-5"]})", R"({"outputs":["XR-0"]})", R"({"outputs":["XR-1","XR-1"]})",
                                 R"({"outputs":["DP-1"]})", R"({"outputs":["XR-1","XR-2","XR-3","XR-4","XR-1"]})", R"({"outputs":"XR-1"})",
                                 R"({"outputs":["XR-1"],"renew":["XR-2"]})", R"({"outputs":["XR-1"],"extra":1})", R"({"outputs":["xr-1"]})",
-                                R"({"outputs":["XR-10"]})", R"({"outputs":[1]})"}) {
+                                R"({"outputs":["XR-10"]})", R"({"outputs":[1]})", R"({"outputs":["XR-1"],"ease":1})",
+                                R"({"outputs":["XR-1"],"ease":"true"})", R"({"ease":true})"}) {
             auto rejected = xr::decode_control(set(bad));
             require(std::holds_alternative<xr::Error>(rejected) && !xr::ignorable_control_error(std::get<xr::Error>(rejected)));
         }
@@ -279,5 +298,49 @@ int main() {
         xr::ControlQueue q("run", "session");
         require(std::holds_alternative<xr::Error>(q.push(frame)));  // identity is still checked
     }
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu: PASS\n";
+    {  // The key bind panel (binds_panel.hpp BindPanelState): display only; a malformed payload is dropped, never fatal.
+        auto binds = [](const std::string& payload) {
+            return "{\"schema\":1,\"request_id\":1,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":" + payload + "}\n";
+        };
+        const std::string row = R"({"action":"Next desktop","keys":"Ctrl+Alt+Right","note":"","state":"normal"})";
+        const std::string open = R"({"visible":true,"title":"Key binds","rows":[)" + row +
+            R"(,{"action":"Overview","keys":"Ctrl+Alt+Delete","note":"Off: Hyprland binds Ctrl+Alt+Delete","state":"conflict"}],)"
+            R"("selected":1,"hint":"Up/Down pick","status":"","alert":true})";
+        const auto shown = xr::decode_control(binds(open));
+        require(std::holds_alternative<xr::ControlMessage>(shown));
+        const auto& m = std::get<xr::ControlMessage>(shown);
+        require(m.op == xr::ControlOp::binds);
+        const auto& p = std::get<xr::BindPanelState>(m.payload);
+        require(p.visible && p.title == "Key binds" && p.rows.size() == 2 && p.selected == 1 && p.alert && p.status.empty());
+        require(p.rows[1].state == xr::BindRowState::conflict && p.rows[1].note == "Off: Hyprland binds Ctrl+Alt+Delete");
+        require(p.rows[0].keys == "Ctrl+Alt+Right" && p.rows[0].state == xr::BindRowState::normal);
+        for (const char* state : {"custom", "capture"}) {
+            auto r = row; r.replace(r.find("normal"), 6, state);
+            const auto ok = xr::decode_control(binds(R"({"visible":true,"title":"K","rows":[)" + r + R"(],"selected":0,"hint":"h","status":"s","alert":false})"));
+            require(std::holds_alternative<xr::ControlMessage>(ok));
+        }
+        const auto hidden = xr::decode_control(binds(R"({"visible":false})"));
+        require(std::holds_alternative<xr::ControlMessage>(hidden) && !std::get<xr::BindPanelState>(std::get<xr::ControlMessage>(hidden).payload).visible);
+        for (const auto& bad : {std::string(R"({"visible":false,"rows":[]})"), std::string(R"({})"), std::string(R"({"visible":1})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":1,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"","rows":[)" + row + R"(],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":0,"hint":"","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":0,"hint":"h","status":"","alert":0})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":0,"hint":"h","status":"","alert":false,"x":1})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"B","note":"","state":"loud"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"","note":"","state":"normal"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"B","state":"normal"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"\u00e9","keys":"B","note":"","state":"normal"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"B","note":")") + std::string(97, 'n') +
+                                    R"(","state":"conflict"}],"selected":0,"hint":"h","status":"","alert":false})"}) {
+            const auto dropped = xr::decode_control(binds(bad));
+            require(std::holds_alternative<xr::Error>(dropped) && xr::ignorable_control_error(std::get<xr::Error>(dropped)));
+        }
+        std::string many = R"({"visible":true,"title":"K","rows":[)";
+        for (std::size_t i = 0; i <= xr::kMaxBindRows; ++i) many += (i ? "," : "") + row;
+        const auto too_many = xr::decode_control(binds(many + R"(],"selected":0,"hint":"h","status":"","alert":false})"));
+        require(std::holds_alternative<xr::Error>(too_many) && xr::ignorable_control_error(std::get<xr::Error>(too_many)));
+    }
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu, binds: PASS\n";
 }

@@ -11,7 +11,8 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
-pointer script (F1–F22) or the round-you script (O1–O19) has run in an isolated VM or been tried in the glasses.
+pointer script (F1–F22), the round-you script (O1–O19) or the roll bracket script (B1–B16) has run in an isolated VM or
+been tried in the glasses.
 
 ## Placement pills: automated coverage
 
@@ -95,6 +96,26 @@ Before the glasses run, run `python -m tools.native_spike.bind_check`. It must r
 longer name Ctrl+Alt+M or a mouse-mode left button. Then rebuild the renderer and record its sha256 (other sessions
 rebuild in shared worktrees).
 
+## Remembered layout and Ctrl+Alt+R: glasses test script (Cody)
+
+Automated coverage (offline only): `tests/native_spike/test_remember_setup.py`, `test_layout_reset.py`,
+`tests/xr_controller/test_state.py`, ctest `help_card`. Needs your usual go-ahead for a live run; nothing here has been
+tried in the glasses.
+
+| # | Do | Expect |
+|---|----|--------|
+| M1 | In a session, add a fourth desktop, make XR-2 ultrawide, set XR-3's scale to 125%, move XR-1 up and to the left, curve XR-4, roll XR-2 a few degrees with its roll arrow. Wait 2 s, stop the session and start a new one | Four desktops come back with the same sizes and scales, XR-1 up and left, XR-4 curved, XR-2 rolled. The panel's **Startup options** preview shows four desktops before you start. |
+| M2 | Maximize a desktop, press Ctrl+Alt+V (locked), stop and start again, then maximize | The layout comes back; the maximized desktop follows your head again (follow / locked is not remembered). |
+| M3 | Open a pill, press **Ctrl+Alt+R** once and wait 4 s | A notification says "Press Ctrl+Alt+R again to reset all monitors". Nothing else happens: the pill stays open and nothing moves. |
+| M3a | With the same layout (XR-4 holding a window on two workspaces, XR-3 holding one window), press **Ctrl+Alt+R** twice within 3 s | The pill closes. Every desktop glides back into the flat row in about half a second, level, the gaps going back to the default, while XR-4 drops down out of the view. Then the row settles along the same smooth curve as XR-2 and XR-3 go back to 1920×1080 at 100%, with no jump. XR-4's windows are on XR-3, each workspace still its own (not on DP-1). A notification says the monitors were reset and where XR-4's windows went. |
+| M4 | Press Ctrl+Alt+H | The recenter row reads "Ctrl+Alt+Space / R  Recenter / reset to 3 flat desktops". |
+| M5 | Stop and start again. Then look at `previous_setup` in `~/.config/viture-workspace/profiles.json` | Three flat 1920×1080 desktops. `previous_setup` holds the four-desktop layout from before the reset, spacing included. |
+| M5a | Press Ctrl+Alt+R twice again on the default layout | The notification confirms it and nothing visible moves. `previous_setup` still holds the four-desktop layout. |
+| M5b | Remove a desktop so there are two, then press Ctrl+Alt+R twice | The two glide flat, then the row narrows smoothly and the new desktop grows out of its slot. |
+| M6 | Maximize a desktop and press Ctrl+Alt+R twice | Back to the overview first, then the reset as in M3a. |
+| M7 | Play a VR video and press Ctrl+Alt+R; press Ctrl+Alt+T (typing mode) and press Ctrl+Alt+R | During the video nothing changes and a notification says to close it first. In typing mode the key reaches the focused app. |
+| M8 | Note anything that looks wrong | How both glides look together, how a desktop looks while its shape changes (the picture stretches for a moment), whether the reshape flickers, how long the desktops take to come back, which workspace XR-3 shows after XR-4's move, where the notifications show. |
+
 ## Glass pills: glasses test script (Cody)
 
 This needs your usual go-ahead for a live run. Note the controller worktree HEAD, `git status`, the controller MainPID
@@ -119,7 +140,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G8 | Open XR-1's pill, then click XR-3's pill | XR-1's panel collapses while XR-3's grows. Only one is ever open. |
 | G9 | With XR-3 open, click in empty space between the desktops | The panel collapses. Nothing else happens. |
 | G10 | Open XR-3, then bring the dot just onto XR-2's edge (as in F13) and click without moving | The panel collapses, XR-2 is selected and the cursor comes back there. |
-| G11 | Open XR-3 again. Move the dot into XR-3 so the normal cursor shows, and click a window there | The window gets the click and the panel stays open: clicks inside a desktop go to its windows, and the run never sees them. |
+| G11 | Open XR-3 again. Move the dot into XR-3, click a window there, then type "run" | The window gets the click and the panel closes (since 2026-11-03), so the letters reach the window: R does not reset XR-3 and U / N do nothing to the desktops. |
 | G12 | Press Escape | The panel collapses. In a terminal, the arrows, Tab, R and Escape type normally again. |
 | G13 | Select XR-1 (Ctrl+Alt+Left), press Ctrl+Alt+L, then Ctrl+Alt+L again | XR-1's pill opens, then closes. |
 | G14 | Zoom into XR-2 (Ctrl+Alt+Right, Ctrl+Alt+Up) and press Ctrl+Alt+L | The view zooms out to the overview, and only then XR-2's pill grows into its panel: the whole morph is seen, as in G4. It does not pop in nearly full size. |
@@ -144,7 +165,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G33 | Change XR-1 and close its pill at once (Escape). Stop the session and start a new one | XR-1 comes back where you left it (saved on close). |
 | G34 | With a pill open, move a slider in the settings panel's **Place** tab | The desktop and the open panel's value both update. The next arrow press continues from the Place tab's value. |
 | G35 | With a pill open, press Ctrl+Alt+H, then Ctrl+Alt+P | The help card shows in front as usual and the panel stays open behind it. Its Ctrl+Alt+L row names the placement pill. Ctrl+Alt+P toggles prediction (its pop-up shows) and opens nothing. |
-| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the roll arrows, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
+| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the roll brackets, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
 
@@ -163,13 +184,13 @@ Automated coverage (offline only):
 - `tests/native_spike/test_free_pointer.py`: the `overview_geometry` / `overview_pointer` contract (shared fixture with
   the renderer), projection and hit testing with the renderer's placement maths (the orbit round you, distance and
   curvature, every desktop facing you; front desktop first), corner and pill zones outside the desktops, drag maths (the
-  pill stays under the pointer, the corner follows its diagonal, clamps, snap, overlap guard), the desktop / free mode
+  pill stays under the pointer, the corner follows its diagonal, clamps, snap, bumping), the desktop / free mode
   switch (edge, monitor crossing, keyboard jumps, the 4 px return margin, samples before a hand-back), clicks (pill,
   corner, focus, empty space, lost release), gates (zoom, typing, video, idle 30 s), the 250 Hz sampler (grab,
   re-centre, hand-back, errors, reload, cleanup), the generated Lua run by a Lua interpreter against a stub `hl`, and
   the run wiring.
 - `tests/native_spike/test_resize.py`, `test_grab_pill.py`: the shared left-button binds, their removal after a dead
-  run, the overlap guard, and the help card row.
+  run, a smoke test of bumping, and the help card row.
 - `spike/tests/free_pointer_test.cpp`: `overview_pointer` decoding (malformed payloads dropped, never fatal), the
   `overview_geometry` line, the dot's shape and its levels at or under 191/255.
   `spike/tests/resize_handle_test.cpp` still covers the bracket; the pills are in `glass_test.cpp` (above).
@@ -189,9 +210,9 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F6 | Bring the dot round XR-1's side (or push the mouse down past XR-1's bottom edge) onto the pill under XR-1 | That pill gets brighter. No corner bracket. |
 | F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot, facing you all the way. It is not stopped one desktop height down or width left of its slot: it goes as far as the dot goes (in anchor mode on round you, see O8). |
 | F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values in degrees. The dot stays where it is. |
-| F9 | Drag XR-1's pill right toward XR-2 at the same height | It stops just before touching XR-2, with a small gap (XR-1's pill strip counts as part of XR-1). Lift it above the row first and it passes over. Dropped within half a degree of its slot it snaps in. O11–O14 test the guard further. |
-| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner. |
-| F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). |
+| F9 | Drag XR-1's pill right toward XR-2 at the same height | XR-1 keeps following the dot and bumps XR-2 out of the way (and XR-3 after it), with a small gap kept between them (XR-1's pill strip counts as part of XR-1). Drag back: XR-2 and XR-3 stay where they were pushed. Lift it above the row first and it passes over without bumping. Dropped within half a degree of its slot it snaps in. See B1–B16. |
+| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner, and the dot shows two diagonal arrows. |
+| F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). Growing bumps XR-2 out of the way; shrinking leaves it there. |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
 | F13 | Highlight XR-1 (Ctrl+Alt+Left), then on XR-2 push the mouse just past its top edge so the dot shows on the edge, and click without moving | XR-2 is highlighted and the cursor appears there. That click does not reach the window; the next one does. |
 | F14 | Click with the dot in empty space | Nothing happens. No window gets the click. |
@@ -203,6 +224,26 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F20 | Stop the session from the panel while the dot shows (or mid-drag), then left-click on DP-1 | The cursor is visible and the click works. Moves and sizes made are back next session. |
 | F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no pills; nothing moves (the video gate ignores the click ops). |
 | F22 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: moving and resizing never change pixels or scale. |
+| F23 | (Full interaction, 2026-11-03.) Move the dot from XR-1 onto XR-2 and XR-3 in turn; on each, click, right-click, scroll, drag inside a window, select text and type | XR-2 / XR-3 is highlighted as soon as the dot is on it, the cursor is right under the dot, and every click, menu, scroll, drag and key reaches the window under the dot there. Nothing is maximized. |
+| F24 | Repeat F23 on a desktop moved round you and curved (Place tab), rolled (a roll arrow), resized (a corner handle) and set to 150 % (pill's Scale), and click a window's close button right in the desktop's corner | The click lands where the dot is drawn every time, corners included (the close button works; no resize starts). |
+| F25 | Move the dot onto XR-3 and type without clicking | The letters reach XR-3 (the window under the dot, or XR-3's focused window). |
+| F26 | Press and hold on a window for a second, then drag slowly (e.g. select text) | The app gets the long press and the drag; no window outline lifts off. |
+| F27 | Click a pill, a roll arrow, and just outside a corner (then drag there) | Each does its XR action only; no window reacts, and the highlight does not move. |
+| F28 | (One cursor, 2026-11-03.) Sweep the dot slowly from a window out across a desktop's edge, over the space, and back in | No jump and no change of speed at the edge. It is the same dot all the way: plain over the window, two arrows on the edge, plain again further out. Back over the edge it shows the arrows, then the window takes it. |
+| F29 | Push the dot against each of a desktop's four edges and corners from inside | The dot shows two arrows the way that edge or corner resizes: left-right, up-down, or diagonal. A corner also shows the bracket. |
+| F30 | On each edge and corner, press and drag out, then in | The desktop grows and shrinks about its centre, keeping its shape, the edge or corner following the dot. The arrows stay until you let go, even past the handle. Place tab: Distance changes. |
+| F31 | Hover a pill, then a rotate arrow, then a window | Four arrows, then two arrows chasing round the dot, then the plain dot. |
+| F32 | Hold a button down on a window | The dot brightens a little, as on a handle. |
+| F33 | (Super drags, 2026-11-03.) Hold Super and left-drag a tiled window around its desktop | Hyprland's move, as on a monitor; the dot shows four arrows. |
+| F34 | Carry on past the edge, across the gap and onto another desktop, then let go | The dot crosses the gap smoothly; the window waits at the edge with at most a tiny shake, then appears under the dot on the new desktop, which is highlighted. No zoom, turn or switch animation. The window tiles there. `hyprctl clients` shows it on that desktop's workspace. |
+| F35 | The same with a floating window, held by its far end, and let go just inside the new desktop | The window lands on that desktop at once, whole, with the dot still over it, not a monitor's width away. `hyprctl clients` shows it on that desktop's workspace, and it has the focus. |
+| F36 | During a drag, pass the dot over a pill, a roll arrow and a corner | Nothing lights up or moves; no panel opens. Then let go between desktops: the window stays at the edge, and the dot is free. |
+| F37 | Let go of Super before the mouse button mid-drag | The drag ends on the button as usual, and the dot goes on as a normal cursor. |
+| F38 | Hold Super and right-drag a window's corner to the desktop's edge and past it | The window resizes as usual; the mouse stays on that desktop. |
+| F39 | With the dot on a pill or in empty space, Super + click and drag | No desktop moves and no window drags. A tiled window under the parked cursor may flicker once. |
+| F40 | Maximized, Super-drag a window hard against an edge that has a desktop beyond it | The view does not switch. |
+| F41 | Typing mode (Ctrl+Alt+T): Super-drag a window across to another desktop and drop it, then type | The dot shows for the drag, with no pills or arrows, then the normal cursor is back on the new desktop. The window landed there, and the letters reach it. |
+| F42 | Typing mode: Super + right-drag a window past its desktop's edge | It resizes as usual and the cursor stays on that desktop. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
@@ -218,8 +259,8 @@ above were changed for this.
 Automated coverage (offline only):
 
 - `tests/native_spike/test_orbit.py`: `tools/native_spike/orbit.py`: the placement maths, the dot's linear reach past the
-  view and the re-grab of a pill round you, the drag target (wrap, snap, poles) and the no-overlap guard (stop before
-  touching, slide, no jumping through, an existing overlap never deeper, no flip round behind you).
+  view and the re-grab of a pill round you, the drag target (wrap, snap, poles) and the footprints. The no-overlap guard
+  that stopped a drag at a neighbour gave way to bumping on 2026-11-03 (`test_bump.py`, below).
 - `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`: hit testing and drags on desktops that are moved
   round you and face you; the four-row panel.
 - `test_placement_menu.py`: the four fields and their keys, Left/right wrapping past behind you.
@@ -251,15 +292,48 @@ tab: all zero, Distance 100%), use anchor mode (Ctrl+Alt+V) unless a step says o
 | O8 | Keep dragging left past the edge of the view, to the end of the dot's reach, and release | Past the edge XR-1 speeds up smoothly, with no jump at the edge. At the end of the reach it is directly behind you. Turn round: it faces you. |
 | O9 | Drag XR-3's pill up past the top of the view, to the end of the reach, and release | XR-3 is straight overhead, facing down at you. |
 | O10 | **Re-grab.** Turn round to look at XR-1 behind you. Move the mouse left past the edge of the view, the way you dragged it, until XR-1's pill lights up. Hold the button and drag back right, then release near its slot | The pill lights up although you can't see the dot. XR-1 follows the drag back round to the row. Dropped within half a degree of its slot, it snaps in. XR-1's corners and the desktop itself never light up this way. |
-| O11 | **No overlap.** Drag XR-1's pill right toward XR-2 at the same height | It stops just before touching XR-2, with a small gap (XR-1's pill strip counts as part of XR-1). The two never cover each other as you see them. |
-| O12 | Keep dragging right and a little up | XR-1 slides up along XR-2's edge instead of stopping dead, and passes over once it is clear. |
-| O13 | Bring XR-1 back beside XR-2 at the same height and flick the mouse fast far to the right | XR-1 stops beside XR-2 or slides along its edge. It never jumps to XR-2's other side and never covers it. |
-| O14 | **Existing overlap.** Open XR-1's pill and use the Left/right keys to push it partly over XR-2. Close the panel. Drag XR-1's pill left, then right | Left, away from XR-2, moves freely. Right does not take it further onto XR-2. It never gets stuck. Press R on XR-1 afterwards. |
+| O11 | **No overlap.** Drag XR-1's pill right toward XR-2 at the same height | XR-1 bumps XR-2 (and then XR-3) out of the way, with a small gap kept (XR-1's pill strip counts as part of XR-1). The desktops never cover each other as you see them. |
+| O12 | Lift XR-1 so that it is half above XR-2, then drag it right | XR-2 is pushed sideways ahead of it, steadily, never jumping or switching to being pushed down and back. Lift XR-1 almost clear: XR-2 is nudged down a little and XR-1 passes over. |
+| O13 | Bring XR-1 back beside XR-2 at the same height and flick the mouse fast far to the right | XR-2 (and XR-3) are pushed ahead of XR-1 all the way. XR-1 never jumps to XR-2's other side and never covers it. |
+| O14 | **Existing overlap.** Make XR-1 and XR-2 overlap with the settings panel of an older build, if you have one (with this build every way of moving bumps). Drag XR-1's pill left, then right | Left, away from XR-2, moves freely. Right pushes XR-2 so the overlap never gets deeper. It never gets stuck. |
 | O15 | **Zoom.** Put XR-1 behind you and XR-3 overhead again (O8, O9). Select XR-2 and zoom in (Ctrl+Alt+Up), then zoom out. Then select XR-1 and zoom in | Zoomed into XR-2, it is flat in front of you and XR-1 and XR-3 are back at their row slots beside it. On zoom-out they go back behind you and overhead. Zoomed into XR-1, it comes flat in front of you. |
 | O16 | **Follow and locked.** Back in the overview with XR-1 behind you, switch to follow mode (Ctrl+Alt+V), drag XR-2's pill out past the edge of the view, then do the same in locked mode | XR-1 stays out of sight in both modes. XR-2 only goes as far as the dot: no speed-up past the edge, and no pill lights up except under the dot. Selecting XR-1 (Ctrl+Alt+Left / Right) and zooming in (Ctrl+Alt+Up) shows it. Zoom out, switch back to anchor mode and reset XR-2 (select it, Ctrl+Alt+L, R). |
 | O17 | **Out of reach.** With XR-1 behind you in anchor mode, try to reach its corners and the desktop itself with the mouse. Then select it with Ctrl+Alt+Left / Right and press Ctrl+Alt+L | Its corners and the desktop don't react. Ctrl+Alt+L opens its panel (turn round to see it), the arrows change it, and R puts it back in its slot. |
 | O18 | **Saved.** Put XR-1 behind you and XR-3 up and to the right. Wait 2 s, stop the session and start a new one | Both come back where you left them, facing you. The Place section sums each up in degrees ("moved …° left"). |
 | O19 | **Comfort.** Spend a few minutes looking round at desktops beside, behind and above you | Note any shimmer, seams, flicker, judder or discomfort, and whether the side desktops are easier to read now that they face you. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Bumping desktops out of the way: automated coverage and glasses test script
+
+Since 2026-11-03 (`monitor-collision-bump`) a desktop moved or resized in any way pushes the desktops it runs into out of
+its way, and they stay where they were pushed (`tools/native_spike/bump.py`; see
+[technical.md](technical.md#bumping-desktops-out-of-the-way)). Automated (offline) coverage:
+`tests/native_spike/test_bump.py` (collision detection on the footprints, push resolution, cascades, no room near the
+poles and in a full ring, hysteresis, a jittering pointer, determinism, random edits never leaving a new overlap, timing,
+settling a changed or restored layout, the handles, Super + drag, and the run's keys, slider press and drag, settings
+panel, glide and normal save path), `test_free_pointer.py` and `test_glass_pills.py`
+(the pill drag bumps), and the ctests `view` (`glide_toward`, `step_placements`) and `ipc` (`glide`). Not yet tried in
+an isolated VM or in the glasses.
+
+| # | Do | Expect |
+|---|----|--------|
+| B1 | In the overview, drag XR-2's pill slowly right into XR-3 | XR-3 slides away ahead of XR-2, in step with it, a small gap between them. No overlap at any moment, no jump. |
+| B2 | Keep dragging right, then back left to XR-2's slot, and release | XR-3 stays where it was pushed (no spring back). XR-2 snaps into its slot. |
+| B3 | Drag XR-3's pill left into XR-2 and on into XR-1 | XR-2 is pushed, and then pushes XR-1: all three move left together, in order. |
+| B4 | Lift XR-1 above the row, put it right over XR-2 and bring it down onto it | XR-2 is pushed down, not aside. |
+| B5 | Drag a corner of XR-2 outward until it is much bigger than the view | XR-1 and XR-3 slide outward on both sides as it grows, evenly. Shrink it again: they stay where they are. |
+| B6 | Open XR-1's pill, select Left/right and press Shift+Right a few times | XR-1 and the desktops it runs into glide together, about a quarter of a second each press, with no snap. A press that bumps nothing moves as before. |
+| B7 | Still in the panel, press R | XR-1 goes back to its slot and pushes aside whatever is there now. |
+| B8 | Click far along the Distance slider (smaller number = bigger), then drag the knob | The click glides; the drag follows the knob, the neighbours moving with it. |
+| B9 | In the settings panel's Place section, set a desktop's left/right so it lands on another and Apply | It lands exactly there, over the other desktop, and nothing is pushed. |
+| B10 | Lift XR-2 high (Down/up near +80°), lift XR-1 under it and push XR-1 up into XR-2 | XR-2 never goes past straight overhead. XR-1 stops where it still fits; nothing overlaps. Drag on sideways: XR-1 slides along. |
+| B11 | Flick a pill fast across the whole row | Every desktop in the way is pushed ahead; none ends up on the far side of the one you move, none overlaps. |
+| B12 | Bump a desktop, wait 2 s, stop the session and start again | The layout comes back as you left it, the bumped desktop where it was pushed (saved like any move; a start only restores it with the remembered layout, `remember-layout-reset-bind`). |
+| B13 | In the overview, press and drag on a desktop's content, also near its corners and edges | It goes to the app there; the desktop does not move or resize and nothing is bumped. From the handles round it (pill, a resize corner or edge just outside) the same drag moves or resizes it and bumps its neighbours. |
+| B14 | In the overview, hold Super and drag from a pill, a corner and a window, with the left and the right button | A window moves or resizes as Hyprland does it (or nothing, off a window). No desktop moves or resizes and nothing is bumped. Then start a pill drag and press Super with the button still held: the drag stops there, the desktop no longer follows the mouse, and letting go does nothing. Super on its own still does what it always did (a tap, Super + a key, Super + drag). |
+| B15 | Leave the overlap from B9 in place and press Ctrl+Alt+[ or ] (spacing), or add a desktop | The desktops that overlap glide apart, the selected one staying put, the others the shortest way to a clear spot. Nothing moves when nothing overlaps. With the remembered layout: an old saved layout that overlaps comes apart the same way right after the start. |
+| B16 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
@@ -323,5 +397,84 @@ Glasses steps (a new run started the usual way, three desktops, a terminal and a
 | S10 | With windows sent to XR-1 and XR-3, stop the session | Every window, including the sent ones, is back on DP-1. Recovery reports complete. |
 | S11 | After the session ends, press Ctrl+Alt+G and Ctrl+Alt+B in a terminal | Nothing moves; the keys reach the terminal (no run, no binds). |
 | S12 | Start a session, send a window to XR-2, kill the run unit (as in the Recover test), press Ctrl+Alt+G, then Recover from the panel | The key shows "No XR session is running" and moves nothing. Recover returns the window on XR-2 to DP-1. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Roll brackets: automated coverage and glasses test script
+
+On 2026-11-03 (`rotate-bracket-arrows`) the two small roll arrows above each desktop's top corners became arrow brackets
+hugging the corners from just outside the border: counter-clockwise round the top-left, clockwise round the top-right,
+each an arm along the top edge, a bend round the corner and an arm down the side ending in an arrowhead that points down.
+They are tile px on the desktop, so they move, scale and roll with it. Clicks and drags work as the arrows did (2° a
+click, straight to level when level lies that way, a drag either way up to 90°). See
+[Roll brackets](technical.md#roll-brackets).
+
+Automated (offline):
+- ctest `roll_level`: the arm (a share of the shorter side, clamped), the shape (outside the desktop, clear of the 6 px
+  border, inside the hit region, mirror images, turning the right way, the head pointing down the side), the hit
+  region's edges, and the tip keeping its share of the desktop through resize, move, curvature and roll.
+- ctest `glass_contract`: the constants (the 6 px edge band too), the arms and 9610 probes of the distance and hit
+  region round both corners of five layouts, renderer against `free_pointer.py`.
+- `tests/native_spike/test_roll_level.py` also covers R: flat and level (against a measured tilt, or no roll),
+  re-levelled by the tilts of the next half second, a bracket press taking over; the footer and help card text.
+- ctest `gl_frame`: the brackets in the frame cache check (curved, rolled and orbited desktops), drawn at a desktop's
+  live corners, not its held panel's press-time ones, while a held Distance slider resizes it, and hidden under another
+  desktop's content.
+- `tests/native_spike/test_roll_level.py`: hits through resize, move and roll (and not where the bracket was), the corner
+  winning on the bend; on dense grids round every bracket (a resized desktop over its neighbours, rolled desktops, no
+  spacing) showing the brackets never changes a press on any desktop's content, corner or pill; every bracket reachable
+  with no spacing and with 20 px; a real corner-drag resize and pill move then clicks; `test_window_drag.py`: a bracket
+  press lifts no window.
+- Not done: nothing here has run in an isolated VM or in the glasses.
+
+The steps need your usual go-ahead for a live run, the renderer and the Python supervisor installed from this branch
+(the wire did not change), and the overview (Ctrl+Alt+Down). Use anchor mode unless a step says otherwise.
+
+| # | Do | Expect |
+|---|----|--------|
+| B1 | Look at the top corners of every desktop | Each has two brackets in the theme colour wrapped round its top corners just outside its edge, a small gap from the selected desktop's border, each arrowhead pointing down the side. Every desktop has them, level or not. Nothing glares. |
+| B2 | Put the dot on the left bracket's side arm, below the corner, then on its top arm | Only that bracket brightens. No resize handle shows. |
+| B3 | Put the dot on the bend round the top-right corner | The corner's grey resize handle shows inside the corner; the bracket does not brighten. Drag: the desktop resizes. |
+| B4 | On a level desktop (or in follow mode), click the left bracket's arm three times, then the right one's three times | Each left click turns it 2° counter-clockwise, each right click 2° clockwise: back where it started. |
+| B5 | Recentre (Ctrl+Alt+Space) with your head tipped to one side, so desktops look rolled. Click the bracket on the higher corner's side | That desktop goes straight to level. The other bracket turns it 2° away. |
+| B6 | Hold a bracket and drag the dot round the desktop's centre, one way then the other | The desktop rolls with the dot both ways, past level, and rests at level as you pass it. |
+| B7 | Drag XR-2's bottom-right corner outward slowly, then back inward | The brackets stay on XR-2's top corners the whole time, growing with it and shrinking back (a little thicker when bigger, like its border). Then click a bracket: it rolls. |
+| B8 | Open XR-2's pill and drag the Distance slider | The brackets follow the desktop live as it grows and shrinks, while the panel stays put until you let go. |
+| B9 | Drag XR-2's pill around, also out past the edge of the view | The brackets travel with XR-2, on its corners, all the way. |
+| B10 | Make XR-2 big enough to reach over XR-1 and XR-3. Click and scroll on XR-2's picture where their inner brackets were | XR-2 covers their inner brackets: no bracket floats on XR-2's picture, and the clicks and scrolling go to XR-2's apps. Their outer brackets still work. Reset XR-2 (Ctrl+Alt+L, R). |
+| B11 | Lower the spacing (Ctrl+Alt+[) to the minimum | The side arms facing a neighbour are hidden under its picture (a click there goes to that desktop), but each bracket still lights up and works on its top arm. Put the spacing back (Ctrl+Alt+]). |
+| B12 | Roll XR-1 about 30° with a bracket, then hover and click its brackets | They are on its turned corners, and work there. |
+| B13 | Switch the Omarchy theme | The brackets recolour with the border and the pills. |
+| B14 | Leave the mouse alone for 30 s | The brackets hide with the pills, and come back on the next mouse move. |
+| B15 | Roll XR-2 about 20° with a bracket and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
+| B16 | Move the dot slowly outward from XR-2's left edge, beside its bracket's side arm | Right at the edge (the first few pixels) the bracket does not light up; from just past the border it does. |
+
+## Resolution dropdown (the pill's Resolution box): automated coverage and glasses test script
+
+Automated, offline only: `tests/native_spike/test_resolution_dropdown.py` (the size table against the renderer's, the
+nearest-scale rule, plans, the payload, a pick end to end through the fake broker into the saved profile with only
+`reshape` and its read-back on the wire, every size through the C++ request validator, pointer hits), the `glass`,
+`glass_contract`, `placement_menu_ipc`, `capture` and `view` ctests, `capture_e2e_churn_resize_*` (a resized capture keeps
+its last frame up for 100 ms before re-creating its buffers, never goes blank, and on the GPU paths its new shape eases),
+and `tests/native_spike/test_fit_windows.py` (floating windows pulled inside a desktop that shrinks). None of it has run
+in an isolated VM or in the glasses.
+
+Glasses steps (a new run, three 1920x1080 desktops at 100%, a terminal tiled on XR-2 and a floating window on XR-2,
+something moving on XR-1 and XR-3, e.g. a clock):
+
+| # | Do | Expect |
+|---|----|--------|
+| RES1 | Open XR-2's pill | Under the sliders: **Resolution** "1920x1080", then **Scale** "100%", then the Ultrawide / Add new / Remove row. Both boxes look alike and read clearly. |
+| RES2 | Click the Resolution box | Its arrow points up and its underline turns the theme colour. A menu opens upward over the four slider rows: three columns headed 16:9, 16:10, Ultrawide (with 3840x1080 in it); 1920x1080 highlighted. Nothing of the sliders shows through. |
+| RES3 | Click 2560x1440 | XR-2 gets sharper (smaller text) at once, in the same place and at the same size in the glasses. No black flash, flicker or stretched frame on XR-2, the glasses never blank, XR-1 and XR-3 keep updating and do not move, XR stays running. The panel stays open on XR-2 showing 2560x1440. The terminal re-tiles to the new size, the floating window is still on XR-2. `hyprctl monitors`: XR-2 is 2560x1440, XR-3 slid right, the glasses' and DP-1's modes unchanged. |
+| RES4 | Open the Scale list | 150%, 175% and 300% are greyed out (they do not divide 2560x1440). |
+| RES5 | Pick 1920x1080 again, set Scale to 150%, then pick 2560x1440 | The scale becomes 125% by itself (the nearest step that fits) and the Scale box shows 125%. |
+| RES6 | Pick 3440x1440, then 3840x1080, then 1680x1050. Then press the Ultrawide button twice | 3440x1440: after the picture changes, XR-2 widens smoothly (about a fifth of a second, like a zoom) where it is, the Ultrawide button lights up, XR-1 and XR-3 slide along in step; nothing jumps. 3840x1080: wider still. 1680x1050: narrows the same way (16:10), Ultrawide off. The Ultrawide button animates the same. The new picture looks briefly squeezed as it starts; say if that bothers you. Each change is as clean as RES3. |
+| RES7 | Put a floating window near XR-2's bottom right corner and pick 1280x720. Then one bigger than 1280x720 (on another workspace of XR-2 too) and repeat; then set XR-2 back to 1920x1080, put a window in that corner and set Scale to 200% | Each window ends fully inside XR-2 clear of the bar, moved no further than needed; one too big for it shrinks to fit; the other workspace's window is inside when you switch to it. Windows already inside do not move, and windows on XR-1 and XR-3 never move on their own desktop. After Stop every window is back where it was before the session. |
+| RES8 | Open the Resolution list, then click the Scale box. Open it again and click the panel's key-hint footer; open it again and press Down | Only one list is ever open: the Scale list replaces it. A click elsewhere on the panel (not on the list) or any panel key closes it without changing anything else. |
+| RES9 | With XR-2 at 2560x1440, switch the Omarchy theme and the workspace layout (a config reload each) | XR-2 stays 2560x1440, nothing flickers or modesets, the open menu recolours. |
+| RES10 | Stop the session and start a new one | XR-2 starts at the size (and scale) picked last; the others at theirs. |
+| RES11 | Pick 3840x2160 on all three desktops, then 5120x1440 on one | Still smooth in the glasses (watch head tracking and the dot); note any lag or capture stutter. |
+| RES12 | While a change is running, click the box again or another size | Nothing happens until it is done (both boxes dimmed while busy). |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.

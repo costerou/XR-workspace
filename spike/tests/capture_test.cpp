@@ -77,6 +77,43 @@ int main() {
         CHECK(b.reallocation_pending() && b.settle(false) && b.reallocations() == 4 && b.may_capture());
         CHECK(CaptureBuffers::same_buffers(p1080, p1080) && !CaptureBuffers::same_buffers(p1080, argb) && !CaptureBuffers::same_buffers(p1080, p1200));
     }
+    {  // A live resize (a pill's Resolution dropdown) waits kResizeSettleMs behind the frame on screen; nothing else waits.
+        const ShmPlan p1080{1920, 1080, 7680, kShmXrgb8888, 7680u * 1080}, p1440{2560, 1440, 10240, kShmXrgb8888, 10240u * 1440};
+        const ShmPlan p720{1280, 720, 5120, kShmXrgb8888, 5120u * 720}, argb{1920, 1080, 7680, kShmArgb8888, 7680u * 1080};
+        CaptureBuffers b; ResizeSettle r;
+        b.constraints(p1080);
+        CHECK(!r.hold(b, 1000) && b.settle(false));  // the first buffers: at once
+        b.delivered();
+        CHECK(!r.hold(b, 1001) && r.settles() == 0);  // nothing pending
+        b.constraints(p1440);                          // the output was resized
+        CHECK(r.hold(b, 2000) && r.hold(b, 2050) && r.hold(b, 2000 + kResizeSettleMs - 1) && r.settles() == 1);
+        CHECK(b.layout_size()->w == 1920);             // the 1080 frame stays up meanwhile
+        CHECK(!r.hold(b, 2000 + kResizeSettleMs) && b.settle(false) && b.allocated()->width == 2560);
+        CHECK(!r.hold(b, 2200));                       // re-created: nothing more to wait for
+        b.delivered();
+        // A session restarted after the resize (the supervisor's renew) while still waiting keeps the first deadline.
+        b.constraints(p720);
+        CHECK(r.hold(b, 3000));
+        b.restart(); b.constraints(p720);
+        CHECK(r.hold(b, 3060) && !r.hold(b, 3000 + kResizeSettleMs) && r.settles() == 2);
+        CHECK(b.settle(false)); b.delivered();
+        // A bounce (a config reload: the default size and straight back) and a format change alone never wait.
+        b.constraints(p1080); b.constraints(p720);
+        CHECK(!b.reallocation_pending() && !r.hold(b, 4000));
+        b.constraints(argb);  // 1920x1080 ARGB: a real size change from 1280x720 again
+        CHECK(r.hold(b, 5000) && r.settles() == 3);
+        CHECK(!r.hold(b, 5000 + kResizeSettleMs) && b.settle(false)); b.delivered();
+        b.constraints(p1080);  // same size, other format
+        CHECK(b.reallocation_pending() && !r.hold(b, 6000) && r.settles() == 3);
+        // A resize first seen and then undone before the deadline cancels the wait.
+        b.settle(false); b.delivered();
+        b.constraints(p1440);
+        CHECK(r.hold(b, 7000));
+        b.constraints(p1080);
+        CHECK(!b.reallocation_pending() && !r.hold(b, 7010));
+        b.constraints(p1440);
+        CHECK(r.hold(b, 7020) && r.hold(b, 7020 + kResizeSettleMs - 1) && r.settles() == 5);  // a new wait from 7020
+    }
 
     // Zero-copy choice: XRGB before ARGB, LINEAR preferred, only what EGL can import.
     auto all = [](std::uint32_t, std::uint64_t) { return true; };

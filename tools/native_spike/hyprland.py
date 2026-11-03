@@ -192,20 +192,35 @@ class HyprlandClient:
         if command.startswith('dispatch hl.dsp.window.move') and int(re.fullmatch(MOVE_PATTERN, command).group(1)) > 2147483647:
             raise ValueError('invalid workspace')
 
-    def install_view_binds(self, python, client, control_socket, run_id, session):
-        """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
-        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
-        self._eval(install_binds_lua(python, client, control_socket, run_id, session))
-        try: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+    def install_view_binds(self, python, client, control_socket, run_id, session, binds=None, send_binds=None):
+        """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval. `binds` /
+        `send_binds`: the key bind panel's keys (keybinds.py), else view.BINDS / send.SEND_BINDS."""
+        from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
+        self._eval(install_binds_lua(python, client, control_socket, run_id, session, binds=binds))
+        try:
+            self._eval(install_send_binds_lua(python, client, control_socket, run_id, session, binds=send_binds))  # replaces any surviving set
+            self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
         except (OSError, ValueError):
             try: self._eval(remove_binds_lua())  # the run will not start: leave no half-installed binds behind
             except (OSError, ValueError): pass
             raise
 
+    def land_window(self, address, workspace, x=None, y=None):
+        """A Super drag's drop (send.WindowSender.land_now): the window onto a workspace and, floating, to layout pixel (x, y),
+        keeping its focus and the cursor; one eval of generated Lua from validated values, never free-form eval."""
+        from .send import land_lua
+        self._eval(land_lua(address, workspace, x, y))
+
     def adopt_windows(self, moves):
         """Run start: the physical monitor's windows onto the XR desktops (adopt.py). Generated Lua only, from a
         validated plan of workspace ids, window addresses and XR output names; never free-form eval."""
         from .adopt import lua
+        for code in lua(moves): self._eval(code)
+
+    def fit_windows(self, moves):
+        """A desktop shrank: its floating windows that would stick out back inside it (fit_windows.py). Generated Lua only,
+        from a validated plan of window addresses and whole pixels; never free-form eval."""
+        from .fit_windows import lua
         for code in lua(moves): self._eval(code)
 
     def restore_layout(self, snapshot):
@@ -214,12 +229,31 @@ class HyprlandClient:
         from .restore import EVAL_LIMIT, lua
         self._eval(lua(snapshot), limit=EVAL_LIMIT)
 
-    def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
-        """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
-        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
-        from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
-        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
-        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+    def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False, binds=None, send_binds=None):
+        """After a config reload, a typing-mode switch (Ctrl+Alt+T) or a key bind panel change: drop any surviving
+        handles, then bind again (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send
+        and placement-panel binds, and closes an open key bind panel. The Super drag binds stay in both: they take no key,
+        and a Super drag works in typing mode too. `binds` / `send_binds`: as install_view_binds."""
+        from .view import install_binds_lua, install_drag_binds_lua, install_send_binds_lua, remove_binds_lua
+        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing, binds=binds))
+        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session, binds=send_binds))
+        self._eval(install_drag_binds_lua(python, client, control_socket, run_id, session))
+
+    def binds_text(self, timeout=DEADLINE):
+        """Every bind, as plain `hyprctl binds` prints it (keybinds.parse_binds); read only. The plain form, because
+        Hyprland 0.56's JSON leaves a keycode bind's key empty."""
+        if not 0 < timeout <= DEADLINE: raise ValueError('invalid timeout')
+        return self._request('binds', timeout).decode('utf-8', errors='replace')
+
+    def open_key_panel(self, python, client, control_socket, run_id, session):
+        """The key bind panel opened: its submap and key subscription (keybinds.panel_on_lua); generated Lua only."""
+        from .keybinds import panel_on_lua
+        self._eval(panel_on_lua(python, client, control_socket, run_id, session))
+
+    def close_key_panel(self):
+        """The key bind panel closed: subscription gone, its submap left (keybinds.PANEL_OFF_LUA); fixed Lua only."""
+        from .keybinds import PANEL_OFF_LUA
+        self._eval(PANEL_OFF_LUA)
 
     def set_dpms(self, name, on, keep=None):
         """Privacy mode (Ctrl+Alt+D, privacy.py): the physical output `name` DPMS off (`keep`: the glasses' output,
@@ -382,17 +416,23 @@ class HyprlandClient:
         from .input_lock import lock_pointer_lua
         self._eval(lock_pointer_lua(python, client, control_socket, run_id, session, x, y))
 
-    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None):
-        """Unified overview cursor, desktop mode: any free-mode grab removed, the cursor warped to (x, y) if given, and
-        the non-consuming left-button click binds; one eval of generated Lua."""
+    def enter_desktop(self, python, client, control_socket, run_id, session, x=None, y=None, monitor=None):
+        """Unified overview cursor, desktop mode: `monitor` focused first (with a point), any free-mode grab removed, the
+        cursor warped to (x, y) if given, and the non-consuming left-button click binds; one eval of generated Lua."""
         from .unified_cursor import enter_desktop_lua
-        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y))
+        self._eval(enter_desktop_lua(python, client, control_socket, run_id, session, x, y, monitor))
 
     def confine_cursor(self, x, y, name):
         """Unified cursor, zoomed in: the cursor back at (x, y) on the selected desktop's monitor `name`, which gets the
         monitor focus again; one eval of generated Lua."""
         from .unified_cursor import confine_lua
         self._eval(confine_lua(x, y, name))
+
+    def scroll_to_window(self, address):
+        """Scroll before switch, zoomed in on a scrolling-layout workspace: window `address`'s column into view (focused,
+        the cursor left where it is: columns.scroll_lua); one eval of generated Lua."""
+        from .columns import scroll_lua
+        self._eval(scroll_lua(address))
 
     def _eval(self, code, limit=4096):
         if len(code) > limit: raise ValueError('bind code too large')

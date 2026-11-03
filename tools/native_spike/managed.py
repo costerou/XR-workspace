@@ -75,8 +75,8 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
     workspaces = client.query('workspaces')
     from .supervisor import CAPTURE_SCOPE
     adopting = consent.get('capture') == CAPTURE_SCOPE  # a capture (panel) run takes the fallback's windows (adopt.py)
-    # Every start has the run's own desktops (three from the panel, profiles.startup_desktops): adoption spreads the
-    # fallback's windows over them rather than adding desktops for more occupied workspaces.
+    # Every start has the run's own desktops (from the panel: the last session's, profiles.load_setup, else three):
+    # adoption spreads the fallback's windows over them rather than adding desktops for more occupied workspaces.
     specs = plan_outputs(monitors(client.query('monitors')), workspaces, consent['run_id'], desktops)
     broker = OwnershipBrokerClient(client, consent['run_id'], session, fallback)
     broker.require_output_ownership()  # no journal or output mutations without a broker
@@ -88,7 +88,26 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=consent.get('tracking') == 'xrlinuxdriver', store=store, renderer=renderer,
-                          adopt=adopting)
+                          adopt=adopting, create_failed=_setup_failed(store, desktops))
+
+
+# The broker's verdicts on an output itself (ownership.OwnershipBrokerClient.verify): it was not made live, or did not
+# read back as asked. Any other failure (the compositor session, the broker's epoch or identity, a transport error) says
+# nothing about the saved setup, which is then kept.
+UNCREATABLE = ('creation incomplete', 'missing readback', 'actual geometry/workspace mismatch', 'unusable output')
+
+
+def _setup_failed(store, desktops):
+    """For a run restoring a saved setup (`desktops` other than the default three, from a glasses profile): when the
+    broker refuses its outputs (UNCREATABLE), the saved setup goes back to the default (profiles.discard_unusable), so
+    the next start falls back instead of failing the same way. None when there is nothing to discard."""
+    from .profiles import ProfileStore, default_setup, discard_unusable
+    if not isinstance(store, ProfileStore) or desktops is None or desktops == default_setup()['desktops']: return None
+
+    def failed(exc):
+        if isinstance(exc, OwnershipBlocked) and str(exc) in UNCREATABLE:
+            discard_unusable(store.path, store.model, list(desktops), str(exc))
+    return failed
 
 
 from contextlib import contextmanager
@@ -107,7 +126,6 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
     from . import view
     from .ipc import PrivateServer
     from .profiles import LayoutStore
-    from .geometry import DEFAULT_PLACEMENT
     store = store or LayoutStore(view.settings_path())
     video = None  # VR video (video.py) wraps the view control
     server = PrivateServer(client.runtime_dir, run_id, session)
@@ -124,8 +142,9 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         def after_reload():
             # Config reloads (Omarchy theme switches) drop runtime binds and reset the session mode.
             reinstall = getattr(client, 'reinstall_view_binds', None)
-            # Typing mode (Ctrl+Alt+T) survives a reload: only its toggle comes back.
-            if reinstall: reinstall(*bind_args, **({'typing': True} if control is not None and control.state.typing else {}))
+            # Typing mode (Ctrl+Alt+T) survives a reload: only its toggle comes back. The keys are the key bind panel's.
+            keys = control.keys.bind_kwargs() if control is not None and control.keys is not None else {}
+            if reinstall: reinstall(*bind_args, **({'typing': True} if control is not None and control.state.typing else {}), **keys)
             # Park first: an asynchronous mode restore followed by parking could
             # read the pre-restore mode and overwrite the requested 120 Hz rule.
             if output is not None and hasattr(client, 'park_presentation'):
@@ -141,13 +160,14 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
 
         def typing_binds(on):
             # Typing mode: the run's bind table holds only Ctrl+Alt+T; off: the full set again (view.py docstring).
-            client.reinstall_view_binds(*bind_args, typing=on)
+            client.reinstall_view_binds(*bind_args, typing=on, **(control.keys.bind_kwargs() if control.keys is not None else {}))
 
-        # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
+        # Per-glasses monitor setup when the store is a profile (panel runs); the CLI's layout.json store has none.
         from .profiles import PlacementStore, ProfileStore
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
-        # Every start is flat: the profile's saved placements are not restored (the run still saves its own to it).
-        initial = [dict(DEFAULT_PLACEMENT) for _ in capture] if placements is not None else None
+        # The last session's placements and rolls come back with its desktops (profiles.load_setup); flat and level if
+        # nothing is saved, the save is unusable, or the run's desktops are not the saved ones.
+        initial, rolls = _restored(placements, capture, desktops)
         # Every start is in the overview, anchored, and a maximize follows until Ctrl+Alt+V picks locked (maximize-follow):
         # no saved mode is read; spacing, prediction, the VR video quality and the background still are.
         control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'],
@@ -164,6 +184,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         # a desktop's edge it is parked and the dot carries on through space to the next desktop.
         from .unified_cursor import UnifiedPointer, UnifiedSampler
         pointer = control.overview_pointer = UnifiedPointer(control)
+        if rolls: pointer.rolls[:len(rolls)] = rolls  # the saved levelling rolls (the `roll` frame sends them)
         control.wake = pointer.wake_reader
         if hasattr(client, 'lock_pointer') and hasattr(client, 'enter_desktop'):
             sampler = UnifiedSampler(client, capture, pointer, bind_args).start()
@@ -180,12 +201,26 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if desktops is not None:
             control.desktops = desktops
             if placements is not None: desktops.store = placements  # the profile takes the new desktops
+            if hasattr(client, 'adopt_windows'): desktops.move_windows = _window_mover(client)  # Ctrl+Alt+R: XR-4 to XR-3
             control.state.wide = desktops.wide()
             control.state.sizes = desktops.desktops()  # the panel's Scale dropdown
         stream = getattr(client, 'event_stream', None)  # config reloads; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
-        client.install_view_binds(*bind_args)
+        # The key bind panel (Ctrl+Alt+K, keybinds.py): the saved keys, next to the store, and the desktop's own binds read
+        # first, so a bind whose keys Hyprland / Omarchy already hold is never installed (removing it would remove theirs).
+        from . import keybinds
+        keys_path = Path(store.path).with_name('keybinds.json') if getattr(store, 'path', None) else keybinds.config_path()
+        desktop = None
+        if hasattr(client, 'binds_text'):
+            try: desktop = keybinds.DesktopBinds.from_text(client.binds_text(timeout=0.5))
+            except (OSError, ValueError): desktop = None  # unknown: every bind is installed, as before the panel
+        control.keys = keybinds.BindControl(control, keybinds.load(keys_path), keys_path,
+                                            client=client if hasattr(client, 'open_key_panel') else None, bind_args=bind_args,
+                                            desktop=desktop, notify=control.notify)
+        client.install_view_binds(*bind_args, **control.keys.bind_kwargs())
+        control.keys.installed()
+        control.keys.startup_toast()  # a conflict on load: off, and said once
         installed = True
         from .video import VideoControl, notify_send
         video_binds = None
@@ -204,7 +239,9 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             control.privacy.close()  # the main display back on; no toggle starts after this
         if control is not None:
             control.flush()  # a panel or drag change still inside its save delay
+            control.save_setup()  # the whole monitor setup, for the next start (profiles.py)
             control.stop_menu_binds()  # no modal panel bind may land after the removal below
+            if control.keys is not None: control.keys.stop()  # nor a key bind panel change (the removal closes it)
         if sampler is not None: sampler.stop()  # removes the free pointer's binds and shows the cursor; none after this
         try:
             if installed: client.remove_view_binds()  # also removes an open panel's modal binds
@@ -213,6 +250,39 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if events is not None: events.close()
         if pointer is not None: pointer.close()
         server.close()
+
+
+def _window_mover(client):
+    """Ctrl+Alt+R removing a desktop: its windows to `target` first, whole workspaces, as adoption moves them (adopt.py);
+    what cannot move goes to the fallback with the removal. Never raises for compositor errors."""
+    from .adopt import adopt
+    from .send import notify
+
+    def move(source, target):
+        adopt(client, source, [target], notify=lambda _: notify(f"Could not move {source}'s windows to {target}: "
+                                                                 f'they go to your normal monitor.'))
+    return move
+
+
+def _restored(store, names, desktops=None):
+    """(placements, rolls) a run starts with: the saved setup's (store.load_setup) when its desktops are the run's own
+    (`desktops`: the run's DesktopManager, else the count alone is compared), else flat and level. (None, None) without a
+    profile store. A setup not restored is logged with the reason."""
+    if store is None: return None, None
+    from .geometry import DEFAULT_PLACEMENT
+    from .profiles import NOTHING_SAVED, describe_setup, log
+    flat = [dict(DEFAULT_PLACEMENT) for _ in names], [0] * len(names)
+    try: setup, reason = store.load_setup()
+    except (OSError, ValueError) as exc: setup, reason = None, str(exc)
+    if reason == NOTHING_SAVED: return flat
+    if reason is not None:
+        log(f'run: saved monitor setup not used: {reason}; flat placements')
+        return flat
+    live = desktops.desktops() if desktops is not None else None
+    if len(setup['desktops']) != len(names) or (live is not None and live != setup['desktops']):
+        log(f"run: the saved placements are for other desktops ({describe_setup(setup)}); flat placements")
+        return flat
+    return [dict(p) for p in setup['placements']], list(setup['rolls'])
 
 
 def _initial_placements(saved, names):
@@ -227,7 +297,7 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None):
     session = journal.session
     snapshot = None
     with journal.transaction():
@@ -238,13 +308,19 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                    'epoch': broker.epoch, 'fallback': broker.fallback}
     journal.bind_broker(context)
     try:
-        create_outputs(specs, journal, broker)
+        try: create_outputs(specs, journal, broker)
+        except Exception as exc:
+            try:
+                if create_failed is not None: create_failed(exc)  # a saved setup that cannot be created (_setup_failed)
+            except Exception: pass  # never in place of the create failure itself
+            raise
         manager = None
         if guard is None:
             guard = ManagedGuard(broker, output, specs)
             if capture and isinstance(broker, OwnershipBrokerClient):  # the pills' Ultrawide / Add / Remove (desktops.py)
                 from .desktops import DesktopManager
-                manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live))
+                manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live),
+                                         windows=client if hasattr(client, 'fit_windows') else None)
         guard()
         if adopt and capture and hasattr(client, 'adopt_windows'):
             # Once, before the renderer starts: the physical monitor's windows onto the desktops, by workspace, in one

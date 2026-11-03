@@ -1,4 +1,4 @@
-"""The supervisor's glass pill and roll-level icon hit testing (tools/native_spike/free_pointer.py) uses the renderer's geometry (glass.hpp).
+"""The supervisor's glass pill and roll bracket hit testing (tools/native_spike/free_pointer.py) uses the renderer's geometry (glass.hpp).
 
 usage: glass_contract_test.py GLASS_GEOMETRY_DUMP REPO_ROOT
 """
@@ -15,10 +15,14 @@ c = data['constants']
 mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': fp.PILL_MAX, 'pill_h': fp.PILL_THICKNESS,
           'pill_gap': fp.PILL_GAP, 'panel_w': fp.PANEL_W, 'panel_h': fp.PANEL_H, 'header_h': fp.PANEL_HEADER_H,
           'rows_top': fp.PANEL_ROWS_TOP, 'row_h': fp.PANEL_ROW_H, 'knob_lo': fp.PANEL_KNOB_LO, 'knob_hi': fp.PANEL_KNOB_HI,
-          'roll_icon_px': fp.ROLL_ICON_PX, 'roll_icon_gap': fp.ROLL_ICON_GAP,
+          'roll_gap': fp.ROLL_GAP, 'roll_stroke': fp.ROLL_STROKE, 'roll_head_len': fp.ROLL_HEAD_LEN,
+          'roll_head_half': fp.ROLL_HEAD_HALF, 'roll_pad': fp.ROLL_PAD, 'roll_arm_share': fp.ROLL_ARM_SHARE,
+          'roll_arm_min': fp.ROLL_ARM_MIN, 'roll_arm_max_share': fp.ROLL_ARM_MAX_SHARE, 'roll_edge_clear': fp.ROLL_EDGE_CLEAR,
           'actions_top': fp.PANEL_ACTIONS_TOP, 'action_h': fp.PANEL_ACTION_H, 'action_w': fp.PANEL_ACTION_W,
           'action_gap': fp.PANEL_ACTION_GAP, 'actions': len(fp.PANEL_ACTIONS), 'max_desktops': fp.MAX_DESKTOPS,
           'scale_top': fp.PANEL_SCALE_TOP, 'scale_item_h': fp.PANEL_SCALE_ITEM_H, 'scale_list_gap': fp.PANEL_SCALE_LIST_GAP,
+          'resolution_top': fp.PANEL_RES_TOP, 'resolution_item_h': fp.PANEL_RES_ITEM_H,
+          'resolution_list_gap': fp.PANEL_RES_LIST_GAP,
           'background_top': fp.PANEL_BACKGROUND_TOP, 'brightness_top': fp.PANEL_BRIGHTNESS_TOP,
           'background_item_h': fp.PANEL_BACKGROUND_ITEM_H, 'background_list_gap': fp.PANEL_BACKGROUND_LIST_GAP,
           'brightness_min': environment.BRIGHTNESS_BOUNDS[0], 'brightness_max': environment.BRIGHTNESS_BOUNDS[1],
@@ -44,10 +48,37 @@ assert len(data['background_items']) == len(environment.BACKGROUNDS)
 for i, want in enumerate(data['background_items']):
     got = fp.background_item_rect(i)
     assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
+# The Resolution dropdown: its box, its open list and items, and the sizes and shapes they stand for (geometry.RESOLUTIONS,
+# RESOLUTION_GROUPS).
+assert all(abs(a - b) < 1e-3 for a, b in zip(fp.PANEL_RES_BOX, data['resolution_box'])), (fp.PANEL_RES_BOX, data['resolution_box'])
+assert all(abs(a - b) < 1e-3 for a, b in zip(fp.resolution_list_rect(), data['resolution_list'])), data['resolution_list']
+assert len(data['resolution_items']) == len(geometry.RESOLUTIONS)
+for i, want in enumerate(data['resolution_items']):
+    got = fp.resolution_item_rect(i)
+    assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
+assert [tuple(r) for r in data['resolutions']] == list(geometry.RESOLUTIONS), data['resolutions']
+assert [(n, c) for n, c in data['resolution_groups']] == [(n, len(s)) for n, s in geometry.RESOLUTION_GROUPS], data['resolution_groups']
+probes = hits = 0
 for case in data['cases']:
     tile = tuple(case['tile'])
-    rolls = [fp.roll_icon_rect(tile, 'ccw', 1.0), fp.roll_icon_rect(tile, 'cw', 1.0), fp.roll_icon_rect(tile, 'ccw', 0.5),
-             fp.roll_icon_rect(tile, 'cw', 2.0)]  # glass.hpp roll_icon sides 0 / 1 at distances 1, 0.5 and 2
-    for got, want in ((fp.pill_rect(tile), case['pill']), (fp.panel_rect(tile), case['panel']), *zip(rolls, case['roll'])):
+    for got, want in ((fp.pill_rect(tile), case['pill']), (fp.panel_rect(tile), case['panel'])):
         assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (tile, got, want)
-print(f"glass contract: {len(mirror)} constants and {len(data['cases'])} layouts match")
+    # Roll brackets (glass.hpp roll_arm / roll_scale / roll_distance / on_roll_bracket): the same arm and scale, and round
+    # both top corners the same distance to the centre line and the same hit region (where the point is not within float
+    # error of the region's edge or of the desktop's).
+    roll = case['roll']
+    assert abs(fp.roll_arm(tile) - roll['arm']) < 1e-3 and abs(fp.roll_scale(tile) - roll['scale']) < 1e-4, (tile, roll['arm'], roll['scale'])
+    reach = (fp.ROLL_HEAD_HALF + fp.ROLL_PAD) * fp.roll_scale(tile)
+    tx, ty, tw, th = tile
+    for side, px, py, dist, on in roll['probes']:
+        name, q = fp.ROLL_SIDES[side], (px, py)
+        got = fp.roll_distance(tile, name, q)
+        assert abs(got - dist) < 2e-3 * max(1.0, dist), (tile, name, q, got, dist)
+        e = fp.ROLL_EDGE_CLEAR * fp.roll_scale(tile)  # the edge band's outer edge, as well as the desktop's own
+        edge = min(abs(px - tx), abs(px - tx - tw), abs(py - ty), abs(py - ty - th),
+                   abs(px - tx + e), abs(px - tx - tw - e), abs(py - ty + e), abs(py - ty - th - e))
+        if abs(got - reach) > 1e-2 and edge > 1e-2:
+            assert fp.on_roll(tile, name, q) == bool(on), (tile, name, q, got, reach, on)
+        probes += 1; hits += bool(on)
+assert probes > 1000 and 100 < hits < probes, (probes, hits)
+print(f"glass contract: {len(mirror)} constants, {len(data['cases'])} layouts and {probes} roll bracket probes ({hits} hits) match")

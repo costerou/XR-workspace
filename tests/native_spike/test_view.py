@@ -60,8 +60,9 @@ class ViewStateTests(unittest.TestCase):
         from tools.native_spike import resize
         from tools.native_spike import send
         # Bind helper and supervisor agree; the helper also keeps the old menu mouse mode's op names, for cleanup only.
-        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS
-                         + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP)
+        self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + (view.RESET_OP,) + resize.RESIZE_OPS + view.SUPER_OPS + send.SEND_OPS
+                         + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP,
+                                                                           view.BINDS_PANEL_OP)
                          + (view.ENVIRONMENT_OP,) + xr_control.LEGACY_OPS)
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
@@ -76,8 +77,9 @@ class BindTests(unittest.TestCase):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
         self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste', view.TYPING_OP, view.PRIVACY_OP,
-                                               view.PLAYBACK_MENU_OP, view.ENVIRONMENT_OP} | set(view.HELP_PAGE_OPS),
-                         set(view.HELP_ACTIONS))  # video.py, web_video.py
+                                               view.RESET_OP, view.PLAYBACK_MENU_OP, view.BINDS_PANEL_OP,
+                                               view.ENVIRONMENT_OP} | set(view.HELP_PAGE_OPS),
+                         set(view.HELP_ACTIONS))  # video.py, web_video.py, keybinds.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 64 rows (ipc.hpp kMaxHelpRows)
@@ -185,7 +187,8 @@ class HyprlandViewRequestTests(unittest.TestCase):
         self.assertEqual(sent[0], '/dispatch hl.dsp.focus({monitor="XR-3"})')
         self.assertTrue(sent[1].startswith('/eval local c = "') and ' xr_workspace_binds = {' in sent[1])
         self.assertIn(' xr_workspace_send_binds = {', sent[2])  # send-window binds: their own eval
-        self.assertEqual(sent[3], '/eval ' + view.remove_binds_lua())
+        self.assertIn(f' {view.DRAG_TABLE} = t end end', sent[3])    # the Super drag binds too
+        self.assertEqual(sent[4], '/eval ' + view.remove_binds_lua())
         for bad in ('dispatch hl.dsp.focus({monitor="DP-1"})', 'dispatch hl.dsp.exec_cmd("x")', 'eval os.execute("x")'):
             with self.assertRaises(ValueError): c.mutate(bad)
         c._request = lambda wire: b'some lua error'
@@ -322,7 +325,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
             with self.subTest(op=op): self.assertTrue(covered(view.chord_label(chord)))
         self.assertIn(['Ctrl+Alt+[ / ]', 'Less / more space between desktops'], rows)
         self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], rows)
-        self.assertIn(['Ctrl+Alt+H', 'Help; Ctrl+Alt+G/B: window to glasses/back'], shown['payload']['rows'])
+        self.assertIn(['Ctrl+Alt+H / K', 'Help/binds; Ctrl+Alt+G/B: window to XR/back'], shown['payload']['rows'])
         hidden = json.loads(c.on_message({'op': 'help'}))
         self.assertFalse(hidden['payload']['visible'])
         self.assertGreater(hidden['request_id'], shown['request_id'])
@@ -466,13 +469,13 @@ class ConfigReloadTests(unittest.TestCase):
         client = h.HyprlandClient('a' * 40 + '_123_456', Path('/nonexistent'))
         client._eval = sent.append
         client.reinstall_view_binds('/usr/bin/python3', '/opt/x/xr_control.py', '/run/user/1000/x/control.sock', 'run', 'session')
-        self.assertEqual(len(sent), 2)  # the view binds in one eval, then the send-window binds (send.py) in their own
+        self.assertEqual(len(sent), 3)  # the view binds in one eval, then the send-window and Super drag binds in their own
         self.assertLess(sent[0].index('HL.Keybind(expired)'), sent[0].index('hl.bind('))
         self.assertLessEqual(len(sent[0]), 4096)
         self.assertEqual(sent[0].count('hl.bind('), len(view.BINDS))
         self.assertLess(sent[1].index('HL.Keybind(expired)'), sent[1].index('hl.bind('))
         client.restore_session_mode(view.session_mode(self.MON))
-        self.assertIn('1920x1200@120', sent[2])
+        self.assertIn('1920x1200@120', sent[3])
 
 class StatusReplyTests(unittest.TestCase):
     def test_status_op_reply_shape(self):

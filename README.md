@@ -58,7 +58,9 @@ If the panel says "controller not running", click **Start / restart controller**
 2. A box shows what the session will do, such as switching the glasses to 120 Hz for this session. Press **Start**.
 3. Keep the glasses still while head tracking calibrates. This can take up to two minutes.
 
-Your three desktops now appear in the glasses. They are called XR-1, XR-2 and XR-3.
+Your desktops now appear in the glasses, set up the way you left them last session (see
+[Your layout comes back](#placing-desktops)). The very first time there are three, called XR-1, XR-2 and XR-3, flat in a
+row.
 
 The windows on your normal monitor move into the glasses as the session starts, one workspace per desktop: your first
 workspace with windows goes to XR-1, the next to XR-2, and so on. If you have more workspaces with windows than
@@ -73,9 +75,9 @@ Two things can show up next to Start:
 
 - **Return windows to.** If more than one other monitor is connected and none of them is your saved choice, pick the
   one your windows go back to when the session stops. Start waits until you do.
-- **Startup options** (click to open). These are the few settings that can't change once a session runs: each
-  desktop's resolution and scale (click a desktop), head tracking, the Luma Ultra's 120 Hz switch, and which monitor
-  windows return to. You rarely need them.
+- **Startup options** (click to open). These are the few settings a session starts with: each desktop's resolution
+  and scale (click a desktop; both can also be changed in the glasses, from the desktop's pill), head tracking, the
+  Luma Ultra's 120 Hz switch, and which monitor windows return to. You rarely need them.
 
 ## Everyday use
 
@@ -94,6 +96,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Keys | What it does |
 | --- | --- |
 | Ctrl+Alt+H | Show or hide the help card |
+| Ctrl+Alt+K | Show or hide the key bind panel: change any key on this list, and see conflicts (see below) |
 | Ctrl+Alt+PgUp / PgDn | Previous / next page of the help card, when it has more than one |
 | Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
 | Ctrl+Alt+Up | Maximize the selected desktop: it fills your view and follows your head |
@@ -105,6 +108,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
 | Ctrl+Alt+E | The background behind your desktops: off, and back to the last one you used (see below) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
+| Ctrl+Alt+R, twice | Reset every desktop to three flat 1920×1080 desktops at 100%, and save that as your layout (see [Placing desktops](#placing-desktops)) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
@@ -116,16 +120,30 @@ All of the keys in this list stop working until you press Ctrl+Alt+T again, so t
 other apps' Ctrl+Alt shortcuts do their normal thing. Any open help card or placement pill closes, and a playing video
 gives its keys back too. In the overview the mouse stays a normal cursor (no grey dot) and the pills are hidden until
 you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
+Super + mouse drags still work in typing mode: dragging a window across desktops brings the dot back until you let go.
 A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
 control. The panel's buttons work in both modes.
+
+**Changing keys** (new, not yet tried in the glasses). Press **Ctrl+Alt+K** for the key bind panel: every key on
+this list with what it does. While it is open the keyboard drives the panel only. **Up / Down** pick a key, **Enter**
+changes it: press the new keys (Ctrl, Alt or Super with a letter, digit, F-key, arrow or punctuation; Shift may join
+them) and they work at once, no restart, and are saved for every later session. **Esc** cancels a change. **R** puts
+the picked key back to its default, **Shift+R** twice puts every key back. **Esc** or **Ctrl+Alt+K** closes the panel,
+and it closes by itself after 30 seconds without a key. Keys that another XR key or a Hyprland / Omarchy bind already
+uses are refused: the row turns red and says what has them, and a notification says it too. When a session starts,
+the panel also checks your saved keys against Hyprland's: a key that clashes with a Hyprland bind is left off (red in
+the panel, with a notification), because taking it away again at the end would also take away Hyprland's. If anything
+goes wrong while the panel has the keyboard, **Esc three times** always gives it back. Your keys live in
+`~/.config/viture-workspace/keybinds.json`; the help card shows them as you set them.
 
 **Overview and Maximized** (new, not yet tried in the glasses). The way the desktops move with your head goes with
 what you are looking at, as on the INAIR Pod:
 
 - **The overview** shows all your desktops, and they always stay fixed in the room (**anchor**). Turn your head to
   look at a different one. Every session starts here.
-- **Maximized:** click a desktop in the overview (or select it and press Ctrl+Alt+Up) and it fills your view and
-  **follows** your head: it eases back in front of you when you turn. Press **Ctrl+Alt+V** to **lock** it to your view
+- **Maximized:** in the overview, move the mouse onto a desktop (or pick it with Ctrl+Alt+Left / Right), then press
+  **Ctrl+Alt+Up** (or the panel's **Maximize**). It fills your view and **follows** your head: it eases back in front
+  of you when you turn. Clicking in a desktop never maximizes it. Press **Ctrl+Alt+V** to **lock** it to your view
   instead, like a normal screen glued to your face, and again to go back to follow. Your choice sticks: every desktop
   you maximize after that uses it, until you press Ctrl+Alt+V again. Each new XR start begins with follow.
 - **Back to the overview** (Ctrl+Alt+Down, Ctrl+Alt+L or a pill): the desktops are fixed in the room again, exactly
@@ -163,6 +181,31 @@ You can move, curve and resize each desktop in space, and put it anywhere around
 above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
 it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
 
+**Your layout comes back** (new, not yet tried in the glasses). Each XR session starts the way the last one ended: the
+same number of desktops, each with its resolution and scale, where it sat round you, its size, its curve and its roll.
+The layout is saved for your glasses model every time you change it and once more when the session stops. If nothing is
+saved yet, or the saved layout can't be used (a damaged file, a value out of range, or desktops the system refuses to
+create), the session starts with three flat desktops instead, and the reason is written to the log (`journalctl --user
+-u viture-workspace-controller`). Follow or locked for a maximized desktop is not part of the layout: every session
+still starts in follow.
+
+**Start over: Ctrl+Alt+R** (new, not yet tried in the glasses). Puts every desktop back to the default: three flat
+1920×1080 desktops at 100%, level, in a row, with the default space between them. It asks first: the first press shows
+a small notification, "Press Ctrl+Alt+R again to reset all monitors", and a second press within three seconds resets. If
+you don't press it again, nothing happens. An open pill closes and a maximized desktop goes back to the overview first.
+
+The whole reset glides. The desktops move back into the row in about half a second while a fourth desktop drops away
+below your view, then the row settles along the same smooth curve as the desktops change size and resolution, and a
+desktop that was missing grows out of its place. The windows on a fourth desktop move to XR-3, each workspace still its
+own, so XR-3 may show one of them afterwards, with its own windows one workspace away. Anything that can't move goes to
+your normal monitor, as with the pill's Remove.
+
+Your saved layout is replaced by the default at the same time, so the next session starts that way too. The layout you
+had is kept as a backup in `~/.config/viture-workspace/profiles.json` (`previous_setup`), one step back: the next reset
+replaces it. There is no key to bring it back yet. A small notification confirms the reset. Ctrl+Alt+R does nothing while
+a VR video plays or another desktop change is still running (a notification says so), and in typing mode. The help card
+lists it on the recenter row, as Ctrl+Alt+Space / R.
+
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
 
@@ -185,6 +228,27 @@ and curvature are kept. Update the program that draws in the glasses, the backgr
 copy of any one of them can't take the new placements. Going back to an older background helper alone resets the
 placements this version saved to flat.
 
+**Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
+in the overview (dragging its pill or a corner, or the sliders and keys of its pill), it never goes through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
+runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
+doesn't pull it back, and it is saved with your layout like any other move. What counts is how they look from where you sit, curve and size included: a small desktop far
+away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
+you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
+push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
+fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
+desktops glides them there together in a quarter of a second; one that bumps nothing moves as it always did, and while
+you drag they move with your hand. Only the handles round a desktop do this (its pill, its resize corners and edges, its
+pill's sliders and keys); pressing and dragging on a desktop's content goes to the app there and never moves, resizes or
+bumps anything. Super + drag is your window manager's as always: it moves or resizes a window, never a desktop, and
+bumps nothing. Press Super while you are dragging a desktop and the drag stops right there.
+
+The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
+
+When the layout itself changes, desktops that overlap afterwards are pushed apart by themselves, gliding the same way:
+when a session starts with a saved layout that overlaps, when you change the spacing, and when you add, remove or widen
+a desktop. The selected desktop stays where it is, and the others move the shortest way to a clear spot. That includes an
+overlap you made with Apply, the next time the layout changes.
+
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the
 next part) and it grows smoothly into that desktop's own placement panel: four sliders, one for each setting
@@ -198,8 +262,18 @@ With a pill open:
 - **Click on a slider** and it jumps to that spot. Hold the button and drag along it to change it live; the desktop
   follows, while the pill stays put under the dot until you let go. Letting go saves it.
 - **Drag the top strip** of the open pill to move the desktop, the same as dragging the closed pill.
-- **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click inside a desktop
-  with the normal cursor goes to the window there and leaves the pill open.
+- **Change the desktop's resolution or scale** with the two boxes under the sliders (new, not yet tried in the glasses).
+  Click **Resolution** for a list of common sizes in three columns: 16:9 (1280x720 up to 3840x2160), 16:10 (1680x1050,
+  1920x1200, 2560x1600) and ultrawide (2560x1080, 3440x1440, 3840x1080, 5120x1440). The current one is highlighted. Pick
+  one and that desktop changes size on the spot, without restarting XR or touching your other monitors: its windows stay
+  on it and it stays where it is in the glasses. Within one shape (16:9 to 16:9) it also keeps its size in the glasses;
+  only how sharp it is and how much fits on it change. A new shape smoothly makes it wider or narrower where it is, and
+  the desktops beside it slide along (the Ultrawide button does the same). When a desktop gets smaller, floating windows
+  that would stick out are pulled back inside it, and one too big for it shrinks to fit. It keeps its scale if that still
+  fits the new size, else it takes the nearest one that does. Click **Scale** for 100% to 300%; steps that would not give
+  whole pixels at this resolution are greyed out. The next session starts with both.
+- **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click on a window goes
+  to that window and closes the pill too, so what you type next goes to the window, not to the pill's keys.
 
 | Keys (pill open) | What it does |
 | --- | --- |
@@ -216,8 +290,8 @@ With a pill open:
 For left/right one press is 0.2° and Shift+Left / Shift+Right is 15°. It never stops: past 180° it carries on round to
 the other side. For down/up one press is 0.2° and Shift is 10°, and it stops at 90° up or down. The pill shows whole
 degrees, so a single small step may not change the number there; the panel's **Place** section shows the tenths. The
-keys and sliders don't stop at other desktops, so they can push one desktop over another. Only dragging the pill (below)
-keeps them apart.
+keys and sliders bump other desktops out of the way like a drag does (above), and R walks the desktop back to its slot,
+pushing aside whatever is there now.
 
 **While a pill is open** (new, not yet tried in the glasses) your desktops ease up a little, so the whole panel fits in view
 with your head level, key hints included, and ease back down when it closes. A background stays where it is. **The open pill
@@ -228,41 +302,59 @@ These keys only take over while a pill is open. After it closes, the arrows, Tab
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 
 **With the mouse in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
-In the overview your mouse is no longer stuck inside the desktops:
+In the overview your mouse is no longer stuck inside the desktops, and every desktop works like a normal screen:
 
-- **The dot is your mouse.** Only a small grey dot is drawn, and over the selected desktop the real mouse pointer is
-  right under it. Hover, right-click, scroll, drag and resize windows there as on any monitor.
-- **Push the dot past the edge of the selected desktop** and it keeps going into the space around it, to the pills,
-  corners and the other desktops. Over another desktop it is only a pointer for clicking: the mouse never works there,
-  and the desktop isn't selected until you click it.
+- **The dot is your mouse.** Only a small grey dot is drawn, and over a desktop the real mouse pointer is right under
+  it. Hover, click, right-click, scroll, drag and resize windows there and type into them, as on any monitor.
+- **Push the dot past the edge of a desktop** and it keeps going into the space around it, to the pills, corners and
+  the other desktops. Move it onto another desktop (changed 3 November 2026, not yet tried in the glasses) and the
+  mouse works there at once: that desktop becomes the selected one (it gets the highlight), your keyboard goes to it,
+  and its windows take every click, drag, right-click, scroll and key, wherever it is placed, however it is curved,
+  rolled or sized, and whatever its scale.
+- **The dot shows what a press will do** (new, not yet tried in the glasses). It's one cursor everywhere, and its look
+  changes with what's under it: a plain dot over windows and empty space, two small arrows on a desktop's edge or
+  corner, pointing the way it resizes, four arrows on a pill (move), and two arrows chasing round the dot on the rotate
+  arrows. The look stays through a drag until you let go.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
-  slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
-  before touching one (a small gap is kept, and the strip with its pill counts as part of the desktop), and if you
-  keep pushing at an angle it slides along that desktop's edge. However fast you move, it never jumps through one. To
-  get past a neighbour, lift it clear of the row first, or carry it round behind you. A desktop that already overlaps
-  another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
-  that doesn't move opens the pill instead of moving anything.
-- **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
-  it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
+  slot if you drop it within half a degree of it. It never goes through another desktop as you see it: it bumps it
+  out of the way (see [Desktops bump each other out of the way](#placing-desktops); a small gap is kept, and the strip
+  with its pill counts as part of the desktop), and the bumped one stays where it ends up. However fast you move, it
+  never jumps through one. To pass a neighbour without moving it, lift it clear of the row first, or carry it round
+  behind you. A click that doesn't move opens the pill instead of moving anything.
+- **Resize a desktop:** put the dot just outside an edge or corner of a desktop, until it shows its two arrows (a
+  corner also shows a small grey bracket). The handles are outside the desktop, so a window's corner, like its close
+  button, stays the window's. Pushing the mouse against a desktop's edge from inside lands on that handle. Drag outward
+  to make it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
-  Resizing doesn't stop at other desktops.
-- **Level or roll a desktop:** every desktop in the overview has two small curved arrows in your theme's colour above
-  its top corners: counter-clockwise on the left, clockwise on the right. Click one and the desktop turns that way:
-  straight to level if level lies that way (say you recentred with your head tipped to one side; judged against
-  gravity in anchor mode), else 2° further. Or hold either arrow and drag the dot round the desktop to roll it either
-  way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
-- **Maximize a desktop:** click it with the dot. The window under the dot gets the click and the desktop is maximized,
-  as Ctrl+Alt+Up does: it grows where it is to fill your view, then follows your head. It gets the focus and the
-  normal cursor appears where you clicked. A press that drags (moving a window, selecting text) doesn't maximize.
-- **Move a window to another desktop** (new, not yet tried in the glasses): press on the window and hold the button for
-  a moment, then drag. A small outline of the window follows the dot and the desktop under it gets a coloured frame.
-  Let go over that desktop and the window moves there, onto the workspace it shows. Nothing is maximized and the
-  selected desktop stays the same. Let go anywhere else (its own desktop, a pill, empty space) and nothing moves. On a
-  desktop other than the selected one you can also just start dragging. On the selected desktop, moving before you've
-  held still drags inside the window as usual. A quick click still maximizes. Pinned windows can't be moved this way.
-- **The mouse stays on its desktop.** It only ever works the selected desktop. In the overview, moving the dot over
-  another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
+  Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
+- **Level or roll a desktop:** every desktop in the overview has two arrow brackets in your theme's colour wrapped
+  round its top corners, just outside its border: the left one turns it counter-clockwise, the right one clockwise. They
+  stay on the corners as you move or resize the desktop, and grow and shrink with it. Click a bracket's arm (not the
+  bend round the corner, which resizes like the corner, nor right against the edge) and the desktop turns that way:
+  straight to level if level lies that way (say you recentred with your head tipped to one side; judged against gravity
+  in anchor mode), else 2° further. A desktop's picture, and any desktop covering a bracket, keeps its clicks. Press R
+  in its open pill to put the desktop back flat in its slot and level.
+  Or hold either bracket and drag the dot round the desktop to roll it either
+  way, up to 90°; it rests at level as you pass it. The roll is saved with the rest of your layout.
+- **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
+  (and its panel when open), the two roll brackets round its top corners, and the resize handles just outside its edges
+  and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
+  never maximizes the desktop. To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the desktop under the
+  dot grows where it is to fill your view, then follows your head.
+- **Drag a window to another desktop with Super** (new, not yet tried in the glasses): hold **Super** and drag it with the
+  left button, as on any monitor. Past the edge of its desktop the dot carries on through the space between desktops, and
+  when it reaches another desktop the window arrives under it, wherever that desktop is placed. A tiled window fits in
+  where you drop it. Let go with the dot on a desktop and the window lands on that desktop, whole and under the dot, even
+  if you were holding a floating window by its far end. Let go between desktops and it stays where it was. While you
+  drag, the pills, roll brackets and resize handles do nothing, and nothing animates. **Super and the right button**
+  resizes the window as usual, and the mouse stays on that desktop until you let go. If the dot is off the desktops, Super
+  and a click do nothing. All of this works in typing mode too.
+- **Moving a window to another desktop by holding it** without Super is switched off for now, so a long press or a slow
+  drag in an app stays the app's. **Ctrl+Alt+1–4** and **Ctrl+Alt+G** still send the window you're using.
+- **A held button stays on its desktop.** While you hold a mouse button (dragging inside an app, selecting text) the
+  mouse stays on that desktop until you let go, even at its edge. The selected desktop is the one under the dot;
+  Ctrl+Alt+Left / Right still pick one too.
 - **Push the mouse past an edge to switch** (new, not yet tried in the glasses): maximized, keep pushing the mouse past
   an edge of the desktop and the view switches to the desktop placed that way round you, as Ctrl+Alt+Left / Right do:
   straight to it, with no trip through the overview, and it comes in front of you (follow) or stays locked to your view.
@@ -271,14 +363,20 @@ In the overview your mouse is no longer stuck inside the desktops:
   of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
   beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)
   doesn't switch. Not in typing mode or during a VR video.
+- **Scrolling layout: the columns come first** (new, not yet tried in the glasses): maximized on a workspace in
+  Hyprland's scrolling layout, pushing the mouse against the left or right edge scrolls the windows waiting past it
+  into view first, one column at a time, as on your normal monitor. The mouse stays at the edge meanwhile. Once the
+  last column is in, it waits a moment (about half a second), and only then does pushing on, or pushing again, switch
+  to the desktop placed that way. Other layouts, fullscreen windows and the top and bottom edges work as before. The
+  scrolling also works in typing mode (which never switches).
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
 Maximizing (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
 and while a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back). An open
 pill stays until you close it or until 30 seconds pass without input.
 
-Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
-edit the desktop under **Startup options** in the panel.
+Resizing changes how big a desktop looks, not its resolution. To change its resolution (how sharp it is and how much
+fits on it), use the **Resolution** box in the desktop's pill (see [Placing desktops](#placing-desktops)).
 
 **Desktops all around you** (new, not yet tried in the glasses). Carrying a desktop round you works in the overview,
 where the desktops always stay fixed in the room (anchor, see above):
@@ -295,7 +393,7 @@ where the desktops always stay fixed in the room (anchor, see above):
   Right and press Ctrl+Alt+Up, even when it is behind you. Back in the overview every desktop is where you left it.
 - **Out of the mouse's reach.** For a desktop far round you, the mouse can only reach its pill, not its corners, its
   open pill panel or the desktop itself. Use the keys: Ctrl+Alt+Left / Right selects it, Ctrl+Alt+L opens its pill,
-  the arrows change it and R puts it back flat in its slot.
+  the arrows change it and R puts it back flat in its slot and level.
 
 All of this is checked by offline tests only. It has not been tried in an isolated VM or in the glasses.
 
@@ -371,10 +469,11 @@ a web video you choose to play.
 Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a desktop's glass pill: under its sliders are
 **Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
 that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
-your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. Every new
-session starts with three desktops again. Above those buttons, **Scale** sets that desktop's scale: click the box and pick
-a step from 100% to 300% (steps that would not give whole pixels are greyed out). It applies at once and the next
-session keeps it (new, not yet tried in the glasses). Other resolutions are set under **Startup options** in the panel
+your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. The next
+session starts with the same desktops; Ctrl+Alt+R goes back to three. Above those buttons, **Resolution** sets that
+desktop's resolution (16:9, 16:10 and ultrawide sizes, from 1280x720 to 5120x1440) and **Scale** its scale, from 100% to
+300% (steps that would not give whole pixels are greyed out). Both apply at once, without restarting XR, and the next
+session keeps them (new, not yet tried in the glasses). Any other size can be set under **Startup options** in the panel
 before starting.
 
 **Which glasses are tested?**

@@ -157,6 +157,8 @@ struct Presentation::Impl : SurfaceRequests {
         ext_image_copy_capture_frame_v1* frame = nullptr;
         SessionConstraints constraints;
         CaptureBuffers buffers;  // when to (re)create the capture buffers, and the size of the frame on screen
+        ResizeSettle resize;     // ...not at once after its output was resized
+        SizeEase shape;          // the size the layout draws it at (GPU composition): eases to a new shape
         std::array<std::unique_ptr<Buffer>, 2> slots{};
         int capturing = -1, ready = -1;
         bool stopped = false;
@@ -208,13 +210,28 @@ struct Presentation::Impl : SurfaceRequests {
         std::size_t n = 0;
         std::span<const Size> span() const { return {v.data(), n}; }
     };
-    Sizes capture_sizes() const {
+    static Size settled_size(const Capture& c) { return c.buffers.layout_size().value_or(Size{1920, 1080}); }
+    Sizes settled_sizes() const {  // what the layout is heading for: the frame on screen's size (the supervisor's hit testing)
         Sizes out;
         for (const auto& c : captures) {
             if (out.n == out.v.size()) break;
-            out.v[out.n++] = c->buffers.layout_size().value_or(Size{1920, 1080});
+            out.v[out.n++] = settled_size(*c);
         }
         return out;
+    }
+    Sizes capture_sizes() const {  // what is drawn: the same, but a desktop changing shape part way there (SizeEase)
+        Sizes out;
+        for (const auto& c : captures) {
+            if (out.n == out.v.size()) break;
+            out.v[out.n++] = c->shape.value().value_or(settled_size(*c));
+        }
+        return out;
+    }
+    void ease_sizes(double now_ms) {  // a capture's first frame only sets its size; after that a new shape eases
+        for (const auto& c : captures) c->shape.advance(settled_size(*c), now_ms, c->frames > 0);
+    }
+    bool sizes_easing() const {
+        return std::any_of(captures.begin(), captures.end(), [](const auto& c) { return c->shape.animating(); });
     }
     // Layouts are pure functions of the capture sizes, the surface size and three view floats: remembered with those
     // inputs (bit for bit) and recomputed only when one changes, so a settled view lays nothing out per frame or wake.
@@ -233,6 +250,7 @@ struct Presentation::Impl : SurfaceRequests {
     }
     std::optional<LayoutKey> draw_tiles_key, overview_key, cpu_tiles_key;
     std::vector<FRect> draw_tiles;       // blended_layout for the GL frame
+    TileEase tile_ease;                  // the tiles on their way to it through a desktop change (Ctrl+Alt+R)
     std::string overview_line;           // overview_geometry_json of the settled overview
     std::vector<Rect> cpu_tiles;         // side_by_side for the CPU frame
     std::vector<Placement> resolved;     // resolved_placements() of the frame being drawn
@@ -246,7 +264,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<std::uint32_t> early_hold;      // per capture: draws left with early uploads off (it outpaced the draws)
     static constexpr std::uint32_t kEarlyHoldDraws = 32;
     bool upload_failed = false;           // an early SHM upload failed; the next draw reports it
-    ViewAnimator view{220.f};
+    ViewAnimator view{kViewEaseMs};
     // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
     std::vector<std::array<std::int32_t, 4>> placements;
     std::uint64_t placement_updates = 0;
@@ -261,14 +279,21 @@ struct Presentation::Impl : SurfaceRequests {
     double roll_geometry_ms = -1e9;      // when it was sent
     bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
     // Drawn placements ease toward the latest ones (view.hpp ease_toward), so a pill drag or corner resize, whose
-    // updates arrive at the pointer's rate, moves smoothly at the display's rate.
+    // updates arrive at the pointer's rate, moves smoothly at the display's rate. A frame with a glide (a discrete edit
+    // that bumped desktops out of the way) instead takes every desktop from where it was drawn to its new placement along
+    // one smootherstep curve over glide_ms (view.hpp glide_toward); any later frame without one eases on from there.
     std::vector<Placement> eased;
     double eased_ms = -1;
+    PlacementGlide glide;           // a glide under way (glide.ms > 0), view.hpp step_placements
+    std::vector<Placement> targets; // ease_placements' scratch
     void ease_placements(double now_ms) {
         const float dt = eased_ms < 0 ? 1e9f : float(now_ms - eased_ms);
         eased_ms = now_ms;
-        eased.resize(captures.size());
-        for (std::size_t i = 0; i < eased.size(); ++i) eased[i] = ease_toward(eased[i], target_placement(i), dt, kPlacementEaseMs);
+        targets.clear();
+        for (std::size_t i = 0; i < captures.size(); ++i) targets.push_back(target_placement(i));
+        if (eased.size() > targets.size()) eased.resize(targets.size());
+        while (eased.size() < targets.size()) eased.push_back(Placement{});  // eased in from flat, as before
+        step_placements(eased, targets, dt, now_ms, glide);
     }
     bool placements_easing() const {
         for (std::size_t i = 0; i < eased.size(); ++i) if (!same_placement(eased[i], target_placement(i))) return true;
@@ -368,6 +393,8 @@ struct Presentation::Impl : SurfaceRequests {
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
     HelpOverlay help;          // keyboard help card (Ctrl+Alt+H)
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
+    BindPanelOverlay binds;    // key bind panel (Ctrl+Alt+K)
+    bool binds_drawn = false;  // last frame showed it: draw once more so it clears
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     PanelShift panel_shift;    // the view pitched down while a panel is open, so all of it shows (glass.hpp glass_panel_shift)
@@ -381,6 +408,7 @@ struct Presentation::Impl : SurfaceRequests {
     struct FreePointer {
         bool visible = false, held = false, directed = false; std::int32_t x = 0, y = 0, az = 0, el = 0; std::uint64_t shown = 0;
         std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // window drag (0: none)
+        PointerLook look = PointerLook::plain;
     } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
     std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
@@ -424,12 +452,15 @@ struct Presentation::Impl : SurfaceRequests {
         c.owner->capture_next(c);    // same buffers: keep capturing into them; no-op while a re-creation is pending
     }
     // After each dispatch: re-create the buffers of a capture whose constraints changed, once no frame is in flight
-    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing.
+    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing; after
+    // a resize, only kResizeSettleMs later (ResizeSettle: the output's clients catch up behind the frame on screen).
     void settle_captures() {
         if (!allocation_enabled) return;
+        const auto now = monotonic_ms();
         for (auto& p : captures) {
             auto& c = *p;
             if (c.stopped) continue;
+            if (c.resize.hold(c.buffers, now)) continue;  // pump() comes back here at least every 50 ms
             if (c.buffers.settle(c.frame != nullptr)) allocate(c);
             else capture_next(c);
         }
@@ -592,6 +623,8 @@ struct Presentation::Impl : SurfaceRequests {
         for (const auto& name : wanted) joined += (joined.empty() ? "" : ",") + name;
         const auto names = parse_capture_list(joined, selected ? selected->name : std::string());
         if (!names) return;
+        std::vector<std::string> was;  // the tiles of an eased change follow their desktops by name
+        for (const auto& c : captures) was.push_back(c->name);
         auto erase_at = [](auto& v, std::size_t i) { if (i < v.size()) v.erase(v.begin() + std::ptrdiff_t(i)); };
         for (std::size_t i = captures.size(); i-- > 0;) {  // back to front: indices below stay valid
             if (std::find(names->begin(), names->end(), captures[i]->name) != names->end()) continue;
@@ -619,6 +652,14 @@ struct Presentation::Impl : SurfaceRequests {
                 if (c->session) stop_session(*c);
                 c->output = nullptr; c->gone = false; c->stopped = false; c->restart_ms = 0; c->restarts = 0;
             }
+        if (tile_ease.armed(double(monotonic_ms()))) {
+            std::array<int, kMaxDesktops> before;
+            before.fill(-1);
+            const std::size_t n = std::min(captures.size(), before.size());
+            for (std::size_t i = 0; i < n; ++i)
+                if (const auto at = std::find(was.begin(), was.end(), captures[i]->name); at != was.end()) before[i] = int(at - was.begin());
+            tile_ease.reindex(std::span<const int>(before.data(), n));
+        }
         draw_tiles_key.reset(); overview_key.reset(); cpu_tiles_key.reset();
         service_captures();
         cadence.invalidate();
@@ -781,6 +822,7 @@ struct Presentation::Impl : SurfaceRequests {
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
         s.help.set_viewport(w, h);  // the help card's text size comes from the output height
+        s.binds.set_viewport(w, h);
         s.apply_scale();
         s.half_w = 0;  // recompute FOV split for the new aspect
     }
@@ -805,11 +847,12 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
-            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || (s.gl && s.environment.animating(now)) || s.panel_shift.animating(now) ||
+            (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || s.sizes_easing() || (s.gl && s.environment.animating(now)) || s.panel_shift.animating(now) ||
             (s.environment_drawn && !s.environment.on()) ||  // its fade; settled it needs no frames of its own: see environment.hpp
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
+        if (s.tile_ease.active()) s.cadence.invalidate();
     }
     inline static const wl_callback_listener frame_listener{frame_done};
     static void released(void* data, wl_buffer*) { static_cast<Buffer*>(data)->busy = false; }
@@ -928,6 +971,7 @@ std::string Presentation::capture_report() const {
                ",\"failures\":" + std::to_string(c.failures) + ",\"width\":" + std::to_string(plan ? plan->width : 0) +
                ",\"height\":" + std::to_string(plan ? plan->height : 0) + ",\"format\":" + std::to_string(plan ? plan->format : 0) +
                ",\"constraint_batches\":" + std::to_string(c.buffers.batches()) + ",\"reallocations\":" + std::to_string(c.buffers.reallocations()) +
+               ",\"resize_settles\":" + std::to_string(c.resize.settles()) + ",\"shape_eases\":" + std::to_string(c.shape.eases()) +
                ",\"path\":\"" + (c.path == Impl::Capture::Path::Dmabuf ? "dmabuf" : c.path == Impl::Capture::Path::Shm ? "shm" : "none") +
                "\",\"dmabuf_frames\":" + std::to_string(c.dmabuf_frames) +
                (c.path == Impl::Capture::Path::Dmabuf ? ",\"fourcc\":" + std::to_string(c.choice.fourcc) + ",\"modifier\":" + std::to_string(c.choice.modifier) : std::string()) +
@@ -937,6 +981,9 @@ std::string Presentation::capture_report() const {
            ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) +
            ",\"page\":" + std::to_string(impl_->help.page()) + ",\"pages\":" + std::to_string(impl_->help.pages()) +
            ",\"turns\":" + std::to_string(impl_->help.turns()) + "}";
+    out += ",\"binds\":{\"visible\":" + std::string(impl_->binds.visible() ? "true" : "false") +
+           ",\"shown\":" + std::to_string(impl_->binds.shown_count()) + ",\"hidden\":" + std::to_string(impl_->binds.hidden_count()) +
+           ",\"first\":" + std::to_string(impl_->binds.first()) + ",\"slots\":" + std::to_string(impl_->binds.slots()) + "}";
     out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
            ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
@@ -1073,6 +1120,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
             s->popups.set_font(std::move(font));
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
+            std::string binds_why; s->binds.set_font(HudFont::load(kHudFontFamily, binds_why));
             std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
         }
     }
@@ -1085,7 +1133,9 @@ Status Presentation::dispatch(int timeout_ms, int wake_fd, bool* wake_ready) {
     return {};
 }
 void Presentation::set_desktops(const std::vector<std::string>& outputs, const std::vector<std::string>& renew) {
-    if (impl_) impl_->set_desktops(outputs, renew);
+    if (!impl_) return;
+    impl_->glide.ms = 0;  // a glide is per desktop index: eased on from where it got to
+    impl_->set_desktops(outputs, renew);
 }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
@@ -1104,6 +1154,7 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->glass.set_accent(seed);   // an open panel (glass_theme.hpp)
     impl_->popups.set_accent(seed, double(monotonic_ms()));  // the pop-ups and the cards, redrawn if showing
     impl_->help.set_accent(seed);
+    impl_->binds.set_accent(seed);
     if (impl_->video) impl_->video->set_accent(seed);
     if (impl_->accent != std::array<std::uint8_t, 3>{r, g, b}) { impl_->accent = {r, g, b}; ++impl_->accent_updates; }
     impl_->cadence.invalidate();
@@ -1158,12 +1209,16 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     }
     if (impl_->help.set(visible, help, double(monotonic_ms()), turn)) impl_->cadence.invalidate();
 }
+void Presentation::set_binds(const BindPanelState& state) {
+    if (impl_ && impl_->binds.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
+}
 void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
     if (impl_->glass.set(state, double(monotonic_ms()), surface)) impl_->cadence.invalidate();
 }
-void Presentation::set_placements(const std::vector<std::array<std::int32_t, 4>>& placements) {
+void Presentation::set_placements(const std::vector<std::array<std::int32_t, 4>>& placements, std::uint32_t glide_ms) {
     if (!impl_) return;
+    start_glide(impl_->glide, impl_->eased, double(monotonic_ms()), glide_ms);  // (0: a glide under way ends; eased on from where it is)
     impl_->placements.assign(placements.begin(), placements.begin() + std::ptrdiff_t(std::min(placements.size(), impl_->captures.size())));
     ++impl_->placement_updates;
     impl_->cadence.invalidate();
@@ -1183,18 +1238,19 @@ void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hov
     impl_->cadence.invalidate();
 }
 void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed, std::int32_t az,
-                                        std::int32_t el, std::int32_t ghost_w, std::int32_t ghost_h, std::int32_t target) {
+                                        std::int32_t el, std::int32_t ghost_w, std::int32_t ghost_h, std::int32_t target, PointerLook look) {
     if (!impl_) return;
     auto& p = impl_->free_pointer;
     if (visible && !p.visible) ++p.shown;
     p.visible = visible; p.x = x; p.y = y; p.held = held; p.directed = directed; p.az = az; p.el = el;
-    p.ghost_w = ghost_w; p.ghost_h = ghost_h; p.target = target;
+    p.ghost_w = ghost_w; p.ghost_h = ghost_h; p.target = target; p.look = look;
     impl_->cadence.invalidate();
 }
 void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
                             std::int8_t side, bool active) {
     if (!impl_) return;
     auto& s = *impl_;
+    if (s.rolls != roll) s.glide.ms = 0;  // a glide aims at the placements it began with: eased on from where it got to
     s.rolls = roll;
     s.roll.icons = icons; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
     s.cadence.invalidate();
@@ -1207,7 +1263,7 @@ std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
                           !(s.video && s.video->active());
     if (measured && s.roll_geometry_measured && now_ms - s.roll_geometry_ms < kRollGeometryMs) return std::nullopt;  // rate limit
     std::string line = "{\"roll_geometry\":{\"tilt\":[";
-    const auto tiles = measured ? overview_layout(s.capture_sizes().span(), float(s.width), float(s.height), s.view.target_spacing())
+    const auto tiles = measured ? overview_layout(s.settled_sizes().span(), float(s.width), float(s.height), s.view.target_spacing())
                                 : std::vector<FRect>{};
     const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
     const auto up = measured ? canvas_up(*reference, s.modes.anchor()) : std::array<float, 3>{0, 1, 0};
@@ -1227,11 +1283,15 @@ std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
     return line;
 }
 void Presentation::resend_roll_geometry() { if (impl_) impl_->roll_geometry_sent.clear(); }
+void Presentation::ease_tiles() {
+    if (impl_) impl_->tile_ease.arm(impl_->capture_sizes().span(), impl_->draw_tiles, double(monotonic_ms()));
+}
+
 std::optional<std::string> Presentation::take_overview_geometry() {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
     // Called on every main-loop wake: lay out and format only when an input changed.
-    const auto sizes = s.capture_sizes();
+    const auto sizes = s.settled_sizes();
     const auto key = s.layout_key(sizes, s.view.target_spacing(), s.half_w, s.half_h);
     if (s.overview_key != key) {
         const auto tiles = overview_layout(sizes.span(), float(s.width), float(s.height), s.view.target_spacing());
@@ -1325,6 +1385,7 @@ Status Presentation::draw_test_pattern() {
         s.view.advance(double(monotonic_ms()));
         if (!s.half_w) s.update_fov();
         s.ease_placements(double(monotonic_ms()));
+        s.ease_sizes(double(monotonic_ms()));
         s.land_turns();
         s.capture_centre();
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
@@ -1375,7 +1436,8 @@ Status Presentation::draw_test_pattern() {
                 s.draw_tiles_key = key;
             }
         }
-        const auto& tiles = s.draw_tiles;
+        const auto& tiles = s.tile_ease.tiles(s.capture_sizes().span(), s.draw_tiles, s.view.zoom() < 0.01f && !s.view.switching(),
+                                              double(monotonic_ms()));  // Ctrl+Alt+R: on their way to that layout
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
         if (s.presentation) {
             auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });
@@ -1407,7 +1469,7 @@ Status Presentation::draw_test_pattern() {
             if (!s.gl->draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) { s.video->draw(world, fov, w, h, behind); }, card, card_generation, card_alpha))
                 return Error{"gl", "draw or swap failed"};
             s.video->after_swap();
-            s.help_drawn = s.glass_drawn = false;
+            s.help_drawn = s.glass_drawn = s.binds_drawn = false;
             s.panel_shift.set(0.f, video_now);  // a video closes the panel
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
@@ -1417,6 +1479,9 @@ Status Presentation::draw_test_pattern() {
         const float help = s.help.alpha(help_now);
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
+        const float binds = s.binds.alpha(help_now);
+        s.gl->set_binds(binds > 0.f ? &s.binds.image() : nullptr, s.binds.generation(), binds, s.binds.offset_px(help_now));
+        s.binds_drawn = binds > 0.f;
         // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
         const bool handle = s.handle.visible && s.view.zoom() < 0.01f && !s.view.switching();
         s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);
@@ -1443,7 +1508,7 @@ Status Presentation::draw_test_pattern() {
         const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
-                               float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f);
+                               float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f, s.free_pointer.look);
         s.gl->set_window_drag(float(s.free_pointer.ghost_w), float(s.free_pointer.ghost_h), free_pointer ? s.free_pointer.target : -1);
         const float panel_shift = s.panel_shift.value(double(monotonic_ms()));
         s.last_head = glass_view_shift(head, panel_shift);  // the help card's hit box is worked out on the canvas as drawn

@@ -105,6 +105,18 @@ std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect>
 struct CornerHandle { FRect horizontal, vertical; };
 CornerHandle corner_handle(const FRect& tile, std::uint32_t corner);
 constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 255.f;
+// A glide (a `placement` frame's glide, ipc.hpp: a discrete edit that bumped desktops out of the way, bump.py): `t` of the
+// way (0..1, clamped) from `from` to `to` along smootherstep, so it starts and lands with no jump in speed, never overshoots
+// and is exactly `to` at t >= 1. Every desktop of the frame takes the same t, so they move out of each other's way
+// together. x the short way round, as ease_toward.
+Placement glide_toward(const Placement& from, const Placement& to, float t);
+// The renderer's drawn placements, one step to `now_ms` toward `targets` (resized to match, new ones at their target):
+// while a glide is under way (glide.ms > 0) every desktop is glide_toward(glide.from[i], targets[i], (now - start) / ms),
+// and once it has landed the glide ends (ms = 0); otherwise each eases toward its target over `dt_ms` (ease_toward).
+// start_glide begins one from what is drawn now (false, and any glide ends, when ms is 0 or nothing is drawn yet).
+struct PlacementGlide { std::vector<Placement> from; double start_ms = 0; float ms = 0; };
+bool start_glide(PlacementGlide& glide, const std::vector<Placement>& drawn, double now_ms, std::uint32_t ms);
+void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>& targets, float dt_ms, double now_ms, PlacementGlide& glide);
 // The overview's drag handles are the glass pills under each desktop (glass.hpp glass_pill), which also open its placement panel.
 // Placement easing: the drawn placement approaches the latest one with time constant `tau_ms` (exponential, frame-rate
 // independent) and lands on it exactly once within a hair, so drags at the pointer's ~30-60 Hz look smooth at 120 Hz.
@@ -112,6 +124,34 @@ constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 2
 Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
 bool same_placement(const Placement& a, const Placement& b);
 constexpr float kPlacementEaseMs = 35.f;
+// Overview tiles through a desktop change the supervisor asks to ease (the `desktops` frame's `ease`, ipc.hpp): today only
+// Ctrl+Alt+R (tools/native_spike/view.py). The overview fits its row to the view, so a desktop more or less, or one new
+// aspect, changes every tile at once, and without this they jump. Armed for kTileEaseArmMs from the last such frame, any
+// change of the captures or their sizes takes every tile from where it is drawn to the new layout along one smootherstep
+// over kTileEaseMs (view.py RESET_ANIM_S, a test compares); a further change starts again from where they are. A new
+// desktop grows out of its slot from kTileEaseBornScale of its size. Overview only: a zoom drops it, and an expired arm
+// leaves a later change to jump as usual. Unarmed it costs one comparison a frame.
+constexpr float kTileEaseMs = 450.f, kTileEaseArmMs = 2000.f, kTileEaseBornScale = 0.02f;
+class TileEase {
+public:
+    // The next changes ease. `sizes` and `drawn`: the captures' sizes and tiles now, before the change.
+    void arm(std::span<const Size> sizes, std::span<const FRect> drawn, double now_ms);
+    bool armed(double now_ms) const { return now_ms <= armed_until_ms_; }
+    // The captures changed: `before`[i] is new capture i's index before the change, -1 for a new desktop.
+    void reindex(std::span<const int> before);
+    // This frame's tiles: `target` (the layout) unless they are on their way to it.
+    const std::vector<FRect>& tiles(std::span<const Size> sizes, const std::vector<FRect>& target, bool overview, double now_ms);
+    bool active() const { return start_ms_ >= 0; }  // on the way: the renderer keeps drawing
+private:
+    void keep(std::span<const Size> sizes);
+    bool kept(std::span<const Size> sizes) const;
+    std::array<FRect, kMaxDesktops> from_{}, shown_{};  // by capture index; width 0: none yet (a new desktop)
+    std::array<Size, kMaxDesktops> sizes_{};
+    std::vector<FRect> out_;
+    std::size_t count_ = 0;
+    bool changed_ = false;
+    double armed_until_ms_ = -1, start_ms_ = -1;
+};
 // Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
 // or in its direction round you when the frame gives one (direction_disc; the supervisor always does), world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
 // the real one). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at
@@ -128,6 +168,16 @@ std::vector<Vec3> canvas_disc(const Canvas& canvas, float x, float y, float radi
 // and where (az, el) is that point's own direction it is canvas_disc exactly. Empty under canvas_disc's conditions.
 std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float az, float el, float radius,
                                  int segments = kFreePointerSegments);
+// The dot's look (free_pointer.py POINTER_LOOKS, the `overview_pointer` frame's `look`): it stays one cursor and shows what
+// a press would do there. plain over content, empty space and controls; two small arrowheads either side of the disc along
+// the resize direction on a desktop's edge or corner (ew: left / right edges, ns: top / bottom, nwse: top-left / bottom-right
+// corners, nesw: top-right / bottom-left); four on a pill (move); two chasing round the disc on a rotate bracket (rotate).
+enum class PointerLook : std::uint8_t { plain, resize_ew, resize_ns, resize_nwse, resize_nesw, move, rotate };
+constexpr float kPointerMarkGapPx = 2.5f, kPointerMarkLenPx = 5.f, kPointerMarkHalfPx = 3.5f;  // past the ring, canvas px
+// Triangles (three vertices per mark, GL_TRIANGLES) of look `look`'s marks round the dot at canvas (x, y), turned to
+// (az, el) exactly as direction_disc turns the dot, so they stay round it anywhere round you and stay upright. `grow` px
+// fattens each (the black outline drawn under them, as the ring is under the disc). Empty for plain or an empty canvas.
+std::vector<Vec3> direction_marks(const Canvas& canvas, float x, float y, float az, float el, PointerLook look, float grow = 0.f);
 // Window drag (free_pointer.py): the dragged window's ghost, a w x h canvas px rectangle outline `thickness` px wide (on
 // the inside of w x h), centred on canvas (x, y) and turned to (az, el) exactly as direction_disc turns the dot, so it
 // follows the dot anywhere round you. Triangle strip (outer / inner corner pairs, closed: 10 vertices). Empty if the
@@ -145,6 +195,28 @@ std::vector<Vec3> direction_outline(const Canvas& canvas, float x, float y, floa
 // Empty if anything is unusable.
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h);
 constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
+
+// How long the view's own changes take: zoom, spacing (ViewAnimator) and a desktop's shape (SizeEase), all with smoothstep.
+constexpr float kViewEaseMs = 220.f;
+// One desktop's size as the layout draws it. When its output is resized live to a new shape (a glass pill's Resolution
+// dropdown or Ultrawide) the frame at the new size appears at once, in a tile whose aspect eases to the new one, so
+// the tile widens or narrows smoothly and, every layout being computed from these sizes, its neighbours slide along with
+// it. The aspect is what eases (a tile's width in the row is proportional to it), so a new resolution of the same shape
+// starts nothing. A change that comes mid-way carries on from the aspect drawn then. advance() once per drawn frame; with
+// `animate` false (a desktop's first size) the new size just applies. Until the first advance() value() is empty.
+class SizeEase {
+public:
+    explicit SizeEase(float duration_ms = kViewEaseMs) : duration_(duration_ms) {}
+    void advance(Size target, double now_ms, bool animate);
+    std::optional<Size> value() const;
+    bool animating() const { return t_ < 1.f; }
+    std::uint64_t eases() const { return eases_; }  // how many started (diagnostic)
+private:
+    float duration_, t_ = 1.f, from_ = 0;
+    double start_ms_ = 0;
+    std::optional<Size> to_;
+    std::uint64_t eases_ = 0;
+};
 
 // Time-based animation toward targets (no frame-rate dependence). Zoom and spacing ease with smoothstep over
 // `duration_ms`; selecting another desktop in the overview just moves the highlight.
@@ -166,7 +238,7 @@ class ViewAnimator {
 public:
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
     struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
-    explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
+    explicit ViewAnimator(float duration_ms = kViewEaseMs, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
                     bool cut = false);
     void advance(double now_ms);

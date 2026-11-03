@@ -61,6 +61,37 @@ def move_command(address, workspace, follow=True):
     return (MOVE if follow else DROP).format(workspace=workspace, address=address)
 
 
+def land_lua(address, workspace, x=None, y=None):
+    """One eval: window `address` onto regular workspace `workspace`, not following it; floating, then to layout pixel (x, y),
+    which cancels the shift the workspace move makes (Hyprland keeps a floating window's offset from its old monitor, so it
+    would land by the monitors' distance from where it was dropped). It keeps the focus: the move hands it on, a window
+    focus warps the cursor to the window, and the cursor goes straight back to where the hand left it."""
+    if not isinstance(address, str) or not ADDRESS.match(address): raise ValueError('invalid window address')
+    if type(workspace) is not int or not 0 < workspace <= 2147483647: raise ValueError('invalid workspace')
+    if (x is None) != (y is None) or any(v is not None and (type(v) is not int or not -1_000_000 <= v <= 1_000_000) for v in (x, y)):
+        raise ValueError('invalid window position')
+    place = f'hl.dispatch(hl.dsp.window.move({{ x = {x}, y = {y}, window = w }})) ' if x is not None else ''
+    return (f'do local w = "address:{address}" local p = hl.get_cursor_pos() '
+            f'hl.dispatch(hl.dsp.window.move({{ workspace = "{workspace}", follow = false, window = w }})) {place}'
+            'hl.dispatch(hl.dsp.focus({ window = w })) '
+            'if p then hl.dispatch(hl.dsp.cursor.move({ x = p.x, y = p.y })) end end')
+
+
+def landing(window, monitor):
+    """Where a floating window (Hyprland `activewindow`: at, size) dropped by a Super drag lands on `monitor` (`monitors`
+    entry): as near as it can be to where the drag left it, which is still under the cursor, but whole on that monitor (the
+    rest of the layout is some other desktop, elsewhere round you). Wider or taller than the monitor: from its left or top
+    edge. Either way the cursor, which is on the monitor and was on the window, stays on it. Integer layout px."""
+    at, size = window.get('at'), window.get('size')
+    w, h, x, y, scale = (monitor.get(k) for k in ('width', 'height', 'x', 'y', 'scale'))
+    def number(v): return type(v) in (int, float) and math.isfinite(v)
+    if not isinstance(at, list) or not isinstance(size, list) or len(at) != 2 or len(size) != 2 \
+            or not all(number(v) for v in (*at, *size, w, h, x, y, scale)) or scale <= 0:
+        raise ValueError('invalid window or monitor geometry')
+    def axis(v, length, lo, span): return int(round(max(lo, min(v, lo + span - length))))
+    return axis(at[0], size[0], x, w / scale), axis(at[1], size[1], y, h / scale)
+
+
 def _monitor(monitors, name):
     """(monitor dict, its active regular workspace id or None) for output `name`, or (None, None)."""
     if not isinstance(monitors, list): raise ValueError('invalid monitors')
@@ -187,6 +218,58 @@ class WindowSender:
                 found = None
             done(found)
         self._start(work)
+
+    def under_cursor(self, done):
+        """From the supervisor loop: find the window under the cursor now, if the cursor is on one of the run's desktops,
+        off the loop, then call done(window_at's dict or None) from the worker. A Super drag's press: that is the window
+        Hyprland just began dragging. Never blocks on the compositor; nothing if closed."""
+        if self.closed: return
+        def work():
+            try:
+                pos = self.client.query('cursorpos', timeout=self.deadline)
+                monitors = self.client.query('monitors', timeout=self.deadline)
+                found = None
+                for name in self.names:
+                    m, _ = _monitor(monitors, name)
+                    if m is not None and m['x'] <= pos['x'] < m['x'] + m['width'] / m['scale'] \
+                            and m['y'] <= pos['y'] < m['y'] + m['height'] / m['scale']:
+                        found = window_at(self.client.query('clients', timeout=self.deadline), monitors, name, pos['x'], pos['y'])
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, ZeroDivisionError):
+                found = None
+            done(found)
+        self._start(work)
+
+    def land(self, address, target):
+        """From the supervisor loop: a Super drag that crossed desktops was dropped with the cursor on output `target`: see
+        that window `address` is there (land_now). Off the loop, serialized with the send keys; a failure is a desktop
+        notification."""
+        if self.closed: return
+        def work():
+            with self._lock:
+                if self.closed: return
+                try: message = self.land_now(address, target)
+                except (OSError, ValueError, TypeError, KeyError, AttributeError): message = 'Could not move the window.'
+            if message and self.notify is not None: self.notify(message)
+        self._start(work)
+
+    def land_now(self, address, target):
+        """Do it now (caller holds the lock). Hyprland hands a dragged window to the monitor under its middle, so a floating
+        one held far from its middle can be dropped with the cursor on one monitor and itself on another: then it moves to
+        the cursor's, placed by landing. Only the window the drag ended on: Hyprland focuses that one at the end of a drag,
+        so anything else active means this is not it (it never moves a window the drag did not hold). Returns a message for
+        the user, or None."""
+        if target not in self.names: return f'{target} is not part of this session.'
+        monitors = self.client.query('monitors', timeout=self.deadline)
+        found, workspace = _monitor(monitors, target)
+        if found is None or workspace is None: return None
+        active = self.client.query('activewindow', timeout=self.deadline)
+        if not isinstance(active, dict) or active.get('address') != address or active.get('pinned'): return None
+        on = active.get('workspace')
+        if isinstance(on, dict) and on.get('id') == workspace: return None  # it is there: Hyprland's own rule took it
+        x, y = landing(active, found) if active.get('floating') is True else (None, None)  # a tiled one tiles there
+        self.client.land_window(address, workspace, x, y)
+        self.moves += 1
+        return None
 
     def drop(self, window, source, point, target):
         """From the supervisor loop: move the dragged window (window_at's dict, or None: whatever window_at finds at layout

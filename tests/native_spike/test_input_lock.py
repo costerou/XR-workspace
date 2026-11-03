@@ -112,9 +112,11 @@ class LockTests(LockBase):
         out = self.op('resize_press')  # the left button is the run's while captured
         self.assertEqual(self.p.mode, 'free')
         self.assertEqual(self.p.want[1:], ('free', (X2 + 960, 540)))  # no hand-back to the window under the dot
-        out += self.op('resize_release')  # a click: zoom in on the release
+        out += self.op('resize_release')  # a click: selected on the release, never maximized (anchor-no-click-maximize)
         self.assertEqual(self.control.state.selected, 1)
         self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual((self.p.mode, self.p.want[1:]), ('free', ('free', (X2 + 960, 540))))  # still held, under the dot
         self.assertEqual(self.p.focus_clicks, 1)
 
     def test_the_other_buttons_do_nothing_but_end_a_drag(self):
@@ -390,7 +392,7 @@ end
             'print("ops", state.binds["mouse:272"], state.binds["mouse:272^"], state.binds["mouse:273"], '
             'state.binds["mouse:279"], state.binds["mouse_up"], state.binds["mouse_right"])',
             fp.release_pointer_lua(), 'show("release")']))
-        n = 2 + len(il.OTHER_BUTTONS) + len(il.WHEEL)
+        n = 2 + len(resize.SUPER_KEYS) + len(il.OTHER_BUTTONS) + len(il.WHEEL)
         self.assertEqual(out, [['lock', 'true', '3520', '540', str(n), '0', str(n + 1)],  # binds + the delay's restore entry
                                ['ops', 'resize_press', 'resize_release', 'resize_release', 'resize_release', 'nothing', 'nothing'],
                                ['release', 'false', '3520', '540', '0', '300', '0']])  # shown where it is held
@@ -406,7 +408,7 @@ end
             self.lock(), 'state.x, state.y = 5440, 540', 'state.moves = {}',  # a focus warp, followed
             self.lock(5440, 540), 'show("relock")', 'print("moves", table.concat(state.moves, " "))',
             fp.release_pointer_lua(), 'show("release")']))
-        n = 2 + len(il.OTHER_BUTTONS) + len(il.WHEEL)
+        n = 2 + len(resize.SUPER_KEYS) + len(il.OTHER_BUTTONS) + len(il.WHEEL)
         self.assertEqual(out[0], ['relock', 'true', '5440', '540', str(n), '0', str(n + 1)])  # once each, never doubled
         self.assertNotIn('100,200', out[1][1])  # never through the first capture's spot
         self.assertEqual(out[2], ['release', 'false', '5440', '540', '0', '300', '0'])  # the user's delay, not the lock's 0
@@ -415,13 +417,13 @@ end
         out = self.run_lua('\n'.join([
             'refuse["mouse_left"] = true', 'state.delay = nil',
             self.lock(), 'show("lock")', resize.remove_resize_binds_lua(), 'show("removed")']))
-        n = 2 + len(il.OTHER_BUTTONS) + len(il.WHEEL) - 1
+        n = 2 + len(resize.SUPER_KEYS) + len(il.OTHER_BUTTONS) + len(il.WHEEL) - 1
         self.assertEqual(out, [['lock', 'true', '3520', '540', str(n), 'nil', str(n)],
                                ['removed', 'false', '100', '200', '0', 'nil', '0']])
 
     def test_a_delay_already_zero_needs_no_restore(self):
         out = self.run_lua('\n'.join(['state.delay = 0', self.lock(), 'show("lock")', fp.release_pointer_lua(), 'show("release")']))
-        n = 2 + len(il.OTHER_BUTTONS) + len(il.WHEEL)
+        n = 2 + len(resize.SUPER_KEYS) + len(il.OTHER_BUTTONS) + len(il.WHEEL)
         self.assertEqual([o[5:] for o in out], [['0', str(n)], ['0', '0']])
 
 

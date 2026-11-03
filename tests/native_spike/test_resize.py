@@ -39,7 +39,7 @@ class BindTests(unittest.TestCase):
         self.assertTrue(lua.startswith(resize.remove_resize_binds_lua()))  # replaces a surviving set, never doubled
         self.assertEqual(lua.count('hl.bind('), 2)
         self.assertEqual(lua.count('hl.bind("mouse:272", hl.dsp.exec_cmd(c .. "resize_press"))'), 1)
-        self.assertEqual(lua.count('hl.bind("mouse:272", hl.dsp.exec_cmd(c .. "resize_release"), { release = true })'), 1)
+        self.assertEqual(lua.count('hl.bind("mouse:272", hl.dsp.exec_cmd(c .. "resize_release"), { release = true, ignore_mods = true })'), 1)
         self.assertIn('local c = "{} -I {} {} {} {} "'.format(*LIVE_BIND_ARGS), lua)
         self.assertNotIn('os.execute', lua); self.assertNotIn('io.', lua)
         self.assertLess(len(lua), 4096)  # HyprlandClient._eval cap; a separate eval from the run binds
@@ -96,7 +96,7 @@ class HelpCardFitTests(unittest.TestCase):
         self.assertEqual([[k, a] for k, a, _ in found], view.help_rows())
         starts = [i for i, (_, _, section) in enumerate(found) if section]  # rows starting a section after the first
         self.assertEqual(starts, [sum(view.help_sections()[:n]) for n in range(1, len(view.help_sections()))])
-        self.assertTrue(any('free mouse' in action and 'pills' in action and 'corner' in action
+        self.assertTrue(any('any desktop' in action and 'pills' in action and 'corner' in action
                             for _, action in view.help_rows()))
 
 

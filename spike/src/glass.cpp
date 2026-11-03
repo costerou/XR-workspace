@@ -2,6 +2,7 @@
 #include "xr/material_draw.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <string>
 
@@ -24,12 +25,14 @@ float by_state(float level, float idle, float hover, float active) {
 // kButtonLabelPx with a kButtonIconPx icon kButtonIconGap before it, when every button's icon and label fit inside
 // kButtonPadMin of padding (with the pixel font they do not: labels only).
 constexpr float kBandInset = 10.f, kTrackH = 4.f, kTrackAlpha = 0.24f, kHaloR = 2 * kPanelKnobR;
+static_assert(kResListX <= kBandInset, "the open Resolution list hides the selected row's band under it");
 constexpr std::uint32_t kButtonLabelPx = 18;
 constexpr float kButtonIconPx = 16.f, kButtonIconGap = 6.f, kButtonPadMin = 8.f;
 constexpr MdIcon kActionIcons[kPanelActions] = {MdIcon::width, MdIcon::add, MdIcon::remove};
-// The Scale dropdown (M3 exposed dropdown menu): a filled text field (extra small corners; disabled: on-surface at
-// kFieldDisabled) with its value kFieldPadX in and a kCaretPx drop-down arrow kCaretInset from its right end, its active
-// indicator kIndicatorH tall (kIndicatorFocusH while its list is open); the list is an M3 menu, its items' text kFieldPadX in.
+// The Resolution and Scale dropdowns (M3 exposed dropdown menus): a filled text field (extra small corners; disabled:
+// on-surface at kFieldDisabled) with its value kFieldPadX in and a kCaretPx drop-down arrow kCaretInset from its right end,
+// its active indicator kIndicatorH tall (kIndicatorFocusH while its list is open); the lists are M3 menus, their items'
+// text kFieldPadX in.
 constexpr float kFieldDisabled = 0.04f, kFieldPadX = 12.f, kCaretPx = 24.f, kCaretInset = 16.f, kIndicatorH = 1.f, kIndicatorFocusH = 2.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
 constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Curvature"};
@@ -60,6 +63,24 @@ void text(HudImage& im, const HudFont* font, const std::string& s, std::uint32_t
                         for (std::uint32_t sx = 0; sx < z; ++sx) md_over(im, x + int(col * z + sx), top + int(row * z + sy), c, alpha);
         x += int((kGlyphW + 1) * z);
     }
+}
+// A panel row with an M3 exposed dropdown menu (the Resolution and Scale rows): the row's label, then a filled text field
+// (surface container highest) at `box` showing `value` in label large (bold, `label_px`), a drop-down arrow (pointing up,
+// in the primary, while its list is open) and an active indicator under it (on-surface-variant; 2 px of primary while
+// open); M3 disabled (on-surface at 4% / 38%) unless `usable`.
+void dropdown_row(HudImage& im, const HudFont* font, const MaterialScheme& m, const char* label, float row_top, const FRect& box,
+                  const std::string& value, std::uint32_t label_px, bool open, bool usable) {
+    const float cy = row_top + kPanelRowH / 2;
+    const float x1 = box.x + box.width, y1 = box.y + box.height;
+    const float content_alpha = usable ? 1.f : kMdDisabledContent;
+    text(im, font, label, kPanelTextPx, false, kPanelPad, cy, m.on_surface);
+    md_fill_rounded(im, box.x, box.y, x1, y1, kMdShapeExtraSmall, usable ? m.surface_container_highest : m.on_surface,
+                    usable ? 1.f : kFieldDisabled);
+    const float indicator = open ? kIndicatorFocusH : kIndicatorH;
+    md_fill_rounded(im, box.x, y1 - indicator, x1, y1, 0, open ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
+    text(im, font, value, label_px, true, box.x + kFieldPadX, cy, m.on_surface, content_alpha);
+    md_icon(im, open ? MdIcon::arrow_drop_up : MdIcon::arrow_drop_down, x1 - kCaretInset, cy, kCaretPx,
+            open ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
 }
 }
 
@@ -118,36 +139,77 @@ float PanelShift::value(double now_ms) const {
 
 bool PanelShift::animating(double now_ms) const { return now_ms - start_ms_ < kPanelShiftMs; }
 
-FRect roll_icon(const FRect& t, std::uint32_t side, float distance) {
-    if (t.width <= 0 || t.height <= 0 || side > 1) return {};
-    const float d = distance > 0 ? distance : 1.f, size = kRollIconPx * d;
-    return {side ? t.x + t.width - size : t.x, t.y - kRollIconGap * d - size, size, size};
+float roll_arm(const FRect& t) {
+    if (!(t.width > 0) || !(t.height > 0)) return 0.f;
+    const float m = std::min(t.width, t.height);
+    return std::min(std::max(kRollArmShare * m, kRollArmMin), kRollArmMaxShare * m);
 }
 
-RollArrow roll_arrow(const FRect& icon, std::uint32_t side) {
-    RollArrow out;
-    if (!(icon.width > 0) || !(icon.height > 0) || side > 1) return out;
-    // One plain curved arrow, readable at a glance and filling the 22 px square with nothing behind it: a thick half-turn
-    // arc over the top and a large head. Clockwise (side 1): from the left (210 degrees, y up) over the top to the right
-    // (20 degrees), the head pointing on down the right side. Its centre sits low so the glyph is centred in the square.
-    const float s = std::min(icon.width, icon.height), cx = icon.x + icon.width / 2, cy = icon.y + icon.height / 2 + 0.12f * s;
-    const float ra = 0.29f * s, half = 0.075f * s, head_len = 0.27f * s, head_half = 0.18f * s;
-    const float from = 210.f * float(std::numbers::pi) / 180.f, to = 20.f * float(std::numbers::pi) / 180.f;
-    const float mirror = side ? 1.f : -1.f;  // side 0: the mirror image, counter-clockwise
-    auto at = [&](float theta, float r) { return std::array<float, 2>{cx + mirror * r * std::cos(theta), cy - r * std::sin(theta)}; };
-    constexpr int kSteps = 16;
-    for (int i = 0; i <= kSteps; ++i) {
-        const float theta = from + (to - from) * float(i) / float(kSteps);
-        out.band.push_back(at(theta, ra + half));
-        out.band.push_back(at(theta, ra - half));
+float roll_scale(const FRect& t) {
+    const float arm = roll_arm(t);
+    return arm > 0 ? std::min(1.f, arm / kRollArmMin) : 0.f;
+}
+
+namespace {
+// The bracket's own frame: tile px from its corner, x outward past the side (mirrored for side 0, the top-left), y down.
+// In it the centre line is the top arm (x in [-arm, 0], y = -gap), the arc about the corner from (0, -gap) to (gap, 0)
+// and the side arm (x = gap, y in [0, arm]).
+struct BracketFrame { float cx, cy, mirror; };
+BracketFrame bracket_frame(const FRect& t, std::uint32_t side) { return {side ? t.x + t.width : t.x, t.y, side ? 1.f : -1.f}; }
+}
+
+float roll_distance(const FRect& t, std::uint32_t side, float px, float py) {
+    const float arm = roll_arm(t);
+    if (!(arm > 0) || side > 1) return std::numeric_limits<float>::infinity();
+    const auto f = bracket_frame(t, side);
+    const float gap = kRollGap * roll_scale(t), x = (px - f.cx) * f.mirror, y = py - f.cy;
+    const float top = std::hypot(x - std::clamp(x, -arm, 0.f), y + gap);
+    const float down = std::hypot(x - gap, y - std::clamp(y, 0.f, arm));
+    const float arc = x >= 0 && y <= 0 ? std::fabs(std::hypot(x, y) - gap) : std::numeric_limits<float>::infinity();
+    return std::min({top, down, arc});
+}
+
+bool on_roll_bracket(const FRect& t, std::uint32_t side, float px, float py) {
+    const float s = roll_scale(t), e = kRollEdgeClear * s;
+    if (t.x - e < px && px < t.x + t.width + e && t.y - e < py && py < t.y + t.height + e) return false;  // content, edge band
+    return roll_distance(t, side, px, py) <= (kRollHeadHalf + kRollPad) * s;
+}
+
+RollBracket roll_bracket(const FRect& t, std::uint32_t side) {
+    RollBracket out;
+    const float arm = roll_arm(t);
+    if (!(arm > 0) || side > 1) return out;
+    const auto f = bracket_frame(t, side);
+    const float s = roll_scale(t), gap = kRollGap * s, half = kRollStroke * s / 2, head_len = kRollHeadLen * s, head_half = kRollHeadHalf * s;
+    auto at = [&](float x, float y) { return std::array<float, 2>{f.cx + f.mirror * x, f.cy + y}; };
+    // The stroke: the top arm from its end, the quarter circle over the corner, the side arm down to the head's base. The
+    // arms are cut in kArmSteps so they follow a curved desktop's surface (place_point bends each point, not the lines).
+    constexpr int kArmSteps = 4, kArcSteps = 8;
+    for (int i = 0; i < kArmSteps; ++i) {
+        const float x = -arm * float(kArmSteps - i) / float(kArmSteps);
+        out.band.push_back(at(x, -gap - half));
+        out.band.push_back(at(x, -gap + half));
     }
-    // The head: its base across the band's end, its tip along the clockwise tangent (sin t, -cos t) (y up).
-    const auto base = at(to, ra);
-    const float tx = mirror * std::sin(to), ty = std::cos(to);  // canvas px (y down)
-    const float nx = mirror * std::cos(to), ny = -std::sin(to);
-    out.head = {std::array<float, 2>{base[0] + nx * head_half, base[1] + ny * head_half},
-                std::array<float, 2>{base[0] - nx * head_half, base[1] - ny * head_half},
-                std::array<float, 2>{base[0] + tx * head_len, base[1] + ty * head_len}};
+    for (int i = 0; i <= kArcSteps; ++i) {
+        const float a = float(std::numbers::pi) / 2 * float(i) / float(kArcSteps), dx = std::sin(a), dy = -std::cos(a);
+        out.band.push_back(at((gap + half) * dx, (gap + half) * dy));
+        out.band.push_back(at((gap - half) * dx, (gap - half) * dy));
+    }
+    for (int i = 1; i <= kArmSteps; ++i) {
+        const float y = (arm - head_len) * float(i) / float(kArmSteps);
+        out.band.push_back(at(gap + half, y));
+        out.band.push_back(at(gap - half, y));
+    }
+    // The arrowhead, pointing down the side (the way the corner moves), and the round cap at the top arm's end (M3 strokes
+    // have round caps).
+    out.head = {at(gap - head_half, arm - head_len), at(gap + head_half, arm - head_len), at(gap, arm)};
+    constexpr int kCapSteps = 6;
+    for (int i = 0; i < kCapSteps; ++i) {
+        const float a0 = float(std::numbers::pi) * float(i) / float(kCapSteps), a1 = float(std::numbers::pi) * float(i + 1) / float(kCapSteps);
+        out.head.push_back(at(-arm, -gap));
+        out.head.push_back(at(-arm - half * std::sin(a0), -gap - half * std::cos(a0)));
+        out.head.push_back(at(-arm - half * std::sin(a1), -gap - half * std::cos(a1)));
+    }
     return out;
 }
 
@@ -209,6 +271,30 @@ FRect glass_background_item(std::size_t item) {
     if (item >= kBackgroundCount) return {};
     const float top = kBackgroundBoxY - kBackgroundListGap - float(kBackgroundCount) * kBackgroundItemH;
     return {kBackgroundBoxX, top + float(item) * kBackgroundItemH, kBackgroundBoxW, kBackgroundItemH};
+}
+
+FRect glass_resolution_box() { return {kResBoxX, kResBoxY, kResBoxW, kResBoxH}; }
+
+FRect glass_resolution_list() { return {kResListX, kResListY, kResListW, kResListH}; }
+
+FRect glass_resolution_heading(std::size_t group) {
+    if (group >= kResolutionGroupCount) return {};
+    const float w = kResListW / float(kResolutionGroupCount);
+    return {kResListX + float(group) * w, kResListY, w, kResItemH};
+}
+
+FRect glass_resolution_item(std::size_t i) {
+    if (i >= kResolutionCount) return {};
+    std::size_t group = 0, row = i;
+    while (row >= kResolutionGroups[group].count) row -= kResolutionGroups[group++].count;
+    const FRect column = glass_resolution_heading(group);
+    return {column.x, column.y + float(1 + row) * kResItemH, column.width, kResItemH};
+}
+
+bool glass_resolution_enabled(std::size_t i, const PlacementMenuState& state) { return !state.busy && i < kResolutionCount; }
+
+std::string glass_resolution_label(std::uint16_t width, std::uint16_t height) {
+    return width && height ? std::to_string(unsigned(width)) + "x" + std::to_string(unsigned(height)) : "--";
 }
 
 FRect glass_morph(const FRect& t, float k) {
@@ -309,7 +395,7 @@ const char* glass_fragment_shader() {
 }
 
 std::string glass_panel_hint(bool ascii) {
-    return ascii ? "UP/DN FIELD  L/R ADJUST  TAB  R FLAT" : "\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust  Tab next  R flat";
+    return ascii ? "U/D FIELD  L/R ADJUST  TAB  R RESET" : "\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust  Tab next  R reset";
 }
 
 PanelButtonStyle glass_panel_button_style(std::size_t action, const PlacementMenuState& state, std::array<float, 3> accent) {
@@ -363,30 +449,21 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     for (std::size_t i = 0; i < kPlacementMenuFields; ++i)
         slider_row(kPanelRowsTop + float(i) * kPanelRowH, kLabels[i], bounds[i].first, bounds[i].second, flat[i], values[i], rows[i].value,
                    rows[i].selected, 1.f);
-    // Everything clickable under the sliders is in M3 label large (bold) at kButtonLabelPx: the Scale box, its list and
-    // the desktop row's buttons.
+    // Everything clickable under the sliders is in M3 label large (bold) at kButtonLabelPx: the Resolution and Scale
+    // boxes, their lists and the desktop row's buttons.
     const auto label_px = font ? kButtonLabelPx : 0u;
-    // A dropdown row: the label, then an M3 exposed dropdown menu: a filled text field (surface container highest) showing
-    // its value, a drop-down arrow (pointing up, in the primary, while its list is open) and an active indicator under it
-    // (on-surface-variant; 2 px of primary while open); M3 disabled (on-surface at 4% / 38%) while not `usable`.
-    auto dropdown_row = [&](float top, const char* label, const FRect& box, const std::string& value, bool open, bool usable) {
-        const float cy = top + kPanelRowH / 2;
-        const float x1 = box.x + box.width, y1 = box.y + box.height;
-        const float content_alpha = usable ? 1.f : kMdDisabledContent;
-        text(im, font, label, kPanelTextPx, false, kPanelPad, cy, m.on_surface);
-        md_fill_rounded(im, box.x, box.y, x1, y1, kMdShapeExtraSmall, usable ? m.surface_container_highest : m.on_surface,
-                        usable ? 1.f : kFieldDisabled);
-        const float indicator = open ? kIndicatorFocusH : kIndicatorH;
-        md_fill_rounded(im, box.x, y1 - indicator, x1, y1, 0, open ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
-        text(im, font, value, label_px, true, box.x + kFieldPadX, cy, m.on_surface, content_alpha);
-        md_icon(im, open ? MdIcon::arrow_drop_up : MdIcon::arrow_drop_down, x1 - kCaretInset, cy, kCaretPx,
-                open ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
-    };
-    dropdown_row(kPanelScaleTop, "Scale", glass_scale_box(), glass_scale_label(state.scale), state.picker, state.scale != 0 && !state.busy);
+    // The Resolution row, then the Scale row: M3 exposed dropdown menus (dropdown_row), each M3 disabled while its value is
+    // unknown or a desktop change is busy.
+    dropdown_row(im, font, m, "Resolution", kPanelResolutionTop, glass_resolution_box(),
+                 glass_resolution_label(state.resolution_w, state.resolution_h), label_px, state.resolution_picker,
+                 state.resolution_w != 0 && state.resolution_h != 0 && !state.busy);
+    dropdown_row(im, font, m, "Scale", kPanelScaleTop, glass_scale_box(), glass_scale_label(state.scale), label_px, state.picker,
+                 state.scale != 0 && !state.busy);
     // The background: its dropdown, an M3 switch beside it (on: the primary track and an on-primary handle at its end; off:
     // an outlined track and a smaller outline handle), then the Brightness slider, M3 disabled while there is no background.
     const auto background = std::min<std::size_t>(state.background, kBackgroundCount - 1);
-    dropdown_row(kPanelBackgroundTop, "Background", glass_background_box(), std::string(kBackgrounds[background].label), state.background_picker, true);
+    dropdown_row(im, font, m, "Background", kPanelBackgroundTop, glass_background_box(), std::string(kBackgrounds[background].label), label_px,
+                 state.background_picker, true);
     {
         const FRect sw = glass_background_switch();
         const bool on = background != 0;
@@ -441,6 +518,30 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
         list_frame(glass_background_item(0), glass_background_item(kBackgroundCount - 1));
         for (std::size_t i = 0; i < kBackgroundCount; ++i)
             list_item(glass_background_item(i), std::string(kBackgrounds[i].label), i == background, true);
+    }
+    // The open Resolution list, likewise an M3 menu over the slider rows (and their selected band, kBandInset in): a
+    // column per shape, its name on top (on-surface-variant, regular) over an outline-variant divider, then its sizes in
+    // label large; the current size on the secondary container, every size M3 disabled while busy.
+    if (state.resolution_picker) {
+        const FRect list = glass_resolution_list();
+        const float x0 = list.x, y0 = list.y - 1, x1 = list.x + list.width, y1 = list.y + list.height + 1;
+        md_fill_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, m.surface_container, 1.f);
+        md_stroke_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, 1.f, m.outline_variant, 1.f);
+        for (std::size_t g = 0; g < kResolutionGroupCount; ++g) {
+            const FRect h = glass_resolution_heading(g);
+            text(im, font, kResolutionGroups[g].name, label_px, false, h.x + kFieldPadX, h.y + h.height / 2, m.on_surface_variant);
+        }
+        for (int x = int(x0 + kFieldPadX / 2); x < int(x1 - kFieldPadX / 2); ++x)
+            md_over(im, x, int(list.y + kResItemH) - 1, m.outline_variant, 1.f);
+        for (std::size_t i = 0; i < kResolutionCount; ++i) {
+            const FRect r = glass_resolution_item(i);
+            const bool current = kResolutions[i].width == state.resolution_w && kResolutions[i].height == state.resolution_h;
+            const bool enabled = glass_resolution_enabled(i, state);
+            if (current)
+                md_fill_rounded(im, r.x + 2, r.y + 1, r.x + r.width - 2, r.y + r.height - 1, kMdShapeExtraSmall, m.secondary_container, 1.f);
+            text(im, font, glass_resolution_label(kResolutions[i].width, kResolutions[i].height), label_px, true, r.x + kFieldPadX,
+                 r.y + r.height / 2, current ? m.on_secondary_container : m.on_surface, enabled || current ? 1.f : kMdDisabledContent);
+        }
     }
     return im;
 }

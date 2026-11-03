@@ -106,7 +106,7 @@ class GeometryTests(unittest.TestCase):
     def test_the_mirror_holds_the_renderers_numbers(self):
         # glass.hpp; the ctest glass_contract compares them with the renderer's own dump.
         self.assertEqual((fp.PILL_SHARE, fp.PILL_MIN, fp.PILL_MAX, fp.PILL_THICKNESS, fp.PILL_GAP), (0.24, 64.0, 160.0, 14.0, 10.0))
-        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 360.0, 42.0))  # four setting rows, Scale, the desktop row
+        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 394.0, 42.0))  # four setting rows, Resolution, Scale, Background, Brightness, the desktop row
         self.assertEqual((fp.PANEL_ROWS_TOP, fp.PANEL_ROW_H, fp.PANEL_KNOB_LO, fp.PANEL_KNOB_HI), (46.0, 34.0, 191.0, 367.0))
         self.assertEqual((fp.PILL_PAD_X, fp.PILL_PAD_Y, fp.PANEL_SLOP_PX, fp.CLICK_PX), (10.0, 10.0, 12.0, 4.0))
         # Seven rows and the footer fit the panel (glass.hpp kPanelFooterTop + kPanelHintPx + 6 <= kPanelH).
@@ -130,7 +130,7 @@ class GeometryTests(unittest.TestCase):
         for tile in G['tiles'] + [(0.0, 100.0, 60.0, 40.0)]:
             with self.subTest(tile=tile):
                 x, y, w, h = fp.panel_rect(tile)
-                self.assertEqual((w, h), (480.0, 360.0))
+                self.assertEqual((w, h), (480.0, 394.0))
                 self.assertAlmostEqual(x + w / 2, tile[0] + tile[2] / 2)
                 self.assertEqual(y, fp.pill_rect(tile)[1])
 
@@ -175,7 +175,8 @@ class HitTests(unittest.TestCase):
         self.assertEqual(hit_at(G, FLAT, (x + w + fp.PILL_PAD_X - EDGE, y + 3)), ('pill', 1))
         self.assertIsNone(hit_at(G, FLAT, (x - fp.PILL_PAD_X - 1, y + 3)))
         self.assertEqual(hit_at(G, FLAT, (mid, T1[1] + T1[3] - 1))[:2], ('desktop', 1))  # just inside: the desktop
-        self.assertIsNone(hit_at(G, FLAT, (mid, T1[1] - 3)))   # where the old drag bar was: nothing now
+        self.assertEqual(hit_at(G, FLAT, (mid, T1[1] - 3)), ('edge', 1, 't'))  # where the old drag bar was: the resize edge
+        self.assertIsNone(hit_at(G, FLAT, (mid, T1[1] - fp.EDGE_OUT_PX - 3)))  # and above that, nothing
         self.assertIsNone(hit_at(G, FLAT, (mid, T1[1] - 12)))
         for i, tile in enumerate(G['tiles']):  # every desktop's own (turned) pill
             self.assertEqual(fp.hit(G, FLAT, pill_centre(tile)), ('pill', i))
@@ -281,9 +282,9 @@ class Base(unittest.TestCase):
         return self.move(dx / self.p.gain, dy / self.p.gain)
 
     def free(self):
-        """Push the cursor against XR-1's bottom edge: free mode just above the gap to its pill."""
-        self.at(X1 + 960, 540)
-        out = self.at(X1 + 960, 1079)
+        """Push the cursor against XR-1's bottom edge, left of its pill: free mode on that resize edge, just under it."""
+        self.at(X1 + 300, 540)
+        out = self.at(X1 + 300, 1079)
         self.assertEqual(self.p.mode, 'free')
         return out
 
@@ -442,13 +443,15 @@ class PillDragTests(Base):
         self.assertEqual(self.join(), [])
         self.assertFalse(last(out, 'move_handle')['active'])
 
-    def test_the_overlap_guard_and_the_slot_snap_still_apply(self):
+    def test_a_drag_bumps_its_neighbours_and_the_slot_snap_still_applies(self):
         self.grab(0)
-        self.by(T0[2] * 0.6, 0)  # straight into XR-2: stops before it touches (the slots are 40 px, ~0.9 degrees, apart)
-        self.assertGreater(self.state.placements[0]['x'], 0); self.assertLess(self.state.placements[0]['x'], 9)
-        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, self.state.placements[0]), orbit.footprint(G, T1, DEFAULT_PLACEMENT)), 0)
-        self.by(-T0[2] * 0.6 + T0[2] * 0.03, 0)  # back to 3 % from the slot: snaps home
+        self.by(T0[2] * 0.6, 0)  # straight into XR-2 (the slots are 40 px, ~0.9 degrees, apart): it is pushed out of the way
+        moved = [dict(p) for p in self.state.placements]
+        self.assertGreater(moved[0]['x'], 9); self.assertGreater(moved[1]['x'], 0)
+        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, moved[0]), orbit.footprint(G, T1, moved[1])), 0)
+        self.by(-T0[2] * 0.6 + T0[2] * 0.03, 0)  # back to 3 % from the slot: snaps home, XR-2 stays where it was pushed
         self.assertEqual(self.state.placements[0]['x'], 0)
+        self.assertEqual(self.state.placements[1:], moved[1:])
         self.release()
 
     def test_a_lost_release_is_finished_by_the_next_press(self):
@@ -763,15 +766,18 @@ class ClickOutsideTests(Base):
         self.assertNotIn('placement', ops_of(out)); self.assertNotIn('view', ops_of(out))
         self.assertEqual(self.p.mode, 'free'); self.assertIsNone(self.p.drag)
 
-    def test_a_desktop_press_closes_it_and_still_zooms_into_that_desktop(self):
-        self.to(T1[0] + T1[2] / 2, T1[1] + 1)  # just inside XR-2's top edge (less than ENTER_PX: still free)
-        self.assertEqual(self.p.hover[:2], ('desktop', 1)); self.assertEqual(self.p.mode, 'free')
+    def test_a_press_on_another_desktops_edge_closes_it_then_resizes(self):
+        # (anchor-no-click-maximize: the border round a desktop is its resize edges; until then a press just inside its
+        # edge was a click on the desktop)
+        self.to(T1[0] + T1[2] / 2, T1[1] - 3)  # just above XR-2's top edge: its resize edge
+        self.assertEqual(self.p.hover, ('edge', 1, 't')); self.assertEqual(self.p.mode, 'free')
         out = self.press()
         self.assert_closed_and_saved(out)
-        out += self.release()  # a click (no hold): zoom in on its release
-        self.assertTrue(self.state.zoomed); self.assertEqual(self.state.selected, 1)
-        self.assertEqual(last(out, 'view')['selected'], 1)
-        self.assertEqual(self.p.focus_clicks, 1)
+        self.by(0, -T1[3] / 4)  # the top edge outward: bigger
+        self.release()
+        self.assertLess(self.state.placements[1]['distance'], 100)
+        self.assertFalse(self.state.zoomed); self.assertEqual(self.state.selected, 0)
+        self.assertEqual(self.p.focus_clicks, 0)
 
     def test_another_desktops_pill_drag_closes_it_and_still_moves_that_desktop(self):
         self.to(*pill_centre(T2))
@@ -1044,7 +1050,7 @@ class CornerWithPanelTests(Base):
         self.to(T1[0] - 4, T1[1] - 4)
         self.assertEqual(self.p.hover, ('corner', 1, 'tl'))
         self.press()
-        self.assertFalse(self.state.menu_open); self.assertEqual(self.p.drag['kind'], 'corner')
+        self.assertFalse(self.state.menu_open); self.assertEqual((self.p.drag['kind'], self.p.drag['handle']), ('resize', 'tl'))
         self.by(-T1[2] / 2, -T1[3] / 2)
         self.release()
         self.assertEqual(self.store.saved[1]['distance'], 50)
@@ -1184,10 +1190,10 @@ class WireTests(unittest.TestCase):
         import re
         src = (ROOT / 'spike/src/glass.cpp').read_text()
         ascii_hint = re.search(r'glass_panel_hint\(bool ascii\) \{\s*return ascii \? "([^"]+)"', src).group(1)
-        # "UP/DN FIELD  L/R ADJUST  TAB  R FLAT": each part's keys and what they do
-        expected = {'UP/DN FIELD': (('up', 'menu_field_prev'), ('down', 'menu_field_next')),
+        # "U/D FIELD  L/R ADJUST  TAB  R RESET": each part's keys and what they do (R: flat in its slot, and level)
+        expected = {'U/D FIELD': (('up', 'menu_field_prev'), ('down', 'menu_field_next')),
                     'L/R ADJUST': (('left', 'menu_dec'), ('right', 'menu_inc')),
-                    'TAB': (('Tab', 'menu_desktop_next'),), 'R FLAT': (('R', 'menu_reset'),)}
+                    'TAB': (('Tab', 'menu_desktop_next'),), 'R RESET': (('R', 'menu_reset'),)}
         parts = [part.strip() for part in ascii_hint.split('  ') if part.strip()]
         self.assertEqual(parts, list(expected))
         for part, binds in expected.items():
@@ -1197,11 +1203,11 @@ class WireTests(unittest.TestCase):
 
 class HelpCardTextTests(unittest.TestCase):
     def test_the_rows_name_the_pills_and_stay_short(self):
-        self.assertEqual(view.HELP_ACTIONS['menu_toggle'], 'Placement pill of the selected desktop')
-        self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: free mouse, pills, corners')
+        self.assertEqual(view.HELP_ACTIONS['menu_toggle'], 'Placement pill; R in it resets, levels')
+        self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: use any desktop; pills, corners')
         self.assertLessEqual(max(len(a) for a in view.HELP_ACTIONS.values()), 42)  # the card's width is another thread's
         rows = dict(view.help_rows())
-        self.assertEqual(rows['Ctrl+Alt+L'], 'Placement pill of the selected desktop')
+        self.assertEqual(rows['Ctrl+Alt+L'], 'Placement pill; R in it resets, levels')
         self.assertNotIn('Ctrl+Alt+M', ' '.join(k + ' ' + a for k, a in view.help_rows()))
         self.assertFalse(any('menu' in a.lower() or 'bars' in a.lower() for _, a in view.help_rows()))
 

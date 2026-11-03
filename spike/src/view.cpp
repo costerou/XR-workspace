@@ -298,6 +298,35 @@ std::vector<Vec3> direction_outline(const Canvas& c, float x, float y, float az,
     return strip;
 }
 
+std::vector<Vec3> direction_marks(const Canvas& c, float x, float y, float az, float el, PointerLook look, float grow) {
+    if (c.view_w <= 0 || c.view_h <= 0 || look == PointerLook::plain) return {};
+    const float cx = std::clamp(x, 0.f, c.view_w), cy = std::clamp(y, 0.f, c.view_h);
+    auto at = [&](float px, float py) { return Vec3{(2 * px / c.view_w - 1) * c.half_w, (1 - 2 * py / c.view_h) * c.half_h, -1.f}; };
+    const float start = kFreePointerRadiusPx + kFreePointerRingPx + kPointerMarkGapPx;  // from the dot's centre, past its ring
+    const float d = float(M_SQRT1_2);
+    std::vector<Vec3> out;
+    // One arrowhead: its base centred `base` px from the dot along (bx, by) (canvas px, y down), pointing along (ux, uy).
+    auto mark = [&](float bx, float by, float base, float ux, float uy) {
+        const float ox = cx + bx * base - ux * grow, oy = cy + by * base - uy * grow, len = kPointerMarkLenPx + 2 * grow, half = kPointerMarkHalfPx + grow;
+        out.push_back(at(ox + ux * len, oy + uy * len));
+        out.push_back(at(ox - uy * half, oy + ux * half));
+        out.push_back(at(ox + uy * half, oy - ux * half));
+    };
+    auto pair = [&](float ux, float uy) { mark(ux, uy, start, ux, uy); mark(-ux, -uy, start, -ux, -uy); };
+    switch (look) {
+        case PointerLook::resize_ew: pair(1, 0); break;
+        case PointerLook::resize_ns: pair(0, 1); break;
+        case PointerLook::resize_nwse: pair(d, d); break;
+        case PointerLook::resize_nesw: pair(d, -d); break;
+        case PointerLook::move: pair(1, 0); pair(0, 1); break;
+        case PointerLook::rotate:  // left and right of the dot, chasing each other clockwise
+            mark(-1, 0, start + kPointerMarkHalfPx, 0, -1); mark(1, 0, start + kPointerMarkHalfPx, 0, 1); break;
+        case PointerLook::plain: break;
+    }
+    turn_to(c, cx, cy, az, el, out);
+    return out;
+}
+
 std::array<FRect, 4> drop_frame(const FRect& t) {
     const float bx = std::min(kDropFramePx, std::max(t.width, 0.f) / 2), by = std::min(kDropFramePx, std::max(t.height, 0.f) / 2);
     return {FRect{t.x, t.y, t.width, by}, FRect{t.x, t.y + t.height - by, t.width, by},
@@ -333,8 +362,101 @@ Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, f
             step(from.roll, to.roll)};
 }
 
+Placement glide_toward(const Placement& from, const Placement& to, float t) {
+    if (!(t < 1)) return to;
+    const float s = smootherstep(t);
+    auto at = [&](float a, float b) { return a + (b - a) * s; };
+    const float turn = std::remainder(to.x - from.x, 2 * float(M_PI));  // the short way round
+    return {from.x + turn * s, at(from.y, to.y), at(from.distance, to.distance), at(from.curvature, to.curvature), at(from.roll, to.roll)};
+}
+
+bool start_glide(PlacementGlide& glide, const std::vector<Placement>& drawn, double now_ms, std::uint32_t ms) {
+    glide.ms = 0;
+    if (!ms || drawn.empty()) return false;
+    glide.from = drawn;
+    glide.start_ms = now_ms;
+    glide.ms = float(ms);
+    return true;
+}
+
+void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>& targets, float dt_ms, double now_ms, PlacementGlide& glide) {
+    const std::size_t had = drawn.size();
+    drawn.resize(targets.size());
+    for (std::size_t i = had; i < drawn.size(); ++i) drawn[i] = targets[i];
+    if (glide.ms > 0) {
+        const float t = float((now_ms - glide.start_ms) / double(glide.ms));
+        for (std::size_t i = 0; i < drawn.size(); ++i) drawn[i] = glide_toward(i < glide.from.size() ? glide.from[i] : targets[i], targets[i], t);
+        if (!(t < 1)) glide.ms = 0;  // landed exactly
+        return;
+    }
+    for (std::size_t i = 0; i < drawn.size(); ++i) drawn[i] = ease_toward(drawn[i], targets[i], dt_ms, kPlacementEaseMs);
+}
+
 bool same_placement(const Placement& a, const Placement& b) {
     return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature && a.roll == b.roll;
+}
+
+void TileEase::keep(std::span<const Size> sizes) {
+    count_ = std::min(sizes.size(), sizes_.size());
+    std::copy_n(sizes.begin(), count_, sizes_.begin());
+}
+
+bool TileEase::kept(std::span<const Size> sizes) const {
+    return sizes.size() == count_ && std::equal(sizes.begin(), sizes.end(), sizes_.begin(),
+                                                [](const Size& a, const Size& b) { return a.w == b.w && a.h == b.h; });
+}
+
+void TileEase::arm(std::span<const Size> sizes, std::span<const FRect> drawn, double now_ms) {
+    if (!armed(now_ms) && !active()) {  // already armed: it has been following the tiles
+        const std::size_t n = std::min(drawn.size(), shown_.size());
+        shown_.fill(FRect{});
+        std::copy_n(drawn.begin(), n, shown_.begin());
+        keep(sizes);
+        changed_ = false;
+    }
+    armed_until_ms_ = now_ms + kTileEaseArmMs;
+}
+
+void TileEase::reindex(std::span<const int> before) {
+    const auto was = shown_;
+    bool same = before.size() == count_;  // the finished change's frame names the same desktops: the ease just goes on
+    shown_.fill(FRect{});
+    for (std::size_t i = 0; i < before.size() && i < shown_.size(); ++i) {
+        same = same && before[i] == int(i);
+        if (before[i] >= 0 && std::size_t(before[i]) < was.size()) shown_[i] = was[std::size_t(before[i])];
+    }
+    changed_ = changed_ || !same;
+}
+
+const std::vector<FRect>& TileEase::tiles(std::span<const Size> sizes, const std::vector<FRect>& target, bool overview, double now_ms) {
+    if (!active() && !armed(now_ms)) return target;
+    const std::size_t n = target.size();
+    if (!overview || n > shown_.size()) { start_ms_ = armed_until_ms_ = -1; return target; }
+    if (changed_ || !kept(sizes)) {
+        changed_ = false;
+        keep(sizes);
+        start_ms_ = armed(now_ms) ? now_ms : -1;
+        from_ = shown_;
+        for (std::size_t i = 0; i < n; ++i) {
+            if (from_[i].width > 0) continue;
+            const FRect& t = target[i];  // a new desktop: out of the middle of its slot
+            const float k = kTileEaseBornScale;
+            from_[i] = {t.x + t.width * (1 - k) / 2, t.y + t.height * (1 - k) / 2, t.width * k, t.height * k};
+        }
+    }
+    const float t = active() ? float((now_ms - start_ms_) / kTileEaseMs) : 1.f;
+    if (!(t < 1.f)) {
+        start_ms_ = -1;
+        std::copy_n(target.begin(), n, shown_.begin());
+        return target;
+    }
+    const float e = smootherstep(t);
+    out_.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const FRect &a = from_[i], &b = target[i];
+        out_[i] = shown_[i] = {lerp(a.x, b.x, e), lerp(a.y, b.y, e), lerp(a.width, b.width, e), lerp(a.height, b.height, e)};
+    }
+    return out_;
 }
 
 std::optional<float> desktop_tilt(const Canvas& c, const FRect& t, const Placement& pl, const Vec3& up) {
@@ -355,6 +477,23 @@ std::optional<float> desktop_tilt(const Canvas& c, const FRect& t, const Placeme
     if (!(rn > 0) || !(uln > 0)) return std::nullopt;
     const float a = std::atan2(dot(flat, r) / rn, dot(flat, u) / uln);
     return std::isfinite(a) ? std::optional<float>(a) : std::nullopt;
+}
+
+std::optional<Size> SizeEase::value() const {
+    if (!to_ || t_ >= 1.f) return to_;
+    return Size{to_->h * lerp(from_, to_->w / to_->h, smoothstep(t_)), to_->h};
+}
+
+void SizeEase::advance(Size target, double now_ms, bool animate) {
+    if (!to_ || target.w != to_->w || target.h != to_->h) {
+        const auto shown = value();
+        const bool shaped = shown && shown->h > 0 && target.h > 0 && shown->w / shown->h != target.w / target.h;
+        if (animate && shaped && duration_ > 0) {
+            from_ = shown->w / shown->h; start_ms_ = now_ms; t_ = 0; ++eases_;
+        } else t_ = 1.f;
+        to_ = target;
+    }
+    if (t_ < 1.f) t_ = clampf(float((now_ms - start_ms_) / duration_), 0, 1);
 }
 
 void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center) {

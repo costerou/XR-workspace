@@ -349,7 +349,7 @@ end
     def test_a_show_during_a_grab_leaves_it_to_the_grab(self):
         out = self.run_lua(['reset(false)', ('hide', oc.HIDE_LUA), ('grab', self.GRAB), ('show', oc.SHOW_LUA),
                             ('remove', self.REMOVE)])
-        self.assertEqual(out[2], ('show', True, 2))  # free mode is still on: its dot is the pointer
+        self.assertEqual(out[2], ('show', True, 4))  # free mode is still on: its dot is the pointer (binds: resize.py)
         self.assertEqual(out[3], ('remove', False, 0))
 
     def test_a_reload_then_hiding_again_keeps_the_cursors_own_state(self):

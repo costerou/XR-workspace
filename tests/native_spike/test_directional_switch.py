@@ -6,7 +6,8 @@ every desktop left where it is placed. Nothing that way: the cursor stays on hom
 overview modes themselves: MaximizeFollowTests.
 
 Regression: dot-cursor monitor switching was removed on 2026-11-02 (the cursor never left home); it comes back here,
-chosen by placement. Overview click-to-zoom and the Ctrl+Alt arrows are unchanged (test_unified_cursor.py).
+chosen by placement. The overview click (it selects; since anchor-no-click-maximize, 2026-11-03, it never maximizes)
+and the Ctrl+Alt arrows are unchanged (test_unified_cursor.py).
 
 Offline only: the fixture's overview layout, fake clocks and a fake compositor client.
 """
@@ -239,12 +240,13 @@ class ControlTests(UnifiedBase):
 
 class MaximizeFollowTests(UnifiedBase):
     """Maximize-follow (2026-11-03, INAIR Pod style): the overview is always anchor (the desktops fixed in the room); a
-    maximized desktop (zoomed in: a click on it in the overview, or Ctrl+Alt+Up) follows you, and Ctrl+Alt+V while
-    maximized toggles it to locked and back. That choice sticks for the session: every later maximize uses it, and a fresh
-    XR start is follow again (it is never saved). Un-maximizing (Ctrl+Alt+Down, Ctrl+Alt+L, a pill click) returns to
-    anchor; the renderer then puts the room back exactly as it was (spike focus_center_test). Every run starts in the
-    overview, anchored, whatever mode was saved (test_fresh_start). Replaces overview-anchor-only, where follow and
-    locked had no overview and Ctrl+Alt+Down there moved to the next desktop."""
+    maximized desktop (zoomed in: Ctrl+Alt+Up; a click in the overview only selects, anchor-no-click-maximize) follows
+    you, and Ctrl+Alt+V while maximized toggles it to locked and back. That choice sticks for the session: every later
+    maximize uses it, and a fresh XR start is follow again (it is never saved). Un-maximizing (Ctrl+Alt+Down,
+    Ctrl+Alt+L, a pill click) returns to anchor; the renderer then puts the room back exactly as it was (spike
+    focus_center_test). Every run starts in the overview, anchored, whatever mode was saved (test_fresh_start).
+    Replaces overview-anchor-only, where follow and locked had no overview and Ctrl+Alt+Down there moved to the next
+    desktop."""
     def view_of(self, out):
         return last(out, 'view')
 
@@ -261,7 +263,9 @@ class MaximizeFollowTests(UnifiedBase):
         out = self.view_of(self.op('zoom_out'))  # Ctrl+Alt+Down: the overview again, anchored
         self.assertEqual((out['zoomed'], out['mode'], out['selected']), (False, 'anchor', 0))
         self.assertNotIn('cut', out)
-        out = self.view_of(frames(self.control.focus_desktop(2)))  # a click on a desktop in the overview maximizes it
+        out = self.view_of(frames(self.control.select_desktop(2)))  # a click on a desktop in the overview: selected only
+        self.assertEqual((out['zoomed'], out['mode'], out['selected']), (False, 'anchor', 2))
+        out = self.view_of(self.op('zoom_in'))  # then Ctrl+Alt+Up maximizes it
         self.assertEqual((out['zoomed'], out['mode'], out['selected']), (True, 'follow', 2))
         self.assertEqual(s.placements, flat())  # maximize and back never move a desktop
         self.join()
@@ -280,7 +284,8 @@ class MaximizeFollowTests(UnifiedBase):
         self.assertEqual(self.view_of(self.op('zoom_out'))['mode'], 'anchor')  # the overview is anchor whatever was chosen
         self.assertEqual(self.view_of(self.op('zoom_in'))['mode'], 'locked')  # the next maximize: still locked
         self.op('zoom_out')
-        self.assertEqual(self.view_of(frames(self.control.focus_desktop(2)))['mode'], 'locked')  # a dot click too
+        self.assertEqual(self.view_of(frames(self.control.select_desktop(2)))['mode'], 'anchor')  # a dot click only selects
+        self.assertEqual(self.view_of(self.op('zoom_in'))['mode'], 'locked')  # Ctrl+Alt+Up on it: still locked
         self.op('mode_next'); self.op('zoom_out')
         self.assertEqual(self.view_of(self.op('zoom_in'))['mode'], 'follow')  # back to follow: that sticks as well
         self.assertNotIn('maximized_mode', s.settings())  # never saved: a fresh start is follow (test_fresh_start)
@@ -366,7 +371,8 @@ class MaximizeFollowTests(UnifiedBase):
         self.assertEqual(last(self.op('next'), 'view')['selected'], 1)
         self.assertEqual(last(self.op('prev'), 'view')['selected'], 0)
         self.op('zoom_out')
-        self.assertEqual(last(frames(self.control.focus_desktop(2)), 'view'), {**self.control.state.view(), 'selected': 2})
+        out = last(frames(self.control.select_desktop(2)), 'view')  # the overview click: selected, not maximized
+        self.assertEqual(out, {**self.control.state.view(), 'selected': 2, 'zoomed': False})
 
 
 class SamplerTests(unittest.TestCase):

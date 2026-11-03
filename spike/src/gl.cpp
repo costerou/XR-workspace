@@ -119,10 +119,13 @@ struct GlCompositor::Impl {
     const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
     std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
+    std::unique_ptr<GlHud> binds_hud;     // key bind panel (own texture); absent if its shaders failed
+    const HudImage* binds = nullptr; std::uint64_t binds_generation = 0; float binds_alpha = 0, binds_drop = 0;
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
     bool free_directed = false; float free_az = 0, free_el = 0;                        // ...drawn in this direction (degrees)
+    PointerLook free_look = PointerLook::plain;                                        // ...with these marks round it
     float ghost_w = 0, ghost_h = 0; int drop_target = -1;                               // window drag: ghost and target
     GLuint offscreen_fb = 0, offscreen_rb = 0;  // create_offscreen: the framebuffer drawn instead of a window
     bool setup(std::size_t sources, std::string& why);  // shaders, textures, extensions (context current)
@@ -131,7 +134,7 @@ struct GlCompositor::Impl {
     // Interleaved per vertex: world xyz, then (u, v) on the tile, canvas (px, py), or (u, v) on the rect (panel content).
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 20> key{}; };
-    Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2], ghost_mesh, drop_mesh[4];
+    Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2], mark_mesh[2], ghost_mesh, drop_mesh[4];
     std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, band_meshes, head_meshes;  // per desktop (band / head: and side)
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
@@ -139,12 +142,14 @@ struct GlCompositor::Impl {
     GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr, bool glass = false);
     GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius, bool directed, float az, float el);
     GLsizei build_ghost(Mesh& m, const Canvas& canvas, float x, float y, float w, float h, bool directed, float az, float el);
-    // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll-level arrow; `shape` keys the points.
+    GLsizei build_marks(Mesh& m, const Canvas& canvas, float x, float y, PointerLook look, float grow, bool directed, float az, float el);
+    static std::pair<float, float> dot_direction(const Canvas& c, float x, float y, bool directed, float az, float el);
+    // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll bracket; `shape` keys the points.
     GLsizei build_points(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& shape, float tag,
                          std::span<const std::array<float, 2>> points);
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
-        drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m);
+        drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m); for (auto& m : mark_mesh) drop(m);
         drop(ghost_mesh); for (auto& m : drop_mesh) drop(m);
         for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &band_meshes, &head_meshes}) {
             for (auto& m : *v) drop(m);
@@ -170,7 +175,7 @@ struct GlCompositor::Impl {
             drop_meshes();
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) { drop(i); drop_held(i); }
-            hud.reset(); help_hud.reset(); environment.reset();
+            hud.reset(); help_hud.reset(); binds_hud.reset(); environment.reset();
             if (panel_texture) glDeleteTextures(1, &panel_texture);
             if (glass_program) glDeleteProgram(glass_program);
             if (panel_program) glDeleteProgram(panel_program);
@@ -270,6 +275,7 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
     s.hud = GlHud::create();  // optional: composition works without pop-ups
     s.help_hud = GlHud::create();
+    s.binds_hud = GlHud::create();
     s.video_hud = GlHud::create();  // now, not on the first video frame (a shader compile there costs that frame)
     s.environment = EnvironmentPass::create();  // optional, and now for the same reason; the run works without the grid
     {
@@ -382,15 +388,19 @@ void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, flo
     impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px;
 }
 
+void GlCompositor::set_binds(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
+    impl_->binds = image; impl_->binds_generation = generation; impl_->binds_alpha = alpha; impl_->binds_drop = drop_px;
+}
+
 void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level) {
     impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive);
 }
 
 void GlCompositor::set_glass(const GlassFrame& frame) { impl_->glass = frame; }
 
-void GlCompositor::set_free_pointer(bool visible, float x, float y, float level, bool directed, float az, float el) {
+void GlCompositor::set_free_pointer(bool visible, float x, float y, float level, bool directed, float az, float el, PointerLook look) {
     impl_->free_pointer = visible; impl_->free_x = x; impl_->free_y = y; impl_->free_level = std::min(level, kFreePointerHeldLevel);
-    impl_->free_directed = directed; impl_->free_az = az; impl_->free_el = el;
+    impl_->free_directed = directed; impl_->free_az = az; impl_->free_el = el; impl_->free_look = look;
 }
 
 void GlCompositor::set_window_drag(float w, float h, int target) {
@@ -525,17 +535,36 @@ GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float 
     return m.count;
 }
 
-GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float y, float w, float h, bool directed, float az, float el) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, w, h, 11.f, directed ? 1.f : 0.f, az, el};
-    if (!m.buffer) glGenBuffers(1, &m.buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
-    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
-    // Undirected: the dot's own plane point is its direction (direction_disc is then canvas_disc exactly).
+// The dot's direction in radians. Undirected: its own plane point's (direction_disc is then canvas_disc exactly).
+std::pair<float, float> GlCompositor::Impl::dot_direction(const Canvas& c, float x, float y, bool directed, float az, float el) {
     float a = az * float(M_PI) / 180.f, e = el * float(M_PI) / 180.f;
     if (!directed && c.view_w > 0 && c.view_h > 0) {
         const double wx = (2.0 * std::clamp(x, 0.f, c.view_w) / c.view_w - 1) * c.half_w, wy = (1 - 2.0 * std::clamp(y, 0.f, c.view_h) / c.view_h) * c.half_h;
         a = float(std::atan2(wx, 1.0)); e = float(std::atan2(wy, std::hypot(wx, 1.0)));
     }
+    return {a, e};
+}
+
+GLsizei GlCompositor::Impl::build_marks(Mesh& m, const Canvas& c, float x, float y, PointerLook look, float grow, bool directed, float az, float el) {
+    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, float(int(look)), grow, 13.f, directed ? 1.f : 0.f, az, el};
+    if (!m.buffer) glGenBuffers(1, &m.buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
+    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
+    const auto [a, e] = dot_direction(c, x, y, directed, az, el);
+    const auto tris = direction_marks(c, x, y, a, e, look, grow);
+    scratch.clear();
+    for (const auto& v : tris) scratch.insert(scratch.end(), {v.x, v.y, v.z});
+    glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
+    m.key = key; m.count = GLsizei(tris.size()); m.built = true;
+    return m.count;
+}
+
+GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float y, float w, float h, bool directed, float az, float el) {
+    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, w, h, 11.f, directed ? 1.f : 0.f, az, el};
+    if (!m.buffer) glGenBuffers(1, &m.buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
+    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
+    const auto [a, e] = dot_direction(c, x, y, directed, az, el);
     const auto strip = direction_outline(c, x, y, a, e, w, h, kGhostThicknessPx);
     scratch.clear();
     for (const auto& v : strip) scratch.insert(scratch.end(), {v.x, v.y, v.z});
@@ -652,10 +681,39 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         if (environment) glDisable(GL_BLEND);
     }
-    program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
     // Zoomed in (highlight_alpha = 1 - zoom), the zoomed desktop is drawn on top of any desktop dragged nearer.
     auto order = highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
                                 : draw_order(canvas, tiles, s.resolved);
+    const auto& g = s.glass;
+    const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
+    if (g.pills) {
+        // Roll brackets: an arrow bracket round each top corner (counter-clockwise left, clockwise right), shown with the
+        // pills (overview only). Drawn before every desktop (over the border and glow, back to front), so any desktop's
+        // content covers them and the glass goes over them: a bracket shows only where nothing else is, which is where the
+        // supervisor lets it take a press (free_pointer.hit: never on a desktop's content, a corner or a pill). Tile px on
+        // the desktop's own live surface (s.resolved), never a held panel's press-time one (GlassFrame::surface): a resize,
+        // by a corner or by the Distance slider, carries them with the desktop. Opaque, in the theme's M3 primary
+        // (roll_arrow_color), following the live accent; the hovered or dragged one lifted.
+        if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
+        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+        for (const std::size_t i : order) {
+            if (i >= s.textures.size() || i >= g.roll_icon.size()) continue;
+            for (std::uint32_t side = 0; side < 2; ++side) {
+                if (!roll_icon_shows(g.roll_icon[i], side)) continue;
+                const float level = int(i) == g.roll_hover && int(side) == g.roll_hover_side ? g.roll_level : kGlassIdle;
+                const auto colour = roll_arrow_color(accent, level);
+                glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
+                const auto bracket = roll_bracket(tiles[i], side);
+                GLsizei n = s.build_points(s.band_meshes[2 * i + side], canvas, tiles[i], s.resolved[i], tiles[i], float(side), bracket.band);
+                attrib(s.color_pos, 3, 3, 0);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+                n = s.build_points(s.head_meshes[2 * i + side], canvas, tiles[i], s.resolved[i], tiles[i], float(side) + 2, bracket.head);
+                attrib(s.color_pos, 3, 3, 0);
+                glDrawArrays(GL_TRIANGLES, 0, n);
+            }
+        }
+    }
+    program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
     float swizzle = -1;  // the value set this frame (-1: none yet)
     for (const std::size_t i : order) {
         if (i >= s.textures.size()) continue;
@@ -677,7 +735,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         // glass. While a slider is held the open panel stays on its press-time surface (GlassFrame::surface). Glass keeps
         // its size whatever the desktop's (view.hpp glass_mesh): a resize moves a pill with the desktop, never scales it.
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        const auto& g = s.glass;
         glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         auto glass_on = [&](std::size_t i) -> const Placement& { return int(i) == g.surface_desktop && g.surface ? *g.surface : s.resolved[i]; };
         auto shape = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, float radius, const GlassLook& look, float opacity, float margin) {
@@ -691,7 +748,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             attrib(s.glass_loc.pos, 3, 5, 0); attrib(s.glass_loc.px, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         };
-        const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
         for (const std::size_t i : glass_draw_order(std::move(order), g.top)) {  // the tiles are drawn: hand their order over
             if (i >= s.textures.size() || i >= g.expand.size()) continue;
             const float e = std::clamp(g.expand[i], 0.f, 1.f);
@@ -699,25 +755,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
             const FRect r = glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
-            for (std::uint32_t side = 0; g.pills && i < g.roll_icon.size() && side < 2; ++side) {
-                // Roll-level icons: a curved arrow above each top corner (counter-clockwise left, clockwise right).
-                if (!roll_icon_shows(g.roll_icon[i], side)) continue;
-                const float roll_level = int(i) == g.roll_hover && int(side) == g.roll_hover_side ? g.roll_level : kGlassIdle;
-                // Just the arrow, no button behind it, on the desktop's surface (surface px, where the supervisor's hit
-                // box is), in the monitor border's and glow's colour: the live theme accent.
-                const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);
-                glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
-                const auto arrow = roll_arrow(icon, side);
-                const auto colour = roll_arrow_color(accent, roll_level);
-                program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
-                glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
-                GLsizei n = s.build_points(s.band_meshes[2 * i + side], canvas, tiles[i], glass_on(i), icon, float(side), arrow.band);
-                attrib(s.color_pos, 3, 3, 0);
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
-                n = s.build_points(s.head_meshes[2 * i + side], canvas, tiles[i], glass_on(i), icon, float(side) + 2, arrow.head);
-                attrib(s.color_pos, 3, 3, 0);
-                glDrawArrays(GL_TRIANGLES, 0, n);
-            }
             if (e <= 0.f) continue;
             // The grabber where the pill was, fading in with the panel.
             const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};
@@ -772,6 +809,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
         s.current = 0;
     }
+    if (s.binds_hud && s.binds && s.binds_alpha > 0.f) {  // the key bind panel (the supervisor never shows both cards)
+        s.binds_hud->draw(*s.binds, s.binds_generation, s.binds_alpha, s.width, s.height, true, s.binds_drop);
+        s.current = 0;
+    }
     if (s.free_pointer && s.free_level > 0.f) {
         // Overview free pointer: a black ring, then the grey dot, on the canvas plane (world-locked like the desktops' slots),
         // or turned to its direction round you when one is given (the supervisor always gives one).
@@ -782,6 +823,14 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             glUniform4f(s.color, kGhostLevel, kGhostLevel, kGhostLevel, 1.f);
             attrib(s.color_pos, 3, 3, 0);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+        }
+        if (s.free_look != PointerLook::plain) for (int k = 0; k < 2; ++k) {  // what a press would do: black outlines, then grey
+            const float level = k ? s.free_level : 0.f;
+            const GLsizei n = s.build_marks(s.mark_mesh[k], canvas, s.free_x, s.free_y, s.free_look, k ? 0.f : kFreePointerRingPx,
+                                            s.free_directed, s.free_az, s.free_el);
+            glUniform4f(s.color, level, level, level, 1.f);
+            attrib(s.color_pos, 3, 3, 0);
+            glDrawArrays(GL_TRIANGLES, 0, n);
         }
         for (int k = 0; k < 2; ++k) {
             const float radius = k ? kFreePointerRadiusPx : kFreePointerRadiusPx + kFreePointerRingPx, level = k ? s.free_level : 0.f;

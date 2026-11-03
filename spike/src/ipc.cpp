@@ -4,6 +4,7 @@
 #include "video_ipc.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <iterator>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -62,7 +63,19 @@ bool brightness_percent(const Json& v, std::uint16_t& out) {
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     const bool directed = p.is_object() && (p.contains("az") || p.contains("el"));
     const bool drag = p.is_object() && p.contains("drag");
-    if (!p.is_object() || p.size() != (directed ? 6u : 4u) + (drag ? 1u : 0u)) return false;
+    const bool looks = p.is_object() && p.contains("look");
+    if (!p.is_object() || p.size() != (directed ? 6u : 4u) + (drag ? 1u : 0u) + (looks ? 1u : 0u)) return false;
+    PointerLook look = PointerLook::plain;
+    if (looks) {
+        static constexpr std::pair<const char*, PointerLook> names[] = {
+            {"resize_ew", PointerLook::resize_ew}, {"resize_ns", PointerLook::resize_ns}, {"resize_nwse", PointerLook::resize_nwse},
+            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate}};
+        if (!p["look"].is_string()) return false;
+        const auto& name = p["look"].get_ref<const std::string&>();
+        const auto* found = std::find_if(std::begin(names), std::end(names), [&](const auto& n) { return name == n.first; });
+        if (found == std::end(names)) return false;
+        look = found->second;
+    }
     for (const char* key : {"visible", "held"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
     std::int32_t xy[2];
@@ -103,16 +116,18 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
             ghost[i] = std::int32_t(v);
         }
     }
-    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1], drag, ghost[0], ghost[1], ghost[2]};
+    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1], drag, ghost[0], ghost[1], ghost[2], look};
     return true;
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     // "surface" (optional, open panels only): the placement the open panel is drawn on while a slider is held. "names",
     // "wide", "armed", "busy" (optional): the panel's desktop row. "scale", "scales", "picker" (optional): its Scale
-    // dropdown (the list open only on an open panel).
+    // dropdown (the list open only on an open panel). "resolution", "resolution_picker" (optional): its Resolution
+    // dropdown (likewise; never both lists open).
     if (!p.is_object()) return false;
     std::size_t optional = 0;
-    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker", "background", "brightness", "background_picker"})
+    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker", "resolution", "resolution_picker", "background",
+                            "brightness", "background_picker"})
         optional += p.contains(key);
     if (p.size() != 4 + optional || !p.contains("open") || !p["open"].is_boolean() || !p.contains("placements") ||
         !p["placements"].is_array() || p["placements"].empty() || p["placements"].size() > kPlacementMenuDesktops ||
@@ -142,13 +157,21 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
         }
     }
     for (auto [key, flag] : {std::pair{"wide", &out.wide}, std::pair{"armed", &out.armed}, std::pair{"busy", &out.busy},
-                             std::pair{"picker", &out.picker}, std::pair{"background_picker", &out.background_picker}})
+                             std::pair{"picker", &out.picker}, std::pair{"resolution_picker", &out.resolution_picker},
+                             std::pair{"background_picker", &out.background_picker}})
         if (p.contains(key)) {
             if (!p[key].is_boolean()) return false;
             *flag = p[key].get<bool>();
         }
-    if ((out.picker || out.background_picker) && !out.open) return false;
-    if (out.picker && out.background_picker) return false;
+    if ((out.picker || out.resolution_picker || out.background_picker) && !out.open) return false;
+    if (int(out.picker) + int(out.resolution_picker) + int(out.background_picker) > 1) return false;  // one list at a time
+    if (p.contains("resolution")) {  // [width, height]: a desktop size the broker accepts
+        const auto& r = p["resolution"];
+        if (!r.is_array() || r.size() != 2 || !r[0].is_number_unsigned() || !r[1].is_number_unsigned()) return false;
+        const auto w = r[0].get<std::uint64_t>(), h = r[1].get<std::uint64_t>();
+        if (w < kDesktopMinW || w > kDesktopMaxW || h < kDesktopMinH || h > kDesktopMaxH || w % 2 || h % 2) return false;
+        out.resolution_w = std::uint16_t(w); out.resolution_h = std::uint16_t(h);
+    }
     if (p.contains("background") && !background_name(p["background"], out.background)) return false;
     if (p.contains("brightness") && !brightness_percent(p["brightness"], out.brightness)) return false;
     auto step = [](const Json& v) -> int {  // index into kScalePercents, -1 if v is not one of them
@@ -194,8 +217,12 @@ bool desktop_names(const Json& value, std::vector<std::string>& out, std::size_t
     return true;
 }
 bool desktops(const Json& p, DesktopsPayload& out) {
-    if (!p.is_object() || p.size() != 1u + p.contains("renew") || !p.contains("outputs")) return false;
+    if (!p.is_object() || p.size() != 1u + p.contains("renew") + p.contains("ease") || !p.contains("outputs")) return false;
     if (!desktop_names(p["outputs"], out.outputs, 1)) return false;
+    if (p.contains("ease")) {
+        if (!p["ease"].is_boolean()) return false;
+        out.ease = p["ease"].get<bool>();
+    }
     if (p.contains("renew")) {
         if (!desktop_names(p["renew"], out.renew, 0)) return false;
         for (const auto& name : out.renew)
@@ -222,6 +249,41 @@ bool move_handle(const Json& p, MoveHandlePayload& out) {
         if (!p.contains(key) || !p[key].is_boolean()) return false;
     if (!p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= kMaxDesktops) return false;
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>()};
+    return true;
+}
+// binds_panel.hpp BindPanelState: printable ASCII text of `lo`..`hi` characters.
+bool ascii_text(const Json& value, std::size_t lo, std::size_t hi) {
+    if (!value.is_string()) return false;
+    const auto& s = value.get_ref<const std::string&>();
+    return s.size() >= lo && s.size() <= hi && std::all_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; });
+}
+bool binds(const Json& p, BindPanelState& out) {
+    if (!p.is_object() || !p.contains("visible") || !p["visible"].is_boolean()) return false;
+    out = {};
+    out.visible = p["visible"].get<bool>();
+    if (!out.visible) return p.size() == 1;
+    if (p.size() != 7 || !ascii_text(p.value("title", Json()), 1, kMaxBindLabel) || !ascii_text(p.value("hint", Json()), 1, kMaxBindText) ||
+        !ascii_text(p.value("status", Json()), 0, kMaxBindText) || !p.contains("alert") || !p["alert"].is_boolean() ||
+        !p.contains("rows") || !p["rows"].is_array() || p["rows"].empty() || p["rows"].size() > kMaxBindRows ||
+        !p.contains("selected") || !p["selected"].is_number_unsigned() || p["selected"].get<std::uint64_t>() >= p["rows"].size())
+        return false;
+    out.title = p["title"].get<std::string>(); out.hint = p["hint"].get<std::string>(); out.status = p["status"].get<std::string>();
+    out.alert = p["alert"].get<bool>();
+    out.selected = std::uint32_t(p["selected"].get<std::uint64_t>());
+    for (const auto& r : p["rows"]) {
+        if (!r.is_object() || r.size() != 4 || !ascii_text(r.value("action", Json()), 1, kMaxBindLabel) ||
+            !ascii_text(r.value("keys", Json()), 1, kMaxBindLabel) || !ascii_text(r.value("note", Json()), 0, kMaxBindText) ||
+            !r.contains("state") || !r["state"].is_string())
+            return false;
+        BindRow row{r["action"].get<std::string>(), r["keys"].get<std::string>(), r["note"].get<std::string>(), BindRowState::normal};
+        const auto& state = r["state"].get_ref<const std::string&>();
+        if (state == "normal") row.state = BindRowState::normal;
+        else if (state == "custom") row.state = BindRowState::custom;
+        else if (state == "conflict") row.state = BindRowState::conflict;
+        else if (state == "capture") row.state = BindRowState::capture;
+        else return false;
+        out.rows.push_back(std::move(row));
+    }
     return true;
 }
 bool roll(const Json& p, RollPayload& out) {
@@ -296,6 +358,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "roll") op = ControlOp::roll;
         else if (name == "desktops") op = ControlOp::desktops;
         else if (name == "environment") op = ControlOp::environment;
+        else if (name == "binds") op = ControlOp::binds;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -358,9 +421,16 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = std::move(help);
         } else if (op == ControlOp::placement) {
             const auto& p = j["payload"];
-            if (p.size() != 1 || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() || p["desktops"].size() > kMaxDesktops)
+            const bool glide = p.contains("glide");  // optional: the frame's desktops glide there together (ipc.hpp)
+            if (p.size() != 1 + std::size_t(glide) || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() ||
+                p["desktops"].size() > kMaxDesktops)
                 return invalid();
             PlacementPayload placements;
+            if (glide) {
+                const auto& g = p["glide"];
+                if (!g.is_number_unsigned() || g.get<std::uint64_t>() < 1 || g.get<std::uint64_t>() > kMaxPlacementGlideMs) return invalid();
+                placements.glide_ms = std::uint32_t(g.get<std::uint64_t>());
+            }
             for (const auto& d : p["desktops"]) {
                 WirePlacement w;
                 if (!placement(d, w)) return invalid();
@@ -387,6 +457,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             RollPayload r;
             if (!roll(j["payload"], r)) return Error{kInvalidRollCode, "Ignored malformed roll payload"};
             payload = r;
+        } else if (op == ControlOp::binds) {
+            BindPanelState panel;
+            if (!binds(j["payload"], panel)) return Error{kInvalidBindsCode, "Ignored malformed binds payload"};
+            payload = std::move(panel);
         } else if (op == ControlOp::desktops) {
             DesktopsPayload set;
             if (!desktops(j["payload"], set)) return invalid();

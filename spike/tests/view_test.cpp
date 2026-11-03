@@ -8,7 +8,92 @@ using namespace xr;
 bool near(float a, float b, float eps = 0.5f) { return std::fabs(a - b) <= eps; }
 bool same(const FRect& r, FRect e) { return near(r.x, e.x, 1e-3f) && near(r.y, e.y, 1e-3f) && near(r.width, e.width, 1e-3f) && near(r.height, e.height, 1e-3f); }
 
+// Ctrl+Alt+R's tiles (TileEase): the same layouts the renderer draws, through a remove, a new aspect and an add.
+void tile_ease_tests() {
+    const Size four[] = {{2560, 1080}, {1920, 1080}, {1920, 1080}, {2560, 1080}}, three[] = {{2560, 1080}, {1920, 1080}, {1920, 1080}},
+               even[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}}, two[] = {{1920, 1080}, {1920, 1080}};
+    const auto from = overview_layout(four, 1920, 1200, 40), mid = overview_layout(three, 1920, 1200, 40), to = overview_layout(even, 1920, 1200, 40);
+    const auto one = [&](const std::vector<FRect>& v, std::size_t i) { return v[i]; };
+
+    {  // Unarmed: the layout itself, the very same vector, whatever changes (a pill's Add / Remove / Ultrawide jump as before).
+        TileEase e;
+        CHECK(&e.tiles(three, mid, true, 1000) == &mid);
+        CHECK(&e.tiles(four, from, true, 1016) == &from);
+        CHECK(!e.active() && !e.armed(1016));
+    }
+    {  // Armed, nothing changed yet: the layout as it is; a change after the arm has run out jumps.
+        TileEase e;
+        e.arm(three, mid, 1000);
+        CHECK(e.armed(1000 + double(kTileEaseArmMs)) && !e.active());
+        CHECK(&e.tiles(three, mid, true, 1100) == &mid);
+        CHECK(&e.tiles(even, to, true, 1000 + double(kTileEaseArmMs) + 1) == &to);
+        CHECK(!e.active());
+    }
+    {  // Remove the last of four: the three left go from their tiles to the wider ones, along one smootherstep.
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        const auto& start = e.tiles(three, mid, true, 2000);  // the first frame after the change: not moved at all
+        CHECK(start.size() == 3 && &start != &mid && e.active());
+        for (std::size_t i = 0; i < 3; ++i) CHECK(same(one(start, i), from[i]));
+        const auto half = e.tiles(three, mid, true, 2000 + double(kTileEaseMs) / 2);  // t 0.5: halfway on the curve
+        for (std::size_t i = 0; i < 3; ++i) {
+            CHECK(near(half[i].x, (from[i].x + mid[i].x) / 2, 1e-2f) && near(half[i].width, (from[i].width + mid[i].width) / 2, 1e-2f));
+            CHECK(near(half[i].y, (from[i].y + mid[i].y) / 2, 1e-2f) && near(half[i].height, (from[i].height + mid[i].height) / 2, 1e-2f));
+        }
+        const auto early = e.tiles(three, mid, true, 2000 + double(kTileEaseMs) * 0.1);  // eased in: still slow at 10%
+        CHECK(std::fabs(early[0].width - from[0].width) < 0.02f * std::fabs(mid[0].width - from[0].width));
+        CHECK(&e.tiles(three, mid, true, 2000 + double(kTileEaseMs)) == &mid);  // lands exactly, and stops asking for frames
+        CHECK(!e.active());
+    }
+    {  // A second change on the way (a new frame's aspect) starts from where the tiles are, never from a jump.
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        e.tiles(three, mid, true, 2000);
+        const auto at = e.tiles(three, mid, true, 2200);
+        const auto again = e.tiles(even, to, true, 2200);
+        for (std::size_t i = 0; i < 3; ++i) CHECK(same(again[i], at[i]));
+        CHECK(e.active());
+        CHECK(&e.tiles(even, to, true, 2200 + double(kTileEaseMs)) == &to);
+    }
+    {  // Add: a new desktop grows out of the middle of its slot; the others go from their tiles, by name, not by index.
+        const auto before = overview_layout(two, 1920, 1200, 40);
+        TileEase e;
+        e.arm(two, before, 1000);
+        e.reindex(std::array<int, 3>{-1, 0, 1});  // XR-1 is new: XR-2 and XR-3 were indices 0 and 1
+        const auto start = e.tiles(even, to, true, 1100);
+        CHECK(same(start[1], before[0]) && same(start[2], before[1]));
+        CHECK(start[0].width > 0 && near(start[0].width, to[0].width * kTileEaseBornScale, 1e-2f));
+        CHECK(near(start[0].x + start[0].width / 2, to[0].x + to[0].width / 2, 1e-2f));
+        CHECK(near(start[0].y + start[0].height / 2, to[0].y + to[0].height / 2, 1e-2f));
+    }
+    {  // A frame re-arming mid-way keeps following the tiles (the removal's frame, then the finished change's).
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        e.tiles(three, mid, true, 1000);
+        const auto at = e.tiles(three, mid, true, 1200);
+        e.arm(three, mid, 1200);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        const auto on = e.tiles(three, mid, true, 1200);
+        for (std::size_t i = 0; i < 3; ++i) CHECK(same(on[i], at[i]));
+        // The same desktops again: the ease goes on on its own clock, it does not start over (no stutter mid-glide).
+        CHECK(e.active());
+        CHECK(&e.tiles(three, mid, true, 1000 + double(kTileEaseMs)) == &mid);
+    }
+    {  // Overview only: a zoom drops the ease and the arm.
+        TileEase e;
+        e.arm(four, from, 1000);
+        e.reindex(std::array<int, 3>{0, 1, 2});
+        e.tiles(three, mid, true, 1000);
+        CHECK(&e.tiles(three, mid, false, 1100) == &mid);
+        CHECK(!e.active() && !e.armed(1100));
+    }
+}
+
 int main() {
+    tile_ease_tests();
     const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
     // Overview: 3 x 16:9 desktops in 1920x1200 with 40 px gaps and margins.
     auto o = overview_layout(eq, 1920, 1200, 40);
@@ -499,6 +584,59 @@ int main() {
             CHECK(!same_placement(other, to));
         }
     }
+    {  // A glide (bumping, view.py GLIDE_MS): one smootherstep curve from where a desktop was drawn to its new placement.
+        const Placement from{-0.2f, 0.1f, 1.f, 0.f, 0.f}, to{0.4f, -0.3f, 0.5f, 1.f, 0.1f};
+        CHECK(same_placement(glide_toward(from, to, 0), from));  // starts where it was drawn: no jump
+        CHECK(same_placement(glide_toward(from, to, 1), to) && same_placement(glide_toward(from, to, 7), to));  // lands exactly
+        CHECK(same_placement(glide_toward(from, to, -1), from));
+        const Placement half = glide_toward(from, to, 0.5f);
+        CHECK(near(half.x, 0.1f, 1e-6f) && near(half.y, -0.1f, 1e-6f) && near(half.distance, 0.75f, 1e-6f) &&
+              near(half.curvature, 0.5f, 1e-6f) && near(half.roll, 0.05f, 1e-6f));  // halfway at half time
+        float last = from.x;
+        for (int i = 1; i <= 100; ++i) {  // every field moves one way only, never past the end (no overshoot)
+            const Placement p = glide_toward(from, to, i / 100.f);
+            CHECK(p.x >= last - 1e-7f && p.x <= to.x + 1e-7f && p.y <= from.y + 1e-7f && p.y >= to.y - 1e-7f);
+            last = p.x;
+        }
+        // Eased in and out: it starts and lands with no jump in speed (smootherstep's slope is 0 at both ends).
+        CHECK(glide_toward(from, to, 0.01f).x - from.x < 0.01f * (to.x - from.x) * 0.01f);
+        CHECK(to.x - glide_toward(from, to, 0.99f).x < 0.01f * (to.x - from.x) * 0.01f);
+        // Every desktop of the frame takes the same t, so the pair's configuration moves along one straight line between
+        // two that were apart: a pushed desktop and the one pushing it slide out of each other's way together.
+        const Placement a0{0, 0, 1, 0}, a1{0.3f, 0, 1, 0}, b0{0.25f, 0, 1, 0}, b1{0.55f, 0, 1, 0};
+        for (int i = 0; i <= 10; ++i) CHECK(glide_toward(b0, b1, i / 10.f).x - glide_toward(a0, a1, i / 10.f).x >= 0.25f - 1e-6f);
+        // The short way round, as ease_toward: behind you it stays behind you, and lands on the exact value.
+        Placement behind_a; behind_a.x = 3.1f;
+        Placement behind_b; behind_b.x = -3.1f;
+        CHECK(glide_toward(behind_a, behind_b, 0.5f).x > 3.1f && glide_toward(behind_a, behind_b, 1).x == -3.1f);
+    }
+    {  // The renderer's per-frame step (wayland.cpp ease_placements): a glide frame takes every desktop along one curve,
+       // over exactly its time, then easing goes on as before; a frame without one eases on from wherever the glide got to.
+        PlacementGlide glide;
+        std::vector<Placement> drawn{{0, 0, 1, 0}, {0.25f, 0, 1, 0}};
+        const std::vector<Placement> pushed{{0.3f, 0, 1, 0}, {0.55f, 0, 1, 0}};  // the mover and the desktop it bumped
+        CHECK(!start_glide(glide, {}, 0, 240) && glide.ms == 0);  // nothing drawn yet: nothing to glide from
+        CHECK(!start_glide(glide, drawn, 1000, 0) && glide.ms == 0);
+        CHECK(start_glide(glide, drawn, 1000, 240) && glide.ms == 240);
+        step_placements(drawn, pushed, 8, 1120, glide);  // half the time: half the way, both together
+        CHECK(near(drawn[0].x, 0.15f, 1e-5f) && near(drawn[1].x, 0.4f, 1e-5f) && glide.ms == 240);
+        step_placements(drawn, pushed, 8, 1008, glide);  // early on it has barely started: eased in, not a jump
+        CHECK(drawn[0].x < 0.3f * 0.01f);
+        step_placements(drawn, pushed, 8, 1240, glide);  // its time is up: exactly there, and the glide is over
+        CHECK(same_placement(drawn[0], pushed[0]) && same_placement(drawn[1], pushed[1]) && glide.ms == 0);
+        const std::vector<Placement> next{{0.4f, 0, 1, 0}, {0.65f, 0, 1, 0}};
+        step_placements(drawn, next, kPlacementEaseMs, 1300, glide);  // no glide: the quick exponential easing again
+        CHECK(near(drawn[0].x, 0.4f - 0.1f * std::exp(-1.f), 1e-5f));
+        CHECK(start_glide(glide, drawn, 2000, 240));  // a glide that a plain frame interrupts: eased on from where it is
+        step_placements(drawn, next, 8, 2060, glide);
+        const Placement at = drawn[0];
+        glide.ms = 0;  // (set_placements without a glide, a roll change or a desktop change end it)
+        step_placements(drawn, next, 8, 2068, glide);
+        CHECK(drawn[0].x >= at.x && drawn[0].x <= next[0].x);  // on toward the target, from there: no jump back
+        std::vector<Placement> grown{{0.4f, 0, 1, 0}};
+        step_placements(grown, next, 8, 2100, glide);  // a desktop added meanwhile starts at its target
+        CHECK(grown.size() == 2 && same_placement(grown[1], next[1]));
+    }
     // Draw order: farthest first; equal-distance ties keep layout order; missing placements are flat.
     const FRect row3[] = {{0, 330, 600, 540}, {660, 330, 600, 540}, {1320, 330, 600, 540}};
     const Placement pushed[] = {{}, {0, 0, 1.8f, 0}};
@@ -536,6 +674,77 @@ int main() {
         CHECK(o.size() == 3 && o[0] == 2 && o[2] == 1);
         CHECK(near(faded(huge, 1).distance, 1, 1e-6f) && near(faded(huge, 0).distance, 0.1f, 1e-6f));
     }
+    }
+    {  // A desktop changing shape live (SizeEase): the tile eases with the same smoothstep over the same time as zoom and
+       // spacing, and the layout built from it slides the neighbours along.
+        CHECK(kViewEaseMs == 220.f);
+        ViewAnimator v;  // zoom goes the same way over the same time
+        v.set_target(true, 0, 40, 1000); v.advance(1000);
+        const float d = kViewEaseMs;
+        const Size fhd{1920, 1080}, uw{2560, 1080}, uhd{3840, 2160};
+        SizeEase e;
+        CHECK(!e.value() && !e.animating() && e.eases() == 0);
+        e.advance(fhd, 1000, false);  // its first size just applies
+        CHECK(e.value()->w == 1920 && e.value()->h == 1080 && !e.animating());
+        e.advance(fhd, 1100, true);   // no change: nothing to do
+        CHECK(!e.animating() && e.eases() == 0);
+        e.advance(uhd, 1200, true);   // 16:9 to 16:9: same shape, nothing moves
+        CHECK(e.value()->w == 3840 && e.value()->h == 2160 && !e.animating() && e.eases() == 0);
+        e.advance(fhd, 1300, true);
+        CHECK(!e.animating() && e.eases() == 0);
+        e.advance(uw, 2000, true);    // to 21:9: starts from where it is
+        CHECK(e.animating() && e.eases() == 1 && near(e.value()->w, 1920, 1e-3f) && e.value()->h == 1080);
+        const auto shape_at = [&](double t) { e.advance(uw, t, true); return e.value()->w / e.value()->h; };
+        const float a0 = 1920.f / 1080, a1 = 2560.f / 1080;
+        float last = a0;
+        for (double t = 2010; t < 2000 + d; t += 10) {
+            const float a = shape_at(t);
+            CHECK(a > last && a < a1);  // always on its way, never past it
+            CHECK(near(a, a0 + (a1 - a0) * smoothstep(float((t - 2000) / d)), 1e-4f));
+            v.advance(1000 + (t - 2000));
+            CHECK(near((a - a0) / (a1 - a0), v.zoom(), 1e-3f));  // in step with a zoom started at the same moment
+            last = a;
+        }
+        shape_at(2000 + d);
+        CHECK(!e.animating() && e.value()->w == 2560 && e.value()->h == 1080);  // lands exactly on the size
+        // A change mid-way carries on from what is drawn, with no jump.
+        e.advance(fhd, 3000, true);
+        e.advance(fhd, 3000 + d / 2, true);
+        const float mid = e.value()->w / e.value()->h;
+        CHECK(near(mid, (a0 + a1) / 2, 1e-4f));
+        e.advance(uw, 3000 + d / 2, true);
+        CHECK(e.animating() && e.eases() == 3 && near(e.value()->w / e.value()->h, mid, 1e-4f));
+        e.advance(uw, 3000 + 2 * d, true);
+        CHECK(!e.animating() && e.value()->w == 2560);
+        // animate false: the new shape applies at once. A zero duration never eases.
+        e.advance(fhd, 4000, false);
+        CHECK(!e.animating() && e.value()->w == 1920 && e.eases() == 3);
+        SizeEase none(0);
+        none.advance(fhd, 0, true); none.advance(uw, 1, true);
+        CHECK(!none.animating() && none.value()->w == 2560);
+        // The middle desktop widening: the row is laid out from the eased sizes, so every drawn frame lies between the two
+        // layouts: the tile widens, the right neighbour slides right, and (the row being limited by the view's width) all
+        // three share a lower height, each step the eased share of the whole move.
+        SizeEase m;
+        m.advance(fhd, 0, false);
+        const auto layout = [&](Size mid_size) {
+            const Size row3[] = {fhd, mid_size, fhd};
+            return overview_layout(row3, 1920, 1200, 40);
+        };
+        const auto a = layout(fhd), b = layout(uw);
+        CHECK(b[1].width > a[1].width && b[2].x > a[2].x && b[0].height < a[0].height);
+        for (double t = 0; t <= d; t += 22) {
+            m.advance(uw, t, true);
+            const auto now = layout(*m.value());
+            const float ws = (now[1].width / now[1].height - a[1].width / a[1].height) /
+                             (b[1].width / b[1].height - a[1].width / a[1].height);
+            CHECK(ws >= -1e-4f && ws <= 1 + 1e-4f);
+            for (std::size_t i = 0; i < 3; ++i) {
+                CHECK(now[i].x >= std::min(a[i].x, b[i].x) - 0.5f && now[i].x <= std::max(a[i].x, b[i].x) + 0.5f);
+                CHECK(now[i].width >= std::min(a[i].width, b[i].width) - 0.5f && now[i].width <= std::max(a[i].width, b[i].width) + 0.5f);
+            }
+            if (t + 22 <= d) CHECK(near(ws, smoothstep(float(t / d)), 1e-3f));
+        }
     }
     std::cout << "view layout passed\n";
 }

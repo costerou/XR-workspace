@@ -1,5 +1,6 @@
-"""Desktops anywhere around you (3DoF): the orbit placement, the pill drag that carries a desktop round you, and the guard
-that keeps desktops from overlapping. Pure maths, no I/O.
+"""Desktops anywhere around you (3DoF): the orbit placement, the pill drag that carries a desktop round you, and the
+footprints that tell whether desktops overlap as you see them (bump.py pushes desktops out of each other's way with
+them). Pure maths, no I/O.
 
 Design (3dof-free-placement, 2026-11-02):
   * Where a desktop is. Its `x` / `y` placement (geometry.PLACEMENT_BOUNDS) is an orbit around your head in tenths of a
@@ -30,17 +31,16 @@ Design (3dof-free-placement, 2026-11-02):
     middle), at the dot's constant angle per mouse pixel. The drag's reach (anchor or not) is fixed when it starts
     (free_pointer), and its target is kept unwrapped, so a desktop held against a neighbour never flips round the other
     way when the target passes behind you.
-  * No overlap (allowed_move): what a desktop covers is judged as you see it, as the set of directions from your eye that
-    its surface covers, with a MARGIN_PX border and, under it, the strip holding its glass pill and the pill's grab
-    padding (PILL_ZONE_PX): a convex spherical polygon from its true placed outline (distance, orbit and curvature
-    included; a curved desktop's outline is replaced by its convex hull, so the guard errs early). Desktops that do not
-    share a direction neither intersect nor hide each other. A drag moves along the straight path toward where the
-    pointer wants it and stops before the first step that would make it cover another desktop (no jumping through
-    one); if that path is blocked it may slide along the neighbour (sideways first or vertically first, whichever ends
-    closer; the slide's corner is returned first, so the renderer's straight-line easing never cuts through the
-    neighbour). Each pair is judged on its own: a desktop that already overlaps another (set from the panel) may move
-    anywhere it overlaps that one no more than now and every other one not at all, so it is never stuck. The panel's
-    sliders and keys and the corner resize are not guarded.
+  * Footprints (footprint, overlap): what a desktop covers is judged as you see it, as the set of directions from your
+    eye that its surface covers, with a MARGIN_PX border and, under it, the strip holding its glass pill and the pill's
+    grab padding (PILL_ZONE_PX): a convex spherical polygon from its true placed outline (distance, orbit and curvature
+    included; a curved desktop's outline is replaced by its convex hull, so it errs early). Desktops that do not share a
+    direction neither intersect nor hide each other.
+  * No overlap (bump.py, monitor-collision-bump, 2026-11-03): a desktop moved or resized in the overview (a pill drag, a
+    corner resize, its open panel's sliders and keys) pushes every desktop it runs into out of its way, cascading, and
+    they stay where they were pushed; where there is no room it stops, as the guard before it did.
+    Until then the pill drag stopped at a neighbour and slid along it (allowed_move), and everything else went
+    through.
 """
 import functools
 import math
@@ -53,7 +53,6 @@ REACH = 2.0                  # reach() outside anchor mode: half a view past eac
 PILL_ZONE_PX = 34.0          # free_pointer.PILL_GAP + PILL_THICKNESS + PILL_PAD_Y: the pill and its grab zone under a desktop
 MARGIN_PX = 6.0              # spike/src/gl.cpp kBorderPx: the highlight frame round a desktop (canvas px)
 AREA_EPS = 1e-9              # steradians: "overlaps no more than now" tolerance
-MAX_CAREFUL_STEPS = 600      # a desktop already overlapping is moved a tenth at a time; at most this far per pointer update
 _BEHIND = 1e-6
 
 
@@ -252,29 +251,35 @@ def _target(g, tile, local, near, pointer):
 def drag_target(g, tile, start, press, pointer):
     """New (x, y) placement for a pill drag of the desktop laid out at `tile`: `start` its (x, y) at the press, `press`
     and `pointer` canvas px. The point grabbed at the press (grab_point) goes
-    exactly under the dot: x wraps round, y stops at the poles, each snaps back to the slot within SNAP. Unguarded:
-    PillDrag adds the no-overlap guard."""
+    exactly under the dot: x wraps round, y stops at the poles, each snaps back to the slot within SNAP. No bumping:
+    PillDrag pushes the desktops it runs into out of its way (bump.py)."""
     _, (x, y) = _target(g, tile, grab_point(g, tile, start, press), start, pointer)
     return wrap(x), y
 
 
 class PillDrag:
-    """One pill drag from the press to the release: the target the pointer asks for and where the guard lets the desktop
-    go. The grabbed point (grab_point, fixed at the press) is kept under the dot; x is followed unwrapped and only wrapped for the wire."""
+    """One pill drag from the press to the release: the target the pointer asks for, where the desktop gets to and the
+    desktops it pushes out of its way on the way there (bump.py). The grabbed point (grab_point, fixed at the press) is
+    kept under the dot; x is followed unwrapped and only wrapped for the wire."""
     def __init__(self, g, index, start, press):
         self.g, self.index, self.start, self.press = g, index, (start[0], start[1]), press
         self.tile = g['tiles'][index]
         self.local = grab_point(g, self.tile, self.start, press)
         self.at = self.near = self.start
+        self.pusher = None  # bump.Pusher, for the whole drag (it remembers which way it pushed each desktop)
 
     def follow(self, pointer, placements):
-        """The desktop's new (x, y) wire placement for the pointer at canvas point `pointer`."""
+        """Every desktop's wire placement for the pointer at canvas point `pointer`: the dragged one with the grabbed point
+        under the dot (or as near as there is room for), every desktop it runs into pushed out of its way (bump.py)."""
+        from . import bump  # (bump.py builds on this module)
         p = placements[self.index]
         if wrap(self.at[0]) != p['x'] or self.at[1] != p['y']:  # changed meanwhile (a panel key): carry on from there
             self.at = (self.at[0] + _diff(p['x'], wrap(self.at[0])), p['y'])
         self.near, target = _target(self.g, self.tile, self.local, self.near, pointer)
-        self.at = allowed_move(self.g, self.index, self.at, target, placements)
-        return wrap(self.at[0]), self.at[1]
+        if self.pusher is None: self.pusher = bump.Pusher(self.g, self.index)
+        out = self.pusher.move(placements, {'x': target[0], 'y': target[1]}, start={'x': self.at[0], 'y': self.at[1]})
+        self.at = (self.pusher.reached['x'], self.pusher.reached['y'])
+        return out
 
 
 # --- footprints: what each desktop covers, seen from your eye ------------------------------------------------------
@@ -309,7 +314,7 @@ def _outline(g, tile, p):
 class Footprint:
     """A convex spherical polygon: unit direction vectors (counter-clockwise as you see it), its edges' inward great-circle
     normals, and a bounding cone (centre, angular radius). `vertices` None: it reaches 90 degrees from its own centre or
-    further, too wide to be convex; then only its cone is used (the guard errs early)."""
+    further, too wide to be convex; then only its cone is used (bumping errs early)."""
     __slots__ = ('vertices', 'normals', 'centre', 'radius')
 
     def __init__(self, vertices, centre, radius):
@@ -410,72 +415,3 @@ def overlap(a, b):
         polygon = _clip(polygon, n)
         if len(polygon) < 3: return 0.0
     return _area(polygon)
-
-
-# --- the guard ------------------------------------------------------------------------------------------------------
-def allowed_move(g, index, current, target, placements):
-    """The (x, y) a pill drag of desktop `index` may take from `current` toward `target` (module docstring: No overlap).
-    x is taken literally (unwrapped: the path runs from current x to target x, never the other way round) and the answer
-    is in the same frame. `g` the overview geometry (free_pointer.parse_overview_geometry); without it, or alone, the
-    target as asked."""
-    current, target = (int(current[0]), int(current[1])), (int(target[0]), int(target[1]))
-    if g is None: return target
-    n = min(len(g['tiles']), len(placements))
-    if not 0 <= index < n: return target
-    others = [footprint(g, g['tiles'][j], placements[j]) for j in range(n) if j != index]
-    if not others: return target
-    tile, p = g['tiles'][index], placements[index]
-    base = footprint(g, tile, {**p, 'x': 0, 'y': 0})
-    a0 = slot_azimuth(g, tile)
-
-    def at(xy):
-        return base.rotated(rotation(a0, xy[0], xy[1]) if xy[0] or xy[1] else None)
-
-    def overlaps(xy):
-        f = at(xy)
-        return [overlap(f, o) for o in others]
-
-    now = overlaps(current)
-    clear = [k for k, v in enumerate(now) if v <= AREA_EPS]  # pairs that must stay clear; the rest may not get deeper
-
-    def ok(xy):
-        f = at(xy)
-        return all(overlap(f, o) <= limit + AREA_EPS for o, limit in zip(others, now))
-
-    def clearance(xy):  # angle the desktop may turn from xy before its cone meets a clear neighbour's
-        c = apply(rotation(a0, xy[0], xy[1]), base.centre)
-        return min(_angle(c, others[k].centre) - base.radius - others[k].radius for k in clear)
-
-    careful = len(clear) < len(others)  # an overlapping pair: its overlap must be checked every tenth
-
-    def reach(a, b):
-        """The farthest point from a toward b along the straight line before the first step that is not ok."""
-        dx, dy = b[0] - a[0], b[1] - a[1]
-        steps = max(abs(dx), abs(dy))
-        if steps == 0: return a
-        per_step = (abs(dx) + abs(dy)) / steps * TENTH  # a point of the desktop moves at most this far per step
-
-        def point(i):
-            return (a[0] + round(dx * i / steps), a[1] + round(dy * i / steps))
-        i, slow = 0, careful
-        limit = min(steps, MAX_CAREFUL_STEPS) if careful else steps
-        while i < limit:
-            step = 1 if slow else max(1, int((clearance(point(i)) - 2 * TENTH) / per_step))
-            j = min(limit, i + step)
-            if ok(point(j)): i, slow = j, careful
-            elif step > 1: slow = True
-            else: return point(i)
-        return point(i)
-
-    direct = reach(current, target)
-    if direct == target: return target
-    cos_y = math.cos((current[1] + target[1]) / 2 * TENTH)
-
-    def miss(xy):  # how far from the target, on the sphere
-        return ((xy[0] - target[0]) * cos_y) ** 2 + (xy[1] - target[1]) ** 2
-    best, corner = direct, None
-    for first in ((target[0], current[1]), (current[0], target[1])):  # sideways first, vertically first
-        leg = reach(current, first)
-        end = reach(leg, target)
-        if (miss(end), end != current) < (miss(best), best != current): best, corner = end, (leg if leg not in (current, end) else None)
-    return corner or best  # an L-shaped slide: its corner now, the rest on the next pointer update

@@ -168,6 +168,9 @@ int main(int argc, char** argv) {
                         const auto& h = std::get<xr::HelpPayload>(m->payload);
                         presentation.set_help(h.visible, h.rows, h.sections, h.turn);
                     }
+                    else if (m->op == xr::ControlOp::binds) {  // display only; malformed payloads are dropped above
+                        if (const auto* b = std::get_if<xr::BindPanelState>(&m->payload)) presentation.set_binds(*b);
+                    }
                     else if (m->op == xr::ControlOp::placement_menu) {
                         // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
                         if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
@@ -180,6 +183,8 @@ int main(int argc, char** argv) {
                             state.count = menu->count; state.numbers = menu->numbers;
                             state.wide = menu->wide; state.armed = menu->armed; state.busy = menu->busy;
                             state.scale = menu->scale; state.scales = menu->scales; state.picker = menu->picker;
+                            state.resolution_w = menu->resolution_w; state.resolution_h = menu->resolution_h;
+                            state.resolution_picker = menu->resolution_picker;
                             state.background = menu->background; state.brightness = menu->brightness;
                             state.background_picker = menu->background_picker;
                             std::optional<std::array<std::int32_t, 4>> surface;
@@ -195,7 +200,7 @@ int main(int argc, char** argv) {
                     else if (m->op == xr::ControlOp::overview_pointer) {  // display only; malformed ones were dropped above
                         if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
                             presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el,
-                                                             p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1);
+                                                             p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1, p->look);
                     }
                     else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
                         if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
@@ -210,13 +215,15 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
                         const auto& d = std::get<xr::DesktopsPayload>(m->payload);
+                        if (d.ease) presentation.ease_tiles();  // Ctrl+Alt+R: before the captures change
                         presentation.set_desktops(d.outputs, d.renew);
                     }
                     else if (m->op == xr::ControlOp::placement) {
                         std::vector<std::array<std::int32_t, 4>> placements;
-                        for (const auto& w : std::get<xr::PlacementPayload>(m->payload).desktops)
+                        const auto& payload = std::get<xr::PlacementPayload>(m->payload);
+                        for (const auto& w : payload.desktops)
                             placements.push_back({w.x, w.y, w.distance, w.curvature});
-                        presentation.set_placements(placements);
+                        presentation.set_placements(placements, payload.glide_ms);
                     }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
