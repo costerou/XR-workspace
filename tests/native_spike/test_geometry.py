@@ -9,12 +9,14 @@ class GeometryTests(unittest.TestCase):
         self.assertTrue(g.exact_scale(3440, 1440, 1.25))
         self.assertFalse(g.exact_scale(3840, 1080, 1.75))
         self.assertFalse(g.exact_scale(1920, 1080, 1.75))
-        self.assertEqual(g.valid_scales(5120, 1440), [1.0, 1.25, 2.0])
-        self.assertEqual(g.valid_scales(3840, 1080), [1.0, 1.25, 1.5, 2.0])
+        self.assertTrue(g.exact_scale(1920, 1080, 2.5) and g.exact_scale(1920, 1080, 3.0))
+        self.assertFalse(g.exact_scale(5120, 1440, 3.0))
+        self.assertEqual(g.valid_scales(5120, 1440), [1.0, 1.25, 2.0, 2.5])
+        self.assertEqual(g.valid_scales(3840, 1080), [1.0, 1.25, 1.5, 2.0, 2.5, 3.0])
 
     def test_validate_desktop_rejects(self):
         ok = {'width': 1920, 'height': 1080, 'scale': 1.0}
-        for bad in (dict(ok, width=1921), dict(ok, width=7682), dict(ok, scale=3.0),
+        for bad in (dict(ok, width=1921), dict(ok, width=7682), dict(ok, scale=3.5), dict(ok, scale=2.25), dict(ok, scale=4.0),
                     dict(ok, scale=1.75), dict(ok, width=True), dict(ok, scale=True),
                     dict(ok, extra=1), {'width': 1920, 'height': 1080}, [], None):
             with self.subTest(bad=bad), self.assertRaises(ValueError):

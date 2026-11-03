@@ -27,6 +27,10 @@ constexpr float kBandInset = 10.f, kTrackH = 4.f, kTrackAlpha = 0.24f, kHaloR = 
 constexpr std::uint32_t kButtonLabelPx = 18;
 constexpr float kButtonIconPx = 16.f, kButtonIconGap = 6.f, kButtonPadMin = 8.f;
 constexpr MdIcon kActionIcons[kPanelActions] = {MdIcon::width, MdIcon::add, MdIcon::remove};
+// The Scale dropdown (M3 exposed dropdown menu): a filled text field (extra small corners; disabled: on-surface at
+// kFieldDisabled) with its value kFieldPadX in and a kCaretPx drop-down arrow kCaretInset from its right end, its active
+// indicator kIndicatorH tall (kIndicatorFocusH while its list is open); the list is an M3 menu, its items' text kFieldPadX in.
+constexpr float kFieldDisabled = 0.04f, kFieldPadX = 12.f, kCaretPx = 24.f, kCaretInset = 16.f, kIndicatorH = 1.f, kIndicatorFocusH = 2.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
 constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Curvature"};
 
@@ -136,6 +140,20 @@ bool glass_panel_action_enabled(std::size_t action, const PlacementMenuState& st
     if (action == 2) return state.count > 1;
     return true;
 }
+
+FRect glass_scale_box() { return {kScaleBoxX, kScaleBoxY, kScaleBoxW, kScaleBoxH}; }
+
+FRect glass_scale_item(std::size_t step) {
+    if (step >= kScaleSteps) return {};
+    const float top = kScaleBoxY - kScaleListGap - float(kScaleSteps) * kScaleItemH;
+    return {kScaleBoxX, top + float(step) * kScaleItemH, kScaleBoxW, kScaleItemH};
+}
+
+bool glass_scale_enabled(std::size_t step, const PlacementMenuState& state) {
+    return !state.busy && step < kScaleSteps && (state.scales >> step & 1u);
+}
+
+std::string glass_scale_label(std::uint16_t percent) { return percent ? std::to_string(unsigned(percent)) + "%" : "--"; }
 
 FRect glass_morph(const FRect& t, float k) {
     k = clamp01(k);
@@ -287,9 +305,30 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
         text(im, font, value, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, value, kPanelTextPx, selected)), cy,
              selected ? m.on_secondary_container : m.on_surface_variant);
     }
+    // Everything clickable under the sliders is in M3 label large (bold) at kButtonLabelPx: the Scale box, its list and
+    // the desktop row's buttons.
+    const auto label_px = font ? kButtonLabelPx : 0u;
+    // Scale row: the label, then an M3 exposed dropdown menu: a filled text field (surface container highest) showing the
+    // scale, a drop-down arrow (pointing up, in the primary, while its list is open) and an active indicator under it
+    // (on-surface-variant; 2 px of primary while open); M3 disabled (on-surface at 4% / 38%) while unknown or busy.
+    {
+        const float cy = kPanelScaleTop + kPanelRowH / 2;
+        const FRect box = glass_scale_box();
+        const float x1 = box.x + box.width, y1 = box.y + box.height;
+        const bool usable = state.scale != 0 && !state.busy;
+        const float content_alpha = usable ? 1.f : kMdDisabledContent;
+        text(im, font, "Scale", kPanelTextPx, false, kPanelPad, cy, m.on_surface);
+        md_fill_rounded(im, box.x, box.y, x1, y1, kMdShapeExtraSmall, usable ? m.surface_container_highest : m.on_surface,
+                        usable ? 1.f : kFieldDisabled);
+        const float indicator = state.picker ? kIndicatorFocusH : kIndicatorH;
+        md_fill_rounded(im, box.x, y1 - indicator, x1, y1, 0, state.picker ? m.primary : usable ? m.on_surface_variant : m.on_surface,
+                        content_alpha);
+        text(im, font, glass_scale_label(state.scale), label_px, true, box.x + kFieldPadX, cy, m.on_surface, content_alpha);
+        md_icon(im, state.picker ? MdIcon::arrow_drop_up : MdIcon::arrow_drop_down, x1 - kCaretInset, cy, kCaretPx,
+                state.picker ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
+    }
     // Desktop row: fully rounded M3 buttons (glass_panel_button_style), each an icon and its label (M3 label large) when
     // every button has room for both.
-    const auto label_px = font ? kButtonLabelPx : 0u;
     bool icons = true;
     for (std::size_t a = 0; a < kPanelActions; ++a)
         icons = icons && kButtonIconPx + kButtonIconGap + float(text_width(font, glass_panel_action_label(a, state.armed), label_px, true)) +
@@ -309,6 +348,23 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     const auto hint_px = font ? kPanelHintPx : 0u;
     const float hint_w = float(font ? font->measure(hint, hint_px, false) : hud_text_width(hint, 2));
     text(im, font, hint, hint_px, false, std::max(kPanelPad, (W - hint_w) / 2), kPanelFooterTop + float(kPanelHintPx) / 2, m.outline);
+    // The open Scale list, last: an M3 menu over the slider rows (surface container, extra small corners, an
+    // outline-variant edge; opaque, so the sliders under it do not show), one item per step in label large: the current
+    // one on the secondary container, steps that cannot be picked M3 disabled (on-surface at 38%).
+    if (state.picker) {
+        const FRect first = glass_scale_item(0), last = glass_scale_item(kScaleSteps - 1);
+        const float x0 = first.x, y0 = first.y - 1, x1 = first.x + first.width, y1 = last.y + last.height + 1;
+        md_fill_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, m.surface_container, 1.f);
+        md_stroke_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, 1.f, m.outline_variant, 1.f);
+        for (std::size_t i = 0; i < kScaleSteps; ++i) {
+            const FRect r = glass_scale_item(i);
+            const bool current = kScalePercents[i] == state.scale, enabled = glass_scale_enabled(i, state);
+            if (current)
+                md_fill_rounded(im, r.x + 2, r.y + 1, r.x + r.width - 2, r.y + r.height - 1, kMdShapeExtraSmall, m.secondary_container, 1.f);
+            text(im, font, glass_scale_label(kScalePercents[i]), label_px, true, r.x + kFieldPadX, r.y + r.height / 2,
+                 current ? m.on_secondary_container : m.on_surface, enabled || current ? 1.f : kMdDisabledContent);
+        }
+    }
     return im;
 }
 

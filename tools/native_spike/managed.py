@@ -179,6 +179,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             control.desktops = desktops
             if placements is not None: desktops.store = placements  # the profile takes the new desktops
             control.state.wide = desktops.wide()
+            control.state.sizes = desktops.desktops()  # the panel's Scale dropdown
         stream = getattr(client, 'event_stream', None)  # config reloads; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None

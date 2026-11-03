@@ -4,11 +4,14 @@
 // tests/native_spike/test_desktops.py compares them).
 const MAX_DESKTOPS = 4;
 
+// Hyprland output scales a desktop can have (tools/native_spike/geometry.py SCALES; test_scale_dropdown.py compares).
+const SCALES = [1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+
 function validScales(w, h) {
     if (typeof w !== "number" || typeof h !== "number"
             || !Number.isInteger(w) || !Number.isInteger(h) || w <= 0 || h <= 0)
         return [];
-    return [1, 1.25, 1.5, 1.75, 2].filter(function(s) {
+    return SCALES.filter(function(s) {
         const n = s * 4;
         return w * 4 % n === 0 && h * 4 % n === 0;
     });

@@ -37,9 +37,12 @@ ColumnLayout {
         TextField { Layout.preferredWidth: 110; text: String(root.draftHeight); validator: IntValidator { bottom:480; top:4320 } onTextEdited: root.draftHeight=Number(text) }
     }
     RowLayout {
-        Label { text: "Scale"; Layout.preferredWidth: 95 }
-        Repeater {
-            model: [1,1.25,1.5,1.75,2]
+        Label { text: "Scale"; Layout.preferredWidth: 95; Layout.alignment: Qt.AlignTop }
+        Flow {
+          Layout.fillWidth: true
+          spacing: 6
+          Repeater {
+            model: Model.SCALES
             delegate: Button {
                 required property real modelData
                 objectName:"scale" + modelData
@@ -49,6 +52,7 @@ ColumnLayout {
                 enabled: Model.validScales(root.draftWidth,root.draftHeight).indexOf(modelData)>=0
                 onClicked: root.draftScale=modelData
             }
+          }
         }
     }
     Label { text: "Disabled scales do not produce whole logical pixels. Custom sizes must be even, 640–7680 × 480–4320."; Layout.fillWidth:true; wrapMode:Text.WordWrap; opacity:0.65 }

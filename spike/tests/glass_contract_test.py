@@ -8,7 +8,7 @@ import sys
 
 dump, root = sys.argv[1], sys.argv[2]
 sys.path.insert(0, root)
-from tools.native_spike import free_pointer as fp  # noqa: E402
+from tools.native_spike import free_pointer as fp, geometry, view  # noqa: E402
 
 data = json.loads(subprocess.run([dump], check=True, capture_output=True, text=True).stdout)
 c = data['constants']
@@ -17,13 +17,21 @@ mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': 
           'rows_top': fp.PANEL_ROWS_TOP, 'row_h': fp.PANEL_ROW_H, 'knob_lo': fp.PANEL_KNOB_LO, 'knob_hi': fp.PANEL_KNOB_HI,
           'roll_icon_px': fp.ROLL_ICON_PX, 'roll_icon_gap': fp.ROLL_ICON_GAP,
           'actions_top': fp.PANEL_ACTIONS_TOP, 'action_h': fp.PANEL_ACTION_H, 'action_w': fp.PANEL_ACTION_W,
-          'action_gap': fp.PANEL_ACTION_GAP, 'actions': len(fp.PANEL_ACTIONS), 'max_desktops': fp.MAX_DESKTOPS}
+          'action_gap': fp.PANEL_ACTION_GAP, 'actions': len(fp.PANEL_ACTIONS), 'max_desktops': fp.MAX_DESKTOPS,
+          'scale_top': fp.PANEL_SCALE_TOP, 'scale_item_h': fp.PANEL_SCALE_ITEM_H, 'scale_list_gap': fp.PANEL_SCALE_LIST_GAP}
 assert set(mirror) == set(c), (sorted(mirror), sorted(c))
 for name, value in mirror.items():
     assert abs(value - c[name]) < 1e-3, (name, value, c[name])
 for i, want in enumerate(data['actions']):  # the desktop row's buttons (panel px)
     got = fp.action_rect(i)
     assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
+# The Scale dropdown: its box, its list's items and the steps they stand for (geometry.SCALES, view.SCALE_PERCENTS).
+assert all(abs(a - b) < 1e-3 for a, b in zip(fp.PANEL_SCALE_BOX, data['scale_box'])), (fp.PANEL_SCALE_BOX, data['scale_box'])
+assert len(data['scale_items']) == len(view.SCALE_PERCENTS)
+for i, want in enumerate(data['scale_items']):
+    got = fp.scale_item_rect(i)
+    assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
+assert data['scale_percents'] == list(view.SCALE_PERCENTS) == [round(s * 100) for s in geometry.SCALES], data['scale_percents']
 for case in data['cases']:
     tile = tuple(case['tile'])
     rolls = [fp.roll_icon_rect(tile, 'ccw', 1.0), fp.roll_icon_rect(tile, 'cw', 1.0), fp.roll_icon_rect(tile, 'ccw', 0.5),

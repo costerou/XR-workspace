@@ -50,6 +50,10 @@ int main(int argc,char** argv) {
         while(wire.size()<=8192 && std::cin.get(c)) wire+=c;
         try { parse_request(wire); return 0; } catch(...) { return 2; }
     }
+    // Output scales (geometry.SCALES, the pill's Scale dropdown): quarter steps 1 .. 2, then 2.5 and 3; nothing between.
+    for(double sc : {1.0,1.25,1.5,2.0,2.5,3.0}) CHECK(validDesktop(1920,1080,sc));
+    CHECK(validDesktop(2800,1400,1.75) && !validDesktop(1920,1080,1.75) && !validDesktop(2560,1440,3.0));
+    for(double sc : {0.75,2.25,2.75,3.25,3.5,4.0,1.1}) CHECK(!validDesktop(1920,1080,sc));
     Fake b; Registry r(b);
     for(int i=0;i<3;++i) CHECK(r.create("session","run",spec(i))=="live");
     CHECK(b.creates==3 && b.workspace.size()==3);

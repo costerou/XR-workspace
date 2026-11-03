@@ -231,6 +231,12 @@ struct PlacementMenuState {
     std::uint32_t count = 3;
     std::array<std::uint8_t, kPlacementMenuDesktopCount> numbers{1, 2, 3, 4};
     bool wide = false, armed = false, busy = false;
+    // The panel's Scale dropdown (glass.hpp glass_scale_box): the open desktop's Hyprland output scale in percent (one
+    // of glass.hpp kScalePercents; 0 = unknown: the box is drawn empty and dimmed), the steps it can take (bit i =
+    // kScalePercents[i] divides its resolution exactly), and its list open.
+    std::uint16_t scale = 0;
+    std::uint8_t scales = 0;
+    bool picker = false;
     bool operator==(const PlacementMenuState&) const = default;
 };
 // Slider range of each field, {lo, hi}: the same bounds the renderer accepts (ipc.cpp kPlacementBounds, tested).

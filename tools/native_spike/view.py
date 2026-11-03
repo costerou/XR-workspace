@@ -53,7 +53,9 @@ Desktop row (desktops.py): an open panel also has Ultrawide, Add new and Remove 
 and Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
 renderer the new desktop set (`desktops` frame) and hands the broker steps to desktops.DesktopManager's worker; poll()
 collects the result, sends the view, placement and panel frames for the new set, restarts the guard and saves the
-profile. Remove asks for a second press within desktops.REMOVE_ARM_S. The run then has 1..geometry.MAX_DESKTOPS desktops,
+profile. Remove asks for a second press within desktops.REMOVE_ARM_S. Above that row, the Scale dropdown (a free-pointer
+click opens its list, a click on a step picks it: ViewControl.scale_box / scale_pick) sets that desktop's Hyprland output
+scale through the same path (desktops.SCALE). The run then has 1..geometry.MAX_DESKTOPS desktops,
 any of XR-1..XR-4 (a removed one leaves a gap in the numbers until Add fills it).
 
 Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1..4 to XR-n, Ctrl+Alt+B back to the physical
@@ -295,16 +297,28 @@ def placement_frame(run_id, session, request_id, placements):
                         'payload': {'desktops': [validate_placement(p) for p in placements]}}, separators=(',', ':')) + '\n').encode()
 
 
+# The Scale dropdown's steps in percent: geometry.SCALES (mirrored by spike/include/xr/glass.hpp kScalePercents and the
+# broker's spike/ownership/registry.cpp validDesktop; tests compare them).
+SCALE_PERCENTS = (100, 125, 150, 175, 200, 250, 300)
+
+
+def scale_percent(scale):
+    return int(round(scale * 100))
+
+
 def placement_menu_frame(run_id, session, request_id, menu):
     """Renderer `placement_menu` frame: open + desktop = that desktop's pill is expanded into its placement panel (open
     false: every pill collapsed), field = the highlighted setting, placements = what the panel shows (one per desktop).
     Optional `surface`, open panels only: while the free pointer holds one of its sliders, the placement the panel is
     drawn on (its desktop's at the press; spike/include/xr/ipc.hpp PlacementMenuPayload). Optional desktop row: `names`
     (each desktop's XR-n number, increasing), `wide` (the open desktop is ultrawide), `armed` (Remove asks for a second
-    press), `busy` (a desktop change is in progress)."""
+    press), `busy` (a desktop change is in progress). Optional Scale dropdown: `scale` (the open desktop's output scale
+    in percent, one of SCALE_PERCENTS), `scales` (the percents it can take, increasing), `picker` (its list is open; open
+    panels only)."""
     from .geometry import PLACEMENT_KEYS, validate_placement, validate_placements
     keys = {'open', 'desktop', 'field', 'placements'}
-    if not isinstance(menu, dict) or not keys <= set(menu) or set(menu) - keys - {'surface', 'names', 'wide', 'armed', 'busy'}:
+    if not isinstance(menu, dict) or not keys <= set(menu) or \
+            set(menu) - keys - {'surface', 'names', 'wide', 'armed', 'busy', 'scale', 'scales', 'picker'}:
         raise ValueError('invalid menu')
     placements = validate_placements(menu['placements'])
     if type(menu['open']) is not bool or type(menu['desktop']) is not int or not 0 <= menu['desktop'] < len(placements) \
@@ -318,10 +332,20 @@ def placement_menu_frame(run_id, session, request_id, menu):
                 or any(not 1 <= n <= MAX_DESKTOPS for n in names) or names != sorted(set(names))):
             raise ValueError('invalid menu')
         payload['names'] = list(names)
-    for key in ('wide', 'armed', 'busy'):
+    for key in ('wide', 'armed', 'busy', 'picker'):
         if key in menu:
             if type(menu[key]) is not bool: raise ValueError('invalid menu')
             payload[key] = menu[key]
+    if payload.get('picker') and menu['open'] is not True: raise ValueError('invalid menu')
+    if 'scale' in menu:
+        if type(menu['scale']) is not int or menu['scale'] not in SCALE_PERCENTS: raise ValueError('invalid menu')
+        payload['scale'] = menu['scale']
+    if 'scales' in menu:
+        scales = menu['scales']
+        if not isinstance(scales, list) or any(type(v) is not int or v not in SCALE_PERCENTS for v in scales) \
+                or scales != sorted(set(scales)):
+            raise ValueError('invalid menu')
+        payload['scales'] = list(scales)
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'placement_menu',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
 
@@ -367,25 +391,33 @@ class ViewState:
         self.wide = [False] * len(self.names)
         self.remove_armed = False
         self.desktops_busy = False
+        # The Scale dropdown: each desktop's size and output scale (geometry desktops, one per name; None: unknown, as
+        # in runs without a desktop manager, and the dropdown is not shown), and its list open (like remove_armed, any
+        # collapse or switch of the open panel closes it).
+        self.sizes = None
+        self.scale_picker = False
 
     def numbers(self):
         """Each desktop's XR-n number, in order."""
         return [int(n.split('-', 1)[1]) for n in self.names]
 
-    def set_desktops(self, names, placements, wide, focus=None):
+    def set_desktops(self, names, placements, wide, focus=None, sizes=None):
         """The run's desktops changed (desktops.py). The selection stays on its desktop if it is still there (else the
         nearest one left); `focus` (an index into `names` or None): the panel opens there, else it stays on its desktop
-        if that is still there, else it collapses. Remove is disarmed."""
+        if that is still there, else it collapses. Remove is disarmed and the Scale list closed. `sizes`: the desktops'
+        sizes and scales (one per name; None: unknown)."""
         from .geometry import validate_placement
         names = list(names)
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if len(placements) != len(names) or len(wide) != len(names): raise ValueError('one placement per desktop required')
+        if sizes is not None and len(sizes) != len(names): raise ValueError('one size per desktop required')
         before = self.names
         selected = before[self.selected] if self.selected < len(before) else None
         open_on = before[self.menu_desktop] if self.menu_open and self.menu_desktop < len(before) else None
         self.names = names
         self.placements = [validate_placement(p) for p in placements]
         self.wide = [bool(w) for w in wide]
+        self.sizes = None if sizes is None else [dict(d) for d in sizes]
         self.selected = names.index(selected) if selected in names else min(self.selected, len(names) - 1)
         if focus is not None and 0 <= focus < len(names):
             self.menu_open, self.menu_desktop = True, focus
@@ -394,7 +426,7 @@ class ViewState:
         else:
             self.menu_open, self.menu_desktop = False, min(self.menu_desktop, len(names) - 1)
         self.menu_surface = None
-        self.remove_armed = False
+        self.remove_armed = self.scale_picker = False
 
     def menu(self):
         """`placement_menu` payload: one placement per desktop and the desktop row (names, wide, armed, busy), plus
@@ -404,14 +436,25 @@ class ViewState:
                'placements': [dict(p) for p in self.placements], 'names': self.numbers(),
                'wide': bool(self.wide[desktop]) if desktop < len(self.wide) else False,
                'armed': self.menu_open and self.remove_armed, 'busy': self.desktops_busy}
+        size = self.size(desktop)
+        if size is not None:
+            from .geometry import valid_scales
+            out['scale'] = scale_percent(size['scale'])
+            out['scales'] = [scale_percent(v) for v in valid_scales(size['width'], size['height'])]
+            out['picker'] = self.menu_open and self.scale_picker
         if self.menu_open and self.menu_surface is not None: out['surface'] = dict(self.menu_surface)
         return out
+
+    def size(self, desktop):
+        """Desktop `desktop`'s size and output scale (a geometry desktop), or None if unknown."""
+        if self.sizes is None or len(self.sizes) != len(self.names) or not 0 <= desktop < len(self.sizes): return None
+        return self.sizes[desktop]
 
     def open_menu(self, desktop):
         """Expand `desktop`'s pill into its panel; an open one on another desktop collapses (only one is ever open)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.names): raise ValueError('invalid desktop')
         self.menu_open, self.menu_desktop, self.menu_surface = True, desktop, None
-        self.remove_armed = False
+        self.remove_armed = self.scale_picker = False
 
     def hold_surface(self, placement):
         """The free pointer pressed one of the open panel's sliders: draw the panel on `placement` (the desktop's at the
@@ -444,17 +487,18 @@ class ViewState:
         """
         from .geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
         if op not in MENU_OPS: raise ValueError('unsupported menu operation')
+        self.scale_picker = False  # any panel key closes the Scale list (it covers the sliders the keys adjust)
         if op in MENU_DESKTOP_OPS: return False  # the desktop row: ViewControl.desktop_action, never a placement change
         if op == 'menu_back': op = 'menu_toggle' if self.menu_open else None
         if op == 'menu_toggle':
-            if self.menu_open: self.menu_open, self.menu_surface, self.remove_armed = False, None, False
+            if self.menu_open: self.menu_open, self.menu_surface, self.remove_armed, self.scale_picker = False, None, False, False
             else: self.open_menu(self.selected)  # the pill of the desktop being looked at
             return False
         if not self.menu_open: return False
         if op in ('menu_desktop_next', 'menu_desktop_prev'):  # the open panel moves to the next / previous desktop's pill
             self.menu_desktop = (self.menu_desktop + (1 if op == 'menu_desktop_next' else -1)) % len(self.names)
             self.menu_surface = None
-            self.remove_armed = False
+            self.remove_armed = self.scale_picker = False
             return False
         if op in ('menu_field_next', 'menu_field_prev'):
             i = PLACEMENT_KEYS.index(self.menu_field) + (1 if op == 'menu_field_next' else -1)
@@ -834,21 +878,55 @@ class ViewControl:
         return self._menu_update(lambda: self.state.hold_surface(None) or False)
 
     # --- the open panel's desktop row (desktops.py) -----------------------------------------------------------------
-    def desktop_action(self, desktop, action):
-        """Ultrawide / Add / Remove pressed on `desktop`'s open panel (or U / N / Delete). Remove's first press only arms
-        it. Starts the change (module docstring) and returns the frames that go before it: the panel showing it busy and,
-        for a removal, the renderer's new desktop set (its capture stops before the output goes). b'' if nothing starts."""
-        from .desktops import ACTIONS, REMOVE_ARM_S, plan
+    def scale_box(self, desktop):
+        """A free-pointer click on `desktop`'s open panel's Scale box: its list of scales opens, or closes if it is open.
+        Nothing while a desktop change is in progress, or without the run's desktops. Frames (bytes), b'' if nothing."""
         s = self.state
-        if self.desktops is None or action not in ACTIONS or type(desktop) is not int or not 0 <= desktop < len(s.names): return b''
+        if self.desktops is None or type(desktop) is not int or not s.menu_open or s.menu_desktop != desktop: return b''
+        if s.typing or self.video_active or s.size(desktop) is None: return b''
+        self.last_input = self.clock()
+        if not s.scale_picker and (s.desktops_busy or self.desktops.busy()): return b''
+        s.scale_picker, s.remove_armed = not s.scale_picker, False
+        return self._menu_frame()
+
+    def scale_close(self):
+        """A press on the open panel away from the Scale list: the list closes. Frames (bytes), b'' if it was closed."""
+        if not self.state.scale_picker: return b''
+        self.state.scale_picker = False
+        return self._menu_frame()
+
+    def scale_pick(self, desktop, percent):
+        """A click on a step (in percent, SCALE_PERCENTS) of `desktop`'s open Scale list: the list closes and, if the step
+        divides the desktop's resolution and is not its scale already, that desktop's Hyprland output takes it, live
+        (desktops.SCALE, through desktop_action: guard paused, broker reshape, renderer told, profile saved)."""
+        from .geometry import valid_scales
+        s = self.state
+        if not s.scale_picker or not s.menu_open or s.menu_desktop != desktop: return b''
+        size = s.size(desktop)
+        s.scale_picker = False
+        if size is None or percent not in SCALE_PERCENTS or percent == scale_percent(size['scale']) or \
+                percent / 100 not in valid_scales(size['width'], size['height']):
+            self.last_input = self.clock()
+            return self._menu_frame()  # a dimmed step, or the current one: nothing changes
+        return self.desktop_action(desktop, 'scale', scale=percent / 100) or self._menu_frame()
+
+    def desktop_action(self, desktop, action, scale=None):
+        """Ultrawide / Add / Remove pressed on `desktop`'s open panel (or U / N / Delete), or a Scale step picked (action
+        desktops.SCALE with `scale`). Remove's first press only arms it. Starts the change (module docstring) and returns
+        the frames that go before it: the panel showing it busy and, for a removal, the renderer's new desktop set (its
+        capture stops before the output goes). b'' if nothing starts."""
+        from .desktops import ACTIONS, REMOVE_ARM_S, SCALE, plan
+        s = self.state
+        if self.desktops is None or action not in ACTIONS + (SCALE,) or type(desktop) is not int or not 0 <= desktop < len(s.names): return b''
         if s.typing or self.video_active or not s.menu_open or s.menu_desktop != desktop: return b''
         now = self.last_input = self.clock()
         if s.desktops_busy or self.desktops.busy(): return b''
+        s.scale_picker = False
         if action == 'remove' and not (s.remove_armed and self.remove_armed_at is not None and now - self.remove_armed_at < REMOVE_ARM_S):
             s.remove_armed, self.remove_armed_at = True, now  # "Remove?": a second press removes
             return self._menu_frame()
         s.remove_armed = False
-        try: change = plan(self.desktops.specs, s.placements, action, desktop, held=self.desktops.held())
+        try: change = plan(self.desktops.specs, s.placements, action, desktop, held=self.desktops.held(), scale=scale)
         except ValueError as exc:
             self._tell(str(exc))
             return self._menu_frame()
@@ -859,7 +937,8 @@ class ViewControl:
             gone = s.names.index(change.remove['name'])
             keep = [n for n in s.names if n != change.remove['name']]
             out += self._desktops_frame(keep)
-            s.set_desktops(keep, [p for i, p in enumerate(s.placements) if i != gone], [w for i, w in enumerate(s.wide) if i != gone])
+            s.set_desktops(keep, [p for i, p in enumerate(s.placements) if i != gone], [w for i, w in enumerate(s.wide) if i != gone],
+                           sizes=None if s.sizes is None else [d for i, d in enumerate(s.sizes) if i != gone])
             self._sync_menu_binds()  # its panel collapsed
             out += self._frame() + self._placement_frame()
             self._desktops_changed()
@@ -897,7 +976,7 @@ class ViewControl:
         focus = None
         if error is None and change.focus is not None: focus = names.index(change.specs[change.focus]['name'])
         was_open = s.menu_open
-        s.set_desktops(names, placements, manager.wide(), focus)
+        s.set_desktops(names, placements, manager.wide(), focus, sizes=manager.desktops())
         s.desktops_busy = False
         resized = {n for n in change.resized if n in names}  # a slide along the row keeps its capture
         out = self._desktops_frame(names, sorted(resized)) + self._frame() + self._placement_frame() + self._menu_frame()

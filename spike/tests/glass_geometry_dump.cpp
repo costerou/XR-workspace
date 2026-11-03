@@ -19,13 +19,18 @@ int main() {
         {"rows_top", kPanelRowsTop}, {"row_h", kPanelRowH}, {"knob_lo", kPanelKnobLo}, {"knob_hi", kPanelKnobHi},
         {"roll_icon_px", kRollIconPx}, {"roll_icon_gap", kRollIconGap},
         {"actions_top", kPanelActionsTop}, {"action_h", kPanelActionH}, {"action_w", kPanelActionW}, {"action_gap", kPanelActionGap},
-        {"actions", float(kPanelActions)}, {"max_desktops", float(kMaxDesktops)}};
+        {"actions", float(kPanelActions)}, {"max_desktops", float(kMaxDesktops)},
+        {"scale_top", kPanelScaleTop}, {"scale_item_h", kScaleItemH}, {"scale_list_gap", kScaleListGap}};
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
     }
     out += "},\"actions\":[";
     for (std::size_t a = 0; a < kPanelActions; ++a) out += std::string(a ? "," : "") + rect(glass_panel_action(a));
+    out += "],\"scale_box\":" + rect(glass_scale_box()) + ",\"scale_items\":[";
+    for (std::size_t i = 0; i < kScaleSteps; ++i) out += std::string(i ? "," : "") + rect(glass_scale_item(i));
+    out += "],\"scale_percents\":[";
+    for (std::size_t i = 0; i < kScaleSteps; ++i) out += std::string(i ? "," : "") + std::to_string(unsigned(kScalePercents[i]));
     out += "],\"cases\":[";
     const FRect tiles[] = {{100, 300, 459, 258}, {0, 0, 4000, 2000}, {10, 20, 120, 60}, {5, 5, 40, 30}, {-200.5f, 410.25f, 812, 457}};
     first = true;

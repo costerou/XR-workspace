@@ -7,8 +7,8 @@ namespace xr::ownership {
 // Mirror of tools/native_spike/geometry.validate_desktop (presets are within the custom bounds).
 bool validDesktop(int w,int h,double scale) {
     if(w<640 || w>7680 || h<480 || h>4320 || w%2 || h%2) return false;
-    const long n=std::lround(scale*4);  // allowed scales are multiples of 1/4: 1, 1.25 ... 2
-    if(n<4 || n>8 || n/4.0!=scale) return false;
+    const long n=std::lround(scale*4);  // allowed scales (geometry.SCALES): quarter steps 1 .. 2, then 2.5 and 3
+    if(n<4 || n>12 || (n>8 && n%2) || n/4.0!=scale) return false;
     return (long(w)*4)%n==0 && (long(h)*4)%n==0;
 }
 Json parse_request(const std::string& wire) {

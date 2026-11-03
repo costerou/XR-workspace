@@ -348,7 +348,9 @@ Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a des
 **Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
 that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
 your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. Every new
-session starts with three desktops again. Other resolutions and scales are set under **Startup options** in the panel
+session starts with three desktops again. Above those buttons, **Scale** sets that desktop's scale: click the box and pick
+a step from 100% to 300% (steps that would not give whole pixels are greyed out). It applies at once and the next
+session keeps it (new, not yet tried in the glasses). Other resolutions are set under **Startup options** in the panel
 before starting.
 
 **Which glasses are tested?**

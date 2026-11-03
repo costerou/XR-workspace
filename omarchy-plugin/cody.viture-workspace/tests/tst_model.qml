@@ -42,15 +42,20 @@ TestCase {
         verify(!findChild(editor,"scale1.75").enabled);
         mouseClick(findChild(editor,"scale1.25"));
         compare(editor.draftScale,1.25);
+        verify(findChild(editor,"scale2.5").enabled);  // 250% and 300% too (the pill's Scale dropdown's steps)
+        mouseClick(findChild(editor,"scale3"));
+        compare(editor.draftScale,3);
         editor.desktop={width:1920,height:1080,scale:2};
         compare(editor.draftWidth,1920);
         compare(editor.draftScale,2);
     }
     function test_scales() {
-        compare(Model.validScales(1920, 1080), [1, 1.25, 1.5, 2])
-        compare(Model.validScales(3440, 1440), [1, 1.25, 2])
-        compare(Model.validScales(5120, 1440), [1, 1.25, 2])
-        compare(Model.validScales(3840, 1080), [1, 1.25, 1.5, 2])
+        compare(Model.validScales(1920, 1080), [1, 1.25, 1.5, 2, 2.5, 3])
+        compare(Model.validScales(2560, 1440), [1, 1.25, 2, 2.5])
+        compare(Model.SCALES, [1, 1.25, 1.5, 1.75, 2, 2.5, 3])
+        compare(Model.validScales(3440, 1440), [1, 1.25, 2, 2.5])
+        compare(Model.validScales(5120, 1440), [1, 1.25, 2, 2.5])
+        compare(Model.validScales(3840, 1080), [1, 1.25, 1.5, 2, 2.5, 3])
         compare(Model.validScales(0, 1080), [])
         compare(Model.validScales(true, 1080), [])
     }
@@ -118,6 +123,8 @@ TestCase {
         compare(Model.desktopEdit(641,1080,1), null);
         compare(Model.desktopEdit(7682,1080,1), null);
         compare(Model.desktopEdit(3440,1440,1.25), {width:3440,height:1440,scale:1.25});
+        compare(Model.desktopEdit(1920,1080,3), {width:1920,height:1080,scale:3});
+        compare(Model.desktopEdit(1920,1080,2.25), null);
     }
     // Maximize-follow (2026-11-03): the panel says Maximized / Overview, never "zoom"; the overview is always anchored.
     function test_viewLabels() {

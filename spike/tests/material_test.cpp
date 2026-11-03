@@ -184,8 +184,9 @@ int main() {
 
     // --- Drawing -------------------------------------------------------------------------------------------------------
     const MdRgb ink = vanta.on_surface;
-    for (const MdIcon icon : {MdIcon::add, MdIcon::remove, MdIcon::width}) {
-        // Mirror-symmetric left to right, and inked at the centre (the plus, the minus, the double arrow's shaft).
+    for (const MdIcon icon : {MdIcon::add, MdIcon::remove, MdIcon::width, MdIcon::arrow_drop_down, MdIcon::arrow_drop_up}) {
+        // Mirror-symmetric left to right, and inked at the centre (the plus, the minus, the double arrow's shaft, the
+        // dropdown triangles).
         CHECK(md_icon_distance(icon, 0, 0, 24) < 0);
         for (float y = -11; y <= 11; y += 1.5f)
             for (float x = 0.5f; x <= 11; x += 1.5f) CHECK(near(md_icon_distance(icon, x, y, 24), md_icon_distance(icon, -x, y, 24), 1e-3f));
@@ -206,6 +207,12 @@ int main() {
     CHECK(md_icon_distance(MdIcon::add, 0, -6, 24) < 0 && md_icon_distance(MdIcon::remove, 0, -6, 24) > 0);  // the plus's upright
     CHECK(md_icon_distance(MdIcon::width, -9, -5, 24) < 0 && md_icon_distance(MdIcon::width, 9, 5, 24) < 0);   // the two bars
     CHECK(md_icon_distance(MdIcon::width, -2, -3, 24) < 0 && md_icon_distance(MdIcon::width, 0, -3, 24) > 0);  // a head, above the shaft
+    // The dropdown arrows: down points down (inked below the centre, empty above its flat top), up is its mirror image.
+    CHECK(md_icon_distance(MdIcon::arrow_drop_down, 0, 2.5f, 24) < 0 && md_icon_distance(MdIcon::arrow_drop_down, 0, -2.5f, 24) > 0);
+    CHECK(md_icon_distance(MdIcon::arrow_drop_up, 0, -2, 24) < 0 && md_icon_distance(MdIcon::arrow_drop_up, 0, 2.5f, 24) > 0);
+    for (float y = -4; y <= 4; y += 0.5f)
+        for (float x = -6; x <= 6; x += 0.5f)
+            CHECK(near(md_icon_distance(MdIcon::arrow_drop_up, x, y, 24), md_icon_distance(MdIcon::arrow_drop_down, x, -y, 24), 1e-3f));
     {
         HudImage im = blank(60, 30);
         md_fill_rounded(im, 5, 5, 55, 25, 10, ink, 1.f);

@@ -84,6 +84,12 @@ float md_icon_distance(MdIcon icon, float x, float y, float size) {
         d = std::min({capsule(gx, gy, 2.5f, 5, 2.5f, 19, 1), capsule(gx, gy, 21.5f, 5, 21.5f, 19, 1), capsule(gx, gy, 8, 12, 16, 12, 1),
                       triangle(gx, gy, 5.5f, 12, 11, 6.5f, 11, 17.5f), triangle(gx, gy, 18.5f, 12, 13, 17.5f, 13, 6.5f)});
         break;
+    case MdIcon::arrow_drop_down:  // Material Symbols' arrow_drop_down: a filled triangle, point down
+        d = triangle(gx, gy, 7, 10, 17, 10, 12, 15);
+        break;
+    case MdIcon::arrow_drop_up:
+        d = triangle(gx, gy, 7, 14, 12, 9, 17, 14);
+        break;
     }
     // Optical size (as Material Symbols' opsz): below kMdIconPx the 2 px strokes thicken, up to 3 grid px at 12 px, so a
     // small icon keeps its weight next to its label.

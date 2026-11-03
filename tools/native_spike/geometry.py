@@ -2,7 +2,10 @@
 PRESETS = {'16:9': ((1920, 1080), (2560, 1440)),
            '21:9': ((2560, 1080), (3440, 1440)),
            '32:9': ((3840, 1080), (5120, 1440))}
-SCALES = (1.0, 1.25, 1.5, 1.75, 2.0)
+# Hyprland output scales a desktop can have: quarter steps 1..2, then 2.5 and 3 (the pill's Scale dropdown and the
+# panel; mirrored by view.SCALE_PERCENTS, spike/include/xr/desktops.hpp kScalePercents, the broker's
+# spike/ownership/registry.cpp validDesktop and the panel's Model.js SCALES; tests compare them).
+SCALES = (1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
 CUSTOM_BOUNDS = {'width': (640, 7680), 'height': (480, 4320)}
 DEFAULT_DESKTOP = {'width': 1920, 'height': 1080, 'scale': 1.0}
 # A run has 1..MAX_DESKTOPS managed desktops, XR-1..XR-MAX_DESKTOPS: the pills' Add and Remove (desktops.py) change the
@@ -16,13 +19,21 @@ STANDARD_WIDTHS = {1080: 1920, 1440: 2560, 2160: 3840}
 
 
 def exact_scale(width: int, height: int, scale: float) -> bool:
-    # Integer arithmetic: scale is a multiple of 1/4, so scale*4 is an integer.
+    # Integer arithmetic: every scale in SCALES is a multiple of 1/4, so scale*4 is an integer.
     n = round(scale * 4)
     return n > 0 and n / 4 == scale and width * 4 % n == 0 and height * 4 % n == 0
 
 
 def valid_scales(width: int, height: int) -> list[float]:
     return [s for s in SCALES if exact_scale(width, height, s)]
+
+
+def with_scale(d, scale) -> dict:
+    """`d` at Hyprland output scale `scale` (a pill's Scale dropdown): same pixel size, new scale. ValueError unless the
+    scale is one of SCALES and divides the desktop's resolution exactly (valid_scales)."""
+    d = validate_desktop(d)
+    if type(scale) not in (int, float) or isinstance(scale, bool): raise ValueError('unsupported scale')
+    return validate_desktop({'width': d['width'], 'height': d['height'], 'scale': float(scale)})
 
 
 def validate_desktop(d: object) -> dict:

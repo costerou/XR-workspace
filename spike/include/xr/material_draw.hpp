@@ -20,8 +20,8 @@ void md_disc(HudImage& im, float cx, float cy, float r, MdRgb c, float alpha);
 
 // Material Symbols-style icons, outlined on M3's 24 px grid with 2 px strokes (heavier below kMdIconPx, as Material
 // Symbols' optical size) and drawn `size` px across, centred on (cx, cy): add (a plus), remove (a minus), width (a double
-// arrow between two bars: a wider desktop).
-enum class MdIcon : std::uint8_t { add, remove, width };
+// arrow between two bars: a wider desktop), arrow_drop_down / arrow_drop_up (a dropdown's filled triangle: closed / open).
+enum class MdIcon : std::uint8_t { add, remove, width, arrow_drop_down, arrow_drop_up };
 inline constexpr float kMdIconPx = 18.f;  // icons in buttons (M3: 18 dp next to a label)
 void md_icon(HudImage& im, MdIcon icon, float cx, float cy, float size, MdRgb c, float alpha = 1.f);
 // The icon's signed distance (icon px, negative inside) at (x, y) relative to its centre, at `size`: what md_icon fills.

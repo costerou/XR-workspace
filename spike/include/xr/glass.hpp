@@ -28,7 +28,7 @@ namespace xr {
 constexpr float kGlassPillShare = 0.24f, kGlassPillMinW = 64.f, kGlassPillMaxW = 160.f, kGlassPillH = 14.f, kGlassPillGap = 10.f;
 FRect glass_pill(const FRect& tile);
 // Expanded panel: kPanelW x kPanelH, centred under the desktop, its top where the pill's top is.
-constexpr float kPanelW = 480.f, kPanelH = 258.f, kPanelRadius = 18.f;
+constexpr float kPanelW = 480.f, kPanelH = 292.f, kPanelRadius = 18.f;
 FRect glass_panel(const FRect& tile);
 // The shape `t` (eased 0..1) of the way from pill to panel, and its corner radius (the pill is fully rounded).
 FRect glass_morph(const FRect& tile, float t);
@@ -39,16 +39,34 @@ float glass_radius(const FRect& tile, float t);
 constexpr float kPanelHeaderH = 42.f, kPanelRowsTop = 46.f, kPanelRowH = 34.f, kPanelPad = 22.f;
 constexpr float kPanelTrackX0 = 184.f, kPanelTrackX1 = 374.f, kPanelKnobR = 7.f;
 constexpr float kPanelKnobLo = kPanelTrackX0 + kPanelKnobR, kPanelKnobHi = kPanelTrackX1 - kPanelKnobR;
-// Under the sliders, the desktop row: kPanelActions buttons side by side, button i spanning
+// Under the sliders, the Scale row (one kPanelRowH row at kPanelScaleTop): the label "Scale" and an M3 exposed dropdown
+// menu (glass_scale_box: a filled text field) showing the desktop's Hyprland output scale ("125%") and a drop-down arrow.
+// A click on the box opens its list, an M3 menu: one item per desktops.hpp kScalePercents step (100..300%), top down
+// (glass_scale_item), kScaleListGap above the box, drawn over the slider rows; the current step on the secondary
+// container, steps that do not divide the desktop's resolution (or any while busy) M3 disabled. The box and the items
+// use the desktop row's button font (M3 label large, kButtonLabelPx in glass.cpp). Picking one reshapes that desktop's
+// output (tools/native_spike/desktops.py SCALE); free_pointer.py mirrors the geometry (glass_contract compares).
+constexpr float kPanelScaleTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH;  // 182
+constexpr float kScaleBoxX = kPanelTrackX0, kScaleBoxH = 26.f, kScaleBoxW = kPanelW - kPanelPad - kScaleBoxX;  // 274 wide
+constexpr float kScaleBoxY = kPanelScaleTop + (kPanelRowH - kScaleBoxH) / 2;  // 186
+constexpr float kScaleItemH = 20.f, kScaleListGap = 2.f;  // seven steps fit between the header and the box
+FRect glass_scale_box();                   // panel px
+FRect glass_scale_item(std::size_t step);  // panel px; empty for step >= kScaleSteps
+static_assert(kScaleBoxY - kScaleListGap - float(kScaleSteps) * kScaleItemH >= kPanelHeaderH, "the open list stays under the header");
+// Whether Scale step `step` can be picked now: it divides the desktop's resolution (state.scales), nothing is busy.
+bool glass_scale_enabled(std::size_t step, const PlacementMenuState& state);
+// Text of a scale in percent as drawn: "125%"; "--" for 0 (unknown).
+std::string glass_scale_label(std::uint16_t percent);
+// Under that, the desktop row: kPanelActions buttons side by side, button i spanning
 // [kPanelPad + i * (kPanelActionW + kPanelActionGap), + kPanelActionW) x [kPanelActionsTop, + kPanelActionH) (glass_panel_action):
 // Ultrawide (toggles the desktop between 16:9 and ultrawide), Add (a new desktop), Remove (this desktop; asks for a second
 // click). tools/native_spike/desktops.py does the work; free_pointer.py mirrors the geometry (glass_contract compares).
 constexpr std::size_t kPanelActions = 3;
-constexpr float kPanelActionsTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH + 6.f;  // 188
+constexpr float kPanelActionsTop = kPanelScaleTop + kPanelRowH + 6.f;  // 222
 constexpr float kPanelActionH = 32.f, kPanelActionW = 138.f, kPanelActionGap = 11.f;
 static_assert(kPanelPad * 2 + kPanelActionW * float(kPanelActions) + kPanelActionGap * float(kPanelActions - 1) == kPanelW,
               "the desktop row spans the panel between its paddings");
-constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 228
+constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 262
 constexpr std::uint32_t kPanelTextPx = 24, kPanelHintPx = 18, kPanelActionPx = 20;  // em sizes with the system font
 FRect glass_panel_action(std::size_t action);  // panel px; empty for action >= kPanelActions
 // Button labels as drawn (the pixel font is ASCII; so are these). Remove reads "Remove?" while armed.
@@ -121,7 +139,8 @@ const char* glass_fragment_shader();
 // --- Panel content -----------------------------------------------------------------------------------------------------
 // The open panel's text and sliders for the selected desktop (state.desktop), kPanelW x kPanelH, premultiplied, on a
 // transparent background (the glass is drawn under it): header "XR-n" / "Placement", one row per field (label, slider
-// filled from the flat value, value with units; the selected row on a faint accent band), the desktop row (Ultrawide lit
+// filled from the flat value, value with units; the selected row on a faint accent band), the Scale row (and its list
+// while state.picker: over the slider rows), the desktop row (Ultrawide lit
 // while the desktop is ultrawide, Remove lit while armed, buttons that do nothing now dimmed), and a key-hint footer.
 // Material Design 3 parts in `accent`'s scheme (glass_theme_scheme): text in on-surface / on-surface-variant, the selected
 // row on a fully rounded secondary-container band, sliders with a primary track, fill and handle (the selected one with
