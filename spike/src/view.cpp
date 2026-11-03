@@ -74,6 +74,10 @@ Vec3 place_point(const Canvas& c, const FRect& tile, const Placement& pl, float 
         const float rc = tw / pl.curvature, phi = u / rc;
         local = {rc * std::sin(phi), v, rc * (1 - std::cos(phi))};  // toward the viewer at the edges
     }
+    if (pl.roll != 0) {  // levelling roll about the line of sight (the z axis here)
+        const float cr = std::cos(pl.roll), sr = std::sin(pl.roll);
+        local = {cr * local.x - sr * local.y, sr * local.x + cr * local.y, local.z};
+    }
     // Straight ahead, square to the line of sight; then up by e0 + y and round by a0 + x: it always faces the eye.
     Vec3 q{local.x, local.y, local.z - r};
     const float ce = std::cos(e0 + pl.y), se = std::sin(e0 + pl.y);
@@ -104,7 +108,7 @@ float zoom_weight(float zoom, float position, std::size_t index) {
 
 Placement faded(const Placement& p, float weight) {
     const float k = 1 - clampf(weight, 0, 1);
-    return {p.x * k, p.y * k, lerp(1.f, p.distance, k), p.curvature};
+    return {p.x * k, p.y * k, lerp(1.f, p.distance, k), p.curvature, p.roll};
 }
 
 namespace {
@@ -139,7 +143,7 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
         const float d = own.distance > 0 ? own.distance : 1.f;
         const float rigid = d * (now.height / was.height) * radius(was) / radius(now);
         out[i] = {std::remainder(own.x + ov.az - cur.az, 2 * float(M_PI)), own.y + ov.el - cur.el,
-                  lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature};
+                  lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature, own.roll};
     }
     return out;
 }
@@ -226,11 +230,32 @@ Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, f
     auto step = [&](float a, float b) { const float v = b + (a - b) * k; return std::fabs(v - b) < 2e-4f ? b : v; };
     // The orbit's turn round you: the short way (a desktop crossing behind you stays behind you).
     const float turn = std::remainder(from.x - to.x, 2 * float(M_PI));
-    return {step(to.x + turn, to.x), step(from.y, to.y), step(from.distance, to.distance), step(from.curvature, to.curvature)};
+    return {step(to.x + turn, to.x), step(from.y, to.y), step(from.distance, to.distance), step(from.curvature, to.curvature),
+            step(from.roll, to.roll)};
 }
 
 bool same_placement(const Placement& a, const Placement& b) {
-    return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature;
+    return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature && a.roll == b.roll;
+}
+
+std::optional<float> desktop_tilt(const Canvas& c, const FRect& t, const Placement& pl, const Vec3& up) {
+    if (c.view_w <= 0 || c.view_h <= 0 || !(t.width > 0) || !(t.height > 0)) return std::nullopt;
+    const float cx = t.x + t.width / 2, cy = t.y + t.height / 2;
+    const Vec3 o = place_point(c, t, pl, cx, cy), top = place_point(c, t, pl, cx, cy - 1), right = place_point(c, t, pl, cx + 1, cy);
+    auto sub = [](Vec3 a, Vec3 b) { return Vec3{a.x - b.x, a.y - b.y, a.z - b.z}; };
+    auto dot = [](Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+    const float on = std::sqrt(dot(o, o)), un = std::sqrt(dot(up, up));
+    if (!(on > 0) || !(un > 0) || !std::isfinite(on) || !std::isfinite(un)) return std::nullopt;
+    const Vec3 n{o.x / on, o.y / on, o.z / on}, g{up.x / un, up.y / un, up.z / un};
+    const float along = dot(g, n);
+    const Vec3 flat{g.x - along * n.x, g.y - along * n.y, g.z - along * n.z};  // up, on the surface
+    if (dot(flat, flat) < std::pow(std::sin(kTiltMinDeg * float(M_PI) / 180.f), 2.f)) return std::nullopt;
+    // A desktop turned counter-clockwise by r sees the world's up turned clockwise by r in its own frame: toward its right.
+    const Vec3 r = sub(right, o), u = sub(top, o);
+    const float rn = std::sqrt(dot(r, r)), uln = std::sqrt(dot(u, u));
+    if (!(rn > 0) || !(uln > 0)) return std::nullopt;
+    const float a = std::atan2(dot(flat, r) / rn, dot(flat, u) / uln);
+    return std::isfinite(a) ? std::optional<float>(a) : std::nullopt;
 }
 
 void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {

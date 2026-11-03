@@ -193,6 +193,10 @@ In the overview your mouse is no longer stuck inside the desktops:
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
   Resizing doesn't stop at other desktops.
+- **Level a tilted desktop:** if a desktop looks tilted (say you recentred with your head tipped to one side), a small
+  round glass button with a curved arrow appears above its higher top corner, in anchor mode. Click it and the desktop
+  rolls level. Or hold it and drag the dot round the desktop to roll it yourself; it only turns the way the arrow
+  points and stops when it is level. A level desktop has no button. Levelling lasts for the session only.
 - **Zoom into a desktop:** click it with the dot. The view zooms into that desktop, as Ctrl+Alt+Up does, it gets the
   focus and the normal cursor appears where you clicked. Moving the mouse into a desktop only selects it.
 

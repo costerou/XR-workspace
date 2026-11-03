@@ -694,6 +694,10 @@ class ViewControl:
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""
         if self.overview_pointer is not None: self.overview_pointer.set_geometry(geometry)
 
+    def set_roll_geometry(self, tilts):
+        """Supervisor: each desktop's tilt from level (free_pointer.parse_roll_geometry), for the roll-level icons."""
+        if self.overview_pointer is not None: self.overview_pointer.set_roll_geometry(tilts)
+
     def _sync_menu_binds(self, force=False):
         if self.menu_binds is None: return
         # Compositor call: never on the watchdog loop. The worker applies the state current when it runs, serialized,

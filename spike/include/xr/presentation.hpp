@@ -112,6 +112,19 @@ public:
     // frosted capsule under every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging).
     // Overview only, never moving on its own. GPU composition only.
     void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
+    // Roll-level icons and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about
+    // its line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement, every
+    // zoom); `icons` per desktop -1 none, 0 above the top-left corner (counter-clockwise), 1 above the top-right
+    // (clockwise), drawn with the pills (overview only); `hover` the desktop whose icon is brighter, brightest when `active`.
+    void set_roll(const std::array<std::int32_t, 3>& roll, const std::array<std::int8_t, 3>& icons, std::int32_t hover, bool active);
+    // How far each desktop is from level as you see it, without its levelling roll (view.hpp desktop_tilt against the
+    // world's up from the pose feed): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a
+    // degree (counter-clockwise positive), or null where it cannot be measured (no head tracking, not in anchor mode or
+    // still blending into it, a VR video, a desktop seen from straight below or above). When it changed, at most every
+    // kRollGeometryMs (a null line at once). GPU composition only.
+    std::optional<std::string> take_roll_geometry(double now_ms);
+    void resend_roll_geometry();  // the last take was not delivered
+    static constexpr double kRollGeometryMs = 100;
     // Overview free pointer (display only; the supervisor owns it): a dim dot at canvas pixel (x, y) on the overview's
     // plane, world-locked, a little brighter while `held` (a pill, corner or panel-slider press/drag is in progress).
     // Overview only (hidden while zoomed or zooming), never moving on its own. GPU composition only. `directed`: drawn in

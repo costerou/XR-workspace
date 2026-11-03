@@ -16,7 +16,8 @@ int main() {
     const std::pair<const char*, float> constants[] = {
         {"pill_share", kGlassPillShare}, {"pill_min_w", kGlassPillMinW}, {"pill_max_w", kGlassPillMaxW}, {"pill_h", kGlassPillH},
         {"pill_gap", kGlassPillGap}, {"panel_w", kPanelW}, {"panel_h", kPanelH}, {"header_h", kPanelHeaderH},
-        {"rows_top", kPanelRowsTop}, {"row_h", kPanelRowH}, {"knob_lo", kPanelKnobLo}, {"knob_hi", kPanelKnobHi}};
+        {"rows_top", kPanelRowsTop}, {"row_h", kPanelRowH}, {"knob_lo", kPanelKnobLo}, {"knob_hi", kPanelKnobHi},
+        {"roll_icon_px", kRollIconPx}, {"roll_icon_gap", kRollIconGap}};
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
@@ -25,7 +26,9 @@ int main() {
     const FRect tiles[] = {{100, 300, 459, 258}, {0, 0, 4000, 2000}, {10, 20, 120, 60}, {5, 5, 40, 30}, {-200.5f, 410.25f, 812, 457}};
     first = true;
     for (const auto& t : tiles) {
-        out += std::string(first ? "" : ",") + "{\"tile\":" + rect(t) + ",\"pill\":" + rect(glass_pill(t)) + ",\"panel\":" + rect(glass_panel(t)) + "}";
+        out += std::string(first ? "" : ",") + "{\"tile\":" + rect(t) + ",\"pill\":" + rect(glass_pill(t)) + ",\"panel\":" + rect(glass_panel(t)) +
+               ",\"roll\":[" + rect(roll_icon(t, 0, 1.f)) + "," + rect(roll_icon(t, 1, 1.f)) + "," + rect(roll_icon(t, 0, 0.5f)) + "," +
+               rect(roll_icon(t, 1, 2.f)) + "]}";
         first = false;
     }
     std::printf("%s]}\n", out.c_str());

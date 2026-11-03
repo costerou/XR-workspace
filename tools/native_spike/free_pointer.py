@@ -66,6 +66,17 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     it. A click on the previous arrow turns to the previous page, on the next arrow or the indicator to the next
     (view.ViewControl.help_turn, the same frame as Ctrl+Alt+PgUp / PgDn); anywhere else on the card does nothing. A
     click on the card never collapses an open placement panel.
+  * Roll-level icons (glass.hpp roll_icon / roll_arrow, mirrored here: roll_icon_rect and the ROLL_* constants; the
+    `glass_contract` ctest compares them): in anchor mode the renderer reports how far each desktop is from level as you
+    see it, gravity from the head tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted, or a
+    pitched one seen off to the side, leaves desktops rolled). This class owns each desktop's levelling roll (`rolls`,
+    hundredths of a degree, for this run only) and sends it with the icons in the `roll` frame. A desktop more than
+    ROLL_LEVEL from level gets one icon above its higher top corner, ROLL_ICON_PX across as you see it whatever the
+    desktop's size: above the top-left a counter-clockwise arrow, above the top-right a clockwise one, the way that
+    levels it. A click on it levels the desktop at once; pressing and dragging rolls it with the dot round the desktop's
+    centre, only in that direction and never past level. A level desktop shows none. The icons are hit-tested before the
+    corners and hide with the pills. Every hit test and cursor mapping uses the rolled surface (orbit.place_point's
+    'roll'); the pill drag and the no-overlap guard ignore the roll (a few degrees at most changes nothing there).
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
     is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
@@ -117,6 +128,14 @@ MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past t
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
+# Roll-level icons (glass.hpp kRollIconPx / kRollIconGap: size and gap above the top corner as you see it, tile px times the
+# desktop's distance), the padding that still grabs one, how far from level (1/100 degree) a desktop shows one, and the
+# wire's bound on a levelling roll (ipc.hpp kMaxRoll).
+ROLL_ICON_PX, ROLL_ICON_GAP, ROLL_PAD = 22.0, 8.0, 4.0
+ROLL_LEVEL = 50
+MAX_ROLL = 9000
+ROLL_SIDES = ('ccw', 'cw')  # glass.hpp roll_icon side 0 (above the top-left corner) and 1 (above the top-right)
+ROLL_HIDDEN = {'roll': [0, 0, 0], 'icons': ['none', 'none', 'none'], 'hover': -1, 'active': False}  # the renderer's start
 
 
 def parse_overview_geometry(value):
@@ -140,6 +159,51 @@ def parse_overview_geometry(value):
         if tw <= 0 or th <= 0: raise ValueError('invalid overview geometry')
         out.append((x, y, tw, th))
     return {'w': w, 'h': h, 'half': half, 'tiles': out}
+
+
+def parse_roll_geometry(value):
+    """The renderer's `roll_geometry` status line (wayland.cpp take_roll_geometry) -> list of each desktop's tilt from level
+    (int, 1/100 degree, counter-clockwise positive) or None where it is not measured. ValueError if bad."""
+    if not isinstance(value, dict) or set(value) != {'tilt'} or not isinstance(value['tilt'], list) or not 1 <= len(value['tilt']) <= 3:
+        raise ValueError('invalid roll geometry')
+    out = []
+    for t in value['tilt']:
+        if t is not None and (type(t) is not int or not -18000 <= t <= 18000): raise ValueError('invalid roll geometry')
+        out.append(t)
+    return out
+
+
+def roll_icon_rect(tile, side, distance=1.0):
+    """The roll-level icon (glass.hpp roll_icon): (x, y, w, h) tile px on the desktop's surface, ROLL_ICON_GAP above its
+    top-left ('ccw') or top-right ('cw') corner, flush with that side, scaled by `distance` (the wire's percent / 100)
+    so it is ROLL_ICON_PX across as you see it."""
+    if side not in ROLL_SIDES: raise ValueError('invalid roll icon side')
+    tx, ty, tw, th = tile
+    d = distance if distance > 0 else 1.0
+    size = ROLL_ICON_PX * d
+    return (tx + tw - size if side == 'cw' else tx, ty - ROLL_ICON_GAP * d - size, size, size)
+
+
+def roll_side(tilt, roll):
+    """The icon a desktop shows: 'cw' (above its top-right corner) if it is turned counter-clockwise from level by more than
+    ROLL_LEVEL (its top-right corner is the higher one), 'ccw' if clockwise, None if level or not measured (`tilt` None).
+    `tilt` from the renderer (without the roll), `roll` the levelling roll applied, both 1/100 degree."""
+    if tilt is None: return None
+    t = tilt + roll
+    if abs(t) <= ROLL_LEVEL: return None
+    return 'cw' if t > 0 else 'ccw'
+
+
+def roll_frame(run_id, session, request_id, state):
+    """`roll` frame (ipc.hpp RollPayload): {'roll': 3 ints, 'icons': 3 of 'none' | 'ccw' | 'cw', 'hover': -1..2, 'active'}."""
+    if not isinstance(state, dict) or set(state) != set(ROLL_HIDDEN): raise ValueError('invalid roll state')
+    roll, icons, hover, active = state['roll'], state['icons'], state['hover'], state['active']
+    if not isinstance(roll, list) or len(roll) != 3 or any(type(r) is not int or not -MAX_ROLL <= r <= MAX_ROLL for r in roll) \
+            or not isinstance(icons, list) or len(icons) != 3 or any(i not in ('none',) + ROLL_SIDES for i in icons) \
+            or type(hover) is not int or not -1 <= hover <= 2 or type(active) is not bool:
+        raise ValueError('invalid roll state')
+    return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'roll',
+                        'payload': {'roll': roll, 'icons': icons, 'hover': hover, 'active': active}}, separators=(',', ':')) + '\n').encode()
 
 
 HELP_RECTS = ('card', 'prev', 'indicator', 'next')
@@ -209,7 +273,10 @@ def unproject(g, tile, p, pointer, around=False):
     tx, ty, tw, th = tile
     cx, cy = tx + tw / 2, ty + th / 2
     d = p['distance'] / 100
-    q = [cx + (pointer[0] - cx) * d, cy + (pointer[1] - cy) * d]
+    ax, av = (pointer[0] - cx) * d, (cy - pointer[1]) * d  # as you see it (y up); a rolled desktop is turned back first
+    roll = math.radians(p.get('roll', 0) / 100)
+    if roll: ax, av = math.cos(roll) * ax + math.sin(roll) * av, -math.sin(roll) * ax + math.cos(roll) * av
+    q = [cx + ax, cy - av]
     limit = 4 * max(tw, th)
     for _ in range(16):
         f = project(g, tile, p, q[0], q[1])
@@ -276,10 +343,11 @@ def front_order(g, placements):
     return sorted(range(n), key=depth)
 
 
-def hit(g, placements, pointer, open_=None, around=False):
+def hit(g, placements, pointer, open_=None, around=False, icons=None):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
-    ('panel', i)); then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
+    ('panel', i)); then each desktop front to back: ('roll', index, 'ccw'|'cw') on its roll-level icon (`icons`: per
+    desktop None or the side shown, roll_side), ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
     ('desktop', index, (px, py) tile pixel). None if nothing. `around` (anchor mode): the dot's ray is stretched past the
     view (orbit.pointer_ray, where the renderer draws the dot), so anything placed anywhere round you can be reached."""
     if g is None or pointer is None: return None
@@ -295,6 +363,12 @@ def hit(g, placements, pointer, open_=None, around=False):
         q = unproject(g, tile, placements[i], pointer, around)
         tx, ty, tw, th = tile
         if q is not None:
+            side = icons[i] if icons is not None and i < len(icons) else None
+            if side in ROLL_SIDES:
+                d = placements[i]['distance'] / 100
+                x, y, w, h = roll_icon_rect(tile, side, d)
+                pad = ROLL_PAD * d
+                if x - pad <= q[0] <= x + w + pad and y - pad <= q[1] <= y + h + pad: return ('roll', i, side)
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
@@ -388,7 +462,13 @@ class OverviewPointer:
         #         not a click; open_at_press: the open panel's desktop or None after the press, a click needs it unchanged)
         # Slider: {'kind': 'slider', 'index', 'field', 'tile', 'placement'}  (placement: the desktop's at the press, the
         #         surface both the drag and the renderer's panel use until the release)
+        # Roll:   {'kind': 'roll', 'index', 'side', 'start', 'from', 'level', 'centre', 'moved'}  (from: its roll at the press,
+        #         level: the roll that levels it; centre: the desktop's centre on the canvas, what the dot turns it round)
         self.drag = None
+        self.tilts = []            # parse_roll_geometry, from the renderer: each desktop's tilt from level, or None
+        self.rolls = [0, 0, 0]     # each desktop's levelling roll, 1/100 degree (this run only)
+        self.roll_sent = {**ROLL_HIDDEN, 'roll': [0, 0, 0], 'icons': ['none'] * 3}
+        self.roll_clicks = self.roll_drags = 0  # diagnostics
         self.last_move = clock()
         self.shown, self.pills, self.sent = dict(resize.HIDDEN), dict(resize.PILLS_HIDDEN), dict(POINTER_HIDDEN)
         self.want = (0, 'off', None)  # (serial, 'off'|'away'|'desktop'|'free', layout point or None); read by the sampler
@@ -422,6 +502,10 @@ class OverviewPointer:
 
     def set_help_geometry(self, geometry):
         self.help_geometry = geometry
+        self._poke()
+
+    def set_roll_geometry(self, tilts):
+        self.tilts = list(tilts)
         self._poke()
 
     def summon(self):
@@ -471,8 +555,21 @@ class OverviewPointer:
 
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
-        return help_hit(self._help(), self.pointer) or hit(self.geometry, self.control.state.placements, self.pointer, self._open(),
-                                                          around=self._around())
+        return help_hit(self._help(), self.pointer) or hit(self.geometry, self._rolled(), self.pointer, self._open(),
+                                                          around=self._around(), icons=self._icons())
+
+    def _rolled(self):
+        """The placements as drawn: each with its levelling roll (orbit.place_point's 'roll') when it has one."""
+        return [{**p, 'roll': self.rolls[i]} if i < len(self.rolls) and self.rolls[i] else p
+                for i, p in enumerate(self.control.state.placements)]
+
+    def _tilt(self, i):
+        return self.tilts[i] if i < len(self.tilts) else None
+
+    def _icons(self):
+        """Per desktop the roll-level icon it shows (roll_side), or None."""
+        return [roll_side(self._tilt(i), self.rolls[i] if i < len(self.rolls) else 0)
+                for i in range(len(self.control.state.placements))]
 
     def _around(self):
         """Anchor mode: the dot's reach past the view is stretched round you (orbit.pointer_direction)."""
@@ -482,7 +579,8 @@ class OverviewPointer:
         return next((o for o in self.outputs if o['index'] == index), None)
 
     def _placement(self, i):
-        p = self.control.state.placements
+        """Desktop i's placement as drawn (with its levelling roll), for hit testing and cursor mapping."""
+        p = self._rolled()
         return p[i] if i < len(p) else None
 
     def _tile(self, i):
@@ -573,7 +671,7 @@ class OverviewPointer:
         if idle:
             out += self._end_drag()
             self.hover = None
-        return out + self._handle() + self._pills(idle) + self._pointer_frame(idle)
+        return out + self._frames(idle)
 
     def _absolute(self, cursor, now):
         """Away / desktop mode: the cursor's own position decides."""
@@ -664,6 +762,9 @@ class OverviewPointer:
                     out += self.control.pill_click(d['index'])
                 else:  # a key changed the open panel while the button was down: that key wins, the release is dropped
                     self.stale_clicks += 1
+            elif d is not None and d['kind'] == 'roll' and not d['moved']:  # a click: level it at once
+                self.roll_clicks += 1
+                self.rolls[d['index']] = d['level']
             elif d is not None and d['kind'] == 'corner' and d.get('on') is not None and self.pointer is not None \
                     and math.hypot(self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]) <= CLICK_PX \
                     and self.control.state.placements[d['index']]['distance'] == d['distance']:
@@ -677,12 +778,19 @@ class OverviewPointer:
             if h is not None and h[0] == 'help':  # the help card is on top: its arrows and indicator turn pages
                 self.help_clicks += 1
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
-                return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
+                return (out + self._frames(False)) or None
             if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner')):
                 self.outside_closes += 1
                 out += self.control.pill_close()  # a click outside collapses the open panel; the press carries on (what
                 # it hit was not on that panel, so the panel's going changes nothing about it)
-            if h is not None and h[0] in ('corner', 'pill'):
+            if h is not None and h[0] == 'roll':
+                i, tile = h[1], self._tile(h[1])
+                p = self._placement(i)
+                centre = project(self.geometry, tile, p, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2, around=self._around())
+                level = min(max(-self._tilt(i), -MAX_ROLL), MAX_ROLL) if self._tilt(i) is not None else self.rolls[i]
+                self.drag = {'kind': 'roll', 'index': i, 'side': h[2], 'start': self.pointer, 'from': self.rolls[i], 'level': level,
+                             'centre': centre if centre is not None else (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2), 'moved': False}
+            elif h is not None and h[0] in ('corner', 'pill'):
                 i, tile, p = h[1], self._tile(h[1]), self._placement(h[1])
                 if h[0] == 'corner':
                     q = unproject(self.geometry, tile, p, self.pointer, self._around())  # the corner zone's inner half is on the desktop
@@ -696,14 +804,18 @@ class OverviewPointer:
                                  'around': self._around()}  # the dot's reach the drag keeps to its end
             elif h is not None and h[0] == 'slider':
                 i = h[1]
-                self.drag = {'kind': 'slider', 'index': i, 'field': h[2], 'tile': self._tile(i), 'placement': dict(self._placement(i))}
+                self.drag = {'kind': 'slider', 'index': i, 'field': h[2], 'tile': self._tile(i),
+                             'placement': dict(self.control.state.placements[i])}  # the wire placement (no roll)
                 self.slides += 1
                 # The value jumps to the pointer; the panel stays drawn on the press-time placement until the release.
                 out += self.control.pill_slide(i, h[2], slider_fraction(h[3]), surface=self.drag['placement'])
             elif h is not None and h[0] == 'desktop':  # zoom into it (selected, focused, zoomed in: Ctrl+Alt+Up's path)
                 out += self._click_desktop(h[1], h[2])
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
-        return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
+        return (out + self._frames(False)) or None
+
+    def _frames(self, idle):
+        return self._handle() + self._pills(idle) + self._pointer_frame(idle) + self._roll_frame(idle)
 
     def _apply_drag(self):
         d = self.drag
@@ -714,11 +826,23 @@ class OverviewPointer:
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
             # A key that collapsed or moved the panel meanwhile dropped that surface: the rest of this drag does nothing.
             if c.state.menu_surface is None: return b''
-            q = unproject(self.geometry, d['tile'], d['placement'], self.pointer, self._around())
+            roll = self.rolls[d['index']] if d['index'] < len(self.rolls) else 0
+            q = unproject(self.geometry, d['tile'], {**d['placement'], 'roll': roll}, self.pointer, self._around())
             if q is None: return b''
             return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
-        current = c.state.placements[d['index']]
         dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
+        if d['kind'] == 'roll':  # the desktop turns with the dot round its centre, toward level only, never past it
+            if not d['moved']:
+                if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
+                d['moved'] = True
+                self.roll_drags += 1
+            cx, cy = d['centre']
+            turn = math.atan2(cy - self.pointer[1], self.pointer[0] - cx) - math.atan2(cy - d['start'][1], d['start'][0] - cx)
+            turn = (turn + math.pi) % (2 * math.pi) - math.pi  # counter-clockwise as you see it
+            lo, hi = sorted((d['from'], d['level']))
+            self.rolls[d['index']] = min(max(round(d['from'] + math.degrees(turn) * 100), lo), hi)
+            return b''  # the `roll` frame goes out with the others (_roll_frame)
+        current = c.state.placements[d['index']]
         if d['kind'] == 'corner':
             updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], dx, dy, d['tile'])}
         else:
@@ -776,6 +900,23 @@ class OverviewPointer:
         if want == self.pills: return b''
         self.pills = want
         return self._send(resize.pill_frame, want)
+
+    def _roll_frame(self, idle):
+        """`roll`: every desktop's levelling roll, and the icons shown with the pills (_pills: in the overview, not idle).
+        hover: the desktop whose icon is under the dot or held; active: it is being dragged."""
+        visible = self.active() and not idle
+        icons = [(side or 'none') if visible else 'none' for side in self._icons()][:3]
+        icons += ['none'] * (3 - len(icons))
+        d, h = self.drag, self.hover
+        if d is not None and d['kind'] == 'roll': hover, active = d['index'], d['moved']
+        elif d is None and self.mode == 'free' and h is not None and h[0] == 'roll': hover, active = h[1], False
+        else: hover, active = -1, False
+        if not visible: hover, active = -1, False
+        rolls = [min(max(int(r), -MAX_ROLL), MAX_ROLL) for r in self.rolls[:3]] + [0] * (3 - len(self.rolls[:3]))
+        want = {'roll': rolls, 'icons': icons, 'hover': hover, 'active': active}
+        if want == self.roll_sent: return b''
+        self.roll_sent = want
+        return self._send(roll_frame, want)
 
     def _pointer_frame(self, idle):
         """The dot: in desktop and free mode (the real cursor is hidden in both: overview_cursor.py), hidden when idle."""

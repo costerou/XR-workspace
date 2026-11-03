@@ -55,6 +55,9 @@ public:
     bool tracking() const { return tracking_; }
     Mat3 view() const { return view_; }  // identity until the first valid sample
     Quat relative() const { return relative_; }  // head vs recentre reference, driver frame
+    // The recentre reference itself (the head's absolute driver-frame orientation when it was taken); nullopt before the
+    // first valid sample. XRLinuxDriver's frame is gravity-aligned (z up), so this is what ties the canvas to level.
+    std::optional<Quat> reference() const { return center_; }
     std::uint64_t samples() const { return samples_; }
     std::uint64_t lost_events() const { return lost_events_; }
 private:
@@ -73,6 +76,9 @@ Quat quat_slerp(Quat a, Quat b, float t);  // shortest arc
 float quat_angle(Quat a, Quat b);          // radians between orientations
 Quat level(Quat q);                        // same yaw/pitch of the forward axis, zero roll (driver frame)
 Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canvas anchored at `anchor`
+// The world's up (driver z, against gravity) as a unit vector in the GL frame of a canvas anchored at `anchor` relative to
+// the recentre `reference` (PoseState::reference): what view.hpp desktop_tilt measures a desktop's roll against.
+std::array<float, 3> canvas_up(Quat reference, Quat anchor);
 
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
 //   anchor: fixed in space (3DoF world-locked) where the canvas was when anchor mode was entered;
@@ -95,6 +101,7 @@ public:
     // Advance with the head's relative orientation; returns the canvas anchor for this frame.
     Quat update(Quat head, double now_ms);
     bool settled() const;  // nothing animating (no mode blend; follow spring at rest)
+    Quat anchor() const { return anchor_; }  // the canvas anchor update() last returned
 private:
     Quat target(Quat head) const;
     Tuning tuning_{};

@@ -117,6 +117,31 @@ bool move_handle(const Json& p, MoveHandlePayload& out) {
     out = {p["visible"].get<bool>(), p["desktop"].get<std::uint32_t>(), p["hover"].get<bool>(), p["active"].get<bool>()};
     return true;
 }
+bool roll(const Json& p, RollPayload& out) {
+    if (!p.is_object() || p.size() != 4 || !p.contains("roll") || !p["roll"].is_array() || p["roll"].size() != 3 || !p.contains("icons") ||
+        !p["icons"].is_array() || p["icons"].size() != 3 || !p.contains("hover") || !p["hover"].is_number_integer() ||
+        !p.contains("active") || !p["active"].is_boolean())
+        return false;
+    for (std::size_t i = 0; i < 3; ++i) {
+        const auto& n = p["roll"][i];
+        if (!n.is_number_integer() || (n.is_number_unsigned() && n.get<std::uint64_t>() > std::uint64_t(kMaxRoll))) return false;
+        const auto v = n.get<std::int64_t>();
+        if (v < -kMaxRoll || v > kMaxRoll) return false;
+        out.roll[i] = std::int32_t(v);
+        const auto& icon = p["icons"][i];
+        if (!icon.is_string()) return false;
+        const auto& name = icon.get_ref<const std::string&>();
+        if (name == "none") out.icons[i] = -1;
+        else if (name == "ccw") out.icons[i] = 0;
+        else if (name == "cw") out.icons[i] = 1;
+        else return false;
+    }
+    const auto& h = p["hover"];
+    if (h.is_number_unsigned() ? h.get<std::uint64_t>() > 2 : (h.get<std::int64_t>() < -1 || h.get<std::int64_t>() > 2)) return false;
+    out.hover = std::int32_t(h.get<std::int64_t>());
+    out.active = p["active"].get<bool>();
+    return true;
+}
 }
 Result<ControlMessage> decode_control(std::string_view frame) {
     if (frame.empty() || frame.size() > 16384 || frame.back() != '\n' || frame.substr(0, frame.size()-1).find('\n') != frame.npos) return invalid();
@@ -153,6 +178,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "resize_handle") op = ControlOp::resize_handle;
         else if (name == "move_handle") op = ControlOp::move_handle;
         else if (name == "overview_pointer") op = ControlOp::overview_pointer;
+        else if (name == "roll") op = ControlOp::roll;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -237,6 +263,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             OverviewPointerPayload pointer;
             if (!overview_pointer(j["payload"], pointer)) return Error{kInvalidOverviewPointerCode, "Ignored malformed overview_pointer payload"};
             payload = pointer;
+        } else if (op == ControlOp::roll) {
+            RollPayload r;
+            if (!roll(j["payload"], r)) return Error{kInvalidRollCode, "Ignored malformed roll payload"};
+            payload = r;
         } else if (!j["payload"].empty()) return invalid();
         return ControlMessage{1, j["request_id"].get<std::uint64_t>(), j["run_id"].get<std::string>(), j["session"].get<std::string>(), op, payload};
     } catch (const std::exception&) { return invalid(); }

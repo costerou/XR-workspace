@@ -188,6 +188,10 @@ int main(int argc, char** argv) {
                         if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
                             presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el);
                     }
+                    else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
+                        if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
+                            presentation.set_roll(r->roll, r->icons, r->hover, r->active);
+                    }
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
@@ -219,6 +223,14 @@ int main(int argc, char** argv) {
                 if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
                     presentation.resend_overview_geometry();
             }
+        if (status_fd >= 0) {  // how far each desktop is from level (the supervisor's roll-level icons)
+            timespec ts{}; clock_gettime(CLOCK_MONOTONIC, &ts);
+            if (const auto tilt = presentation.take_roll_geometry(double(ts.tv_sec) * 1000 + double(ts.tv_nsec) / 1e6)) {
+                const auto line = *tilt + "\n";
+                if (send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT) != ssize_t(line.size()))
+                    presentation.resend_roll_geometry();
+            }
+        }
         if (status_fd >= 0) {  // the help card on the overview's canvas: free-pointer clicks on its page arrows
             timespec ts{}; clock_gettime(CLOCK_MONOTONIC, &ts);
             if (const auto geometry = presentation.take_help_geometry(double(ts.tv_sec) * 1000 + double(ts.tv_nsec) / 1e6)) {

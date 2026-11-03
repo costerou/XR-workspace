@@ -117,15 +117,21 @@ struct GlCompositor::Impl {
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 20> key{}; };
     Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2];
-    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes;  // per desktop
+    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, roll_meshes, band_meshes, head_meshes;  // per desktop
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
     GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr);
     GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius, bool directed, float az, float el);
+    // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll-level arrow; `shape` keys the points.
+    GLsizei build_points(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& shape, float tag,
+                         std::span<const std::array<float, 2>> points);
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
         drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m);
-        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes}) { for (auto& m : *v) drop(m); v->clear(); }
+        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &roll_meshes, &band_meshes, &head_meshes}) {
+            for (auto& m : *v) drop(m);
+            v->clear();
+        }
     }
     // Per frame: the program in use (0: not known, e.g. after a GlHud draw), and the head rotation / FOV each program was
     // last given (uniforms keep their values per program, and only this class sets these programs' uniforms).
@@ -398,12 +404,12 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
     return t.valid;
 }
 
-static_assert(sizeof(Canvas) == 4 * sizeof(float) && sizeof(FRect) == 4 * sizeof(float) && sizeof(Placement) == 4 * sizeof(float),
+static_assert(sizeof(Canvas) == 4 * sizeof(float) && sizeof(FRect) == 4 * sizeof(float) && sizeof(Placement) == 5 * sizeof(float),
               "a mesh key holds every field of tile_mesh's inputs: extend it with them");
 GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& rect, Attr attr) {
     const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
                                     on.distance, on.curvature, rect.x, rect.y, rect.width, rect.height,
-                                    float(int(attr))};
+                                    float(int(attr)), on.roll};
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
     if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;  // bitwise: same inputs, same mesh
@@ -432,6 +438,23 @@ GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float 
     for (const auto& v : fan) scratch.insert(scratch.end(), {v.x, v.y, v.z});
     glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
     m.key = key; m.count = GLsizei(fan.size()); m.built = true;
+    return m.count;
+}
+
+GLsizei GlCompositor::Impl::build_points(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& shape,
+                                          float tag, std::span<const std::array<float, 2>> points) {
+    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
+                                    on.distance, on.curvature, on.roll, shape.x, shape.y, shape.width, shape.height, tag, 7.f};
+    if (!m.buffer) glGenBuffers(1, &m.buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
+    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
+    scratch.clear();
+    for (const auto& p : points) {
+        const Vec3 w = place_point(c, tile, on, p[0], p[1]);
+        scratch.insert(scratch.end(), {w.x, w.y, w.z});
+    }
+    glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
+    m.key = key; m.count = GLsizei(points.size()); m.built = true;
     return m.count;
 }
 
@@ -473,7 +496,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     const Canvas canvas{float(s.width), float(s.height), half_w, half_h};
     s.resolved.resize(tiles.size());
     for (std::size_t i = 0; i < tiles.size(); ++i) s.resolved[i] = i < placements.size() ? placements[i] : Placement{};
-    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes}) if (v->size() < tiles.size()) v->resize(tiles.size());
+    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes, &s.roll_meshes, &s.band_meshes, &s.head_meshes})
+        if (v->size() < tiles.size()) v->resize(tiles.size());
     // A vertex attribute from the mesh buffer bound by build(): `size` floats at `offset` in vertices of `stride` floats.
     auto attrib = [](GLint loc, int size, int stride, int offset) {
         glVertexAttribPointer(static_cast<GLuint>(loc), size, GL_FLOAT, GL_FALSE, stride * GLsizei(sizeof(GLfloat)),
@@ -561,6 +585,24 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
             const FRect r = glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
+            if (g.pills && i < g.roll_icon.size() && g.roll_icon[i] >= 0) {
+                // Roll-level icon: a round glass button above the higher top corner, its arrow in the theme's highlight.
+                const auto side = std::uint32_t(g.roll_icon[i]);
+                const float roll_level = int(i) == g.roll_hover ? g.roll_level : kGlassIdle;
+                const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);
+                shape(s.roll_meshes[i], i, icon, icon.width / 2, glass_look(accent, roll_level, 0.f), 1.f, icon.width / 2);
+                glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
+                const auto arrow = roll_arrow(icon, side);
+                const auto colour = roll_arrow_color(accent, roll_level);
+                program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+                glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
+                GLsizei n = s.build_points(s.band_meshes[i], canvas, tiles[i], glass_on(i), icon, float(side), arrow.band);
+                attrib(s.color_pos, 3, 3, 0);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+                n = s.build_points(s.head_meshes[i], canvas, tiles[i], glass_on(i), icon, float(side) + 2, arrow.head);
+                attrib(s.color_pos, 3, 3, 0);
+                glDrawArrays(GL_TRIANGLES, 0, n);
+            }
             if (e <= 0.f) continue;
             // The grabber where the pill was, fading in with the panel.
             const FRect grab{r.x + (r.width - kGrabberW) / 2, r.y + kGrabberTop, kGrabberW, kGrabberH};

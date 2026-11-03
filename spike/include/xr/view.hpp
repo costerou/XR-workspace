@@ -6,6 +6,7 @@
 // affects sharpness, not apparent size.
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -38,7 +39,10 @@ float smootherstep(float t);  // quintic: zero velocity and acceleration at both
 // (yaw / pitch / roll were removed on 2026-11-02). place_point draws it straight ahead at the slot centre's distance times
 // `distance`, then turns it by Az(a0 + x) * El(e0 + y), a0 / e0 the slot centre's azimuth / elevation
 // (tools/native_spike/orbit.py place_point mirrors it exactly; the placement_contract ctest compares them).
-struct Placement { float x = 0, y = 0, distance = 1, curvature = 0; };
+//   roll       levelling turn (radians, counter-clockwise as you see it) of the desktop about its own line of sight
+//              (the eye to its centre), applied to the desktop drawn straight ahead before the orbit: it still faces you.
+//              Not a wire placement setting: the supervisor sets it with the roll-level icons (ipc.hpp RollPayload).
+struct Placement { float x = 0, y = 0, distance = 1, curvature = 0, roll = 0; };
 struct Vec3 { float x = 0, y = 0, z = 0; };
 // Canvas pixels map onto the plane z = -1 spanning tan(half FOV) (GL frame: +x right, +y up, -z forward).
 struct Canvas { float view_w = 0, view_h = 0, half_w = 0, half_h = 0; };
@@ -50,6 +54,12 @@ Vec3 place_point(const Canvas& canvas, const FRect& tile, const Placement& place
 // vertex. One column when flat; more as curvature grows. u,v = position within `tile` (0..1 on the tile itself).
 struct MeshVertex { Vec3 world; float u = 0, v = 0, px = 0, py = 0; };
 std::vector<MeshVertex> tile_mesh(const Canvas& canvas, const FRect& tile, const Placement& placement, const FRect& rect);
+// How far a placed desktop is rolled from level, as you see it: the signed angle (radians, counter-clockwise positive)
+// from `up` (the world's up, gravity's opposite, as a vector in the canvas frame: pose.hpp canvas_up) projected onto the
+// desktop's surface at its centre, to the desktop's own up. Rolling the desktop by r adds r. nullopt when the line of
+// sight to its centre is within kTiltMinDeg of straight up or down (level means nothing there) or anything is degenerate.
+constexpr float kTiltMinDeg = 10.f;
+std::optional<float> desktop_tilt(const Canvas& canvas, const FRect& tile, const Placement& placement, const Vec3& up);
 // Zooming into a desktop brings it to distance 1 (it fills the view): weight 1 removes its orbit and distance (curvature is
 // part of its shape and is kept). zoom_weight is zoom times closeness of `position` to `index`.
 float zoom_weight(float zoom, float position, std::size_t index);

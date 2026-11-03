@@ -95,6 +95,12 @@ class Supervisor:
                         geometry = parse_overview_geometry(value['overview_geometry'])
                         handler = getattr(self.control, 'set_overview_geometry', None)
                         if handler is not None: handler(geometry)
+                    elif isinstance(value, dict) and set(value) == {'roll_geometry'}:
+                        # How far each desktop is from level (the free pointer's roll-level icons).
+                        from .free_pointer import parse_roll_geometry
+                        tilts = parse_roll_geometry(value['roll_geometry'])
+                        handler = getattr(self.control, 'set_roll_geometry', None)
+                        if handler is not None: handler(tilts)
                     elif isinstance(value, dict) and set(value) == {'help_geometry'}:
                         # The help card on the overview's canvas while it is up (free pointer clicks on its page arrows).
                         from .free_pointer import parse_help_geometry

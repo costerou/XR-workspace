@@ -44,6 +44,22 @@ constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
 static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its footer's top (free_pointer.py PANEL_H)");
 
+// Roll-level icons (tools/native_spike/free_pointer.py roll_icon_rect / ROLL_*, compared by the glass_contract ctest): when
+// a desktop is not level (view.hpp desktop_tilt, the supervisor deciding from the renderer's `roll_geometry` line), a small
+// round glass button sits kRollIconGap above its top corner on the side that is higher, on the desktop's own surface,
+// holding a curved arrow: above the top-left corner a counter-clockwise one, above the top-right a clockwise one, the way
+// a click (level at once) or a drag (roll toward level, never past it) turns the desktop. It is kRollIconPx across as you
+// see it whatever the desktop's size: its tile px are scaled by the desktop's distance. Side 0 = top-left (counter-
+// clockwise), 1 = top-right (clockwise).
+constexpr float kRollIconPx = 22.f, kRollIconGap = 8.f;
+FRect roll_icon(const FRect& tile, std::uint32_t side, float distance);
+// The arrow on the icon, canvas px: an arc band (a triangle strip, outer then inner per step) and its arrowhead (one
+// triangle), clockwise for side 1, its mirror image for side 0. Empty for an empty icon.
+struct RollArrow { std::vector<std::array<float, 2>> band; std::array<std::array<float, 2>, 3> head{}; };
+RollArrow roll_arrow(const FRect& icon, std::uint32_t side);
+// The arrow's colour: the theme's highlight colour (glass_theme_highlight), dimmer while idle; under kGlassCap.
+std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level);
+
 // --- Look ----------------------------------------------------------------------------------------------------------
 // Pill states: brightness of the gloss, hairline and tint. Hover = the pointer is on the pill (or the open panel's
 // header); active = it is being dragged.
@@ -98,6 +114,10 @@ struct GlassFrame {
     // press (the desktop itself follows its live placement). The supervisor measures the drag on that same surface, so
     // the knob stays under the pointer. Empty: the panel rides on its desktop's live placement.
     int surface_desktop = -1; std::optional<Placement> surface;
+    // Roll-level icons (drawn with the pills: `pills` true): per desktop -1 none, else the side (roll_icon); the hovered
+    // or dragged one is drawn at `roll_level`.
+    std::array<int, kPlacementMenuDesktopCount> roll_icon{-1, -1, -1};
+    int roll_hover = -1; float roll_level = kGlassIdle;
 };
 // Renderer placement from wire units (ipc.hpp WirePlacement: x / y the orbit round you in tenths of a degree, distance in
 // percent, curvature in degrees) to radians and a distance factor: what set_placements applies.

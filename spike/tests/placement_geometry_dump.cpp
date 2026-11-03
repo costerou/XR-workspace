@@ -4,6 +4,7 @@
 // Every desktop always faces you (a billboard toward the eye), so off-centre tiles are where the two could differ most.
 #include "xr/glass.hpp"
 #include "xr/view.hpp"
+#include <cmath>
 #include <cstdio>
 #include <iterator>
 #include <tuple>
@@ -42,13 +43,19 @@ int main() {
                 {t.x + t.width / 2, t.y + t.height / 2}, {t.x + t.width * 0.3f, t.y + t.height * 0.8f},
                 {t.x - 50, t.y + t.height / 3}, {t.x + t.width + 30, t.y + t.height + 24}, {t.x + t.width / 4, t.y - 100}, {0, 0},
                 {c.view_w, c.view_h}};
-            for (const MenuPlacement& rest : rests)
+            // The levelling roll (hundredths of a degree, orbit.py's optional 'roll'): none for every rest, then a few on the
+            // first two rests.
+            const std::int32_t rolls[] = {0, 1500, -4250, 9000};
+            for (const std::int32_t roll : rolls)
+            for (std::size_t r = 0; r < std::size(rests); ++r)
                 for (const std::int32_t x : xs)
                     for (const std::int32_t y : ys) {
-                        MenuPlacement wire = rest;
+                        if (roll && r > 1) continue;
+                        MenuPlacement wire = rests[r];
                         wire[0] = x;
                         wire[1] = y;
-                        const Placement p = placement_from_wire(wire);
+                        Placement p = placement_from_wire(wire);
+                        p.roll = float(roll) / 100.f * float(M_PI) / 180.f;
                         out += first ? "{" : ",{";
                         first = false;
                         out += "\"canvas\":[" + num(c.view_w) + "," + num(c.view_h) + "," + num(c.half_w) + "," + num(c.half_h) + "]";
@@ -57,6 +64,7 @@ int main() {
                         const char* keys[] = {"x", "y", "distance", "curvature"};
                         static_assert(std::size(keys) == std::tuple_size_v<MenuPlacement>);
                         for (std::size_t k = 0; k < wire.size(); ++k) out += (k ? ",\"" : "\"") + std::string(keys[k]) + "\":" + std::to_string(wire[k]);
+                        if (roll) out += ",\"roll\":" + std::to_string(roll);
                         out += "},\"points\":[";
                         bool first_point = true;
                         for (const auto& [px, py] : points) {
