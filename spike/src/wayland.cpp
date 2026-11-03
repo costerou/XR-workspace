@@ -19,11 +19,15 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #undef namespace
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
 #include <poll.h>
+#include <optional>
 #include <regex>
+#include <span>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <vector>
@@ -89,8 +93,28 @@ struct Presentation::Impl : SurfaceRequests {
         wl_buffer* proxy = nullptr;
         void* memory = MAP_FAILED;
         std::size_t bytes = 0;
-        std::uint32_t width = 0, height = 0;
+        std::uint32_t width = 0, height = 0, stride = 0;
         bool busy = false;
+        // CPU composition: the tiles and each tile's source frame this buffer's pixels show (only we write them, and a
+        // capture never writes the slot that is its ready frame), so redrawing the same content writes nothing.
+        struct Content {
+            bool valid = false;
+            std::size_t n = 0;
+            std::array<Rect, 3> tiles{};
+            std::array<TileSource, 3> sources{};
+            std::array<std::uint64_t, 3> frames{};
+            bool operator==(const Content& o) const {
+                if (valid != o.valid || n != o.n) return false;
+                for (std::size_t i = 0; i < n; ++i) {
+                    const auto &a = tiles[i], &b = o.tiles[i];
+                    const auto &s = sources[i], &t = o.sources[i];
+                    if (a.x != b.x || a.y != b.y || a.width != b.width || a.height != b.height || s.pixels != t.pixels ||
+                        s.width != t.width || s.height != t.height || s.stride_px != t.stride_px || frames[i] != o.frames[i])
+                        return false;
+                }
+                return true;
+            }
+        } content;
         ~Buffer() { if (proxy) wl_buffer_destroy(proxy); if (memory != MAP_FAILED) munmap(memory, bytes); }
     };
     std::vector<std::unique_ptr<Buffer>> buffers;
@@ -149,17 +173,48 @@ struct Presentation::Impl : SurfaceRequests {
         }
     };
     std::vector<std::unique_ptr<Capture>> captures;
-    // Each capture's own size for layout; one without a frame size yet holds a 1920x1080 tile.
-    std::vector<Size> capture_sizes() const {
-        std::vector<Size> out;
-        for (const auto& c : captures)
-            out.push_back(c->plan && c->plan->width && c->plan->height ? Size{float(c->plan->width), float(c->plan->height)} : Size{1920, 1080});
+    // Each capture's own size for layout; one without a frame size yet holds a 1920x1080 tile. At most three captures
+    // (open() takes only a parse_capture_list allowlist), so no allocation.
+    struct Sizes {
+        std::array<Size, 3> v{};
+        std::size_t n = 0;
+        std::span<const Size> span() const { return {v.data(), n}; }
+    };
+    Sizes capture_sizes() const {
+        Sizes out;
+        for (const auto& c : captures) {
+            if (out.n == out.v.size()) break;
+            out.v[out.n++] = c->plan && c->plan->width && c->plan->height ? Size{float(c->plan->width), float(c->plan->height)} : Size{1920, 1080};
+        }
         return out;
     }
+    // Layouts are pure functions of the capture sizes, the surface size and three view floats: remembered with those
+    // inputs (bit for bit) and recomputed only when one changes, so a settled view lays nothing out per frame or wake.
+    using LayoutKey = std::array<std::uint32_t, 12>;
+    LayoutKey layout_key(const Sizes& z, float a, float b, float c) const {
+        LayoutKey k{};
+        for (std::size_t i = 0; i < z.v.size(); ++i) {
+            k[2 * i] = i < z.n ? std::bit_cast<std::uint32_t>(z.v[i].w) : 0u;
+            k[2 * i + 1] = i < z.n ? std::bit_cast<std::uint32_t>(z.v[i].h) : 0u;
+        }
+        k[6] = std::uint32_t(z.n); k[7] = width; k[8] = height;
+        k[9] = std::bit_cast<std::uint32_t>(a); k[10] = std::bit_cast<std::uint32_t>(b); k[11] = std::bit_cast<std::uint32_t>(c);
+        return k;
+    }
+    std::optional<LayoutKey> draw_tiles_key, overview_key, cpu_tiles_key;
+    std::vector<FRect> draw_tiles;       // blended_layout for the GL frame
+    std::string overview_line;           // overview_geometry_json of the settled overview
+    std::vector<Rect> cpu_tiles;         // side_by_side for the CPU frame
+    std::vector<Placement> resolved;     // resolved_placements() of the frame being drawn
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
     std::unique_ptr<VideoMode> video;     // VR video (video_mode.hpp); created on the first open
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
+    std::vector<std::uint64_t> drawn;     // per capture: `uploaded` as of the last draw (SHM: one upload ahead at most)
+    std::vector<std::uint64_t> frames_at_draw;  // per capture: its frame counter at the last draw
+    std::vector<std::uint32_t> early_hold;      // per capture: draws left with early uploads off (it outpaced the draws)
+    static constexpr std::uint32_t kEarlyHoldDraws = 32;
+    bool upload_failed = false;           // an early SHM upload failed; the next draw reports it
     ViewAnimator view{220.f};
     // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
     std::vector<std::array<std::int32_t, 4>> placements;
@@ -182,14 +237,14 @@ struct Presentation::Impl : SurfaceRequests {
         for (std::size_t i = 0; i < eased.size(); ++i) if (!same_placement(eased[i], target_placement(i))) return true;
         return false;
     }
-    std::vector<Placement> resolved_placements() const {
-        std::vector<Placement> out;
+    const std::vector<Placement>& resolved_placements() {
+        resolved.clear();  // keeps its capacity: no allocation per frame
         const float zoom = view.zoom(), position = view.position();
         for (std::size_t i = 0; i < captures.size(); ++i) {
             const Placement p = i < eased.size() ? eased[i] : target_placement(i);
-            out.push_back(zoomed_placement(p, zoom, position, i));  // the zoomed desktop flat in front, the rest at their slots
+            resolved.push_back(zoomed_placement(p, zoom, position, i));  // the zoomed desktop flat in front, the rest at their slots
         }
-        return out;
+        return resolved;
     }
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
@@ -349,8 +404,9 @@ struct Presentation::Impl : SurfaceRequests {
         c.ready = c.capturing; c.capturing = -1; ++c.frames; c.last_ready_ms = monotonic_ms();
         if (c.path == Capture::Path::Dmabuf) ++c.dmabuf_frames;
         c.owner->cadence.invalidate();
-        if (c.realloc_pending) { c.owner->apply_batch(c); return; }
-        c.owner->capture_next(c);
+        if (c.realloc_pending) { c.owner->apply_batch(c); return; }  // reallocation drops this frame (ready = -1): no upload
+        c.owner->capture_next(c);  // never targets the ready slot, which upload_early reads
+        c.owner->upload_early(c);
     }
     static void frame_failed(void* data, ext_image_copy_capture_frame_v1* frame, uint32_t reason) {
         auto& c = *static_cast<Capture*>(data);
@@ -368,8 +424,24 @@ struct Presentation::Impl : SurfaceRequests {
     }
     inline static const ext_image_copy_capture_frame_v1_listener capture_frame_listener{
         frame_transform, frame_damage, frame_time, frame_ready, frame_failed};
+    // SHM capture with GPU composition: upload a new frame when it lands, while waiting for the frame callback, instead of
+    // between the callback and the commit. At most one upload ahead of the draws per source: a frame that lands before
+    // that one is drawn waits for the draw-time upload as before, so the draw still shows the newest frame. A source that
+    // delivered two or more frames between two draws (capture faster than the display, or a starved renderer) would
+    // mostly upload frames that are never drawn, so it goes back to draw-time uploads only for kEarlyHoldDraws draws.
+    // (Only difference in what is shown: a frame uploaded early and then dropped by a capture reallocation stays on the
+    // texture until the next frame, where the draw-time-only path kept the frame before it.)
+    void upload_early(Capture& c) {
+        if (c.path != Capture::Path::Shm || !gl || c.ready < 0 || c.index >= uploaded.size() || c.index >= drawn.size() ||
+            c.index >= early_hold.size() || early_hold[c.index] || uploaded[c.index] != drawn[c.index] || !c.slots[std::size_t(c.ready)])
+            return;
+        const auto& slot = *c.slots[std::size_t(c.ready)];
+        (void)wl_display_flush(display);  // the next capture request goes out before this 1-2 ms copy, not after it
+        if (gl->upload(c.index, slot.memory, slot.width, slot.height, slot.stride)) uploaded[c.index] = c.frames;
+        else upload_failed = true;
+    }
     std::unique_ptr<Buffer> make_shm(std::uint32_t w, std::uint32_t h, std::uint32_t stride, std::uint32_t format, const char* tag) {
-        auto b = std::make_unique<Buffer>(); b->width = w; b->height = h; b->bytes = std::size_t(stride) * h;
+        auto b = std::make_unique<Buffer>(); b->width = w; b->height = h; b->stride = stride; b->bytes = std::size_t(stride) * h;
         int fd = memfd_create(tag, MFD_CLOEXEC);
         if (fd < 0) return nullptr;
         if (ftruncate(fd, static_cast<off_t>(b->bytes)) < 0) { ::close(fd); return nullptr; }
@@ -483,22 +555,34 @@ struct Presentation::Impl : SurfaceRequests {
     inline static const wl_buffer_listener buffer_listener{released};
     static void sync_done(void* data, wl_callback*, uint32_t) { *static_cast<bool*>(data) = true; }
     inline static const wl_callback_listener sync_listener{sync_done};
-    bool pump(int timeout, int wake_fd = -1) {
+    // `wake_ready` (optional) is false only when poll saw the wake fd idle; true whenever it may need reading.
+    bool pump(int timeout, int wake_fd = -1, bool* wake_ready = nullptr) {
+        if (wake_ready) *wake_ready = true;
         if (!display || closed) return false;
-        while (wl_display_prepare_read(display) != 0)
-            if (wl_display_dispatch_pending(display) < 0) return false;
+        int dispatched = 0;
+        while (wl_display_prepare_read(display) != 0) {
+            const int n = wl_display_dispatch_pending(display);
+            if (n < 0) return false;
+            dispatched += n;
+        }
         const int flushed = wl_display_flush(display);
         if (flushed < 0 && errno != EAGAIN) { wl_display_cancel_read(display); return false; }
         pollfd fds[2] = {{wl_display_get_fd(display), static_cast<short>(POLLIN | (flushed < 0 ? POLLOUT : 0)), 0}, {wake_fd, POLLIN, 0}};
         auto& fd = fds[0];
         // A readable wake fd only ends the wait; the caller reads it. Its errors are the caller's to notice too.
-        int result = poll(fds, wake_fd >= 0 ? 2 : 1, timeout);
+        // Events another reader (Mesa) had queued were just dispatched and may allow a draw: look, do not wait.
+        int result = poll(fds, wake_fd >= 0 ? 2 : 1, dispatched > 0 ? 0 : timeout);
         if (result < 0 && errno == EINTR) { wl_display_cancel_read(display); return true; }
         if (result < 0 || (fd.revents & (POLLERR | POLLHUP | POLLNVAL))) { wl_display_cancel_read(display); return false; }
+        if (wake_ready && wake_fd >= 0) *wake_ready = fds[1].revents != 0;
         if (fd.revents & POLLIN) {
             if (wl_display_read_events(display) < 0) return false;
         } else wl_display_cancel_read(display);
-        return wl_display_dispatch_pending(display) >= 0 && !closed;
+        if (wl_display_dispatch_pending(display) < 0 || closed) return false;
+        // Send what the callbacks queued (a capture's next frame request above all) now, not with the next swap or pump.
+        // A full socket (EAGAIN) or a broken one is left to the next flush, as before.
+        (void)wl_display_flush(display);
+        return true;
     }
     bool roundtrip() {
         bool finished = false;
@@ -694,6 +778,16 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
     if (s->capture_requested) {
         s->gl = GlCompositor::create(s->display, s->surface, s->width, s->height, s->captures.size(), s->gl_fallback);
         if (!s->gl && s->gl_fallback.empty()) s->gl_fallback = "unknown";
+        s->uploaded.assign(s->captures.size(), 0);
+        s->drawn.assign(s->captures.size(), 0);
+        s->frames_at_draw.assign(s->captures.size(), 0);
+        s->early_hold.assign(s->captures.size(), 0);
+        s->allocation_enabled = true;
+        for (auto& c : s->captures) if (!c->stopped && c->plan && c->capturing < 0) s->allocate(*c);
+        if (s->closed) return Error{"capture", "capture buffer allocation failed"};
+        // The capture buffer (dmabuf params) or first frame requests go out now, so the compositor works on them while
+        // the fonts load below instead of after. A failed flush is found by the next pump, as before.
+        (void)wl_display_flush(s->display);
         if (s->gl) {  // pop-up text font; the built-in pixel font is the reported fallback
             std::string why; auto font = HudFont::load(kHudFontFamily, why);
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
@@ -701,15 +795,12 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
             std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
         }
-        s->uploaded.assign(s->captures.size(), 0);
-        s->allocation_enabled = true;
-        for (auto& c : s->captures) if (!c->stopped && c->plan && c->capturing < 0) s->allocate(*c);
-        if (s->closed) return Error{"capture", "capture buffer allocation failed"};
     }
     impl_ = std::move(s); return {};
 }
-Status Presentation::dispatch(int timeout_ms, int wake_fd) {
-    if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms, wake_fd)) return Error{"dispatch", "closed, removed or disconnected"};
+Status Presentation::dispatch(int timeout_ms, int wake_fd, bool* wake_ready) {
+    if (wake_ready) *wake_ready = true;
+    if (timeout_ms < 0 || timeout_ms > 100 || !impl_ || !impl_->pump(timeout_ms, wake_fd, wake_ready)) return Error{"dispatch", "closed, removed or disconnected"};
     return {};
 }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
@@ -793,8 +884,15 @@ void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32
 std::optional<std::string> Presentation::take_overview_geometry() {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
-    const auto tiles = overview_layout(s.capture_sizes(), float(s.width), float(s.height), s.view.target_spacing());
-    auto line = overview_geometry_json(tiles, s.width, s.height, s.half_w, s.half_h);
+    // Called on every main-loop wake: lay out and format only when an input changed.
+    const auto sizes = s.capture_sizes();
+    const auto key = s.layout_key(sizes, s.view.target_spacing(), s.half_w, s.half_h);
+    if (s.overview_key != key) {
+        const auto tiles = overview_layout(sizes.span(), float(s.width), float(s.height), s.view.target_spacing());
+        s.overview_line = overview_geometry_json(tiles, s.width, s.height, s.half_w, s.half_h);
+        s.overview_key = key;
+    }
+    const auto& line = s.overview_line;
     if (line.empty() || line == s.overview_geometry_sent) return std::nullopt;
     s.overview_geometry_sent = line;
     return line;
@@ -805,7 +903,13 @@ std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
     auto& s = *impl_;
     const bool up = s.help.visible() && s.help.generation() && s.view.zoom() < 0.01f && s.half_w > 0 &&
                     !(s.video && s.video->active());  // the free pointer is overview-only and off during a video
-    std::string line = "{\"help_geometry\":null}";
+    // Called on every main-loop wake. The two common cases return what the full path below would, without building a line:
+    // the card is down and "null" was already sent, or it stays up inside the rate limit (equal line or not, no send).
+    static const std::string kNullLine = "{\"help_geometry\":null}";
+    if (!up && s.help_geometry_sent == kNullLine) return std::nullopt;
+    if (up && s.help_geometry_sent.rfind("{\"help_geometry\":{", 0) == 0 && now_ms - s.help_geometry_ms < kHelpGeometryMs)
+        return std::nullopt;
+    std::string line = kNullLine;
     if (up) {
         const auto& im = s.help.image();
         line = help_geometry_json(s.last_head, s.width, s.height, s.half_w, s.half_h,
@@ -839,6 +943,7 @@ Status Presentation::draw_test_pattern() {
     auto& s = *impl_;
     if (!s.cadence.ready(monotonic_ms(), true, s.metrics.can_submit())) return {};
     if (s.gl) {
+        if (s.upload_failed) return Error{"gl", "texture upload failed"};  // an early upload (upload_early) failed
         for (std::size_t i = 0; i < s.captures.size(); ++i) {
             auto& c = *s.captures[i];
             if (c.ready < 0 || c.frames == s.uploaded[i]) continue;
@@ -846,9 +951,17 @@ Status Presentation::draw_test_pattern() {
                 s.gl->present_dmabuf(i, c.ready); c.presented = c.ready; s.uploaded[i] = c.frames; continue;
             }
             if (!c.slots[c.ready]) continue;
-            if (!s.gl->upload(i, c.slots[c.ready]->memory, c.plan->width, c.plan->height, c.plan->stride))
+            const auto& slot = *c.slots[c.ready];  // the slot's own geometry (c.plan may be reset while waiting for constraints)
+            if (!s.gl->upload(i, slot.memory, slot.width, slot.height, slot.stride))
                 return Error{"gl", "texture upload failed"};
             s.uploaded[i] = c.frames;
+        }
+        std::copy(s.uploaded.begin(), s.uploaded.end(), s.drawn.begin());
+        for (std::size_t i = 0; i < s.captures.size() && i < s.early_hold.size(); ++i) {  // see upload_early
+            const auto frames = s.captures[i]->frames;
+            if (frames - s.frames_at_draw[i] >= 2) s.early_hold[i] = Impl::kEarlyHoldDraws;
+            else if (s.early_hold[i]) --s.early_hold[i];
+            s.frames_at_draw[i] = frames;
         }
         s.view.advance(double(monotonic_ms()));
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
@@ -884,7 +997,15 @@ Status Presentation::draw_test_pattern() {
         }
         if (!s.half_w) s.update_fov();
         s.ease_placements(double(monotonic_ms()));
-        auto tiles = blended_layout(s.capture_sizes(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position());
+        {  // the settled view keeps its layout; only a change (zoom, switch, spacing, size) lays the tiles out again
+            const auto sizes = s.capture_sizes();
+            const auto key = s.layout_key(sizes, s.view.spacing(), s.view.zoom(), s.view.position());
+            if (s.draw_tiles_key != key) {
+                s.draw_tiles = blended_layout(sizes.span(), float(s.width), float(s.height), s.view.spacing(), s.view.zoom(), s.view.position());
+                s.draw_tiles_key = key;
+            }
+        }
+        const auto& tiles = s.draw_tiles;
         s.frame = wl_surface_frame(s.surface); wl_callback_add_listener(s.frame, &Impl::frame_listener, &s);
         if (s.presentation) {
             auto slot = std::find_if(s.feedbacks.begin(), s.feedbacks.end(), [](const auto& f) { return !f.proxy; });
@@ -944,7 +1065,7 @@ Status Presentation::draw_test_pattern() {
     if (!buffer) {
         if (!s.cadence.ready(monotonic_ms(), s.buffers.size() < 3, s.metrics.can_submit())) return {}; // Wait for release; never reuse busy memory.
         auto b = std::make_unique<Impl::Buffer>(); b->width = s.width; b->height = s.height;
-        b->bytes = std::size_t(s.width) * s.height * 4;
+        b->bytes = std::size_t(s.width) * s.height * 4; b->stride = s.width * 4;
         int fd = memfd_create("xr-test-pattern", MFD_CLOEXEC);
         if (fd < 0) return Error{"shm", "memfd failed"};
         if (ftruncate(fd, static_cast<off_t>(b->bytes)) < 0) { ::close(fd); return Error{"shm", "resize failed"}; }
@@ -959,17 +1080,29 @@ Status Presentation::draw_test_pattern() {
     }
     auto* pixels = static_cast<std::uint32_t*>(buffer->memory);
     if (!s.captures.empty()) {
-        std::fill(pixels, pixels + std::size_t(s.width) * s.height, 0xff000000u);
-        auto tiles = side_by_side(s.capture_sizes(), s.width, s.height);
-        for (std::size_t i = 0; i < s.captures.size() && i < tiles.size(); ++i) {
-            auto& c = *s.captures[i];
-            if (c.ready < 0 || !c.slots[c.ready]) continue;  // not yet captured: stays black
-            blit_nearest(static_cast<const std::uint32_t*>(c.slots[c.ready]->memory), c.plan->width, c.plan->height, c.plan->stride / 4,
-                         pixels, s.width, s.height, s.width, tiles[i]);
+        const auto sizes = s.capture_sizes();
+        const auto key = s.layout_key(sizes, 0.f, 0.f, 0.f);
+        if (s.cpu_tiles_key != key) { s.cpu_tiles = side_by_side(sizes.span(), s.width, s.height); s.cpu_tiles_key = key; }
+        // Black, each captured source nearest-scaled into its tile; one not captured yet stays black.
+        Impl::Buffer::Content content;
+        content.valid = true;
+        content.n = std::min({s.captures.size(), s.cpu_tiles.size(), content.sources.size()});
+        for (std::size_t i = 0; i < content.n; ++i) {
+            content.tiles[i] = s.cpu_tiles[i];
+            const auto& c = *s.captures[i];
+            if (c.ready < 0 || !c.slots[c.ready]) continue;
+            const auto& slot = *c.slots[c.ready];  // the slot's own geometry (c.plan may be reset while waiting for constraints)
+            content.sources[i] = {static_cast<const std::uint32_t*>(slot.memory), slot.width, slot.height, slot.stride / 4};
+            content.frames[i] = c.frames;
+        }
+        if (!(buffer->content == content)) {  // the same frame again (static desktops) is committed as is
+            compose_tiles(pixels, s.width, s.height, s.width, std::span<const TileSource>(content.sources.data(), content.n),
+                          std::span<const Rect>(content.tiles.data(), content.n), 0xff000000u);
+            buffer->content = content;
         }
     } else {
-        for (std::uint32_t y = 0; y < s.height; ++y)
-            for (std::uint32_t x = 0; x < s.width; ++x) pixels[std::size_t(y) * s.width + x] = animated_pattern_pixel(x, y, s.width, s.height, s.cadence.phase());
+        buffer->content.valid = false;
+        render_animated_pattern(pixels, s.width, s.height, s.width, s.cadence.phase());
     }
     if (s.cadence.finished(monotonic_ms())) return {};
     buffer->busy = true;

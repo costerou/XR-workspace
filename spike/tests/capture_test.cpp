@@ -1,4 +1,5 @@
 #include "xr/capture.hpp"
+#include "../bench/reference_pixels.hpp"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -75,5 +76,83 @@ int main() {
     std::vector<std::uint32_t> clip(4, 7);
     blit_nearest(src.data(), 2, 2, 2, clip.data(), 2, 2, 2, {1, 1, 4, 4});  // clipped, no overrun
     CHECK(clip[0] == 7 && clip[1] == 7 && clip[2] == 7 && clip[3] == 0xff000001);
+
+    // The divide-free blit_nearest and the single-write compose_tiles give exactly the previous pixels
+    // (bench/reference_pixels.hpp: per-pixel division; fill everything, then blit).
+    std::uint64_t seed = 0x9e3779b97f4a7c15ull;
+    auto rnd = [&](std::uint32_t n) { seed = seed * 6364136223846793005ull + 1442695040888963407ull; return n ? std::uint32_t((seed >> 33) % n) : 0u; };
+    auto noise = [&](std::size_t n) { std::vector<std::uint32_t> v(n); for (auto& p : v) p = rnd(0xffffffffu) ^ (rnd(2) << 31); return v; };
+    for (int trial = 0; trial < 4000; ++trial) {  // small sizes: empty, clipped, off-surface, up- and downscaled rects, padded strides
+        const std::uint32_t sw = 1 + rnd(40), sh = 1 + rnd(40), sstride = sw + rnd(3), dw = 1 + rnd(60), dh = 1 + rnd(60), dstride = dw + rnd(3);
+        const Rect r{rnd(dw + 10), rnd(dh + 10), rnd(90), rnd(90)};
+        const auto pixels = noise(std::size_t(sstride) * sh);
+        std::vector<std::uint32_t> a(std::size_t(dstride) * dh, 0x12345678u), b = a;
+        reference::blit_nearest(pixels.data(), sw, sh, sstride, a.data(), dw, dh, dstride, r);
+        blit_nearest(pixels.data(), sw, sh, sstride, b.data(), dw, dh, dstride, r);
+        CHECK(a == b);
+    }
+    blit_nearest(nullptr, 2, 2, 2, clip.data(), 2, 2, 2, {0, 0, 2, 2});  // no source: nothing written
+    {  // uint32 edges: rect sizes above 2^31 (the column remainder needs 64 bits), rects ending past UINT32_MAX
+        const std::uint32_t big[] = {0x80000001u, 0xF0000000u, 0xFFFFFFFFu, 3u};
+        for (const std::uint32_t rw : big) for (const std::uint32_t sw : big) for (const std::uint32_t rx : {0u, 5u, 0xFFFFFFF0u}) {
+            const std::uint32_t dw = 37, dh = 3;
+            const Rect r{rx, 1, rw, 0xFFFFFFFEu};
+            // Only columns floor(i * sw / rw), i < 37, are read: size the source row for those (skip what needs > 4096).
+            const std::uint64_t reach = std::uint64_t(dw) * sw / rw + 1;
+            if (reach > 4096) continue;
+            const auto stride = std::uint32_t(reach);
+            const auto pixels = noise(std::size_t(stride) * 2);
+            std::vector<std::uint32_t> a(std::size_t(dw) * dh, 9u), b = a;
+            reference::blit_nearest(pixels.data(), sw, 2, stride, a.data(), dw, dh, dw, r);
+            blit_nearest(pixels.data(), sw, 2, stride, b.data(), dw, dh, dw, r);
+            CHECK(a == b);
+        }
+    }
+    CHECK(clip[0] == 7 && clip[3] == 0xff000001);
+    for (int trial = 0; trial < 1500; ++trial) {  // compositions: overlapping tiles, missing sources, padded rows, > 8 tiles
+        const std::uint32_t dw = 1 + rnd(70), dh = 1 + rnd(50), dstride = dw + rnd(3), count = trial % 50 == 0 ? 9 + rnd(3) : rnd(5);
+        std::vector<std::vector<std::uint32_t>> frames;
+        std::vector<TileSource> sources;
+        std::vector<Rect> tiles;
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const std::uint32_t sw = 1 + rnd(30), sh = 1 + rnd(30), sstride = sw + rnd(2);
+            frames.push_back(noise(std::size_t(sstride) * sh));
+            sources.push_back(rnd(4) ? TileSource{frames.back().data(), sw, sh, sstride} : TileSource{});
+            switch (rnd(12)) {  // degenerate sources draw nothing: each term of the coverage test on its own
+            case 0: sources.back().width = 0; break;
+            case 1: sources.back().height = 0; break;
+            case 2: sources.back().pixels = nullptr; break;  // null with a size
+            default: break;
+            }
+            tiles.push_back({rnd(dw + 5), rnd(dh + 5), rnd(dw + 8), rnd(dh + 8)});
+        }
+        if (rnd(3) == 0 && !tiles.empty()) tiles.pop_back();  // fewer tiles than sources
+        const std::uint32_t background = rnd(0xffffffffu);
+        std::vector<std::uint32_t> a(std::size_t(dstride) * dh, 0x5a5a5a5au), b = a;
+        reference::compose_tiles(a.data(), dw, dh, dstride, sources, tiles, background);
+        compose_tiles(b.data(), dw, dh, dstride, sources, tiles, background);
+        CHECK(a == b);
+    }
+    {  // renderer-sized frames: 3, 2 (one not captured yet) and 1 desktops at 1920x1080 on a 1920x1200 output
+        const auto big = noise(std::size_t(1920) * 1080);
+        const TileSource full{big.data(), 1920, 1080, 1920};
+        for (int sources_n : {3, 2, 1}) {
+            std::vector<Size> sizes(std::size_t(sources_n), Size{1920, 1080});
+            const auto layout = side_by_side(sizes, 1920, 1200);
+            std::vector<TileSource> sources(std::size_t(sources_n), full);
+            if (sources_n == 2) sources[1] = {};
+            std::vector<std::uint32_t> a(std::size_t(1920) * 1200, 1u), b(std::size_t(1920) * 1200, 2u);
+            reference::compose_tiles(a.data(), 1920, 1200, 1920, sources, layout, 0xff000000u);
+            compose_tiles(b.data(), 1920, 1200, 1920, sources, layout, 0xff000000u);
+            CHECK(a == b);
+        }
+        const Size up[] = {{960, 540}};  // vertical and horizontal upscale (row reuse)
+        const auto layout = side_by_side(up, 1920, 1200);
+        const TileSource half{big.data(), 960, 540, 1920};
+        std::vector<std::uint32_t> a(std::size_t(1920) * 1200, 1u), b(std::size_t(1920) * 1200, 2u);
+        reference::compose_tiles(a.data(), 1920, 1200, 1920, std::span(&half, 1), layout, 0xff000000u);
+        compose_tiles(b.data(), 1920, 1200, 1920, std::span(&half, 1), layout, 0xff000000u);
+        CHECK(a == b);
+    }
     std::cout << "capture helpers passed\n";
 }

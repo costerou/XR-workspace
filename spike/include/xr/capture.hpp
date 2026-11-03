@@ -74,6 +74,14 @@ std::vector<Rect> side_by_side(std::span<const Size> sources, std::uint32_t dst_
 struct ClipQuad { float x0 = 0, y0 = 0, x1 = 0, y1 = 0; };
 ClipQuad clip_quad(Rect rect, std::uint32_t width, std::uint32_t height);
 // Nearest-neighbour scale of a 32-bit source into dst rect (clipped to dst); alpha forced opaque.
+// Source column/row for dst pixel i of the rect: floor(i * src_size / rect_size). No per-pixel division.
 void blit_nearest(const std::uint32_t* src, std::uint32_t src_width, std::uint32_t src_height, std::uint32_t src_stride_px,
                   std::uint32_t* dst, std::uint32_t dst_width, std::uint32_t dst_height, std::uint32_t dst_stride_px, Rect rect);
+// One source of the CPU composition; null pixels (not captured yet) draw nothing.
+struct TileSource { const std::uint32_t* pixels = nullptr; std::uint32_t width = 0, height = 0, stride_px = 0; };
+// CPU composition frame (the GPU-less fallback): `background` in columns [0, dst_width) of every row, then sources[i]
+// blit_nearest-ed into tiles[i] in order. Pixel-identical to filling and then blitting, but each pixel is written once:
+// only what no blit covers gets the background.
+void compose_tiles(std::uint32_t* dst, std::uint32_t dst_width, std::uint32_t dst_height, std::uint32_t dst_stride_px,
+                   std::span<const TileSource> sources, std::span<const Rect> tiles, std::uint32_t background);
 }
