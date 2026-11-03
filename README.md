@@ -301,6 +301,12 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
   beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)
   doesn't switch. Not in typing mode or during a VR video.
+- **Scrolling layout: the columns come first** (new, not yet tried in the glasses): maximized on a workspace in
+  Hyprland's scrolling layout, pushing the mouse against the left or right edge scrolls the windows waiting past it
+  into view first, one column at a time, as on your normal monitor. The mouse stays at the edge meanwhile. Once the
+  last column is in, it waits a moment (about half a second), and only then does pushing on, or pushing again, switch
+  to the desktop placed that way. Other layouts, fullscreen windows and the top and bottom edges work as before. The
+  scrolling also works in typing mode (which never switches).
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
 Maximizing (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)

@@ -1,0 +1,50 @@
+Proposed change to the desktop's edge scroller, ~/.config/hypr/scripts/scroll-edge.py (outside this repo; not applied
+by anything here). Optional: XR Workspace works with it applied or not (docs/technical.md, "With scroll-edge.py").
+
+Its edge loop leaves the left / right edges of the XR-n desktops to XR Workspace, which scrolls their columns itself
+before a push there switches desktops (tools/native_spike/columns.py). Click-to-reveal still acts on every output.
+Fixes: one owner for those edges, so no second scroll for one step even on a loaded machine; and scroll-edge.py no
+longer scrolls the neighbouring XR desktop when the hand briefly pushes the cursor onto its edge.
+
+Made against the file as of 2026-11-03 (sha256 3b2be9241ba7685307eb64672c9d31e13595a41544aed8a914db753185cbbbc5).
+Apply, then restart it:
+    cd ~/.config/hypr/scripts && patch -p1 < /path/to/viture-workspace/docs/scroll-edge-skip-xr.patch
+    ./scroll-edge.py --stop; sleep 1; ./scroll-edge.py --toggle
+
+--- a/scroll-edge.py
++++ b/scroll-edge.py
+@@ -7,7 +7,9 @@
+ 2) Mouse hover/click focusing a partly off-screen tiled window -> re-issue
+    focus via dispatch so the layout fits it into view.
+ 
+-Acts on all outputs, including VITURE/XR (XR-* virtual monitors, glasses DP-2).
++Acts on all outputs, including VITURE/XR (XR-* virtual monitors, glasses DP-2), except that the edge scroll (1)
++leaves the XR-n desktops' edges to XR Workspace, which scrolls their columns itself before a push there switches
++desktops (viture-workspace tools/native_spike/columns.py). Click-to-reveal (2) still acts on them.
+ Workspaces using master/dwindle are untouched (only "scrolling" acts).
+ 
+ Usage:  scroll-edge.py            start (single instance; exits if running)
+@@ -16,12 +18,13 @@
+ Log of actions: $XDG_RUNTIME_DIR/hypr-scroll-edge.log
+ Disable autostart: comment out the scroll-edge line in ~/.config/hypr/autostart.lua
+ """
+-import fcntl, json, os, signal, socket, sys, threading, time
++import fcntl, json, os, re, signal, socket, sys, threading, time
+ 
+ EDGE_PX = 2
+ COOLDOWN = 0.35
+ POLL = 1 / 30
+ REVEAL_GUARD = 0.3
++XR_OUTPUT = re.compile(r"XR-[0-9]+\Z")  # XR Workspace's virtual desktops: their edges are its own (see above)
+ 
+ RUN = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+ SIG = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+@@ -170,7 +173,7 @@
+                 continue
+             mx, my, mw, mh = logical(m)
+             if my <= cy < my + mh and mx <= cx < mx + mw:
+-                if ignored(m):
++                if ignored(m) or XR_OUTPUT.match(m.get("name", "")):
+                     break
+                 if cx >= mx + mw - EDGE_PX:
+                     side = "r"
