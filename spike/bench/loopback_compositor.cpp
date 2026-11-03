@@ -74,6 +74,7 @@ struct Options {
     double seconds = 5, warmup = 1.5, hz = 120, capture_hz = 119.7;
     int outputs = 3;
     bool check = false, tracking = false;
+    std::string environment;  // the TRON grid's colour, sent as an `environment` frame at the start; empty: off
     // Constraint churn, as Hyprland sends it on monitor mode events (a layout change re-checks every monitor rule; a config
     // reload takes each XR-n output through the default rule and back): "bounce" resends each session's constraints as
     // another size and straight back in one flush, plus an unchanged batch; "resize" alternates the source size, failing
@@ -809,7 +810,7 @@ void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..3] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--check]\n");
+                         "                  [--environment cyan|theme] [--check]\n");
 }
 }  // namespace
 
@@ -830,6 +831,7 @@ int main(int argc, char** argv) {
         else if (a == "--check") opt.check = true;
         else if (a == "--constraint-churn") opt.churn = next();
         else if (a == "--tracking") opt.tracking = true;
+        else if (a == "--environment") opt.environment = next();  // the TRON grid on from the start: cyan | theme
         else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
         else { usage(); return 2; }
     }
@@ -967,6 +969,7 @@ int main(int argc, char** argv) {
     if (capture)
         send_frame(2, "view", "{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,"
                               "\"prediction\":false,\"typing\":false}");
+    if (capture && !opt.environment.empty()) send_frame(3, "environment", "{\"on\":true,\"color\":\"" + opt.environment + "\"}");
 
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
     std::string stderr_text;
@@ -1015,7 +1018,7 @@ int main(int argc, char** argv) {
             cpu1 = process_cpu_ns(measured_pid); ctx1 = process_ctx_switches(measured_pid); hb1 = heartbeats;
             if (malloc_count) { mallocs1 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(0); }
             server.measuring = false;
-            send_frame(capture ? 3 : 2, "stop", "{}");
+            send_frame(capture ? (opt.environment.empty() ? 3 : 4) : 2, "stop", "{}");
             stop_sent = true; stop_deadline = t + 5'000'000'000;
         }
         if (!child_exited && waitpid(pid, &child_status, WNOHANG) == pid) child_exited = true;

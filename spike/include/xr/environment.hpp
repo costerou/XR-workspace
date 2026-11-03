@@ -13,6 +13,10 @@
 // cards are drawn over it unchanged. Off (and once its fade-out has finished) the pass is skipped and every frame is exactly
 // what it was without it.
 //
+// Frames. It asks for frames only while it fades: a head-tracked run draws every frame anyway, so its pulses run smoothly.
+// Without head tracking a settled grid is redrawn only when something else is (a pulse then moves in steps), because a renderer
+// that draws on every callback shows a new desktop frame a refresh later (capture_e2e_bench: 5 -> 13 ms capture to present).
+//
 // Pure and offline-testable; the GL pass and the renderer's frame loop use these.
 #include "xr/material.hpp"
 #include "xr/pose.hpp"
@@ -53,9 +57,7 @@ public:
     float level(double now_ms) const;    // 0 (off) .. 1 (on), smoothstep-eased
     MdRgb color(double now_ms) const;    // the line colour now
     bool on() const { return on_; }
-    // Anything to draw this frame (level > 0), or a fade or crossfade still running.
-    bool active(double now_ms) const;
-    bool animating(double now_ms) const;
+    bool animating(double now_ms) const;  // a fade or crossfade is running
 private:
     bool on_ = false;
     float from_level_ = 0;               // the level when the last on / off change started

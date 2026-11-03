@@ -213,6 +213,21 @@ worst case:
 So about 0.05 ms of the 8.3 ms frame on the glasses' GPU, the same in every scenario: the pass shades each pixel once
 whatever is in front of it. Its shader compiles at renderer start, not on the first frame it shows.
 
+Through the real renderer (`capture_e2e_bench --mode gl-dmabuf --seconds 8 --warmup 2 --hz 120`, zero-copy on the RX 7800 XT
+against the loopback compositor, so a stand-in for Hyprland and no glasses; `--environment cyan` for on, `--tracking` for
+a head-tracked run):
+
+| Run | Grid | Commits/s | Capture to present p50 / p99 | Blank frames |
+| --- | --- | --- | --- | --- |
+| Head tracked | off | 120.0 | 13.12 / 16.47 ms | 0 |
+| Head tracked | on | 120.0 | 13.13 / 16.48 ms | 0 |
+| No head tracking | off | 119.8 | 5.11 / 8.40 ms | 0 |
+| No head tracking | on | 119.8 | 5.14 / 8.43 ms | 0 |
+
+The grid asks for frames only while it fades. A settled grid needs none of its own in a head-tracked run, which draws every
+frame anyway. Without head tracking a renderer drawing on every callback would show new desktop frames a refresh later
+(5 -> 13 ms: the two rows above differ for that reason), so there its pulses move only when something else redraws.
+
 ### Privacy mode (main display off)
 
 **Ctrl+Alt+D** during a run turns the main physical display off, so only the glasses show content. Press it again to
@@ -848,8 +863,9 @@ desktops' pixels do not change and the glow leaves no black halo; looking every 
 view stays dark and the sky stays black; the horizon sits where the pitch puts it, a whole turn gives the same frame, and in locked
 mode the grid turns while the desktops do not; the fade, the theme colour and the seamless clock wrap. It also writes preview
 PNGs (zlib) to `build/release/environment-previews/`, or to the directory given as its argument. `gl_bench`'s `*_env` scenarios
-add the grid to the fresh-compositor comparison, so it can leave no GL state behind, and to `--bench`. `test_environment.py`
-covers the setting, the keys, saving and restoring and the quality menu's row.
+add the grid to the fresh-compositor comparison, so it can leave no GL state behind, and to `--bench`. `capture_e2e_environment_*`
+send the real renderer its `environment` frame on both GL paths and check that frames keep flowing and no desktop goes blank.
+`test_environment.py` covers the setting, the keys, saving and restoring and the quality menu's row.
 
 The placement round you, with every desktop facing you (see
 [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), adds

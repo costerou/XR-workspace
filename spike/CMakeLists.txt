@@ -458,6 +458,11 @@ if(XR_ENABLE_PRESENTATION)
     endforeach()
     # Constraint churn as a Hyprland layout change or config reload sends it: no desktop goes blank, constraints that come
     # back re-create nothing, and a real size change keeps the last frame up until the new buffers deliver one.
+    foreach(MODE gl-shm gl-dmabuf)  # the TRON grid through the real renderer: its frame, the fade, the desktops still shown
+      add_test(NAME capture_e2e_environment_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
+        --environment cyan --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_environment_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endforeach()
     foreach(CHURN bounce resize)
       foreach(MODE cpu gl-shm gl-dmabuf)
         add_test(NAME capture_e2e_churn_${CHURN}_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1

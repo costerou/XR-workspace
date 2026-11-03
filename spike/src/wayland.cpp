@@ -807,7 +807,8 @@ struct Presentation::Impl : SurfaceRequests {
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
             (s.help_drawn && !s.help.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
-            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || (s.gl && s.environment.active(now)) || s.environment_drawn ||
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || (s.gl && s.environment.animating(now)) ||
+            (s.environment_drawn && !s.environment.on()) ||  // its fade; settled it needs no frames of its own: see environment.hpp
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
     }

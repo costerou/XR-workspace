@@ -68,6 +68,4 @@ MdRgb EnvironmentFade::color(double now_ms) const {
 bool EnvironmentFade::animating(double now_ms) const {
     return now_ms - level_ms_ < kEnvironmentFadeMs || now_ms - color_ms_ < kEnvironmentColorMs;
 }
-
-bool EnvironmentFade::active(double now_ms) const { return level(now_ms) > 0.f || animating(now_ms); }
 }

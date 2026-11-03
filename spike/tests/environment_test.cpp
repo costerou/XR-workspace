@@ -58,12 +58,12 @@ void colours() {
 
 void fade() {
     EnvironmentFade f;
-    CHECK(f.level(0) == 0.f && !f.active(0) && !f.animating(0) && !f.on());
+    CHECK(f.level(0) == 0.f && !f.animating(0) && !f.on());
     CHECK(f.set(false, kEnvironmentCyan, 0) == false);  // nothing changes
     CHECK(f.set(true, kEnvironmentCyan, 1000));
-    CHECK(f.level(1000) == 0.f && f.active(1000) && f.animating(1000));
+    CHECK(f.level(1000) == 0.f && f.animating(1000));
     CHECK(near(f.level(1000 + kEnvironmentFadeMs / 2), 0.5f));
-    CHECK(f.level(1000 + kEnvironmentFadeMs) == 1.f && !f.animating(1000 + kEnvironmentFadeMs) && f.active(5000));
+    CHECK(f.level(1000 + kEnvironmentFadeMs) == 1.f && !f.animating(1000 + kEnvironmentFadeMs) && f.level(5000) == 1.f);
     float last = 0;
     for (double t = 1000; t <= 1000 + kEnvironmentFadeMs; t += 10) { CHECK(f.level(t) + 1e-6f >= last); last = f.level(t); }
     CHECK(!f.set(true, kEnvironmentCyan, 2000));  // already on
@@ -73,7 +73,7 @@ void fade() {
     const float at = g.level(200);
     CHECK(g.set(false, kEnvironmentCyan, 200));
     CHECK(near(g.level(200), at) && g.level(200 + kEnvironmentFadeMs) == 0.f);
-    CHECK(!g.active(200 + kEnvironmentFadeMs) && !g.animating(200 + kEnvironmentFadeMs));
+    CHECK(!g.animating(200 + kEnvironmentFadeMs));
     // Colour: the first one is taken as is; a change crossfades.
     EnvironmentFade h;
     const MdRgb red{kEnvironmentCap, 0, 0};
@@ -83,7 +83,7 @@ void fade() {
     CHECK(h.color(1000) == red && h.color(1000 + kEnvironmentColorMs) == kEnvironmentCyan && h.animating(1000));
     const auto mid = h.color(1000 + kEnvironmentColorMs / 2);
     CHECK(near(mid[0], kEnvironmentCap / 2, 1e-3f) && near(mid[2], kEnvironmentCap / 2, 1e-3f));
-    CHECK(!h.animating(1000 + kEnvironmentColorMs) && h.active(1000 + kEnvironmentColorMs));
+    CHECK(!h.animating(1000 + kEnvironmentColorMs));
 }
 
 void views() {
