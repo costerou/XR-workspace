@@ -39,8 +39,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
       - elsewhere in the open panel: nothing (it stays open).
       - corner: resize (the `distance` placement), as before. A release that resized nothing, pressed on the corner
         zone's inner half (on the desktop), is a click on the desktop (below).
-      - desktop: select it, focus its monitor in Hyprland (view.ViewControl.focus_desktop), hand the cursor back there
-        (_clicked; under the input lock the held cursor moves there instead, so focus-follows-mouse agrees).
+      - desktop: zoom into it, leaving the overview, as Ctrl+Alt+Up does (view.ViewControl.focus_desktop: selected, its
+        monitor focused in Hyprland, zoomed in). The cursor then shows there, under the dot (_click_desktop / release_at;
+        input_lock.LockedSampler), so focus-follows-mouse agrees.
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
     collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
     still starts its drag or click, a desktop is still focused, empty space does nothing more).
@@ -382,6 +383,7 @@ class OverviewPointer:
         self.want = (0, 'off', None)  # (serial, 'off'|'away'|'desktop'|'free', layout point or None); read by the sampler
         self._sync = 0                # cursor samples count in desktop mode only once the sampler applied this serial
         self.summoned = False         # Ctrl+Alt+Down: bring a cursor that is off the desktops into the selected one
+        self.release_at = None        # a dot click that zooms in: where the cursor shows once the overview lets go
         self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
@@ -519,9 +521,17 @@ class OverviewPointer:
         return self._select(i)
 
     def _clicked(self, i, q):
-        """A click on desktop i at tile pixel q (after focus_desktop): the cursor comes back there, so Hyprland's
-        focus-follows-mouse agrees with the focus the click asked for."""
-        return self._enter(i, q)
+        """A click on desktop i at tile pixel q, just before it zooms in (_click_desktop): where the cursor should show
+        once the overview lets go of it, on that desktop's monitor under the dot (used by input_lock.LockedSampler)."""
+        self.release_at = self._to_layout(i, q)
+
+    def _click_desktop(self, i, q):
+        """A dot click on desktop i at tile pixel q: zoom into it, leaving the overview (view.ViewControl.focus_desktop:
+        selected, focused in Hyprland, zoomed in as Ctrl+Alt+Up does). Where the cursor shows is noted first: the sampler
+        may let go of the mouse as soon as the view is zoomed."""
+        self.focus_clicks += 1
+        self._clicked(i, q)
+        return self.control.focus_desktop(i)
 
     # --- the loop -------------------------------------------------------------------------------------------------
     def poll(self, now):
@@ -641,9 +651,8 @@ class OverviewPointer:
             elif d is not None and d['kind'] == 'corner' and d.get('on') is not None and self.pointer is not None \
                     and math.hypot(self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]) <= CLICK_PX \
                     and self.control.state.placements[d['index']]['distance'] == d['distance']:
-                self.drag = None  # a click on the desktop's own corner, not a resize: focus it like any desktop click
-                self.focus_clicks += 1
-                out += self.control.focus_desktop(d['index']) + self._clicked(d['index'], d['on'])
+                self.drag = None  # a click on the desktop's own corner, not a resize: zoom into it like any desktop click
+                out += self._click_desktop(d['index'], d['on'])
             out += self._end_drag()
         elif self.active() and self.mode == 'free' and not idle and self.pointer is not None:
             out += self._end_drag()  # a press during a drag: its release was lost; finish that one first
@@ -663,7 +672,7 @@ class OverviewPointer:
                     q = unproject(self.geometry, tile, p, self.pointer)  # the corner zone's inner half is on the desktop
                     on = q if q is not None and inside_by(tile, q) >= 0 else None
                     self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile,
-                                 'on': on}  # a release there that resized nothing is a click on the desktop: it focuses
+                                 'on': on}  # a release there that resized nothing is a click on the desktop: it zooms in
                     self.drags += 1
                 else:  # the desktop moves only once the pointer is CLICK_PX away; a release before that is a click
                     self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile, 'moved': False,
@@ -674,10 +683,8 @@ class OverviewPointer:
                 self.slides += 1
                 # The value jumps to the pointer; the panel stays drawn on the press-time placement until the release.
                 out += self.control.pill_slide(i, h[2], slider_fraction(h[3]), surface=self.drag['placement'])
-            elif h is not None and h[0] == 'desktop':  # focus it and hand the cursor back right there
-                self.focus_clicks += 1
-                out += self.control.focus_desktop(h[1])  # selected, and its monitor gets Hyprland's focus (off the loop)
-                out += self._clicked(h[1], h[2])
+            elif h is not None and h[0] == 'desktop':  # zoom into it (selected, focused, zoomed in: Ctrl+Alt+Up's path)
+                out += self._click_desktop(h[1], h[2])
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
 
