@@ -297,11 +297,12 @@ no compositor output change and no new journal record.
 
 ### The unified overview cursor
 
-Offline tests only (`tests/native_spike/test_unified_cursor.py`, plus `bind_check`'s `--verify-config` load of its
+Offline tests only (`tests/native_spike/test_unified_cursor.py`, `test_directional_switch.py`, plus `bind_check`'s `--verify-config` load of its
 binds); not run in a live compositor or tried in the glasses. Since 2026-11-02 (`dot-unified-cursor`) the dot is the
 one real cursor, and it only ever controls the selected desktop ("home"). The real Hyprland cursor stays on home's
-monitor, zoomed in and in the overview, and never moves to another monitor by hand. Switching desktops is a key
-(Ctrl+Alt+Left / Right) or, in the overview, a click on another desktop, which zooms into it.
+monitor, zoomed in and in the overview, and never crosses to another monitor in Hyprland's layout by hand. Switching
+desktops is a key (Ctrl+Alt+Left / Right), in the overview a click on another desktop, which zooms into it, or, zoomed in,
+a push past home's edge toward a desktop placed that way (below).
 `tools/native_spike/unified_cursor.py` wraps the free pointer above and replaces the input lock, which held the cursor
 still for the whole overview and let no click or wheel reach a window.
 
@@ -326,16 +327,35 @@ still for the whole overview and let no click or wheel reach a window.
 - **Keys:** Ctrl+Alt+Left / Right change the selected desktop. Home moves with it, and the cursor and dot go to the
   middle of the new home. Any other jump off home in the overview is pulled back home, or let go if it landed on the
   physical monitor. Cursor follow (Ctrl+Alt+F) was removed: monitor focus events never switch the view.
+- **Zoomed in, a push past an edge switches** (`dot-directional-switch`, 2026-11-03; `unified_cursor.EdgePush`,
+  `tools/native_spike/neighbors.py`; not in typing mode or during a VR video). The desktop it goes to is the one placed
+  past that edge round you, not the next in the row: each desktop is a direction from the eye (its centre as drawn,
+  `orbit.place_point` on the renderer's overview layout, with its orbit, distance and levelling roll) with its own right
+  and up axes. A candidate's bearing is the great-circle direction from home's centre to its centre, read in home's
+  right / up axes, so a rolled home turns the directions with it. It must lie within 60° (`neighbors.CONE`) of the push,
+  and the lowest angle / cos(off-axis) wins: the nearest, an off-axis one counting as further. A desktop within 1° of
+  directly behind has no bearing. With no overview layout reported yet, right and left are the next and previous in the
+  row and up and down nothing. Once the push reaches 48 px (`PUSH_PX`, each part within 0.25 s of the last, on one
+  edge), the loop selects that desktop (`ViewControl.switch_desktop`, the Ctrl+Alt+Left / Right path, so the renderer
+  zooms out, turns and zooms in and no desktop moves) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
+  opposite edge of the new home, as far along it as it left, and focuses that monitor (`confine_lua`). Then no push
+  counts for 0.8 s. Over an edge Hyprland lets the cursor cross (onto the next XR monitor or the physical one) the
+  overshoot counts and the cursor goes back as above; a jump over 400 px is a warp and never counts. At an edge
+  Hyprland clamps it at (the layout has nothing beyond, e.g. the top of the row), the hand's push is not visible, so
+  with a desktop placed beyond it each touch of the outermost pixel counts 12 px (`NUDGE_PX`) and puts the cursor
+  12 px back in. With nothing placed that way the cursor is only confined and stays at the edge, unnudged.
 - **One bind table.** Whichever set is live goes in the free pointer's table (`xr_workspace_resize_binds`): the click
   binds over home, the lock grab while free. Each switch replaces it in one eval (`enter_desktop_lua`,
   `lock_pointer_lua`). Run end, a config reload (the set is re-applied) and a dead run all clean it up through the
   existing paths. After a dead run, the next left click still reaches the window and runs the bind helper, which
   removes the whole table (`xr_control.py` `REMOVE_RESIZE_BINDS`).
 
-Not covered: the zoomed-in confinement is reactive, so for up to one 4 ms sample the cursor (and focus-follows-mouse)
+Not covered: how the push past an edge feels in the glasses (the 48 px threshold, the 12 px nudge at a clamped edge
+next to a top bar, the 0.8 s rest against the renderer's switch animation); `tests/native_spike/test_directional_switch.py`
+checks the neighbour picking, the push and the sampler offline only. The zoomed-in confinement is reactive, so for up to one 4 ms sample the cursor (and focus-follows-mouse)
 can be on the neighbouring monitor before it is put back; touchpad scrolling while free, which Hyprland cannot bind; a
 desktop config with `binds.pass_mouse_when_bound`; and a starved sampler thread. To check in the glasses: zoomed in,
-push the mouse past every edge of the desktop (it stays put); in the overview, move the dot across the gaps and over the
+push the mouse past every edge of the desktop (it switches to the desktop placed that way, or stays put if none is); in the overview, move the dot across the gaps and over the
 other desktops (nothing there reacts), scroll and right-click inside home (the window reacts), drag a window inside home
 (no zoom), click another desktop (it zooms in there), and repeat after Ctrl+Alt+Right and in each viewing mode.
 

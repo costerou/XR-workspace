@@ -217,9 +217,15 @@ In the overview your mouse is no longer stuck inside the desktops:
   selected desktop stays the same. Let go anywhere else (its own desktop, a pill, empty space) and nothing moves. On a
   desktop other than the selected one you can also just start dragging. On the selected desktop, moving before you've
   held still drags inside the window as usual. A quick click still zooms in. Pinned windows can't be moved this way.
-- **The mouse stays on its desktop.** It only ever works the selected desktop and never moves onto another monitor, zoomed
-  in or in the overview. Moving the dot over another desktop does nothing until you click it: that click (or
-  Ctrl+Alt+Left / Right) is how you switch.
+- **The mouse stays on its desktop.** It only ever works the selected desktop. In the overview, moving the dot over
+  another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
+- **Push the mouse past an edge to switch** (new, not yet tried in the glasses): zoomed in, keep pushing the mouse past
+  an edge of the desktop and the view switches to the desktop placed that way round you, with the same zoom out, turn
+  and zoom in as Ctrl+Alt+Left / Right. It goes by where the desktops are placed, so pushing up reaches a desktop you put
+  above, and a desktop off at an angle is reached from the side it is nearest. The mouse comes in at the matching edge
+  of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
+  beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)
+  doesn't switch. Not in typing mode or during a VR video.
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
 Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
