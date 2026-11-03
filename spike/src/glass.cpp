@@ -91,19 +91,21 @@ FRect roll_icon(const FRect& t, std::uint32_t side, float distance) {
 RollArrow roll_arrow(const FRect& icon, std::uint32_t side) {
     RollArrow out;
     if (!(icon.width > 0) || !(icon.height > 0) || side > 1) return out;
-    const float s = std::min(icon.width, icon.height), cx = icon.x + icon.width / 2, cy = icon.y + icon.height / 2;
-    const float ra = 0.27f * s, half = 0.045f * s, head_len = 0.2f * s, head_half = 0.15f * s;
-    // Clockwise as you see it (y up): from 315 degrees down round the bottom, left and top to 60, the head turning on.
-    const float from = 315.f * float(std::numbers::pi) / 180.f, to = 60.f * float(std::numbers::pi) / 180.f;
+    // One plain curved arrow, readable at a glance on the 22 px disc: a thick half-turn arc over the top and a large
+    // head. Clockwise (side 1): from the left (210 degrees, y up) over the top to the right (20 degrees), the head
+    // pointing on down the right side. Its centre sits a little low so the glyph (arc plus head) is balanced in the disc.
+    const float s = std::min(icon.width, icon.height), cx = icon.x + icon.width / 2, cy = icon.y + icon.height / 2 + 0.05f * s;
+    const float ra = 0.25f * s, half = 0.065f * s, head_len = 0.24f * s, head_half = 0.17f * s;
+    const float from = 210.f * float(std::numbers::pi) / 180.f, to = 20.f * float(std::numbers::pi) / 180.f;
     const float mirror = side ? 1.f : -1.f;  // side 0: the mirror image, counter-clockwise
     auto at = [&](float theta, float r) { return std::array<float, 2>{cx + mirror * r * std::cos(theta), cy - r * std::sin(theta)}; };
-    constexpr int kSteps = 24;
+    constexpr int kSteps = 16;
     for (int i = 0; i <= kSteps; ++i) {
         const float theta = from + (to - from) * float(i) / float(kSteps);
         out.band.push_back(at(theta, ra + half));
         out.band.push_back(at(theta, ra - half));
     }
-    // The head: its base across the band at `to`, its tip along the clockwise tangent (sin t, -cos t) (y up).
+    // The head: its base across the band's end, its tip along the clockwise tangent (sin t, -cos t) (y up).
     const auto base = at(to, ra);
     const float tx = mirror * std::sin(to), ty = std::cos(to);  // canvas px (y down)
     const float nx = mirror * std::cos(to), ny = -std::sin(to);

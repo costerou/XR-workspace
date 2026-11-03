@@ -401,8 +401,9 @@ def front_order(g, placements):
 def hit(g, placements, pointer, open_=None, icons=None):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
-    ('panel', i)); then each desktop front to back: ('roll', index, 'ccw'|'cw') on its roll-level icon (`icons`: per
-    desktop None or the side shown, roll_side), ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
+    ('panel', i)); then the roll-level icons front to back, drawn over every desktop: ('roll', index, 'ccw'|'cw')
+    (`icons`: per desktop None or the side shown, roll_side); then each desktop front to back: ('corner', index,
+    'tl'|'tr'|'bl'|'br'), ('pill', index),
     ('desktop', index, (px, py) tile pixel). None if nothing. Tested along the dot's ray (orbit.pointer_ray, where the
     renderer draws the dot), so anything placed anywhere round you can be reached."""
     if g is None or pointer is None: return None
@@ -413,17 +414,25 @@ def hit(g, placements, pointer, open_=None, icons=None):
         if q is not None:
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
-    for i in front_order(g, placements):
+    order = front_order(g, placements)
+    # The roll-level icons are drawn over every desktop (with the glass, after all the tiles), so they are tested before
+    # any desktop's corners, pill or surface: a nearer neighbour (tight spacing, four desktops, a rolled neighbour's
+    # corner swinging up) never takes the click meant for the icon above its next desktop's corner.
+    for i in order:
+        side = icons[i] if icons is not None and i < len(icons) else None
+        if side not in ROLL_SIDES: continue
+        tile = g['tiles'][i]
+        q = unproject(g, tile, placements[i], pointer)
+        if q is None: continue
+        d = placements[i]['distance'] / 100
+        x, y, w, h = roll_icon_rect(tile, side, d)
+        pad = ROLL_PAD * d
+        if x - pad <= q[0] <= x + w + pad and y - pad <= q[1] <= y + h + pad: return ('roll', i, side)
+    for i in order:
         tile = g['tiles'][i]
         q = unproject(g, tile, placements[i], pointer)
         tx, ty, tw, th = tile
         if q is not None:
-            side = icons[i] if icons is not None and i < len(icons) else None
-            if side in ROLL_SIDES:
-                d = placements[i]['distance'] / 100
-                x, y, w, h = roll_icon_rect(tile, side, d)
-                pad = ROLL_PAD * d
-                if x - pad <= q[0] <= x + w + pad and y - pad <= q[1] <= y + h + pad: return ('roll', i, side)
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)

@@ -68,6 +68,9 @@ std::optional<float> desktop_tilt(const Canvas& canvas, const FRect& tile, const
 // tile's bottom-centre, so at distance 1 it is the tile's own px. tools/native_spike/free_pointer.py glass_to_desktop
 // mirrors it (the placement_contract ctest compares them).
 std::array<float, 2> glass_to_desktop(const FRect& tile, const Placement& placement, float gx, float gy);
+// Its inverse for a rect: the glass rect that glass_to_desktop draws exactly over desktop surface rect `r` (used for
+// glass laid out on the surface itself, e.g. glass.hpp roll_icon, which already scales with the distance).
+FRect desktop_to_glass(const FRect& tile, const Placement& placement, const FRect& r);
 // tile_mesh for glass rect `rect`: world points through glass_to_desktop; px / py stay glass px (u, v as tile_mesh's).
 std::vector<MeshVertex> glass_mesh(const Canvas& canvas, const FRect& tile, const Placement& placement, const FRect& rect);
 // Zooming into a desktop brings it to distance 1 (it fills the view): weight 1 removes its orbit and distance (curvature is

@@ -97,6 +97,34 @@ int main() {
         CHECK(ahead && near(*ahead, 0, 2e-4f));
     }
 
+    // Both directions, checked against the world rather than desktop_tilt itself: after a recentre with the head tipped
+    // left or right (and pitched), every desktop of a four-desktop overview measures a tilt of that side's sign, and its
+    // levelling roll (-tilt, what the supervisor applies on a click) leaves its horizontal centre line level in the
+    // world (driver z up), where before it was not.
+    {
+        const Canvas wide{1920, 1200, 0.41421356f, 0.25888f};
+        const Size four[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}, {1920, 1080}};
+        const auto tiles = overview_layout(four, 1920, 1200, 20);
+        CHECK(tiles.size() == 4);
+        const Mat3 gl_to_driver = transpose(Mat3{0, -1, 0, 0, 0, 1, -1, 0, 0});  // pose.cpp kDriverToGl
+        for (const float head_roll : {-20.f, 20.f})
+            for (const float pitch : {0.f, -20.f, 25.f}) {
+                const Quat reference = quat_mul(axis_angle(0, 1, 0, pitch), axis_angle(1, 0, 0, head_roll));
+                const auto up = canvas_up(reference, Quat{});
+                const auto height = [&](Vec3 v) { return xr::apply(quat_to_mat3(reference), xr::apply(gl_to_driver, {v.x, v.y, v.z}))[2]; };
+                for (const FRect& t : tiles) {
+                    const auto tilt = desktop_tilt(wide, t, Placement{}, Vec3{up[0], up[1], up[2]});
+                    CHECK(tilt && (head_roll > 0 ? *tilt < -rad(5) : *tilt > rad(5)));  // head tipped right: clockwise
+                    if (!tilt) continue;
+                    const float cx = t.x + t.width / 2, cy = t.y + t.height / 2;
+                    Placement levelled; levelled.roll = -*tilt;
+                    const float before = height(place_point(wide, t, Placement{}, cx + 100, cy)) - height(place_point(wide, t, Placement{}, cx - 100, cy));
+                    const float after = height(place_point(wide, t, levelled, cx + 100, cy)) - height(place_point(wide, t, levelled, cx - 100, cy));
+                    CHECK(std::fabs(before) > 5e-3f && std::fabs(after) < 1e-5f);
+                }
+            }
+    }
+
     // Easing carries the roll and lands on it; same_placement sees it; zooming and fading keep it.
     {
         Placement from, to; to.roll = rad(12);
@@ -125,8 +153,24 @@ int main() {
     }
     CHECK(roll_icon(FRect{}, 0, 1.f).width == 0 && roll_icon(FRect{0, 0, 10, 10}, 2, 1.f).width == 0);
 
-    // The arrow: inside its icon, the two sides mirror images of each other; side 1 turns clockwise as you see it (its
-    // band runs clockwise round the centre and its head points on that way), side 0 counter-clockwise.
+    // The disc under the arrow is glass (drawn through glass_to_desktop): its glass rect (desktop_to_glass) lands exactly
+    // on the icon's surface rect, where the arrow is drawn and the supervisor hit-tests, at any distance, both sides, and
+    // it is kRollIconPx glass px across (one size as you see it). Regression: the icon's surface rect was drawn as glass
+    // px, so on a resized desktop the disc sat away from its arrow and hit box.
+    for (const float d : {0.5f, 1.f, 1.7f, 3.f})
+        for (std::uint32_t side = 0; side < 2; ++side) {
+            const FRect t{300, 400, 430, 242};
+            Placement p; p.distance = d;
+            const FRect icon = roll_icon(t, side, d), disc = desktop_to_glass(t, p, icon);
+            const auto a = glass_to_desktop(t, p, disc.x, disc.y), b = glass_to_desktop(t, p, disc.x + disc.width, disc.y + disc.height);
+            CHECK(near(a[0], icon.x, 1e-3f) && near(a[1], icon.y, 1e-3f));
+            CHECK(near(b[0], icon.x + icon.width, 1e-3f) && near(b[1], icon.y + icon.height, 1e-3f));
+            CHECK(near(disc.width, kRollIconPx, 1e-4f) && near(disc.height, kRollIconPx, 1e-4f));
+        }
+
+    // The arrow: one plain curved arrow inside its icon, the two sides mirror images of each other; side 1 turns
+    // clockwise as you see it (its band runs clockwise, about half a turn, and its head points on that way), side 0
+    // counter-clockwise.
     {
         const FRect icon{200, 100, 22, 22};
         const float cx = icon.x + 11, cy = icon.y + 11;
@@ -141,7 +185,9 @@ int main() {
                 const float a0 = std::atan2(cy - a.band[i - 2][1], a.band[i - 2][0] - cx), a1 = std::atan2(cy - a.band[i][1], a.band[i][0] - cx);
                 sweep += std::remainder(a1 - a0, 2 * kPi);
             }
-            CHECK(s == 1 ? sweep < -rad(200) : sweep > rad(200));
+            CHECK(s == 1 ? sweep < -rad(150) : sweep > rad(150));
+            CHECK(std::fabs(sweep) < rad(240));  // a simple half-turn arc, not a near-full circle
+            CHECK(a.band.size() <= 40);           // minimal detail
             // The tip lies further along that way than the head's base.
             const auto& tip = a.head[2];
             const float base_x = (a.head[0][0] + a.head[1][0]) / 2, base_y = (a.head[0][1] + a.head[1][1]) / 2;

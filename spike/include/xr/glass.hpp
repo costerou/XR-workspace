@@ -67,8 +67,9 @@ static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its
 // clockwise), 1 = top-right (clockwise).
 constexpr float kRollIconPx = 22.f, kRollIconGap = 8.f;
 FRect roll_icon(const FRect& tile, std::uint32_t side, float distance);
-// The arrow on the icon, canvas px: an arc band (a triangle strip, outer then inner per step) and its arrowhead (one
-// triangle), clockwise for side 1, its mirror image for side 0. Empty for an empty icon.
+// The arrow on the icon, canvas px: one plain curved arrow, a thick half-turn arc over the top (a triangle strip, outer
+// then inner per step) and a large arrowhead (one triangle) at its end, clockwise for side 1, its mirror image (counter-
+// clockwise) for side 0: the way a click or drag on it turns the desktop. Empty for an empty icon.
 struct RollArrow { std::vector<std::array<float, 2>> band; std::array<std::array<float, 2>, 3> head{}; };
 RollArrow roll_arrow(const FRect& icon, std::uint32_t side);
 // The arrow's colour: the theme's highlight colour (glass_theme_highlight), dimmer while idle; under kGlassCap.

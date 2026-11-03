@@ -481,10 +481,12 @@ the wire placement) and sends it with the icons in the `roll` op: `{"roll":[r,r,
 (`Placement::roll`, eased like a placement, at every zoom), so it still faces you. A desktop more than 0.5° from level
 shows one icon above its higher top corner (`glass.hpp roll_icon`): above the top-left a counter-clockwise arrow, above
 the top-right a clockwise one. It is 22 px across and 8 px above the corner as you see it whatever the desktop's size or
-distance, a glass disc in the pill's theme look with its arrow in the theme's highlight colour, under the 191/255 cap.
-The icons show and hide with the pills. A click levels the desktop; a press and drag turns it with the dot round its
-centre, only toward level and never past it. Hit testing and the cursor mapping use the rolled surface; the pill drag
-and the no-overlap guard ignore the roll.
+distance, a glass disc in the pill's theme look holding one plain curved arrow (a thick half-turn arc and a large head)
+in the theme's highlight colour, under the 191/255 cap. The disc, the arrow and the hit box are the same rect at any
+distance. The icons show and hide with the pills. A click levels the desktop; a press and drag turns it with the dot
+round its centre, only toward level and never past it. The icons are drawn over every desktop, so they are hit-tested
+before any desktop's corners, pill or surface (a nearer neighbour in a tight overview never takes an icon's click).
+Hit testing and the cursor mapping use the rolled surface; the pill drag and the no-overlap guard ignore the roll.
 
 ### Help card pages
 

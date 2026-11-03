@@ -639,8 +639,12 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
                 // Roll-level icon: a round glass button above the higher top corner, its arrow in the theme's highlight.
                 const auto side = std::uint32_t(g.roll_icon[i]);
                 const float roll_level = int(i) == g.roll_hover ? g.roll_level : kGlassIdle;
-                const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);
-                shape(s.roll_meshes[i], i, icon, icon.width / 2, glass_look(accent, roll_level, 0.f), 1.f, icon.width / 2);
+                const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);  // desktop surface px
+                // The disc is glass (glass px, drawn through glass_to_desktop): its glass rect is the one drawn exactly
+                // over the icon, so the disc, its arrow (surface px below) and the supervisor's hit box coincide at any
+                // distance, and it stays kRollIconPx across as you see it.
+                const FRect disc = desktop_to_glass(tiles[i], glass_on(i), icon);
+                shape(s.roll_meshes[i], i, disc, disc.width / 2, glass_look(accent, roll_level, 0.f), 1.f, disc.width / 2);
                 glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
                 const auto arrow = roll_arrow(icon, side);
                 const auto colour = roll_arrow_color(accent, roll_level);
