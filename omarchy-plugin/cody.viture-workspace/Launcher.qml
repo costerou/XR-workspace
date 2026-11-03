@@ -24,6 +24,7 @@ ColumnLayout {
     Label { visible:root.snapshot.fallback !== undefined; text:root.snapshot.fallback && root.snapshot.fallback !== "choose" ? "Fallback: " + root.snapshot.fallback : "Choose an available physical fallback before starting."; wrapMode:Text.WordWrap; Layout.fillWidth:true }
     Rectangle {
         Layout.fillWidth:true; Layout.preferredHeight:125; color:Qt.darker(Commons.Color.background,1.2); radius:6
+        clip:true  // a desktop resized past the view (up to 10x) stays inside the preview
         Repeater {
             model: Model.placedRects(Model.previewRects(root.settings.desktops || [], parent.width-24, 88, 10), root.settings.placements)
             delegate: Rectangle {
@@ -31,6 +32,7 @@ ColumnLayout {
                 required property var modelData
                 required property int index
                 x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
+                z:-modelData.width*modelData.height  // bigger behind: a huge desktop never hides a smaller one's click
                 color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.selected===index ? Commons.Color.accent : Commons.Color.muted
                 Label { anchors.centerIn:parent; text:"XR-"+(tile.index+1)+"\n"+root.settings.desktops[tile.index].width+"×"+root.settings.desktops[tile.index].height+"\n"+root.settings.desktops[tile.index].scale*100+"%"; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11 }
                 MouseArea { anchors.fill:parent; onClicked:root.selected=tile.index }

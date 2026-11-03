@@ -265,6 +265,7 @@ int main() {
         CHECK(near(p.x, 2 * rad) && near(p.y, -1 * rad) && near(p.distance, 1.5f) && near(p.curvature, 60 * rad));
         const Placement edge = placement_from_wire({-1800, 900, 50, 120});
         CHECK(near(edge.x, -180 * rad) && near(edge.y, 90 * rad) && near(edge.distance, 0.5f) && near(edge.curvature, 120 * rad));
+        CHECK(near(placement_from_wire({0, 0, 10, 0}).distance, 0.1f));  // the distance floor: ten times the size
         GlassPills g;
         PlacementMenuState st; st.open = true; st.desktop = 1;
         CHECK(g.set(st, 0) && !g.frame(true, 300).surface && g.frame(true, 300).surface_desktop == -1);

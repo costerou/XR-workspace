@@ -111,6 +111,9 @@ PANEL_ROWS_TOP, PANEL_ROW_H, PANEL_KNOB_LO, PANEL_KNOB_HI = 46.0, 34.0, 191.0, 3
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
 CLICK_PX = 4.0            # a pill press moving less than this (canvas px) before release is a click: the desktop stays put
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
+# Past the edge of the view a corner drag speeds up by this much (resize_reach): the pointer stops half a view past each
+# edge (OverviewPointer._clamp), so a corner following it 1:1 could not take a desktop to the distance bound's ten times.
+RESIZE_OVERSHOOT_GAIN = 8.0
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 
@@ -319,6 +322,15 @@ def resize_distance(start, corner, dx, dy, tile):
     scale = max(MIN_SCALE, 100 / start + (dx * vx + dy * vy) / (vx * vx + vy * vy))
     lo, hi = PLACEMENT_BOUNDS['distance']
     return min(max(round(100 / scale), lo), hi)
+
+
+def resize_reach(g, point):
+    """Canvas point `point` as a corner drag measures it: unchanged inside the view, each axis RESIZE_OVERSHOOT_GAIN times
+    as far past an edge. Monotonic, so dragging back in shrinks the desktop the same way."""
+    def axis(v, size):
+        if v < 0: return v * RESIZE_OVERSHOOT_GAIN
+        return size + (v - size) * RESIZE_OVERSHOOT_GAIN if v > size else v
+    return (axis(point[0], g['w']), axis(point[1], g['h']))
 
 
 def overview_pointer_frame(run_id, session, request_id, pointer):
@@ -696,7 +708,8 @@ class OverviewPointer:
         current = c.state.placements[d['index']]
         dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
         if d['kind'] == 'corner':
-            updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], dx, dy, d['tile'])}
+            (ax, ay), (bx, by) = resize_reach(self.geometry, d['start']), resize_reach(self.geometry, self.pointer)
+            updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], bx - ax, by - ay, d['tile'])}
         else:
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click

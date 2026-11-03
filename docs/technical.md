@@ -258,8 +258,11 @@ shape.
 
 The size has limits and is saved like the other placements:
 
-- It goes from half to twice the default size. A resize is the desktop's **Distance** placement seen from the other
-  side (apparent size = 100 / Distance), so the limits are Distance's 200 and 50. The panel's **Place** tab and an
+- It goes from half to ten times the default size (well past the field of view). A resize is the desktop's **Distance**
+  placement seen from the other side (apparent size = 100 / Distance), so the limits are Distance's 200 and 10. Past
+  the edge of the view the drag speeds up (`free_pointer.RESIZE_OVERSHOOT_GAIN`): the pointer stops half a view past
+  each edge, so a corner that followed it 1:1 could not reach ten times. Once a desktop is bigger than the view its
+  corners and pill are out of sight; shrink it with the open panel's keys (Ctrl+Alt+L, Down to Distance, then Right / Shift+Right, or R to reset). The panel's **Place** tab and an
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
@@ -405,7 +408,7 @@ The position is saved to the glasses model's profile like a size (half a second 
 release), and the panel's **Place** tab shows it.
 
 **Fields, units and installing.** A placement now has exactly four integer fields, in this order: `x`, `y`,
-`distance` (percent, 50 to 200) and `curvature` (degrees, 0 to 120) (`geometry.PLACEMENT_KEYS`). A wire placement
+`distance` (percent, 10 to 200) and `curvature` (degrees, 0 to 120) (`geometry.PLACEMENT_KEYS`). A wire placement
 object with any other keys, the old seven included, is malformed. Until 2026-11-02 a placement also had `yaw`, `pitch`
 and `roll`, and `x` and `y` were a flat offset in percent of the desktop's own width and height, from −100 to 100: at
 most one desktop from its slot. A profile saved before then still loads (`profiles._placement`,

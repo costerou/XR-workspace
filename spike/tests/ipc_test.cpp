@@ -133,13 +133,13 @@ int main() {
     };
     const std::string flat = R"({"x":0,"y":0,"distance":100,"curvature":0})";
     const std::string edge = R"({"x":-1800,"y":900,"distance":200,"curvature":120})";
-    const std::string low = R"({"x":1800,"y":-900,"distance":50,"curvature":0})";
+    const std::string low = R"({"x":1800,"y":-900,"distance":10,"curvature":0})";
     auto pd = xr::decode_control(placement(R"({"desktops":[)" + flat + "," + edge + "," + low + "]}"));
     require(std::holds_alternative<xr::ControlMessage>(pd) && std::get<xr::ControlMessage>(pd).op == xr::ControlOp::placement);
     const auto& pp = std::get<xr::PlacementPayload>(std::get<xr::ControlMessage>(pd).payload);
     require(pp.desktops.size() == 3 && pp.desktops[0].distance == 100 && pp.desktops[1].x == -1800 && pp.desktops[1].y == 900 &&
             pp.desktops[1].distance == 200 && pp.desktops[1].curvature == 120 && pp.desktops[2].x == 1800 && pp.desktops[2].y == -900 &&
-            pp.desktops[2].distance == 50 && pp.desktops[2].curvature == 0);
+            pp.desktops[2].distance == 10 && pp.desktops[2].curvature == 0);
     // Key order does not matter.
     require(std::holds_alternative<xr::ControlMessage>(
         xr::decode_control(placement(R"({"desktops":[{"curvature":3,"distance":75,"y":-1,"x":2}]})"))));
@@ -152,7 +152,7 @@ int main() {
                                   R"({"desktops":[)" + flat + R"(],"extra":1})",
                                   R"({"desktops":[)" + with("x", "1801") + "]}", R"({"desktops":[)" + with("x", "-1801") + "]}",
                                   R"({"desktops":[)" + with("y", "901") + "]}", R"({"desktops":[)" + with("y", "-901") + "]}",
-                                  R"({"desktops":[)" + with("distance", "49") + "]}", R"({"desktops":[)" + with("distance", "201") + "]}",
+                                  R"({"desktops":[)" + with("distance", "9") + "]}", R"({"desktops":[)" + with("distance", "201") + "]}",
                                   R"({"desktops":[)" + with("curvature", "-1") + "]}",
                                   R"({"desktops":[)" + with("curvature", "121") + "]}", R"({"desktops":[)" + with("x", "1.5") + "]}",
                                   R"({"desktops":[)" + with("x", "true") + "]}", R"({"desktops":[)" + with("x", "\"1\"") + "]}",

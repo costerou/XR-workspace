@@ -39,13 +39,14 @@ def logical_width(d) -> int:
 # Integer fields, all relative to the desktop's slot in the overview/zoom layout:
 #   x, y       orbit round your head in tenths of a degree (orbit.py): x turns the desktop round you (+x right; -1800
 #              and 1800 are both directly behind you), y lifts it (+y up; 900 straight overhead).
-#   distance   percent of the layout plane distance (100 = in the plane; 200 = twice as far, half the apparent size)
+#   distance   percent of the layout plane distance (100 = in the plane; 200 = twice as far, half the apparent size;
+#              10 = a tenth as far, ten times the size: a desktop can fill well beyond the field of view)
 #   curvature  horizontal cylindrical arc in degrees subtended by the desktop's width; 0 = flat.
 #              Arc length equals the flat width, so desktop pixels are bent, never stretched.
 # Every desktop always faces you, upright (a billboard toward the eye, orbit.py): there is no facing setting. The yaw,
 # pitch and roll settings were removed on 2026-11-02; legacy_placement drops them from older saved placements.
 # Mirrored by spike/src/ipc.cpp (kPlacementBounds) and omarchy-plugin Model.js (PLACEMENT_BOUNDS); tests compare them.
-PLACEMENT_BOUNDS = {'x': (-1800, 1800), 'y': (-900, 900), 'distance': (50, 200), 'curvature': (0, 120)}
+PLACEMENT_BOUNDS = {'x': (-1800, 1800), 'y': (-900, 900), 'distance': (10, 200), 'curvature': (0, 120)}
 PLACEMENT_KEYS = ('x', 'y', 'distance', 'curvature')
 DEFAULT_PLACEMENT = {'x': 0, 'y': 0, 'distance': 100, 'curvature': 0}
 REMOVED_PLACEMENT_KEYS = ('yaw', 'pitch', 'roll')  # facing settings: every desktop faces you now

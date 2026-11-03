@@ -304,6 +304,9 @@ def _footprint(key):
     p = dict(zip(sorted(('x', 'y', 'distance', 'curvature')), values))
     dirs = [d for d in (_norm(q) for q in _outline(g, tile, p)) if d is not None]
     centre = _norm(tuple(sum(d[i] for d in dirs) for i in range(3)))
+    if centre is None:  # a huge, close, curved desktop wrapping round the eye: it covers every direction
+        tx, ty, tw, th = tile
+        return Footprint(None, _norm(place_point(g, tile, p, tx + tw / 2, ty + th / 2)) or (0.0, 0.0, -1.0), math.pi)
     radius = max(_angle(centre, d) for d in dirs) + 1e-9
     if any(_dot(d, centre) < 0.02 for d in dirs): return Footprint(None, centre, radius)
     up = (0.0, 1.0, 0.0) if abs(centre[1]) < 0.9 else (0.0, 0.0, -1.0)

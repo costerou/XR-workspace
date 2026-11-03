@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 import time
 import unittest
+from unittest import mock
 
 from tools.native_spike import free_pointer as fp, orbit
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, validate_placements
@@ -233,6 +234,28 @@ class FootprintTests(unittest.TestCase):
             self.assertLess(math.degrees(f.radius), 60)
             self.assertAlmostEqual(orbit.overlap(f, f), orbit._area(f.vertices), places=9)
 
+    def test_huge_desktops_have_sane_footprints_and_overlap_their_neighbours(self):
+        # Distance 10 is ten times the size: XR-2 then covers both neighbours as you see it, flat or curved.
+        for p in ({**DEFAULT_PLACEMENT, 'distance': 10}, {**DEFAULT_PLACEMENT, 'distance': 10, 'curvature': 120},
+                  {**DEFAULT_PLACEMENT, 'distance': 10, 'x': 900, 'y': -300}):
+            with self.subTest(p=p):
+                f = orbit.footprint(G, T1, p)
+                self.assertTrue(math.isfinite(f.radius) and 0 < f.radius <= math.pi)
+                small = orbit.footprint(G, T1, {**p, 'distance': 100})
+                self.assertGreater(f.radius, small.radius * 3)
+                if not p['x']:
+                    for t in (T0, T2): self.assertGreater(orbit.overlap(f, orbit.footprint(G, t, DEFAULT_PLACEMENT)), 0)
+
+    def test_a_desktop_wrapped_all_round_the_eye_covers_everything(self):
+        # Outline directions that cancel out (a huge, close, curved desktop round the eye) have no centre: it covers
+        # every direction rather than crashing the guard.
+        orbit._footprint.cache_clear(); self.addCleanup(orbit._footprint.cache_clear)
+        with mock.patch.object(orbit, '_outline', return_value=[(1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)]):
+            f = orbit.footprint(G, T1, {**DEFAULT_PLACEMENT, 'distance': 10, 'curvature': 120})
+        self.assertIsNone(f.vertices)
+        self.assertAlmostEqual(f.radius, math.pi)
+        self.assertGreater(orbit.overlap(f, orbit.footprint(G, T0, DEFAULT_PLACEMENT)), 0)
+
 
 class GuardTests(unittest.TestCase):
     def test_a_move_into_a_neighbour_stops_before_it_touches(self):
@@ -293,6 +316,18 @@ class GuardTests(unittest.TestCase):
         x, _ = drag.follow((press[0] + 51, press[1]), placements)
         self.assertTrue(abs(orbit._diff(x, 1795)) <= 1800)
         validate_placements(placements)
+
+    def test_a_huge_desktop_never_gets_its_neighbours_or_itself_stuck(self):
+        # XR-2 at ten times the size overlaps both neighbours: each may still move as long as that overlap does not grow,
+        # and XR-2 itself can be carried round behind you, clear of them.
+        huge = at(1, distance=10)
+        for i in (0, 2):
+            moved = orbit.allowed_move(G, i, (0, 0), (0, 900 if i else -900), huge)
+            self.assertNotEqual(moved, (0, 0), i)
+            f = orbit.footprint(G, G['tiles'][i], {**DEFAULT_PLACEMENT, 'x': moved[0], 'y': moved[1]})
+            big = orbit.footprint(G, T1, huge[1])
+            self.assertLessEqual(orbit.overlap(f, big), orbit.overlap(orbit.footprint(G, G['tiles'][i], DEFAULT_PLACEMENT), big) + orbit.AREA_EPS)
+        self.assertNotEqual(orbit.allowed_move(G, 1, (0, 0), (1800, 0), huge), (0, 0))
 
     def test_alone_or_without_geometry_the_target_is_taken_as_asked(self):
         self.assertEqual(orbit.allowed_move(None, 0, (0, 0), (500, 100), FLAT), (500, 100))

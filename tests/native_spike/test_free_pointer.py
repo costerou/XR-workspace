@@ -229,6 +229,47 @@ class DragMathTests(unittest.TestCase):
         with self.assertRaises(ValueError): fp.resize_distance(100, 'middle', 0, 0, T0)
 
 
+class HugeResizeMathTests(unittest.TestCase):
+    """Distance's floor is 10 (ten times the size, well past the field of view): the drag maths and hit testing there."""
+    def test_a_corner_drag_reaches_ten_times_and_clamps_there(self):
+        w, h = T0[2], T0[3]
+        self.assertEqual(PLACEMENT_BOUNDS['distance'], (10, 200))
+        self.assertEqual(fp.resize_distance(100, 'br', 9 * w / 2, 9 * h / 2, T0), 10)  # the corner ten times as far out
+        self.assertEqual(fp.resize_distance(100, 'tl', -4 * w / 2, -4 * h / 2, T0), 20)  # five times
+        self.assertEqual(fp.resize_distance(10, 'br', -9 * w / 2, -9 * h / 2, T0), 100)  # and back
+        self.assertEqual(fp.resize_distance(10, 'br', 1e6, 1e6, T0), 10)
+
+    def test_past_the_view_the_drag_speeds_up_monotonically(self):
+        gain = fp.RESIZE_OVERSHOOT_GAIN
+        self.assertGreater(gain, 1)
+        for point in ((0, 0), (G['w'], G['h']), (500, 300)): self.assertEqual(fp.resize_reach(G, point), point)
+        self.assertEqual(fp.resize_reach(G, (G['w'] + 10, -10)), (G['w'] + 10 * gain, -10 * gain))
+        xs = [fp.resize_reach(G, (x, 0))[0] for x in range(-G['w'] // 2, G['w'] * 3 // 2 + 1, 10)]
+        self.assertTrue(all(b > a for a, b in zip(xs, xs[1:])))
+        # Within the pointer's reach (half a view past each edge) the right-hand desktop reaches the floor.
+        start = (T0[0] + T0[2], T0[1])
+        a, b = fp.resize_reach(G, start), fp.resize_reach(G, (G['w'] * 1.5, start[1]))
+        self.assertEqual(fp.resize_distance(100, 'tr', b[0] - a[0], b[1] - a[1], T0), PLACEMENT_BOUNDS['distance'][0])
+
+    def test_hit_testing_on_a_huge_desktop(self):
+        # XR-2 at ten times the size is nearest and covers the whole view: everywhere is on it, and the tile pixel found
+        # projects back under the pointer, flat or curved.
+        for extra in ({}, {'curvature': 120}, {'curvature': 60, 'y': 50}):
+            with self.subTest(extra=extra):
+                placements = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'distance': 10, **extra}, dict(DEFAULT_PLACEMENT)]
+                self.assertEqual(fp.front_order(G, placements)[0], 1)
+                for pointer in ((G['w'] / 2, G['h'] / 2), (300, 500), (1700, 700)):
+                    h = fp.hit(G, placements, pointer)
+                    self.assertEqual(h[:2], ('desktop', 1), pointer)
+                    seen = fp.project(G, T1, placements[1], *h[2])
+                    self.assertLess(math.hypot(seen[0] - pointer[0], seen[1] - pointer[1]), 0.5)
+        # Its corners are far outside the view (where the pointer cannot go): only the keys or the panel shrink it.
+        huge = {**DEFAULT_PLACEMENT, 'distance': 10}
+        for corner in ((T1[0], T1[1]), (T1[0] + T1[2], T1[1] + T1[3])):
+            seen = fp.project(G, T1, huge, *corner)
+            self.assertTrue(seen is None or not -G['w'] / 2 <= seen[0] <= G['w'] * 1.5)
+
+
 class PointerBase(unittest.TestCase):
     """A ViewControl with an OverviewPointer, driven like the sampler would (feed), on a fake clock."""
     def setUp(self):
@@ -491,6 +532,25 @@ class ClickTests(PointerBase):
         self.move_canvas(G['w'] * 3, 0)
         self.assertLess(self.control.state.placements[2]['x'], 450)  # the dot's own direction, not round behind you
         self.op('resize_release')
+
+    def test_drag_a_corner_past_the_view_to_make_it_huge_and_back(self):
+        self.free_at_top(lx=1919)
+        self.move_canvas(4, -4)
+        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
+        start = self.p.pointer
+        self.op('resize_press')
+        self.move_canvas(G['w'] - start[0] + 60, 0)  # 60 px past the right edge: faster than 1:1
+        linear = fp.resize_distance(100, 'tr', self.p.pointer[0] - start[0], 0, T0)
+        self.assertLess(self.control.state.placements[0]['distance'], linear)
+        out = self.move_canvas(G['w'] * 3, -G['h'] * 3)  # as far as the pointer goes: ten times the size
+        self.assertEqual(self.p.pointer, (G['w'] * 1.5, -G['h'] / 2))
+        self.assertEqual(self.control.state.placements[0]['distance'], 10)
+        self.assertEqual(last(out, 'placement')['desktops'][0]['distance'], 10)
+        self.move_canvas(start[0] - self.p.pointer[0], start[1] - self.p.pointer[1])  # back where it began: its old size
+        self.assertEqual(self.control.state.placements[0]['distance'], 100)
+        self.move_canvas(G['w'] * 3, -G['h'] * 3)
+        self.op('resize_release')
+        self.assertEqual(self.store.saved[0]['distance'], 10)  # saved like any size
 
     def test_drag_a_corner_from_outside_to_resize(self):
         out = self.free_at_top(lx=1919)  # the top-right corner's zone reaches outside the desktop

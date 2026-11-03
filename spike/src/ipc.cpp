@@ -25,7 +25,7 @@ Error invalid() { return {"invalid_control", "Rejected malformed or unsupported 
 struct Bound { const char* key; std::int32_t lo, hi; };
 // Same order and values as tools/native_spike/geometry.py PLACEMENT_BOUNDS (tests/native_spike/test_placement.py checks).
 constexpr Bound kPlacementBounds[] = {
-    {"x", -1800, 1800}, {"y", -900, 900}, {"distance", 50, 200}, {"curvature", 0, 120}};
+    {"x", -1800, 1800}, {"y", -900, 900}, {"distance", 10, 200}, {"curvature", 0, 120}};
 bool placement(const Json& value, WirePlacement& out) {
     if (!value.is_object() || value.size() != std::size(kPlacementBounds)) return false;
     std::int32_t* fields[] = {&out.x, &out.y, &out.distance, &out.curvature};

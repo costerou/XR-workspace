@@ -499,17 +499,17 @@ class SliderTests(Base):
     def test_a_press_selects_the_setting_and_snaps_it_to_the_pointer(self):
         out = self.press_slider('distance', knob_x(0.5))
         self.assertEqual(self.state.menu_field, 'distance')
-        self.assertEqual(self.state.placements[0]['distance'], 125)  # 50 + 0.5 * 150
+        self.assertEqual(self.state.placements[0]['distance'], 105)  # 10 + 0.5 * 190
         self.assertEqual(ops_of(out)[:2], ['placement', 'placement_menu'])
         menu = last(out, 'placement_menu')
         self.assertEqual((menu['open'], menu['desktop'], menu['field']), (True, 0, 'distance'))
-        self.assertEqual(menu['placements'][0]['distance'], 125)
-        self.assertEqual(last(out, 'placement')['desktops'][0]['distance'], 125)
+        self.assertEqual(menu['placements'][0]['distance'], 105)
+        self.assertEqual(last(out, 'placement')['desktops'][0]['distance'], 105)
         self.assertEqual(self.store.saves, 0); self.assertIsNotNone(self.control.save_due)
         self.assertEqual(self.p.drag['kind'], 'slider'); self.assertEqual(self.p.slides, 1)
         self.assertTrue(last(out, 'overview_pointer')['held'])
         self.release()
-        self.assertEqual(self.store.saves, 1); self.assertEqual(self.store.saved[0]['distance'], 125)  # saved at once
+        self.assertEqual(self.store.saves, 1); self.assertEqual(self.store.saved[0]['distance'], 105)  # saved at once
         self.assertTrue(self.state.menu_open)
         self.assertIsNone(self.p.drag)
 

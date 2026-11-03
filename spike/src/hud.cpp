@@ -420,7 +420,7 @@ namespace {
 struct MenuField { const char* label; const char* hint; bool percent, is_signed, tenths; std::int32_t lo, hi, flat; };
 constexpr MenuField kMenuFields[kPlacementMenuFields] = {
     {"Left / right", "", false, true, true, -1800, 1800, 0}, {"Down / up", "", false, true, true, -900, 900, 0},
-    {"Distance", "", true, false, false, 50, 200, 100}, {"Curvature", "", false, false, false, 0, 120, 0}};
+    {"Distance", "", true, false, false, 10, 200, 100}, {"Curvature", "", false, false, false, 0, 120, 0}};
 constexpr const char* kHintGap = "     ";      // between hints on one footer line (video card)
 }
 

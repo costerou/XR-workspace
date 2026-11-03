@@ -366,6 +366,30 @@ int main() {
     for (const auto& m : tile_mesh(cv, tile, Placement{0, 0, 1, float(M_PI) * 2 / 3}, {190, 250, 1060, 640}))
         CHECK(std::isfinite(m.world.x) && std::isfinite(m.world.y) && std::isfinite(m.world.z) && m.world.z < 0);
     CHECK(close3(place_point(cv, centred, Placement{0, 0, 0, 0}, 480, 330), plane(480, 330), 1e-6f));  // distance <= 0 reads as 1
+    {  // Huge: the distance floor (wire 10, factor 0.1) shows a desktop ten times its size, far past the view.
+        const Placement huge{0, 0, 0.1f, 0};
+        auto seen = [](Vec3 a) { return std::pair{a.x / -a.z, a.y / -a.z}; };  // on the canvas plane, as projected
+        for (const auto& [px, py] : {std::pair{480.f, 330.f}, std::pair{1440.f, 870.f}, std::pair{960.f, 600.f}}) {
+            const auto [x, y] = seen(place_point(cv, centred, huge, px, py));
+            const Vec3 flat = plane(px, py);
+            CHECK(near(x, 10 * flat.x, 1e-4f) && near(y, 10 * flat.y, 1e-4f));
+        }
+        CHECK(near(seen(place_point(cv, centred, huge, 1440, 870)).first, 2.5f, 1e-4f));  // its right edge: 5x the view's
+        check_facing(centred, huge);
+        check_facing(tile, Placement{0.4f, -0.2f, 0.1f, 0});
+        check_facing(tile, Placement{-2.f, 0.3f, 0.1f, float(M_PI) / 3});
+        // The curved, closest desktop wraps round the eye (its edges may pass behind you: GL clips them); the mesh stays
+        // finite and dense enough, and its centre stays straight ahead.
+        const auto mesh = tile_mesh(cv, tile, Placement{0, 0, 0.1f, float(M_PI) * 2 / 3}, {190, 250, 1060, 640});
+        CHECK(mesh.size() >= 10);
+        for (const auto& m : mesh) CHECK(std::isfinite(m.world.x) && std::isfinite(m.world.y) && std::isfinite(m.world.z));
+        CHECK(place_point(cv, centred, Placement{0, 0, 0.1f, float(M_PI) * 2 / 3}, 960, 600).z < 0);
+        // The nearest is drawn last (over the others); zooming in still brings it to distance 1.
+        const Placement mixed[] = {{}, huge, {0, 0, 2, 0}};
+        const auto o = draw_order(cv, row3, mixed);
+        CHECK(o.size() == 3 && o[0] == 2 && o[2] == 1);
+        CHECK(near(faded(huge, 1).distance, 1, 1e-6f) && near(faded(huge, 0).distance, 0.1f, 1e-6f));
+    }
     }
     std::cout << "view layout passed\n";
 }
