@@ -449,4 +449,32 @@ The steps need your usual go-ahead for a live run, the renderer and the Python s
 | B15 | Roll XR-2 about 20° with a bracket and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
 | B16 | Move the dot slowly outward from XR-2's left edge, beside its bracket's side arm | Right at the edge (the first few pixels) the bracket does not light up; from just past the border it does. |
 
+## Resolution dropdown (the pill's Resolution box): automated coverage and glasses test script
+
+Automated, offline only: `tests/native_spike/test_resolution_dropdown.py` (the size table against the renderer's, the
+nearest-scale rule, plans, the payload, a pick end to end through the fake broker into the saved profile with only
+`reshape` and its read-back on the wire, every size through the C++ request validator, pointer hits), the `glass`,
+`glass_contract`, `placement_menu_ipc`, `capture` and `view` ctests, `capture_e2e_churn_resize_*` (a resized capture keeps
+its last frame up for 100 ms before re-creating its buffers, never goes blank, and on the GPU paths its new shape eases),
+and `tests/native_spike/test_fit_windows.py` (floating windows pulled inside a desktop that shrinks). None of it has run
+in an isolated VM or in the glasses.
+
+Glasses steps (a new run, three 1920x1080 desktops at 100%, a terminal tiled on XR-2 and a floating window on XR-2,
+something moving on XR-1 and XR-3, e.g. a clock):
+
+| # | Do | Expect |
+|---|----|--------|
+| RES1 | Open XR-2's pill | Under the sliders: **Resolution** "1920x1080", then **Scale** "100%", then the Ultrawide / Add new / Remove row. Both boxes look alike and read clearly. |
+| RES2 | Click the Resolution box | Its arrow points up and its underline turns the theme colour. A menu opens upward over the four slider rows: three columns headed 16:9, 16:10, Ultrawide (with 3840x1080 in it); 1920x1080 highlighted. Nothing of the sliders shows through. |
+| RES3 | Click 2560x1440 | XR-2 gets sharper (smaller text) at once, in the same place and at the same size in the glasses. No black flash, flicker or stretched frame on XR-2, the glasses never blank, XR-1 and XR-3 keep updating and do not move, XR stays running. The panel stays open on XR-2 showing 2560x1440. The terminal re-tiles to the new size, the floating window is still on XR-2. `hyprctl monitors`: XR-2 is 2560x1440, XR-3 slid right, the glasses' and DP-1's modes unchanged. |
+| RES4 | Open the Scale list | 150%, 175% and 300% are greyed out (they do not divide 2560x1440). |
+| RES5 | Pick 1920x1080 again, set Scale to 150%, then pick 2560x1440 | The scale becomes 125% by itself (the nearest step that fits) and the Scale box shows 125%. |
+| RES6 | Pick 3440x1440, then 3840x1080, then 1680x1050. Then press the Ultrawide button twice | 3440x1440: after the picture changes, XR-2 widens smoothly (about a fifth of a second, like a zoom) where it is, the Ultrawide button lights up, XR-1 and XR-3 slide along in step; nothing jumps. 3840x1080: wider still. 1680x1050: narrows the same way (16:10), Ultrawide off. The Ultrawide button animates the same. The new picture looks briefly squeezed as it starts; say if that bothers you. Each change is as clean as RES3. |
+| RES7 | Put a floating window near XR-2's bottom right corner and pick 1280x720. Then one bigger than 1280x720 (on another workspace of XR-2 too) and repeat; then set XR-2 back to 1920x1080, put a window in that corner and set Scale to 200% | Each window ends fully inside XR-2 clear of the bar, moved no further than needed; one too big for it shrinks to fit; the other workspace's window is inside when you switch to it. Windows already inside do not move, and windows on XR-1 and XR-3 never move on their own desktop. After Stop every window is back where it was before the session. |
+| RES8 | Open the Resolution list, then click the Scale box. Open it again and click the panel's key-hint footer; open it again and press Down | Only one list is ever open: the Scale list replaces it. A click elsewhere on the panel (not on the list) or any panel key closes it without changing anything else. |
+| RES9 | With XR-2 at 2560x1440, switch the Omarchy theme and the workspace layout (a config reload each) | XR-2 stays 2560x1440, nothing flickers or modesets, the open menu recolours. |
+| RES10 | Stop the session and start a new one | XR-2 starts at the size (and scale) picked last; the others at theirs. |
+| RES11 | Pick 3840x2160 on all three desktops, then 5120x1440 on one | Still smooth in the glasses (watch head tracking and the dot); note any lag or capture stutter. |
+| RES12 | While a change is running, click the box again or another size | Nothing happens until it is done (both boxes dimmed while busy). |
+
 Record any failure with the step number and what you saw. Keep it apart from automated test results.

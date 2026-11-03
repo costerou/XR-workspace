@@ -105,10 +105,12 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     // "surface" (optional, open panels only): the placement the open panel is drawn on while a slider is held. "names",
     // "wide", "armed", "busy" (optional): the panel's desktop row. "scale", "scales", "picker" (optional): its Scale
-    // dropdown (the list open only on an open panel).
+    // dropdown (the list open only on an open panel). "resolution", "resolution_picker" (optional): its Resolution
+    // dropdown (likewise; never both lists open).
     if (!p.is_object()) return false;
     std::size_t optional = 0;
-    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker"}) optional += p.contains(key);
+    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker", "resolution", "resolution_picker"})
+        optional += p.contains(key);
     if (p.size() != 4 + optional || !p.contains("open") || !p["open"].is_boolean() || !p.contains("placements") ||
         !p["placements"].is_array() || p["placements"].empty() || p["placements"].size() > kPlacementMenuDesktops ||
         !p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= p["placements"].size() ||
@@ -137,12 +139,20 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
         }
     }
     for (auto [key, flag] : {std::pair{"wide", &out.wide}, std::pair{"armed", &out.armed}, std::pair{"busy", &out.busy},
-                             std::pair{"picker", &out.picker}})
+                             std::pair{"picker", &out.picker}, std::pair{"resolution_picker", &out.resolution_picker}})
         if (p.contains(key)) {
             if (!p[key].is_boolean()) return false;
             *flag = p[key].get<bool>();
         }
-    if (out.picker && !out.open) return false;
+    if ((out.picker || out.resolution_picker) && !out.open) return false;
+    if (out.picker && out.resolution_picker) return false;  // one list at a time
+    if (p.contains("resolution")) {  // [width, height]: a desktop size the broker accepts
+        const auto& r = p["resolution"];
+        if (!r.is_array() || r.size() != 2 || !r[0].is_number_unsigned() || !r[1].is_number_unsigned()) return false;
+        const auto w = r[0].get<std::uint64_t>(), h = r[1].get<std::uint64_t>();
+        if (w < kDesktopMinW || w > kDesktopMaxW || h < kDesktopMinH || h > kDesktopMaxH || w % 2 || h % 2) return false;
+        out.resolution_w = std::uint16_t(w); out.resolution_h = std::uint16_t(h);
+    }
     auto step = [](const Json& v) -> int {  // index into kScalePercents, -1 if v is not one of them
         if (!v.is_number_unsigned()) return -1;
         const auto n = v.get<std::uint64_t>();

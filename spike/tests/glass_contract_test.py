@@ -20,7 +20,9 @@ mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': 
           'roll_arm_min': fp.ROLL_ARM_MIN, 'roll_arm_max_share': fp.ROLL_ARM_MAX_SHARE, 'roll_edge_clear': fp.ROLL_EDGE_CLEAR,
           'actions_top': fp.PANEL_ACTIONS_TOP, 'action_h': fp.PANEL_ACTION_H, 'action_w': fp.PANEL_ACTION_W,
           'action_gap': fp.PANEL_ACTION_GAP, 'actions': len(fp.PANEL_ACTIONS), 'max_desktops': fp.MAX_DESKTOPS,
-          'scale_top': fp.PANEL_SCALE_TOP, 'scale_item_h': fp.PANEL_SCALE_ITEM_H, 'scale_list_gap': fp.PANEL_SCALE_LIST_GAP}
+          'scale_top': fp.PANEL_SCALE_TOP, 'scale_item_h': fp.PANEL_SCALE_ITEM_H, 'scale_list_gap': fp.PANEL_SCALE_LIST_GAP,
+          'resolution_top': fp.PANEL_RES_TOP, 'resolution_item_h': fp.PANEL_RES_ITEM_H,
+          'resolution_list_gap': fp.PANEL_RES_LIST_GAP}
 assert set(mirror) == set(c), (sorted(mirror), sorted(c))
 for name, value in mirror.items():
     assert abs(value - c[name]) < 1e-3, (name, value, c[name])
@@ -34,6 +36,16 @@ for i, want in enumerate(data['scale_items']):
     got = fp.scale_item_rect(i)
     assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
 assert data['scale_percents'] == list(view.SCALE_PERCENTS) == [round(s * 100) for s in geometry.SCALES], data['scale_percents']
+# The Resolution dropdown: its box, its open list and items, and the sizes and shapes they stand for (geometry.RESOLUTIONS,
+# RESOLUTION_GROUPS).
+assert all(abs(a - b) < 1e-3 for a, b in zip(fp.PANEL_RES_BOX, data['resolution_box'])), (fp.PANEL_RES_BOX, data['resolution_box'])
+assert all(abs(a - b) < 1e-3 for a, b in zip(fp.resolution_list_rect(), data['resolution_list'])), data['resolution_list']
+assert len(data['resolution_items']) == len(geometry.RESOLUTIONS)
+for i, want in enumerate(data['resolution_items']):
+    got = fp.resolution_item_rect(i)
+    assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
+assert [tuple(r) for r in data['resolutions']] == list(geometry.RESOLUTIONS), data['resolutions']
+assert [(n, c) for n, c in data['resolution_groups']] == [(n, len(s)) for n, s in geometry.RESOLUTION_GROUPS], data['resolution_groups']
 probes = hits = 0
 for case in data['cases']:
     tile = tuple(case['tile'])

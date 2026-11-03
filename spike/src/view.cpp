@@ -479,6 +479,23 @@ std::optional<float> desktop_tilt(const Canvas& c, const FRect& t, const Placeme
     return std::isfinite(a) ? std::optional<float>(a) : std::nullopt;
 }
 
+std::optional<Size> SizeEase::value() const {
+    if (!to_ || t_ >= 1.f) return to_;
+    return Size{to_->h * lerp(from_, to_->w / to_->h, smoothstep(t_)), to_->h};
+}
+
+void SizeEase::advance(Size target, double now_ms, bool animate) {
+    if (!to_ || target.w != to_->w || target.h != to_->h) {
+        const auto shown = value();
+        const bool shaped = shown && shown->h > 0 && target.h > 0 && shown->w / shown->h != target.w / target.h;
+        if (animate && shaped && duration_ > 0) {
+            from_ = shown->w / shown->h; start_ms_ = now_ms; t_ = 0; ++eases_;
+        } else t_ = 1.f;
+        to_ = target;
+    }
+    if (t_ < 1.f) t_ = clampf(float((now_ms - start_ms_) / duration_), 0, 1);
+}
+
 void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center) {
     switch_ = {};
     switch_.center = turn_centred_ = center; ++serial_;

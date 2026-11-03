@@ -34,7 +34,8 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Scroll before switch (maximized on a workspace in Hyprland's scrolling layout, a push at the desktop's left or right edge scrolls its columns into view first, one at a time, and switches to the desktop placed that way only once no tiled window is left past that edge and the push has rested; `tools/native_spike/columns.py`) | Offline tests only: `tests/native_spike/test_scroll_before_switch.py` (the end-of-columns test against fake `j/monitors`, `j/workspaces` and `j/clients`; scroll, rest and switch timing; master, dwindle, floating, fullscreen and the up and down edges compared sample for sample with the push as it was; a model of the desktop's `scroll-edge.py` scrolling while the run yields; the generated Lua against a stub `hl`; the sampler thread). Not run in a live compositor or tried in the glasses: whether `j/clients` shows the new column positions right after the focus (assumed; if not, the next read 0.1 s later still finds them), how the 0.15 s dwell, the 0.35 s step and the 0.6 s rest feel, and the run alongside the live `scroll-edge.py` are unverified. |
 | Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
 | Key bind panel (Ctrl+Alt+K: every run key listed with its keys, changed live in the glasses, saved in `keybinds.json`; conflicts with each other and with Hyprland / Omarchy binds found on load and on every change, refused or left off, shown on red rows and in a toast; see [Key bind panel](#key-bind-panel)) | Offline tests only: `tests/native_spike/test_keybinds.py` (chords, the saved file, `hyprctl binds` parsing, conflicts, every panel key, live rebinding through a fake compositor client, the help card, the helper, the wire, the start-up check in `managed.view_controls`), ctest `binds_panel` (fit at every scale, scrolling, the row states' M3 roles, the cap, the fade) and `ipc`, and `bind_check` (Hyprland's own Lua loader takes the panel's submap, catch-all and key subscription). Not run in an isolated VM and not tried in the glasses: Hyprland's `input.keyboard.key` event, `hl.is_key_down` and `hl.exec_cmd` from an event callback have never run on a live compositor here, so whether the keys reach the panel is unverified (see the failsafes there). |
-| Not built yet | Changing a desktop's resolution while running other than the Ultrawide toggle (its scale: the pill's Scale dropdown); head-direction focus. |
+| Monitor resolution from the glass pill (the open panel's Resolution dropdown, above Scale, in the same Material Design 3 parts and 18 px font; its menu lists 16:9 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160, 16:10 1680x1050, 1920x1200, 2560x1600 and ultrawide 2560x1080, 3440x1440, 3840x1080, 5120x1440 in three columns, the current one marked; a pick resizes that XR desktop's own Hyprland output live and in place through the broker's `reshape`, like Ultrawide: no other output modeset, no XR restart, its windows stay on it, its placement stays; a new shape eases the tile's width and its neighbours' shift (also for Ultrawide); a desktop that shrinks pulls its floating windows back inside it (also for Ultrawide off and a larger Scale); a scale that no longer divides the size becomes the nearest one that does, and the Scale list greys out the rest; the profile keeps the size for the next start; `desktops.RESOLUTION`, `geometry.with_resolution`, `ViewControl.resolution_box` / `resolution_pick`, `fit_windows.py`, `SizeEase`; see [Live resolution changes](#live-resolution-changes-the-pills-resolution-dropdown)) | Offline tests only: `tests/native_spike/test_resolution_dropdown.py` (the list against the renderer's, the nearest-scale rule, plans, payload, the pick end to end through the fake broker into the saved profile with only `reshape` and its read-back on the wire, the C++ request validator for every size, pointer hits), `tests/native_spike/test_fit_windows.py` (which windows move and where, what counts as shrinking, the worker's order and failures, the generated Lua run in a real interpreter against a stand-in), ctest `view` (`SizeEase`: same smoothstep and time as zoom, neighbours between the two layouts), `glass` (layout, the box, the three-column menu in M3 roles, every label fitting), `glass_contract` (box, menu and item geometry, the sizes and groups), `placement_menu_ipc` (the `resolution` / `resolution_picker` fixture cases), `capture` (`ResizeSettle`) and `capture_e2e_churn_resize_*` (a resized capture waits before re-creating its buffers and never goes blank, and on the GPU paths its new shape eases; a reload's bounce does neither). Not run in an isolated VM or in the glasses: whether the swap is free of any visible glitch on the real compositor (wallpaper, bar and windows redrawing within the 100 ms the renderer waits), how windows re-lay out, whether Hyprland carries out the floating-window move and resize on a shown or hidden workspace as restore.py's use of them suggests, how the ease looks (the new frame is squeezed to the old shape as it starts), and how the three-column menu reads on the OLED panels are unverified. The panel grew another row (326 px tall). No broker change: every listed size was already inside `validDesktop`; the renderer, supervisor and controller must be installed together. |
+| Not built yet | Head-direction focus. |
 
 ## How it fits together
 
@@ -83,7 +84,7 @@ To switch an existing install to another checkout or build, do it with no XR ses
 
 ## Sessions, keybinds and placement (full detail)
 
-Open the XR Workspace panel with the glasses connected and press **Start XR**, then **Start** in the box that lists the run's scope. Before a session the panel shows only the logo, Start and a one-line status (`Launcher.qml`); the few settings that cannot change during a run (each desktop's startup shape, resolution and scale, *Head tracking*, the Luma *120 Hz mode switch*, the fallback output when there is more than one) sit under a collapsed **Startup options**. When `begin_start` would refuse because the fallback is ambiguous (`pick_fallback` returns `choose`), the *Return windows to* choice shows next to Start, which stays disabled until a monitor is picked; with no physical fallback at all Start is disabled and says why. That confirmation click is the consent for one run, including any temporary display-mode switch (for example Luma 1920×1200@120). **Stop** returns every window to the physical fallback output. **Recover** appears if an earlier run left resources behind.
+Open the XR Workspace panel with the glasses connected and press **Start XR**, then **Start** in the box that lists the run's scope. Before a session the panel shows only the logo, Start and a one-line status (`Launcher.qml`); the few settings a run starts with (each desktop's startup shape, resolution and scale, which the glass pill can also change during a run, *Head tracking*, the Luma *120 Hz mode switch*, the fallback output when there is more than one) sit under a collapsed **Startup options**. When `begin_start` would refuse because the fallback is ambiguous (`pick_fallback` returns `choose`), the *Return windows to* choice shows next to Start, which stays disabled until a monitor is picked; with no physical fallback at all Start is disabled and says why. That confirmation click is the consent for one run, including any temporary display-mode switch (for example Luma 1920×1200@120). **Stop** returns every window to the physical fallback output. **Recover** appears if an earlier run left resources behind.
 
 At start, a panel run moves the fallback output's windows onto the XR desktops, once, after the desktops are created and before the renderer starts (`tools/native_spike/adopt.py`). The fallback's occupied regular workspaces go, in id order, to XR-1, XR-2, ... one each, whole, so their windows stay together in their layout. A gap in the numbers skips no desktop. A run starts with the last session's desktops (`profiles.load_setup`, else three: see [Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) and never adds any for adoption; with more occupied workspaces than desktops, the rest go to the last desktop, each still its own workspace. A moved workspace joins its desktop's Omarchy workspace block under the same slot (as Omarchy's own move-workspace-to-monitor does), so Omarchy's reconcile on a pill's Add or a theme switch leaves it there. Special (scratchpad) workspaces, pinned windows and the panel itself (`org.quickshell`, title "XR Workspace", or "VITURE Workspace" from a shell still running the panel QML from before the rename) stay on the physical monitor. A workspace holding one of those stays with it, and its other windows move one by one, in layout order, onto the workspace their desktop shows. All the moves are one generated Lua eval, so one compositor tick, with no intermediate layout drawn. If it fails, the run goes on and a notification says so. The CLI test-pattern run (no capture) moves nothing.
 
@@ -142,7 +143,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
-Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution stays fixed during a run (but for the pill's Ultrawide toggle); the scale can change from the pill's Scale dropdown. Zooming in and back out never moves a desktop, in every viewing mode (anchor, locked and follow) and however far it was dragged: the zoomed desktop keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, keeps its curvature and is drawn on top; every other desktop stays exactly where and as large as it was in the overview. Nothing snaps straight ahead or back to its default place (`zoomed_placements`, since 2026-11-02). Ctrl+Alt+Left / Right in the overview just move the selection. The viewing mode goes with the view (**Maximized and the overview** in [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop), since 2026-11-03): the overview is always anchor and a maximized desktop follow or locked, where every switch (keys and a cursor push) is a `cut`, straight onto the desktop. Zoomed in, in anchor mode (no longer reachable), they animate the switch: the view zooms out of the current desktop to the overview, turns to look at the target, then zooms into it where it was dragged (about 0.7 s; `ViewAnimator`, since 2026-11-02). The turn is the camera's only: no placement changes, and once the switch lands the view is not turned. A free-pointer click on a desktop is the main way to pick one. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
+Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. During a run the resolution and the scale change from the pill's Resolution and Scale dropdowns (and its Ultrawide toggle). Zooming in and back out never moves a desktop, in every viewing mode (anchor, locked and follow) and however far it was dragged: the zoomed desktop keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, keeps its curvature and is drawn on top; every other desktop stays exactly where and as large as it was in the overview. Nothing snaps straight ahead or back to its default place (`zoomed_placements`, since 2026-11-02). Ctrl+Alt+Left / Right in the overview just move the selection. The viewing mode goes with the view (**Maximized and the overview** in [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop), since 2026-11-03): the overview is always anchor and a maximized desktop follow or locked, where every switch (keys and a cursor push) is a `cut`, straight onto the desktop. Zoomed in, in anchor mode (no longer reachable), they animate the switch: the view zooms out of the current desktop to the overview, turns to look at the target, then zooms into it where it was dragged (about 0.7 s; `ViewAnimator`, since 2026-11-02). The turn is the camera's only: no placement changes, and once the switch lands the view is not turned. A free-pointer click on a desktop is the main way to pick one. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
 
@@ -559,10 +560,60 @@ The size has limits and is saved like the other placements:
 
 Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
 overview all desktops share one height, so pixel count only changes sharpness, never size. A free-aspect resize could
-only stretch the captured image, which is why the shape is always kept. Changing a running output's mode would also
-need a new ownership-broker operation in the accepted plugin. Resolution, shape and scale stay in the desktop editor
-(the panel's **Startup options**) and apply at the next start, through the journaled output creation that reads every
-value back; only the pill's Ultrawide toggle and its Scale dropdown change a running desktop (a broker `reshape`). Corner resizing adds no compositor output change and no new journal record.
+only stretch the captured image, which is why the shape is always kept. The desktop editor (the panel's **Startup
+options**) sets resolution, shape and scale for the next start, through the journaled output creation that reads every
+value back; only the pill's Ultrawide toggle and its Resolution and Scale dropdowns change a running desktop (a broker
+`reshape`, below). Corner resizing adds no compositor output change and no new journal record.
+
+### Live resolution changes (the pill's Resolution dropdown)
+
+A pick in the open pill's Resolution list (`ViewControl.resolution_pick`) is a `desktops.RESOLUTION` plan, the same
+broker path as Ultrawide and Scale (`desktops.py`): the run's guard pauses, the renderer is told nothing yet, and the
+worker asks the broker to `reshape` that output and, if it grows or shrinks, the outputs to its right to slide along
+the row (what moves left or shrinks first, left to right; then the rest right to left, so no two outputs ever share
+layout space). Why it is seamless:
+
+- **Nothing is modeset but that one virtual output.** `reshape` (`spike/ownership/plugin.cpp`) swaps the broker's own
+  monitor rule for that headless XR-n output and applies it to that monitor alone (`applyMonitorRule` and an arrange):
+  a headless commit at the new size. The glasses' and your other displays' modes are not touched, there is no config
+  reload, and since the rule in the rule manager is the new one, a later reload keeps it (`keptThroughReload`, as for
+  layout switches). The run goes on: no XR restart, no new consent, no journal record (the output keeps its id).
+- **Windows stay.** The output is never removed or re-created, so its workspaces and windows stay on it: tiled windows
+  re-tile to the new size and floating ones keep their place on it (Hyprland moves the floating windows of an output
+  that slides along with it, `CMonitor::moveTo`). Hyprland does nothing for a floating window on an output that got
+  smaller, so whenever a change shrinks a desktop's logical size (a smaller Resolution, Ultrawide off, a larger Scale:
+  `Plan.shrunk`), the worker pulls those windows in once the broker steps are done (`fit_windows.py`). Every floating
+  window on that output's regular workspaces, shown or not, that sticks out moves the least it takes to be inside, into
+  the part the bar leaves free; one larger than that also shrinks to fit. Windows already inside, fullscreen ones and
+  windows hidden in a group are left alone. It runs inside the renderer's hold below, and a failure here never fails
+  the change. It is generated Lua from validated addresses and whole pixels, the same absolute `hl.dsp.window.resize`
+  and `move` Stop uses to put floating windows back (`restore.py`).
+- **No blank or half-drawn frame in the glasses.** Hyprland answers the mode change with new capture constraints. The
+  renderer keeps showing the last frame, at its old size, and re-creates that capture's buffers only
+  `kResizeSettleMs` (100 ms) after the new size was first seen (`ResizeSettle` in `spike/include/xr/capture.hpp`), so
+  the output's own clients (wallpaper, bar, windows) have drawn themselves at the new size before the first new frame
+  is shown; black there would be see-through on the OLED panels. When the worker is done the supervisor sends the
+  `desktops` frame with that output in `renew` (its capture restarts, held the same way), then the view, placement and
+  panel frames.
+- **It stays where it is in the glasses.** Placements are not touched. The overview gives every desktop the same
+  height, so a change within one shape (1920x1080 to 2560x1440) changes only sharpness and what fits and nothing moves.
+- **A new shape eases.** When the first frame at a new shape lands, that desktop's aspect in the layout eases from the
+  old one to the new over 220 ms with smoothstep, the same easing and time as zoom and spacing (`SizeEase` and
+  `kViewEaseMs` in `spike/include/xr/view.hpp`). Every layout is computed from those sizes, so the tile widens or
+  narrows, its neighbours slide along and, when the row is limited by the view's width, all of them share the new height,
+  in step. It works for any live change of shape, so Ultrawide does the same. The new frame is drawn squeezed to the old
+  shape as it starts. The supervisor's hit testing keeps the settled layout (`take_overview_geometry`), so it is
+  ahead of the picture for those 220 ms. The CPU fallback renderer lays the new size out at once.
+
+The scale stays if it still divides the new size, else it becomes the nearest step that does (`geometry.nearest_scale`;
+a tie goes to the larger step), and the panel's Scale list re-evaluates which steps are greyed out. The profile keeps
+the new size in the run's per-desktop `desktops` entries (`DesktopManager.save` -> `PlacementStore.save_desktops`:
+`{width, height, scale}` per desktop, next to its placement), which every start restores (`profiles.load_setup`). The sizes are one table in `geometry.RESOLUTION_GROUPS` / `RESOLUTIONS`, mirrored by
+`spike/include/xr/desktops.hpp` `kResolutions` / `kResolutionGroups` (the `glass_contract` ctest compares them); every
+one is inside the broker's `validDesktop`. The `placement_menu` payload carries the open desktop's `resolution`
+(`[width, height]`, even, 640..7680 x 480..4320) and `resolution_picker` (its list open; only on an open panel, never with
+the Scale list's `picker`). On the panel the Resolution row sits above Scale (the panel is 326 px tall); its menu opens
+upward over the four slider rows, three columns (16:9, 16:10, Ultrawide) of 23 px items.
 
 ### The unified overview cursor
 
@@ -1261,6 +1312,15 @@ drop; nothing passes the cap and everything is premultiplied; the picked, confli
 roles; the size depends on the conflicts only; long text stays out of the padding; the scroll window; the overlay's
 fade, redraws, viewport and theme colour). `XR_BINDS_PANEL_DUMP=dir` makes it write the sample cards as PPMs.
 
+The pill's Resolution dropdown adds `tests/native_spike/test_resolution_dropdown.py` (the size table against the
+renderer's, the nearest-scale rule, plans, the payload, a pick end to end through the fake broker into the saved
+profile, pointer hits, and every size through the C++ request validator when the ownership build is present),
+`tests/native_spike/test_fit_windows.py` (floating windows pulled inside a desktop that shrinks: the plan, the worker,
+and the generated Lua in a real interpreter when one is installed) and checks in the `view`, `glass`, `glass_contract`,
+`placement_menu_ipc` and `capture` ctests; `capture_e2e_churn_resize_*` now also require each resize to wait
+(`resize_settles`) and, on the GPU paths, its new shape to ease (`shape_eases`), and `capture_e2e_churn_bounce_*` that a
+reload's bounce does neither.
+
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
 ```sh
@@ -1280,6 +1340,9 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 - The send-window keys (Ctrl+Alt+G, 1-3, B) move only the focused window, by address, onto the active regular workspace
   of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
   windows are refused, so recovery can always move the XR desktops' windows back.
+- When a change from a glass pill shrinks a desktop, its floating windows that would stick out are moved and, if need
+  be, resized by address to stay on that same output (`fit_windows.py`). It touches no window on any other output, uses
+  generated Lua from validated addresses and whole pixels, and runs only while the run is live.
 - Run binds use Ctrl+Alt chords. The only unmodified binds are modal: an open placement pill's keys, and the left
   button while the overview's free pointer is outside the desktops (pill click and move, panel sliders, corner resize,
   click to select). Both are removed when no longer needed. The free pointer hides the cursor and re-centres it with

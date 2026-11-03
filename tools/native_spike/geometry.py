@@ -16,6 +16,14 @@ MAX_DESKTOPS = 4
 # any other height gets the ratio, rounded to a multiple of 8 pixels.
 ULTRAWIDE_WIDTHS = {1080: 2560, 1440: 3440, 2160: 5120}
 STANDARD_WIDTHS = {1080: 1920, 1440: 2560, 2160: 3840}
+# A pill's Resolution dropdown (desktops.RESOLUTION): the common sizes by shape, one column of its list each, in this
+# order. Every one is a desktop the broker accepts at 100% (CUSTOM_BOUNDS, even); the ultrawide ones are the Ultrawide
+# button's own 21:9 sizes and the 32:9 presets. Mirrored by spike/include/xr/desktops.hpp kResolutions /
+# kResolutionGroups (the glass_contract ctest compares them).
+RESOLUTION_GROUPS = (('16:9', ((1280, 720), (1600, 900), (1920, 1080), (2560, 1440), (3840, 2160))),
+                     ('16:10', ((1680, 1050), (1920, 1200), (2560, 1600))),
+                     ('Ultrawide', ((2560, 1080), (3440, 1440), (3840, 1080), (5120, 1440))))
+RESOLUTIONS = tuple(size for _, sizes in RESOLUTION_GROUPS for size in sizes)
 
 
 def exact_scale(width: int, height: int, scale: float) -> bool:
@@ -36,6 +44,21 @@ def with_scale(d, scale) -> dict:
     return validate_desktop({'width': d['width'], 'height': d['height'], 'scale': float(scale)})
 
 
+def nearest_scale(width: int, height: int, scale: float) -> float:
+    """The step of valid_scales(width, height) nearest `scale` (a tie goes to the larger step, so text does not shrink
+    more than it has to). 1.0 divides every even size, so there always is one."""
+    return min(valid_scales(width, height), key=lambda s: (abs(s - scale), -s))
+
+
+def with_resolution(d, width, height) -> dict:
+    """`d` at pixel size `width` x `height` (a pill's Resolution dropdown): its scale stays if it divides the new size
+    exactly, else it becomes the nearest step that does (nearest_scale), as the Scale dropdown would grey it out.
+    ValueError unless the size is one the broker accepts (CUSTOM_BOUNDS, even)."""
+    d = validate_desktop(d)
+    sized = validate_desktop({'width': width, 'height': height, 'scale': 1.0})  # bounds, evenness, integers
+    return validate_desktop({**sized, 'scale': nearest_scale(width, height, d['scale'])})
+
+
 def validate_desktop(d: object) -> dict:
     if not isinstance(d, dict) or set(d) != {'width', 'height', 'scale'}:
         raise ValueError('desktop must have exactly width, height, scale')
@@ -52,6 +75,10 @@ def validate_desktop(d: object) -> dict:
 
 def logical_width(d) -> int:
     return int(d['width'] / d['scale'])
+
+
+def logical_height(d) -> int:
+    return int(d['height'] / d['scale'])
 
 
 def is_ultrawide(d) -> bool:

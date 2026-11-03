@@ -113,6 +113,32 @@ private:
     bool waiting_ = false;
     std::uint64_t batches_ = 0, reallocations_ = 0;
 };
+// A capture whose output was resized live (a glass pill's Resolution dropdown or Ultrawide: tools/native_spike/desktops.py)
+// re-creates its buffers kResizeSettleMs after the new size was first seen, not at once (wayland.cpp settle_captures).
+// Meanwhile the last frame stays on screen at its old size and nothing is captured, while that output's own clients
+// (wallpaper, bar, windows) draw themselves at the new size: the first frame shown at the new size has them done, never
+// half drawn with black (see-through on the glasses) where a layer has not caught up. Only a pending re-creation to a
+// size other than the one on screen waits: a capture's first buffers, a format change and a size that comes back
+// (a config reload's bounce) do not.
+constexpr std::uint64_t kResizeSettleMs = 100;
+class ResizeSettle {
+public:
+    // Whether `buffers`' pending re-creation waits at `now_ms`.
+    bool hold(const CaptureBuffers& buffers, std::uint64_t now_ms) {
+        const auto& target = buffers.target();
+        const auto shown = buffers.layout_size();
+        if (!buffers.reallocation_pending() || !target || !shown || (float(target->width) == shown->w && float(target->height) == shown->h)) {
+            since_.reset();
+            return false;
+        }
+        if (!since_) { since_ = now_ms; ++settles_; }
+        return now_ms < *since_ + kResizeSettleMs;
+    }
+    std::uint64_t settles() const { return settles_; }  // size changes that waited (diagnostic)
+private:
+    std::optional<std::uint64_t> since_;
+    std::uint64_t settles_ = 0;
+};
 
 struct Rect { std::uint32_t x = 0, y = 0, width = 0, height = 0; };
 // Tiles side by side at one shared height (the largest that fits), each keeping its source aspect

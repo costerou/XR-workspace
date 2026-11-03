@@ -87,14 +87,19 @@ NEEDS_WIRING = unittest.skipUnless(WIRING, 'needs MENU-WIRING: the control socke
 MENU_ROW_KEYS = {'names', 'wide', 'armed', 'busy'}  # the open panel's desktop row (desktops.py), all optional
 MENU_SCALE_KEYS = {'scale', 'scales', 'picker'}       # its Scale dropdown, all optional
 SCALE_STEPS = (100, 125, 150, 175, 200, 250, 300)     # geometry.SCALES in percent
+MENU_RESOLUTION_KEYS = {'resolution', 'resolution_picker'}  # its Resolution dropdown, all optional
+RESOLUTION_BOUNDS = ((640, 7680), (480, 4320))        # width, height: even (geometry.CUSTOM_BOUNDS)
 
 
 def check_menu_payload(p):
     """Reference validator for the 'placement_menu' payload, straight from the shared contract. Since the glass pills an
     open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders).
     Since desktops can be added and removed in XR: one placement per desktop (1..MAX_DESKTOPS), and the desktop row:
-    'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'."""
-    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS:
+    'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'. Then the Scale dropdown ('scale', 'scales',
+    'picker') and the Resolution dropdown above it ('resolution': [width, height]; 'resolution_picker'), at most one list
+    open, only on an open panel."""
+    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or \
+            set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS - MENU_RESOLUTION_KEYS:
         raise ValueError('payload must have exactly open, desktop, field, placements (and the optional surface and row keys)')
     if type(p['open']) is not bool: raise ValueError('open must be a bool')
     g.validate_placements(p['placements'])
@@ -108,9 +113,16 @@ def check_menu_payload(p):
         names = p['names']
         if (not isinstance(names, list) or len(names) != n or any(type(x) is not int or not 1 <= x <= g.MAX_DESKTOPS for x in names)
                 or names != sorted(set(names))): raise ValueError('names must be increasing XR numbers, one per desktop')
-    for key in ('wide', 'armed', 'busy', 'picker'):
+    for key in ('wide', 'armed', 'busy', 'picker', 'resolution_picker'):
         if key in p and type(p[key]) is not bool: raise ValueError(f'{key} must be a bool')
     if p.get('picker') and p['open'] is not True: raise ValueError('the Scale list opens only on an open panel')
+    if p.get('resolution_picker') and p['open'] is not True: raise ValueError('the Resolution list opens only on an open panel')
+    if p.get('picker') and p.get('resolution_picker'): raise ValueError('one dropdown list at a time')
+    if 'resolution' in p:
+        r = p['resolution']
+        if not isinstance(r, list) or len(r) != 2 or any(type(v) is not int or v % 2 or not lo <= v <= hi
+                                                         for v, (lo, hi) in zip(r, RESOLUTION_BOUNDS)):
+            raise ValueError('resolution must be an even [width, height] within the desktop bounds')
     if 'scale' in p and (type(p['scale']) is not int or p['scale'] not in SCALE_STEPS): raise ValueError('scale must be a step')
     if 'scales' in p:
         s = p['scales']

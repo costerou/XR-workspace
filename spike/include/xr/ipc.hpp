@@ -73,6 +73,9 @@ struct PlacementMenuPayload {
     // The Scale dropdown (optional): "scale" percent (0 if absent), "scales" percents increasing (bit i set for
     // glass.hpp kScalePercents[i]), "picker" (its list open; open panels only).
     std::uint16_t scale = 0; std::uint8_t scales = 0; bool picker = false;
+    // The Resolution dropdown (optional): "resolution" [width, height] (0 x 0 if absent; desktops.hpp bounds, even),
+    // "resolution_picker" (its list open; open panels only, never with "picker").
+    std::uint16_t resolution_w = 0, resolution_h = 0; bool resolution_picker = false;
 };
 constexpr std::uint32_t kMaxPointerPx = 8192;
 // Overview corner-resize handle (tools/native_spike/resize.py), display only:

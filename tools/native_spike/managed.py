@@ -317,7 +317,8 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             guard = ManagedGuard(broker, output, specs)
             if capture and isinstance(broker, OwnershipBrokerClient):  # the pills' Ultrawide / Add / Remove (desktops.py)
                 from .desktops import DesktopManager
-                manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live))
+                manager = DesktopManager(broker, journal, specs, guard_factory=lambda live: ManagedGuard(broker, output, live),
+                                         windows=client if hasattr(client, 'fit_windows') else None)
         guard()
         if adopt and capture and hasattr(client, 'adopt_windows'):
             # Once, before the renderer starts: the physical monitor's windows onto the desktops, by workspace, in one

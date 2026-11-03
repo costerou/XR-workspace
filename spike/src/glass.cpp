@@ -25,12 +25,14 @@ float by_state(float level, float idle, float hover, float active) {
 // kButtonLabelPx with a kButtonIconPx icon kButtonIconGap before it, when every button's icon and label fit inside
 // kButtonPadMin of padding (with the pixel font they do not: labels only).
 constexpr float kBandInset = 10.f, kTrackH = 4.f, kTrackAlpha = 0.24f, kHaloR = 2 * kPanelKnobR;
+static_assert(kResListX <= kBandInset, "the open Resolution list hides the selected row's band under it");
 constexpr std::uint32_t kButtonLabelPx = 18;
 constexpr float kButtonIconPx = 16.f, kButtonIconGap = 6.f, kButtonPadMin = 8.f;
 constexpr MdIcon kActionIcons[kPanelActions] = {MdIcon::width, MdIcon::add, MdIcon::remove};
-// The Scale dropdown (M3 exposed dropdown menu): a filled text field (extra small corners; disabled: on-surface at
-// kFieldDisabled) with its value kFieldPadX in and a kCaretPx drop-down arrow kCaretInset from its right end, its active
-// indicator kIndicatorH tall (kIndicatorFocusH while its list is open); the list is an M3 menu, its items' text kFieldPadX in.
+// The Resolution and Scale dropdowns (M3 exposed dropdown menus): a filled text field (extra small corners; disabled:
+// on-surface at kFieldDisabled) with its value kFieldPadX in and a kCaretPx drop-down arrow kCaretInset from its right end,
+// its active indicator kIndicatorH tall (kIndicatorFocusH while its list is open); the lists are M3 menus, their items'
+// text kFieldPadX in.
 constexpr float kFieldDisabled = 0.04f, kFieldPadX = 12.f, kCaretPx = 24.f, kCaretInset = 16.f, kIndicatorH = 1.f, kIndicatorFocusH = 2.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
 constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Curvature"};
@@ -59,6 +61,24 @@ void text(HudImage& im, const HudFont* font, const std::string& s, std::uint32_t
                         for (std::uint32_t sx = 0; sx < z; ++sx) md_over(im, x + int(col * z + sx), top + int(row * z + sy), c, alpha);
         x += int((kGlyphW + 1) * z);
     }
+}
+// A panel row with an M3 exposed dropdown menu (the Resolution and Scale rows): the row's label, then a filled text field
+// (surface container highest) at `box` showing `value` in label large (bold, `label_px`), a drop-down arrow (pointing up,
+// in the primary, while its list is open) and an active indicator under it (on-surface-variant; 2 px of primary while
+// open); M3 disabled (on-surface at 4% / 38%) unless `usable`.
+void dropdown_row(HudImage& im, const HudFont* font, const MaterialScheme& m, const char* label, float row_top, const FRect& box,
+                  const std::string& value, std::uint32_t label_px, bool open, bool usable) {
+    const float cy = row_top + kPanelRowH / 2;
+    const float x1 = box.x + box.width, y1 = box.y + box.height;
+    const float content_alpha = usable ? 1.f : kMdDisabledContent;
+    text(im, font, label, kPanelTextPx, false, kPanelPad, cy, m.on_surface);
+    md_fill_rounded(im, box.x, box.y, x1, y1, kMdShapeExtraSmall, usable ? m.surface_container_highest : m.on_surface,
+                    usable ? 1.f : kFieldDisabled);
+    const float indicator = open ? kIndicatorFocusH : kIndicatorH;
+    md_fill_rounded(im, box.x, y1 - indicator, x1, y1, 0, open ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
+    text(im, font, value, label_px, true, box.x + kFieldPadX, cy, m.on_surface, content_alpha);
+    md_icon(im, open ? MdIcon::arrow_drop_up : MdIcon::arrow_drop_down, x1 - kCaretInset, cy, kCaretPx,
+            open ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
 }
 }
 
@@ -196,6 +216,30 @@ bool glass_scale_enabled(std::size_t step, const PlacementMenuState& state) {
 }
 
 std::string glass_scale_label(std::uint16_t percent) { return percent ? std::to_string(unsigned(percent)) + "%" : "--"; }
+
+FRect glass_resolution_box() { return {kResBoxX, kResBoxY, kResBoxW, kResBoxH}; }
+
+FRect glass_resolution_list() { return {kResListX, kResListY, kResListW, kResListH}; }
+
+FRect glass_resolution_heading(std::size_t group) {
+    if (group >= kResolutionGroupCount) return {};
+    const float w = kResListW / float(kResolutionGroupCount);
+    return {kResListX + float(group) * w, kResListY, w, kResItemH};
+}
+
+FRect glass_resolution_item(std::size_t i) {
+    if (i >= kResolutionCount) return {};
+    std::size_t group = 0, row = i;
+    while (row >= kResolutionGroups[group].count) row -= kResolutionGroups[group++].count;
+    const FRect column = glass_resolution_heading(group);
+    return {column.x, column.y + float(1 + row) * kResItemH, column.width, kResItemH};
+}
+
+bool glass_resolution_enabled(std::size_t i, const PlacementMenuState& state) { return !state.busy && i < kResolutionCount; }
+
+std::string glass_resolution_label(std::uint16_t width, std::uint16_t height) {
+    return width && height ? std::to_string(unsigned(width)) + "x" + std::to_string(unsigned(height)) : "--";
+}
 
 FRect glass_morph(const FRect& t, float k) {
     k = clamp01(k);
@@ -347,28 +391,16 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
         text(im, font, value, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, value, kPanelTextPx, selected)), cy,
              selected ? m.on_secondary_container : m.on_surface_variant);
     }
-    // Everything clickable under the sliders is in M3 label large (bold) at kButtonLabelPx: the Scale box, its list and
-    // the desktop row's buttons.
+    // Everything clickable under the sliders is in M3 label large (bold) at kButtonLabelPx: the Resolution and Scale
+    // boxes, their lists and the desktop row's buttons.
     const auto label_px = font ? kButtonLabelPx : 0u;
-    // Scale row: the label, then an M3 exposed dropdown menu: a filled text field (surface container highest) showing the
-    // scale, a drop-down arrow (pointing up, in the primary, while its list is open) and an active indicator under it
-    // (on-surface-variant; 2 px of primary while open); M3 disabled (on-surface at 4% / 38%) while unknown or busy.
-    {
-        const float cy = kPanelScaleTop + kPanelRowH / 2;
-        const FRect box = glass_scale_box();
-        const float x1 = box.x + box.width, y1 = box.y + box.height;
-        const bool usable = state.scale != 0 && !state.busy;
-        const float content_alpha = usable ? 1.f : kMdDisabledContent;
-        text(im, font, "Scale", kPanelTextPx, false, kPanelPad, cy, m.on_surface);
-        md_fill_rounded(im, box.x, box.y, x1, y1, kMdShapeExtraSmall, usable ? m.surface_container_highest : m.on_surface,
-                        usable ? 1.f : kFieldDisabled);
-        const float indicator = state.picker ? kIndicatorFocusH : kIndicatorH;
-        md_fill_rounded(im, box.x, y1 - indicator, x1, y1, 0, state.picker ? m.primary : usable ? m.on_surface_variant : m.on_surface,
-                        content_alpha);
-        text(im, font, glass_scale_label(state.scale), label_px, true, box.x + kFieldPadX, cy, m.on_surface, content_alpha);
-        md_icon(im, state.picker ? MdIcon::arrow_drop_up : MdIcon::arrow_drop_down, x1 - kCaretInset, cy, kCaretPx,
-                state.picker ? m.primary : usable ? m.on_surface_variant : m.on_surface, content_alpha);
-    }
+    // The Resolution row, then the Scale row: M3 exposed dropdown menus (dropdown_row), each M3 disabled while its value is
+    // unknown or a desktop change is busy.
+    dropdown_row(im, font, m, "Resolution", kPanelResolutionTop, glass_resolution_box(),
+                 glass_resolution_label(state.resolution_w, state.resolution_h), label_px, state.resolution_picker,
+                 state.resolution_w != 0 && state.resolution_h != 0 && !state.busy);
+    dropdown_row(im, font, m, "Scale", kPanelScaleTop, glass_scale_box(), glass_scale_label(state.scale), label_px, state.picker,
+                 state.scale != 0 && !state.busy);
     // Desktop row: fully rounded M3 buttons (glass_panel_button_style), each an icon and its label (M3 label large) when
     // every button has room for both.
     bool icons = true;
@@ -405,6 +437,30 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
                 md_fill_rounded(im, r.x + 2, r.y + 1, r.x + r.width - 2, r.y + r.height - 1, kMdShapeExtraSmall, m.secondary_container, 1.f);
             text(im, font, glass_scale_label(kScalePercents[i]), label_px, true, r.x + kFieldPadX, r.y + r.height / 2,
                  current ? m.on_secondary_container : m.on_surface, enabled || current ? 1.f : kMdDisabledContent);
+        }
+    }
+    // The open Resolution list, likewise an M3 menu over the slider rows (and their selected band, kBandInset in): a
+    // column per shape, its name on top (on-surface-variant, regular) over an outline-variant divider, then its sizes in
+    // label large; the current size on the secondary container, every size M3 disabled while busy.
+    if (state.resolution_picker) {
+        const FRect list = glass_resolution_list();
+        const float x0 = list.x, y0 = list.y - 1, x1 = list.x + list.width, y1 = list.y + list.height + 1;
+        md_fill_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, m.surface_container, 1.f);
+        md_stroke_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, 1.f, m.outline_variant, 1.f);
+        for (std::size_t g = 0; g < kResolutionGroupCount; ++g) {
+            const FRect h = glass_resolution_heading(g);
+            text(im, font, kResolutionGroups[g].name, label_px, false, h.x + kFieldPadX, h.y + h.height / 2, m.on_surface_variant);
+        }
+        for (int x = int(x0 + kFieldPadX / 2); x < int(x1 - kFieldPadX / 2); ++x)
+            md_over(im, x, int(list.y + kResItemH) - 1, m.outline_variant, 1.f);
+        for (std::size_t i = 0; i < kResolutionCount; ++i) {
+            const FRect r = glass_resolution_item(i);
+            const bool current = kResolutions[i].width == state.resolution_w && kResolutions[i].height == state.resolution_h;
+            const bool enabled = glass_resolution_enabled(i, state);
+            if (current)
+                md_fill_rounded(im, r.x + 2, r.y + 1, r.x + r.width - 2, r.y + r.height - 1, kMdShapeExtraSmall, m.secondary_container, 1.f);
+            text(im, font, glass_resolution_label(kResolutions[i].width, kResolutions[i].height), label_px, true, r.x + kFieldPadX,
+                 r.y + r.height / 2, current ? m.on_secondary_container : m.on_surface, enabled || current ? 1.f : kMdDisabledContent);
         }
     }
     return im;

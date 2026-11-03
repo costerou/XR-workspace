@@ -156,6 +156,8 @@ struct Presentation::Impl : SurfaceRequests {
         ext_image_copy_capture_frame_v1* frame = nullptr;
         SessionConstraints constraints;
         CaptureBuffers buffers;  // when to (re)create the capture buffers, and the size of the frame on screen
+        ResizeSettle resize;     // ...not at once after its output was resized
+        SizeEase shape;          // the size the layout draws it at (GPU composition): eases to a new shape
         std::array<std::unique_ptr<Buffer>, 2> slots{};
         int capturing = -1, ready = -1;
         bool stopped = false;
@@ -207,13 +209,28 @@ struct Presentation::Impl : SurfaceRequests {
         std::size_t n = 0;
         std::span<const Size> span() const { return {v.data(), n}; }
     };
-    Sizes capture_sizes() const {
+    static Size settled_size(const Capture& c) { return c.buffers.layout_size().value_or(Size{1920, 1080}); }
+    Sizes settled_sizes() const {  // what the layout is heading for: the frame on screen's size (the supervisor's hit testing)
         Sizes out;
         for (const auto& c : captures) {
             if (out.n == out.v.size()) break;
-            out.v[out.n++] = c->buffers.layout_size().value_or(Size{1920, 1080});
+            out.v[out.n++] = settled_size(*c);
         }
         return out;
+    }
+    Sizes capture_sizes() const {  // what is drawn: the same, but a desktop changing shape part way there (SizeEase)
+        Sizes out;
+        for (const auto& c : captures) {
+            if (out.n == out.v.size()) break;
+            out.v[out.n++] = c->shape.value().value_or(settled_size(*c));
+        }
+        return out;
+    }
+    void ease_sizes(double now_ms) {  // a capture's first frame only sets its size; after that a new shape eases
+        for (const auto& c : captures) c->shape.advance(settled_size(*c), now_ms, c->frames > 0);
+    }
+    bool sizes_easing() const {
+        return std::any_of(captures.begin(), captures.end(), [](const auto& c) { return c->shape.animating(); });
     }
     // Layouts are pure functions of the capture sizes, the surface size and three view floats: remembered with those
     // inputs (bit for bit) and recomputed only when one changes, so a settled view lays nothing out per frame or wake.
@@ -246,7 +263,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<std::uint32_t> early_hold;      // per capture: draws left with early uploads off (it outpaced the draws)
     static constexpr std::uint32_t kEarlyHoldDraws = 32;
     bool upload_failed = false;           // an early SHM upload failed; the next draw reports it
-    ViewAnimator view{220.f};
+    ViewAnimator view{kViewEaseMs};
     // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
     std::vector<std::array<std::int32_t, 4>> placements;
     std::uint64_t placement_updates = 0;
@@ -428,12 +445,15 @@ struct Presentation::Impl : SurfaceRequests {
         c.owner->capture_next(c);    // same buffers: keep capturing into them; no-op while a re-creation is pending
     }
     // After each dispatch: re-create the buffers of a capture whose constraints changed, once no frame is in flight
-    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing.
+    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing; after
+    // a resize, only kResizeSettleMs later (ResizeSettle: the output's clients catch up behind the frame on screen).
     void settle_captures() {
         if (!allocation_enabled) return;
+        const auto now = monotonic_ms();
         for (auto& p : captures) {
             auto& c = *p;
             if (c.stopped) continue;
+            if (c.resize.hold(c.buffers, now)) continue;  // pump() comes back here at least every 50 ms
             if (c.buffers.settle(c.frame != nullptr)) allocate(c);
             else capture_next(c);
         }
@@ -821,7 +841,7 @@ struct Presentation::Impl : SurfaceRequests {
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
             (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
-            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() ||
+            (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() || s.sizes_easing() ||
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
         if (s.tile_ease.active()) s.cadence.invalidate();
@@ -943,6 +963,7 @@ std::string Presentation::capture_report() const {
                ",\"failures\":" + std::to_string(c.failures) + ",\"width\":" + std::to_string(plan ? plan->width : 0) +
                ",\"height\":" + std::to_string(plan ? plan->height : 0) + ",\"format\":" + std::to_string(plan ? plan->format : 0) +
                ",\"constraint_batches\":" + std::to_string(c.buffers.batches()) + ",\"reallocations\":" + std::to_string(c.buffers.reallocations()) +
+               ",\"resize_settles\":" + std::to_string(c.resize.settles()) + ",\"shape_eases\":" + std::to_string(c.shape.eases()) +
                ",\"path\":\"" + (c.path == Impl::Capture::Path::Dmabuf ? "dmabuf" : c.path == Impl::Capture::Path::Shm ? "shm" : "none") +
                "\",\"dmabuf_frames\":" + std::to_string(c.dmabuf_frames) +
                (c.path == Impl::Capture::Path::Dmabuf ? ",\"fourcc\":" + std::to_string(c.choice.fourcc) + ",\"modifier\":" + std::to_string(c.choice.modifier) : std::string()) +
@@ -1224,7 +1245,7 @@ std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
                           !(s.video && s.video->active());
     if (measured && s.roll_geometry_measured && now_ms - s.roll_geometry_ms < kRollGeometryMs) return std::nullopt;  // rate limit
     std::string line = "{\"roll_geometry\":{\"tilt\":[";
-    const auto tiles = measured ? overview_layout(s.capture_sizes().span(), float(s.width), float(s.height), s.view.target_spacing())
+    const auto tiles = measured ? overview_layout(s.settled_sizes().span(), float(s.width), float(s.height), s.view.target_spacing())
                                 : std::vector<FRect>{};
     const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
     const auto up = measured ? canvas_up(*reference, s.modes.anchor()) : std::array<float, 3>{0, 1, 0};
@@ -1252,7 +1273,7 @@ std::optional<std::string> Presentation::take_overview_geometry() {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
     // Called on every main-loop wake: lay out and format only when an input changed.
-    const auto sizes = s.capture_sizes();
+    const auto sizes = s.settled_sizes();
     const auto key = s.layout_key(sizes, s.view.target_spacing(), s.half_w, s.half_h);
     if (s.overview_key != key) {
         const auto tiles = overview_layout(sizes.span(), float(s.width), float(s.height), s.view.target_spacing());
@@ -1346,6 +1367,7 @@ Status Presentation::draw_test_pattern() {
         s.view.advance(double(monotonic_ms()));
         if (!s.half_w) s.update_fov();
         s.ease_placements(double(monotonic_ms()));
+        s.ease_sizes(double(monotonic_ms()));
         s.land_turns();
         s.capture_centre();
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};

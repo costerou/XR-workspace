@@ -75,9 +75,9 @@ Two things can show up next to Start:
 
 - **Return windows to.** If more than one other monitor is connected and none of them is your saved choice, pick the
   one your windows go back to when the session stops. Start waits until you do.
-- **Startup options** (click to open). These are the few settings that can't change once a session runs: each
-  desktop's resolution and scale (click a desktop), head tracking, the Luma Ultra's 120 Hz switch, and which monitor
-  windows return to. You rarely need them.
+- **Startup options** (click to open). These are the few settings a session starts with: each desktop's resolution
+  and scale (click a desktop; both can also be changed in the glasses, from the desktop's pill), head tracking, the
+  Luma Ultra's 120 Hz switch, and which monitor windows return to. You rarely need them.
 
 ## Everyday use
 
@@ -243,6 +243,16 @@ With a pill open:
 - **Click on a slider** and it jumps to that spot. Hold the button and drag along it to change it live; the desktop
   follows, while the pill stays put under the dot until you let go. Letting go saves it.
 - **Drag the top strip** of the open pill to move the desktop, the same as dragging the closed pill.
+- **Change the desktop's resolution or scale** with the two boxes under the sliders (new, not yet tried in the glasses).
+  Click **Resolution** for a list of common sizes in three columns: 16:9 (1280x720 up to 3840x2160), 16:10 (1680x1050,
+  1920x1200, 2560x1600) and ultrawide (2560x1080, 3440x1440, 3840x1080, 5120x1440). The current one is highlighted. Pick
+  one and that desktop changes size on the spot, without restarting XR or touching your other monitors: its windows stay
+  on it and it stays where it is in the glasses. Within one shape (16:9 to 16:9) it also keeps its size in the glasses;
+  only how sharp it is and how much fits on it change. A new shape smoothly makes it wider or narrower where it is, and
+  the desktops beside it slide along (the Ultrawide button does the same). When a desktop gets smaller, floating windows
+  that would stick out are pulled back inside it, and one too big for it shrinks to fit. It keeps its scale if that still
+  fits the new size, else it takes the nearest one that does. Click **Scale** for 100% to 300%; steps that would not give
+  whole pixels at this resolution are greyed out. The next session starts with both.
 - **Close it:** click the top strip, click anywhere outside the open pill, or press **Esc**. A click on a window goes
   to that window and closes the pill too, so what you type next goes to the window, not to the pill's keys.
 
@@ -341,8 +351,8 @@ Maximizing (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and brac
 and while a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back). An open
 pill stays until you close it or until 30 seconds pass without input.
 
-Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
-edit the desktop under **Startup options** in the panel.
+Resizing changes how big a desktop looks, not its resolution. To change its resolution (how sharp it is and how much
+fits on it), use the **Resolution** box in the desktop's pill (see [Placing desktops](#placing-desktops)).
 
 **Desktops all around you** (new, not yet tried in the glasses). Carrying a desktop round you works in the overview,
 where the desktops always stay fixed in the room (anchor, see above):
@@ -436,9 +446,10 @@ Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a des
 **Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
 that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
 your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. The next
-session starts with the same desktops; Ctrl+Alt+R goes back to three. Above those buttons, **Scale** sets that desktop's scale: click the box and pick
-a step from 100% to 300% (steps that would not give whole pixels are greyed out). It applies at once and the next
-session keeps it (new, not yet tried in the glasses). Other resolutions are set under **Startup options** in the panel
+session starts with the same desktops; Ctrl+Alt+R goes back to three. Above those buttons, **Resolution** sets that
+desktop's resolution (16:9, 16:10 and ultrawide sizes, from 1280x720 to 5120x1440) and **Scale** its scale, from 100% to
+300% (steps that would not give whole pixels are greyed out). Both apply at once, without restarting XR, and the next
+session keeps them (new, not yet tried in the glasses). Any other size can be set under **Startup options** in the panel
 before starting.
 
 **Which glasses are tested?**

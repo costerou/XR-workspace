@@ -188,20 +188,29 @@ PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
 # Expanded pill = placement panel (glass.hpp glass_panel and its layout, panel px from its top-left): the header strip
 # (the pill itself: drag to move, click to collapse), then one row per placement setting (geometry.PLACEMENT_KEYS order)
 # whose slider knob centre runs PANEL_KNOB_LO (low bound) .. PANEL_KNOB_HI (high bound).
-PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 292.0, 42.0
+PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 326.0, 42.0
 PANEL_ROWS_TOP, PANEL_ROW_H, PANEL_KNOB_LO, PANEL_KNOB_HI = 46.0, 34.0, 191.0, 367.0
-# Under the sliders, the Scale row (glass.hpp glass_scale_box / glass_scale_item): a dropdown box showing the desktop's
+# Under the sliders, the Resolution row (glass.hpp glass_resolution_box / glass_resolution_item): a dropdown box showing
+# the desktop's pixel size; a press on it opens (or closes) its list (resolution_list_rect), drawn above the box over the
+# slider rows and as wide as their selected band: one column per geometry.RESOLUTION_GROUPS shape, its name on top
+# and its sizes under it. While the list is open it takes the presses on it (('resolution', i, (w, h)) picks a size:
+# view.ViewControl.resolution_pick), and a press anywhere else on the panel closes it.
+PANEL_RES_TOP = PANEL_ROWS_TOP + len(geometry.PLACEMENT_KEYS) * PANEL_ROW_H  # 182
+PANEL_RES_BOX = (184.0, 186.0, 274.0, 26.0)      # x, y, w, h (panel px)
+PANEL_RES_ITEM_H, PANEL_RES_LIST_GAP = 23.0, 2.0   # the open list covers the four slider rows exactly
+PANEL_RES_LIST_X, PANEL_RES_LIST_W = 10.0, 460.0
+# Under that, the Scale row (glass.hpp glass_scale_box / glass_scale_item): a dropdown box showing the desktop's
 # output scale; a press on it opens (or closes) its list, one item per view.SCALE_PERCENTS step from the top down, drawn
-# above the box over the slider rows. While the list is open it takes the presses there (('scale', i, percent) picks a
-# step: view.ViewControl.scale_pick), and a press anywhere else on the panel closes it.
-PANEL_SCALE_TOP = PANEL_ROWS_TOP + len(geometry.PLACEMENT_KEYS) * PANEL_ROW_H  # 182
-PANEL_SCALE_BOX = (184.0, 186.0, 274.0, 26.0)    # x, y, w, h (panel px)
+# above the box over the Resolution row and the slider rows. While the list is open it takes the presses there
+# (('scale', i, percent) picks a step: view.ViewControl.scale_pick), and a press anywhere else on the panel closes it.
+PANEL_SCALE_TOP = PANEL_RES_TOP + PANEL_ROW_H  # 216
+PANEL_SCALE_BOX = (184.0, 220.0, 274.0, 26.0)    # x, y, w, h (panel px)
 PANEL_SCALE_ITEM_H, PANEL_SCALE_LIST_GAP = 20.0, 2.0
 # Under that, the desktop row (glass.hpp glass_panel_action): one button per PANEL_ACTIONS entry, side by side from
 # the panel's left padding (PANEL_PAD), each PANEL_ACTION_W wide with PANEL_ACTION_GAP between them. A press on one is
 # that action for the panel's desktop (view.ViewControl.desktop_action; desktops.py does the work).
 PANEL_PAD = 22.0
-PANEL_ACTIONS_TOP, PANEL_ACTION_H, PANEL_ACTION_W, PANEL_ACTION_GAP = 222.0, 32.0, 138.0, 11.0
+PANEL_ACTIONS_TOP, PANEL_ACTION_H, PANEL_ACTION_W, PANEL_ACTION_GAP = 256.0, 32.0, 138.0, 11.0
 PANEL_ACTIONS = ('ultrawide', 'add', 'remove')
 MAX_DESKTOPS = geometry.MAX_DESKTOPS
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
@@ -589,23 +598,53 @@ def scale_item_rect(i):
     return (bx, top + i * PANEL_SCALE_ITEM_H, bw, PANEL_SCALE_ITEM_H)
 
 
+def resolution_list_rect():
+    """The open Resolution list (glass.hpp glass_resolution_list): (x, y, w, h) panel px, PANEL_RES_LIST_W wide, a heading
+    row and as many item rows as the largest geometry.RESOLUTION_GROUPS group, ending PANEL_RES_LIST_GAP above the box."""
+    rows = 1 + max(len(sizes) for _, sizes in geometry.RESOLUTION_GROUPS)
+    h = rows * PANEL_RES_ITEM_H
+    return (PANEL_RES_LIST_X, PANEL_RES_BOX[1] - PANEL_RES_LIST_GAP - h, PANEL_RES_LIST_W, h)
+
+
+def resolution_item_rect(i):
+    """The Resolution list's item i (glass.hpp glass_resolution_item; geometry.RESOLUTIONS order): (x, y, w, h) panel px,
+    in its group's column (one per geometry.RESOLUTION_GROUPS entry, left to right), its row in the group under the
+    column's heading. Empty (zero) for i past the list."""
+    if not 0 <= i < len(geometry.RESOLUTIONS): return (0.0, 0.0, 0.0, 0.0)
+    column, row = 0, i
+    while row >= len(geometry.RESOLUTION_GROUPS[column][1]): row -= len(geometry.RESOLUTION_GROUPS[column][1]); column += 1
+    x, y, w, _ = resolution_list_rect()
+    cw = w / len(geometry.RESOLUTION_GROUPS)
+    return (x + column * cw, y + (1 + row) * PANEL_RES_ITEM_H, cw, PANEL_RES_ITEM_H)
+
+
 def slider_fraction(lx):
     """Panel x (px from the panel's left) -> fraction 0..1 along a slider's knob range (glass.cpp draws the knob there)."""
     return min(max((lx - PANEL_KNOB_LO) / (PANEL_KNOB_HI - PANEL_KNOB_LO), 0.0), 1.0)
 
 
-def panel_hit(lx, ly, index, picker=False):
+def panel_hit(lx, ly, index, picker=False, resolution_picker=False):
     """What panel point (lx, ly) (panel px from its top-left, inside the panel) is on: ('pill', index) for the header
     strip, ('scale', index, percent) on an item of the open Scale list (`picker`: it is open; it covers the sliders
-    under it), ('scale_box', index) on the Scale box, ('slider', index, field, lx) on a slider row's knob range
-    (PANEL_SLOP_PX either side), ('action', index, name) on a desktop-row button (PANEL_ACTIONS), else ('panel', index)."""
-    from .geometry import PLACEMENT_KEYS
+    under it), ('resolution', index, (width, height)) on an item of the open Resolution list (`resolution_picker`; the
+    rest of that list is ('panel', index)), ('resolution_box', index) and ('scale_box', index) on the boxes, ('slider',
+    index, field, lx) on a slider row's knob range (PANEL_SLOP_PX either side), ('action', index, name) on a desktop-row
+    button (PANEL_ACTIONS), else ('panel', index)."""
+    from .geometry import PLACEMENT_KEYS, RESOLUTIONS
     from .view import SCALE_PERCENTS
     if ly < PANEL_HEADER_H: return ('pill', index)
     if picker:
         for i, percent in enumerate(SCALE_PERCENTS):
             x, y, w, h = scale_item_rect(i)
             if x <= lx < x + w and y <= ly < y + h: return ('scale', index, percent)
+    if resolution_picker:
+        for i, size in enumerate(RESOLUTIONS):
+            x, y, w, h = resolution_item_rect(i)
+            if x <= lx < x + w and y <= ly < y + h: return ('resolution', index, size)
+        x, y, w, h = resolution_list_rect()
+        if x <= lx < x + w and y <= ly < y + h: return ('panel', index)  # a column's heading or an empty cell
+    x, y, w, h = PANEL_RES_BOX
+    if x <= lx < x + w and y <= ly < y + h: return ('resolution_box', index)
     x, y, w, h = PANEL_SCALE_BOX
     if x <= lx < x + w and y <= ly < y + h: return ('scale_box', index)
     for i, name in enumerate(PANEL_ACTIONS):
@@ -613,7 +652,7 @@ def panel_hit(lx, ly, index, picker=False):
         if x <= lx < x + w and y <= ly < y + h: return ('action', index, name)
     row = math.floor((ly - PANEL_ROWS_TOP) / PANEL_ROW_H) if ly >= PANEL_ROWS_TOP else -1
     if 0 <= row < len(PLACEMENT_KEYS) and PANEL_KNOB_LO - PANEL_SLOP_PX <= lx <= PANEL_KNOB_HI + PANEL_SLOP_PX:
-        if picker and scale_item_rect(0)[1] <= ly: return ('panel', index)  # beside the open list: no slider grabs
+        if picker or resolution_picker: return ('panel', index)  # a list is open: no slider grabs (the press closes it)
         return ('slider', index, PLACEMENT_KEYS[row], lx)
     return ('panel', index)
 
@@ -628,7 +667,7 @@ def front_order(g, placements):
     return sorted(range(n), key=depth)
 
 
-def hit(g, placements, pointer, open_=None, icons=None, picker=False):
+def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution_picker=False):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)). Then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index), ('edge',
@@ -646,7 +685,7 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False):
         q = desktop_to_glass(tile, placements[open_], unproject(g, tile, placements[open_], pointer))
         if q is not None:
             x, y, w, h = panel_rect(tile)
-            if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_, picker)
+            if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_, picker, resolution_picker)
     order = front_order(g, placements)
     qs = {i: unproject(g, g['tiles'][i], placements[i], pointer) for i in order}
     below = edge = None  # a corner, pill or desktop under the dot: it takes the press; the nearest edge band
@@ -990,7 +1029,8 @@ class OverviewPointer:
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
         return self._on_help() or hit(self.geometry, self._rolled(), self.pointer, self._open(), icons=self._icons(),
-                                      picker=bool(getattr(self.control.state, 'scale_picker', False)))
+                                      picker=bool(getattr(self.control.state, 'scale_picker', False)),
+                                      resolution_picker=bool(getattr(self.control.state, 'resolution_picker', False)))
 
     def _on_help(self, margin=0.0):
         """help_hit for the dot: the card is reported on the overview's plane, so the dot's ray is met there."""
@@ -1252,12 +1292,15 @@ class OverviewPointer:
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._frames(False)) or None
             if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner', 'edge', 'action',
-                                                                                       'scale', 'scale_box')):
+                                                                                       'scale', 'scale_box', 'resolution',
+                                                                                       'resolution_box')):
                 self.outside_closes += 1
                 out += self.control.pill_close()  # a click outside collapses the open panel; the press carries on (what
                 # it hit was not on that panel, so the panel's going changes nothing about it)
             elif getattr(self.control.state, 'scale_picker', False) and (h is None or h[0] not in ('scale', 'scale_box')):
                 out += self.control.scale_close()  # a press on the panel away from the open Scale list closes it
+            elif getattr(self.control.state, 'resolution_picker', False) and (h is None or h[0] not in ('resolution', 'resolution_box')):
+                out += self.control.resolution_close()  # ... and away from the open Resolution list
             if h is not None and h[0] == 'roll':
                 i, tile = h[1], self._tile(h[1])
                 if i < len(self.control.state.names): self.levelling.pop(self.control.state.names[i], None)  # yours now
@@ -1289,6 +1332,11 @@ class OverviewPointer:
             elif h is not None and h[0] == 'scale':  # a step of the open list: that desktop's output scale
                 self.actions += 1
                 out += self.control.scale_pick(h[1], h[2])
+            elif h is not None and h[0] == 'resolution_box':  # the Resolution dropdown opens / closes its list
+                out += self.control.resolution_box(h[1])
+            elif h is not None and h[0] == 'resolution':  # a size of the open list: that desktop's resolution, live
+                self.actions += 1
+                out += self.control.resolution_pick(h[1], h[2])
             elif h is not None and h[0] == 'desktop':  # a click selects it on release; a hold or drag lifts its window
                 self.drag = self._window_press(h[1], h[2], self.pointer, self._to_layout(h[1], h[2]), now)
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
