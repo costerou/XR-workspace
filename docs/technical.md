@@ -258,8 +258,8 @@ onto) was removed on 2026-11-02; a `cursor_follow` saved in layout.json or a pro
 
 An optional 360° scene behind the desktops and behind a VR video. It is chosen in the placement panel's **Background** dropdown
 (the same in every desktop's panel) or the VR video's quality menu, and **Ctrl+Alt+E** or the switch beside the dropdown goes
-between None and the last background used, with a 0.6 s fade. **Grid**, the TRON grid, is the only one so far. Offline tests
-only: nothing about it has been tried in the glasses.
+between None and the last background used, with a 0.6 s fade. **Grid** is the TRON grid and **Smoke** is drifting fog. Offline
+tests only: nothing about either has been tried in the glasses.
 
 *Adding a background.* A row in `tools/native_spike/environment.py` `BACKGROUNDS` and in `spike/include/xr/environment.hpp`
 `kBackgrounds` (`glass_contract` compares them), and a `scene()` in `spike/src/environment_gl.cpp`. The dropdown, the quality
@@ -270,8 +270,17 @@ procedural scene (no textures, no extra framebuffer, GLES2 with `OES_standard_de
 1.6 m below the eye with lines every 2 m and a brighter one every 10 m, anti-aliased from the screen derivatives (lines
 finer than a pixel fade to their average instead of shimmering), a soft halo for the bloom and a distance fade; a thin
 bright horizon with a haze either side; a ring of ridge outlines up to about 5° high, with gaps between the ranges; and on
-about one line in five a light trail at 8, 12 or 16 m/s. The animation clock wraps every 32 s, a common multiple of the
+about one line in five a light trail at 8, 12 or 16 m/s. The animation clock wraps every 512 s, a common multiple of the
 trails' periods, so the wrap never shows.
+
+*What Smoke draws.* The same fullscreen triangle with another `scene()`. The view direction is folded four times by sines of
+itself, each fold's phase running a whole number of cycles per clock loop, then read through three gyroids (a smooth periodic
+field): one says where the banks of smoke are, and ridges of the two finer ones are the strands inside them. Working in direction
+space gives the whole sphere with no seam or pole, and since the head only turns, no depth is lost by leaving out a raymarch. The
+field is squashed in y so wisps lie along the horizon, and it thins toward straight up and down. Density ends at exactly zero,
+so the air between the banks is black, at any brightness. At 100% about a quarter to three quarters of the view is exactly black
+depending on where you look. The folds slide past each other, so the wisps change shape as they drift: 512 s until the same
+shapes come round.
 
 *Colour.* The Omarchy theme's: `GlCompositor::draw_environment` reads the same accent the highlight border and glow are
 drawn in (`set_accent`), so a theme switch recolours them in one frame, and every lit pixel of the grid has that colour's
@@ -335,6 +344,10 @@ worst case:
 
 So about 0.05 ms of the 8.3 ms frame on the glasses' GPU, the same in every scenario: the pass shades each pixel once
 whatever is in front of it. Its shader compiles at renderer start, not on the first frame it shows.
+
+Smoke costs a little less than Grid: on the Radeon 610M the overview takes 2.34 ms of GPU time against Grid's 2.56 ms and 0.35 ms
+with no background (`gl_bench --bench --frames 300`). It has not been measured on the RX 7800 XT, because an XR session was
+using that GPU at the time; by Grid's ratio between the two GPUs it should be about 0.04 ms.
 
 Through the real renderer (`capture_e2e_bench --mode gl-dmabuf --seconds 8 --warmup 2 --hz 120`, zero-copy on the RX 7800 XT
 against the loopback compositor, so a stand-in for Hyprland and no glasses; `--environment grid` for Grid, `--tracking` for
@@ -1255,7 +1268,7 @@ only. It has not been run in an isolated VM or tried in the glasses.
 
 **The view shifts while a panel is open.** The panel hangs under its desktop, further than the view reaches with your head
 level, so the renderer pitches the camera down just enough for its bottom edge to end 12 canvas px inside the view
-(`glass.hpp` `glass_panel_shift`: 0.8° for the middle desktop of the default row and 1.1° for the outer two, at most 15°), easing over the panel's 260 ms morph and back
+(`glass.hpp` `glass_panel_shift`: 1.7° for the middle desktop of the default row and 2.0° for the outer two, at most 15°), easing over the panel's 260 ms morph and back
 when it closes. It covers looking straight at the desktop, and looking level at its height from straight ahead, where the
 row's outer desktops sit lower in the view. It is worked out from the panel's size, not from your head, so it stays put while
 you look round and does not change as the panel moves along the row. It is a camera offset at draw time (`glass_view_shift`):
@@ -1410,7 +1423,7 @@ The background adds these tests. `environment` (`spike/tests/environment_test.cp
 (the theme's own, scaled only for the cap or to show at all), the fade, the levelled world-locked view from any recentre
 reference, the `environment` frame over `tests/native_spike/fixtures/environment_payloads.json`, which
 `tests/native_spike/test_environment.py` runs the supervisor over too, and the panel's fields on a `placement_menu` frame.
-`environment_render` (`spike/tests/environment_render_test.cpp`) draws Grid with the real compositor on surfaceless EGL behind
+`environment_render` (`spike/tests/environment_render_test.cpp`) draws the backgrounds with the real compositor on surfaceless EGL behind
 three synthetic desktops at 1920x1200: None is bit for bit a compositor that never had it; with Grid the desktops' pixels do not
 change and the glow leaves no black halo; looking every way round nothing passes 191/255, most of the view stays dark and the sky
 stays black; the horizon sits where the pitch puts it, a whole turn gives the same frame, and in locked mode the grid turns while
@@ -1424,6 +1437,9 @@ covers the panel's new rows, `glass_contract` their geometry and the table again
 `--bench`. `capture_e2e_environment_*` send the real renderer its `environment` frame on both GL paths and check that frames keep
 flowing and no desktop goes blank. `test_environment.py` covers the setting, the key, saving and restoring, the panel's dropdown,
 switch and slider down to their hit tests, and the quality menu's row.
+Smoke gets its own section there: the desktops' pixels do not change, nothing passes the cap every way round, clear air stays
+exactly black at any brightness, every lit pixel has the theme's hue, no seam shows behind you or straight up or down, a whole
+turn gives the same frame, a frame at 120 Hz changes under a level on average, and neither the loop nor the clock's wrap shows.
 
 `capture_e2e_open_panel` opens a panel in the real renderer and requires the view to have shifted (`view_shift_mrad` in the
 renderer's exit report); every other `capture_e2e_*` run requires it to be 0. The shift's geometry and ease are in `glass`.

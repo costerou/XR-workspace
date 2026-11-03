@@ -125,7 +125,7 @@ def check_menu_payload(p):
         if not isinstance(r, list) or len(r) != 2 or any(type(v) is not int or v % 2 or not lo <= v <= hi
                                                          for v, (lo, hi) in zip(r, RESOLUTION_BOUNDS)):
             raise ValueError('resolution must be an even [width, height] within the desktop bounds')
-    if 'background' in p and p['background'] not in ('none', 'grid'): raise ValueError('background must be a kBackgrounds name')
+    if 'background' in p and p['background'] not in ('none', 'grid', 'smoke'): raise ValueError('background must be a kBackgrounds name')
     if 'brightness' in p and (type(p['brightness']) is not int or not 10 <= p['brightness'] <= 200): raise ValueError('brightness out of range')
     if 'scale' in p and (type(p['scale']) is not int or p['scale'] not in SCALE_STEPS): raise ValueError('scale must be a step')
     if 'scales' in p:

@@ -99,6 +99,7 @@ struct Scenario {
     bool roll = false;                         // both roll brackets on every desktop, desktop 1's left one hovered
     bool surface = false;                      // desktop 1's held panel on its press-time placement (Placement{})
     float environment = 0;  // the background's level (0: none), moving with the head and the clock
+    Background scene = Background::grid;  // which one
 };
 
 std::vector<Scenario> scenarios() {
@@ -143,6 +144,11 @@ std::vector<Scenario> scenarios() {
     { Scenario s{"help_card_env"}; s.pills = true; s.help = true; s.pointer = true; s.environment = 1; out.push_back(s); }
     { Scenario s{"overview_env_fading"}; s.pills = true; s.pointer = true; s.environment = 0.4f; out.push_back(s); }
     { Scenario s{"video_env"}; s.kind = Kind::video; s.popup = true; s.environment = 1; out.push_back(s); }
+    // Smoke behind the same: the cost of a different scene, not of anything else.
+    { Scenario s{"zoomed_smoke"}; s.zoom = 1; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
+    { Scenario s{"overview_smoke"}; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
+    { Scenario s{"panel_open_smoke"}; s.pills = true; s.expand = 1; s.panel = true; s.pointer = true; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
+    { Scenario s{"video_smoke"}; s.kind = Kind::video; s.popup = true; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
     return out;
 }
 
@@ -175,7 +181,7 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     const double d = std::tan(46.0 * M_PI / 360.0), a = double(w) / h;
     const float half_w = float(d * a / std::sqrt(1 + a * a)), half_h = float(d / std::sqrt(1 + a * a));
     gl.set_popup(s.popup ? &r.popup : nullptr, 1, 1.f);
-    gl.set_environment(s.environment, s.environment > 0.f ? Background::grid : Background::none, 100.f,
+    gl.set_environment(s.environment, s.environment > 0.f ? s.scene : Background::none, 100.f,
                        std::fmod(float(frame) * 0.083f, float(kEnvironmentLoopS)), head(frame, s.head_motion || s.environment > 0.f));
     if (s.kind == Kind::video) {
         const double t = now_us();

@@ -1,4 +1,4 @@
-// The Grid background drawn by the real compositor (GlCompositor::draw_and_swap on surfaceless EGL, the glasses' 1920x1200
+// The backgrounds drawn by the real compositor (GlCompositor::draw_and_swap on surfaceless EGL, the glasses' 1920x1200
 // buffer under scale 1.25) behind three synthetic desktops, the glass pills, the cursor dot and the highlight:
 //   * None (or level 0) the frame is bit for bit the frame of a compositor that never heard of it;
 //   * on, every desktop's pixels are exactly as they are with None, and the highlight's glow adds to the grid instead of
@@ -14,7 +14,11 @@
 //     without it, the rest of the view exactly the grid.
 // With a directory argument it also writes preview PNGs there (needs zlib): the overview ahead and looking round, maximized
 // (follow / locked), theme colours, half faded, brightness, None, the placement panel with the Background list open and with
-// the Brightness slider held, and a 180 degree video. Exit 77 (skipped) without EGL/GLES.
+// the Brightness slider held, and a 180 degree video, and the same for Smoke (smoke-*.png). `DIR --smoke-frames N STEP` writes
+// only N numbered Smoke frames STEP seconds apart there, for an animation. Exit 77 (skipped) without EGL/GLES.
+//
+// Smoke has its own section: the desktops untouched over it, under the cap every way round with clear air exactly black at
+// any brightness, the theme's hue, no seam anywhere on the sphere, world-locked, and motion that is slow and loops.
 #include "gl.hpp"
 #include "video_gl.hpp"
 #include "xr/environment.hpp"
@@ -28,6 +32,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -143,6 +148,7 @@ struct Frame {
     int highlight = 1;
     Mat3 view = kIdentity;          // the desktops' rotation (anchor: the head; locked / follow: identity here)
     bool environment = true; bool touch = true;  // touch false: never call set_environment (a compositor without it)
+    Background scene = Background::grid;
     float level = 1, brightness = 100, seconds = 3.25f; Mat3 world = kIdentity;
     const HudImage* panel = nullptr;  // desktop 1's pill open into its placement panel, showing this
 };
@@ -154,14 +160,14 @@ Image draw(GlCompositor& gl, const Frame& f) {
     if (f.panel) { glass.expand[1] = 1; glass.top = 1; glass.content = 1; glass.image = f.panel; glass.generation = ++generation; glass.content_alpha = 1; }
     gl.set_glass(glass);
     gl.set_free_pointer(f.pointer && f.zoom < 0.01f, float(kCanvasW) * 0.58f, float(kCanvasH) * 0.47f, kFreePointerLevel);
-    if (f.touch) gl.set_environment(f.level, f.environment ? Background::grid : Background::none, f.brightness, f.seconds, f.world);
+    if (f.touch) gl.set_environment(f.level, f.environment ? f.scene : Background::none, f.brightness, f.seconds, f.world);
     CHECK(gl.draw_and_swap(tiles, std::vector<Placement>(tiles.size()), f.desktops ? f.highlight : -1, 1.f - f.zoom, f.view, g_half_w, g_half_h));
     return read();
 }
 // A 180 degree video as wayland.cpp and VideoMode::draw do it: the background, then the picture over it where it reaches.
 Image draw_video(GlCompositor& gl, VideoSphere& sphere, GLuint picture, const Frame& f) {
     VideoFormat format; format.projection = VideoProjection::equirect180;
-    gl.set_environment(f.level, f.environment ? Background::grid : Background::none, f.brightness, f.seconds, f.world);
+    gl.set_environment(f.level, f.environment ? f.scene : Background::none, f.brightness, f.seconds, f.world);
     CHECK(gl.draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) {
         glViewport(0, 0, GLsizei(w), GLsizei(h)); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
         const bool behind = gl.draw_environment(g_half_w, g_half_h);
@@ -251,6 +257,19 @@ int main(int argc, char** argv) {
     gl = make(content, why);
     if (!gl) { std::printf("SKIP: %s\n", why.c_str()); return 77; }
     CHECK(gl->set_environment(0.f, Background::none, 100.f, 0.f, kIdentity));  // the pass compiled
+#ifdef XR_HAVE_ZLIB
+    if (argc > 4 && std::string(argv[2]) == "--smoke-frames") {  // N stills, STEP seconds apart, for an animation; no checks
+        std::filesystem::create_directories(argv[1]);
+        const int n = std::atoi(argv[3]);
+        const float step = float(std::atof(argv[4]));
+        for (int i = 0; i < n; ++i) {
+            Frame f = base; f.scene = Background::smoke; f.world = world(0, -6); f.seconds = 20.f + step * float(i);
+            char name[32]; std::snprintf(name, sizeof name, "%04d.png", i);
+            CHECK(write_png(std::filesystem::path(argv[1]) / name, draw(*gl, f)));
+        }
+        return failures != 0;
+    }
+#endif
     (void)draw(*gl, base);
     {
         const Image b = draw(*gl, off);
@@ -442,13 +461,112 @@ int main(int argc, char** argv) {
         CHECK(off_by_more < w0.rgb.size() / 2000);
     }
 
-    // 6. Behind a 180 degree video: the picture exactly as without it, the rest exactly the grid, looking past its edge.
+    // 5b. Smoke. The desktops' pixels are as they are with None.
+    Frame smoke = grid_only; smoke.scene = Background::smoke;
+    {
+        Frame over = on; over.scene = Background::smoke;
+        const Image im = draw(*gl, over);
+        std::size_t differ = 0, checked = 0;
+        for (std::size_t i = 0; i < 3; ++i) {
+            const PxRect r = tile_px(i, 0.f, i == 1 ? 3 : 24);
+            for (int y = r.y0; y < r.y1; ++y)
+                for (int x = r.x0; x < r.x1; ++x) {
+                    const std::size_t k = (std::size_t(y) * kPxW + std::size_t(x)) * 3;
+                    ++checked; differ += std::memcmp(&im.rgb[k], &without.rgb[k], 3) != 0;
+                }
+        }
+        CHECK(checked > 400'000 && differ == 0);
+    }
+    // Every way round: under the cap, smoke somewhere, clear air exactly black, and no seam or pole: neighbouring pixels are
+    // close everywhere, ahead, behind (where atan-based mapping would tear) and straight up and down.
+    for (const Dir d : {Dir{"ahead", 0, 0}, Dir{"left", 80, -5}, Dir{"behind", 180, 0}, Dir{"right-down", -120, -25}, Dir{"up", 0, 60},
+                        Dir{"zenith", 0, 89.5f}, Dir{"nadir", 0, -89.5f}}) {
+        Frame g = smoke; g.world = world(d.yaw, d.pitch);
+        const Image im = draw(*gl, g);
+        std::size_t lit = 0, black = 0, over = 0;
+        int jump = 0;
+        for (std::uint32_t y = 0; y < kPxH; ++y)
+            for (std::uint32_t x = 0; x < kPxW; ++x) {
+                const std::size_t i = std::size_t(y) * kPxW + x;
+                const auto m = channel_max(im, i);
+                lit += m >= 24; black += m == 0; over += m > kCap;
+                if (x + 1 < kPxW) jump = std::max(jump, std::abs(int(m) - int(channel_max(im, i + 1))));
+                if (y + 1 < kPxH) jump = std::max(jump, std::abs(int(m) - int(channel_max(im, i + kPxW))));
+            }
+        const double n = double(kPxW) * kPxH;
+        std::printf("smoke %-10s black %.1f%%  lit %.1f%%  over cap %zu  biggest step %d\n", d.name, 100.0 * double(black) / n, 100.0 * double(lit) / n, over, jump);
+        CHECK(over == 0 && jump <= 12);
+        if (std::fabs(d.pitch) < 70) CHECK(double(lit) / n > 0.02);  // (it thins out toward straight up)
+    }
+    {
+        Frame ahead_smoke = smoke; ahead_smoke.world = world(0, -6);
+        const Image a = draw(*gl, ahead_smoke);
+        auto sum = [](const Image& im) { double t = 0; for (const auto v : im.rgb) t += v; return t; };
+        const double sa = sum(a);
+        // The theme's colour, every lit pixel, and the very next frame after a switch.
+        for (const std::array<std::uint8_t, 3> accent : {kTokyo, std::array<std::uint8_t, 3>{0xf7, 0x76, 0x8e}, std::array<std::uint8_t, 3>{0x9e, 0xce, 0x6a}}) {
+            gl->set_accent(accent[0], accent[1], accent[2]);
+            const Image im = draw(*gl, ahead_smoke);
+            const float top = float(std::max({accent[0], accent[1], accent[2]}));
+            std::size_t lit = 0, off = 0;
+            for (std::size_t i = 0; i < std::size_t(kPxW) * kPxH; ++i) {
+                const auto m = channel_max(im, i);
+                if (m < 60) continue;
+                ++lit;
+                for (std::size_t c = 0; c < 3; ++c) off += std::fabs(float(im.rgb[i * 3 + c]) / float(m) - float(accent[c]) / top) > 0.04f;
+            }
+            if (off) std::fprintf(stderr, "smoke, theme %02x%02x%02x: %zu channels of %zu lit pixels off its colour\n", accent[0], accent[1], accent[2], off, lit);
+            CHECK(lit > 500 && off == 0);
+        }
+        gl->set_accent(kTokyo[0], kTokyo[1], kTokyo[2]);
+        // The fade and the brightness scale it; clear air stays exactly black at both ends; the brightest stays under the cap.
+        Frame half = ahead_smoke; half.level = 0.5f;
+        CHECK(std::fabs(sum(draw(*gl, half)) / sa - 0.5) < 0.03);
+        Frame dim = ahead_smoke; dim.brightness = 50;
+        CHECK(std::fabs(sum(draw(*gl, dim)) / sa - 0.5) < 0.04);
+        Frame most = ahead_smoke; most.brightness = 200;
+        const Image m2 = draw(*gl, most);
+        CHECK(sum(m2) > 1.5 * sa);
+        std::size_t over = 0, black = 0, raised = 0;
+        for (std::size_t i = 0; i < std::size_t(kPxW) * kPxH; ++i) {
+            over += channel_max(m2, i) > kCap;
+            black += channel_max(m2, i) == 0;
+            raised += channel_max(m2, i) == 0 && channel_max(a, i) != 0;  // black at 200%, lit at 100%: impossible
+        }
+        std::printf("smoke black at 200%%: %.1f%%\n", 100.0 * double(black) / (double(kPxW) * kPxH));
+        CHECK(over == 0 && raised == 0);
+        CHECK(double(black) / (double(kPxW) * kPxH) > 0.03);
+        // World-locked: a whole turn is the same frame, a small turn is not.
+        Frame t0 = smoke; t0.world = world(37, -12);
+        Frame t1 = smoke; t1.world = world(37 + 360, -12);
+        Frame t2 = smoke; t2.world = world(47, -12);
+        const Image i0 = draw(*gl, t0), i1 = draw(*gl, t1);
+        std::size_t off_by_more = 0;
+        for (std::size_t k = 0; k < i0.rgb.size(); ++k) off_by_more += std::abs(int(i0.rgb[k]) - int(i1.rgb[k])) > 2;
+        CHECK(off_by_more < i0.rgb.size() / 2000);
+        CHECK(draw(*gl, t2).rgb != i0.rgb);
+        // Slow: a frame at 120 Hz changes nothing you could see; ten seconds is another shape, and a whole loop the same one.
+        auto mean_change = [](const Image& p, const Image& q) { double t = 0; for (std::size_t k = 0; k < p.rgb.size(); ++k) t += std::abs(int(p.rgb[k]) - int(q.rgb[k])); return t / double(p.rgb.size()); };
+        Frame later = ahead_smoke; later.seconds = ahead_smoke.seconds + 1.f / 120.f;
+        Frame ten = ahead_smoke; ten.seconds = ahead_smoke.seconds + 10.f;
+        Frame sixty = ahead_smoke; sixty.seconds = ahead_smoke.seconds + 60.f;
+        const double step = mean_change(a, draw(*gl, later)), far = mean_change(a, draw(*gl, ten)), farther = mean_change(a, draw(*gl, sixty));
+        std::printf("smoke mean change: %.3f a frame, %.2f in 10 s, %.2f in 60 s (levels)\n", step, far, farther);
+        CHECK(step < 0.6 && far > 1.5 && farther > far);
+        Frame looped = ahead_smoke; looped.seconds = ahead_smoke.seconds + float(kEnvironmentLoopS);
+        Frame edge0 = ahead_smoke; edge0.seconds = 0.f;
+        Frame edge1 = ahead_smoke; edge1.seconds = float(kEnvironmentLoopS) - 1.f / 120.f;
+        CHECK(mean_change(a, draw(*gl, looped)) < 0.6);
+        CHECK(mean_change(draw(*gl, edge0), draw(*gl, edge1)) < 0.6);  // the clock's wrap is one more frame
+    }
+
+    // 6. Behind a 180 degree video: the picture exactly as without it, the rest exactly the background, looking past its edge.
     std::string sphere_why;
     auto sphere = VideoSphere::create(sphere_why);
     CHECK(sphere != nullptr);
     const GLuint picture = sphere ? picture_texture() : 0;
-    if (sphere) {
-        Frame v = grid_only; v.world = world(90, -6);  // the picture's left edge down the middle of the view
+    if (sphere) for (const Background scene : {Background::grid, Background::smoke}) {
+        Frame v = grid_only; v.scene = scene; v.world = world(90, -6);  // the picture's left edge down the middle of the view
         const Image grid = draw(*gl, v);
         Frame none = v; none.environment = false;
         const Image plain_video = draw_video(*gl, *sphere, picture, none), both = draw_video(*gl, *sphere, picture, v);
@@ -467,7 +585,7 @@ int main(int argc, char** argv) {
 #ifdef XR_HAVE_ZLIB
         const std::filesystem::path dir = argv[1];
         std::error_code ec; std::filesystem::create_directories(dir, ec);
-        struct Shot { const char* file; Frame f; std::array<std::uint8_t, 3> accent = kTokyo; };
+        struct Shot { const char* file; Frame f; std::array<std::uint8_t, 3> accent = kTokyo; std::string name{}; };
         std::vector<Shot> shots;
         const Frame ahead = [&] { Frame f = base; f.world = world(0, -6); f.view = anchor_view(0, -6); return f; }();
         shots.push_back({"overview-ahead.png", ahead});
@@ -498,11 +616,28 @@ int main(int argc, char** argv) {
         const Frame low = [&] { Frame f = base; f.view = glass_view_shift(kIdentity, glass_panel_shift(canvas, tiles[1], Placement{})); return f; }();
         { Frame f = low; f.panel = &list_image; shots.push_back({"panel-background-dropdown.png", f}); }
         { Frame f = low; f.panel = &slider_image; f.brightness = 40; shots.push_back({"panel-brightness-slider.png", f}); }
+        // Smoke: over time, looking round, themes, brightness, maximized and the panel.
+        Frame sm = ahead; sm.scene = Background::smoke;
+        for (const int s : {20, 32, 44, 56}) { Frame f = sm; f.seconds = float(s); shots.push_back({nullptr, f}); shots.back().name = "smoke-over-time-" + std::to_string(s) + "s.png"; }
+        { Frame f = sm; f.world = world(55, -10); f.view = anchor_view(55, -10); shots.push_back({"smoke-look-left.png", f}); }
+        { Frame f = sm; f.world = world(180, -8); f.view = anchor_view(180, -8); shots.push_back({"smoke-look-behind.png", f}); }
+        { Frame f = sm; f.world = world(-20, -42); f.view = anchor_view(-20, -42); shots.push_back({"smoke-look-down.png", f}); }
+        { Frame f = sm; f.world = world(20, 30); f.view = anchor_view(20, 30); shots.push_back({"smoke-look-up.png", f}); }
+        { Frame f = sm; f.zoom = 1; f.world = world(0, -9); shots.push_back({"smoke-maximized.png", f}); }
+        shots.push_back({"smoke-theme-rose.png", sm, {0xf7, 0x76, 0x8e}});
+        shots.push_back({"smoke-theme-green.png", sm, {0x9e, 0xce, 0x6a}});
+        shots.push_back({"smoke-theme-amber.png", sm, {0xe0, 0xaf, 0x68}});
+        { Frame f = sm; f.brightness = 40; shots.push_back({"smoke-brightness-40.png", f}); }
+        { Frame f = sm; f.brightness = 200; shots.push_back({"smoke-brightness-200.png", f}); }
+        PlacementMenuState smoke_list = list; smoke_list.background = std::uint8_t(Background::smoke);
+        const HudImage smoke_list_image = render_glass_panel(smoke_list, font.get(), tokyo);
+        { Frame f = low; f.scene = Background::smoke; f.panel = &smoke_list_image; shots.push_back({"smoke-panel-dropdown.png", f}); }
         for (const auto& s : shots) {
             gl->set_accent(s.accent[0], s.accent[1], s.accent[2]);
-            const bool ok = write_png(dir / s.file, draw(*gl, s.f));
+            const std::filesystem::path path = dir / (s.file ? std::string(s.file) : s.name);
+            const bool ok = write_png(path, draw(*gl, s.f));
             CHECK(ok);
-            std::printf("preview %s %s\n", (dir / s.file).c_str(), ok ? "written" : "FAILED");
+            std::printf("preview %s %s\n", path.c_str(), ok ? "written" : "FAILED");
         }
         gl->set_accent(kTokyo[0], kTokyo[1], kTokyo[2]);
         if (sphere) {
@@ -510,6 +645,10 @@ int main(int argc, char** argv) {
             const bool ok = write_png(dir / "video-180-grid-behind.png", draw_video(*gl, *sphere, picture, v));
             CHECK(ok);
             std::printf("preview %s %s\n", (dir / "video-180-grid-behind.png").c_str(), ok ? "written" : "FAILED");
+            v.scene = Background::smoke;
+            const bool ok2 = write_png(dir / "smoke-video-180-behind.png", draw_video(*gl, *sphere, picture, v));
+            CHECK(ok2);
+            std::printf("preview %s %s\n", (dir / "smoke-video-180-behind.png").c_str(), ok2 ? "written" : "FAILED");
         }
 #else
         std::printf("note: built without zlib; no previews written\n");

@@ -470,6 +470,9 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_environment_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
         --environment grid --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_environment_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      add_test(NAME capture_e2e_environment_smoke_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
+        --environment smoke --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_environment_smoke_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
     # An open placement panel through the real renderer: its frame, the view shifted so all of it shows, frames still flowing.
     add_test(NAME capture_e2e_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1

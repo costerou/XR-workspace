@@ -3,7 +3,7 @@
 This module is the one place the supervisor reads and writes its setting, as quality.py is for the video quality:
 
 - BACKGROUNDS lists the choices, in menu order: (wire name, label). 'none' is the plain black passthrough, 'grid' the TRON
-  grid. Adding a background: a row here, the same row in environment.hpp kBackgrounds (the glass_contract ctest compares
+  grid, 'smoke' drifting fog. Adding a background: a row here, the same row in environment.hpp kBackgrounds (the glass_contract ctest compares
   them) and a scene in environment_gl.cpp; the menus and the saved setting follow from the table.
 - DEFAULTS: `background` (None, so nothing changes for anyone who never picks one), `last` (the last background that was
   not None, what Ctrl+Alt+E comes back to) and `brightness` in percent (BRIGHTNESS_BOUNDS; 100 is the scene as designed).
@@ -27,7 +27,7 @@ session with SET_OP, one absolute message like `placement`.
 import json
 import math
 
-BACKGROUNDS = (('none', 'None'), ('grid', 'Grid'))  # (wire name, label): spike/include/xr/environment.hpp kBackgrounds
+BACKGROUNDS = (('none', 'None'), ('grid', 'Grid'), ('smoke', 'Smoke'))  # (wire name, label): spike/include/xr/environment.hpp kBackgrounds
 NAMES = tuple(name for name, _ in BACKGROUNDS)
 NONE = NAMES[0]
 BRIGHTNESS_BOUNDS, DEFAULT_BRIGHTNESS = (10, 200), 100  # renderer: kBrightnessMin / Max / Default

@@ -154,9 +154,10 @@ Ctrl+Alt+V in the overview changes nothing; a small notification says why. The l
 mode when the session starts and when Ctrl+Alt+V changes it, not on every maximize.
 
 **The background** (new, not yet tried in the glasses). By default there is nothing behind your desktops: black, which you
-see through. Open any desktop's pill (Ctrl+Alt+L) and the **Background** dropdown offers **None** or **Grid**, the TRON grid:
-a black sky, a glowing grid floor running off to a bright horizon, a ring of mountain outlines in the distance, and light
-trails racing along the grid lines. It fades in behind your desktops and stays put in the room whatever they do, so you can
+see through. Open any desktop's pill (Ctrl+Alt+L) and the **Background** dropdown offers **None**, **Grid** or **Smoke**. Grid is
+the TRON grid: a black sky, a glowing grid floor running off to a bright horizon, a ring of mountain outlines in the distance,
+and light trails racing along the grid lines. Smoke is slow wisps of fog drifting round you, thickest about the horizon and
+thinning out overhead, with clear black air between them. Either one fades in behind your desktops and stays put in the room whatever they do, so you can
 look all the way round, up and down, also while a desktop is maximized or locked to your view.
 
 - **Ctrl+Alt+E**, or the switch beside the dropdown, turns it off and back on. It goes between None and the last background

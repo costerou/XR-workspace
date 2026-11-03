@@ -103,8 +103,36 @@ const char* kGrid =
     "  }\n"
     "  return c;\n"
     "}\n";
+// Smoke. No raymarch and no noise lattice: the view direction is folded by sines of itself, then read through three gyroids
+// (a smooth periodic field), about 30 sines in all per pixel. World (GL frame) as Grid.
+//  * direction space: it covers the whole sphere with no seam and no pole, and the head only turns, so depth would not show;
+//  * squashed in y, so the wisps lie along the horizon like real fog, and a band about the horizon is the densest;
+//  * each fold's phase runs a whole number of cycles per kEnvironmentLoopS, so the folds slide past each other, the wisps
+//    change shape as they drift, and the clock's wrap never shows;
+//  * `bank` says where smoke is, big and slow; `a` and `b` are ridges of two finer fields, the strands in it;
+//  * density ends at exactly zero, so the air between the banks is black, and everything is `line`, so it has the theme's hue.
+const char* kSmoke =
+    "const float kTurn = 6.2831853 / LOOP_S;\n"
+    "float gyroid(vec3 p) { return dot(sin(p), cos(p.yzx)) / 1.5; }\n"
+    "vec3 scene(vec3 d) {\n"
+    "  float t = seconds * kTurn;\n"
+    "  vec3 p = vec3(d.x, d.y * 2.0, d.z) * 13.0;\n"
+    "  p += 1.7 * sin(p.zxy * 0.41 + vec3(1.3, 4.1, 2.2) + t * vec3(2.0, -3.0, 1.0));\n"
+    "  p += 0.95 * sin(p.yzx * 0.83 + vec3(5.2, 0.7, 3.3) + t * vec3(-5.0, 4.0, 3.0));\n"
+    "  p += 0.5 * sin(p.zxy * 1.67 + vec3(2.9, 6.1, 1.1) + t * vec3(7.0, 6.0, -8.0));\n"
+    "  p += 0.26 * sin(p.yzx * 3.31 + vec3(0.4, 3.7, 5.6) + t * vec3(-9.0, 11.0, 10.0));\n"
+    "  float bank = smoothstep(-0.55, 0.85, gyroid(p * 0.42));\n"
+    "  float a = 1.0 - abs(gyroid(p * 0.91 + vec3(1.7, 0.3, 2.9)));\n"
+    "  float b = 1.0 - abs(gyroid(p * 1.93 + vec3(4.1, 2.3, 0.6)));\n"
+    "  float wisp = a * a * (0.45 + 0.55 * b);\n"
+    "  float density = max(bank * bank * (0.13 + 0.72 * wisp) - 0.012, 0.0);\n"
+    "  float band = 1.0 - smoothstep(0.1, 0.95, abs(d.y + 0.08));\n"
+    "  return line * density * (0.3 + 0.7 * band);\n"
+    "}\n";
 // One scene per kBackgrounds row; nullptr draws nothing.
-const char* scene_of(Background background) { return background == Background::grid ? kGrid : nullptr; }
+const char* scene_of(Background background) {
+    return background == Background::grid ? kGrid : background == Background::smoke ? kSmoke : nullptr;
+}
 
 GLuint compile(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
@@ -121,7 +149,7 @@ std::unique_ptr<EnvironmentPass> EnvironmentPass::create() {
     for (std::size_t i = 0; i < kBackgroundCount; ++i) {
         const char* scene = scene_of(Background(i));
         if (!scene) continue;
-        const std::string fragment = std::string(kHead) + scene + kTail;
+        const std::string fragment = std::string(kHead) + "#define LOOP_S " + std::to_string(kEnvironmentLoopS) + "\n" + scene + kTail;
         GLuint v = compile(GL_VERTEX_SHADER, kVertex), f = compile(GL_FRAGMENT_SHADER, fragment.c_str());
         if (!v || !f) { if (v) glDeleteShader(v); if (f) glDeleteShader(f); return nullptr; }
         auto& p = s.programs_[i];

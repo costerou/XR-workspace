@@ -29,7 +29,7 @@ class SettingTests(unittest.TestCase):
 
     def test_the_table_starts_with_none_and_more_can_follow(self):
         self.assertEqual(environment.BACKGROUNDS[0], ('none', 'None'))
-        self.assertIn(('grid', 'Grid'), environment.BACKGROUNDS)
+        self.assertEqual(environment.BACKGROUNDS[1:3], (('grid', 'Grid'), ('smoke', 'Smoke')))
         for name, label in environment.BACKGROUNDS:
             self.assertLessEqual(len(label), quality.MAX_LABEL)
         self.assertLessEqual(len(environment.MENU_LABEL), quality.MAX_LABEL)
@@ -39,9 +39,25 @@ class SettingTests(unittest.TestCase):
             stars = environment.picked(GRID, 'stars')
             self.assertEqual(stars, {'background': 'stars', 'last': 'stars', 'brightness': 100})
             self.assertEqual(environment.toggled(environment.toggled(stars)), stars)
-            self.assertEqual(environment.stepped(GRID, 1)['background'], 'stars')
+            self.assertEqual(environment.stepped(environment.picked(GRID, 'smoke'), 1)['background'], 'stars')
             self.assertEqual(environment.stepped(stars, 1)['background'], 'none')
             self.assertEqual(environment.label(stars), 'Stars')
+
+    def test_smoke_is_a_background_like_grid(self):
+        smoke = environment.picked(GRID, 'smoke')
+        self.assertEqual(smoke, {'background': 'smoke', 'last': 'smoke', 'brightness': 100})
+        self.assertEqual(environment.label(smoke), 'Smoke')
+        self.assertEqual(environment.stepped(GRID, 1), smoke)
+        self.assertEqual(environment.environment({'environment': smoke}), smoke)
+
+    def test_the_toggle_comes_back_to_the_last_one_used(self):
+        smoke = environment.picked(GRID, 'smoke')
+        off = environment.toggled(smoke)
+        self.assertEqual(off, {'background': 'none', 'last': 'smoke', 'brightness': 100})
+        self.assertEqual(environment.toggled(off), smoke)
+        grid = environment.picked(off, 'grid')  # switching between the two moves `last` with it
+        self.assertEqual(environment.toggled(environment.toggled(grid)), grid)
+        self.assertEqual(environment.environment({'environment': off})['last'], 'smoke')  # as saved
 
     def test_the_accessor_cleans_each_field_on_its_own(self):
         self.assertEqual(environment.environment({}), NONE)
@@ -464,11 +480,14 @@ class QualityMenuTests(unittest.TestCase):
         self.assertEqual([f['payload']['background'] for f in out if f['op'] == 'environment'], ['grid'])
         self.assertEqual(self.menu(out)['rows'][-1]['value'], 'Grid')
         self.assertEqual(view.load_settings(self.layout)['environment'], GRID)
+        out = self.op('video_seek_fwd')
+        self.assertEqual([f['payload']['background'] for f in out if f['op'] == 'environment'], ['smoke'])
+        self.assertEqual(self.menu(out)['rows'][-1]['value'], 'Smoke')
         out = self.op('video_seek_fwd')  # wraps round to None
         self.assertEqual([f['payload']['background'] for f in out if f['op'] == 'environment'], ['none'])
         self.assertEqual(self.menu(out)['rows'][-1]['value'], 'None')
         out = self.op('video_seek_back')  # and back
-        self.assertEqual([f['payload']['background'] for f in out if f['op'] == 'environment'], ['grid'])
+        self.assertEqual([f['payload']['background'] for f in out if f['op'] == 'environment'], ['smoke'])
 
     def test_the_video_settings_stay_as_they_were(self):
         self.row()

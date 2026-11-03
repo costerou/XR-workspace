@@ -8,7 +8,11 @@
     {"payload": {"background": "grid", "brightness": 10}, "background": 1, "brightness": 10,
      "setting": {"background": "grid", "last": "grid", "brightness": 10}},
     {"payload": {"brightness": 200, "background": "grid"}, "background": 1, "brightness": 200,
-     "setting": {"background": "grid", "last": "grid", "brightness": 200}}
+     "setting": {"background": "grid", "last": "grid", "brightness": 200}},
+    {"payload": {"background": "smoke", "brightness": 100}, "background": 2, "brightness": 100,
+     "setting": {"background": "smoke", "last": "smoke", "brightness": 100}},
+    {"payload": {"background": "smoke", "brightness": 55}, "background": 2, "brightness": 55,
+     "setting": {"background": "smoke", "last": "smoke", "brightness": 55}}
   ],
   "invalid": [
     {},
@@ -16,6 +20,7 @@
     {"brightness": 100},
     {"background": "red", "brightness": 100},
     {"background": "Grid", "brightness": 100},
+    {"background": "Smoke", "brightness": 100},
     {"background": 1, "brightness": 100},
     {"background": null, "brightness": 100},
     {"background": "grid", "brightness": 9},

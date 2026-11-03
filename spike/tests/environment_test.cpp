@@ -34,7 +34,9 @@ void backgrounds() {
     CHECK(kBackgroundCount >= 2);
     CHECK(kBackgrounds[std::size_t(Background::none)].name == "none" && kBackgrounds[std::size_t(Background::grid)].name == "grid");
     CHECK(background_index("none") == 0 && background_index("grid") == std::size_t(Background::grid));
+    CHECK(kBackgrounds[std::size_t(Background::smoke)].name == "smoke" && kBackgrounds[std::size_t(Background::smoke)].label == "Smoke");
     CHECK(background_index("Grid") == kBackgroundCount && background_index("") == kBackgroundCount);
+    CHECK(std::fmod(kEnvironmentLoopS, 32.0) == 0.0);  // Grid's pulses all come round in 32 s
     for (const auto& b : kBackgrounds) CHECK(!b.label.empty() && b.label.size() <= 24);  // the quality menu's kMaxQualityText
     CHECK(kBrightnessMin < kBrightnessDefault && kBrightnessDefault < kBrightnessMax);
 }

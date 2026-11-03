@@ -8,6 +8,8 @@
 // the same row in environment.py BACKGROUNDS (a test compares them) and a `scene()` in environment_gl.cpp.
 //   Grid: the TRON grid. A near-black sky, an endless neon grid floor fading into the distance, a glowing horizon, a ring of
 //   distant mountain outlines, and light trails running along the grid lines.
+//   Smoke: slow wisps of fog drifting round you, thickest in a band about the horizon. Its density ends at exactly zero, so
+//   the clear air between the wisps is black.
 //
 // Colour: the Omarchy theme's, the very accent the highlight border and glow use (GlCompositor::set_accent, Hyprland
 // general:col.active_border), so a theme switch recolours it with them, in the same frame. environment_line_color only keeps
@@ -23,8 +25,8 @@
 // so the pass is skipped; a 180° or fisheye one leaves the rest of the sphere to it). With None (once its fade-out has
 // finished) the pass is skipped and every frame is exactly what it was without it.
 //
-// Frames. It asks for frames only while it fades: a head-tracked run draws every frame anyway, so its pulses run smoothly.
-// Without head tracking a settled grid is redrawn only when something else is (a pulse then moves in steps), because a renderer
+// Frames. It asks for frames only while it fades: a head-tracked run draws every frame anyway, so it animates smoothly.
+// Without head tracking a settled background is redrawn only when something else is (it then moves in steps), because a renderer
 // that draws on every callback shows a new desktop frame a refresh later (capture_e2e_bench: 5 -> 13 ms capture to present).
 //
 // Pure and offline-testable; the GL pass and the renderer's frame loop use these.
@@ -36,9 +38,10 @@
 #include <string_view>
 
 namespace xr {
-enum class Background : std::uint8_t { none = 0, grid = 1 };
+enum class Background : std::uint8_t { none = 0, grid = 1, smoke = 2 };
 struct BackgroundInfo { std::string_view name, label; };  // wire name (ipc.hpp EnvironmentPayload), menu label
-inline constexpr std::array<BackgroundInfo, 2> kBackgrounds{BackgroundInfo{"none", "None"}, BackgroundInfo{"grid", "Grid"}};
+inline constexpr std::array<BackgroundInfo, 3> kBackgrounds{BackgroundInfo{"none", "None"}, BackgroundInfo{"grid", "Grid"},
+                                                            BackgroundInfo{"smoke", "Smoke"}};
 inline constexpr std::size_t kBackgroundCount = kBackgrounds.size();
 // Index into kBackgrounds of wire name `name`, kBackgroundCount if there is no such background.
 constexpr std::size_t background_index(std::string_view name) {
@@ -55,9 +58,10 @@ inline constexpr std::uint16_t kBrightnessMin = 10, kBrightnessMax = 200, kBrigh
 inline constexpr float kEnvironmentCap = 191.f / 255.f;       // the OLED cap: no channel of the pass is brighter
 inline constexpr float kEnvironmentFloor = 72.f / 255.f;      // the brightest channel of a near-black theme colour is lifted to this
 inline constexpr double kEnvironmentFadeMs = 600;             // on / off fade
-// The animation clock wraps every kEnvironmentLoopS seconds: every pulse's period divides it exactly (environment_gl.cpp
-// pulse speeds 8 / 12 / 16 m/s along a 128 m period), so the wrap is seamless.
-inline constexpr double kEnvironmentLoopS = 32;
+// The animation clock wraps every kEnvironmentLoopS seconds: every Grid pulse's period divides it exactly (environment_gl.cpp
+// pulse speeds 8 / 12 / 16 m/s along a 128 m period) and every Smoke motion is a whole number of cycles of it, so the wrap
+// is seamless. Long, so Smoke's drift never shows a repeat.
+inline constexpr double kEnvironmentLoopS = 512;
 
 // The background's line colour for theme colour `accent` (the highlight border's): that colour exactly, unless its brightest
 // channel is over the OLED cap, when all three scale down together so its hue and saturation stay; a near-black

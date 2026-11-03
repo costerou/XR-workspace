@@ -811,7 +811,7 @@ void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..3] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--environment grid] [--open-panel] [--check]\n");
+                         "                  [--environment grid|smoke] [--open-panel] [--check]\n");
 }
 }  // namespace
 
@@ -832,7 +832,7 @@ int main(int argc, char** argv) {
         else if (a == "--check") opt.check = true;
         else if (a == "--constraint-churn") opt.churn = next();
         else if (a == "--tracking") opt.tracking = true;
-        else if (a == "--environment") opt.environment = next();  // a background from the start: grid
+        else if (a == "--environment") opt.environment = next();  // a background from the start: grid or smoke
         else if (a == "--open-panel") opt.open_panel = true;
         else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
         else { usage(); return 2; }
