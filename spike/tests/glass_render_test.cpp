@@ -1,8 +1,9 @@
 // The glass fragment shader (glass.hpp glass_fragment_shader) on a real GLES2 context matches its CPU mirror
 // glass_shade() pixel for pixel (within rounding) over black and over a bright (0.9) desktop; over black the glass alone,
 // and the glass with the panel content composited on top, stays at or under the 191/255 OLED cap (over a bright desktop
-// the desktop itself is brighter than that, so the cap is not checked there). Surfaceless EGL: no display, window or
-// compositor. Exit 77 (skipped) without EGL/GLES.
+// the desktop itself is brighter than that, so the cap is not checked there). The same holds for the glass and the panel in
+// Omarchy theme colours (glass_theme.hpp). Surfaceless EGL: no display, window or compositor. Exit 77 (skipped) without
+// EGL/GLES.
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -135,6 +136,54 @@ int main() {
         read();
         int brightest = 0;
         for (std::size_t i = 0; i < pixels.size(); i += 4) for (int c = 0; c < 3; ++c) brightest = std::max(brightest, int(pixels[i + std::size_t(c)]));
+        CHECK(brightest <= kCardMaxLevel && brightest >= 140);
+        glDeleteTextures(1, &tex);
+    }
+    // Theme colours (glass_theme.hpp): saturated, pale and deep Omarchy borders (matte-black, catppuccin-latte, lumon,
+    // hackerman) and pure blue, dragged (the brightest state): the shader still matches glass_shade, and over black the
+    // glass, and the open panel with its themed highlights on it, stay under the cap.
+    for (const std::uint32_t hex : {0xe68e0du, 0x1e66f5u, 0xf2fcffu, 0x26a269u, 0x0000ffu}) {
+        const std::array<float, 3> accent{float(hex >> 16) / 255.f, float((hex >> 8) & 255u) / 255.f, float(hex & 255u) / 255.f};
+        for (float t : {0.f, 1.f}) {
+            const auto look = glass_look(accent, kGlassActive, t);
+            const FRect r = glass_morph(tile, t);
+            const float radius = glass_radius(tile, t);
+            background(0); shape(look, r, radius, 1.f); read();
+            int worst = 0, brightest = 0;
+            for (int y = 0; y < H; ++y)
+                for (int x = 0; x < W; ++x) {
+                    const auto c = glass_shade(look, r, radius, float(x) + 0.5f, float(y) + 0.5f, 1.f);
+                    const auto* p = at(x, y);
+                    for (int i = 0; i < 3; ++i) {
+                        worst = std::max(worst, int(std::lround(std::fabs(float(p[i]) - c[std::size_t(i)] * 255.f))));
+                        brightest = std::max(brightest, int(p[i]));
+                    }
+                }
+            if (worst > 3) std::fprintf(stderr, "theme %06x t %.1f: shader differs from glass_shade by %d/255\n", hex, t, worst);
+            CHECK(worst <= 3 && brightest <= kCardMaxLevel && brightest > 40);
+        }
+        const FRect r = glass_panel({80, -120, 480, 120});
+        PlacementMenuState st; st.open = true; st.field = 3;
+        for (auto& p : st.placements) p = placement_menu_flat();
+        st.placements[0][3] = 60;  // a curvature fill next to the selected row's band
+        const auto im = render_glass_panel(st, nullptr, accent);
+        background(0); shape(glass_look(accent, kGlassActive, 1), r, kPanelRadius, 1.f);
+        GLuint tex = 0; glGenTextures(1, &tex); glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(im.width), GLsizei(im.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, im.rgba.data());
+        const float l = 2 * r.x / W - 1, rr = 2 * (r.x + r.width) / W - 1, tt = 1 - 2 * r.y / H, b = 1 - 2 * (r.y + r.height) / H;
+        const GLfloat quad[] = {l, tt, rr, tt, l, b, rr, b}, uv[] = {0, 0, 1, 0, 0, 1, 1, 1};
+        glUseProgram(panel); glUniform1i(glGetUniformLocation(panel, "tex"), 0); glUniform1f(glGetUniformLocation(panel, "alpha"), 1.f);
+        const GLint pos = glGetAttribLocation(panel, "pos"), uvl = glGetAttribLocation(panel, "uv");
+        glVertexAttribPointer(GLuint(pos), 2, GL_FLOAT, GL_FALSE, 0, quad); glEnableVertexAttribArray(GLuint(pos));
+        glVertexAttribPointer(GLuint(uvl), 2, GL_FLOAT, GL_FALSE, 0, uv); glEnableVertexAttribArray(GLuint(uvl));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glDisableVertexAttribArray(GLuint(uvl));
+        read();
+        int brightest = 0;
+        for (std::size_t i = 0; i < pixels.size(); i += 4) for (int c = 0; c < 3; ++c) brightest = std::max(brightest, int(pixels[i + std::size_t(c)]));
+        if (brightest > kCardMaxLevel) std::fprintf(stderr, "theme %06x: the open panel reaches %d/255\n", hex, brightest);
         CHECK(brightest <= kCardMaxLevel && brightest >= 140);
         glDeleteTextures(1, &tex);
     }

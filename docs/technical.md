@@ -488,8 +488,8 @@ pill was. That strip is still the pill: drag it to move the desktop, click it to
 four settings, in order: **Left/right**, **Down/up**, **Distance** and **Curvature** (`kPlacementMenuFields`; there were
 seven, with Yaw, Pitch and Roll, and the panel was 322 px tall, until 2026-11-02). Each row has its label, a slider and
 the current value with units: whole degrees for Left/right and Down/up, percent for Distance, degrees for Curvature. The
-selected row sits on a faint accent band. The slider's ends are the setting's limits, the same as the settings panel's
-sliders, and the stretch from the flat value to the knob is coloured. The footer lists the keys (↑↓ field, ←→ adjust,
+selected row sits on a faint band in the theme colour. The slider's ends are the setting's limits, the same as the settings panel's
+sliders, and the stretch from the flat value to the knob is in the theme colour too. The footer lists the keys (↑↓ field, ←→ adjust,
 Tab next, R flat). Desktop and setting selection wrap round. R puts every setting of the open desktop back to flat.
 
 **With the pointer.** Press on a slider (its row, from 12 px before the knob's lowest position to 12 px past its highest,
@@ -515,9 +515,15 @@ the new one drawn on top. An expansion that starts while the view is zoomed in o
 until the overview is reached (`GlassPills::frame`), so a panel opened with Ctrl+Alt+L from a zoomed-in view does not
 pop in nearly full size; a collapse is never held.
 
-**The look.** Frosted glass: a dark translucent tint with a fifth of the Omarchy theme accent mixed in, lighter toward
-the top, a soft gloss along the top, a 1 px hairline that is brighter at the top edge, fully rounded ends and a soft
-drop shadow. The collapsed pill is 14 px tall and 24% of the desktop's width (64–160 px). Hover and drag brighten it.
+**The look.** Frosted glass: a dark translucent tint in the Omarchy theme colour, lighter toward the top, a soft gloss
+along the top, a 1 px hairline that is brighter at the top edge, fully rounded ends and a soft drop shadow. The colour is
+the highlight border's and glow's (`general:col.active_border`, sent as the `style` frame at the start of a run and
+after every config reload), so switching the theme recolours the pills, an open panel's band and slider fills, the
+border and the glow together. The glass takes the theme's hue and most of its saturation (85% on the pill, 55% on the
+open panel behind its text, the rest neutral slate) at one fixed brightness whatever the theme, so pale and deep themes
+give equally bright glass and the gloss, hairline, text contrast and cap below hold for all of them; a deep blue is a
+little darker, because its brightest channel is held under the cap first. Grey themes give grey glass. The highlights
+are the theme colour at the cards' dimmed accent level (`spike/include/xr/glass_theme.hpp`). The collapsed pill is 14 px tall and 24% of the desktop's width (64–160 px). Hover and drag brighten it.
 The renderer draws it with one GLSL fragment shader (`glass_fragment_shader` in `spike/src/glass.cpp`) whose CPU mirror
 (`glass_shade`) is checked against it on a real GLES context. On the glasses' micro-OLED panels black is see-through, so
 the glass is mostly its own tint. No pixel of it passes 191/255 (`kCardMaxLevel`), the panel stays dark behind its text,
@@ -564,11 +570,14 @@ python -m unittest discover -s omarchy-plugin/cody.viture-workspace/tests -v
 ctest --test-dir build/release --output-on-failure
 ```
 
-The glass pills add three ctest tests: `glass` (geometry, morph, look under the 191/255 cap, panel content, the expand
+The glass pills add four ctest tests: `glass` (geometry, morph, look under the 191/255 cap, panel content, the expand
 animation, held until the overview is reached, the draw order and a held slider's surface), `glass_render` (the shader
-against its CPU mirror over black and over a bright desktop, and the cap over black, on a surfaceless EGL context; it
-reports skipped, exit 77, where EGL or GLES is missing) and `glass_contract` (runs `glass_geometry_dump` and checks that
-`tools/native_spike/free_pointer.py` uses the same pill and panel geometry). `menu_geometry_contract` and
+against its CPU mirror over black and over a bright desktop, and the cap over black, also in theme colours, on a
+surfaceless EGL context; it reports skipped, exit 77, where EGL or GLES is missing), `glass_contract` (runs
+`glass_geometry_dump` and checks that `tools/native_spike/free_pointer.py` uses the same pill and panel geometry) and
+`glass_theme` (for every Omarchy theme's border colour: the pill's hue and brightness, the cap in every state, the
+panel's highlights, and an open panel re-rendered once on a theme switch). `tests/native_spike/test_pill_theme.py`
+covers the supervisor side: the theme colour reaches the renderer as the `style` frame, with a pill open too. `menu_geometry_contract` and
 `placement_menu_style` were removed with the head-locked menu card. `help_card` (`spike/tests/help_card_test.cpp`) took over the help card's fit checks: the real rows fit 1920×1200 @1.25
 on one page at full size (and with three more rows still on one page); 1 to 64 rows page without clipping at every
 scale from 1 to 2 (every row on one page, in order, pages the same size, nothing in the padding); sections stay whole

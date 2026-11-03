@@ -814,7 +814,10 @@ void Presentation::enable_tracking(std::string prefix) {
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
-    if (impl_ && impl_->gl) { impl_->gl->set_accent(r, g, b); impl_->cadence.invalidate(); }
+    if (!impl_ || !impl_->gl) return;
+    impl_->gl->set_accent(r, g, b);                              // highlight border, glow and the pills' glass
+    impl_->glass.set_accent({r / 255.f, g / 255.f, b / 255.f});  // an open panel's highlights (glass_theme.hpp)
+    impl_->cadence.invalidate();
 }
 void Presentation::video_open(int fd, const VideoFormat& format, const std::string& title) {
     if (!impl_ || !impl_->gl) { if (fd >= 0) ::close(fd); return; }  // needs GPU composition
