@@ -15,7 +15,9 @@ left it. Nothing here selects another desktop: the dot still never switches moni
 The renderer stand-in reports the layout exactly like the real one: once per change of its line, never again.
 Offline only: fake clock, fake broker, no compositor, renderer or glasses.
 """
+import re
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from tools.native_spike import free_pointer as fp, resize, unified_cursor as uc, view
@@ -247,6 +249,64 @@ class UltrawideTests(DesktopChangeBase):
         self.assertEqual(self.renderer.reports, before)
         self.assert_dot_on_home()
         self.zoom_round_trip()
+
+
+class StartWithFourTests(unittest.TestCase):
+    """Regression (dot-missing-overview, 2026-11-03, installed master 37393b1): a run that starts with four desktops (a
+    profile saved with four, or xr-start-adopt-windows adding one before the renderer starts) never showed the dot, the
+    pills or the roll icons in the overview, whatever the mouse did. The renderer's overview_geometry_json still capped
+    its line at three tiles (the old fixed three-desktop design), so with four it reported no layout at all and the
+    pointer never went active. The same cap hid the layout after a pill's Add to a fourth desktop."""
+    NAMES = ['XR-1', 'XR-2', 'XR-3', 'XR-4']
+
+    def setUp(self):
+        self.clock = Clock()
+        self.c = view.ViewControl(view.ViewState(list(self.NAMES)), 'run', 'session', lambda name: None, None, None,
+                                  clock=self.clock)
+        self.addCleanup(self.c.join_focus, 2)
+        self.p = self.c.overview_pointer = uc.UnifiedPointer(self.c, clock=self.clock)
+        self.addCleanup(self.p.close)
+        self.renderer = Renderer(self.c)
+        self.cursor = (1200, 700)  # on the physical monitor, as after adoption moved its windows away
+
+    def monitors(self):
+        return [PHYSICAL] + [{'name': n, 'x': 2560 + W * i, 'y': 0, 'width': W, 'height': H, 'scale': 1.0}
+                             for i, n in enumerate(self.NAMES)]
+
+    def tick(self, n=1):
+        out = []
+        for _ in range(n):
+            self.clock.now += 0.01
+            if self.p.want[2] is not None and self.p.want[1] == 'desktop': self.cursor = self.p.want[2]
+            self.p.feed(self.cursor, (0.0, 0.0), resize.outputs_from_monitors(self.monitors(), self.NAMES), self.p.want[0])
+            out += frames(self.c.poll() or b'')
+            self.renderer.report()
+        return out
+
+    def test_the_overview_shows_the_dot_and_the_pills_from_the_start(self):
+        self.c.on_message({'op': 'zoom_in', 'payload': {}}); self.c.join_focus(2)
+        self.tick(n=3)  # zoomed into a desktop: the renderer has reported its layout by now
+        self.assertFalse(self.p.active())
+        self.c.on_message({'op': 'zoom_out', 'payload': {}})  # Ctrl+Alt+Down: summons a cursor off the desktops
+        fs = self.tick(n=4)
+        self.assertEqual(len(self.p.geometry['tiles']), 4)
+        self.assertTrue(self.p.active())
+        self.assertTrue(self.p.sent['visible'])
+        self.assertEqual(self.p.desktop, self.c.state.selected)
+        self.assertIsNotNone(self.p._at(self.cursor))  # the real cursor came onto the selected desktop
+        self.assertTrue(any(f['payload']['visible'] for f in fs if f['op'] == 'move_handle'))  # the glass pills
+
+    def test_the_renderer_reports_a_layout_for_every_desktop_count(self):
+        # The stand-in above reports any count; the real line must too (spike/src/view.cpp overview_geometry_json, ctest
+        # free_pointer checks it on the renderer's own output). No fixed cap below the run's limit may come back.
+        src = (Path(__file__).resolve().parents[2] / 'spike/src/view.cpp').read_text()
+        body = src[src.index('std::string overview_geometry_json('):]
+        body = body[:body.index('\n}\n')]
+        self.assertIn('tiles.size() > kMaxDesktops', body)
+        self.assertIsNone(re.search(r'tiles\.size\(\) *> *\d', body))
+        line = {'w': 1920, 'h': 1200, 'half': [0.4136, 0.2585],
+                'tiles': [[110.0 + 430 * i, 458.0, 410.0, 256.25] for i in range(fp.MAX_DESKTOPS)]}
+        self.assertEqual(len(fp.parse_overview_geometry(line)['tiles']), fp.MAX_DESKTOPS)
 
 
 if __name__ == '__main__':
