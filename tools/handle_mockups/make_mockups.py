@@ -155,7 +155,7 @@ def render_option(option: Option | None, geo: dict, theme: Theme, args: argparse
         lines = [f"{idle_out} {idle_path} {idle_path} {ow} {oh} {margin} -1 -1 0 0",
                  f"{rotate_out} {idle_path} {hot_path} {ow} {oh} {margin} {tile[0] + rx} {tile[1] + ry} {LOOK_ROTATE} 0",
                  f"{resize_out} {idle_path} {hot_path} {ow} {oh} {margin} {tile[0] + sx} {tile[1] + sy} {LOOK_RESIZE_NWSE} 0"]
-    else:  # today's brackets, from the compositor itself
+    else:  # the built level bars and caps, from the compositor itself
         lines = [f"{idle_out} - - 0 0 0 -1 -1 0 {BASELINE_IDLE}",
                  f"{rotate_out} - - 0 0 0 {tile[0] + W + 12} {tile[1] + 22} {LOOK_ROTATE} {BASELINE_HOT}",
                  f"{resize_out} - - 0 0 0 {tile[0] + W + 2} {tile[1] + H + 2} {LOOK_RESIZE_NWSE} {BASELINE_HOT}"]
@@ -235,6 +235,48 @@ def option_page(option: Option, frames: Frames, geo: dict, fonts: Fonts, args: a
     page.save(path, optimize=True)
 
 
+def built_page(geo: dict, fonts: Fonts, args: argparse.Namespace, desktops: Path, work: Path) -> str:
+    """The renderer's own level bars and corner caps, every frame the compositor's alone: no overlay. Returns its report."""
+    x, y, W, H = geo["tiles"][1]
+    bar_x, bar_y, bar_w, _ = geo["level_bar"]
+    mid = bar_x + bar_w / 2
+    frames = {"idle": (-1, -1, 0, 1), "ccw": (mid - bar_w / 3, bar_y - 7, LOOK_ROTATE, 2), "level": (mid, bar_y - 7, LOOK_ROTATE, 3),
+              "cw": (mid + bar_w / 3, bar_y - 7, LOOK_ROTATE, 4), "cap": (x + W + 16, y + H + 16, LOOK_RESIZE_NWSE, 5)}
+    rolled_path = work / "rolled.rgba"
+    lines = [f"{work / f'{name}.rgba'} - - 0 0 0 {dx} {dy} {look} {base}" for name, (dx, dy, look, base) in frames.items()]
+    lines.append(f"{rolled_path} - - 0 0 0 -1 -1 0 1 9 1.18")  # rolled 9 degrees and shrunk by a corner
+    manifest = work / "built.manifest"
+    manifest.write_text("\n".join(lines) + "\n")
+    report = render(args.binary, args.accent, desktops, manifest, args.scale)
+    shots = {name: read_frame(work / f"{name}.rgba", args.scale) for name in frames}
+    rolled = read_frame(rolled_path, args.scale)
+
+    panel_w = (PAGE_W - 2 * PAGE_MARGIN - GUTTER) // 2
+    panel_h = round(panel_w * CROP[3] / CROP[2])
+    zoom_w = (PAGE_W - 2 * PAGE_MARGIN - 3 * GUTTER) // 4
+    zoom_h = round(zoom_w * ZOOM_H / ZOOM_W)
+    top = 130
+    page = Image.new("RGB", (PAGE_W, top + 38 + panel_h + 26 + 38 + zoom_h + PAGE_MARGIN), PAGE)
+    draw = ImageDraw.Draw(page)
+    draw.text((PAGE_MARGIN, 26), "Level Bar, built", font=fonts.bold(52), fill=INK)
+    draw.text((PAGE_MARGIN, 88), "Every frame is the renderer's own compositor; nothing is laid over it.", font=fonts.regular(25), fill=DIM)
+    theme_chip(draw, PAGE_W - PAGE_MARGIN, 40, fonts, args)
+    for k, (name, frame) in enumerate((("IDLE", shots["idle"]), ("ROLLED 9 DEGREES AND RESIZED", rolled))):
+        px = PAGE_MARGIN + k * (panel_w + GUTTER)
+        draw.text((px, top), name, font=fonts.bold(24), fill=INK)
+        put(page, view(frame, CROP, panel_w, panel_h, args.scale), px, top + 38)
+    bar_box = (mid - ZOOM_W / 2, y - 62 - ZOOM_H / 2 + 26, ZOOM_W, ZOOM_H)
+    cap_box = zoom_boxes(None, geo)[1]
+    row = top + 38 + panel_h + 26
+    for k, (name, shot, box) in enumerate((("Turn left, hover", "ccw", bar_box), ("Level, hover", "level", bar_box),
+                                           ("Turn right, hover", "cw", bar_box), ("Corner cap, hover", "cap", cap_box))):
+        px = PAGE_MARGIN + k * (zoom_w + GUTTER)
+        draw.text((px, row), name, font=fonts.regular(24), fill=DIM)
+        put(page, view(shots[shot], box, zoom_w, zoom_h, args.scale), px, row + 38)
+    page.save(args.out / args.built, optimize=True)
+    return report
+
+
 def contact_cell(number: str, name: str, frames: Frames, fonts: Fonts, args: argparse.Namespace, cell_w: int, panel_h: int, head: int) -> Image.Image:
     cell = Image.new("RGB", (cell_w, head + panel_h + 2), PAGE)
     draw = ImageDraw.Draw(cell)
@@ -289,6 +331,7 @@ def main() -> int:
     parser.add_argument("--only", help="comma-separated option numbers (a contact sheet is written only for all of them)")
     parser.add_argument("--sheet", default="contact-sheet.png", help="contact sheet file name")
     parser.add_argument("--sheet-only", action="store_true", help="write the contact sheet but no options-NN.png")
+    parser.add_argument("--built", nargs="?", const="level-bar-built.png", help="only this page of the renderer's own bar and caps")
     args = parser.parse_args()
     live = args.accent is None
     args.accent = (args.accent or active_accent()).lstrip("#").lower()
@@ -312,9 +355,13 @@ def main() -> int:
         work = Path(name)
         for i in range(3):
             desktop_pixels(i, theme, work / f"desktop-{i}.bgra")
+        if args.built:
+            report = built_page(geo, fonts, args, work, work)
+            print(re.search(r'"renderer":"([^"]*)"', report).group(1))
+            return 0
         if not only:
             frames, _ = render_option(None, geo, theme, args, work, work)
-            cells.append(contact_cell("--", "Current brackets", frames, fonts, args, cell_w, panel_h, head))
+            cells.append(contact_cell("--", "Built (renderer)", frames, fonts, args, cell_w, panel_h, head))
         for option in chosen:
             frames, report = render_option(option, geo, theme, args, work, work)
             match = re.search(r'"renderer":"([^"]*)"', report)

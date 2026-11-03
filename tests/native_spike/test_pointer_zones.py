@@ -1,9 +1,9 @@
 """The dot is one cursor, and the zone contract says what it does where (anchor-no-click-maximize; Cody, 2026-11-03
-2:51 PM; the contract is shared with the sibling branches: rotate brackets sit on the borders, resize at edges and corners,
+2:51 PM; the contract is shared with the sibling branches: the level bar sits above the top edge, resize at edges and corners,
 content goes to apps). Most important first, on a desktop's own surface (free_pointer.hit, zone_of, border_handle): an open
-panel, a corner, a pill, content, a rotate bracket, an edge; else empty space. The dot's look shows it (look_for, the
+panel, a corner, a pill, content, a level bar, an edge; else empty space. The dot's look shows it (look_for, the
 `overview_pointer` frame's `look`, drawn by the renderer as marks round the dot: spike/tests/free_pointer_test.cpp): a
-resize direction on an edge or corner, move on a pill, rotate on a rotate bracket, plain over content and space.
+resize direction on an edge or corner, move on a pill, rotate on a level bar, plain over content and space.
 
 Checked here:
   * Classification: every zone, its limits and its precedence, on flat, placed, curved, resized and rolled desktops.
@@ -12,7 +12,7 @@ Checked here:
     moves at the same speed either side; any move back inside hands the real cursor back under the dot; hand jitter at an
     edge does not flap; a held button on a window draws the dot held, as a handle drag does.
   * Resize drags: each of the four edges (along its normal) and four corners (along the diagonal), the shape kept, saved
-    on release, the bracket shown for corners only.
+    on release, a cap lit for corners only.
 
 Offline only: fake clock and the free-pointer test rig. No compositor, renderer binary or glasses.
 """
@@ -48,10 +48,10 @@ def rim(tile, out):
             'tl': (tx - out, ty - out), 'tr': (tx + tw + out, ty - out), 'bl': (tx - out, ty + th + out), 'br': (tx + tw + out, ty + th + out)}
 
 
-def on_bracket(tile, side):
-    """A tile point on a rotate bracket's side arm, below the corner's zone."""
-    arm, gap, z = fp.roll_arm(tile), fp.ROLL_GAP * fp.roll_scale(tile), fp.corner_zone(tile)
-    return (tile[0] + tile[2] + gap if side == 'cw' else tile[0] - gap, tile[1] + (z + arm) / 2)
+def on_bar(tile, segment):
+    """A tile point in the middle of a segment of the desktop's level bar."""
+    x, y, w, h = fp.level_bar_rect(tile)
+    return (x + w * (fp.LEVEL_SEGMENTS.index(segment) + 0.5) / 3, y + h / 2)
 
 
 class BorderTests(unittest.TestCase):
@@ -82,7 +82,7 @@ class BorderTests(unittest.TestCase):
 
 
 class ZoneTests(unittest.TestCase):
-    ICONS = ['both'] * 3
+    ICONS = ['bar'] * 3
 
     def test_zone_names_for_every_hit(self):
         for h, zone in ((None, 'space'), (('desktop', 1, (0, 0)), 'content'), (('corner', 0, 'tl'), 'resize'), (('edge', 2, 'r'), 'resize'),
@@ -121,22 +121,25 @@ class ZoneTests(unittest.TestCase):
                 far = fp.project(g, T1, p, tx + tw / 2, ty - fp.corner_zone(T1) - 12)
                 self.assertEqual(fp.zone_of(fp.hit(g, [p], far)), 'space')
 
-    def test_a_corner_wins_over_a_rotate_bracket(self):
-        gap = fp.ROLL_GAP * fp.roll_scale(T1)
-        q = (T1[0] + T1[2] + gap * 0.7, T1[1] - gap * 0.7)  # on the bracket's bend round the corner
-        self.assertTrue(fp.on_roll(T1, 'cw', q))
-        self.assertEqual(fp.border_handle(T1, q), ('corner', 'tr'))
-        pointer = fp.project(G, T1, DEFAULT_PLACEMENT, *q)
-        self.assertEqual(fp.hit(G, FLAT, pointer, icons=self.ICONS), ('corner', 1, 'tr'))
+    def test_a_corner_wins_over_the_level_bar(self):
+        # On a desktop as narrow as the bar, the bar's ends reach over the corners' zones: the corner keeps them.
+        tile = (900.0, 500.0, 120.0, 68.0)
+        g = {**G, 'tiles': [tile]}
+        x, y, w, h = fp.level_bar_rect(tile)
+        q = (x - 1, y + h + 2 * fp.level_bar_scale(tile))  # the bar's padding, past its left end, under its bottom edge
+        self.assertEqual(fp.level_bar_segment(tile, q), 'ccw')
+        self.assertEqual(fp.border_handle(tile, q), ('corner', 'tl'))
+        placements = [DEFAULT_PLACEMENT]
+        self.assertEqual(fp.hit(g, placements, fp.project(g, tile, DEFAULT_PLACEMENT, *q), icons=['bar']), ('corner', 0, 'tl'))
 
-    def test_a_rotate_bracket_takes_an_edges_border_from_its_clear_band_out(self):
-        _, y = on_bracket(T1, 'cw')
-        right = T1[0] + T1[2]
-        for out, want in ((fp.ROLL_EDGE_CLEAR - 2, ('edge', 1, 'r')), (fp.ROLL_EDGE_CLEAR + 2, ('roll', 1, 'cw')),
-                          (fp.EDGE_OUT_PX - 1, ('roll', 1, 'cw'))):
+    def test_the_level_bar_takes_an_edges_border_from_its_clear_band_out(self):
+        mid = on_bar(T1, 'level')[0]
+        top = T1[1]
+        for out, want in ((fp.LEVEL_EDGE_CLEAR - 2, ('edge', 1, 't')), (fp.LEVEL_EDGE_CLEAR + 1, ('edge', 1, 't')),  # short of its padding
+                          (fp.LEVEL_BAR_GAP - fp.LEVEL_BAR_PAD + 1, ('roll', 1, 'level')), (fp.EDGE_OUT_PX - 0.5, ('roll', 1, 'level'))):
             with self.subTest(out=out):
-                pointer = fp.project(G, T1, DEFAULT_PLACEMENT, right + out, y)
-                self.assertEqual(fp.hit(G, FLAT, pointer)[:3], ('edge', 1, 'r'))  # with no brackets shown
+                pointer = fp.project(G, T1, DEFAULT_PLACEMENT, mid, top - out * fp.level_bar_scale(T1))
+                self.assertEqual(fp.hit(G, FLAT, pointer)[:3], ('edge', 1, 't'))  # with no bars shown
                 self.assertEqual(fp.hit(G, FLAT, pointer, icons=self.ICONS), want)
 
     def test_a_corner_wins_over_a_pill_and_a_pill_over_an_edge(self):
@@ -185,12 +188,12 @@ class LookTests(Base):
                 self.assertEqual(self.p.mode, 'free')
                 self.assertEqual(self.looks(out), (True, look))
 
-    def test_pill_rotate_bracket_and_empty_space(self):
+    def test_pill_level_bar_and_empty_space(self):
         self.free()
         x, y, w, h = fp.pill_rect(T1)
         out = self.dot_to(fp.project_glass(G, T1, DEFAULT_PLACEMENT, x + w / 2, y + h / 2))
         self.assertEqual(self.looks(out), (True, 'move'))
-        out = self.onto(on_bracket(T1, 'ccw'))
+        out = self.onto(on_bar(T1, 'ccw'))
         self.assertEqual(self.looks(out), (True, 'rotate'))
         out = self.dot_to((T1[0] + 100, T1[1] - 120))  # above everything
         self.assertEqual(self.p.hover, None)
@@ -234,7 +237,7 @@ class LookTests(Base):
 
     def test_a_roll_drag_keeps_the_rotate_look(self):
         self.free()
-        self.onto(on_bracket(T1, 'cw'))
+        self.onto(on_bar(T1, 'cw'))
         self.op('resize_press')
         self.move_canvas(0, 90)
         self.assertEqual(self.p.sent['look'], 'rotate')
@@ -391,7 +394,7 @@ class ResizeDragTests(Base):
             self.assertFalse(any(f['op'] in ('placement', 'view') for f in out))
             self.assertEqual(self.control.state.placements[1], DEFAULT_PLACEMENT)
 
-    def test_the_bracket_marks_a_corner_and_not_an_edge(self):
+    def test_a_cap_lights_for_a_corner_and_not_for_an_edge(self):
         self.free()
         out = self.onto((T1[0] + T1[2] + 3, T1[1] + 100))  # an edge
         self.assertFalse(self.p.shown['visible'])

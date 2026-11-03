@@ -151,7 +151,7 @@ def validate_desktops(value: object) -> list:
     return [validate_desktop(d) for d in value]
 
 
-# Each desktop's levelling roll (the overview's roll arrows, free_pointer.py): hundredths of a degree about the line of
+# Each desktop's levelling roll (the overview's level bar, free_pointer.py): hundredths of a degree about the line of
 # sight, counter-clockwise as you see it. Saved with the desktops and placements in the profile (profiles.py) so the next
 # start restores it; not a placement key (the `placement` wire carries none). Mirrors free_pointer.MAX_ROLL and the
 # renderer's ipc.hpp kMaxRoll (tests compare them).

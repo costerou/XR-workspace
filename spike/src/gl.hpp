@@ -64,12 +64,10 @@ public:
     void set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
     // Key bind panel (binds_panel.hpp), head-locked in the middle of the view over the help card; same rules.
     void set_binds(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
-    // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop` at `level` (view.hpp kHandleLevelIdle /
-    // kHandleLevelActive), in the theme's M3 colours (glass.hpp corner_handle_color); desktop < 0: none.
-    void set_corner_handle(int desktop, std::uint32_t corner, float level);
     // Glass pills (glass.hpp): a Material Design 3 tonal capsule under each desktop, on its own surface, and the open one morphing into its
-    // placement panel with the panel's content (frame.image, re-uploaded when frame.generation changes) fading in.
-    // Drawn blended over the desktops, under the corner handle and the free pointer. Nothing to draw: a default frame.
+    // placement panel with the panel's content (frame.image, re-uploaded when frame.generation changes) fading in. With
+    // them the level bars and corner caps (GlassFrame::bars), under the desktops. Drawn blended over the desktops, under
+    // the free pointer. Nothing to draw: a default frame.
     void set_glass(const GlassFrame& frame);
     // Overview free pointer (view.hpp canvas_disc): a grey dot of `level` (capped at kFreePointerHeldLevel) in a black ring at
     // canvas (x, y) on the overview's plane, drawn over the desktops and under the cards; visible false: none.

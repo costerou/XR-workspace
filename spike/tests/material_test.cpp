@@ -184,9 +184,9 @@ int main() {
 
     // --- Drawing -------------------------------------------------------------------------------------------------------
     const MdRgb ink = vanta.on_surface;
-    for (const MdIcon icon : {MdIcon::add, MdIcon::remove, MdIcon::width, MdIcon::arrow_drop_down, MdIcon::arrow_drop_up}) {
+    for (const MdIcon icon : {MdIcon::add, MdIcon::remove, MdIcon::width, MdIcon::arrow_drop_down, MdIcon::arrow_drop_up, MdIcon::level}) {
         // Mirror-symmetric left to right, and inked at the centre (the plus, the minus, the double arrow's shaft, the
-        // dropdown triangles).
+        // dropdown triangles, the level's dot).
         CHECK(md_icon_distance(icon, 0, 0, 24) < 0);
         for (float y = -11; y <= 11; y += 1.5f)
             for (float x = 0.5f; x <= 11; x += 1.5f) CHECK(near(md_icon_distance(icon, x, y, 24), md_icon_distance(icon, -x, y, 24), 1e-3f));
@@ -213,6 +213,35 @@ int main() {
     for (float y = -4; y <= 4; y += 0.5f)
         for (float x = -6; x <= 6; x += 0.5f)
             CHECK(near(md_icon_distance(MdIcon::arrow_drop_up, x, y, 24), md_icon_distance(MdIcon::arrow_drop_down, x, -y, 24), 1e-3f));
+    // The level icon: a dot on a horizon broken round it.
+    CHECK(md_icon_distance(MdIcon::level, 8, 0, 24) < 0 && md_icon_distance(MdIcon::level, 3, 0, 24) > 0 && md_icon_distance(MdIcon::level, 0, 6, 24) > 0);
+    // The turn icons: each other's mirror image, a ring round an empty centre, inked all the way round but for the opening
+    // at the upper right (rotate_right) where the head is, which points clockwise, on along the ring.
+    for (float y = -11; y <= 11; y += 1.5f)
+        for (float x = -11; x <= 11; x += 1.5f) CHECK(near(md_icon_distance(MdIcon::rotate_left, x, y, 24), md_icon_distance(MdIcon::rotate_right, -x, y, 24), 1e-3f));
+    {
+        constexpr float kDeg = 3.14159265f / 180.f, kR = 8.2f;
+        const auto on_ring = [&](float degrees) { return md_icon_distance(MdIcon::rotate_right, kR * std::cos(degrees * kDeg), kR * std::sin(degrees * kDeg), 24); };
+        CHECK(md_icon_distance(MdIcon::rotate_right, 0, 0, 24) > 0);
+        for (const float degrees : {60.f, 90.f, 135.f, 180.f, 225.f, 270.f, 300.f}) CHECK(on_ring(degrees) < 0);  // the arc, clockwise from lower right
+        CHECK(on_ring(25) > 0);                                                                                     // the opening
+        CHECK(md_icon_distance(MdIcon::rotate_right, 7, -3, 24) < 0 && md_icon_distance(MdIcon::rotate_right, 9.3f, -6.5f, 24) < 0);  // the head: past the ring both ways
+        CHECK(md_icon_distance(MdIcon::rotate_right, 11, 11, 24) > 0 && md_icon_distance(MdIcon::rotate_right, -11, -11, 24) > 0);
+        HudImage im = blank(40, 40);
+        md_icon(im, MdIcon::rotate_right, 20, 20, kMdIconPx, ink);
+        CHECK(premultiplied(im) && brightest(im) <= std::uint8_t(std::lround(ink[0] * 255) + 1) && brightest(im) > 120);
+    }
+    // A corner cap's L: on the stroke along both legs and round the elbow, empty inside and past the legs' ends, rounded.
+    {
+        const float gap = 8.5f, leg = 12.f, bend = 5.f, w = 2.4f, e = gap - bend;
+        CHECK(near(md_corner_distance(gap, gap - leg + 2, gap, leg, bend, w), -w / 2, 1e-3f) && near(md_corner_distance(gap - leg + 2, gap, gap, leg, bend, w), -w / 2, 1e-3f));
+        CHECK(near(md_corner_distance(e + bend * 0.7071f, e + bend * 0.7071f, gap, leg, bend, w), -w / 2, 1e-2f));  // on the bend's arc
+        CHECK(md_corner_distance(gap, gap, gap, leg, bend, w) > 0);                                                 // the square corner is cut off
+        CHECK(md_corner_distance(0, 0, gap, leg, bend, w) > 0 && md_corner_distance(gap, gap - leg - 2.f, gap, leg, bend, w) > 0);
+        CHECK(near(md_corner_distance(gap, gap - leg - 1.2f, gap, leg, bend, w), 0, 1e-3f));                         // a round cap past the leg's end
+        for (float x = -4; x <= 12; x += 0.7f)
+            for (float y = -4; y <= 12; y += 0.7f) CHECK(near(md_corner_distance(x, y, gap, leg, bend, w), md_corner_distance(y, x, gap, leg, bend, w), 1e-4f));
+    }
     {
         HudImage im = blank(60, 30);
         md_fill_rounded(im, 5, 5, 55, 25, 10, ink, 1.f);

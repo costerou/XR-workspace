@@ -124,14 +124,36 @@ int main() {
     CHECK(glass_look(rgb(0x7aa2f7), kGlassIdle, 0).container != glass_look(rgb(0xe68e0d), kGlassIdle, 0).container);
     CHECK(glass_look(rgb(0x8d8d8d), kGlassIdle, 0).container == glass_look(kGlassThemeDefault, kGlassIdle, 0).container);
 
-    // The resize handle and the roll icons take the scheme too: on-surface-variant / primary, under the cap.
+    // The level bar and the corner caps take the scheme too, in every theme: the bar is the pill's primary container, a lit
+    // segment the primary (the primary bright while dragged), a cap the primary, a lit one the primary bright; nothing passes
+    // the cap anywhere in the atlas.
     for (const auto& th : kThemes) {
         const Rgb a = rgb(th.hex);
         const auto& m = glass_theme_scheme(a);
-        CHECK_THEME(corner_handle_color(a, kHandleLevelIdle) == m.on_surface_variant && corner_handle_color(a, kHandleLevelActive) == m.primary, th.name);
-        CHECK_THEME(corner_handle_color(a, 0.f) == (Rgb{0, 0, 0}) && top(corner_handle_color(a, kHandleLevelIdle / 2)) < top(m.on_surface_variant), th.name);
-        CHECK_THEME(roll_arrow_color(a, kGlassIdle) == m.primary, th.name);
-        for (const Rgb c : {corner_handle_color(a, kHandleLevelActive), roll_arrow_color(a, kGlassActive)}) CHECK_THEME(top(c) <= kGlassCap + 1e-6f, th.name);
+        const HudImage atlas = render_handle_atlas(a);
+        CHECK_THEME(atlas.rgba.size() == std::size_t(atlas.width) * atlas.height * 4, th.name);
+        std::uint8_t brightest = 0;
+        for (std::size_t i = 0; i < atlas.rgba.size(); i += 4) brightest = std::max({brightest, atlas.rgba[i], atlas.rgba[i + 1], atlas.rgba[i + 2]});
+        CHECK_THEME(float(brightest) / 255.f <= kGlassCap + 1.5f / 255.f, th.name);
+        auto px = [&](const AtlasBox& b, float u, float v) {  // u, v: 0..1 across the cell
+            const auto x = std::size_t((b.u0 + (b.u1 - b.u0) * u) * float(atlas.width)), y = std::size_t((b.v0 + (b.v1 - b.v0) * v) * float(atlas.height));
+            const auto* p = &atlas.rgba[(y * atlas.width + x) * 4];
+            return Rgb{p[0] / 255.f, p[1] / 255.f, p[2] / 255.f};
+        };
+        auto cap_px = [&](const AtlasBox& b, float gap, float along) {  // a bottom-right cap's vertical leg, tile px from its corner
+            const float size = kCapOuter + kCapInner;
+            return px(b, (kCapInner + gap) / size, (kCapInner + along) / size);
+        };
+        const float third = 1.f / float(kLevelSegments);
+        const AtlasBox idle = level_bar_box(LevelSegment::none, false), hot = level_bar_box(LevelSegment::cw, false), held = level_bar_box(LevelSegment::cw, true);
+        CHECK_THEME(near3(px(idle, 0.5f, 0.12f), m.primary_container, 2.f / 255.f), th.name);             // the body, over the level icon
+        CHECK_THEME(near3(px(hot, 2 * third + third / 8, 0.5f), m.primary, 2.f / 255.f), th.name);        // the lit segment, beside its icon
+        CHECK_THEME(near3(px(held, 2 * third + third / 8, 0.5f), m.primary_bright, 2.f / 255.f), th.name);
+        CHECK_THEME(near3(px(hot, third / 8, 0.5f), m.primary_container, 2.f / 255.f), th.name);          // the others stay as they were
+        CHECK_THEME(glass_look(a, kGlassIdle, 0).container == m.primary_container, th.name);              // the pill below it
+        CHECK_THEME(near3(cap_px(corner_cap_box(3, false, false), kCapGap, 0), m.primary, 2.f / 255.f), th.name);
+        CHECK_THEME(near3(cap_px(corner_cap_box(3, true, false), kCapGap, 0), m.primary_bright, 2.f / 255.f), th.name);
+        CHECK_THEME(near3(cap_px(corner_cap_box(3, true, true), kCapGap, 0), m.primary_bright, 2.f / 255.f), th.name);
     }
 
     // The panel content: every part in the theme's roles, under the cap.

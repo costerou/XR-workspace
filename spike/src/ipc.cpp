@@ -279,11 +279,8 @@ bool roll(const Json& p, RollPayload& out) {
         const auto& icon = p["icons"][i];
         if (!icon.is_string()) return false;
         const auto& name = icon.get_ref<const std::string&>();
-        if (name == "none") out.icons[i] = -1;
-        else if (name == "ccw") out.icons[i] = 0;
-        else if (name == "cw") out.icons[i] = 1;
-        else if (name == "both") out.icons[i] = 2;
-        else return false;
+        if (name != "none" && name != "bar") return false;
+        out.bars[i] = name == "bar";
     }
     const auto& h = p["hover"];
     const auto top = std::int64_t(kMaxDesktops) - 1;
@@ -292,7 +289,8 @@ bool roll(const Json& p, RollPayload& out) {
     const auto& side = p["side"].get_ref<const std::string&>();
     if (side == "none") out.side = -1;
     else if (side == "ccw") out.side = 0;
-    else if (side == "cw") out.side = 1;
+    else if (side == "level") out.side = 1;
+    else if (side == "cw") out.side = 2;
     else return false;
     if ((out.hover < 0) != (out.side < 0)) return false;
     out.active = p["active"].get<bool>();

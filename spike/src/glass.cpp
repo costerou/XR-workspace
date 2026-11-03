@@ -93,94 +93,99 @@ FRect glass_panel(const FRect& t) {
     return {t.x + (t.width - kPanelW) / 2, t.y + t.height + kGlassPillGap, kPanelW, kPanelH};
 }
 
-float roll_arm(const FRect& t) {
+float level_bar_scale(const FRect& t) {
     if (!(t.width > 0) || !(t.height > 0)) return 0.f;
-    const float m = std::min(t.width, t.height);
-    return std::min(std::max(kRollArmShare * m, kRollArmMin), kRollArmMaxShare * m);
+    return std::min({std::max(kLevelBarShare * t.width, kLevelBarMinW), kLevelBarW, t.width}) / kLevelBarW;
 }
 
-float roll_scale(const FRect& t) {
-    const float arm = roll_arm(t);
-    return arm > 0 ? std::min(1.f, arm / kRollArmMin) : 0.f;
+FRect level_bar_rect(const FRect& t) {
+    const float s = level_bar_scale(t), w = kLevelBarW * s, h = kLevelBarH * s;
+    if (!(s > 0)) return {};
+    return {t.x + (t.width - w) / 2, t.y - kLevelBarGap * s - h, w, h};
+}
+
+LevelSegment level_bar_segment(const FRect& t, float px, float py) {
+    const FRect r = level_bar_rect(t);
+    const float pad = kLevelBarPad * level_bar_scale(t);
+    if (!(r.width > 0) || px < r.x - pad || px > r.x + r.width + pad || py < r.y - pad || py > r.y + r.height + pad) return LevelSegment::none;
+    const float third = r.width / float(kLevelSegments);
+    if (px < r.x + third) return LevelSegment::ccw;
+    return px < r.x + 2 * third ? LevelSegment::level : LevelSegment::cw;
+}
+
+FRect corner_cap_rect(const FRect& t, std::uint32_t corner) {
+    const float s = level_bar_scale(t);
+    if (!(s > 0) || corner > 3) return {};
+    const bool right = corner == 1 || corner == 3, bottom = corner >= 2;
+    const float size = (kCapOuter + kCapInner) * s;
+    return {right ? t.x + t.width - kCapInner * s : t.x - kCapOuter * s, bottom ? t.y + t.height - kCapInner * s : t.y - kCapOuter * s, size, size};
 }
 
 namespace {
-// The bracket's own frame: tile px from its corner, x outward past the side (mirrored for side 0, the top-left), y down.
-// In it the centre line is the top arm (x in [-arm, 0], y = -gap), the arc about the corner from (0, -gap) to (gap, 0)
-// and the side arm (x = gap, y in [0, arm]).
-struct BracketFrame { float cx, cy, mirror; };
-BracketFrame bracket_frame(const FRect& t, std::uint32_t side) { return {side ? t.x + t.width : t.x, t.y, side ? 1.f : -1.f}; }
+// The atlas: seven bar cells down the left (idle, then one hot segment each hovered and dragged), and to their right the
+// caps, a column per state and a row per corner. Atlas px, kHandleAtlasGutter between cells and round the edge.
+constexpr std::uint32_t kAtlasGap = kHandleAtlasGutter;
+constexpr std::uint32_t kAtlasBarW = std::uint32_t(kLevelBarW) * kHandleAtlasScale, kAtlasBarH = std::uint32_t(kLevelBarH) * kHandleAtlasScale;
+constexpr std::uint32_t kAtlasCap = std::uint32_t(kCapOuter + kCapInner) * kHandleAtlasScale;
+constexpr std::uint32_t kBarCells = 1 + 2 * kLevelSegments, kCapStates = 3, kCapCorners = 4;
+constexpr std::uint32_t kAtlasW = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap);
+constexpr std::uint32_t kAtlasH = kAtlasGap + std::max(kBarCells * (kAtlasBarH + kAtlasGap), kCapCorners * (kAtlasCap + kAtlasGap));
+struct AtlasCell { std::uint32_t x = 0, y = 0, w = 0, h = 0; };
+AtlasCell bar_cell(std::uint32_t row) { return {kAtlasGap, kAtlasGap + row * (kAtlasBarH + kAtlasGap), kAtlasBarW, kAtlasBarH}; }
+std::uint32_t bar_row(LevelSegment segment, bool active) {
+    return segment == LevelSegment::none ? 0 : 1 + std::uint32_t(segment) + (active ? std::uint32_t(kLevelSegments) : 0);
+}
+AtlasCell cap_cell(std::uint32_t corner, std::uint32_t state) {
+    return {kAtlasGap + kAtlasBarW + kAtlasGap + state * (kAtlasCap + kAtlasGap), kAtlasGap + corner * (kAtlasCap + kAtlasGap), kAtlasCap, kAtlasCap};
+}
+AtlasBox box_of(const AtlasCell& c) {
+    const float w = float(kAtlasW), h = float(kAtlasH);
+    return {float(c.x) / w, float(c.y) / h, float(c.x + c.w) / w, float(c.y + c.h) / h};
+}
+void draw_bar(HudImage& im, const AtlasCell& c, const MaterialScheme& m, LevelSegment hot, bool active) {
+    const float k = kHandleAtlasScale, x = float(c.x), y = float(c.y), w = float(c.w), h = float(c.h), third = w / float(kLevelSegments);
+    md_fill_rounded(im, x, y, x + w, y + h, h / 2, m.primary_container, 1.f);
+    for (const float line : {x + third, x + 2 * third}) md_fill_rounded(im, line - k / 2, y + 7 * k, line + k / 2, y + h - 7 * k, k / 2, m.on_primary_container, 0.3f);
+    if (hot != LevelSegment::none) {
+        const int seg = int(hot);
+        const float x0 = x + float(seg) * third + (seg == 0 ? 2 * k : k), x1 = x + float(seg + 1) * third - (seg == 2 ? 2 * k : k);
+        md_fill_rounded(im, x0, y + 2 * k, x1, y + h - 2 * k, (h - 4 * k) / 2, active ? m.primary_bright : m.primary, 1.f);
+    }
+    static constexpr std::pair<MdIcon, float> kIcons[kLevelSegments] = {{MdIcon::rotate_left, 18.f}, {MdIcon::level, 23.f}, {MdIcon::rotate_right, 18.f}};
+    for (int seg = 0; seg < int(kLevelSegments); ++seg)
+        md_icon(im, kIcons[seg].first, x + (float(seg) + 0.5f) * third, y + h / 2, kIcons[seg].second * k,
+                seg == int(hot) ? m.on_primary : m.on_primary_container);
+}
+void draw_cap(HudImage& im, const AtlasCell& c, std::uint32_t corner, float leg, float stroke, MdRgb colour) {
+    const float k = kHandleAtlasScale, in = kCapInner * k;
+    const bool right = corner == 1 || corner == 3, bottom = corner >= 2;
+    for (std::uint32_t py = 0; py < c.h; ++py)
+        for (std::uint32_t px = 0; px < c.w; ++px) {
+            // The cell from its corner, x and y pointing away from the desktop: the same L in every corner.
+            const float u = right ? float(px) + 0.5f - in : float(c.w) - in - float(px) - 0.5f;
+            const float v = bottom ? float(py) + 0.5f - in : float(c.h) - in - float(py) - 0.5f;
+            const float cov = clamp01(0.5f - md_corner_distance(u, v, kCapGap * k, leg * k, kCapBend * k, stroke * k));
+            if (cov > 0) md_over(im, int(c.x + px), int(c.y + py), colour, cov);
+        }
+}
 }
 
-float roll_distance(const FRect& t, std::uint32_t side, float px, float py) {
-    const float arm = roll_arm(t);
-    if (!(arm > 0) || side > 1) return std::numeric_limits<float>::infinity();
-    const auto f = bracket_frame(t, side);
-    const float gap = kRollGap * roll_scale(t), x = (px - f.cx) * f.mirror, y = py - f.cy;
-    const float top = std::hypot(x - std::clamp(x, -arm, 0.f), y + gap);
-    const float down = std::hypot(x - gap, y - std::clamp(y, 0.f, arm));
-    const float arc = x >= 0 && y <= 0 ? std::fabs(std::hypot(x, y) - gap) : std::numeric_limits<float>::infinity();
-    return std::min({top, down, arc});
-}
-
-bool on_roll_bracket(const FRect& t, std::uint32_t side, float px, float py) {
-    const float s = roll_scale(t), e = kRollEdgeClear * s;
-    if (t.x - e < px && px < t.x + t.width + e && t.y - e < py && py < t.y + t.height + e) return false;  // content, edge band
-    return roll_distance(t, side, px, py) <= (kRollHeadHalf + kRollPad) * s;
-}
-
-RollBracket roll_bracket(const FRect& t, std::uint32_t side) {
-    RollBracket out;
-    const float arm = roll_arm(t);
-    if (!(arm > 0) || side > 1) return out;
-    const auto f = bracket_frame(t, side);
-    const float s = roll_scale(t), gap = kRollGap * s, half = kRollStroke * s / 2, head_len = kRollHeadLen * s, head_half = kRollHeadHalf * s;
-    auto at = [&](float x, float y) { return std::array<float, 2>{f.cx + f.mirror * x, f.cy + y}; };
-    // The stroke: the top arm from its end, the quarter circle over the corner, the side arm down to the head's base. The
-    // arms are cut in kArmSteps so they follow a curved desktop's surface (place_point bends each point, not the lines).
-    constexpr int kArmSteps = 4, kArcSteps = 8;
-    for (int i = 0; i < kArmSteps; ++i) {
-        const float x = -arm * float(kArmSteps - i) / float(kArmSteps);
-        out.band.push_back(at(x, -gap - half));
-        out.band.push_back(at(x, -gap + half));
-    }
-    for (int i = 0; i <= kArcSteps; ++i) {
-        const float a = float(std::numbers::pi) / 2 * float(i) / float(kArcSteps), dx = std::sin(a), dy = -std::cos(a);
-        out.band.push_back(at((gap + half) * dx, (gap + half) * dy));
-        out.band.push_back(at((gap - half) * dx, (gap - half) * dy));
-    }
-    for (int i = 1; i <= kArmSteps; ++i) {
-        const float y = (arm - head_len) * float(i) / float(kArmSteps);
-        out.band.push_back(at(gap + half, y));
-        out.band.push_back(at(gap - half, y));
-    }
-    // The arrowhead, pointing down the side (the way the corner moves), and the round cap at the top arm's end (M3 strokes
-    // have round caps).
-    out.head = {at(gap - head_half, arm - head_len), at(gap + head_half, arm - head_len), at(gap, arm)};
-    constexpr int kCapSteps = 6;
-    for (int i = 0; i < kCapSteps; ++i) {
-        const float a0 = float(std::numbers::pi) * float(i) / float(kCapSteps), a1 = float(std::numbers::pi) * float(i + 1) / float(kCapSteps);
-        out.head.push_back(at(-arm, -gap));
-        out.head.push_back(at(-arm - half * std::sin(a0), -gap - half * std::cos(a0)));
-        out.head.push_back(at(-arm - half * std::sin(a1), -gap - half * std::cos(a1)));
-    }
-    return out;
-}
-
-std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level) {
+HudImage render_handle_atlas(std::array<float, 3> accent) {
     const auto& m = glass_theme_scheme(accent);
-    return md_layer(m.primary, m.primary_bright, clamp01((level - kGlassIdle) / (kGlassActive - kGlassIdle)));
+    HudImage im{kAtlasW, kAtlasH, std::vector<std::uint8_t>(std::size_t(kAtlasW) * kAtlasH * 4, 0)};
+    draw_bar(im, bar_cell(bar_row(LevelSegment::none, false)), m, LevelSegment::none, false);
+    for (const auto segment : {LevelSegment::ccw, LevelSegment::level, LevelSegment::cw})
+        for (const bool active : {false, true}) draw_bar(im, bar_cell(bar_row(segment, active)), m, segment, active);
+    for (std::uint32_t corner = 0; corner < kCapCorners; ++corner) {
+        draw_cap(im, cap_cell(corner, 0), corner, kCapLeg, kCapStroke, m.primary);
+        draw_cap(im, cap_cell(corner, 1), corner, kCapLegHot, kCapStrokeHot, m.primary_bright);
+        draw_cap(im, cap_cell(corner, 2), corner, kCapLegHot, kCapStrokeHot, m.primary_bright);
+    }
+    return im;
 }
 
-std::array<float, 3> corner_handle_color(std::array<float, 3> accent, float level) {
-    if (!(level > 0.f)) return {0, 0, 0};
-    const auto& m = glass_theme_scheme(accent);
-    if (level <= kHandleLevelIdle) {
-        const float k = level / kHandleLevelIdle;
-        return {m.on_surface_variant[0] * k, m.on_surface_variant[1] * k, m.on_surface_variant[2] * k};
-    }
-    return md_layer(m.on_surface_variant, m.primary, clamp01((level - kHandleLevelIdle) / (kHandleLevelActive - kHandleLevelIdle)));
-}
+AtlasBox level_bar_box(LevelSegment segment, bool active) { return box_of(bar_cell(bar_row(segment, active))); }
+AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active) { return box_of(cap_cell(std::min(corner, kCapCorners - 1), active ? 2 : hot ? 1 : 0)); }
 
 FRect glass_panel_action(std::size_t action) {
     if (action >= kPanelActions) return {};

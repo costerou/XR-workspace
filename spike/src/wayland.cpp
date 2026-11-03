@@ -273,7 +273,7 @@ struct Presentation::Impl : SurfaceRequests {
         if (i < rolls.size()) p.roll = float(rolls[i]) / 100.f * float(M_PI) / 180.f;
         return p;
     }
-    struct RollIcons { std::array<std::int8_t, kMaxDesktops> icons{-1, -1, -1, -1}; std::int32_t hover = -1; std::int8_t side = -1; bool active = false; std::uint64_t updates = 0; } roll;
+    struct LevelBars { std::array<bool, kMaxDesktops> bars{}; std::int32_t hover = -1; std::int8_t side = -1; bool active = false; std::uint64_t updates = 0; } roll;
     std::string roll_geometry_sent;      // last roll_geometry line handed to the supervisor
     double roll_geometry_ms = -1e9;      // when it was sent
     bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
@@ -1141,7 +1141,7 @@ void Presentation::enable_tracking(std::string prefix) {
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (!impl_ || !impl_->gl) return;
     const std::array<float, 3> seed{r / 255.f, g / 255.f, b / 255.f};  // the seed of the M3 scheme (material.hpp)
-    impl_->gl->set_accent(r, g, b);  // highlight border, glow, the pills' glass, the roll icons and the resize handle
+    impl_->gl->set_accent(r, g, b);  // highlight border, glow, the pills' glass, the level bars and corner caps
     impl_->glass.set_accent(seed);   // an open panel (glass_theme.hpp)
     impl_->popups.set_accent(seed, double(monotonic_ms()));  // the pop-ups and the cards, redrawn if showing
     impl_->help.set_accent(seed);
@@ -1228,13 +1228,13 @@ void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32
     p.ghost_w = ghost_w; p.ghost_h = ghost_h; p.target = target; p.look = look;
     impl_->cadence.invalidate();
 }
-void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
+void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<bool, kMaxDesktops>& bars, std::int32_t hover,
                             std::int8_t side, bool active) {
     if (!impl_) return;
     auto& s = *impl_;
     if (s.rolls != roll) s.glide.ms = 0;  // a glide aims at the placements it began with: eased on from where it got to
     s.rolls = roll;
-    s.roll.icons = icons; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
+    s.roll.bars = bars; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
     s.cadence.invalidate();
 }
 std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
@@ -1452,9 +1452,6 @@ Status Presentation::draw_test_pattern() {
         const float binds = s.binds.alpha(help_now);
         s.gl->set_binds(binds > 0.f ? &s.binds.image() : nullptr, s.binds.generation(), binds, s.binds.offset_px(help_now));
         s.binds_drawn = binds > 0.f;
-        // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
-        const bool handle = s.handle.visible && s.view.zoom() < 0.01f && !s.view.switching();
-        s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);
         {  // Glass pills and the open placement panel: overview only (a zoom hides them, and holds an expanding pill's
            // morph until the overview is reached: GlassPills::frame), never moving on their own.
             const bool overview = s.view.zoom() < 0.01f && !s.view.switching();  // not while a switch turns through it
@@ -1463,8 +1460,10 @@ Status Presentation::draw_test_pattern() {
             if (s.pills.hover || s.pills.active) { glass.hover = int(s.pills.desktop); glass.hover_level = s.pills.active ? kGlassActive : kGlassHover; }
             if (glass.surface && glass.surface_desktop >= 0)  // a held slider's panel stays on its desktop's levelling roll
                 glass.surface->roll = s.target_placement(std::size_t(glass.surface_desktop)).roll;
-            for (std::size_t i = 0; i < glass.roll_icon.size(); ++i) glass.roll_icon[i] = s.roll.icons[i];
-            glass.roll_hover = s.roll.hover; glass.roll_hover_side = s.roll.side; glass.roll_level = s.roll.active ? kGlassActive : kGlassHover;
+            for (std::size_t i = 0; i < glass.bars.size() && i < s.roll.bars.size(); ++i) glass.bars[i] = s.roll.bars[i];
+            glass.bar_hover = s.roll.hover; glass.bar_segment = LevelSegment(s.roll.side); glass.bar_active = s.roll.active;
+            // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
+            if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
         }

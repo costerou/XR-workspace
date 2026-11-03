@@ -1,6 +1,6 @@
 """Full interaction in the overview (anchor-no-click-maximize; Cody, 2026-11-03 2:49 PM): every window on every desktop
 in the overview takes clicks, drags inside apps, typing, scrolling and right-clicks straight from the dot, as on a
-normal screen. Only the XR handles keep their actions: the pills (and an open pill's panel), the roll arrows, the
+normal screen. Only the XR handles keep their actions: the pills (and an open pill's panel), the level bars, the
 corner resize handles and the pill drags that move a desktop, and each lies outside a desktop's content.
 
 What the run controls, and what is checked here:
@@ -14,7 +14,7 @@ What the run controls, and what is checked here:
     the cursor warps (enter_desktop_lua), so the keyboard goes to that monitor's focused window and focus-follows-mouse
     picks the window under the dot. No key is bound by the pointer; a click into a window closes an open pill so its
     modal keys stop taking the typing.
-  * Handles are not forwarded: on a pill, roll arrow, corner or edge the dot stays free (the run's grab), the press does
+  * Handles are not forwarded: on a pill, level bar, corner or edge the dot stays free (the run's grab), the press does
     its XR action and the cursor is never handed to a window; no handle covers a desktop's content.
   * Window drag (press and hold to lift a window onto another desktop) is off: holds and drags stay the app's.
 
@@ -313,11 +313,11 @@ class HandleTests(Base):
         self.assertNotEqual(self.control.state.placements[1]['y'], 0)
         self.assert_not_forwarded(serial, 0)
 
-    def test_a_roll_arrow_turns_its_desktop(self):
+    def test_a_level_bar_segment_turns_its_desktop(self):
         self.free()
         serial = self.p.want[0]
-        arm, gap, z = fp.roll_arm(T1), fp.ROLL_GAP * fp.roll_scale(T1), fp.corner_zone(T1)
-        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + T1[2] + gap, T1[1] + (z + arm) / 2))  # its side arm
+        bx, by, bw, bh = fp.level_bar_rect(T1)
+        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, bx + bw * 5 / 6, by + bh / 2))  # its right segment
         self.assertEqual(self.p.hover, ('roll', 1, 'cw'))
         self.op('resize_press'); self.op('resize_release')
         self.assertNotEqual(self.p.rolls[1], 0)
@@ -332,7 +332,7 @@ class HandleTests(Base):
         self.assertLess(self.control.state.placements[1]['distance'], 100)
         self.assert_not_forwarded(serial, 0)
 
-    def test_a_corner_handle_resizes_its_desktop(self):
+    def test_a_corner_cap_resizes_its_desktop(self):
         self.free()
         serial = self.p.want[0]
         self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + T1[2] + 5, T1[1] + T1[3] + 5))  # outside XR-2's bottom right
@@ -342,7 +342,7 @@ class HandleTests(Base):
         self.assert_not_forwarded(serial, 0)
 
     def test_no_handle_covers_a_desktops_content_and_every_handle_lies_outside_it(self):
-        # Every desktop, placed and rolled, with both roll arrows showing: a dense sweep over and round each one.
+        # Every desktop, placed and rolled, with its level bar showing: a dense sweep over and round each one.
         self.control.state.placements = [{**DEFAULT_PLACEMENT, 'x': -40, 'curvature': 60},
                                          {**DEFAULT_PLACEMENT, 'y': 80, 'distance': 140},
                                          {**DEFAULT_PLACEMENT, 'x': 120, 'distance': 70}]

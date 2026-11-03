@@ -20,16 +20,16 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     modes never flap at an edge. Moving into a desktop (or clicking it) also selects it, so Ctrl+Alt+Up zooms into the
     desktop the pointer is on and the highlight shows it.
   * One cursor, one zone contract (anchor-no-click-maximize, 2026-11-03: every desktop in the overview is a normal screen,
-    and the dot is a full cursor of its own; shared with the sibling branches: rotate brackets sit on the borders, resize
+    and the dot is a full cursor of its own; shared with the sibling branches: the level bar sits above the top edge, resize
     at edges and corners, content goes to apps). What the dot is over, most important first (hit, zone_of):
       - control: an open placement panel's body (drawn on top) and the help card (head-locked, the very top layer).
-      - resize: a corner (the part of its corner_zone square in the border), then, after the pill and the bracket, an
+      - resize: a corner (the part of its corner_zone square in the border), then, after the pill and the bar, an
         edge. The border runs from EDGE_OUT_PX outside a desktop's edge to the ENTER_PX sliver inside it (border_handle).
       - move: a pill zone (on_pill: under the bottom edge), or an open panel's header strip, which is the pill.
       - content: the rest of a desktop's rectangle. There the dot is the real cursor (desktop mode) and the window gets
         every click, drag, right-click, scroll and key. In desktop mode that holds up to the very edge pixel.
-      - rotate: a rotate bracket (the roll arrows: on_roll), drawn under the desktops, so only where no corner, pill or
-        content is; from ROLL_EDGE_CLEAR out it takes an edge's border, leaving the edge the band next to the desktop.
+      - rotate: a level bar's segment (level_bar_segment), drawn under the desktops, so only where no corner, pill or
+        content is; from LEVEL_EDGE_CLEAR out it takes an edge's border, leaving the edge the band next to the desktop.
       - space: nothing.
     The dot shows which (look_for, the `overview_pointer` frame's `look`, marks the renderer draws round it: view.hpp
     PointerLook): a resize direction, move or rotate, and the plain dot otherwise, held through a drag. The mapping both
@@ -76,7 +76,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     desktop on its own); a release anywhere else (its own desktop, a pill, empty space) puts nothing anywhere. Which
     window: the one shown at the press (send.window_at, looked up off the loop once it lifts); none there (an empty
     desktop), pinned windows and the help card's own clicks drag nothing. Only a press on a desktop's surface starts it:
-    pills, corners (resize), the roll brackets, an open panel and the help card are hit first and keep their own drags. On
+    pills, corners (resize), the level bars, an open panel and the help card are hit first and keep their own drags. On
     the selected desktop (unified_cursor.py, desktop mode) the press already went to the window, so only holding still
     there lifts it (moving first is the window's own drag or selection); the lift then turns the dot free, as at an edge.
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
@@ -112,30 +112,33 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     it. A click on the previous arrow turns to the previous page, on the next arrow or the indicator to the next
     (view.ViewControl.help_turn, the same frame as Ctrl+Alt+PgUp / PgDn); anywhere else on the card does nothing. A
     click on the card never collapses an open placement panel.
-  * Roll brackets (glass.hpp roll_arm / roll_distance / on_roll_bracket, mirrored here: roll_arm, roll_scale,
-    roll_distance, on_roll and the ROLL_* constants; the `glass_contract` ctest compares them; ROLL_* were roll-level
-    icons above the corners until 2026-11-03): in anchor mode the renderer reports how far each desktop is from level as
-    you see it, gravity from the head tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted,
-    or a pitched one seen off to the side, leaves desktops rolled). This class owns each desktop's levelling roll
-    (`rolls`, hundredths of a degree, saved with the layout) and sends it with the brackets (the wire's `icons`) in the `roll`
-    frame. Every desktop shows both in the overview, level or not, measured or not ('both'): an arrow bracket hugging its
-    top-left corner from outside, turning counter-clockwise, and one round its top-right, clockwise. Each runs ROLL_GAP
-    outside the edge from roll_arm in along the top, round the corner and roll_arm down the side to its arrowhead, all in
-    tile px on the desktop's surface, so it moves, scales and rolls with the desktop (a resize keeps it the same share of
-    the desktop). A click turns the desktop the bracket's way (roll_click): straight to level when level lies that way
-    (the side roll_side picks), else ROLL_STEP further. Pressing and dragging either one rolls the desktop with the dot
-    round its centre, either way, up to MAX_ROLL, with a ROLL_LEVEL detent at level. R on a desktop's open panel levels
-    it (level: as its placement goes back flat in its slot). Hit region (on_roll): ROLL_EDGE_CLEAR or more outside the
-    desktop (the band along its edges is the edge resize's), within ROLL_HEAD_HALF + ROLL_PAD of the stroke's centre
-    line, and only where nothing else is: any desktop's content, a resize corner's zone and the pills all win over it
-    (hit), and the renderer draws the brackets under them. The brackets hide with the pills. Every hit test and cursor mapping uses the
-    rolled surface (orbit.place_point's 'roll'); the pill drag and bumping ignore the roll (a few degrees at
-    most changes nothing there).
+  * Level bar (glass.hpp level_bar_scale / level_bar_rect / level_bar_segment, mirrored here with the LEVEL_* constants; the
+    `glass_contract` ctest compares them; arrow brackets round the top corners until 2026-11-03, Cody's pick of the handle
+    mockups): in anchor mode the renderer reports how far each desktop is from level as you see it, gravity from the head
+    tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted, or a pitched one seen off to the side,
+    leaves desktops rolled). This class owns each desktop's levelling roll (`rolls`, hundredths of a degree, saved with the
+    layout) and sends it with the bars (the wire's `icons`) in the `roll` frame. Every desktop shows one in the overview,
+    level or not, measured or not: a segmented capsule LEVEL_BAR_GAP above its top edge, the pill's counterpart, all in tile
+    px on the desktop's surface, so it moves, scales and rolls with the desktop (a resize keeps it the same share of the
+    desktop). Its left and right segments turn the desktop counter-clockwise and clockwise: a click turns it that way
+    (roll_click): straight to level when level lies that way (the side roll_side picks), else ROLL_STEP further; pressing
+    and dragging either one rolls the desktop with the dot round its centre, either way, up to MAX_ROLL, with a ROLL_LEVEL
+    detent at level. Its middle segment levels it (a click: level, the levelling half of R on an open panel; it never moves
+    the desktop, and a press dragged off it does nothing). R on a desktop's open panel levels it too (level: as its
+    placement goes back flat in its slot). Hit region (level_bar_segment): the drawn bar padded by LEVEL_BAR_PAD, which stays
+    LEVEL_EDGE_CLEAR or more outside the desktop (the band along its edges is the edge resize's), and only where nothing
+    else is: any desktop's content, a resize corner's zone and the pills all win over it (hit), and the renderer draws the
+    bars under them. Only what the dot is on or holds lights up. The bars hide with the pills. Every hit test and cursor
+    mapping uses the rolled surface (orbit.place_point's 'roll'); the pill drag and bumping ignore the roll (a few degrees
+    at most changes nothing there).
+  * Corner caps (glass.hpp corner_cap_rect): a quiet rounded L round each corner of every desktop, drawn with its bar, the
+    resize corners made visible. Their press is the corner's resize zone (border_handle); the corner under the dot or held
+    is the `resize_handle` frame, and only that cap lights up.
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
     is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
   * OLED care: the dot is grey at 170/255 (184 while held; cards and glass cap at 191), drawn only in DOT_MODES, never
-    moves on its own, and hides with the pills and bracket after OVERLAY_IDLE_CLOSE_S without pointer movement (an
+    moves on its own, and hides with the pills, bars and caps after OVERLAY_IDLE_CLOSE_S without pointer movement (an
     open panel stays until the view's own idle close, which pointer motion over it postpones). A click while hidden
     only wakes them.
   * Circle only (overview_cursor.py, display only): the dot is the overview's only pointer. In desktop mode too it is
@@ -172,9 +175,9 @@ CORNER_SHARE, CORNER_MIN, CORNER_MAX = 0.06, 10.0, 28.0
 # The resize edges: the band EDGE_OUT_PX (tile px) outside each edge, and the ENTER_PX sliver inside it (border_handle).
 EDGE_OUT_PX = 10.0
 EDGES = ('t', 'b', 'l', 'r')
-# The zone contract (shared with the sibling branches: rotate brackets sit on the borders, resize at edges and corners,
+# The zone contract (shared with the sibling branches: the level bar sits above the top edge, resize at edges and corners,
 # content goes to apps). What the dot is over, most important first (hit): the open panel, a corner, a pill, a desktop's
-# content, a rotate bracket (the roll arrows), an edge; else empty space. zone_of names them.
+# content, a level bar, an edge; else empty space. zone_of names them.
 ZONES = ('control', 'rotate', 'resize', 'move', 'content', 'space')
 # The dot's look over each (the `overview_pointer` frame's `look`; spike/include/xr/view.hpp PointerLook): content, empty
 # space and controls (an open panel's sliders and buttons, the help card) keep the plain dot.
@@ -229,7 +232,7 @@ POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 # Bumping hooks into the hit-zone contract's handles, never the content (bump.py): a drag started on a resize handle
 # (RESIZE_DRAGS: the contract's corner and edge handles, `resize` with its `handle`) resizes through
 # _resize_to, one on a move handle (the pill or the open panel's header) moves through orbit.PillDrag, and both bump. A
-# press on content (hit: 'desktop') is the apps' and never starts either; nor do the roll handles, sliders (ViewControl
+# press on content (hit: 'desktop') is the apps' and never starts either; nor do the level bars, sliders (ViewControl
 # bumps those) or a window drag.
 RESIZE_DRAGS = ('resize',)
 # What Super going down stops (OverviewPointer.super_down): every drag of a monitor. A window drag is the window's.
@@ -237,23 +240,24 @@ MONITOR_DRAGS = RESIZE_DRAGS + ('pill', 'slider', 'roll')
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
-# Roll brackets (glass.hpp kRoll*: tile px on the desktop's surface, so they move and scale with it): the gap from the
-# desktop's edge to the stroke's centre line, the stroke, the arrowhead's length and half width, the padding past what is
-# drawn that still grabs one, and the arm along each edge (a share of the shorter side, clamped); how far from level (1/100
-# degree) counts as level, and the wire's bound on a levelling roll (ipc.hpp kMaxRoll).
-ROLL_GAP, ROLL_STROKE, ROLL_HEAD_LEN, ROLL_HEAD_HALF, ROLL_PAD = 12.0, 4.0, 12.0, 6.0, 4.0
-ROLL_ARM_SHARE, ROLL_ARM_MIN, ROLL_ARM_MAX_SHARE = 0.22, 36.0, 0.45
+# Level bar (glass.hpp kLevelBar*: tile px on the desktop's surface, so it moves and scales with it): its size and gap above
+# the top edge on a desktop wide enough, the padding past what is drawn that still grabs it, and the share of the desktop's
+# width it takes on a narrower one, not under LEVEL_BAR_MIN_W (the whole design scales: level_bar_scale).
+LEVEL_BAR_W, LEVEL_BAR_H, LEVEL_BAR_GAP, LEVEL_BAR_PAD = 148.0, 26.0, 12.0, 4.0
+LEVEL_BAR_SHARE, LEVEL_BAR_MIN_W = 0.25, 120.0
 # The hit-zone contract round a desktop, from the inside out: its content (its apps' own clicks, drags and scrolling);
-# the band ROLL_EDGE_CLEAR wide just outside every edge (the selected desktop's border), left to the edge's resize zone,
-# and the corners' zones (corner_zone), which reach round each corner inside and out; then the brackets, from
-# ROLL_EDGE_CLEAR out, along their arms; then empty space. A bracket never takes a press from any of the others.
-ROLL_EDGE_CLEAR = 6.0
+# the band LEVEL_EDGE_CLEAR wide just outside every edge (the selected desktop's border), left to the edge's resize zone,
+# and the corners' zones (corner_zone), which reach round each corner inside and out; then the bar, from LEVEL_EDGE_CLEAR
+# out; then empty space. The bar never takes a press from any of the others.
+LEVEL_EDGE_CLEAR = 6.0
+# How far from level (1/100 degree) counts as level, and the wire's bound on a levelling roll (ipc.hpp kMaxRoll).
 ROLL_LEVEL = 50
-ROLL_STEP = 200  # a click on an arrow that does not point toward level turns the desktop 2 degrees that way
+ROLL_STEP = 200  # a click on a turn segment that does not point toward level turns the desktop 2 degrees that way
 MAX_ROLL = 9000
 LEVEL_SETTLE_S = 0.5  # after R, a desktop's measured tilts this long level it again (OverviewPointer.level)
-ROLL_SIDES = ('ccw', 'cw')  # glass.hpp roll_bracket side 0 (round the top-left corner) and 1 (round the top-right)
-ROLL_ICONS = ('none',) + ROLL_SIDES + ('both',)  # what a desktop shows (ipc.hpp RollPayload icons: -1, 0, 1, 2)
+ROLL_SIDES = ('ccw', 'cw')  # the level bar's turn segments, left and right
+LEVEL_SEGMENTS = ('ccw', 'level', 'cw')  # its segments left to right (glass.hpp LevelSegment; ipc.hpp RollPayload side)
+ROLL_ICONS = ('none', 'bar')  # what a desktop shows (ipc.hpp RollPayload icons)
 ROLL_HIDDEN = {'roll': [0] * geometry.MAX_DESKTOPS, 'icons': ['none'] * geometry.MAX_DESKTOPS, 'hover': -1, 'side': 'none',
                'active': False}  # the renderer's start
 
@@ -293,53 +297,37 @@ def parse_roll_geometry(value):
     return out
 
 
-def roll_arm(tile):
-    """A roll bracket's arm (glass.hpp roll_arm): tile px from the desktop's corner to the arm's end, along the top edge and
-    down the side. ROLL_ARM_SHARE of the shorter side, at least ROLL_ARM_MIN, at most ROLL_ARM_MAX_SHARE of it; 0 if empty."""
+def level_bar_scale(tile):
+    """What the level bar and corner caps are scaled by (glass.hpp level_bar_scale): 1, less on a narrow desktop; 0 if empty."""
     tw, th = tile[2], tile[3]
     if not (tw > 0 and th > 0): return 0.0
-    m = min(tw, th)
-    return min(max(ROLL_ARM_SHARE * m, ROLL_ARM_MIN), ROLL_ARM_MAX_SHARE * m)
+    return min(max(LEVEL_BAR_SHARE * tw, LEVEL_BAR_MIN_W), LEVEL_BAR_W, tw) / LEVEL_BAR_W
 
 
-def roll_scale(tile):
-    """What the bracket's stroke, gap, head and padding are scaled by (glass.hpp roll_scale): 1, less on a desktop too small
-    for ROLL_ARM_MIN arms; 0 if empty."""
-    arm = roll_arm(tile)
-    return min(1.0, arm / ROLL_ARM_MIN) if arm > 0 else 0.0
+def level_bar_rect(tile):
+    """The level bar as drawn (glass.hpp level_bar_rect): (x, y, w, h) tile px on the desktop's surface, centred above its
+    top edge. Empty for an empty tile."""
+    s = level_bar_scale(tile)
+    if not s > 0: return (0.0, 0.0, 0.0, 0.0)
+    w, h = LEVEL_BAR_W * s, LEVEL_BAR_H * s
+    return (tile[0] + (tile[2] - w) / 2, tile[1] - LEVEL_BAR_GAP * s - h, w, h)
 
 
-def roll_distance(tile, side, q):
-    """Distance (tile px) from tile point `q` to the centre line of desktop's `side` bracket (glass.hpp roll_distance): its
-    top arm ROLL_GAP above the top edge from roll_arm in to the corner, the quarter circle round the corner and its side arm
-    ROLL_GAP beyond the side ('ccw': the left, 'cw': the right) down to the arrow's tip."""
-    if side not in ROLL_SIDES: raise ValueError('invalid roll side')
-    arm = roll_arm(tile)
-    if not arm > 0: return math.inf
-    tx, ty, tw, _ = tile
-    gap = ROLL_GAP * roll_scale(tile)
-    x, y = (q[0] - (tx + tw)) if side == 'cw' else (tx - q[0]), q[1] - ty  # x outward past the side, y down
-    top = math.hypot(x - min(max(x, -arm), 0.0), y + gap)
-    down = math.hypot(x - gap, y - min(max(y, 0.0), arm))
-    arc = abs(math.hypot(x, y) - gap) if x >= 0 and y <= 0 else math.inf
-    return min(top, down, arc)
-
-
-def on_roll(tile, side, q):
-    """True if tile point `q` (None: missed) is in the bracket's hit region (glass.hpp on_roll_bracket): at least
-    ROLL_EDGE_CLEAR * roll_scale outside the desktop (its content and the band along its edges stay theirs) and within
-    (ROLL_HEAD_HALF + ROLL_PAD) * roll_scale of its centre line. Where it overlaps a corner's resize zone the corner wins
-    (hit)."""
-    if q is None: return False
-    tx, ty, tw, th = tile
-    s = roll_scale(tile)
-    e = ROLL_EDGE_CLEAR * s
-    if tx - e < q[0] < tx + tw + e and ty - e < q[1] < ty + th + e: return False
-    return roll_distance(tile, side, q) <= (ROLL_HEAD_HALF + ROLL_PAD) * s
+def level_bar_segment(tile, q):
+    """The segment (LEVEL_SEGMENTS) at tile point `q` (None: missed), or None (glass.hpp level_bar_segment): the drawn bar
+    padded by LEVEL_BAR_PAD, split at its thirds, the padding belonging to the segment it borders. Where it overlaps a
+    corner's zone, a pill or content, they win (hit)."""
+    x, y, w, h = level_bar_rect(tile)
+    if q is None or not w > 0: return None
+    pad = LEVEL_BAR_PAD * level_bar_scale(tile)
+    if q[0] < x - pad or q[0] > x + w + pad or q[1] < y - pad or q[1] > y + h + pad: return None
+    third = w / len(LEVEL_SEGMENTS)
+    if q[0] < x + third: return LEVEL_SEGMENTS[0]
+    return LEVEL_SEGMENTS[1] if q[0] < x + 2 * third else LEVEL_SEGMENTS[2]
 
 
 def roll_side(tilt, roll):
-    """The bracket that levels a desktop: 'cw' (round its top-right corner) if it is turned counter-clockwise from level by
+    """The turn segment that levels a desktop: 'cw' (the bar's right one) if it is turned counter-clockwise from level by
     more than ROLL_LEVEL (its top-right corner is the higher one), 'ccw' if clockwise, None if level or not measured
     (`tilt` None). `tilt` from the renderer (without the roll), `roll` the levelling roll applied, both 1/100 degree."""
     if tilt is None: return None
@@ -349,7 +337,7 @@ def roll_side(tilt, roll):
 
 
 def roll_click(tilt, roll, side):
-    """The levelling roll after a click on desktop's `side` arrow: straight to level when that arrow points toward level
+    """The levelling roll after a click on desktop's `side` turn segment: straight to level when it points toward level
     (roll_side), else ROLL_STEP further that way (counter-clockwise positive), within +-MAX_ROLL. Both ways always work,
     on a level desktop and on one whose tilt is not measured (follow mode, no tracking) too."""
     if side not in ROLL_SIDES: raise ValueError('invalid roll side')
@@ -359,8 +347,8 @@ def roll_click(tilt, roll, side):
 
 
 def roll_drag(tilt, start, turn):
-    """The levelling roll while an arrow is dragged: the roll at the press plus the dot's `turn` round the desktop's
-    centre (1/100 degree, counter-clockwise positive), either way whichever arrow was pressed, within +-MAX_ROLL; within
+    """The levelling roll while a turn segment is dragged: the roll at the press plus the dot's `turn` round the desktop's
+    centre (1/100 degree, counter-clockwise positive), either way whichever segment was pressed, within +-MAX_ROLL; within
     ROLL_LEVEL of level (when measured) it rests at level."""
     r = min(max(round(start + turn), -MAX_ROLL), MAX_ROLL)
     if tilt is not None and abs(tilt + r) <= ROLL_LEVEL and -MAX_ROLL <= -tilt <= MAX_ROLL: r = -tilt
@@ -368,24 +356,20 @@ def roll_drag(tilt, start, turn):
 
 
 def level_roll(tilt):
-    """The levelling roll that levels a desktop (R on its open panel, OverviewPointer.level): -tilt where its tilt from
-    level is measured (anchor mode with head tracking), within +-MAX_ROLL; else 0, no roll (upright as placed)."""
+    """The levelling roll that levels a desktop (OverviewPointer.level: R on its open panel, the bar's middle segment): -tilt
+    where its tilt from level is measured (anchor mode with head tracking), within +-MAX_ROLL; else 0, no roll (upright as
+    placed)."""
     return 0 if tilt is None else min(max(-int(tilt), -MAX_ROLL), MAX_ROLL)
 
 
-def roll_icon_sides(icon):
-    """The sides a desktop's icon entry ('none' / None, 'ccw', 'cw', 'both') shows."""
-    return ROLL_SIDES if icon == 'both' else (icon,) if icon in ROLL_SIDES else ()
-
-
 def roll_frame(run_id, session, request_id, state):
-    """`roll` frame (ipc.hpp RollPayload): {'roll': MAX_DESKTOPS ints, 'icons': MAX_DESKTOPS of 'none' | 'ccw' | 'cw' | 'both',
-    'hover': -1..MAX_DESKTOPS-1, 'side': 'none' | 'ccw' | 'cw' (which of the hovered desktop's arrows), 'active'}."""
+    """`roll` frame (ipc.hpp RollPayload): {'roll': MAX_DESKTOPS ints, 'icons': MAX_DESKTOPS of 'none' | 'bar', 'hover':
+    -1..MAX_DESKTOPS-1, 'side': 'none' | 'ccw' | 'level' | 'cw' (which segment of the hovered desktop's bar), 'active'}."""
     if not isinstance(state, dict) or set(state) != set(ROLL_HIDDEN): raise ValueError('invalid roll state')
     roll, icons, hover, side, active = state['roll'], state['icons'], state['hover'], state['side'], state['active']
     if not isinstance(roll, list) or len(roll) != MAX_DESKTOPS or any(type(r) is not int or not -MAX_ROLL <= r <= MAX_ROLL for r in roll) \
             or not isinstance(icons, list) or len(icons) != MAX_DESKTOPS or any(i not in ROLL_ICONS for i in icons) \
-            or type(hover) is not int or not -1 <= hover < MAX_DESKTOPS or side not in ('none',) + ROLL_SIDES \
+            or type(hover) is not int or not -1 <= hover < MAX_DESKTOPS or side not in ('none',) + LEVEL_SEGMENTS \
             or (hover < 0) != (side == 'none') or type(active) is not bool:
         raise ValueError('invalid roll state')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'roll',
@@ -534,7 +518,7 @@ def border_handle(tile, q):
 
 
 def zone_of(h):
-    """The zone contract's name (ZONES) for a hit(): 'rotate' (a roll arrow), 'resize' (a corner or an edge), 'move' (a
+    """The zone contract's name (ZONES) for a hit(): 'rotate' (a level bar segment), 'resize' (a corner or an edge), 'move' (a
     pill, or the open panel's header strip, which is the pill), 'content' (a desktop's own windows), 'control' (the rest
     of an open panel, the help card), 'space' (nothing)."""
     if h is None: return 'space'
@@ -671,13 +655,13 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)). Then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index), ('edge',
-    index, 't'|'b'|'l'|'r'), ('desktop', index, (px, py) tile pixel); then, where no corner, pill or content is, the roll
-    brackets: ('roll', index, 'ccw'|'cw') (`icons`: per desktop None, 'ccw', 'cw' or 'both', roll_icon_sides), which also
-    take an edge's band from ROLL_EDGE_CLEAR out. None if nothing (the zone contract, ZONES: zone_of). Tested along the
+    index, 't'|'b'|'l'|'r'), ('desktop', index, (px, py) tile pixel); then, where no corner, pill or content is, the level
+    bars: ('roll', index, 'ccw'|'level'|'cw') (`icons`: per desktop None, 'none' or 'bar'), which also take an edge's
+    border from LEVEL_EDGE_CLEAR out. None if nothing (the zone contract, ZONES: zone_of). Tested along the
     dot's ray (orbit.pointer_ray, where the renderer draws the dot), so anything placed anywhere round you can be reached.
     Handles never cover content: a point on a desktop's own rectangle (deeper than the ENTER_PX sliver at its edge) is
     ('desktop', ...) unless the open panel, drawn over the desktops, is there. The resize border (border_handle), the
-    pill zone and the brackets lie outside it."""
+    pill zone and the bars lie outside it."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
@@ -702,24 +686,17 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
         elif inside_by(tile, q) >= ENTER_PX: below = ('desktop', i, q)
         else: continue
         break
-    # A bracket only ever takes a press where nothing else is: a desktop's content (its apps' own clicks, drags and
-    # scrolling), a resize corner's zone (which reaches round the corner, inside and out, so the bend round the corner
-    # resizes) and a pill all win over it. The renderer draws the brackets before every desktop and under the glass
-    # (gl.cpp), so a bracket shows exactly where it can be pressed. An edge's border gives way to a bracket from
-    # ROLL_EDGE_CLEAR out (on_roll), which leaves it the band next to the desktop. Where two brackets overlap (tight
-    # spacing: neighbours' side arms share the gap) the one whose stroke is nearer the dot as you see it wins (tile px
-    # over the distance factor), the nearer desktop on a tie.
+    # A bar only ever takes a press where nothing else is: a desktop's content (its apps' own clicks, drags and scrolling),
+    # a resize corner's zone (which reaches round the corner, inside and out) and a pill all win over it. The renderer draws
+    # the bars and caps before every desktop and under the glass (gl.cpp), so a bar shows exactly where it can be pressed.
+    # An edge's border gives way to a bar from LEVEL_EDGE_CLEAR out, which leaves it the band next to the desktop. Where
+    # two bars overlap (desktops moved over each other) the nearer desktop's wins.
     if below is not None: return edge if edge is not None else below
-    best = None
-    for rank, i in enumerate(order):
-        q, sides = qs[i], roll_icon_sides(icons[i] if icons is not None and i < len(icons) else None)
-        if q is None or not sides: continue
-        tile, d = g['tiles'][i], placements[i]['distance'] / 100
-        for side in sides:
-            if on_roll(tile, side, q):
-                key = (roll_distance(tile, side, q) / (d if d > 0 else 1.0), rank)
-                if best is None or key < best[0]: best = (key, ('roll', i, side))
-    return best[1] if best is not None else edge
+    for i in order:
+        if icons is None or i >= len(icons) or icons[i] != 'bar': continue
+        segment = level_bar_segment(g['tiles'][i], qs[i])
+        if segment is not None: return ('roll', i, segment)
+    return edge
 
 
 def on_pill(tile, q):
@@ -866,8 +843,9 @@ class OverviewPointer:
         #         not a click; open_at_press: the open panel's desktop or None after the press, a click needs it unchanged)
         # Slider: {'kind': 'slider', 'index', 'field', 'tile', 'placement'}  (placement: the desktop's at the press, the
         #         surface both the drag and the renderer's panel use until the release)
-        # Roll:   {'kind': 'roll', 'index', 'side', 'start', 'from', 'centre', 'moved'}  (from: its roll at the press,
-        #         centre: the desktop's centre on the canvas, what the dot turns it round)
+        # Roll:   {'kind': 'roll', 'index', 'side', 'start', 'from', 'centre', 'moved'}  (side: the bar's segment, 'level' a
+        #         button that a drag cancels; from: its roll at the press, centre: the desktop's centre on the canvas, what
+        #         the dot turns it round)
         # Window: {'kind': 'window', 'index', 'on', 'start', 'at', 'point', 'lifted', 'window', 'target', 'token'}  (on:
         #         tile px pressed, where a click lands; at: press time; point: layout px pressed on the desktop's monitor;
         #         window: None looking up, False none there, else send.window_at's dict; target: desktop under the dot)
@@ -913,7 +891,7 @@ class OverviewPointer:
         return self.overview() and self._layout_ready() and len(self.outputs) > 0
 
     def _handles_on(self):
-        """The pills and roll arrows show (idle aside): whenever the pointer is on."""
+        """The pills, level bars and corner caps show (idle aside): whenever the pointer is on."""
         return self.active()
 
     def _layout_ready(self):
@@ -943,11 +921,12 @@ class OverviewPointer:
         self._poke()
 
     def level(self, i):
-        """R on desktop i's open panel (view.ViewControl._on_menu, menu_reset): as its placement goes back flat in its slot,
-        its rotation goes back to level (level_roll): no levelling roll, or, where its tilt from level is measured, the
-        roll that cancels it. The reset may move the desktop, and with it its tilt, which the renderer reports only when it
-        changes, so its measured tilts in the next LEVEL_SETTLE_S level it again where it went (set_roll_geometry). A
-        bracket drag on it ends. Returns the `roll` frame (b'' if nothing changed)."""
+        """R on desktop i's open panel (view.ViewControl._on_menu, menu_reset) as its placement goes back flat in its slot,
+        and a click on its level bar's middle segment, which moves nothing else: its rotation goes back to level
+        (level_roll): no levelling roll, or, where its tilt from level is measured, the roll that cancels it. A reset may
+        move the desktop, and with it its tilt, which the renderer reports only when it changes, so its measured tilts in the
+        next LEVEL_SETTLE_S level it again where it went (set_roll_geometry). A bar drag on it ends. Returns the `roll` frame
+        (b'' if nothing changed)."""
         names = self.control.state.names
         if not 0 <= i < min(len(names), MAX_DESKTOPS): return b''
         d = self.drag
@@ -1047,9 +1026,9 @@ class OverviewPointer:
         return self.tilts[i] if i < len(self.tilts) else None
 
     def _icons(self):
-        """Per desktop the roll brackets it shows (the wire's icons): both on every desktop, level or not, measured or not
-        (a desktop can always be rolled either way; they only hide with the pills, _roll_frame)."""
-        return ['both'] * len(self.control.state.placements)
+        """Per desktop what it shows (the wire's icons): its level bar on every desktop, level or not, measured or not (a
+        desktop can always be rolled either way; they only hide with the pills, _roll_frame)."""
+        return ['bar'] * len(self.control.state.placements)
 
     def _around(self):
         """Anchor mode: the dot's reach goes all the way round you (orbit.reach). A drag keeps the reach it started with."""
@@ -1258,7 +1237,7 @@ class OverviewPointer:
         if op not in resize.RESIZE_OPS: raise ValueError('unsupported resize operation')
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
-        self.last_move = now  # a click is input: the pointer, pills and bracket come back
+        self.last_move = now  # a click is input: the pointer, pills, bars and caps come back
         out = b''
         if op == 'resize_release':
             d = self.drag
@@ -1274,9 +1253,11 @@ class OverviewPointer:
                 self.drag = None
                 if d['lifted']: out += self._drop_window(d)
                 else: out += self._click_desktop(d['index'], d['on'])  # a click, as before: select it
-            elif d is not None and d['kind'] == 'roll' and not d['moved']:  # a click: that way, to level or a step
-                self.roll_clicks += 1
-                self.rolls[d['index']] = roll_click(self._tilt(d['index']), d['from'], d['side'])
+            elif d is not None and d['kind'] == 'roll' and not d['moved']:
+                if d['side'] == 'level': out += self.level(d['index'])  # the middle segment: level, nothing else moves
+                else:  # a click on a turn segment: that way, to level or a step
+                    self.roll_clicks += 1
+                    self.rolls[d['index']] = roll_click(self._tilt(d['index']), d['from'], d['side'])
             out += self._end_drag()  # (a release on a resize handle that resized nothing does nothing)
             if d is not None and self.mode == 'free' and self.pointer is not None:  # the drag kept the dot's look; it is over:
                 # What is under the dot now, the real cursor if that is content (a dropped window and a slider, whose panel
@@ -1441,7 +1422,8 @@ class OverviewPointer:
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
-                self.roll_drags += 1
+                if d['side'] != 'level': self.roll_drags += 1
+            if d['side'] == 'level': return b''  # a button: dragged off, its release does nothing
             cx, cy = d['centre']
             turn = math.atan2(cy - self.pointer[1], self.pointer[0] - cx) - math.atan2(cy - d['start'][1], d['start'][0] - cx)
             turn = (turn + math.pi) % (2 * math.pi) - math.pi  # counter-clockwise as you see it
@@ -1490,7 +1472,7 @@ class OverviewPointer:
 
     def _handle(self):
         d, h = self.drag, self.hover
-        # The bracket (resize_handle frame) marks a corner; an edge has the dot's resize look only (_look).
+        # The resize_handle frame lights a corner's cap; an edge has the dot's resize look only (_look).
         if d is not None and d['kind'] == 'resize' and d['handle'] in resize.CORNERS: target, active = (d['index'], d['handle']), True
         elif d is None and self.mode == 'free' and h is not None and h[0] == 'corner': target, active = h[1:], False
         else: target, active = None, False
@@ -1515,13 +1497,16 @@ class OverviewPointer:
         return self._send(resize.pill_frame, want)
 
     def _roll_frame(self, idle):
-        """`roll`: every desktop's levelling roll, and the brackets shown with the pills (_pills: in the overview, not idle).
-        hover / side: the desktop and arrow under the dot or held; active: it is being dragged."""
+        """`roll`: every desktop's levelling roll, and the level bars and corner caps shown with the pills (_pills: in the
+        overview, not idle). hover / side: the desktop and segment under the dot or held, the only one lit; active: it is
+        being dragged. A press dragged off the middle segment lights nothing: its release will do nothing."""
         visible = self._handles_on() and not idle
         icons = [(side or 'none') if visible else 'none' for side in self._icons()][:MAX_DESKTOPS]
         icons += ['none'] * (MAX_DESKTOPS - len(icons))
         d, h = self.drag, self.hover
-        if d is not None and d['kind'] == 'roll': hover, side, active = d['index'], d['side'], d['moved']
+        if d is not None and d['kind'] == 'roll' and d['side'] == 'level':
+            hover, side, active = (-1, 'none', False) if d['moved'] else (d['index'], 'level', False)
+        elif d is not None and d['kind'] == 'roll': hover, side, active = d['index'], d['side'], d['moved']
         elif d is None and self.mode == 'free' and h is not None and h[0] == 'roll': hover, side, active = h[1], h[2], False
         else: hover, side, active = -1, 'none', False
         if not visible: hover, side, active = -1, 'none', False
@@ -1544,6 +1529,7 @@ class OverviewPointer:
         over in free mode. In desktop mode it is on a desktop's content, where it is the real cursor: plain."""
         d = self.drag
         if d is not None:
+            if d['kind'] == 'roll' and d['side'] == 'level' and d['moved']: return None  # dragged off the button
             return {'resize': RESIZE_LOOKS.get(d.get('handle')), 'pill': 'move', 'roll': 'rotate'}.get(d['kind'])
         return look_for(self.hover) if self.mode == 'free' else None
 

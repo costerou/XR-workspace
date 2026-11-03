@@ -26,13 +26,13 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Glass placement pills (a Material Design 3 tonal pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; a pill drag keeps the desktop under the dot, and in anchor mode the dot, and so the drag, reaches all the way round you; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Bumping (`monitor-collision-bump`, 2026-11-03: a desktop moved or resized in the overview, by its pill, a corner or its open panel's sliders and keys, pushes every desktop it runs into out of its way, cascading, judged on the footprints as seen from the eye; pushed desktops stay where they were pushed and are saved with the layout like any other move; a discrete edit that bumps glides; a changed or restored layout pushes overlapping desktops apart; the settings panel's Apply applies as given; Super going down stops a monitor drag) | Offline tests only: `tests/native_spike/test_bump.py` (collision detection against the footprints' overlap, push resolution, cascades, no room, stability and hysteresis, determinism, timing, settling, the handles, Super + drag, the run's keys / sliders / panel / glide, the normal save path), `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_orbit.py`, `test_resize.py`; ctest `view` (`glide_toward`, `step_placements`) and `ipc` (the `placement` frame's `glide`); `test_bump.py` also loads the Super keys' binds through the real `Hyprland --verify-config`. Not run in an isolated VM and not tried in the glasses: how a bump feels while dragging, the quarter-second glide, pushes near the poles or with big curved desktops, and whether the Super keys' binds fire as Hyprland's source suggests are unverified. The `placement` frame gained an optional `glide`, so install the renderer and the Python supervisor together. See [Bumping](#bumping-desktops-out-of-the-way). |
-| Roll brackets (every desktop in the overview has two arrow brackets in the theme's M3 primary hugging its top corners from just outside its border, counter-clockwise round the top-left and clockwise round the top-right; they move, scale and roll with the desktop; a click turns it that way, straight to level when level lies that way (in anchor mode, judged against gravity from the head tracker), else 2°; a drag from either rolls it either way; R in its open pill levels it as it puts it back flat; they never take a press from a desktop's content, the 6 px edge band, a resize corner or a pill. Replaced the two small arrows above the corners on 2026-11-03) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the bracket's arm, shape, side, direction, hit region and colours, its share of the desktop through resize, move, curvature and roll, the `roll` frame), `glass_contract` (constants, arms and 9610 hit-region probes, renderer against supervisor), `placement_contract` (the rolled surface), `gl_frame` (brackets in the frame cache check, drawn at a desktop's live corners while a held Distance slider resizes it, and covered by another desktop's content); `tests/native_spike/test_roll_level.py` (hits through resize, move and roll; content, the edge band, corners and pills always first, checked on dense grids round every bracket; tight layouts; R levelling). Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the brackets read on the OLED panels next to the border and the resize handle, and how the click and drag feel are unverified. See [Roll brackets](#roll-brackets). |
+| Level bar and corner caps (Cody's pick of the handle mockups, 2026-11-03, replacing the roll brackets and the corner L-bracket: every desktop in the overview has one segmented capsule above its top edge, the pill's counterpart, turn left / level / turn right, and a quiet rounded cap round each corner, all in the theme's M3 colours; they move, scale and roll with the desktop; a click on a turn segment turns it that way, straight to level when level lies that way (in anchor mode, judged against gravity from the head tracker), else 2°; a drag from either rolls it either way; the middle segment levels it and moves nothing else; R in its open pill levels it as it puts it back flat; only the segment or cap under the dot lights; they never take a press from a desktop's content, the 6 px edge band, a resize corner or a pill) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the bar's size, place, segments and hit region, its share of the desktop through resize, move, curvature and roll, every pixel of the atlas: premultiplied, under the cap, only the hot segment changed, the same L in every corner, the `roll` frame), `glass_theme` (the roles in every theme), `material` (the turn and level icons, the cap's shape), `resize_handle` (the caps' boxes, the `resize_handle` frame), `glass_contract` (constants, rects and a grid of segment probes, renderer against supervisor; the idle caps inside the corners' zones), `placement_contract` (the rolled surface), `gl_frame` (bars and caps in the frame cache check, drawn at a desktop's live top edge and corners while a held Distance slider resizes it, and covered by another desktop's content); `tests/native_spike/test_roll_level.py` (hits through resize, move and roll; content, the edge band, corners and pills always first, checked on dense grids over every bar; tight layouts; the middle segment, its cancelled press and Super; only what the dot is on lit; R levelling). Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the bar and the thin caps read on the OLED panels next to the border, and how the click and drag feel are unverified. The `roll` frame's `icons` and `side` changed, so install the renderer and the Python supervisor together. See [Level bar and corner caps](#level-bar-and-corner-caps). |
 | Monitor scale from the glass pill (the open panel's Scale dropdown under its sliders, in Material Design 3: an exposed dropdown and its menu, in the buttons' 18 px font; 100, 125, 150, 175, 200, 250 or 300% (250 and 300 since 2026-11-03), only the steps that divide the desktop's resolution exactly; a pick reshapes that XR desktop's Hyprland output scale live through the broker, like Ultrawide, and the profile keeps it for the next start; `desktops.SCALE`, `ViewControl.scale_box` / `scale_pick`) | Offline tests only: `tests/native_spike/test_scale_dropdown.py` (steps, plan, payload, the pick end to end through the fake broker into the saved profile, pointer hits), ctest `glass` (layout, the box, its indicator and the list in M3 roles), `material` (the drop-down arrows), `glass_contract` (box and list geometry, the steps), `placement_menu_ipc` (the `scale` / `scales` / `picker` fixture cases), the panel's `tst_model.qml` (its desktop editor offers the same steps). Not run in an isolated VM or in the glasses: how the list reads on the OLED panels (seven 20 px items over the sliders), how windows re-lay out after a scale change and how 250% / 300% look are unverified. The panel grew one row (292 px tall). The broker's bound (`spike/ownership/registry.cpp` validDesktop) now takes 2.5 and 3, so the ownership plugin, renderer, supervisor, controller and panel must be installed together. |
 | Live desktops from the glass pill (Ultrawide, Add new, Remove; 1..4 desktops; `tools/native_spike/desktops.py`, the renderer's `desktops` control op, the broker's `reshape` op) | Offline tests only: `tests/native_spike/test_desktops.py` (plans, journaled broker steps with the real journal and the C++ request validator, the supervisor loop, pointer hits, profiles), ctest `ipc`, `glass`, `glass_contract`, `capture`, `ownership`. Not run in an isolated VM or in the glasses: whether Hyprland keeps a capture session through a reshape (the renderer restarts it if not), the new panel row's look, and the guard swap are unverified. The ownership plugin, renderer, supervisor, controller and panel must be installed together. |
 | Remembered monitor setup and the Ctrl+Alt+R reset (every start restores the last session's desktops: count, resolution, scale, placement and levelling roll, with a logged fallback to three flat desktops; Ctrl+Alt+R, pressed twice within 3 s, resets a live run to three flat 1920×1080 desktops at 100% with the default spacing, animated throughout, and replaces the save, keeping the old layout as a one-step backup; see [Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) | Offline tests only: `tests/native_spike/test_remember_setup.py` (round trip, every fallback with its reason, older saves, atomic writes, a run's restore and its end-of-run save, roll saves, a refused create resetting the save, the backup field), `test_layout_reset.py` (the bind in `view.BINDS`, its chord against the run's and Omarchy's binds, help row, docs, the `RESET` plan, the confirm press, the live reset with the fake broker and real journal, inline and threaded: backup, spacing, ease, drop-away, window move before removal, broker steps, frames, save, toast, maximized, video, typing and failure cases), `tests/xr_controller/test_state.py` (the start scope restores or falls back, the real store's strict read), ctest `view` (`TileEase`), `ipc` (`ease`), `help_card`. Not run in an isolated VM or in the glasses: how the two eases look together, how a tile looks while its aspect changes, how long the reshapes and capture restarts take, which workspace XR-3 shows after XR-4's move, and where the toasts show are unverified. |
 | Seamless workspace layout switches (master / scrolling / floating; Omarchy's toggle rewrites a layout file the config requires, so each switch is a Hyprland config reload) | Offline tests only: ctest `ownership_reload` runs the plugin's `keptThroughReload` against the pinned reload sequence (clear, parse, `ensureMonitorStatus`): during a run a reload keeps the XR-n rules and the rule in effect for every output the config does not name (the glasses' session mode), so it modesets nothing, and the config still wins wherever it names an output. The plugin applies it by hooking `CMonitorRuleManager::clear()`; that hook has not been loaded in an isolated VM or in the glasses. Takes effect only with the new `libxr-ownership.so` installed. |
 | Scroll before switch (maximized on a workspace in Hyprland's scrolling layout, a push at the desktop's left or right edge scrolls its columns into view first, one at a time, and switches to the desktop placed that way only once no tiled window is left past that edge and the push has rested; `tools/native_spike/columns.py`) | Offline tests only: `tests/native_spike/test_scroll_before_switch.py` (the end-of-columns test against fake `j/monitors`, `j/workspaces` and `j/clients`; scroll, rest and switch timing; master, dwindle, floating, fullscreen and the up and down edges compared sample for sample with the push as it was; a model of the desktop's `scroll-edge.py` scrolling while the run yields; the generated Lua against a stub `hl`; the sampler thread). Not run in a live compositor or tried in the glasses: whether `j/clients` shows the new column positions right after the focus (assumed; if not, the next read 0.1 s later still finds them), how the 0.15 s dwell, the 0.35 s step and the 0.6 s rest feel, and the run alongside the live `scroll-edge.py` are unverified. |
-| Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
+| Material Design 3 look (the pills, the placement panel, the level bars, the corner caps, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
 | Key bind panel (Ctrl+Alt+K: every run key listed with its keys, changed live in the glasses, saved in `keybinds.json`; conflicts with each other and with Hyprland / Omarchy binds found on load and on every change, refused or left off, shown on red rows and in a toast; see [Key bind panel](#key-bind-panel)) | Offline tests only: `tests/native_spike/test_keybinds.py` (chords, the saved file, `hyprctl binds` parsing, conflicts, every panel key, live rebinding through a fake compositor client, the help card, the helper, the wire, the start-up check in `managed.view_controls`), ctest `binds_panel` (fit at every scale, scrolling, the row states' M3 roles, the cap, the fade) and `ipc`, and `bind_check` (Hyprland's own Lua loader takes the panel's submap, catch-all and key subscription). Not run in an isolated VM and not tried in the glasses: Hyprland's `input.keyboard.key` event, `hl.is_key_down` and `hl.exec_cmd` from an event callback have never run on a live compositor here, so whether the keys reach the panel is unverified (see the failsafes there). |
 | Monitor resolution from the glass pill (the open panel's Resolution dropdown, above Scale, in the same Material Design 3 parts and 18 px font; its menu lists 16:9 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160, 16:10 1680x1050, 1920x1200, 2560x1600 and ultrawide 2560x1080, 3440x1440, 3840x1080, 5120x1440 in three columns, the current one marked; a pick resizes that XR desktop's own Hyprland output live and in place through the broker's `reshape`, like Ultrawide: no other output modeset, no XR restart, its windows stay on it, its placement stays; a new shape eases the tile's width and its neighbours' shift (also for Ultrawide); a desktop that shrinks pulls its floating windows back inside it (also for Ultrawide off and a larger Scale); a scale that no longer divides the size becomes the nearest one that does, and the Scale list greys out the rest; the profile keeps the size for the next start; `desktops.RESOLUTION`, `geometry.with_resolution`, `ViewControl.resolution_box` / `resolution_pick`, `fit_windows.py`, `SizeEase`; see [Live resolution changes](#live-resolution-changes-the-pills-resolution-dropdown)) | Offline tests only: `tests/native_spike/test_resolution_dropdown.py` (the list against the renderer's, the nearest-scale rule, plans, payload, the pick end to end through the fake broker into the saved profile with only `reshape` and its read-back on the wire, the C++ request validator for every size, pointer hits), `tests/native_spike/test_fit_windows.py` (which windows move and where, what counts as shrinking, the worker's order and failures, the generated Lua run in a real interpreter against a stand-in), ctest `view` (`SizeEase`: same smoothstep and time as zoom, neighbours between the two layouts), `glass` (layout, the box, the three-column menu in M3 roles, every label fitting), `glass_contract` (box, menu and item geometry, the sizes and groups), `placement_menu_ipc` (the `resolution` / `resolution_picker` fixture cases), `capture` (`ResizeSettle`) and `capture_e2e_churn_resize_*` (a resized capture waits before re-creating its buffers and never goes blank, and on the GPU paths its new shape eases; a reload's bounce does neither). Not run in an isolated VM or in the glasses: whether the swap is free of any visible glitch on the real compositor (wallpaper, bar and windows redrawing within the 100 ms the renderer waits), how windows re-lay out, whether Hyprland carries out the floating-window move and resize on a shown or hidden workspace as restore.py's use of them suggests, how the ease looks (the new frame is squeezed to the old shape as it starts), and how the three-column menu reads on the OLED panels are unverified. The panel grew another row (326 px tall). No broker change: every listed size was already inside `validDesktop`; the renderer, supervisor and controller must be installed together. |
 | Not built yet | Head-direction focus. |
@@ -126,7 +126,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
 | Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step). Left/right: 0.2°, Shift 15°, and it carries on past 180° to the other side. Down/up: 0.2°, Shift 10°, and it stops at ±90°. Not stopped by other desktops |
-| R | pill open | Reset the desktop: flat in its slot, and level (its roll, see [Roll brackets](#roll-brackets)) |
+| R | pill open | Reset the desktop: flat in its slot, and level (its roll, see [Level bar and corner caps](#level-bar-and-corner-caps)) |
 | Escape | pill open | Close the pill |
 | Mouse past a desktop's edge | overview | Free pointer: the cursor hides and a dim dot moves through the space around the desktops |
 | Mouse onto any desktop | overview, free pointer onto a desktop's content | That desktop takes the real cursor under the dot and becomes the selected one; its monitor gets Hyprland's focus. Every button, the wheel, drags and the keyboard are its windows' (since 2026-11-03) |
@@ -153,7 +153,7 @@ Offline tests only (`tests/native_spike/test_remember_setup.py`, `test_layout_re
 not run in an isolated VM or tried in the glasses. Since 2026-11-03 (`remember-layout-reset-bind`, which undid
 `xr-default-three-monitors`' fresh three-flat start, `17b6238`) every XR start restores the last session's monitor setup
 (`profiles.SETUP_KEYS`): the desktops (count 1..4, each one's resolution and scale), each desktop's placement (left/right,
-down/up, distance, curvature) and its levelling roll (the overview's roll arrows). They live in the glasses model's
+down/up, distance, curvature) and its levelling roll (the overview's level bar). They live in the glasses model's
 profile in `~/.config/viture-workspace/profiles.json` (schema 2, mode 0600): `desktops`, `placements` and `rolls` (one
 per desktop, hundredths of a degree, ±9000, `geometry.MAX_ROLL`).
 
@@ -162,7 +162,7 @@ Written on every change and at the end, always atomically (`save_profile`: a tem
 
 - a desktop change from a pill (Add, Remove, Ultrawide, Scale) or Ctrl+Alt+R: `DesktopManager.save` writes the desktops,
   their placements and rolls (by desktop name, so a removed desktop's roll goes with it);
-- a placement change (pill drag, corner resize, slider, panel keys, the panel's **Place**) and a roll arrow's click or
+- a placement change (pill drag, corner resize, slider, panel keys, the panel's **Place**) and a level bar's click or
   drag: `ViewControl._save_placements`, 0.5 s after the last change and at once on release or when a pill closes (rolls
   are watched on the supervisor loop, `_watch_rolls`, so `free_pointer.py` needed no change);
 - the run's end: `managed.view_controls` calls `ViewControl.save_setup`, which writes the broker's live desktops with the
@@ -443,8 +443,8 @@ With the dot:
   the open panel while the button is down (Escape, Tab, Ctrl+Alt+L) wins: that release is dropped, so it never undoes
   the key. See [Placement pills](#placement-pills) for the panel.
 - **Resize a desktop: drag an edge or corner.** The border round a desktop is its resize handles (since 2026-11-03: see
-  [Handles and content](#handles-and-content)). The dot shows two arrows the way it resizes, and a corner also a small
-  dim L-bracket inside it. Drag: a corner follows the dot along its diagonal, an edge along its normal, outward bigger,
+  [Handles and content](#handles-and-content)). The dot shows two arrows the way it resizes, and a corner's cap lights up
+  (a quiet rounded L round each corner, shown with the level bars). Drag: a corner follows the dot along its diagonal, an edge along its normal, outward bigger,
   inward smaller, about the desktop's centre, so it keeps its shape (`resize_distance`; only `distance` changes). A
   corner wins where it meets the pill's zone; the pill's zone wins over the bottom edge. A click on a handle does nothing.
 - **Into a desktop: move onto it.** The desktop takes the real cursor under the dot (above). Only next to the open help
@@ -458,7 +458,7 @@ With the dot:
 
 Since 2026-11-03 (`anchor-no-click-maximize`, Cody: full interaction with every monitor in the overview, the dot a full
 cursor of its own) every desktop in the overview is a normal screen and the dot is one cursor. This is the zone contract,
-shared with the sibling branches: rotate brackets sit on the borders, resize at edges and corners, content goes to apps.
+shared with the sibling branches: the level bar sits above the top edge, resize at edges and corners, content goes to apps.
 A desktop's surface rectangle is its content: with the dot on it the real cursor is on that desktop's monitor under the
 dot, so clicks, drags inside apps, right-clicks, the wheel and the keyboard all go to the window there, natively. Only
 these keep XR actions, each on the desktop's own surface, in tile px (canvas px at distance 100; glass keeps its size
@@ -467,9 +467,9 @@ whatever the desktop's). `free_pointer.hit` tests them in this order, `zone_of` 
 | Zone | Hit region | Action | The dot's look (`look`) |
 | --- | --- | --- | --- |
 | Control | the help card, then the open placement panel's body (`panel_rect`, 480 x 326 under the desktop, drawn over everything else) | sliders, Resolution, Scale, Ultrawide / Add / Remove; page arrows | plain |
-| Resize, corner | the corner's square (`corner_zone`, 10–28 px half-size) within the border | drag along the diagonal | `resize_nwse` (top-left, bottom-right), `resize_nesw` (top-right, bottom-left); also the L-bracket |
+| Resize, corner | the corner's square (`corner_zone`, 10–28 px half-size) within the border | drag along the diagonal | `resize_nwse` (top-left, bottom-right), `resize_nesw` (top-right, bottom-left); also lights that corner's cap |
 | Move | a pill zone: the drawn pill padded 10 px (`PILL_PAD_X`, `PILL_PAD_Y`), plus the 10 px gap up to the bottom edge (`on_pill`); an open panel's header strip is the pill | click: open / close the panel; drag: move the desktop round you | `move`: four arrows |
-| Rotate | a rotate bracket's arms: at least 6 px outside the desktop and within 10 px of the stroke (`on_roll`), wherever no corner, pill or desktop's content is; it takes the edge's border from 6 px out | click: level / 2° step; drag: roll | `rotate`: two arrows chasing round the dot |
+| Rotate | a level bar (`level_bar_segment`): the drawn bar padded by 4 px, split at its thirds, wherever no corner, pill or desktop's content is; it takes the edge's border from 8 px out | left and right segments: click: level / 2° step; drag: roll. Middle segment: click: level; a drag off it does nothing | `rotate`: two arrows chasing round the dot |
 | Resize, edge | the border along each edge: 10 px outside it (`EDGE_OUT_PX`) to 0.5 px inside it (`ENTER_PX`), the nearest edge (`border_handle`) | drag along the edge's normal | `resize_ew` (left, right), `resize_ns` (top, bottom) |
 | Content | the rest of the rectangle; in desktop mode up to the very edge pixel | the window's | plain |
 | Space | anything else | nothing | plain |
@@ -484,8 +484,9 @@ is held, on a window as on a handle. Marks are drawn upright: on a rolled deskto
 the renderer and Python together: an older renderer drops an `overview_pointer` frame with a `look` as malformed, so the
 dot would stop moving over the handles.
 
-Hit testing tests the open panel and the rotate brackets first (both are drawn over the desktops), then front desktop
-first its corners, its pill zone, its edges and its content (`free_pointer.hit`). On the handles, between desktops and on
+Hit testing tests the open panel first (it is drawn over the desktops), then front desktop first its corners, its pill
+zone, its edges and its content, and only where none of those took the point the level bars, which are drawn under the
+desktops (`free_pointer.hit`): panel, corner, pill, content, bar, edge, space. On the handles, between desktops and on
 the help card the dot stays free: the run's grab has every button and the wheel there, so nothing is forwarded to a
 window. `test_full_interaction.py` sweeps placed, curved, resized and rolled desktops to check that no handle covers
 content; `test_pointer_zones.py` checks every zone, its limits, its precedence, the looks, the one-cursor hand-over and
@@ -528,9 +529,9 @@ cursor again. A drag in progress (pill, corner or slider) ends and is saved when
 it: a handle, empty space or the help card); over any desktop's content they reach the
 window there ([the unified overview cursor](#the-unified-overview-cursor)).
 
-The dot, pills and bracket protect the micro-OLED like the cards. The dot is a grey disc (170/255, 184 while dragging)
+The dot, pills, level bars and corner caps protect the micro-OLED like the cards. The dot is a grey disc (170/255, 184 while dragging)
 in a black ring, 16 px across. The pills are dark glass (see [Placement pills](#placement-pills)) that brightens on
-hover and while dragged, never above 191/255; the bracket is 140, 184 while dragging (cap 191). None of them moves on
+hover and while dragged, never above 191/255, as the bars and caps stay (their colours are M3 roles). None of them moves on
 its own. They hide after 30 s without pointer movement (`OVERLAY_IDLE_CLOSE_S`); a click while hidden only brings them
 back. An open panel is still drawn while the pills are hidden, and closes by itself after its own 30 s without input.
 The CPU fallback renderer draws none of them, and the run reports no `overview_geometry` there, so the free pointer
@@ -556,7 +557,7 @@ The size has limits and is saved like the other placements:
 - Growing pushes the desktops round it out of its way ([Bumping](#bumping-desktops-out-of-the-way)); with no room left
   it stops growing.
 - Maximizing a desktop brings it full size where it is (its dragged place round you), then follow brings it in front of
-  you; the others stay where they are. The bracket and the pills only show in the overview.
+  you; the others stay where they are. The bars, caps and pills only show in the overview.
 
 Why it never changes pixels: a resize changes size in space, not the desktop's resolution or Hyprland scale. In the
 overview all desktops share one height, so pixel count only changes sharpness, never size. A free-aspect resize could
@@ -644,7 +645,7 @@ still for the whole overview and let no click or wheel reach a window.
 - **Overview, off the desktops:** at the desktop's edge pixel the dot goes free, 2 px past the edge, on its resize handle. The hidden cursor is parked just
   inside that desktop where it left, at least 100 px (`PARK_MARGIN_PX`) from the edges, and put back once it strays
   32 px (`LEASH_PX`). Its motion moves the dot through space. Free mode uses the input lock's grab
-  (`input_lock.lock_pointer_lua`): the left button drives pills, edges, corners, roll arrows, sliders and the help card,
+  (`input_lock.lock_pointer_lua`): the left button drives pills, edges, corners, level bars, sliders and the help card,
   the right, middle and side buttons only end a drag, and the wheel is bound to nothing (with
   `binds.scroll_event_delay` at 0, restored afterwards). Moving the dot onto any desktop's content hands that
   desktop the real cursor under the dot and makes it home (`enter_desktop_lua`: its monitor focused, then the warp,
@@ -718,7 +719,7 @@ push the mouse past every edge of the desktop (it switches to the desktop placed
 the overview, move the dot across the gaps (nothing reacts) and onto each desktop in turn (it is highlighted and the
 cursor is right under the dot), then on each one click, right-click, scroll, drag inside a window, select text and type
 (all reach the window under the dot, the keyboard goes to that desktop, nothing is maximized), including on a moved,
-curved, resized, rolled and 150 % / 200 % scaled desktop and right in its corners; check the pills, roll arrows and the
+curved, resized, rolled and 150 % / 200 % scaled desktop and right in its corners; check the pills, level bars and the
 handles just outside the edges and corners still do their XR actions and never reach a window, and that the dot's look
 changes on each and it feels like one cursor across an edge; open a pill, click a window and
 type (the pill closes, the letters reach the window); press Ctrl+Alt+Up (the desktop under the dot is maximized); and
@@ -758,7 +759,7 @@ would go every time the free pointer's or input lock's binds on those buttons ar
   The cursor, and the window with it, waits 12 px inside the edge (`CARRY_INSET_PX`) and is put back once it strays 6 px
   (`CARRY_LEASH_PX`): that is how hand motion past an edge Hyprland clamps at still shows, and the window shakes by no more
   than that.
-- Pills, roll arrows, panels and resize handles do nothing, and do not light up. The dot shows the `move` look throughout.
+- Pills, level bars, panels and resize handles do nothing, and do not light up. The dot shows the `move` look throughout.
 - Onto any desktop's content (`_carry`) the cursor warps to the pixel under the dot, through the same mapping as any entry
   (rolled, curved, resized, placed, scaled). That desktop becomes home, by a plain `view` frame with no `cut` or `center`: in
   the overview that only moves the highlight, at once. No focus call is made: `moveCursor` already focuses the monitor, and
@@ -787,7 +788,7 @@ focus on and a window focus warps the cursor to the window, so the eval focuses 
 was (`hl.get_cursor_pos`). A tiled window gets the workspace move alone and tiles there.
 
 **In typing mode** the drag binds stay through the bind swap. A move turns the pointer on for as long as it lasts
-(`UnifiedPointer.overview`): the dot and its `move` look show, the pills and roll arrows do not (`_handles_on`), it crosses
+(`UnifiedPointer.overview`): the dot and its `move` look show, the pills and level bars do not (`_handles_on`), it crosses
 and lands as above, and at the drop the pointer goes off and the plain confinement takes over, on the desktop the window was
 dropped on. A resize needs no pointer: the confinement keeps its cursor on home. Maximized in typing mode the
 pointer stays off and a drag stays on its desktop.
@@ -967,7 +968,7 @@ profile loads, every placement the new version saved (they have four fields).
 - Mixed installs, as above: the renderer, Python and QML must come from the same build. A Python-only rollback resets
   placements.
 
-The pill, the open panel and the corner bracket share one left-button bind (`resize_press` / `resize_release`, bound
+The pill, the open panel and the corners share one left-button bind (`resize_press` / `resize_release`, bound
 only while the pointer is free) and never compete: the open panel is tested first, and a corner zone wins over a pill
 where they meet. If the run dies while the pointer is free, the next left click runs the bind helper, which removes the
 bind and shows the cursor again where free mode found it.
@@ -1041,7 +1042,7 @@ after a desktop change, an edit applies as given. Everything here is covered by 
   it.
 - **Only from the handles.** Bumping hooks into the shared hit-zone contract's handles (`free_pointer.hit`, whose zones
   the overview branches agree on: content to the apps, resize at the edges and corners, moves by the pill and the open
-  panel's header, rotate on the borders). A drag started on a resize handle resizes through
+  panel's header, rotate on the level bar). A drag started on a resize handle resizes through
   `OverviewPointer._resize_to` (`free_pointer.RESIZE_DRAGS`: a corner drag, or the contract's `resize` drag with a
   corner or edge `handle`), one on a move handle moves through `orbit.PillDrag`, and the open panel's sliders and keys
   through `ViewControl._bump`; all of them bump. A press on content is the apps' and never starts one
@@ -1059,7 +1060,7 @@ after a desktop change, an edit applies as given. Everything here is covered by 
   a drag's button comes up it ends and never stays on the dot; with no drag held a release does nothing.
 - **The roll** (roll-level icons) is ignored by bumping, as by the guard before it.
 
-### Roll brackets
+### Level bar and corner caps
 
 Every desktop faces you, upright in the canvas frame. That frame is the head's orientation at the last recentre, so a
 recentre with the head tipped to one side leaves every desktop rolled as you see it, and a pitched one leaves desktops
@@ -1071,51 +1072,65 @@ measured; on change, at most every 100 ms). The tilt leaves out the levelling ro
 
 `free_pointer.OverviewPointer` keeps a levelling roll per desktop (not part of the wire placement; since 2026-11-03 saved
 in the profile's `rolls` with the monitor setup and restored at start, see
-[Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) and sends it with the brackets in the `roll` op: `{"roll":[r,r,r,r],"icons":["none"|"ccw"|"cw"|"both",...],
-"hover":-1..3,"side":"none"|"ccw"|"cw","active":bool}` (`side`: which of the hovered desktop's brackets; the wire still
-calls them icons). The renderer turns each desktop by its roll about its own line of sight (`Placement::roll`, eased like
-a placement, at every zoom), so it still faces you. Every desktop in the overview shows both brackets (`"both"`), level,
-tilted or not measured (follow mode, no tracking): one hugging its top-left corner that turns it counter-clockwise, one
-round its top-right that turns it clockwise (`glass.hpp roll_bracket`). Each is one Material stroke 4 px wide, 12 px
-outside the desktop's edge (clear of the selected desktop's 6 px border): from its round cap along the top edge, over
-the corner in a quarter circle about it, and down the side to its arrowhead (12 px long, 12 px wide), which points down
-that side, the way the corner goes when the desktop turns that way. Each arm is 22% of the desktop's shorter side (at
-least 36 px, at most 45% of it, so the two brackets never meet). All of it is tile px on the desktop's own surface, like
-the border and the resize handle, so a bracket moves, scales, curves and rolls with its desktop: a resize, by a corner or
-by the Distance slider, keeps it the same share of the desktop, and a move carries it along. The renderer draws it on the
-desktop's live placement, never on a held panel's press-time surface (until 2026-11-03 the arrows were drawn on that
-surface, so they stayed behind while the Distance slider resized the desktop). It is in the theme's M3 primary (from the
-Omarchy theme accent, following theme changes live like the pills), lifted toward tone 98 while hovered or dragged (only
-the bracket under the dot). The brackets are drawn before every desktop, so any desktop's content covers them (a bigger
-desktop after a resize covers its neighbours' brackets where it reaches over them), and the glass goes over them all.
+[Remembered monitor setup](#remembered-monitor-setup-and-ctrlaltr)) and sends it with the bars in the `roll` op:
+`{"roll":[r,r,r,r],"icons":["none"|"bar",...],"hover":-1..3,"side":"none"|"ccw"|"level"|"cw","active":bool}` (`side`: which
+segment of the hovered desktop's bar; the wire still calls the bars icons). The renderer turns each desktop by its roll
+about its own line of sight (`Placement::roll`, eased like a placement, at every zoom), so it still faces you.
+
+Every desktop in the overview shows a level bar, level, tilted or not measured (follow mode, no tracking): one segmented
+capsule 148 x 26 px, 12 px above its top edge, clear of the selected desktop's 6 px border, the counterpart of the pill
+under it (`glass.hpp level_bar_rect`). On a desktop narrower than 592 px the whole design scales down to a quarter of its
+width, not under 120 px, and on one narrower than that to its width (`level_bar_scale`). Round each corner, with the bar
+and scaled with it, is a corner cap (`corner_cap_rect`): a rounded L 8.5 px outside the edges, its legs 12 px long, the
+resize corners made visible. All of it is tile px on the desktop's own surface, unlike the glass, so it moves, scales,
+curves and rolls with its desktop: a resize, by a corner or by the Distance slider, keeps it the same share of the desktop,
+and a move carries it along. The renderer draws it on the desktop's live placement, never on a held panel's press-time
+surface.
+
+Their pixels are one premultiplied image per theme colour (`render_handle_atlas`, drawn from signed distances with the M3
+icons `rotate_left`, `level` and `rotate_right`, three pixels per tile pixel), holding every state of each, uploaded once
+per theme and drawn with the panel's content shader, so a frame costs one texture and no new shader, and a theme switch
+recolours them with the pills. Rendering it takes about 7 ms on the render thread, on the first overview frame and once
+per theme switch; a frame after that does none of it. Only what the dot is on or holds lights up: the segment under it, a capsule in the theme's
+primary (the primary bright while dragged), or the corner under it, whose cap grows to 22 px legs in the primary bright
+(the `resize_handle` frame says which). They are drawn before every desktop, so any desktop's content covers them (a
+bigger desktop after a resize covers its neighbours' bars and caps where it reaches over them), and the glass goes over
+them all.
 
 The hit zones round a desktop, from the inside out, shared with the other overview drags: its content (its apps); a band
-6 px wide just outside every edge (the selected desktop's border, `free_pointer.ROLL_EDGE_CLEAR` / `glass.hpp
-kRollEdgeClear`), left to the edge's resize zone, and the corners' resize zones round each corner, inside and out; then
-the brackets along their arms; then empty space. Hit region (`free_pointer.on_roll`, the same as `glass.hpp
-on_roll_bracket`; the `glass_contract` ctest compares them): at least 6 px outside the desktop and within 10 px (the
-head's half width plus 4 px) of the stroke's centre line, and only where nothing else is. A press on any desktop's content goes to that content (its apps: clicks, drags and scrolling, with
-`anchor-no-click-maximize`), never to a bracket, whoever's bracket is drawn there; a resize corner's zone
-(`free_pointer.corner_zone`), which reaches round the corner inside and out, and the pills win too, so the bend round the
-corner resizes and a corner drag from anywhere round it still resizes. Along its arms, in the open, the bracket takes the
-press; what is drawn is what can be pressed. Where two brackets overlap (tight spacing: neighbours' side arms share the
-gap) the one whose stroke is nearer the dot as you see it wins. The brackets show and hide with the pills. A click turns the desktop the bracket's way: straight to level when
-level lies that way (more than 0.5° off, tilt measured), else 2° further (`free_pointer.roll_click`). A press and drag
-on either bracket turns it with the dot round its centre, either way, up to 90°, resting at level within 0.5°
-(`roll_drag`). R on its open pill (placement mode) puts it back flat in its slot and levels it (`OverviewPointer.level`,
-`level_roll`): the roll that cancels its measured tilt, or no roll where the tilt is not measured. The desktops have no
-yaw or pitch to reset (they always face you). The reset may move the desktop and so change its tilt, which the renderer
-reports only when it changes, so its measured tilts in the next half second (`LEVEL_SETTLE_S`) level it again; pressing
-one of its brackets takes over at once. Until 2026-11-03 a desktop showed only the arrow that levels it, only when more than 0.5° off and measured,
-and a drag was clamped between its roll at the press and level, so a desktop could only ever be turned toward level; and
-from then until the brackets, the two arrows were 22 px icons above the top corners, a fixed size as you see it.
+6 px wide just outside every edge (the selected desktop's border, `free_pointer.LEVEL_EDGE_CLEAR` / `glass.hpp
+kLevelEdgeClear`), left to the edge's resize zone, and the corners' resize zones round each corner, inside and out; then
+the bar; then empty space. Hit region (`free_pointer.level_bar_segment`, the same as `glass.hpp level_bar_segment`; the
+`glass_contract` ctest compares them): the drawn bar padded by 4 px, split at its thirds, the padding going with the
+segment it borders, and only where nothing else is. A press on any desktop's content goes to that content (its apps:
+clicks, drags and scrolling, with `anchor-no-click-maximize`), never to a bar, whoever's bar is drawn there; a resize
+corner's zone (`free_pointer.corner_zone`), which reaches round the corner inside and out and covers the idle caps, and the
+pills win too. The bar reaches a corner's zone only on a desktop about as narrow as it. What is drawn is what can be
+pressed. Where two bars overlap (desktops moved over each other) the nearer desktop's wins. The bars and caps show and hide
+with the pills.
+
+A click on a turn segment turns the desktop that way: straight to level when level lies that way (more than 0.5° off, tilt
+measured), else 2° further (`free_pointer.roll_click`). A press and drag on either turns it with the dot round its centre,
+either way, up to 90°, resting at level within 0.5° (`roll_drag`); the bar is nearer the centre than the old corner
+brackets were, so the first 4 px (`CLICK_PX`) of a drag are about a degree. The middle segment is a button: a click levels
+the desktop (`OverviewPointer.level`, `level_roll`) and moves nothing else, and a press dragged off it does nothing. R on
+its open pill (placement mode) puts it back flat in its slot and levels it the same way: the roll that cancels its
+measured tilt, or no roll where the tilt is not measured. The desktops have no yaw or pitch to reset (they always face
+you). A reset may move the desktop and so change its tilt, which the renderer reports only when it changes, so its
+measured tilts in the next half second (`LEVEL_SETTLE_S`) level it again; pressing a segment of its bar takes over at once.
+Super going down stops a press on any segment, as any monitor drag.
+
+Until 2026-11-03 a desktop showed only the arrow that levels it, only when more than 0.5° off and measured, and a drag was
+clamped between its roll at the press and level, so a desktop could only ever be turned toward level; two arrows above the
+top corners then became arrow brackets round them, and those and the dim L-bracket inside a hovered corner became the
+level bar and the corner caps, Cody's pick of ten mockups (`tools/handle_mockups`).
 Hit testing and the cursor mapping use the rolled surface; the pill drag and bumping ignore the roll.
 
 ### Help card pages
 
 The help card (Ctrl+Alt+H) sizes its text from the output height: row text 30 px at 1920x1200 @1.25, where today's 13
-rows sit on one page, stepping down to 18 px on smaller outputs. Its Ctrl+Alt+Down row reads "Overview: click selects;
-pills, corners" since 2026-11-03: a click on a desktop in the overview selects it, and only Ctrl+Alt+Up ("Maximize the
+rows sit on one page, stepping down to 18 px on smaller outputs. Its Ctrl+Alt+Down row reads "Overview: any desktop;
+pills, bar, corners" since 2026-11-03: a click on a desktop in the overview selects it, and only Ctrl+Alt+Up ("Maximize the
 selected desktop") maximizes. It keeps the card chrome (padding, border, radius,
 dimmed colours) and is laid out again whenever the output is reconfigured.
 
@@ -1197,7 +1212,7 @@ pop in nearly full size; a collapse is never held.
 **The look.** Material Design 3 (`spike/include/xr/material.hpp`). The colours are an M3 dark scheme whose seed is the
 highlight border's and glow's colour (`general:col.active_border`, sent as the `style` frame at the start of a run and
 after every config reload, which `omarchy-theme-set` does), so switching the theme recolours the pills, an open panel,
-the roll brackets, the resize handle, the pop-ups, the help and video cards, the border and the glow together in the
+the level bars, the corner caps, the pop-ups, the help and video cards, the border and the glow together in the
 running session; the renderer's status reports the colour it has (`theme.accent`) and how many switches reached it
 (`theme.updates`). It is M3's *fidelity* variant: the primary palette keeps the border colour's own hue and chroma, and
 the primary container is the border colour at its own tone, pressed into tones 28–82 so a near-black border still shows
@@ -1216,8 +1231,8 @@ rounded secondary-container band, each slider a primary track (24% where inactiv
 handle with a 10% focus halo. The desktop row's buttons are fully rounded filled tonal buttons with a Material icon
 before the label (width, add, remove): the primary while Ultrawide is on, the error container while Remove asks for its
 second click, M3's disabled look (on-surface at 12% / 38%) when they do nothing now; with the pixel font they have
-labels only. The roll brackets are the primary, lifted along the primary palette toward tone 98 while hovered or dragged;
-the resize handle is on-surface-variant, the primary while held. The pop-ups and the help and video cards are extra-large
+labels only. A level bar is the pill's primary container with on-primary-container icons, its lit segment a capsule in the
+primary with on-primary icons, the primary bright while dragged; a corner cap is the primary, the primary bright when lit. The pop-ups and the help and video cards are extra-large
 rounded (28 px) surface containers with an outline-variant edge: a pop-up's new state in the primary, the help card's
 dividers in the outline variant, the video's progress M3's linear indicator. The renderer draws the glass with one GLSL
 fragment shader (`glass_fragment_shader` in `spike/src/glass.cpp`, one `style` uniform block from `glass_style`) whose
@@ -1277,10 +1292,10 @@ The glass pills add four ctest tests: `glass` (geometry, morph, look under the 1
 animation, held until the overview is reached, the draw order and a held slider's surface), `glass_render` (the shader
 against its CPU mirror over black and over a bright desktop, and the cap over black, also in theme colours, on a
 surfaceless EGL context; it reports skipped, exit 77, where EGL or GLES is missing), `glass_contract` (runs
-`glass_geometry_dump` and checks that `tools/native_spike/free_pointer.py` uses the same pill, panel and roll bracket
+`glass_geometry_dump` and checks that `tools/native_spike/free_pointer.py` uses the same pill, panel and level bar
 geometry) and
 `glass_theme` (for every Omarchy theme's border colour: the pill's hue and brightness, the state layers and the cap in
-every state, the panel's parts, the roll bracket and resize handle colours, and an open panel re-rendered once on a theme
+every state, the panel's parts, the level bar and corner cap colours, and an open panel re-rendered once on a theme
 switch). `material` checks the M3 palette itself for every theme (each role's tone, the seed's hue, greys staying grey,
 contrast between each role and what it sits on, the cap), the state layer, shape and elevation tokens, and the icons. `tests/native_spike/test_pill_theme.py`
 covers the supervisor side: the theme colour reaches the renderer as the `style` frame, with a pill open too, and

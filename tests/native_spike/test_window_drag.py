@@ -270,13 +270,11 @@ class NoConflictTests(DragBase):
         self.assertNotEqual(self.control.state.placements[0]['distance'], DEFAULT_PLACEMENT['distance'])
         self.assertEqual((self.sender.lookups, self.p.window_lifts), ([], 0))
 
-    def test_a_roll_bracket_press_lifts_no_window(self):
-        self.p.set_roll_geometry([None, 1200, None])  # XR-2 rolled: the bracket that levels it, round a top corner
+    def test_a_level_bar_press_lifts_no_window(self):
+        self.p.set_roll_geometry([None, 1200, None])  # XR-2 rolled: the turn segment that levels it
         self.free()
-        side = fp.roll_side(1200, 0)
-        out = fp.ROLL_GAP if side == 'cw' else -fp.ROLL_GAP  # on its side arm, below the corner's resize zone
-        x = (T1[0] + T1[2] if side == 'cw' else T1[0]) + out
-        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, x, T1[1] + 0.7 * fp.roll_arm(T1)))
+        x, y, w, h = fp.level_bar_rect(T1)
+        self.dot_to(fp.project(G, T1, DEFAULT_PLACEMENT, x + w * (5 / 6 if fp.roll_side(1200, 0) == 'cw' else 1 / 6), y + h / 2))
         self.assertEqual(self.p.hover[0], 'roll')
         self.op('resize_press'); self.hold(); self.op('resize_release')
         self.assertEqual((self.sender.lookups, self.p.window_lifts), ([], 0))

@@ -289,8 +289,8 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   rolled or sized, and whatever its scale.
 - **The dot shows what a press will do** (new, not yet tried in the glasses). It's one cursor everywhere, and its look
   changes with what's under it: a plain dot over windows and empty space, two small arrows on a desktop's edge or
-  corner, pointing the way it resizes, four arrows on a pill (move), and two arrows chasing round the dot on the rotate
-  arrows. The look stays through a drag until you let go.
+  corner, pointing the way it resizes, four arrows on a pill (move), and two arrows chasing round the dot on the level
+  bar. The look stays through a drag until you let go.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
   slot if you drop it within half a degree of it. It never goes through another desktop as you see it: it bumps it
@@ -298,24 +298,25 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   with its pill counts as part of the desktop), and the bumped one stays where it ends up. However fast you move, it
   never jumps through one. To pass a neighbour without moving it, lift it clear of the row first, or carry it round
   behind you. A click that doesn't move opens the pill instead of moving anything.
-- **Resize a desktop:** put the dot just outside an edge or corner of a desktop, until it shows its two arrows (a
-  corner also shows a small grey bracket). The handles are outside the desktop, so a window's corner, like its close
+- **Resize a desktop:** every corner has a small cap in your theme's colour wrapped round it. Put the dot on a cap, or
+  just outside an edge, until it shows its two arrows (the cap under the dot lights up and grows along the edges).
+  The handles are outside the desktop, so a window's corner, like its close
   button, stays the window's. Pushing the mouse against a desktop's edge from inside lands on that handle. Drag outward
   to make it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
-- **Level or roll a desktop:** every desktop in the overview has two arrow brackets in your theme's colour wrapped
-  round its top corners, just outside its border: the left one turns it counter-clockwise, the right one clockwise. They
-  stay on the corners as you move or resize the desktop, and grow and shrink with it. Click a bracket's arm (not the
-  bend round the corner, which resizes like the corner, nor right against the edge) and the desktop turns that way:
-  straight to level if level lies that way (say you recentred with your head tipped to one side; judged against gravity
-  in anchor mode), else 2° further. A desktop's picture, and any desktop covering a bracket, keeps its clicks. Press R
-  in its open pill to put the desktop back flat in its slot and level.
-  Or hold either bracket and drag the dot round the desktop to roll it either
-  way, up to 90°; it rests at level as you pass it. The roll is saved with the rest of your layout.
+- **Level or roll a desktop** (new 3 November 2026, not yet tried in the glasses): every desktop in the overview has a
+  level bar, a capsule above its top edge in your theme's colour, like the pill below it. It has three parts, and only
+  the one under the dot lights up. The left part turns the desktop counter-clockwise and the right part clockwise: click
+  one and it turns that way, straight to level if level lies that way (say you recentred with your head tipped to one
+  side; judged against gravity in anchor mode), else 2° further. Or hold either one and drag the dot round the desktop
+  to roll it either way, up to 90°; it rests at level as you pass it. The middle part levels the desktop in one click and
+  leaves it where it is. The bar moves, grows, shrinks and turns with the desktop. A desktop's picture, and any desktop
+  covering a bar, keeps its clicks. Press R in its open pill to put the desktop back flat in its slot and level. The roll
+  is saved with the rest of your layout.
 - **Only the handles do XR things** (changed 3 November 2026, not yet tried in the glasses): the pill under a desktop
-  (and its panel when open), the two roll brackets round its top corners, and the resize handles just outside its edges
-  and corners. All of them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
+  (and its panel when open), the level bar above it, and the resize handles just outside its edges and corners. All of
+  them are outside the desktop itself; everything on the desktop is its windows'. Clicking a window
   never maximizes the desktop. To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the desktop under the
   dot grows where it is to fill your view, then follows your head.
 - **Drag a window to another desktop with Super** (new, not yet tried in the glasses): hold **Super** and drag it with the
@@ -323,7 +324,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   when it reaches another desktop the window arrives under it, wherever that desktop is placed. A tiled window fits in
   where you drop it. Let go with the dot on a desktop and the window lands on that desktop, whole and under the dot, even
   if you were holding a floating window by its far end. Let go between desktops and it stays where it was. While you
-  drag, the pills, roll brackets and resize handles do nothing, and nothing animates. **Super and the right button**
+  drag, the pills, level bars and resize handles do nothing, and nothing animates. **Super and the right button**
   resizes the window as usual, and the mouse stays on that desktop until you let go. If the dot is off the desktops, Super
   and a click do nothing. All of this works in typing mode too.
 - **Moving a window to another desktop by holding it** without Super is switched off for now, so a long press or a slow
@@ -347,7 +348,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   scrolling also works in typing mode (which never switches).
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
-Maximizing (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
+Maximizing (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills, level bars and corner caps are off in typing mode (Ctrl+Alt+T)
 and while a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back). An open
 pill stays until you close it or until 30 seconds pass without input.
 
@@ -428,7 +429,7 @@ and put your windows and display back. If the panel says "Needs CLI recovery", s
 **About ghost images on the glasses screens.** The glasses use tiny OLED screens. Bright text that stays still for a
 long time can leave a faint ghost image that fades after a while. To prevent that, the help card, the open placement
 pill and the video controls are dimmed, and they close by themselves after 30 seconds without input. The overview's
-dot, glass pills and corner bracket are dim and hide after 30 seconds without mouse movement. Don't leave a bright
+dot, glass pills, level bars and corner caps are dim and hide after 30 seconds without mouse movement. Don't leave a bright
 video paused for a long time either.
 
 ## FAQ

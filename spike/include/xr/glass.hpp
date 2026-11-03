@@ -17,6 +17,7 @@
 #include "xr/hud.hpp"
 #include "xr/view.hpp"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -104,53 +105,60 @@ constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
 static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its footer's top (free_pointer.py PANEL_H)");
 
-// Roll brackets (tools/native_spike/free_pointer.py roll_arm / roll_distance / on_roll / ROLL_*, compared by the
-// glass_contract ctest): in the overview every desktop has two arrow brackets hugging its top corners just outside its
-// border, on the desktop's own surface. Round the top-left corner one turns counter-clockwise, round the top-right one
-// clockwise: the way a click (to level when it lies that way, else a step) or a drag (either way) on it turns the
-// desktop. Each is one stroke kRollGap outside the desktop's edge (clear of the selected desktop's 6 px border): from
-// roll_arm in along the top edge (a round cap), over the corner (a quarter circle about it) and roll_arm down the side
-// to its arrowhead, which points down that side, the way the corner goes when the desktop turns that way. All of it is
-// tile px on the desktop's surface, so a bracket moves, scales and rolls with its desktop: a resize (its distance) or a
-// move (its orbit) carries it along, and it stays the same share of the desktop. Side 0 = top-left (counter-clockwise),
-// 1 = top-right (clockwise). The wire still calls them icons (ipc.hpp RollPayload, GlassFrame::roll_icon).
-constexpr float kRollGap = 12.f, kRollStroke = 4.f, kRollHeadLen = 12.f, kRollHeadHalf = 6.f, kRollPad = 4.f;
-constexpr float kRollArmShare = 0.22f, kRollArmMin = 36.f, kRollArmMaxShare = 0.45f;
-// The hit-zone contract round a desktop (free_pointer.py ROLL_EDGE_CLEAR, hit), from the inside out: its content (its
-// apps); a band kRollEdgeClear wide just outside every edge (the selected desktop's border) for the edge's resize zone,
-// and the corners' resize zones round each corner; then the brackets along their arms; then empty space.
-constexpr float kRollEdgeClear = 6.f;
-static_assert(kRollGap - kRollHeadHalf >= kRollEdgeClear, "everything drawn lies past the edge band");
-static_assert(kRollGap - kRollHeadHalf >= 6.f && kRollGap - kRollStroke / 2 >= 6.f,
-              "a bracket stays clear of the selected desktop's 6 px border (gl.cpp kBorderPx)");
-static_assert(kRollHeadLen < kRollArmMin, "the head fits the shortest arm");
-// The arm along each edge, tile px from the corner to the arm's end (the cap's centre, the arrow's tip): kRollArmShare of
-// the desktop's shorter side, at least kRollArmMin, never past kRollArmMaxShare of it (so the two brackets never meet).
-// 0 for an empty tile.
-float roll_arm(const FRect& tile);
-// The stroke, gap, head and padding are scaled by this: 1, less on a desktop too small for kRollArmMin arms. 0 when empty.
-float roll_scale(const FRect& tile);
-// Distance (tile px) from (px, py) to the bracket's centre line (top arm, corner arc, side arm to the tip). Infinite for
-// an empty tile or side > 1.
-float roll_distance(const FRect& tile, std::uint32_t side, float px, float py);
-// The hit region (free_pointer.py on_roll): at least kRollEdgeClear * roll_scale outside the desktop and within
-// (kRollHeadHalf + kRollPad) * roll_scale of the centre line, so it covers everything drawn plus kRollPad. Only where
-// nothing else is: any desktop's content, a corner's resize zone and a pill all win over it (free_pointer.py hit), and the
-// renderer draws the brackets under them.
-bool on_roll_bracket(const FRect& tile, std::uint32_t side, float px, float py);
-// The bracket as drawn, tile px: the stroke as a triangle strip (outer then inner edge per point, from the top arm's end
-// round the corner to the head's base) and, as triangles, the arrowhead and the round cap at the top arm's end. Empty for
-// an empty tile or side > 1.
-struct RollBracket { std::vector<std::array<float, 2>> band, head; };
-RollBracket roll_bracket(const FRect& tile, std::uint32_t side);
-// The bracket's colour: an M3 icon in the theme's primary (glass_theme_scheme of the accent, GlCompositor::set_accent, live
-// with the Omarchy theme); hovered or dragged (level above kGlassIdle) it is lifted along the primary palette toward its
-// tone 98 (MaterialScheme::primary_bright), all the way at kGlassActive. Under the OLED cap in every state.
-std::array<float, 3> roll_arrow_color(std::array<float, 3> accent, float level);
-// The corner-resize handle's colour (view.hpp corner_handle, GlCompositor::set_corner_handle `level`): on-surface-variant
-// at view.hpp kHandleLevelIdle, the theme's primary at kHandleLevelActive (blended in between), faded toward black below
-// the idle level, nothing at 0. Opaque, under the OLED cap.
-std::array<float, 3> corner_handle_color(std::array<float, 3> accent, float level);
+// Level bar (tools/native_spike/free_pointer.py level_bar_scale / level_bar_rect / level_bar_segment / LEVEL_*, compared by
+// the glass_contract ctest): in the overview every desktop has one segmented capsule centred above its top edge, the pill's
+// counterpart: turn left, level, turn right. Its left and right segments turn the desktop counter-clockwise and clockwise:
+// a click a step (or to level, when level lies that way), a drag either way. Its middle segment levels it. It is tile px on
+// the desktop's own surface, unlike the glass, so it moves, scales and rolls with its desktop: a resize (its distance) or a
+// move (its orbit) carries it along and it stays the same share of the desktop. Drawn kLevelBarW x kLevelBarH,
+// kLevelBarGap above the edge on a desktop at least kLevelBarW / kLevelBarShare wide; on a narrower one the whole design
+// scales down (level_bar_scale) to kLevelBarShare of its width, not under kLevelBarMinW, and on one narrower than that to
+// its width.
+constexpr float kLevelBarW = 148.f, kLevelBarH = 26.f, kLevelBarGap = 12.f, kLevelBarPad = 4.f;
+constexpr float kLevelBarShare = 0.25f, kLevelBarMinW = 120.f;
+// The hit-zone contract round a desktop (free_pointer.py LEVEL_EDGE_CLEAR, hit), from the inside out: its content (its
+// apps); a band kLevelEdgeClear wide just outside every edge (the selected desktop's border) for the edge's resize zone, and
+// the corners' resize zones round each corner; then the bar; then empty space.
+constexpr float kLevelEdgeClear = 6.f;
+static_assert(kLevelBarGap - kLevelBarPad >= kLevelEdgeClear, "the bar's hit region stays out of the band along the edge");
+static_assert(kLevelBarGap >= 6.f, "the bar stays clear of the selected desktop's 6 px border (gl.cpp kBorderPx)");
+// The bar's segments, left to right: what `side` is on the wire (ipc.hpp RollPayload) and GlassFrame::bar_hover_segment.
+enum class LevelSegment : std::int8_t { none = -1, ccw = 0, level = 1, cw = 2 };
+inline constexpr std::size_t kLevelSegments = 3;
+// What the bar and the corner caps are scaled by: 1, less on a narrow desktop. 0 for an empty tile.
+float level_bar_scale(const FRect& tile);
+// The bar as drawn: tile px on the desktop's surface, centred above its top edge. Empty for an empty tile.
+FRect level_bar_rect(const FRect& tile);
+// The segment at tile point (px, py): the drawn bar padded by kLevelBarPad * level_bar_scale, split at its thirds (the
+// padding belongs to the segment it borders). none outside it. Only where nothing else is: any desktop's content, a
+// corner's resize zone and a pill all win over it (free_pointer.py hit), and the renderer draws the bar under them.
+LevelSegment level_bar_segment(const FRect& tile, float px, float py);
+
+// Corner caps: a quiet rounded L wrapped round each corner of every desktop in the overview, drawn with the bar and scaled
+// with it, the resize corners made visible. kCapGap outside the edges, legs kCapLeg long and kCapStroke wide; the corner
+// under the dot or held lights up, legs kCapLegHot long and kCapStrokeHot wide. kCapOuter past the corner to kCapInner in
+// from it holds every state, the box each is drawn in (corner_cap_rect). Pressing one is the corner's resize zone
+// (free_pointer.py border_handle); the glass_contract ctest checks that the zone covers the idle cap.
+constexpr float kCapGap = 8.5f, kCapLeg = 12.f, kCapLegHot = 22.f, kCapStroke = 2.4f, kCapStrokeHot = 3.2f, kCapBend = 5.f;
+constexpr float kCapOuter = 11.f, kCapInner = 16.f;
+static_assert(kCapGap - kCapStrokeHot / 2 >= kLevelEdgeClear, "a cap stays clear of the selected desktop's 6 px border");
+static_assert(kCapGap + kCapStrokeHot / 2 <= kCapOuter && kCapLegHot - kCapGap + kCapStrokeHot / 2 <= kCapInner, "every state fits the box");
+// Corner `corner`'s box (0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right), tile px. Empty for an empty tile or
+// corner > 3.
+FRect corner_cap_rect(const FRect& tile, std::uint32_t corner);
+
+// The bar's and the caps' pixels: one premultiplied image per theme colour (`accent`, glass_theme_scheme) holding every
+// state of each, kHandleAtlasScale px per tile px, in cells kHandleAtlasGutter px apart so that bilinear filtering stays in
+// its cell. The bar is the pill's primary container with on-primary-container icons and dividers; a hot segment is a
+// capsule in the primary with on-primary icons, the primary bright while dragged. A cap is the primary, the primary bright
+// when hot. Every role is under the OLED cap. GlCompositor uploads it once per theme colour.
+inline constexpr std::uint32_t kHandleAtlasScale = 3, kHandleAtlasGutter = 2;
+HudImage render_handle_atlas(std::array<float, 3> accent);
+// Where a state is in that image (0..1 of it). A bar: `segment` hot (none: idle), `active` while it is dragged. A cap:
+// corner `corner`, `hot` under the dot or held, `active` while it is dragged.
+struct AtlasBox { float u0 = 0, v0 = 0, u1 = 0, v1 = 0; };
+AtlasBox level_bar_box(LevelSegment segment, bool active);
+AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active);
 
 // --- Look ----------------------------------------------------------------------------------------------------------
 // Pill states (GlassFrame::hover_level). Hover = the pointer is on the pill (or the open panel's header); active = it is
@@ -226,15 +234,15 @@ struct GlassFrame {
     // press (the desktop itself follows its live placement). The supervisor measures the drag on that same surface, so
     // the knob stays under the pointer. Empty: the panel rides on its desktop's live placement.
     int surface_desktop = -1; std::optional<Placement> surface;
-    // Roll brackets (drawn with the pills: `pills` true): per desktop -1 none, 0 / 1 that side (roll_bracket), 2 both;
-    // the hovered or dragged one (desktop `roll_hover`, side `roll_hover_side`) is drawn at `roll_level`. They are drawn
-    // before every desktop (any desktop's content covers them, the glass goes over them), on their desktop's live
-    // placement, never on the held panel's `surface`.
-    std::array<int, kPlacementMenuDesktopCount> roll_icon{-1, -1, -1, -1};
-    int roll_hover = -1, roll_hover_side = -1; float roll_level = kGlassIdle;
+    // The level bars and corner caps (drawn with the pills: `pills` true) of the desktops in `bars`. Only one thing lights
+    // at a time, what the dot is on or holds: the segment `bar_segment` of desktop `bar_hover`, the cap on corner
+    // `cap_corner` of desktop `cap_hover`; `bar_active` / `cap_active` while dragged. They are drawn before every desktop
+    // (any desktop's content covers them, the glass goes over them), on their desktop's live placement, never on the held
+    // panel's `surface`.
+    std::array<bool, kPlacementMenuDesktopCount> bars{};
+    int bar_hover = -1; LevelSegment bar_segment = LevelSegment::none; bool bar_active = false;
+    int cap_hover = -1; std::uint32_t cap_corner = 0; bool cap_active = false;
 };
-// The sides (0 top-left / counter-clockwise, 1 top-right / clockwise) a GlassFrame::roll_icon entry shows.
-constexpr bool roll_icon_shows(int icon, std::uint32_t side) { return icon == 2 || (icon >= 0 && std::uint32_t(icon) == side); }
 // Renderer placement from wire units (ipc.hpp WirePlacement: x / y the orbit round you in tenths of a degree, distance in
 // percent, curvature in degrees) to radians and a distance factor: what set_placements applies.
 Placement placement_from_wire(const MenuPlacement& wire);

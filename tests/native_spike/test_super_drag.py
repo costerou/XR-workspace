@@ -18,7 +18,7 @@ dropping it on another. The drag itself stays Hyprland's. What the run does, and
     the cursor's monitor if it is not there. Its workspace move shifts it by the monitors' distance, so an absolute move
     follows, which leaves it whole on that monitor and still under the cursor. Only the window the drag really held moves.
   * Typing mode: the drag binds stay through the bind swap (they take no key), a Super move brings the pointer back for as
-    long as it lasts, with no pills or arrows, and it goes off again at the drop. A resize needs no pointer there: the
+    long as it lasts, with no pills or level bars, and it goes off again at the drop. A resize needs no pointer there: the
     plain confinement keeps the cursor on its desktop.
 
 Offline only: fake clocks, fake compositor clients and a stub `hl` run by a real Lua interpreter. How it feels, and that
@@ -206,12 +206,12 @@ class SuperSuppressesTests(Base):
         self.assertIsNone(self.p.drag)
         self.assertEqual(self.p.rolls[:3], [0, 0, 0])
 
-    def test_pills_arrows_and_handles_do_nothing_mid_drag(self):
+    def test_pills_bars_and_handles_do_nothing_mid_drag(self):
         self.carrying()
         x, y, w, h = fp.pill_rect(T1)
         points = [fp.project_glass(G, T1, DEFAULT_PLACEMENT, x + w / 2, y + h / 2)]
-        arm, gap, z = fp.roll_arm(T1), fp.ROLL_GAP * fp.roll_scale(T1), fp.corner_zone(T1)
-        points.append(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] - gap, T1[1] + (z + arm) / 2))  # a bracket's side arm
+        bx, by, bw, bh = fp.level_bar_rect(T1)
+        points.append(fp.project(G, T1, DEFAULT_PLACEMENT, bx + bw / 6, by + bh / 2))  # the level bar's left segment
         points.append(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] - 4, T1[1] - 4))  # a corner
         points.append(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 100, T1[1] - 4))  # an edge
         for point in points:
@@ -610,7 +610,7 @@ class TypingModeTests(Base):
         self.assertTrue(self.control.state.typing)  # still typing mode
         self.assertEqual(self.control.state.selected, 1)  # on the desktop it was dropped on
 
-    def test_the_pills_and_arrows_stay_hidden_through_it(self):
+    def test_the_pills_and_bars_stay_hidden_through_it(self):
         self.typing()
         self.super_op('super_left_press')
         out = self.at(X1 + 1500, 500)

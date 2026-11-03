@@ -12,10 +12,12 @@
 //     of the compositor's own vertex shader, the path of the border and the glow, so it lies on the desktop's surface;
 //   - the dot, redrawn on top with view.hpp direction_disc / direction_marks, since the overlay goes after the frame.
 //
-// A manifest line: out.rgba other.rgba|- centre.rgba|- overlay_w overlay_h margin dot_x dot_y look baseline
+// A manifest line: out.rgba other.rgba|- centre.rgba|- overlay_w overlay_h margin dot_x dot_y look baseline [roll distance]
 //   other    overlay for desktops 0 and 2, centre for desktop 1; both cover the tile plus `margin` tile px on every side
 //   dot_x/y  canvas px, dot_x < 0 for no dot; look: view.hpp PointerLook as an int
-//   baseline 0 none, 1 today's roll brackets, 2 today's roll brackets and corner bracket with one of each hot (reference)
+//   baseline 0 none, 1 the renderer's own level bars and corner caps, 2 / 3 / 4 with centre desktop's left / middle / right
+//            segment hot, 5 with its bottom-right cap hot
+//   roll, distance: the centre desktop's levelling roll (degrees) and distance factor, optional: 0 and 1
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <array>
@@ -26,6 +28,7 @@
 #include <fstream>
 #include <iostream>
 #include <numbers>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "gl.hpp"
@@ -78,7 +81,7 @@ int info(const std::array<std::uint8_t, 3>& hex) {
     for (std::size_t i = 0; i < t.size(); ++i) out += (i ? "," : "") + rect(t[i]);
     out += "],\"pills\":[";
     for (std::size_t i = 0; i < t.size(); ++i) out += (i ? "," : "") + rect(glass_pill(t[i]));
-    out += "],\"roll_arm\":" + std::to_string(roll_arm(t[kCentre])) + ",\"scheme\":{";
+    out += "],\"level_bar\":" + rect(level_bar_rect(t[kCentre])) + ",\"scheme\":{";
     out += role("accent", accent) + role("primary", m.primary) + role("on_primary", m.on_primary) +
            role("primary_container", m.primary_container) + role("on_primary_container", m.on_primary_container) +
            role("primary_bright", m.primary_bright) + role("secondary_container", m.secondary_container) +
@@ -210,21 +213,27 @@ int render(const std::array<std::uint8_t, 3>& hex, const std::string& desktops, 
     const auto half = half_fov();
     const Canvas canvas{float(kCanvasW), float(kCanvasH), half[0], half[1]};
     const auto layout = tiles();
-    const std::vector<Placement> placements(kDesktops);
+    std::vector<Placement> placements(kDesktops);
     const Mat3 identity{1, 0, 0, 0, 1, 0, 0, 0, 1};
 
     std::ifstream in(manifest);
-    std::string out, other_path, centre_path;
-    int ow = 0, oh = 0, look = 0, baseline = 0, frames = 0;
-    float margin = 0, dot_x = 0, dot_y = 0;
-    std::vector<std::uint8_t> rgba(std::size_t(cw) * ch * std::size_t(scale) * std::size_t(scale) * 4), row;
-    while (in >> out >> other_path >> centre_path >> ow >> oh >> margin >> dot_x >> dot_y >> look >> baseline) {
+    std::string line;
+    int frames = 0;
+    std::vector<std::uint8_t> rgba(std::size_t(cw) * ch * std::size_t(scale) * std::size_t(scale) * 4);
+    while (std::getline(in, line)) {
+        std::istringstream fields(line);
+        std::string out, other_path, centre_path;
+        int ow = 0, oh = 0, look = 0, baseline = 0;
+        float margin = 0, dot_x = 0, dot_y = 0, roll = 0, distance = 1;
+        if (!(fields >> out >> other_path >> centre_path >> ow >> oh >> margin >> dot_x >> dot_y >> look >> baseline)) continue;
+        fields >> roll >> distance;
+        placements[kCentre].roll = roll * float(std::numbers::pi) / 180.f; placements[kCentre].distance = distance;
         GlassFrame glass;
         glass.pills = true;
-        if (baseline) glass.roll_icon = {2, 2, 2, -1};
-        if (baseline == 2) { glass.roll_hover = kCentre; glass.roll_hover_side = 1; glass.roll_level = kGlassHover; }
+        if (baseline) glass.bars = {true, true, true, false};
+        if (baseline >= 2 && baseline <= 4) { glass.bar_hover = kCentre; glass.bar_segment = LevelSegment(baseline - 2); }
+        if (baseline == 5) { glass.cap_hover = kCentre; glass.cap_corner = 3; }
         gl->set_glass(glass);
-        gl->set_corner_handle(baseline == 2 ? kCentre : -1, 3, kHandleLevelIdle);
         gl->set_free_pointer(false, 0, 0, 0);
         if (!gl->draw_and_swap(layout, placements, kCentre, 1.f, identity, half[0], half[1])) { std::fputs("draw failed\n", stderr); return 1; }
 

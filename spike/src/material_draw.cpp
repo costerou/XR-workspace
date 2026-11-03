@@ -1,6 +1,7 @@
 #include "xr/material_draw.hpp"
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace xr {
 namespace {
@@ -26,6 +27,28 @@ float triangle(float px, float py, float x0, float y0, float x1, float y1, float
     const float c0 = s * (v0x * e0y - v0y * e0x), c1 = s * (v1x * e1y - v1y * e1x), c2 = s * (v2x * e2y - v2y * e2x);
     const float d = std::min({d0, d1, d2}), c = std::min({c0, c1, c2});
     return c > 0 ? -std::sqrt(d) : std::sqrt(d);  // inside (every edge's cross term positive): negative
+}
+// A stroke of half width `half` with round caps along the arc of radius r about (cx, cy), from angle a0 up to a1 (radians,
+// a1 - a0 under a full turn, y down).
+float arc_stroke(float px, float py, float cx, float cy, float r, float a0, float a1, float half) {
+    constexpr float kTurn = 2 * std::numbers::pi_v<float>;
+    const float x = px - cx, y = py - cy;
+    float a = std::atan2(y, x);
+    while (a < a0) a += kTurn;
+    while (a >= a0 + kTurn) a -= kTurn;
+    if (a <= a1) return std::fabs(std::hypot(x, y) - r) - half;
+    return std::min(std::hypot(x - r * std::cos(a0), y - r * std::sin(a0)), std::hypot(x - r * std::cos(a1), y - r * std::sin(a1))) - half;
+}
+// The circular arrow on the 24 grid, clockwise: about 3/4 of a turn, open at the upper right, its head at the open end
+// following the arc.
+float rotate_right(float gx, float gy) {
+    constexpr float kR = 8.2f, kHalf = 1.25f, kHead = 6.4f, kHeadHalf = 4.6f;
+    constexpr float kDeg = std::numbers::pi_v<float> / 180.f;
+    constexpr float kEnd = -32.f * kDeg, kStart = kEnd - 285.f * kDeg;
+    const float ex = 12 + kR * std::cos(kEnd), ey = 12 + kR * std::sin(kEnd), tx = -std::sin(kEnd), ty = std::cos(kEnd);
+    const float bx = ex - tx * kHead * 0.3f, by = ey - ty * kHead * 0.3f, fx = ex + tx * kHead * 0.7f, fy = ey + ty * kHead * 0.7f;
+    return std::min(arc_stroke(gx, gy, 12, 12, kR, kStart, kEnd - 0.2f, kHalf),
+                    triangle(gx, gy, fx, fy, bx - ty * kHeadHalf, by + tx * kHeadHalf, bx + ty * kHeadHalf, by - tx * kHeadHalf));
 }
 }
 
@@ -69,6 +92,14 @@ void md_disc(HudImage& im, float cx, float cy, float r, MdRgb c, float alpha) {
     md_fill_rounded(im, cx - r, cy - r, cx + r, cy + r, r, c, alpha);
 }
 
+float md_corner_distance(float px, float py, float gap, float leg, float bend, float width) {
+    const float half = width / 2, e = gap - bend;  // the elbow's centre, on the diagonal
+    float d = 1e9f;
+    if (px >= e && py >= e) d = std::fabs(std::hypot(px - e, py - e) - bend) - half;  // the quarter circle
+    d = std::min(d, capsule(px, py, gap - leg, gap, e, gap, half));
+    return std::min(d, capsule(px, py, gap, gap - leg, gap, e, half));
+}
+
 float md_icon_distance(MdIcon icon, float x, float y, float size) {
     const float k = 24.f / std::max(size, 1e-3f);  // icon px -> grid units
     const float gx = x * k + 12, gy = y * k + 12;
@@ -89,6 +120,15 @@ float md_icon_distance(MdIcon icon, float x, float y, float size) {
         break;
     case MdIcon::arrow_drop_up:
         d = triangle(gx, gy, 7, 14, 12, 9, 17, 14);
+        break;
+    case MdIcon::rotate_right:
+        d = rotate_right(gx, gy);
+        break;
+    case MdIcon::rotate_left:  // its mirror image
+        d = rotate_right(24 - gx, gy);
+        break;
+    case MdIcon::level:  // -o-: a dot on a horizon line, broken round it
+        d = std::min({capsule(gx, gy, 2, 12, 7.4f, 12, 1), capsule(gx, gy, 16.6f, 12, 22, 12, 1), capsule(gx, gy, 12, 12, 12, 12, 2.4f)});
         break;
     }
     // Optical size (as Material Symbols' opsz): below kMdIconPx the 2 px strokes thicken, up to 3 grid px at 12 px, so a

@@ -256,7 +256,7 @@ class RunRestoreTests(unittest.TestCase):
             now = [100.0]
             c.clock = lambda: now[0]
             c.poll(now[0])  # takes in the restored rolls
-            c.overview_pointer.rolls[0] = 0  # a roll arrow's click (free_pointer.roll_click)
+            c.overview_pointer.rolls[0] = 0  # a level bar's click (free_pointer.roll_click)
             c.poll(now[0])
             self.assertEqual(self.p.setup()[0]['rolls'], ROLLS)  # not yet: debounced like a placement change
             now[0] += view.MENU_SAVE_DELAY + 0.01
