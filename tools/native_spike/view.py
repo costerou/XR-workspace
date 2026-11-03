@@ -544,9 +544,9 @@ class ViewState:
 
     def set_desktops(self, names, placements, wide, focus=None, sizes=None):
         """The run's desktops changed (desktops.py). The selection stays on its desktop if it is still there (else the
-        nearest one left); `focus` (an index into `names` or None): the panel opens there, else it stays on its desktop
-        if that is still there, else it collapses. Remove is disarmed and the Scale and Resolution lists closed. `sizes`:
-        the desktops' sizes and scales (one per name; None: unknown)."""
+        nearest one left); `focus` (an index into `names` or None): the panel opens there, unless maximized (panels are
+        the overview's), else it stays on its desktop if that is still there, else it collapses. Remove is disarmed and
+        the Scale and Resolution lists closed. `sizes`: the desktops' sizes and scales (one per name; None: unknown)."""
         from .geometry import validate_placement
         names = list(names)
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
@@ -560,7 +560,7 @@ class ViewState:
         self.wide = [bool(w) for w in wide]
         self.sizes = None if sizes is None else [dict(d) for d in sizes]
         self.selected = names.index(selected) if selected in names else min(self.selected, len(names) - 1)
-        if focus is not None and 0 <= focus < len(names):
+        if focus is not None and 0 <= focus < len(names) and not self.zoomed:
             self.menu_open, self.menu_desktop = True, focus
         elif open_on in names:
             self.menu_desktop = names.index(open_on)

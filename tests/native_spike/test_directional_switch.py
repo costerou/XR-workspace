@@ -1,5 +1,5 @@
 """Directional desktop switching (neighbors.py, unified_cursor.EdgePush): maximized, pushing the cursor past an edge of
-the selected desktop switches to the desktop placed that way round you in 3D (yaw / pitch / roll as drawn), not just the
+the selected desktop switches to the desktop placed that way round you in 3D (home is drawn level), not just the
 next one in the row, with the Ctrl+Alt+Left / Right switch (a maximized desktop follows you or is locked, so it is a
 `cut` straight there, which the aim then centres; anchor mode, now the overview's only, would pan with `center`) and
 every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge. The maximize /
@@ -352,6 +352,14 @@ class MaximizeFollowTests(UnifiedBase):
         self.assertEqual([self.p.neighbour(e) for e in ('right', 'up')], [2, 1])
         self.p.geometry = None  # no layout yet: the row
         self.assertEqual([self.p.neighbour(e) for e in ('right', 'up')], [1, None])
+
+    def test_a_maximized_home_is_level_so_a_push_goes_the_way_you_see_it(self):
+        # Rolled 90 degrees in the overview, but maximized it sits level (spike zoomed_placements): right is right as you
+        # see it, not the way its overview roll would turn it. A neighbour's own roll moves nothing: it turns about its centre.
+        self.control.state.set_placements([at_direction(0, 0, 0), at_direction(1, 0, 25), at_direction(2, 25, 0)])
+        self.p.rolls[:3] = [9000, 2000, -3000]
+        self.op('zoom_in')
+        self.assertEqual([self.p.neighbour(e) for e in ('right', 'up', 'down')], [2, 1, None])
 
     def test_a_requested_switch_is_made_on_the_loop_unless_stale(self):
         self.op('zoom_in')

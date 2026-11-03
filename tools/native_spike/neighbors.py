@@ -3,11 +3,12 @@
 Design (dot-directional-switch, 2026-11-03): zoomed in, pushing the cursor past an edge of the selected desktop ("home")
 switches to the desktop placed that way round you (unified_cursor.EdgePush), not to the next one in the row.
   * Each desktop is a direction from your eye: its centre as drawn (orbit.place_point at its overview slot, with its
-    orbit, distance and levelling roll), plus its own right and up axes there (the desktop is a billboard, so these are
-    the screen axes the cursor moves along on it).
+    orbit and distance), plus its own right and up axes there (the desktop is a billboard, so these are the screen axes
+    the cursor moves along on it). A maximized home is drawn level, so the live caller passes no roll
+    (unified_cursor.UnifiedPointer.neighbour): pushing right is right as you see it.
   * A candidate's bearing from home is the great-circle direction from home's centre toward its centre, read in home's
     right / up axes; its distance is the angle between the two centres. Pushing right means home's +right, up its +up,
-    and so on, so a tilted (rolled) home turns the directions with it.
+    and so on, so a placement with a 'roll' would turn the directions with it.
   * The candidate must lie within CONE of the push direction. Among those the nearest wins, an off-axis one counting as
     further: score = angle / cos(off-axis). A desktop (within BEHIND of) directly behind home has no bearing and is never picked.
   * No candidate in the cone: None, the cursor stays on home (clamped at the edge).

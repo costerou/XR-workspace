@@ -129,7 +129,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     desktop (the band along its edges is the edge resize's), within ROLL_HEAD_HALF + ROLL_PAD of the stroke's centre
     line, and only where nothing else is: any desktop's content, a resize corner's zone and the pills all win over it
     (hit), and the renderer draws the brackets under them. The brackets hide with the pills. Every hit test and cursor mapping uses the
-    rolled surface (orbit.place_point's 'roll'); the pill drag and bumping ignore the roll (a few degrees at
+    rolled surface (orbit.place_point's 'roll'); a maximized desktop is drawn level by the renderer alone (view.hpp
+    zoomed_placements), so `rolls` stay the overview's and nothing here changes while maximized; the pill drag and bumping
+    ignore the roll (a few degrees at
     most changes nothing there).
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
@@ -1261,6 +1263,8 @@ class OverviewPointer:
         self.last_move = now  # a click is input: the pointer, pills and bracket come back
         out = b''
         if op == 'resize_release':
+            if self.drag is not None and self.drag['kind'] == 'roll' and not self.overview():
+                self.drag = None  # maximized since the press: a maximized desktop is level, so no turn lands behind it
             d = self.drag
             out += self._apply_drag()
             if d is not None and d['kind'] == 'pill' and not d['moved']:  # a click, not a drag: expand / collapse

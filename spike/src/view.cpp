@@ -152,7 +152,8 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
     for (std::size_t i = 0; i < n; ++i) {
         const Placement own = i < placements.size() ? placements[i] : Placement{};
         const FRect &was = overview[i], &now = tiles[i];
-        if (!(was.height > 0) || !(now.height > 0)) continue;
+        const float weight = zoom_weight(z, position, i), roll = own.roll * (1 - weight);
+        if (!(was.height > 0) || !(now.height > 0)) { out[i].roll = roll; continue; }
         // Held still round you: the orbit absorbs the slot's move from the overview to `tiles`.
         const Dir ov = slot_direction(c, was), cur = slot_direction(c, now);
         // Held at its overview size: every length (tile, radius, curvature's arc) scales by k about the eye.
@@ -160,9 +161,9 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
         const float rigid = d * (now.height / was.height) * radius(was) / radius(now);
         // Zoomed (weight 1): distance 1, it fills the view. keep_size: only a desktop seen bigger than that (rigid < 1)
         // keeps its size; anything smaller still grows to fill the view (min: continuous where rigid crosses 1).
-        const float fit = lerp(rigid, 1.f, zoom_weight(z, position, i));
+        const float fit = lerp(rigid, 1.f, weight);
         out[i] = {std::remainder(own.x + ov.az - cur.az, 2 * float(M_PI)), own.y + ov.el - cur.el,
-                  keep_size ? std::min(rigid, fit) : fit, own.curvature, own.roll};
+                  keep_size ? std::min(rigid, fit) : fit, own.curvature, roll};
     }
     return out;
 }

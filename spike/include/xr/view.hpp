@@ -44,6 +44,7 @@ float smootherstep(float t);  // quintic: zero velocity and acceleration at both
 //   roll       levelling turn (radians, counter-clockwise as you see it) of the desktop about its own line of sight
 //              (the eye to its centre), applied to the desktop drawn straight ahead before the orbit: it still faces you.
 //              Not a wire placement setting: the supervisor sets it with the roll-level icons (ipc.hpp RollPayload).
+//              It is the overview's: a maximized desktop is drawn level (zoomed_placements) and this value never changes.
 struct Placement { float x = 0, y = 0, distance = 1, curvature = 0, roll = 0; };
 struct Vec3 { float x = 0, y = 0, z = 0; };
 // Canvas pixels map onto the plane z = -1 spanning tan(half FOV) (GL frame: +x right, +y up, -z forward).
@@ -80,6 +81,9 @@ Placement faded(const Placement& placement, float weight);
 //   - every desktop keeps its overview direction (slot plus orbit) at every zoom: its orbit is corrected for its slot's
 //     motion between the overview and `tiles`;
 //   - the zoomed desktop's distance fades to 1 (zoom_weight), so it grows where it is until it fills the view there;
+//   - its roll fades to 0 with it, so maximized it sits level, square to the glasses with the aim (focus_direction), in
+//     every mode. Only what is drawn levels: `placements` keep the roll, so the overview gets it back exactly and a
+//     saved layout never holds a levelled one. Every other desktop keeps its roll;
 //   - every other desktop also keeps its overview size: its distance scales with its tile, so it is drawn exactly as in
 //     the overview (a uniform scale about the eye), curvature included.
 // Nothing ever goes back to its default place or snaps straight ahead. zoom 0 (the overview): `placements` unchanged.

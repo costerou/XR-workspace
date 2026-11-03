@@ -42,6 +42,22 @@ Quat aim_for(std::size_t focus, float weight) {
     const auto d = focus_direction(kCanvas, overview, kPlaced, focus);
     return aim_rotation(weight * d[0], weight * d[1]);
 }
+// kPlaced with a levelling roll on every desktop (focus_direction ignores it, so aim_for still applies).
+const Placement kRolled[] = {{rad(30), rad(12), 1.4f, 0, rad(20)}, {0, 0, 1, 0, rad(-35)}, {rad(140), rad(-5), 1, 0, rad(7.5f)}};
+// How far (degrees) maximized desktop `focus` is from level and square to the glasses as `view` draws it: its left-right
+// midline should run exactly along the view's x, its bottom-top midline along y.
+float off_square(const Mat3& view, std::size_t focus) {
+    const auto overview = overview_layout(kSizes, 1920, 1200, 40);
+    const auto tiles = blended_layout(kSizes, 1920, 1200, 40, 1, float(focus));
+    const auto placed = zoomed_placements(kCanvas, overview, tiles, kRolled, 1, float(focus));
+    const FRect& t = tiles[focus];
+    auto seen = [&](float px, float py) { const Vec3 p = place_point(kCanvas, t, placed[focus], px, py); return apply(view, {p.x, p.y, p.z}); };
+    const float cx = t.x + t.width / 2, cy = t.y + t.height / 2;
+    const auto l = seen(t.x, cy), r = seen(t.x + t.width, cy), b = seen(cx, t.y + t.height), u = seen(cx, t.y);
+    const std::array<float, 3> across{r[0] - l[0], r[1] - l[1], r[2] - l[2]}, up{u[0] - b[0], u[1] - b[1], u[2] - b[2]};
+    auto off = [](float along, float a, float c) { return std::atan2(std::hypot(a, c), along) * 180.f / kPi; };
+    return std::max(off(across[0], across[1], across[2]), off(up[1], up[0], up[2]));
+}
 }
 
 int main() {
@@ -92,6 +108,23 @@ int main() {
             for (int i = 0; i < 300; ++i) m.update(head, t += 8);
             CHECK(off_centre(view_from(head, m.update(head, t += 8)), focus, 1) < 0.1f);
             CHECK(m.settled());
+        }
+    }
+    // Maximized it sits level and square to the glasses (Cody, 2026-11-03): whatever roll and orbit it has in the overview,
+    // wherever the head points and however the head is tipped, in locked, in follow once the spring settles, and across
+    // Ctrl+Alt+V between them. The aim takes care of the orbit, zoomed_placements of the roll.
+    const Quat tipped[] = {Quat{}, axis_angle(1, 0, 0, 25), quat_mul(axis_angle(0, 0, 1, -50), axis_angle(1, 0, 0, -30)),
+                           quat_mul(axis_angle(0, 0, 1, 170), axis_angle(0, 1, 0, 20))};
+    for (std::size_t focus = 0; focus < 3; ++focus) {
+        ModeController m;
+        double t = 0;
+        m.set_aim(aim_for(focus, 1));
+        for (const ViewMode mode : {ViewMode::locked, ViewMode::follow, ViewMode::locked}) {
+            m.set_mode(mode, t);
+            for (const Quat& head : tipped) {
+                for (int i = 0; i < 300; ++i) m.update(head, t += 8);
+                CHECK(off_square(view_from(head, m.update(head, t += 8)), focus) < 0.1f);
+            }
         }
     }
     // The overview (weight 0) is unchanged in locked and follow: the canvas centre straight ahead.

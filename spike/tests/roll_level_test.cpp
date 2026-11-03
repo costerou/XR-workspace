@@ -127,7 +127,7 @@ int main() {
             }
     }
 
-    // Easing carries the roll and lands on it; same_placement sees it; zooming and fading keep it.
+    // Easing carries the roll and lands on it; same_placement sees it; fading keeps it.
     {
         Placement from, to; to.roll = rad(12);
         CHECK(!same_placement(from, to));
@@ -135,12 +135,89 @@ int main() {
         for (int i = 0; i < 200; ++i) p = ease_toward(p, to, 8.3f, kPlacementEaseMs);
         CHECK(same_placement(p, to));
         CHECK(faded(to, 1.f).roll == to.roll);
-        const Size sizes[] = {{1920, 1080}, {1920, 1080}};
+    }
+
+    // A maximized desktop sits level (Cody, 2026-11-03): zoomed_placements fades its roll out with the zoom, in every mode,
+    // and the overview gets every roll back bit for bit. The roll itself is never touched, so there is nothing to restore
+    // and nothing levelled to save: only what is drawn changes.
+    {
+        const Size sizes[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
         const auto overview = overview_layout(sizes, 1920, 1080, 40);
-        const auto zoomed = blended_layout(sizes, 1920, 1080, 40, 1.f, 0.f);
-        const Placement ps[] = {to, Placement{}};
-        const auto z = zoomed_placements(canvas, overview, zoomed, ps, 1.f, 0.f);
-        CHECK(z.size() == 2 && z[0].roll == to.roll && z[1].roll == 0);
+        const Placement own[] = {{rad(30), rad(12), 1.4f, 0.5f, rad(20)}, {0, 0, 1, 0, rad(-35)}, {rad(140), rad(-5), 1, 0, rad(7.5f)}};
+        auto drawn = [&](float zoom, float position, bool keep = false) {
+            const auto tiles = blended_layout(sizes, 1920, 1080, 40, zoom, position);
+            return zoomed_placements(canvas, overview, tiles, own, zoom, position, keep);
+        };
+        for (std::size_t target = 0; target < 3; ++target)
+            for (const bool keep : {false, true}) {  // keep_size (an anchor zoom) levels as well
+                const auto overview_drawn = drawn(0.f, float(target), keep);
+                for (std::size_t i = 0; i < 3; ++i) CHECK(same_placement(overview_drawn[i], own[i]));  // exact
+                for (const float zoom : {0.1f, 0.25f, 0.5f, 0.75f, 0.9f}) {  // on the way: part of it, with the zoom
+                    const auto z = drawn(zoom, float(target), keep);
+                    for (std::size_t i = 0; i < 3; ++i)
+                        CHECK(near(z[i].roll, i == target ? own[i].roll * (1 - zoom) : own[i].roll, 1e-5f));
+                }
+                const auto z = drawn(1.f, float(target), keep);
+                for (std::size_t i = 0; i < 3; ++i) CHECK(z[i].roll == (i == target ? 0.f : own[i].roll));  // exactly level
+                CHECK(z[target].curvature == own[target].curvature);  // its shape, not a rotation
+                CHECK(z[target].x != own[target].x || target == 1);   // and still where zooming puts it (view_test)
+            }
+
+        // Four desktops at the widest spacing leave the overview's tiles no height: the one maximized still sits level.
+        {
+            const Size four[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}, {1920, 1080}};
+            const auto squeezed = overview_layout(four, 1920, 1080, 400);
+            CHECK(squeezed.size() == 4 && squeezed[0].height == 0);
+            const Placement rolled[] = {own[0], own[1], own[2], Placement{}};
+            const auto tiles = blended_layout(four, 1920, 1080, 400, 1.f, 1.f);
+            const auto z = zoomed_placements(canvas, squeezed, tiles, rolled, 1.f, 1.f);
+            CHECK(z[1].roll == 0 && z[0].roll == own[0].roll && z[2].roll == own[2].roll);
+        }
+
+        // Through the animator a real maximize uses. Maximizing the first desktop eases its roll to 0 with no jump...
+        ViewAnimator view;
+        double now = 0;
+        view.set_target(false, 0, 40, now);
+        view.advance(now += 1000);
+        auto frame_now = [&] { view.advance(now); return drawn(view.zoom(), view.position()); };
+        CHECK(same_placement(frame_now()[0], own[0]));
+        view.set_target(true, 0, 40, now);
+        float last = own[0].roll;
+        while (view.animating()) {
+            now += 8;
+            const auto z = frame_now();
+            CHECK(z[0].roll <= last && last - z[0].roll < rad(2));
+            CHECK(z[1].roll == own[1].roll && z[2].roll == own[2].roll);
+            last = z[0].roll;
+        }
+        CHECK(frame_now()[0].roll == 0);
+        // ...a switch straight to another maximized desktop (every switch is a cut there): that one is level at once, and
+        // the one it left has its own roll back...
+        now += 100;
+        view.set_target(true, 1, 40, now, false, true);
+        {
+            const auto z = frame_now();
+            CHECK(z[1].roll == 0 && z[0].roll == own[0].roll && z[2].roll == own[2].roll);
+        }
+        // ...an un-maximize gets it back with no jump, and the overview is bit for bit what it was, however often...
+        now += 100;
+        view.set_target(false, 1, 40, now);
+        last = 0;
+        while (view.animating()) {
+            now += 8;
+            const auto z = frame_now();
+            CHECK(z[1].roll <= last && last - z[1].roll < rad(4));
+            last = z[1].roll;
+        }
+        for (int round = 0; round < 2; ++round) {
+            const auto z = frame_now();
+            for (std::size_t i = 0; i < 3; ++i) CHECK(same_placement(z[i], own[i]));
+            view.set_target(true, 2, 40, now);
+            view.advance(now += 90);  // and when the maximize is cut short halfway
+            CHECK(frame_now()[2].roll != own[2].roll && frame_now()[2].roll != 0);
+            view.set_target(false, 2, 40, now);
+            view.advance(now += 1000);
+        }
     }
 
     // The bracket's size: arms kRollArmShare of the desktop's shorter side, at least kRollArmMin, never past
