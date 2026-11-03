@@ -30,7 +30,7 @@ ColumnLayout {
                 id:tile
                 required property var modelData
                 required property int index
-                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height; rotation:modelData.rotation
+                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
                 color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.view.selected===index ? Commons.Color.accent : Commons.Color.muted
                 Label { anchors.centerIn:parent; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11; text:"XR-"+(tile.index+1)+"\n"+root.desktops[tile.index].width+"×"+root.desktops[tile.index].height+" · "+root.desktops[tile.index].scale*100+"%" }
                 // Use only advertised relative operations; the panel waits for each reply.

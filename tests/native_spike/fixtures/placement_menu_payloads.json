@@ -1,5 +1,5 @@
 {
- "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders.",
+ "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders. Placements have exactly x, y, distance, curvature (the facing settings yaw, pitch, roll were removed: every desktop faces you).",
  "valid": [
   {
    "open": true,
@@ -10,27 +10,18 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    ]
@@ -44,27 +35,18 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    ]
@@ -78,27 +60,18 @@
      "x": -20,
      "y": 10,
      "distance": 120,
-     "yaw": 25,
-     "pitch": -5,
-     "roll": 3,
      "curvature": 40
     },
     {
-     "x": 100,
-     "y": 100,
+     "x": 1800,
+     "y": 900,
      "distance": 200,
-     "yaw": 60,
-     "pitch": 45,
-     "roll": 45,
      "curvature": 120
     },
     {
-     "x": -100,
-     "y": -100,
+     "x": -1800,
+     "y": -900,
      "distance": 50,
-     "yaw": -60,
-     "pitch": -45,
-     "roll": -45,
      "curvature": 0
     }
    ]
@@ -112,27 +85,18 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    ]
@@ -146,129 +110,18 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ]
-  },
-  {
-   "open": true,
-   "desktop": 0,
-   "field": "yaw",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ]
-  },
-  {
-   "open": true,
-   "desktop": 0,
-   "field": "pitch",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ]
-  },
-  {
-   "open": true,
-   "desktop": 0,
-   "field": "roll",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    ]
@@ -282,27 +135,18 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    ]
@@ -316,27 +160,18 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 23,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     {
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    ],
@@ -344,53 +179,7 @@
     "x": 0,
     "y": 0,
     "distance": 100,
-    "yaw": 0,
-    "pitch": 0,
-    "roll": 0,
     "curvature": 0
-   }
-  },
-  {
-   "open": true,
-   "desktop": 2,
-   "field": "yaw",
-   "placements": [
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    },
-    {
-     "x": 0,
-     "y": 0,
-     "distance": 200,
-     "yaw": -60,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
-    }
-   ],
-   "surface": {
-    "x": -100,
-    "y": 100,
-    "distance": 50,
-    "yaw": 60,
-    "pitch": -45,
-    "roll": 45,
-    "curvature": 120
    }
   }
  ],
@@ -417,27 +206,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -453,27 +233,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -489,27 +260,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -534,27 +296,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -572,27 +325,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -609,27 +353,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -646,27 +381,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -683,27 +409,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -720,27 +437,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -757,27 +465,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -794,27 +493,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -831,27 +521,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -868,27 +549,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -905,27 +577,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -942,27 +605,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -979,27 +633,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1016,27 +661,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1053,27 +689,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1090,18 +717,12 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1118,36 +739,24 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1190,27 +799,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 61,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
+      "curvature": 121
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1227,27 +827,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 49,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1264,27 +855,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": -1
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1301,27 +883,18 @@
       "x": 1.5,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1338,27 +911,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": true,
+      "curvature": -1
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
-      "curvature": 0
-     },
-     {
-      "x": 0,
-      "y": 0,
-      "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1383,18 +947,12 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1411,9 +969,6 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0,
       "z": 0
      },
@@ -1421,18 +976,12 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1449,18 +998,12 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      0
@@ -1478,27 +1021,18 @@
       "x": 18446744073709551615,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ]
@@ -1515,27 +1049,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1557,27 +1082,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1585,9 +1101,6 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    }
@@ -1603,27 +1116,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1641,27 +1145,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1687,27 +1182,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1715,10 +1201,7 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 61,
-     "pitch": 0,
-     "roll": 0,
-     "curvature": 0
+     "curvature": 121
     }
    }
   },
@@ -1733,27 +1216,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1761,9 +1235,6 @@
      "x": 0,
      "y": 0,
      "distance": 49,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    }
@@ -1779,27 +1250,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1824,27 +1286,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1852,9 +1305,6 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0,
      "z": 0
     }
@@ -1871,27 +1321,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1899,9 +1340,6 @@
      "x": 0.5,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     }
    }
@@ -1917,27 +1355,18 @@
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      },
      {
       "x": 0,
       "y": 0,
       "distance": 100,
-      "yaw": 0,
-      "pitch": 0,
-      "roll": 0,
       "curvature": 0
      }
     ],
@@ -1945,12 +1374,180 @@
      "x": 0,
      "y": 0,
      "distance": 100,
-     "yaw": 0,
-     "pitch": 0,
-     "roll": 0,
      "curvature": 0
     },
     "visible": true
+   }
+  },
+  {
+   "why": "orbit x past behind you",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 1801,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "orbit x past behind you, the other way",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": -1801,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "orbit y past overhead",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 901,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "orbit y past underfoot",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": -901,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "removed facing field yaw",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "yaw",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
+   }
+  },
+  {
+   "why": "placement with the removed facing settings",
+   "payload": {
+    "open": true,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0,
+      "yaw": 0,
+      "pitch": 0,
+      "roll": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ]
    }
   }
  ]

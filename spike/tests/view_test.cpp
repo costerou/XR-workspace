@@ -120,79 +120,202 @@ int main() {
     m.set_target(true, 1, 80, 5100); m.advance(5100); CHECK(near(m.position(), mid_pos, 1e-6f));
     m.advance(5300); CHECK(m.position() == 1);
 
-    {  // Per-desktop placement (position, distance, yaw/pitch/roll, curvature).
+    {  // Per-desktop placement (orbit round you, distance, curvature). Every desktop always faces you.
     const Canvas cv{1920, 1200, 0.5f, 0.3125f};  // square canvas pixels: half_w/half_h == width/height
-    const FRect tile{240, 300, 960, 540};
+    const FRect centred{480, 330, 960, 540};      // its centre is the canvas centre: straight ahead
+    const FRect tile{240, 300, 960, 540};         // left of centre and a little up
     auto plane = [&](float px, float py) { return Vec3{(2 * px / 1920 - 1) * 0.5f, (1 - 2 * py / 1200) * 0.3125f, -1}; };
     auto close3 = [](Vec3 a, Vec3 b, float eps = 1e-5f) { return near(a.x, b.x, eps) && near(a.y, b.y, eps) && near(a.z, b.z, eps); };
-    auto dist = [](Vec3 a, Vec3 b) { return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z)); };
+    auto sub = [](Vec3 a, Vec3 b) { return Vec3{a.x - b.x, a.y - b.y, a.z - b.z}; };
+    auto dot = [](Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+    auto cross = [](Vec3 a, Vec3 b) { return Vec3{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; };
+    auto len = [&](Vec3 a) { return std::sqrt(dot(a, a)); };
+    auto unit = [&](Vec3 a) { const float l = len(a); return Vec3{a.x / l, a.y / l, a.z / l}; };
+    auto dist = [&](Vec3 a, Vec3 b) { return len(sub(a, b)); };
+    auto azimuth = [](Vec3 a) { return std::atan2(a.x, -a.z); };
+    auto elevation = [](Vec3 a) { return std::atan2(a.y, std::sqrt(a.x * a.x + a.z * a.z)); };
     const float px_world = 2 * 0.5f / 1920;  // world units per canvas pixel
-    // Default placement is the old flat canvas plane, exactly (same vertices as the pre-placement quads), one column.
-    for (float px : {240.f, 720.f, 1200.f, 100.f}) for (float py : {300.f, 840.f, 10.f})
-        CHECK(close3(place_point(cv, tile, {}, px, py), plane(px, py)));
-    auto flat_mesh = tile_mesh(cv, tile, {}, tile);
-    CHECK(flat_mesh.size() == 4 && close3(flat_mesh[0].world, plane(240, 300)) && close3(flat_mesh[3].world, plane(1200, 840)));
-    CHECK(near(flat_mesh[0].u, 0, 1e-6f) && near(flat_mesh[0].v, 0, 1e-6f) && near(flat_mesh[3].u, 1, 1e-6f) && near(flat_mesh[3].v, 1, 1e-6f));
-    CHECK(near(flat_mesh[1].py, 840, 1e-4f) && near(flat_mesh[2].px, 1200, 1e-4f));  // top, bottom per column
-    // Curvature zero is flat; any curvature keeps the centre and its tangent frame in place.
     const float half_pi = float(M_PI) / 2;
-    Placement curved; curved.curvature = half_pi;
-    const Vec3 c0 = place_point(cv, tile, curved, 720, 570);
+    // A centred desktop with the default placement is the old flat canvas plane, exactly (same vertices as the
+    // pre-placement quads), one column; so is anything past its edge (its frame / halo).
+    for (float px : {480.f, 960.f, 1440.f, 100.f}) for (float py : {330.f, 870.f, 10.f})
+        CHECK(close3(place_point(cv, centred, {}, px, py), plane(px, py), 1e-6f));
+    auto flat_mesh = tile_mesh(cv, centred, {}, centred);
+    CHECK(flat_mesh.size() == 4 && close3(flat_mesh[0].world, plane(480, 330)) && close3(flat_mesh[3].world, plane(1440, 870)));
+    CHECK(near(flat_mesh[0].u, 0, 1e-6f) && near(flat_mesh[0].v, 0, 1e-6f) && near(flat_mesh[3].u, 1, 1e-6f) && near(flat_mesh[3].v, 1, 1e-6f));
+    CHECK(near(flat_mesh[1].py, 870, 1e-4f) && near(flat_mesh[2].px, 1440, 1e-4f));  // top, bottom per column
+    // The billboard: wherever it is, a desktop is square to the line of sight at its centre (its normal points at the
+    // eye) and upright along its meridian (its right edge level and heading round you, its top up toward the zenith), its
+    // centre in its slot's direction turned by the orbit, at the slot centre's distance times `distance`. Its shape never
+    // changes: the corners keep their distances from its centre.
+    const float tile_diagonal = dist(plane(240, 300), plane(1200, 840));
+    auto check_facing = [&](const FRect& t, const Placement& p) {
+        const float cx = t.x + t.width / 2, cy = t.y + t.height / 2;
+        const float wx = (2 * cx / cv.view_w - 1) * cv.half_w, wy = (1 - 2 * cy / cv.view_h) * cv.half_h;
+        const float A = std::atan2(wx, 1.f) + p.x, E = std::atan2(wy, std::sqrt(1 + wx * wx)) + p.y;
+        const float r = std::sqrt(1 + wx * wx + wy * wy) * p.distance;
+        const Vec3 c = place_point(cv, t, p, cx, cy);
+        CHECK(close3(c, Vec3{r * std::cos(E) * std::sin(A), r * std::sin(E), -r * std::cos(E) * std::cos(A)}, 1e-5f * r));
+        // Tangents from points symmetric about the centre (on a cylinder their chord is parallel to the centre's tangent),
+        // far apart for precision: the surface goes on past the tile's edges.
+        const float du = p.curvature > 0 ? t.width / 2 : 400, dv = 400;
+        const Vec3 right = unit(sub(place_point(cv, t, p, cx + du, cy), place_point(cv, t, p, cx - du, cy)));
+        const Vec3 up = unit(sub(place_point(cv, t, p, cx, cy - dv), place_point(cv, t, p, cx, cy + dv)));
+        const Vec3 n = cross(right, up), eye = unit(Vec3{-c.x, -c.y, -c.z});
+        CHECK(len(cross(n, eye)) < 3e-5f && dot(n, eye) > 0);                                          // faces the eye
+        CHECK(close3(right, Vec3{std::cos(A), 0, std::sin(A)}, 3e-5f));                                 // level: never rolled
+        CHECK(close3(up, Vec3{-std::sin(A) * std::sin(E), std::cos(E), std::cos(A) * std::sin(E)}, 3e-5f));  // its meridian
+        if (p.curvature == 0) {
+            CHECK(near(dist(place_point(cv, t, p, t.x, t.y), place_point(cv, t, p, t.x + t.width, t.y + t.height)),
+                       std::hypot(t.width, t.height) * px_world, 1e-5f * r));
+            for (const auto& [px, py] : {std::pair{t.x, t.y}, std::pair{t.x + t.width, t.y + t.height}, std::pair{t.x - 40, cy}})
+                CHECK(near(dot(sub(place_point(cv, t, p, px, py), c), eye), 0, 1e-5f * r));  // flat: one plane, square to the eye
+        } else {  // curved: the edges bend toward you, symmetrically
+            const float l = dot(sub(place_point(cv, t, p, t.x, cy), c), eye), rr = dot(sub(place_point(cv, t, p, t.x + t.width, cy), c), eye);
+            CHECK(l > 0 && near(l, rr, 1e-5f * r));
+        }
+    };
+    const FRect tiles[] = {centred, tile, {1300.5f, 700.25f, 512.3f, 288.7f}, {0, 0, 300, 200}, {1700, 1100, 220, 100},
+                           {-1960, 60, 1920, 1080}, {3900.75f, -400.5f, 640, 360}};
+    const float pi = float(M_PI);
+    const Placement placements[] = {{}, {pi, 0, 1, 0}, {-pi, 0, 1, 0}, {half_pi, 0, 1, 0}, {-2.2f, 0, 1, 0},
+                                    {0, half_pi, 1, 0}, {0, -half_pi, 1, 0}, {0, 0.7f, 1, 0}, {pi, half_pi, 1, 0},
+                                    {-0.7f, 0.3f, 1.6f, 1.f}, {2.9f, -1.2f, 0.5f, 2 * pi / 3}, {0.05f, -0.02f, 1.37f, 0.3f},
+                                    {-pi, -0.6f, 2.f, 0}, {1.f, 1.4f, 0.75f, half_pi}};
+    for (const FRect& t : tiles) for (const Placement& p : placements) check_facing(t, p);
+    // An off-centre desktop at its slot already faces you: its centre stays where the plane put it (the same direction
+    // and distance) and it turns toward you about it. This one is left of centre and a little up, so in depth its left
+    // edge comes forward and its right edge goes back, and it tips to face down at you (top forward, bottom back).
+    const Vec3 c0 = place_point(cv, tile, {}, 720, 570);
     CHECK(close3(c0, plane(720, 570)));
-    const Vec3 c1 = place_point(cv, tile, curved, 720.01f, 570);
-    CHECK(near((c1.x - c0.x) / (0.01f * px_world), 1, 1e-2f) && near(c1.z - c0.z, 0, 1e-6f));  // tangent along +x
+    CHECK(place_point(cv, tile, {}, 240, 570).z > -1 && place_point(cv, tile, {}, 1200, 570).z < -1);
+    CHECK(place_point(cv, tile, {}, 720, 300).z > -1 && place_point(cv, tile, {}, 720, 840).z < -1);
+    CHECK(!close3(place_point(cv, tile, {}, 240, 300), plane(240, 300), 1e-3f));  // so no longer on the canvas plane
+    // Curvature zero is flat; any curvature keeps the centre and its tangent frame in place.
+    Placement curved; curved.curvature = half_pi;
+    const Vec3 k0 = place_point(cv, centred, curved, 960, 600);
+    CHECK(close3(k0, plane(960, 600)));
+    const Vec3 k1 = place_point(cv, centred, curved, 960.01f, 600);
+    CHECK(near((k1.x - k0.x) / (0.01f * px_world), 1, 1e-2f) && near(k1.z - k0.z, 0, 1e-6f));  // tangent along +x
+    CHECK(close3(place_point(cv, tile, curved, 720, 570), c0));  // off-centre too
     // Edges bend toward the viewer symmetrically, aspect not stretched: arc length == flat width, height unchanged.
-    const Vec3 left = place_point(cv, tile, curved, 240, 570), right = place_point(cv, tile, curved, 1200, 570);
-    CHECK(left.z > -1 && near(left.z, right.z, 1e-6f) && near(left.x - c0.x, -(right.x - c0.x), 1e-6f));
+    const Vec3 left = place_point(cv, centred, curved, 480, 600), right = place_point(cv, centred, curved, 1440, 600);
+    CHECK(left.z > -1 && near(left.z, right.z, 1e-6f) && near(left.x - k0.x, -(right.x - k0.x), 1e-6f));
     const float tw = 960 * px_world;
     CHECK(near(right.x - left.x, 2 * (tw / half_pi) * std::sin(half_pi / 2), 1e-5f));  // chord of a 90 degree arc
-    auto mesh = tile_mesh(cv, tile, curved, tile);
-    CHECK(mesh.size() > 4 && mesh.size() % 2 == 0);
-    float arc = 0;
-    for (std::size_t i = 2; i < mesh.size(); i += 2) arc += dist(mesh[i].world, mesh[i - 2].world);
-    CHECK(near(arc, tw, tw * 2e-3f));
-    CHECK(near(dist(mesh[0].world, mesh[1].world), 540 * px_world, 1e-5f));  // vertical edges stay straight and full height
-    for (std::size_t i = 2; i < mesh.size(); i += 2) CHECK(mesh[i].u > mesh[i - 2].u);  // texture runs monotonically along the arc
+    for (const FRect& t : {centred, tile}) {
+        auto mesh = tile_mesh(cv, t, curved, t);
+        CHECK(mesh.size() > 4 && mesh.size() % 2 == 0);
+        float arc = 0;
+        for (std::size_t i = 2; i < mesh.size(); i += 2) arc += dist(mesh[i].world, mesh[i - 2].world);
+        CHECK(near(arc, tw, tw * 2e-3f));
+        CHECK(near(dist(mesh[0].world, mesh[1].world), 540 * px_world, 1e-5f));  // vertical edges stay straight and full height
+        for (std::size_t i = 2; i < mesh.size(); i += 2) CHECK(mesh[i].u > mesh[i - 2].u);  // texture runs monotonically along the arc
+    }
     // A frame/halo rect past the tile continues on the same cylinder.
-    const Vec3 beyond = place_point(cv, tile, curved, 1240, 570);
+    const Vec3 beyond = place_point(cv, centred, curved, 1480, 600);
     CHECK(beyond.z > right.z && beyond.x > right.x);
-    // Position: offsets are fractions of the desktop's own size; the centre moves, the shape does not.
-    Placement moved; moved.x = 0.5f; moved.y = -0.25f;
-    const Vec3 m0 = place_point(cv, tile, moved, 720, 570);
-    CHECK(close3(m0, Vec3{c0.x + 0.5f * tw, c0.y - 0.25f * 540 * px_world, -1}));
-    CHECK(near(dist(place_point(cv, tile, moved, 240, 300), place_point(cv, tile, moved, 1200, 840)),
-               dist(plane(240, 300), plane(1200, 840)), 1e-5f));
+    // Position: x / y orbit the desktop round the eye (a rigid rotation about it): x turns it round you about the
+    // vertical, y lifts it along its own meridian; the shape and the distance never change.
+    const float a0 = azimuth(c0);  // the slot's own azimuth (this tile is left of centre)
+    CHECK(a0 < 0);
+    Placement round; round.x = half_pi;  // a quarter turn to the right
+    const Vec3 r0 = place_point(cv, tile, round, 720, 570);
+    CHECK(near(azimuth(r0), a0 + half_pi, 1e-5f) && near(r0.y, c0.y, 1e-6f) && near(len(r0), len(c0), 1e-6f));
+    CHECK(near(dist(place_point(cv, tile, round, 240, 300), place_point(cv, tile, round, 1200, 840)), tile_diagonal, 1e-5f));
+    // It keeps facing you as at its slot: the angle between the view ray and the desktop's edges is unchanged.
+    auto angle = [&](Vec3 a, Vec3 b) { return std::acos(std::clamp(dot(a, b) / (len(a) * len(b)), -1.f, 1.f)); };
+    CHECK(near(angle(r0, place_point(cv, tile, round, 240, 570)), angle(c0, place_point(cv, tile, {}, 240, 570)), 1e-5f));
+    Placement behind; behind.x = pi;  // directly behind you, whatever the slot
+    CHECK(near(std::fabs(azimuth(place_point(cv, tile, behind, 720, 570))), pi - std::fabs(a0), 1e-5f) &&
+          place_point(cv, tile, behind, 720, 570).z > 0);
+    Placement lifted; lifted.y = pi / 4;  // up along its own meridian
+    const Vec3 l0 = place_point(cv, tile, lifted, 720, 570);
+    CHECK(near(elevation(l0), elevation(c0) + pi / 4, 1e-5f) && near(azimuth(l0), a0, 1e-5f) && near(len(l0), len(c0), 1e-6f));
+    Placement overhead; overhead.y = half_pi - elevation(c0);  // straight up: still facing you (down at you), still level
+    const Vec3 o0 = place_point(cv, tile, overhead, 720, 570);
+    CHECK(near(o0.x, 0, 1e-5f) && near(o0.z, 0, 1e-5f) && near(o0.y, len(c0), 1e-5f));
+    Placement both{-0.7f, 0.3f, 1, 1.f};  // the orbit is a rigid rotation about the eye of the whole (curved) desktop
+    const Placement unmoved{0, 0, 1, 1.f};
+    for (float px : {240.f, 720.f, 1200.f}) {
+        const Vec3 a = place_point(cv, tile, unmoved, px, 300), b = place_point(cv, tile, both, px, 300);
+        CHECK(near(len(a), len(b), 1e-5f));
+        CHECK(near(dist(a, place_point(cv, tile, unmoved, 1200 - (px - 240), 840)), dist(b, place_point(cv, tile, both, 1200 - (px - 240), 840)), 1e-5f));
+    }
     // Distance: twice as far along the same direction, same physical size -> half the apparent size.
     Placement far; far.distance = 2;
-    const Vec3 f0 = place_point(cv, tile, far, 720, 570), fr = place_point(cv, tile, far, 1200, 570);
+    const Vec3 f0 = place_point(cv, tile, far, 720, 570);
     CHECK(close3(f0, Vec3{2 * c0.x, 2 * c0.y, -2}));
-    CHECK(near((fr.x / -fr.z) - (f0.x / -f0.z), 0.5f * ((plane(1200, 570).x) - c0.x), 1e-5f));
-    // Yaw > 0 faces right: the left edge comes toward you, the right edge goes away; size is preserved.
-    Placement yawed; yawed.yaw = float(M_PI) / 6;
-    const Vec3 yl = place_point(cv, tile, yawed, 240, 570), yr = place_point(cv, tile, yawed, 1200, 570);
-    CHECK(yl.z > -1 && yr.z < -1 && near(dist(yl, yr), tw, 1e-5f) && close3(place_point(cv, tile, yawed, 720, 570), c0));
-    // Pitch > 0 tilts the top edge toward you.
-    Placement pitched; pitched.pitch = float(M_PI) / 8;
-    CHECK(place_point(cv, tile, pitched, 720, 300).z > -1 && place_point(cv, tile, pitched, 720, 840).z < -1);
-    // Roll > 0 is counter-clockwise: the right edge rises; still in the plane.
-    Placement rolled; rolled.roll = float(M_PI) / 12;
-    const Vec3 rr = place_point(cv, tile, rolled, 1200, 570);
-    CHECK(rr.y > c0.y && near(rr.z, -1, 1e-6f) && near(dist(rr, c0), tw / 2, 1e-5f));
-    // Combined placement: every corner keeps its distance from the centre (rigid motion).
-    Placement all{0.2f, 0.1f, 1.3f, 0.4f, -0.2f, 0.1f, 0};
-    const Vec3 ac = place_point(cv, tile, all, 720, 570);
-    CHECK(near(dist(place_point(cv, tile, all, 240, 300), ac), dist(plane(240, 300), c0), 1e-5f));
+    CHECK(near(dist(place_point(cv, tile, far, 240, 300), place_point(cv, tile, far, 1200, 840)), tile_diagonal, 1e-5f));
+    const Vec3 g0 = place_point(cv, centred, far, 960, 600), gr = place_point(cv, centred, far, 1440, 600);
+    CHECK(close3(g0, Vec3{0, 0, -2}) && near(gr.z, -2, 1e-6f));
+    CHECK(near((gr.x / -gr.z) - (g0.x / -g0.z), 0.5f * (plane(1440, 600).x - plane(960, 600).x), 1e-6f));
     // Zooming into a desktop fades its placement to flat-in-front, keeping curvature; neighbours unaffected.
     CHECK(near(zoom_weight(1, 1, 1), 1, 1e-6f) && near(zoom_weight(1, 1, 0), 0, 1e-6f) && near(zoom_weight(0, 1, 1), 0, 1e-6f));
     CHECK(near(zoom_weight(1, 1.25f, 1), 0.75f, 1e-6f) && near(zoom_weight(0.5f, 1, 1), 0.5f, 1e-6f));
-    Placement mixed{0.4f, -0.2f, 1.6f, 0.3f, 0.2f, -0.1f, 1.f};
+    Placement mixed{0.4f, -0.2f, 1.6f, 1.f};
     const Placement gone = faded(mixed, 1), half = faded(mixed, 0.5f), kept = faded(mixed, 0);
-    CHECK(gone.x == 0 && gone.y == 0 && gone.distance == 1 && gone.yaw == 0 && gone.pitch == 0 && gone.roll == 0 && gone.curvature == 1.f);
-    CHECK(near(half.x, 0.2f, 1e-6f) && near(half.distance, 1.3f, 1e-6f) && near(half.yaw, 0.15f, 1e-6f) && half.curvature == 1.f);
-    CHECK(kept.x == mixed.x && kept.distance == mixed.distance && kept.roll == mixed.roll);
+    CHECK(gone.x == 0 && gone.y == 0 && gone.distance == 1 && gone.curvature == 1.f);
+    CHECK(near(half.x, 0.2f, 1e-6f) && near(half.y, -0.1f, 1e-6f) && near(half.distance, 1.3f, 1e-6f) && half.curvature == 1.f);
+    CHECK(same_placement(kept, mixed));
+    // Drawn while zooming: the zoomed desktop fades as above; every orbit fades out with the zoom, so the neighbours are back
+    // at their row slots while zoomed (still facing you), keeping their distance and curvature.
+    {
+        Placement orbiting{2.5f, -0.6f, 1.6f, 1.f};
+        for (std::size_t i : {0u, 1u, 2u}) CHECK(same_placement(zoomed_placement(orbiting, 0, 1, i), orbiting));  // overview: unchanged
+        CHECK(same_placement(zoomed_placement(orbiting, -0.5f, 1, 1), orbiting));                                // clamped
+        const Placement in_front = zoomed_placement(orbiting, 1, 1, 1);
+        CHECK(same_placement(in_front, faded(orbiting, 1)) && in_front.x == 0 && in_front.y == 0 && in_front.distance == 1 &&
+              in_front.curvature == 1.f);
+        // The zoomed desktop is centred, so it comes flat in front of you: the canvas plane itself when flat.
+        const auto zl = zoomed_layout(eq, 1920, 1200, 40, 1);
+        Placement flat_orbit = orbiting; flat_orbit.curvature = 0;
+        const Placement zoomed_flat = zoomed_placement(flat_orbit, 1, 1, 1);
+        for (float px : {0.f, 960.f, 1920.f, 1960.f}) for (float py : {60.f, 600.f, 1140.f})
+            CHECK(close3(place_point(cv, zl[1], zoomed_flat, px, py), plane(px, py), 1e-6f));
+        check_facing(zl[1], in_front);
+        CHECK(close3(place_point(cv, zl[1], in_front, 960, 600), Vec3{0, 0, -1}, 0));
+        for (std::size_t i : {0u, 2u}) {
+            const Placement beside = zoomed_placement(orbiting, 1, 1, i);
+            CHECK(beside.x == 0 && beside.y == 0 && beside.distance == orbiting.distance && beside.curvature == orbiting.curvature);
+            CHECK(close3(place_point(cv, tile, beside, 240, 300), place_point(cv, tile, Placement{0, 0, 1.6f, 1.f}, 240, 300)));
+            check_facing(zl[i], beside);
+        }
+        CHECK(same_placement(zoomed_placement(orbiting, 2, 1, 0), zoomed_placement(orbiting, 1, 1, 0)));  // clamped
+        const Placement half_beside = zoomed_placement(orbiting, 0.5f, 1, 0), half_front = zoomed_placement(orbiting, 0.5f, 1, 1);
+        CHECK(near(half_beside.x, 1.25f, 1e-6f) && near(half_beside.y, -0.3f, 1e-6f) && half_beside.distance == orbiting.distance &&
+              half_beside.curvature == orbiting.curvature);
+        // The zoomed one: halfway flat (weight 0.5), and its orbit halved again by the zoom.
+        CHECK(near(half_front.x, 0.625f, 1e-6f) && near(half_front.y, -0.15f, 1e-6f) && near(half_front.distance, 1.3f, 1e-6f) &&
+              half_front.curvature == 1.f);
+        // Between two desktops (position 1.5): each is half-zoomed toward flat, both orbits gone at full zoom.
+        const Placement between = zoomed_placement(orbiting, 1, 1.5f, 2);
+        CHECK(between.x == 0 && between.y == 0 && near(between.distance, 1.3f, 1e-6f) && between.curvature == 1.f);
+    }
+    // The orbit's x eases the short way round: a desktop crossing behind you (+-pi) stays behind you.
+    Placement from_behind; from_behind.x = 3.1f;
+    Placement to_behind; to_behind.x = -3.1f;
+    const Placement mid = ease_toward(from_behind, to_behind, kPlacementEaseMs, kPlacementEaseMs);
+    CHECK(mid.x < -3.1f && mid.x > -3.1f - 0.1f);  // past -pi from below: the 0.08 rad gap, not the 6.2 rad way round
+    CHECK(place_point(cv, tile, mid, 720, 570).z > 0);
+    CHECK(ease_toward(from_behind, to_behind, 100 * kPlacementEaseMs, kPlacementEaseMs).x == -3.1f);  // lands exactly
+    Placement near_front; near_front.x = 0.3f;
+    CHECK(near(ease_toward(near_front, {}, kPlacementEaseMs, kPlacementEaseMs).x, 0.3f * std::exp(-1.f), 1e-6f));  // as before
+    {  // Every field eases (and lands); same_placement compares all four.
+        const Placement to{-0.4f, 0.2f, 1.5f, 0.8f};
+        const Placement e = ease_toward({}, to, kPlacementEaseMs, kPlacementEaseMs);
+        const float k = 1 - std::exp(-1.f);
+        CHECK(near(e.x, -0.4f * k, 1e-6f) && near(e.y, 0.2f * k, 1e-6f) && near(e.distance, 1 + 0.5f * k, 1e-6f) && near(e.curvature, 0.8f * k, 1e-6f));
+        CHECK(same_placement(ease_toward(e, to, 1e9f, kPlacementEaseMs), to));
+        for (int f = 0; f < 4; ++f) {
+            Placement other = to;
+            (f == 0 ? other.x : f == 1 ? other.y : f == 2 ? other.distance : other.curvature) += 0.01f;
+            CHECK(!same_placement(other, to));
+        }
+    }
     // Draw order: farthest first; equal-distance ties keep layout order; missing placements are flat.
     const FRect row3[] = {{0, 330, 600, 540}, {660, 330, 600, 540}, {1320, 330, 600, 540}};
-    const Placement pushed[] = {{}, {0, 0, 1.8f, 0, 0, 0, 0}};
+    const Placement pushed[] = {{}, {0, 0, 1.8f, 0}};
     auto order = draw_order(cv, row3, pushed);
     CHECK(order.size() == 3 && order[0] == 1);
     const FRect same[] = {{660, 330, 600, 540}, {660, 330, 600, 540}};
@@ -200,8 +323,9 @@ int main() {
     CHECK(tied[0] == 0 && tied[1] == 1);
     // Degenerate input yields nothing rather than NaNs.
     CHECK(tile_mesh(cv, {0, 0, 0, 10}, {}, tile).empty() && tile_mesh(cv, tile, {}, {0, 0, 0, 0}).empty());
-    for (const auto& m : tile_mesh(cv, tile, Placement{0, 0, 1, 0, 0, 0, float(M_PI) * 2 / 3}, {190, 250, 1060, 640}))
+    for (const auto& m : tile_mesh(cv, tile, Placement{0, 0, 1, float(M_PI) * 2 / 3}, {190, 250, 1060, 640}))
         CHECK(std::isfinite(m.world.x) && std::isfinite(m.world.y) && std::isfinite(m.world.z) && m.world.z < 0);
+    CHECK(close3(place_point(cv, centred, Placement{0, 0, 0, 0}, 480, 330), plane(480, 330), 1e-6f));  // distance <= 0 reads as 1
     }
     std::cout << "view layout passed\n";
 }

@@ -13,7 +13,8 @@ import time
 import unittest
 from unittest import mock
 
-from tools.native_spike import bind_check, free_pointer as fp, input_lock as il, resize, view, xr_control
+from tools.native_spike import bind_check, free_pointer as fp, input_lock as il, orbit, resize, view, xr_control
+from tools.native_spike.geometry import DEFAULT_PLACEMENT
 from tools.native_spike.profiles import LayoutStore
 
 from test_free_pointer import BIND_ARGS, G, GAIN, MONITORS, NAMES, OUTPUTS, T0, T1, X1, X2, X3, FakeClient, PointerBase, last
@@ -57,7 +58,8 @@ class CaptureTests(LockBase):
     def test_no_edge_is_needed_and_the_held_cursor_stays_clear_of_every_edge(self):
         self.at(X1 + 700, 0)
         self.assertEqual(self.p.want[1:], ('free', (X1 + 700, il.PARK_MARGIN_PX)))
-        self.assertAlmostEqual(self.p.pointer[1], T0[1], places=2)  # the dot starts where the cursor was
+        top = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + 700 / 1920 * T0[2], T0[1])  # XR-1 faces you: turned, not flat
+        self.assertAlmostEqual(self.p.pointer[1], top[1], places=2)  # the dot starts where the cursor was
         o, m = OUTPUTS[0], il.PARK_MARGIN_PX
         self.assertEqual(il.park_point(o, (X1, 0)), (X1 + m, m))
         self.assertEqual(il.park_point(o, (X1 + 1919, 1079)), (X1 + 1919 - m, 1079 - m))
@@ -129,9 +131,10 @@ class LockTests(LockBase):
         self.assertTrue(self.control.state.menu_open); self.assertEqual(self.control.state.menu_desktop, 0)
         self.op('menu_back')
         self.on_pill(0); self.op('resize_press')
-        self.move_canvas(T0[2] * 0.2, -T0[3] * 0.5)
+        self.move_canvas(0, -T0[3] * 1.3); self.move_canvas(T0[2] * 0.2, 0)  # lifted clear of XR-2 (no overlap), then right
+        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)  # the turn round you it asks for
         self.op('resize_release')
-        self.assertEqual((self.store.saved[0]['x'], self.store.saved[0]['y']), (20, 50))
+        self.assertEqual((self.store.saved[0]['x'], self.store.saved[0]['y']), want)
         corner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2], T0[1])  # the moved desktop's top right
         self.move_canvas(corner[0] + 4 - self.p.pointer[0], corner[1] - 4 - self.p.pointer[1])
         self.assertEqual(self.p.hover, ('corner', 0, 'tr'))

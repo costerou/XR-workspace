@@ -1,7 +1,7 @@
 #pragma once
-// Glass pills: a frosted-glass capsule under each XR desktop in the overview, on that desktop's own surface (a tilted or
-// curved desktop tilts and curves its pill). Dragging a pill moves its desktop; clicking it (or Ctrl+Alt+L for the
-// selected desktop) expands it, with a smooth morph, into that desktop's placement panel: the seven placement sliders,
+// Glass pills: a frosted-glass capsule under each XR desktop in the overview, on that desktop's own surface (it faces you
+// with its desktop, and a curved desktop curves its pill). Dragging a pill moves its desktop; clicking it (or Ctrl+Alt+L for
+// the selected desktop) expands it, with a smooth morph, into that desktop's placement panel: the four placement sliders,
 // the selected one highlighted. Only one panel is open at a time. The supervisor owns the state (ipc.hpp
 // PlacementMenuPayload: open + desktop = the expanded pill) and the hit testing (tools/native_spike/free_pointer.py,
 // which mirrors every geometry constant here; a contract test compares them). Pure and offline-testable, except the
@@ -25,7 +25,7 @@ namespace xr {
 constexpr float kGlassPillShare = 0.24f, kGlassPillMinW = 64.f, kGlassPillMaxW = 160.f, kGlassPillH = 14.f, kGlassPillGap = 10.f;
 FRect glass_pill(const FRect& tile);
 // Expanded panel: kPanelW x kPanelH, centred under the desktop, its top where the pill's top is.
-constexpr float kPanelW = 480.f, kPanelH = 322.f, kPanelRadius = 18.f;
+constexpr float kPanelW = 480.f, kPanelH = 220.f, kPanelRadius = 18.f;
 FRect glass_panel(const FRect& tile);
 // The shape `t` (eased 0..1) of the way from pill to panel, and its corner radius (the pill is fully rounded).
 FRect glass_morph(const FRect& tile, float t);
@@ -36,11 +36,12 @@ float glass_radius(const FRect& tile, float t);
 constexpr float kPanelHeaderH = 42.f, kPanelRowsTop = 46.f, kPanelRowH = 34.f, kPanelPad = 22.f;
 constexpr float kPanelTrackX0 = 184.f, kPanelTrackX1 = 374.f, kPanelKnobR = 7.f;
 constexpr float kPanelKnobLo = kPanelTrackX0 + kPanelKnobR, kPanelKnobHi = kPanelTrackX1 - kPanelKnobR;
-constexpr float kPanelFooterTop = kPanelRowsTop + 7 * kPanelRowH + 8.f;
+constexpr float kPanelFooterTop = kPanelRowsTop + float(kPlacementMenuFields) * kPanelRowH + 8.f;  // 190
 constexpr std::uint32_t kPanelTextPx = 24, kPanelHintPx = 18;  // em sizes with the system font
 // A small grabber capsule at the top centre of an open panel (where the pill was).
 constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
+static_assert(kPanelH == kPanelFooterTop + 30.f, "the panel ends 30 px below its footer's top (free_pointer.py PANEL_H)");
 
 // --- Look ----------------------------------------------------------------------------------------------------------
 // Pill states: brightness of the gloss, hairline and tint. Hover = the pointer is on the pill (or the open panel's
@@ -94,7 +95,8 @@ struct GlassFrame {
     // the knob stays under the pointer. Empty: the panel rides on its desktop's live placement.
     int surface_desktop = -1; std::optional<Placement> surface;
 };
-// Renderer placement from wire units (ipc.hpp WirePlacement: percent, degrees): what set_placements applies.
+// Renderer placement from wire units (ipc.hpp WirePlacement: x / y the orbit round you in tenths of a degree, distance in
+// percent, curvature in degrees) to radians and a distance factor: what set_placements applies.
 Placement placement_from_wire(const MenuPlacement& wire);
 // The glass draw order: `back_to_front` (view.hpp draw_order) with desktop `top` moved last (drawn over the others).
 std::vector<std::size_t> glass_draw_order(std::vector<std::size_t> back_to_front, int top);

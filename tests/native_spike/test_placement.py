@@ -1,4 +1,4 @@
-"""Per-desktop placement (position, distance, yaw/pitch/roll, curvature): rules, profile storage, wire, live path.
+"""Per-desktop placement (position round you, distance, curvature): rules, profile storage, wire, live path.
 
 Offline only: no compositor, renderer binary or glasses. Placement rendering is covered by spike/tests/view_test.cpp.
 """
@@ -18,7 +18,7 @@ from tools.native_spike.ipc import decode_control, PrivateServer
 
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = ['XR-1', 'XR-2', 'XR-3']
-TILTED = {'x': -20, 'y': 10, 'distance': 120, 'yaw': 25, 'pitch': -5, 'roll': 3, 'curvature': 40}
+TILTED = {'x': -20, 'y': 10, 'distance': 120, 'curvature': 40}
 
 
 def frame(op, payload, request_id=5):
@@ -41,7 +41,7 @@ class PlacementRuleTests(unittest.TestCase):
                     g.validate_placement({**g.DEFAULT_PLACEMENT, key: v})
 
     def test_exact_keys(self):
-        for bad in ({**g.DEFAULT_PLACEMENT, 'z': 0}, {k: v for k, v in g.DEFAULT_PLACEMENT.items() if k != 'roll'}, [], None):
+        for bad in ({**g.DEFAULT_PLACEMENT, 'z': 0}, {k: v for k, v in g.DEFAULT_PLACEMENT.items() if k != 'curvature'}, [], None):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 g.validate_placement(bad)
 
@@ -80,8 +80,22 @@ class PlacementProfileTests(unittest.TestCase):
         p = profiles.load_profile(self.path, 'beast')
         self.assertEqual((p['spacing'], p['placements']), (80, [g.DEFAULT_PLACEMENT] * 3))
 
+    def test_a_profile_saved_with_the_removed_facing_settings_keeps_the_rest(self):
+        # The user's real profile had yaw +-30 and distance 102: the facing settings are gone (every desktop faces you),
+        # position, distance and curvature are kept, and the next save writes the four fields only.
+        old = [{**TILTED, 'yaw': 30, 'pitch': 0, 'roll': 0}, {**g.DEFAULT_PLACEMENT, 'distance': 102, 'yaw': -30, 'pitch': 5, 'roll': 2},
+               {**TILTED, 'yaw': 999, 'pitch': 0, 'roll': 0}]  # an out-of-range removed setting does not matter any more
+        self.write({'luma-ultra': {**profiles.DEFAULT_PROFILE, 'placements': old}})
+        loaded = profiles.load_profile(self.path, 'luma-ultra')['placements']
+        self.assertEqual(loaded, [TILTED, {**g.DEFAULT_PLACEMENT, 'distance': 102}, TILTED])
+        profiles.PlacementStore(self.path, 'luma-ultra').save(loaded)
+        saved = json.loads(self.path.read_text())['profiles']['luma-ultra']['placements']
+        self.assertTrue(all(set(q) == set(g.PLACEMENT_KEYS) for q in saved))
+        self.assertEqual(g.legacy_placement({**TILTED, 'yaw': 1}), {**TILTED, 'yaw': 1})  # not the old shape: left to validation
+        with self.assertRaises(ValueError): g.validate_placement({**TILTED, 'yaw': 0, 'pitch': 0, 'roll': 0})  # never on the wire
+
     def test_invalid_placement_falls_back_alone(self):
-        self.write({'beast': {**profiles.DEFAULT_PROFILE, 'placements': [TILTED, {**TILTED, 'yaw': 999}, TILTED]}})
+        self.write({'beast': {**profiles.DEFAULT_PROFILE, 'placements': [TILTED, {**TILTED, 'curvature': 999}, TILTED]}})
         self.assertEqual(profiles.load_profile(self.path, 'beast')['placements'], [TILTED, g.DEFAULT_PLACEMENT, TILTED])
 
     def test_saved_per_glasses_model(self):
@@ -113,7 +127,7 @@ class PlacementWireTests(unittest.TestCase):
 
     def test_control_socket_rejects_bad_placements(self):
         for payload in ({}, {'desktops': []}, {'desktops': [TILTED] * 4}, {'desktops': [TILTED], 'extra': 1},
-                        {'desktops': [{**TILTED, 'pitch': 46}]}, {'desktops': [{**TILTED, 'x': 1.5}]}, {'desktops': TILTED}):
+                        {'desktops': [{**TILTED, 'distance': 201}]}, {'desktops': [{**TILTED, 'x': 1.5}]}, {'desktops': TILTED}):
             with self.subTest(payload=payload), self.assertRaises(ValueError):
                 decode_control(frame('placement', payload))
 
@@ -122,7 +136,7 @@ class PlacementWireTests(unittest.TestCase):
         self.assertTrue(raw.endswith(b'\n'))
         self.assertEqual(json.loads(raw), {'schema': 1, 'request_id': 9, 'run_id': 'run', 'session': 'session', 'op': 'placement',
                                            'payload': {'desktops': [TILTED]}})
-        with self.assertRaises(ValueError): view.placement_frame('run', 'session', 9, [{**TILTED, 'roll': 90}])
+        with self.assertRaises(ValueError): view.placement_frame('run', 'session', 9, [{**TILTED, 'curvature': 121}])
 
 
 class MemoryStore:
@@ -158,7 +172,7 @@ class PlacementControlTests(unittest.TestCase):
     def test_invalid_live_placement_ignored(self):
         store = MemoryStore()
         c = self.control(store=store)
-        for payload in ({'desktops': [TILTED] * 2}, {'desktops': [{**TILTED, 'yaw': 61}] * 3}, None, {'desktops': 'x'}):
+        for payload in ({'desktops': [TILTED] * 2}, {'desktops': [{**TILTED, 'distance': 49}] * 3}, None, {'desktops': 'x'}):
             with self.subTest(payload=payload):
                 self.assertIsNone(c.on_message({'op': 'placement', 'payload': payload}))
         self.assertEqual((store.saved, c.state.placements), ([], [g.DEFAULT_PLACEMENT] * 3))

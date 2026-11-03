@@ -110,11 +110,12 @@ int main() {
     // Pill geometry and look: glass_test (the pills are glass.hpp glass_pill, under each desktop).
     // Placement easing: frame-rate independent, converges, lands exactly, no time = no change, no overshoot.
     {
-        const Placement from{0, 0, 1, 0, 0, 0, 0}, to{0.3f, -0.2f, 0.6f, 0.1f, 0, 0, 0.5f};
+        const Placement from{0, 0, 1, 0}, to{0.3f, -0.2f, 0.6f, 0.5f};
         CHECK(same_placement(ease_toward(from, to, 1e9f, kPlacementEaseMs), to));
         CHECK(same_placement(ease_toward(from, to, 0, kPlacementEaseMs), from));
         const Placement half = ease_toward(from, to, kPlacementEaseMs, kPlacementEaseMs);
-        CHECK(half.x > 0 && half.x < to.x && half.distance < 1 && half.distance > to.distance);
+        CHECK(half.x > 0 && half.x < to.x && half.distance < 1 && half.distance > to.distance && half.y < 0 && half.y > to.y &&
+              half.curvature > 0 && half.curvature < to.curvature);
         Placement a = from, b = from;
         for (int i = 0; i < 8; ++i) a = ease_toward(a, to, 4.f, kPlacementEaseMs);  // 8 x 4 ms
         for (int i = 0; i < 2; ++i) b = ease_toward(b, to, 16.f, kPlacementEaseMs); // 2 x 16 ms

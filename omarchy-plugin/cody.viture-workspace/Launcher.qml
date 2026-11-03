@@ -30,7 +30,7 @@ ColumnLayout {
                 id:tile
                 required property var modelData
                 required property int index
-                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height; rotation:modelData.rotation
+                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
                 color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.selected===index ? Commons.Color.accent : Commons.Color.muted
                 Label { anchors.centerIn:parent; text:"XR-"+(tile.index+1)+"\n"+root.settings.desktops[tile.index].width+"×"+root.settings.desktops[tile.index].height+"\n"+root.settings.desktops[tile.index].scale*100+"%"; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11 }
                 MouseArea { anchors.fill:parent; onClicked:root.selected=tile.index }

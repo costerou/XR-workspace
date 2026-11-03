@@ -1,7 +1,8 @@
 """Per-glasses profiles: view settings plus per-desktop geometry and placement, tracking, mode switch and fallback output.
 
-`desktops` (pixels/scale) feed consent and the broker; `placements` (position, distance, rotation, curvature) are
-presentation-only and can change during a run. Profiles saved before placements existed load with flat defaults.
+`desktops` (pixels/scale) feed consent and the broker; `placements` (position round you, distance, curvature) are
+presentation-only and can change during a run. Profiles saved before placements existed load with flat defaults; those
+saved with the removed yaw / pitch / roll settings keep everything else (geometry.legacy_placement).
 """
 import json
 import os
@@ -9,7 +10,7 @@ from pathlib import Path
 import tempfile
 
 from . import view
-from .geometry import DEFAULT_DESKTOP, DEFAULT_PLACEMENT, validate_desktop, validate_placement, validate_placements
+from .geometry import DEFAULT_DESKTOP, DEFAULT_PLACEMENT, legacy_placement, validate_desktop, validate_placement, validate_placements
 from .ipc import token
 
 MODELS = ('beast', 'luma-ultra', 'unknown')
@@ -41,7 +42,7 @@ def _desktop(value):
 
 
 def _placement(value):
-    try: return validate_placement(value)
+    try: return validate_placement(legacy_placement(value))  # saved with yaw / pitch / roll: kept without them
     except ValueError: return dict(DEFAULT_PLACEMENT)
 
 

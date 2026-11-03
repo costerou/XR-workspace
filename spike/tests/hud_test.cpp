@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 #include <stdexcept>
+#include <type_traits>
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(#x); } while (0)
 using namespace xr;
 
@@ -149,30 +150,43 @@ int main() {
     CHECK(h.shown_count() == 2 && h.hidden_count() == 2 && !h.visible());
     CHECK(h.set(true, {rows[0]}, 7000) && h.generation() == 2);  // new rows: new card
 
-    // Placement menu rows: friendly labels and hints, signed values with units, the selected field
-    // highlighted, values from the selected desktop; ASCII units for the pixel font.
+    // Placement menu rows: four settings (every desktop always faces you: no yaw / pitch / roll), friendly labels, signed
+    // values with units, the selected field highlighted, values from the selected desktop; ASCII units for the pixel font.
+    static_assert(kPlacementMenuFields == 4 && std::tuple_size_v<MenuPlacement> == 4);
     PlacementMenuState ms;
     ms.open = true; ms.desktop = 1; ms.field = 3;
-    ms.placements[0] = {0, 0, 100, 0, 0, 0, 0};
-    ms.placements[1] = {12, -7, 150, -30, 45, 0, 90};
-    ms.placements[2] = {-100, 100, 200, 60, -45, -45, 120};
+    ms.placements[0] = {0, 0, 100, 0};
+    ms.placements[1] = {125, -70, 150, 90};
+    ms.placements[2] = {-1800, 900, 200, 120};
     auto mr = placement_menu_rows(ms, false);
     CHECK(mr.size() == kPlacementMenuFields);
-    CHECK(mr[0].label == "Left / right" && mr[1].label == "Down / up" && mr[2].label == "Distance" && mr[6].label == "Curvature");
-    CHECK(mr[3].label == "Yaw" && mr[3].hint == "turn left or right" && mr[4].label == "Pitch" && mr[4].hint == "tilt up or down" &&
-          mr[5].label == "Roll" && mr[5].hint == "tilt sideways");
-    CHECK(mr[0].value == "+12%" && mr[1].value == "-7%" && mr[2].value == "150%" && mr[3].value == "-30\xc2\xb0" &&
-          mr[4].value == "+45\xc2\xb0" && mr[5].value == "0\xc2\xb0" && mr[6].value == "90\xc2\xb0");
+    CHECK(mr[0].label == "Left / right" && mr[1].label == "Down / up" && mr[2].label == "Distance" && mr[3].label == "Curvature");
+    for (const auto& r : mr) CHECK(r.hint.empty());
+    // The orbit's x / y are tenths of a degree, shown as whole degrees rounded half away from zero (12.5 -> 13).
+    CHECK(mr[0].value == "+13\xc2\xb0" && mr[1].value == "-7\xc2\xb0" && mr[2].value == "150%" && mr[3].value == "90\xc2\xb0");
+    {
+        PlacementMenuState orbit = ms;
+        auto shown = [&](std::int32_t x, bool ascii_units) { orbit.placements[1][0] = x; return placement_menu_rows(orbit, ascii_units)[0].value; };
+        CHECK(shown(0, false) == "0\xc2\xb0" && shown(4, false) == "0\xc2\xb0" && shown(-4, false) == "0\xc2\xb0");  // no "+0" / "-0"
+        CHECK(shown(5, false) == "+1\xc2\xb0" && shown(-5, false) == "-1\xc2\xb0" && shown(-124, false) == "-12\xc2\xb0");
+        CHECK(shown(1795, false) == "+180\xc2\xb0" && shown(-1799, false) == "-180\xc2\xb0" && shown(1794, false) == "+179\xc2\xb0");
+        CHECK(shown(-1795, true) == "-180deg" && shown(4, true) == "0deg" && shown(15, true) == "+2deg");
+    }
     for (std::size_t i = 0; i < mr.size(); ++i) CHECK(mr[i].selected == (i == 3));
     auto ascii = placement_menu_rows(ms, true);
-    CHECK(ascii[3].value == "-30 deg" && ascii[0].value == "+12%");
+    CHECK(ascii[3].value == "90 deg" && ascii[2].value == "150%" && ascii[0].value == "+13deg" && ascii[1].value == "-7deg");  // the orbit: no space, to fit
     for (const auto& r : ascii) for (unsigned char c : r.label + r.hint + r.value) CHECK(c >= 0x20 && c < 0x7f);
-    ms.desktop = 2; CHECK(placement_menu_rows(ms, true)[0].value == "-100%" && placement_menu_rows(ms, true)[6].value == "120 deg");
-    ms.desktop = 9; CHECK(placement_menu_rows(ms, true)[0].value == "-100%");  // out of range: clamped, no crash
-    ms.field = 7; for (const auto& r : placement_menu_rows(ms, true)) CHECK(!r.selected);
+    ms.desktop = 2; CHECK(placement_menu_rows(ms, true)[0].value == "-180deg" && placement_menu_rows(ms, true)[3].value == "120 deg");
+    CHECK(placement_menu_rows(ms, false)[0].value == "-180\xc2\xb0" && placement_menu_rows(ms, false)[1].value == "+90\xc2\xb0" &&
+          placement_menu_rows(ms, false)[2].value == "200%" && placement_menu_rows(ms, false)[3].value == "120\xc2\xb0");
+    ms.desktop = 0;
+    CHECK(placement_menu_rows(ms, false)[2].value == "100%" && placement_menu_rows(ms, false)[3].value == "0\xc2\xb0");
+    ms.desktop = 9; CHECK(placement_menu_rows(ms, true)[0].value == "-180deg");  // out of range: clamped, no crash
+    ms.field = 4; for (const auto& r : placement_menu_rows(ms, true)) CHECK(!r.selected);  // past the last field: none
     ms.desktop = 1; ms.field = 3;
     const auto flat = placement_menu_flat();
-    CHECK((flat == MenuPlacement{0, 0, 100, 0, 0, 0, 0}));
+    CHECK((flat == MenuPlacement{0, 0, 100, 0}));
+
 
     // Image-retention protection. The help card stays well below full white everywhere (text, accent, border), with
     // the pixel font and with the installed font; the pop-ups keep their full brightness. (Placement panels: glass_test.)
@@ -206,9 +220,9 @@ int main() {
     // Slider bounds (the panel's sliders end at these) and the card origin GlHud centres the help card with.
     {
         const auto bounds = placement_menu_bounds();
-        CHECK(bounds[0] == std::make_pair(-100, 100) && bounds[1] == std::make_pair(-100, 100) && bounds[2] == std::make_pair(50, 200) &&
-              bounds[3] == std::make_pair(-60, 60) && bounds[4] == std::make_pair(-45, 45) && bounds[5] == std::make_pair(-45, 45) &&
-              bounds[6] == std::make_pair(0, 120));
+        static_assert(std::tuple_size_v<std::remove_const_t<decltype(bounds)>> == 4);  // x, y, distance, curvature: no yaw / pitch / roll
+        CHECK(bounds[0] == std::make_pair(-1800, 1800) && bounds[1] == std::make_pair(-900, 900) && bounds[2] == std::make_pair(50, 200) &&
+              bounds[3] == std::make_pair(0, 120));
         // Card origin: the formula GlHud draws centred cards with (bottom edge floor((H - h) / 2 - drop) from below).
         for (auto [W, H, w, h, drop] : {std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t, float>{1536, 960, 1229, 733, 0},
                                         {1536, 960, 1228, 734, 18}, {1536, 960, 1229, 733, 7.5f}, {1280, 720, 1212, 640, 3}}) {

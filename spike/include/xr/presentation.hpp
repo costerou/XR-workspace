@@ -74,9 +74,9 @@ public:
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);
     void recenter();
-    // Per-desktop placement in capture order, each {x, y, distance, yaw, pitch, roll, curvature} in the validated wire
-    // units of ipc.hpp WirePlacement; entries beyond the captured outputs are ignored. GPU composition only.
-    void set_placements(const std::vector<std::array<std::int32_t, 7>>& placements);
+    // Per-desktop placement in capture order, each {x, y, distance, curvature} in the validated wire units of ipc.hpp
+    // WirePlacement (every desktop always faces you); entries beyond the captured outputs are ignored. GPU composition only.
+    void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
     // VR video (docs/vr-video.md; capture runs with GPU composition only). While open the glasses show the head-tracked
     // video (world-locked to the recentre reference whatever the viewing mode) and its controls card instead of the
@@ -93,12 +93,12 @@ public:
                   const std::vector<std::uint32_t>& sections = {}, std::int32_t turn = 0);
     // Placement panel (display only; placements are applied by set_placements): with `open`, desktop `desktop`'s glass
     // pill expands into its placement panel (glass.hpp) and any other collapses; closed, every pill is a pill again.
-    // `desktop` 0..2, `field` 0..6 in WirePlacement order; `placements` for all three desktops in set_placements' units.
+    // `desktop` 0..2, `field` 0..3 in WirePlacement order; `placements` for all three desktops in set_placements' units.
     // `surface` (open only): while the supervisor holds one of the panel's sliders, the placement the panel is drawn on
     // (its desktop's at the press; the desktop itself follows set_placements). Empty: the desktop's live placement.
     void set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                            const std::array<std::array<std::int32_t, 7>, 3>& placements,
-                            const std::optional<std::array<std::int32_t, 7>>& surface = std::nullopt);
+                            const std::array<std::array<std::int32_t, 4>, 3>& placements,
+                            const std::optional<std::array<std::int32_t, 4>>& surface = std::nullopt);
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
     // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
     // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.

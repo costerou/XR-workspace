@@ -126,18 +126,23 @@ int main() {
                                   std::string(R"({"visible":true,"rows":[],"x":1})"),
                                   std::string(R"({"visible":true,"rows":[[")") + std::string(xr::kMaxHelpText + 1, 'a') + R"(","b"]]})", many})
         require(std::holds_alternative<xr::Error>(xr::decode_control(help(bad))));
-    // Per-desktop placement: absolute, 1..3 desktops, exact integer fields inside the mirrored bounds.
+    // Per-desktop placement: absolute, 1..3 desktops, exactly the four integer fields (x, y, distance, curvature) inside the
+    // mirrored bounds. The removed facing settings (yaw / pitch / roll) are rejected, alone or alongside the four.
     auto placement = [](const std::string& payload) {
         return std::string(R"({"schema":1,"request_id":10,"run_id":"run","session":"session","op":"placement","payload":)") + payload + "}\n";
     };
-    const std::string flat = R"({"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0})";
-    const std::string edge = R"({"x":-100,"y":100,"distance":200,"yaw":-60,"pitch":45,"roll":-45,"curvature":120})";
-    auto pd = xr::decode_control(placement(R"({"desktops":[)" + flat + "," + edge + "]}"));
+    const std::string flat = R"({"x":0,"y":0,"distance":100,"curvature":0})";
+    const std::string edge = R"({"x":-1800,"y":900,"distance":200,"curvature":120})";
+    const std::string low = R"({"x":1800,"y":-900,"distance":50,"curvature":0})";
+    auto pd = xr::decode_control(placement(R"({"desktops":[)" + flat + "," + edge + "," + low + "]}"));
     require(std::holds_alternative<xr::ControlMessage>(pd) && std::get<xr::ControlMessage>(pd).op == xr::ControlOp::placement);
     const auto& pp = std::get<xr::PlacementPayload>(std::get<xr::ControlMessage>(pd).payload);
-    require(pp.desktops.size() == 2 && pp.desktops[0].distance == 100 && pp.desktops[1].x == -100 && pp.desktops[1].y == 100 &&
-            pp.desktops[1].distance == 200 && pp.desktops[1].yaw == -60 && pp.desktops[1].pitch == 45 && pp.desktops[1].roll == -45 &&
-            pp.desktops[1].curvature == 120);
+    require(pp.desktops.size() == 3 && pp.desktops[0].distance == 100 && pp.desktops[1].x == -1800 && pp.desktops[1].y == 900 &&
+            pp.desktops[1].distance == 200 && pp.desktops[1].curvature == 120 && pp.desktops[2].x == 1800 && pp.desktops[2].y == -900 &&
+            pp.desktops[2].distance == 50 && pp.desktops[2].curvature == 0);
+    // Key order does not matter.
+    require(std::holds_alternative<xr::ControlMessage>(
+        xr::decode_control(placement(R"({"desktops":[{"curvature":3,"distance":75,"y":-1,"x":2}]})"))));
     auto with = [&](const std::string& key, const std::string& value) {
         auto p = flat; const auto at = p.find("\"" + key + "\":") + key.size() + 3;
         return p.substr(0, at) + value + p.substr(p.find_first_of(",}", at));
@@ -145,14 +150,23 @@ int main() {
     for (const std::string& bad : {std::string(R"({"desktops":[]})"), std::string(R"({"desktops":{}})"), std::string(R"({})"),
                                   R"({"desktops":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
                                   R"({"desktops":[)" + flat + R"(],"extra":1})",
-                                  R"({"desktops":[)" + with("x", "101") + "]}", R"({"desktops":[)" + with("distance", "49") + "]}",
-                                  R"({"desktops":[)" + with("yaw", "61") + "]}", R"({"desktops":[)" + with("pitch", "-46") + "]}",
-                                  R"({"desktops":[)" + with("roll", "46") + "]}", R"({"desktops":[)" + with("curvature", "-1") + "]}",
+                                  R"({"desktops":[)" + with("x", "1801") + "]}", R"({"desktops":[)" + with("x", "-1801") + "]}",
+                                  R"({"desktops":[)" + with("y", "901") + "]}", R"({"desktops":[)" + with("y", "-901") + "]}",
+                                  R"({"desktops":[)" + with("distance", "49") + "]}", R"({"desktops":[)" + with("distance", "201") + "]}",
+                                  R"({"desktops":[)" + with("curvature", "-1") + "]}",
                                   R"({"desktops":[)" + with("curvature", "121") + "]}", R"({"desktops":[)" + with("x", "1.5") + "]}",
                                   R"({"desktops":[)" + with("x", "true") + "]}", R"({"desktops":[)" + with("x", "\"1\"") + "]}",
                                   R"({"desktops":[)" + with("x", "18446744073709551615") + "]}",
-                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0}]})"),
-                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0,"z":0}]})")})
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"curvature":0,"z":0}]})"),
+                                  // The old seven-key placement, and the four with any removed facing setting in place of one
+                                  // of them or added.
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"yaw":0}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"pitch":0,"curvature":0}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"roll":0,"distance":100,"curvature":0}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"curvature":0,"yaw":0}]})"),
+                                  std::string(R"({"desktops":[{"x":0,"y":0,"distance":100,"curvature":0,"roll":0}]})")})
         require(std::holds_alternative<xr::Error>(xr::decode_control(placement(bad))));
     // Placement menu: display-only state. Valid payloads decode; a malformed payload in a well-framed message is
     // rejected with the ignorable invalid_menu code (dropped, never fatal); malformed framing is fatal as before.
@@ -160,16 +174,22 @@ int main() {
         return std::string(R"({"schema":1,"request_id":11,"run_id":"run","session":"session","op":")") + op + R"(","payload":)" + payload + "}\n";
     };
     const std::string three = "[" + flat + "," + edge + "," + flat + "]";
-    auto md = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"pitch","placements":)" + three + "}"));
+    auto md = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"curvature","placements":)" + three + "}"));
     require(std::holds_alternative<xr::ControlMessage>(md) && std::get<xr::ControlMessage>(md).op == xr::ControlOp::placement_menu);
     const auto* mp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(md).payload);
-    require(mp && mp->open && mp->desktop == 1 && mp->field == 4 && mp->placements[1].x == -100 && mp->placements[1].curvature == 120 &&
-            mp->placements[2].distance == 100);
-    const char* fields[] = {"x", "y", "distance", "yaw", "pitch", "roll", "curvature"};
-    for (std::uint32_t i = 0; i < 7; ++i) {
+    require(mp && mp->open && mp->desktop == 1 && mp->field == 3 && mp->placements[1].x == -1800 && mp->placements[1].curvature == 120 &&
+            mp->placements[2].distance == 100 && !mp->surface);
+    const char* fields[] = {"x", "y", "distance", "curvature"};
+    for (std::uint32_t i = 0; i < std::size(fields); ++i) {
         auto fd = xr::decode_control(menu(R"({"open":false,"desktop":2,"field":")" + std::string(fields[i]) + R"(","placements":)" + three + "}"));
         const auto* fp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(fd).payload);
         require(fp && !fp->open && fp->desktop == 2 && fp->field == i);
+    }
+    {  // A held slider's surface: a four-key placement like the rest.
+        auto sd = xr::decode_control(menu(R"({"open":true,"desktop":1,"field":"distance","placements":)" + three + R"(,"surface":)" + edge + "}"));
+        const auto* sp = std::get_if<xr::PlacementMenuPayload>(&std::get<xr::ControlMessage>(sd).payload);
+        require(sp && sp->surface && sp->surface->x == -1800 && sp->surface->y == 900 && sp->surface->distance == 200 &&
+                sp->surface->curvature == 120);
     }
     for (const std::string& bad : {std::string("{}"),
                                   R"({"open":true,"desktop":3,"field":"x","placements":)" + three + "}",
@@ -178,10 +198,15 @@ int main() {
                                   R"({"open":1,"desktop":0,"field":"x","placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":"z","placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":"X","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"yaw","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"pitch","placements":)" + three + "}",
+                                  R"({"open":true,"desktop":0,"field":"roll","placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":0,"placements":)" + three + "}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "]}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + "," + flat + "," + flat + "]}",
-                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + with("yaw", "61") + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + with("curvature", "121") + "," + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + R"(,{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0},)" + flat + "]}",
+                                  R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"surface":{"x":0,"y":0,"distance":100,"yaw":0,"pitch":0,"roll":0,"curvature":0}})",
                                   R"({"open":true,"desktop":0,"field":"x","placements":[)" + flat + "," + flat + ",1]}",
                                   R"({"open":true,"desktop":0,"field":"x","placements":)" + three + R"(,"extra":1})",
                                   R"({"open":true,"desktop":0,"placements":)" + three + "}"}) {

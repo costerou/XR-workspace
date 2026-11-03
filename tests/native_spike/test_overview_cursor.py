@@ -85,13 +85,13 @@ class DotTests(unittest.TestCase):
     def test_inside_a_desktop_the_dot_is_the_only_pointer(self):
         out = self.at(X1 + 960, 540)
         self.assertEqual(self.p.mode, 'desktop'); self.assertIn(self.p.mode, oc.DOT_MODES)  # so the sampler hides the cursor
-        self.assertEqual(last(out, 'overview_pointer'), dot((T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)))
+        self.assertEqual(last(out, 'overview_pointer'), dot(fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)))
         self.assertEqual(self.p.want[1], 'away')  # display only: no binds, the hidden cursor still clicks the window
         out = self.at(X1 + 480, 270)  # and it follows the cursor
-        self.assertEqual(last(out, 'overview_pointer'), dot((T0[0] + T0[2] / 4, T0[1] + T0[3] / 4)))
+        self.assertEqual(last(out, 'overview_pointer'), dot(fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 4, T0[1] + T0[3] / 4)))
 
     def test_the_dot_sits_where_the_cursor_is_on_a_placed_desktop(self):
-        placed = {**DEFAULT_PLACEMENT, 'x': 10, 'y': -5, 'distance': 150, 'yaw': 20, 'pitch': -10, 'curvature': 30}
+        placed = {**DEFAULT_PLACEMENT, 'x': 10, 'y': -5, 'distance': 150, 'curvature': 30}
         self.control.state.placements = [placed] + self.control.state.placements[1:]
         out = self.at(X1 + 480, 270)
         q = fp.project(G, T0, placed, T0[0] + 480 / 1920 * T0[2], T0[1] + 270 / 1080 * T0[3])

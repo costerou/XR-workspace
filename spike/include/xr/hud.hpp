@@ -196,12 +196,12 @@ private:
 // Placement state (supervisor-owned, ipc.hpp PlacementMenuPayload): which desktop's glass pill is expanded into its
 // placement panel (`open`, `desktop`), the selected field, and every desktop's placement. The panel itself is drawn by
 // glass.hpp; these are the field table and formatting it shares with the tests.
-constexpr std::size_t kPlacementMenuFields = 7, kPlacementMenuDesktopCount = 3;
-// {x, y, distance, yaw, pitch, roll, curvature} in the wire units of ipc.hpp WirePlacement.
+constexpr std::size_t kPlacementMenuFields = 4, kPlacementMenuDesktopCount = 3;
+// {x, y, distance, curvature} in the wire units of ipc.hpp WirePlacement (every desktop always faces you: no facing field).
 using MenuPlacement = std::array<std::int32_t, kPlacementMenuFields>;
 struct PlacementMenuState {
     bool open = false;
-    std::uint32_t desktop = 0, field = 0;  // 0..2, 0..6 (out of range: drawn with nothing selected)
+    std::uint32_t desktop = 0, field = 0;  // 0..2, 0..3 (out of range: drawn with nothing selected)
     std::array<MenuPlacement, kPlacementMenuDesktopCount> placements{};
     bool operator==(const PlacementMenuState&) const = default;
 };
@@ -210,7 +210,8 @@ std::array<std::pair<std::int32_t, std::int32_t>, kPlacementMenuFields> placemen
 // The flat (default) value of each field: sliders fill from it to the current value.
 MenuPlacement placement_menu_flat();
 struct PlacementMenuRow { std::string label, hint, value; bool selected = false; };
-// Label, plain-English hint and formatted value ("+12%", "100%", "-5°"; " deg" with the pixel font,
-// which is ASCII-only) for each field of the selected desktop.
+// Label, plain-English hint and formatted value ("100%", "60°"; " deg" with the pixel font, which is ASCII-only) for each
+// field of the selected desktop. The orbit's x / y (tenths of a degree) show rounded to whole degrees, half away from zero,
+// so they fit the value column: "+13°", "-180°", "0°" ("+13deg" with the pixel font).
 std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& state, bool ascii_units);
 }

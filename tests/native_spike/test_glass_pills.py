@@ -18,7 +18,7 @@ import time
 import unittest
 from unittest import mock
 
-from tools.native_spike import bind_check, free_pointer as fp, resize, video, view, xr_control
+from tools.native_spike import bind_check, free_pointer as fp, orbit, resize, video, view, xr_control
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
@@ -68,15 +68,16 @@ def slider_value(field, lx):
     return lo + math.floor(fp.slider_fraction(lx) * (hi - lo) + 0.5)
 
 
-def on_panel(tile, lx, ly):
-    """Canvas point of panel pixel (lx, ly) for a flat desktop at `tile`."""
+def on_panel(tile, lx, ly, placement=DEFAULT_PLACEMENT):
+    """Canvas point of panel pixel (lx, ly) for a desktop at `tile` (each desktop faces you, so a side desktop's panel
+    is turned toward you: projected, not flat)."""
     x, y, _, _ = fp.panel_rect(tile)
-    return (x + lx, y + ly)
+    return fp.project(G, tile, placement, x + lx, y + ly)
 
 
-def pill_centre(tile):
+def pill_centre(tile, placement=DEFAULT_PLACEMENT):
     x, y, w, h = fp.pill_rect(tile)
-    return (x + w / 2, y + h / 2)
+    return fp.project(G, tile, placement, x + w / 2, y + h / 2)
 
 
 class Clock:
@@ -97,7 +98,7 @@ class GeometryTests(unittest.TestCase):
     def test_the_mirror_holds_the_renderers_numbers(self):
         # glass.hpp; the ctest glass_contract compares them with the renderer's own dump.
         self.assertEqual((fp.PILL_SHARE, fp.PILL_MIN, fp.PILL_MAX, fp.PILL_THICKNESS, fp.PILL_GAP), (0.24, 64.0, 160.0, 14.0, 10.0))
-        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 322.0, 42.0))
+        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 220.0, 42.0))  # four setting rows
         self.assertEqual((fp.PANEL_ROWS_TOP, fp.PANEL_ROW_H, fp.PANEL_KNOB_LO, fp.PANEL_KNOB_HI), (46.0, 34.0, 191.0, 367.0))
         self.assertEqual((fp.PILL_PAD_X, fp.PILL_PAD_Y, fp.PANEL_SLOP_PX, fp.CLICK_PX), (10.0, 10.0, 12.0, 4.0))
         # Seven rows and the footer fit the panel (glass.hpp kPanelFooterTop + kPanelHintPx + 6 <= kPanelH).
@@ -121,7 +122,7 @@ class GeometryTests(unittest.TestCase):
         for tile in G['tiles'] + [(0.0, 100.0, 60.0, 40.0)]:
             with self.subTest(tile=tile):
                 x, y, w, h = fp.panel_rect(tile)
-                self.assertEqual((w, h), (480.0, 322.0))
+                self.assertEqual((w, h), (480.0, 220.0))
                 self.assertAlmostEqual(x + w / 2, tile[0] + tile[2] / 2)
                 self.assertEqual(y, fp.pill_rect(tile)[1])
 
@@ -156,28 +157,29 @@ class GeometryTests(unittest.TestCase):
 # --- hit testing ----------------------------------------------------------------------------------------------------
 class HitTests(unittest.TestCase):
     def test_the_pill_zone_is_under_the_desktop_and_nothing_is_above_it(self):
-        x, y, w, h = fp.pill_rect(T0)
+        x, y, w, h = fp.pill_rect(T1)
         mid = x + w / 2
-        self.assertEqual(fp.hit(G, FLAT, (mid, y + h / 2)), ('pill', 0))
-        self.assertEqual(fp.hit(G, FLAT, (mid, T0[1] + T0[3] + 1)), ('pill', 0))    # the gap up to the desktop grabs it
-        self.assertEqual(fp.hit(G, FLAT, (mid, y + h + fp.PILL_PAD_Y)), ('pill', 0))  # and a little below it
+        self.assertEqual(fp.hit(G, FLAT, (mid, y + h / 2)), ('pill', 1))
+        self.assertEqual(fp.hit(G, FLAT, (mid, T1[1] + T1[3] + 1)), ('pill', 1))    # the gap up to the desktop grabs it
+        self.assertEqual(fp.hit(G, FLAT, (mid, y + h + fp.PILL_PAD_Y)), ('pill', 1))  # and a little below it
         self.assertIsNone(fp.hit(G, FLAT, (mid, y + h + fp.PILL_PAD_Y + 1)))
-        self.assertEqual(fp.hit(G, FLAT, (x - fp.PILL_PAD_X, y + 3)), ('pill', 0))
-        self.assertEqual(fp.hit(G, FLAT, (x + w + fp.PILL_PAD_X, y + 3)), ('pill', 0))
+        self.assertEqual(fp.hit(G, FLAT, (x - fp.PILL_PAD_X, y + 3)), ('pill', 1))
+        self.assertEqual(fp.hit(G, FLAT, (x + w + fp.PILL_PAD_X, y + 3)), ('pill', 1))
         self.assertIsNone(fp.hit(G, FLAT, (x - fp.PILL_PAD_X - 1, y + 3)))
-        self.assertEqual(fp.hit(G, FLAT, (mid, T0[1] + T0[3] - 1))[:2], ('desktop', 0))  # just inside: the desktop
-        self.assertIsNone(fp.hit(G, FLAT, (mid, T0[1] - 3)))   # where the old drag bar was: nothing now
-        self.assertIsNone(fp.hit(G, FLAT, (mid, T0[1] - 12)))
-        for i, tile in enumerate(G['tiles']):
+        self.assertEqual(fp.hit(G, FLAT, (mid, T1[1] + T1[3] - 1))[:2], ('desktop', 1))  # just inside: the desktop
+        self.assertIsNone(fp.hit(G, FLAT, (mid, T1[1] - 3)))   # where the old drag bar was: nothing now
+        self.assertIsNone(fp.hit(G, FLAT, (mid, T1[1] - 12)))
+        for i, tile in enumerate(G['tiles']):  # every desktop's own (turned) pill
             self.assertEqual(fp.hit(G, FLAT, pill_centre(tile)), ('pill', i))
 
     def test_bottom_corners_win_over_the_pill_zone(self):
-        tile = (0.0, 100.0, 60.0, 40.0)  # a very small desktop: its pill zone is wider than the space between the corners
+        x0, y0 = G['w'] / 2 - 30, G['h'] / 2 - 20  # centred, so it is the canvas itself
+        tile = (x0, y0, 60.0, 40.0)  # a very small desktop: its pill zone is wider than the space between the corners
         g = dict(G, tiles=[tile])
         z = fp.corner_zone(tile)
         seen = set()
         for x in range(-12, 74, 2):
-            h = fp.hit(g, FLAT[:1], (x, 140 + 3))  # in the gap under the desktop
+            h = fp.hit(g, FLAT[:1], (x0 + x, y0 + 40 + 3))  # in the gap under the desktop
             seen.add(h and h[0])
             if abs(x) <= z: self.assertEqual(h, ('corner', 0, 'bl'), x)
             elif abs(x - 60) <= z: self.assertEqual(h, ('corner', 0, 'br'), x)
@@ -193,11 +195,11 @@ class HitTests(unittest.TestCase):
                 h = fp.hit(G, FLAT, on_panel(T0, knob_x(0.25), row_y(field)), 0)
                 self.assertEqual(h[:3], ('slider', 0, field))
                 self.assertAlmostEqual(h[3], knob_x(0.25), places=2)
-        self.assertEqual(fp.hit(G, FLAT, on_panel(T0, 60, row_y('yaw')), 0), ('panel', 0))  # the row's label
-        self.assertEqual(fp.hit(G, FLAT, on_panel(T0, 430, row_y('yaw')), 0), ('panel', 0))  # its value
+        self.assertEqual(fp.hit(G, FLAT, on_panel(T0, 60, row_y('curvature')), 0), ('panel', 0))  # the row's label
+        self.assertEqual(fp.hit(G, FLAT, on_panel(T0, 430, row_y('curvature')), 0), ('panel', 0))  # its value
         self.assertEqual(fp.hit(G, FLAT, on_panel(T0, 240, fp.PANEL_H - 10), 0), ('panel', 0))  # the footer
         # Without the panel open the same spots are empty space (the panel area is under the desktop).
-        self.assertIsNone(fp.hit(G, FLAT, on_panel(T0, knob_x(0.25), row_y('yaw'))))
+        self.assertIsNone(fp.hit(G, FLAT, on_panel(T0, knob_x(0.25), row_y('curvature'))))
         # Just outside the panel: nothing.
         self.assertIsNone(fp.hit(G, FLAT, on_panel(T0, -1, 100), 0))
         self.assertIsNone(fp.hit(G, FLAT, on_panel(T0, 240, fp.PANEL_H + 1), 0))
@@ -211,21 +213,20 @@ class HitTests(unittest.TestCase):
         self.assertIsNone(fp.hit(G, FLAT, (960, 100), 0))
 
     def test_the_open_panel_wins_over_a_desktop_it_covers(self):
-        # XR-1 moved a desktop right and up: its panel now hangs over XR-2.
+        # XR-1 turned 10 degrees right and lifted 10 degrees: its panel now hangs over XR-2.
         moved = [{**DEFAULT_PLACEMENT, 'x': 100, 'y': 100}, dict(DEFAULT_PLACEMENT), dict(DEFAULT_PLACEMENT)]
-        top_left = fp.project(G, T0, moved[0], *on_panel(T0, 0, 0))
-        point = (top_left[0] + knob_x(0.5), top_left[1] + row_y('yaw'))
+        point = on_panel(T0, knob_x(0.5), row_y('curvature'), moved[0])
         self.assertEqual(fp.hit(G, moved, point)[:2], ('desktop', 1))
         h = fp.hit(G, moved, point, 0)
-        self.assertEqual(h[:3], ('slider', 0, 'yaw')); self.assertAlmostEqual(h[3], knob_x(0.5), places=2)
+        self.assertEqual(h[:3], ('slider', 0, 'curvature')); self.assertAlmostEqual(h[3], knob_x(0.5), places=2)
 
     def test_a_tilted_desktops_panel_is_hit_on_its_own_surface(self):
-        tilted = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'yaw': 30, 'pitch': -15, 'curvature': 60}, dict(DEFAULT_PLACEMENT)]
-        target = fp.project(G, T1, tilted[1], *on_panel(T1, knob_x(0.8), row_y('roll')))
+        tilted = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'curvature': 60}, dict(DEFAULT_PLACEMENT)]
+        target = on_panel(T1, knob_x(0.8), row_y('curvature'), tilted[1])
         h = fp.hit(G, tilted, target, 1)
-        self.assertEqual(h[:3], ('slider', 1, 'roll'))
+        self.assertEqual(h[:3], ('slider', 1, 'curvature'))
         self.assertAlmostEqual(h[3], knob_x(0.8), delta=0.1)
-        self.assertEqual(fp.hit(G, tilted, fp.project(G, T1, tilted[1], *on_panel(T1, 240, 8)), 1), ('pill', 1))
+        self.assertEqual(fp.hit(G, tilted, on_panel(T1, 240, 8, tilted[1]), 1), ('pill', 1))
 
     def test_a_bad_open_index_is_ignored(self):
         point = on_panel(T0, knob_x(0.5), row_y('x'))
@@ -414,17 +415,19 @@ class PillDragTests(Base):
         self.assertTrue(self.p.drag['moved']); self.assertEqual(self.p.moves, 1)
         self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 0, 'hover': True, 'active': True})
         self.assertEqual(self.state.placements[0], DEFAULT_PLACEMENT)  # 1.7 % of the height: snapped back to the slot
-        out = self.by(T0[2] * 0.2, -T0[3] * 0.5)
+        self.by(0, -T0[3] * 1.3)  # lifted clear of the row (no desktop may overlap another)...
+        out = self.by(T0[2] * 0.2, 0)  # ...then to the right
         p = self.state.placements[0]
-        self.assertEqual((p['x'], p['y']), (20, 52))
-        self.assertEqual(last(out, 'placement')['desktops'][0]['y'], 52)
+        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)  # the turn round you the pointer asks for
+        self.assertEqual((p['x'], p['y']), want); self.assertGreater(p['x'], 0); self.assertGreater(p['y'], 0)
+        self.assertEqual(last(out, 'placement')['desktops'][0]['y'], want[1])
         self.assertNotIn('placement_menu', ops_of(out))  # no panel is open
         self.assertEqual(self.store.saves, 0)  # debounced while dragging
         bar = fp.pill_rect(T0)  # the pill stays under the pointer
         centre = fp.project(G, T0, p, bar[0] + bar[2] / 2, bar[1] + bar[3] / 2)
         self.assertLess(math.hypot(centre[0] - self.p.pointer[0], centre[1] - self.p.pointer[1]), 8)
         out = self.release()
-        self.assertEqual((self.store.saved[0]['x'], self.store.saved[0]['y']), (20, 52))
+        self.assertEqual((self.store.saved[0]['x'], self.store.saved[0]['y']), want)
         self.assertFalse(self.state.menu_open)  # a drag is not a click
         self.assertEqual(self.p.pill_clicks, 0)
         self.assertEqual(self.join(), [])
@@ -432,8 +435,9 @@ class PillDragTests(Base):
 
     def test_the_overlap_guard_and_the_slot_snap_still_apply(self):
         self.grab(0)
-        self.by(T0[2] * 0.6, 0)  # straight into XR-2
-        self.assertGreater(self.state.placements[0]['x'], 0); self.assertLess(self.state.placements[0]['x'], 15)
+        self.by(T0[2] * 0.6, 0)  # straight into XR-2: stops before it touches (the slots are 40 px, ~0.9 degrees, apart)
+        self.assertGreater(self.state.placements[0]['x'], 0); self.assertLess(self.state.placements[0]['x'], 9)
+        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, self.state.placements[0]), orbit.footprint(G, T1, DEFAULT_PLACEMENT)), 0)
         self.by(-T0[2] * 0.6 + T0[2] * 0.03, 0)  # back to 3 % from the slot: snaps home
         self.assertEqual(self.state.placements[0]['x'], 0)
         self.release()
@@ -452,12 +456,13 @@ class PillDragTests(Base):
         self.assertEqual(self.p.hover, ('pill', 0))
         self.press()
         out = self.by(0, -T0[3] * 0.3)
-        self.assertEqual(self.state.placements[0]['y'], 30)
+        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)
+        self.assertGreater(want[1], 0); self.assertEqual(self.state.placements[0]['y'], want[1])
         self.assertEqual(ops_of(out)[:2], ['placement', 'placement_menu'])  # the open panel shows the new value
-        self.assertEqual(last(out, 'placement_menu')['placements'][0]['y'], 30)
+        self.assertEqual(last(out, 'placement_menu')['placements'][0]['y'], want[1])
         self.release()
         self.assertTrue(self.state.menu_open)
-        self.assertEqual(self.store.saved[0]['y'], 30)
+        self.assertEqual(self.store.saved[0]['y'], want[1])
         self.assertEqual(self.join(), [True])
 
     def test_idle_mid_drag_ends_and_saves_it(self):
@@ -480,6 +485,11 @@ class SliderTests(Base):
     def setUp(self):
         super().setUp()
         self.open_by_click(0)
+
+    def under(self, field, surface=DEFAULT_PLACEMENT):
+        """The value of `field`'s slider at the pointer, on XR-1's panel drawn on `surface` (the press-time placement)."""
+        q = fp.unproject(G, T0, surface, self.p.pointer)
+        return slider_value(field, q[0] - fp.panel_rect(T0)[0])
 
     def press_slider(self, field, lx):
         self.to(*on_panel(T0, lx, row_y(field)))
@@ -504,39 +514,39 @@ class SliderTests(Base):
         self.assertIsNone(self.p.drag)
 
     def test_holding_and_dragging_moves_it_live_and_the_save_waits_for_release(self):
-        self.press_slider('pitch', knob_x(0.5))
-        self.assertEqual(self.state.placements[0]['pitch'], 0)
+        self.press_slider('y', knob_x(0.5))
+        self.assertEqual(self.state.placements[0]['y'], 0)
         values = []
         for _ in range(8):
             out = self.by(-11, 0)  # 11 px left: 1/16 of the track, 5.6 degrees
-            values.append(self.state.placements[0]['pitch'])
-            self.assertEqual(last(out, 'placement')['desktops'][0]['pitch'], values[-1])  # live, every step
-            self.assertEqual(last(out, 'placement_menu')['placements'][0]['pitch'], values[-1])
+            values.append(self.state.placements[0]['y'])
+            self.assertEqual(last(out, 'placement')['desktops'][0]['y'], values[-1])  # live, every step
+            self.assertEqual(last(out, 'placement_menu')['placements'][0]['y'], values[-1])
         self.assertEqual(values, sorted(set(values), reverse=True))  # follows the pointer left, smaller every step
-        self.assertEqual(values[-1], slider_value('pitch', knob_x(0.5) - 88))
+        self.assertEqual(values[-1], self.under('y'))  # the knob is where the pointer is on the (turned) panel
         self.assertEqual(self.store.saves, 0)  # the drag keeps postponing the debounced save
         self.release()
-        self.assertEqual(self.store.saves, 1); self.assertEqual(self.store.saved[0]['pitch'], values[-1])
+        self.assertEqual(self.store.saves, 1); self.assertEqual(self.store.saved[0]['y'], values[-1])
 
     def test_a_held_slider_saves_after_the_debounce_even_before_release(self):
-        self.press_slider('roll', knob_x(0.9))
+        self.press_slider('curvature', knob_x(0.9))
         self.control.poll(self.clock.now + view.MENU_SAVE_DELAY - 0.01)
         self.assertEqual(self.store.saves, 0)
         self.control.poll(self.clock.now + view.MENU_SAVE_DELAY)
-        self.assertEqual(self.store.saves, 1); self.assertEqual(self.store.saved[0]['roll'], slider_value('roll', knob_x(0.9)))
+        self.assertEqual(self.store.saves, 1); self.assertEqual(self.store.saved[0]['curvature'], slider_value('curvature', knob_x(0.9)))
 
     def test_every_setting_reaches_both_bounds_through_the_slop_and_drags_clamp(self):
         for field in PLACEMENT_KEYS:
             lo, hi = PLACEMENT_BOUNDS[field]
             with self.subTest(field=field):
-                self.press_slider(field, fp.PANEL_KNOB_LO - fp.PANEL_SLOP_PX)
+                self.press_slider(field, fp.PANEL_KNOB_LO - fp.PANEL_SLOP_PX + 0.01)
                 self.assertEqual(self.state.placements[0][field], lo)
                 self.by(-300, 0)  # dragged far past the low end
                 self.assertEqual(self.state.placements[0][field], lo)
                 self.release()
                 self.assertEqual(self.store.saved[0][field], lo)
                 self.key('menu_reset')  # flat again, so the panel is back where on_panel expects it
-                self.press_slider(field, fp.PANEL_KNOB_HI + fp.PANEL_SLOP_PX)
+                self.press_slider(field, fp.PANEL_KNOB_HI + fp.PANEL_SLOP_PX - 0.01)
                 self.assertEqual(self.state.placements[0][field], hi)
                 self.by(300, 0)
                 self.assertEqual(self.state.placements[0][field], hi)
@@ -547,7 +557,7 @@ class SliderTests(Base):
         self.assertTrue(self.state.menu_open)
 
     def test_a_press_off_the_track_or_elsewhere_in_the_panel_does_nothing(self):
-        for lx, ly in ((fp.PANEL_KNOB_LO - fp.PANEL_SLOP_PX - 2, row_y('yaw')), (430, row_y('x')), (240, fp.PANEL_H - 8),
+        for lx, ly in ((fp.PANEL_KNOB_LO - fp.PANEL_SLOP_PX - 2, row_y('curvature')), (430, row_y('x')), (240, fp.PANEL_H - 8),
                        (240, fp.PANEL_HEADER_H + 2)):
             with self.subTest(lx=lx, ly=ly):
                 self.to(*on_panel(T0, lx, ly))
@@ -560,14 +570,14 @@ class SliderTests(Base):
         self.assertEqual(self.join(), [True])
 
     def test_pressing_the_value_already_set_only_moves_the_highlight(self):
-        out = self.press_slider('yaw', knob_x(0.5))  # yaw 0 = flat: no placement change
+        out = self.press_slider('y', knob_x(0.5))  # y 0 = the slot: no placement change
         self.assertEqual(ops_of(out).count('placement'), 0)
-        self.assertEqual(last(out, 'placement_menu')['field'], 'yaw')
+        self.assertEqual(last(out, 'placement_menu')['field'], 'y')
         self.release()
-        out = self.press_slider('yaw', knob_x(0.5))
+        out = self.press_slider('y', knob_x(0.5))
         self.assertNotIn('placement', ops_of(out))
         menu = last(out, 'placement_menu')  # only the held surface is new: the values and highlight are unchanged
-        self.assertEqual({k: menu[k] for k in ('field', 'placements')}, {'field': 'yaw', 'placements': FLAT})
+        self.assertEqual({k: menu[k] for k in ('field', 'placements')}, {'field': 'y', 'placements': FLAT})
         self.assertEqual(menu['surface'], DEFAULT_PLACEMENT)
         out = self.release()
         self.assertNotIn('placement', ops_of(out)); self.assertNotIn('surface', last(out, 'placement_menu'))
@@ -578,7 +588,8 @@ class SliderTests(Base):
         self.assertEqual(self.state.placements[0]['x'], 0)
         self.by(44, 0)
         x = self.state.placements[0]['x']
-        self.assertEqual(x, slider_value('x', knob_x(0.5) + 44))  # 50: the desktop jumped half its width right
+        self.assertEqual(x, self.under('x'))  # measured on the press-time panel, not the moved one
+        self.assertGreater(x, 800)  # 44 px of a 176 px track: the desktop turned ~80 degrees round you
         for _ in range(5):
             self.by(0, 0.5)  # tiny motion along the row: the value stays put, no oscillation
             self.assertEqual(self.state.placements[0]['x'], x)
@@ -594,9 +605,9 @@ class SliderTests(Base):
         return fp.project(G, T0, placement, x + lx, y + row_y(field))
 
     def test_a_held_panel_is_drawn_on_its_press_surface_so_the_knob_stays_under_the_pointer(self):
-        # Settings that move or turn the desktop, and with it a panel drawn on its live placement: x by 1 % of the
-        # desktop's width per unit (the knob only 0.9 px), yaw and distance about the desktop's centre, 300 px above.
-        for field, steps, drift in (('x', (5, 10, 20), 100), ('yaw', (8, 30, -60), 5), ('distance', (6, -20, 40), 5)):
+        # Settings that move the desktop, and with it a panel drawn on its live placement: x and y turn it round you
+        # (about 20 and 10 tenths of a degree per knob px), distance scales it about its centre.
+        for field, steps, drift in (('x', (5, 10, 20), 100), ('y', (8, 30, -60), 5), ('distance', (6, -20, 40), 5)):
             with self.subTest(field=field):
                 pressed = dict(self.state.placements[0])  # before the press snaps the value to the pointer
                 out = self.press_slider(field, knob_x(0.5))
@@ -630,22 +641,22 @@ class SliderTests(Base):
         self.assertEqual(self.state.placements, FLAT)
 
     def test_the_surface_is_never_sent_without_an_open_panel(self):
-        self.press_slider('roll', knob_x(0.8))
+        self.press_slider('curvature', knob_x(0.8))
         out = self.key('menu_back')  # Escape while holding
         self.assertFalse(last(out, 'placement_menu')['open']); self.assertNotIn('surface', last(out, 'placement_menu'))
         self.release()
         s = view.ViewState(NAMES)
         s.hold_surface(dict(DEFAULT_PLACEMENT))
         self.assertIsNone(s.menu_surface)  # collapsed: ignored
-        s.open_menu(0); s.hold_surface({**DEFAULT_PLACEMENT, 'yaw': 10})
-        self.assertEqual(s.menu()['surface']['yaw'], 10)
-        with self.assertRaises(ValueError): s.hold_surface({**DEFAULT_PLACEMENT, 'yaw': 99})
+        s.open_menu(0); s.hold_surface({**DEFAULT_PLACEMENT, 'curvature': 10})
+        self.assertEqual(s.menu()['surface']['curvature'], 10)
+        with self.assertRaises(ValueError): s.hold_surface({**DEFAULT_PLACEMENT, 'curvature': 999})
         s.apply_menu('menu_toggle')
         self.assertIsNone(s.menu_surface)
         frame = json.loads(view.placement_menu_frame('run', 's', 4, {**s.menu(), 'open': True, 'surface': dict(DEFAULT_PLACEMENT)}))
         self.assertEqual(frame['payload']['surface'], DEFAULT_PLACEMENT)
         for bad in ({**s.menu(), 'surface': dict(DEFAULT_PLACEMENT)},  # closed
-                    {**s.menu(), 'open': True, 'surface': None}, {**s.menu(), 'open': True, 'surface': {**DEFAULT_PLACEMENT, 'x': 101}}):
+                    {**s.menu(), 'open': True, 'surface': None}, {**s.menu(), 'open': True, 'surface': {**DEFAULT_PLACEMENT, 'x': 1801}}):
             with self.subTest(bad=bad), self.assertRaises(ValueError): view.placement_menu_frame('run', 's', 4, bad)
 
     def test_the_state_rejects_bad_slider_input_and_ignores_a_closed_panel(self):
@@ -740,10 +751,11 @@ class ClickOutsideTests(Base):
         out = self.press()
         self.assert_closed_and_saved(out)
         self.by(0, -T2[3] * 0.4)
-        self.assertEqual(self.state.placements[2]['y'], 40)
+        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)[1]
+        self.assertGreater(want, 0); self.assertEqual(self.state.placements[2]['y'], want)
         self.release()
         self.assertFalse(self.state.menu_open)  # a drag, not a click: nothing opens
-        self.assertEqual(self.store.saved[2]['y'], 40)
+        self.assertEqual(self.store.saved[2]['y'], want)
 
     def test_the_open_desktops_own_pieces_do_not_count_as_outside(self):
         # header, panel body, a corner of the same desktop, and the gap over the header (its pill zone)
@@ -803,7 +815,7 @@ class KeyboardTests(Base):
         out = self.key('zoom_in')
         self.assertEqual(ops_of(out), ['placement_menu', 'view'])
         self.assertFalse(out[0]['payload']['open']); self.assertTrue(out[1]['payload']['zoomed'])
-        self.assertEqual(self.store.saved[0]['x'], 10)
+        self.assertEqual(self.store.saved[0]['x'], view.MENU_STEPS['x'][1])
         self.assertEqual(self.binds, [True, False])
         out = frames(self.control.poll())
         self.assertEqual(self.p.mode, 'off')
@@ -828,9 +840,9 @@ class KeyboardTests(Base):
 
     def test_arrows_shift_and_r_still_work_on_a_clicked_panel(self):
         self.open_by_click(1)
-        self.key('menu_field_next'); self.key('menu_inc')  # y + 2
-        self.key('menu_inc_big')                           # y + 10
-        self.assertEqual(self.state.placements[1]['y'], 12)
+        self.key('menu_field_next'); self.key('menu_inc')  # y + 0.2 degrees
+        self.key('menu_inc_big')                           # y + 10 degrees
+        self.assertEqual(self.state.placements[1]['y'], sum(view.MENU_STEPS['y']))
         self.key('menu_reset')
         self.assertEqual(self.state.placements[1], DEFAULT_PLACEMENT)
 
@@ -877,12 +889,12 @@ class TypingModeTests(Base):
 
     def test_typing_mode_ends_a_held_slider_and_saves_it(self):
         self.open_by_click(0)
-        self.to(*on_panel(T0, knob_x(0.9), row_y('yaw')))
+        self.to(*on_panel(T0, knob_x(0.9), row_y('curvature')))
         self.press()
         self.key(view.TYPING_OP)
         self.control.poll()
         self.assertIsNone(self.p.drag)
-        self.assertEqual(self.store.saved[0]['yaw'], slider_value('yaw', knob_x(0.9)))
+        self.assertEqual(self.store.saved[0]['curvature'], slider_value('curvature', knob_x(0.9)))
 
 
 class PointerStaysOnTests(Base):
@@ -907,14 +919,14 @@ class PointerStaysOnTests(Base):
 
     def test_a_panel_opened_by_a_click_closes_when_idle_saved_and_released(self):
         self.open_by_click(0)
-        self.to(*on_panel(T0, knob_x(0.75), row_y('distance'))); self.press(); self.release()
+        self.to(*on_panel(T0, knob_x(0.76), row_y('distance'))); self.press(); self.release()
         self.assertTrue(self.state.menu_open)
         self.clock.now += view.OVERLAY_IDLE_CLOSE_S + 0.01
         out = frames(self.control.poll())
         self.assertFalse(self.state.menu_open)
         self.assertFalse(last(out, 'placement_menu')['open'])
         self.assertFalse(last(out, 'move_handle')['visible'])  # the pills hide with the dot after 30 s too
-        self.assertEqual(self.store.saved[0]['distance'], slider_value('distance', knob_x(0.75)))
+        self.assertEqual(self.store.saved[0]['distance'], slider_value('distance', knob_x(0.76)))
         self.assertEqual(self.join(), [True, False])
 
     def test_a_playing_video_turns_it_off_and_ignores_stale_pill_clicks(self):

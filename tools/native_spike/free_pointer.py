@@ -44,10 +44,11 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     still starts its drag or click, a desktop is still focused, empty space does nothing more).
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
-    the same placement maths as spike/src/view.cpp place_point (offset, distance, yaw/pitch/roll, curvature), front
+    the same placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front
     desktop first. The overview's slots never move with head pose, so neither does this.
-  * Drags follow the pointer: a pill drag changes the desktop's x / y placement so the pill stays under the pointer
-    (with the overlap guard and slot snap of resize.allowed_move); a corner drag changes `distance` so the corner
+  * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
+    pill stays under the pointer in the view; in anchor (3DoF) mode the pointer's reach past the view carries it on to
+    anywhere round you, and it never overlaps another desktop. A corner drag changes `distance` so the corner
     follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
     debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
     on zoom-in and when a VR video opens.
@@ -80,7 +81,7 @@ import socket
 import threading
 import time
 
-from . import resize, view
+from . import orbit, resize, view
 from .geometry import PLACEMENT_BOUNDS
 from .overview_cursor import DOT_MODES, OverviewCursor
 
@@ -102,7 +103,7 @@ PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
 # Expanded pill = placement panel (glass.hpp glass_panel and its layout, panel px from its top-left): the header strip
 # (the pill itself: drag to move, click to collapse), then one row per placement setting (geometry.PLACEMENT_KEYS order)
 # whose slider knob centre runs PANEL_KNOB_LO (low bound) .. PANEL_KNOB_HI (high bound).
-PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 322.0, 42.0
+PANEL_W, PANEL_H, PANEL_HEADER_H = 480.0, 220.0, 42.0
 PANEL_ROWS_TOP, PANEL_ROW_H, PANEL_KNOB_LO, PANEL_KNOB_HI = 46.0, 34.0, 191.0, 367.0
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
 CLICK_PX = 4.0            # a pill press moving less than this (canvas px) before release is a click: the desktop stays put
@@ -166,38 +167,19 @@ def help_hit(help_, pointer, margin=0.0):
 
 
 def place_point(g, tile, p, px, py):
-    """World position of canvas pixel (px, py) on a desktop laid out at `tile` with wire placement `p` (percent and
-    degrees, geometry.PLACEMENT_BOUNDS). Mirrors spike/src/view.cpp place_point exactly."""
-    W, H = g['w'], g['h']
-    hw, hh = g['half']
-    sx, sy = 2 * hw / W, 2 * hh / H
-    tx, ty, tw_px, th_px = tile
-    cx, cy = tx + tw_px / 2, ty + th_px / 2
-    tw, th = tw_px * sx, th_px * sy
-    d = p['distance'] / 100 if p['distance'] > 0 else 1.0
-    centre = (((2 * cx / W - 1) * hw + p['x'] / 100 * tw) * d, ((1 - 2 * cy / H) * hh + p['y'] / 100 * th) * d, -d)
-    u, v = (px - cx) * sx, (cy - py) * sy
-    local = (u, v, 0.0)
-    curvature = math.radians(p['curvature'])
-    if curvature > 1e-4 and tw > 0:
-        r = tw / curvature
-        phi = u / r
-        local = (r * math.sin(phi), v, r * (1 - math.cos(phi)))
-    cr, sr = math.cos(math.radians(p['roll'])), math.sin(math.radians(p['roll']))
-    a = (cr * local[0] - sr * local[1], sr * local[0] + cr * local[1], local[2])
-    cp, sp = math.cos(math.radians(p['pitch'])), math.sin(math.radians(p['pitch']))
-    b = (a[0], cp * a[1] - sp * a[2], sp * a[1] + cp * a[2])
-    cyaw, syaw = math.cos(math.radians(p['yaw'])), math.sin(math.radians(p['yaw']))
-    w = (cyaw * b[0] + syaw * b[2], b[1], -syaw * b[0] + cyaw * b[2])
-    return (centre[0] + w[0], centre[1] + w[1], centre[2] + w[2])
+    """World position of canvas pixel (px, py) on a desktop laid out at `tile` with wire placement `p`
+    (geometry.PLACEMENT_BOUNDS units). Mirrors spike/src/view.cpp place_point exactly (orbit.place_point)."""
+    return orbit.place_point(g, tile, p, px, py)
 
 
 def to_canvas(g, point):
-    """A world point seen from the eye, on the canvas plane (z = -1) in canvas px; None if it is not in front."""
+    """A world point seen from the eye, on the canvas plane (z = -1) in canvas px; None if it is not in front or lands
+    past MAX_POINTER_PX (a desktop turned far round you: nowhere the pointer, or a frame, can go)."""
     x, y, z = point
     if z > -1e-6: return None
     hw, hh = g['half']
-    return ((x / -z / hw + 1) * g['w'] / 2, (1 - y / -z / hh) * g['h'] / 2)
+    out = ((x / -z / hw + 1) * g['w'] / 2, (1 - y / -z / hh) * g['h'] / 2)
+    return out if abs(out[0]) <= MAX_POINTER_PX and abs(out[1]) <= MAX_POINTER_PX else None
 
 
 def project(g, tile, p, px, py):
@@ -207,11 +189,16 @@ def project(g, tile, p, px, py):
 
 def unproject(g, tile, p, pointer):
     """The tile pixel (px, py) that appears under canvas point `pointer` on a placed desktop's surface, or None when the
-    pointer's ray misses that surface. Newton's method on `project`, started from the exact flat answer."""
+    pointer's ray misses that surface. An orbit (x / y) is a rotation about the eye, so the pointer's ray is turned back
+    by it first (orbit.unorbit_pointer). Newton's method on `project`, started from the exact flat answer."""
+    if p['x'] or p['y']:
+        pointer = orbit.unorbit_pointer(g, tile, p, pointer)
+        if pointer is None: return None
+        p = {**p, 'x': 0, 'y': 0}
     tx, ty, tw, th = tile
     cx, cy = tx + tw / 2, ty + th / 2
     d = p['distance'] / 100
-    q = [cx + (pointer[0] - cx - p['x'] / 100 * tw) * d, cy + (pointer[1] - cy + p['y'] / 100 * th) * d]
+    q = [cx + (pointer[0] - cx) * d, cy + (pointer[1] - cy) * d]
     limit = 4 * max(tw, th)
     for _ in range(16):
         f = project(g, tile, p, q[0], q[1])
@@ -278,11 +265,12 @@ def front_order(g, placements):
     return sorted(range(n), key=depth)
 
 
-def hit(g, placements, pointer, open_=None):
+def hit(g, placements, pointer, open_=None, around=False):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)); then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
-    ('desktop', index, (px, py) tile pixel). None if nothing."""
+    ('desktop', index, (px, py) tile pixel). None if nothing. `around` (anchor mode): past the view, pills are found
+    along the pill drag's stretched direction (orbit.stretched_pointer), so a pill anywhere round you can be grabbed."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
@@ -291,17 +279,23 @@ def hit(g, placements, pointer, open_=None):
         if q is not None:
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
+    stretched = around and orbit.beyond_view(g, pointer)
     for i in front_order(g, placements):
         tile = g['tiles'][i]
         q = unproject(g, tile, placements[i], pointer)
-        if q is None: continue
+        qp = q
+        if stretched:
+            seen = orbit.stretched_pointer(g, tile, placements[i], pointer)
+            qp = unproject(g, tile, {**placements[i], 'x': 0, 'y': 0}, seen) if seen is not None else None
+        if q is None and qp is None: continue
         tx, ty, tw, th = tile
         z = corner_zone(tile)
         for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
-            if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
+            if q is not None and abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
         px, py, pw, ph = pill_rect(tile)
-        if px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and ty + th <= q[1] <= py + ph + PILL_PAD_Y: return ('pill', i)
-        if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
+        if qp is not None and px - PILL_PAD_X <= qp[0] <= px + pw + PILL_PAD_X and ty + th <= qp[1] <= py + ph + PILL_PAD_Y:
+            return ('pill', i)
+        if q is not None and tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
     return None
 
 
@@ -309,15 +303,6 @@ def inside_by(tile, q):
     """How far tile pixel q is inside the tile (canvas px; negative outside)."""
     tx, ty, tw, th = tile
     return min(q[0] - tx, tx + tw - q[0], q[1] - ty, ty + th - q[1])
-
-
-def move_target(start, dx, dy, tile):
-    """New (x, y) placement for a pill drag of (dx, dy) canvas px from offsets `start`: the pill stays under the pointer
-    (offsets are percent of the desktop's own size, so this holds at any distance). Clamped, each axis snapped."""
-    (xlo, xhi), (ylo, yhi) = PLACEMENT_BOUNDS['x'], PLACEMENT_BOUNDS['y']
-    x = min(max(round(start[0] + dx / tile[2] * 100), xlo), xhi)
-    y = min(max(round(start[1] - dy / tile[3] * 100), ylo), yhi)
-    return resize._snap(x), resize._snap(y)
 
 
 def resize_distance(start, corner, dx, dy, tile):
@@ -468,7 +453,8 @@ class OverviewPointer:
 
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
-        return help_hit(self._help(), self.pointer) or hit(self.geometry, self.control.state.placements, self.pointer, self._open())
+        return help_hit(self._help(), self.pointer) or hit(self.geometry, self.control.state.placements, self.pointer, self._open(),
+                                                          around=self.control.state.mode == 'anchor')
 
     def _output(self, index):
         return next((o for o in self.outputs if o['index'] == index), None)
@@ -676,9 +662,6 @@ class OverviewPointer:
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
 
-    def _aspects(self):
-        return [t[2] / t[3] for t in self.geometry['tiles']][:len(self.control.state.placements)]
-
     def _apply_drag(self):
         d = self.drag
         if d is None or self.pointer is None: return b''
@@ -700,8 +683,9 @@ class OverviewPointer:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
                 self.moves += 1
-            target = move_target(d['xy'], dx, dy, d['tile'])
-            x, y = resize.allowed_move(d['index'], (current['x'], current['y']), target, c.state.placements, self._aspects())
+            if 'orbit' not in d:  # the turn round you, never overlapping (orbit.py); its reach fixed by the mode it began in
+                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], around=c.state.mode == 'anchor')
+            x, y = d['orbit'].follow(self.pointer, c.state.placements)
             updated = {**current, 'x': x, 'y': y}
         if updated == current: return b''
         c.state.placements = [updated if i == d['index'] else p for i, p in enumerate(c.state.placements)]

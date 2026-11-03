@@ -415,13 +415,12 @@ std::string help_geometry_json(const std::array<float, 9>& view, std::uint32_t w
 
 namespace {
 // Placement menu: field order matches ipc.hpp WirePlacement / geometry.py PLACEMENT_KEYS.
-// lo/hi: the slider's ends (ipc.cpp kPlacementBounds); flat: the flat-default value the slider fills from.
-struct MenuField { const char* label; const char* hint; bool percent, is_signed; std::int32_t lo, hi, flat; };
+// lo/hi: the slider's ends (ipc.cpp kPlacementBounds); flat: the flat-default value the slider fills from. tenths: the
+// value is in tenths of a degree (the orbit round you, tools/native_spike/orbit.py), shown as whole degrees.
+struct MenuField { const char* label; const char* hint; bool percent, is_signed, tenths; std::int32_t lo, hi, flat; };
 constexpr MenuField kMenuFields[kPlacementMenuFields] = {
-    {"Left / right", "", true, true, -100, 100, 0}, {"Down / up", "", true, true, -100, 100, 0},
-    {"Distance", "", true, false, 50, 200, 100}, {"Yaw", "turn left or right", false, true, -60, 60, 0},
-    {"Pitch", "tilt up or down", false, true, -45, 45, 0}, {"Roll", "tilt sideways", false, true, -45, 45, 0},
-    {"Curvature", "", false, false, 0, 120, 0}};
+    {"Left / right", "", false, true, true, -1800, 1800, 0}, {"Down / up", "", false, true, true, -900, 900, 0},
+    {"Distance", "", true, false, false, 50, 200, 100}, {"Curvature", "", false, false, false, 0, 120, 0}};
 constexpr const char* kHintGap = "     ";      // between hints on one footer line (video card)
 }
 
@@ -444,7 +443,13 @@ std::vector<PlacementMenuRow> placement_menu_rows(const PlacementMenuState& stat
         const auto& f = kMenuFields[i];
         const std::int32_t v = p[i];
         std::string value = (f.is_signed && v > 0 ? "+" : "") + std::to_string(v);
-        value += f.percent ? "%" : ascii_units ? " deg" : "\xc2\xb0";  // U+00B0 DEGREE SIGN
+        if (f.tenths) {
+            // Whole degrees, rounded half away from zero ("+13°", "-180°"): "-179.9°" would not fit the value column
+            // (kPanelW - kPanelPad - kPanelTrackX1) with the system font, nor "+180 deg" with the pixel font.
+            const std::int32_t whole = ((v < 0 ? -v : v) + 5) / 10;
+            const char* sign = whole == 0 ? "" : v < 0 ? "-" : f.is_signed ? "+" : "";
+            value = sign + std::to_string(whole) + (ascii_units ? "deg" : "\xc2\xb0");
+        } else value += f.percent ? "%" : ascii_units ? " deg" : "\xc2\xb0";  // U+00B0 DEGREE SIGN
         rows.push_back({f.label, f.hint, std::move(value), state.field == i});
     }
     return rows;

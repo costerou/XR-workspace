@@ -16,7 +16,7 @@ constexpr std::array<float, 3> kAccent{0.48f * 0.75f, 0.64f * 0.75f, 0.97f * 0.7
 constexpr std::array<float, 3> kRule{0.80f, 0.80f, 0.80f};
 constexpr float kBandAlpha = 0.20f, kRuleAlpha = 0.10f, kTrackAlpha = 0.55f, kFillAlpha = 0.9f, kTrackH = 4.f, kBandRadius = 9.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
-constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Yaw", "Pitch", "Roll", "Curvature"};
+constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Curvature"};
 
 // Premultiplied "over" of colour c with coverage a.
 void over(HudImage& im, int x, int y, std::array<float, 3> c, float a) {
@@ -220,9 +220,8 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
 }
 
 Placement placement_from_wire(const MenuPlacement& w) {
-    constexpr float rad = std::numbers::pi_v<float> / 180.f;
-    return {float(w[0]) / 100.f, float(w[1]) / 100.f, float(w[2]) / 100.f, float(w[3]) * rad, float(w[4]) * rad, float(w[5]) * rad,
-            float(w[6]) * rad};
+    constexpr float rad = std::numbers::pi_v<float> / 180.f;  // x / y (the orbit) are in tenths of a degree
+    return {float(w[0]) * rad / 10.f, float(w[1]) * rad / 10.f, float(w[2]) / 100.f, float(w[3]) * rad};
 }
 
 std::vector<std::size_t> glass_draw_order(std::vector<std::size_t> order, int top) {

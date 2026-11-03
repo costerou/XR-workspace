@@ -19,11 +19,12 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | --- | --- |
 | Managed virtual desktops, capture, rendering, viewing modes, zoom/switch controls, pose prediction, theme-reload survival | Physical runs on Luma Ultra through the `tools.native_spike` CLI. The `mod1` run presented ~119.9 Hz over 168 s on the zero-copy dmabuf path. The `trk1` run held ~119.8 Hz for 214 s with 0 tracking losses. These measure presentation cadence only, not latency or long-session comfort. |
 | Settings panel and controller service | Physical panel acceptance on Luma Ultra (2026-11-01; controller source `d685884`, which includes `8538468`, `4cfa04d` and `d9fbb28`; pinned renderer `62989b6e…` built from `822495c`). Run `d3adc32d` (on controller code a peer session had loaded but not yet committed; the later run and the recovery used committed `d685884`), started from the panel, calibrated tracking, switched DP-2 to 1920×1200@120 and presented ~120.0 Hz on dmabuf with 0 missed frames. Cody confirmed in the glasses that zoom/overview, desktop switching, spacing, recenter, viewing modes, cursor follow, prediction, the help card and live window content all worked. Panel Stop exited cleanly (renderer rc 0, nothing left over). In run `88b7e850`, the session kept running through a controller restart, and the new controller picked it up again. After a deliberate SIGKILL of the run unit, the panel showed Recover, and panel Recover put the desktop back to its baseline (XR outputs removed, plugin unloaded, DP-2 back to 1080@60). Earlier physical attempts failed before the renderer launched (mode readback, then `Errno 11`). Beast panel sessions are untested. The ~120 Hz figure is presentation cadence only. |
-| Per-desktop placement (position, distance, yaw/pitch/roll, curvature) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
+| Per-desktop placement (position, distance, curvature; until 2026-11-02 also yaw, pitch and roll) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. That run predates two changes of 2026-11-02, neither tried in the glasses (the "Desktops anywhere around you" row below): Left/right and Down/up are now a turn round you instead of a flat offset, and every desktop now faces you, so the yaw, pitch and roll settings are gone. Of what Cody checked, only curvature is still a setting. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
 | Cursor-follow retest | After the startup-state fix (`b309827`, in this branch), Cody reported a cursor-follow retest on the Luma Ultra (start XR, wait for calibration, fullscreen YouTube) with no blackout. That is a human-reported result, and the earlier blackout's root cause is unproven. Details: [feasibility/native-spike/luma-cursor-follow-retest.md](feasibility/native-spike/luma-cursor-follow-retest.md). |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
 | Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to focus it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
 | Glass placement pills (a frosted pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; in anchor mode a pill drag carries a desktop anywhere round you and a pill anywhere round you can be grabbed again; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
@@ -97,13 +98,13 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
-| Up / Down | pill open | Previous / next field: left/right, down/up, distance, yaw, pitch, roll, curvature |
-| Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step) |
+| Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
+| Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step). Left/right: 0.2°, Shift 15°, and it carries on past 180° to the other side. Down/up: 0.2°, Shift 10°, and it stops at ±90°. Not stopped by other desktops |
 | R | pill open | Reset the desktop to flat |
 | Escape | pill open | Close the pill |
 | Mouse past a desktop's edge | overview | Free pointer: the cursor hides and a dim dot moves through the space around the desktops |
 | Left click a pill | free pointer on a pill, or on the open panel's top strip | Open that desktop's panel (closing any other), or close it if it is the open one |
-| Left-drag a pill | free pointer on a pill, or on the open panel's top strip | Move that desktop, like a title bar. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
+| Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode also along the stretched direction, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar; in anchor mode anywhere round you. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
 | Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
 | Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, focus a desktop, or nothing in empty space |
 | Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
@@ -112,7 +113,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
-Each desktop also has a placement in the glasses: left/right and down/up offset, distance (size in space), yaw, pitch, roll and horizontal curvature. Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
+Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming into a desktop brings it flat in front of you and keeps its curvature; while zoomed, the other desktops' turns round you fade back to their row slots (their distance and curvature stay). Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
 
@@ -204,9 +205,11 @@ With the dot:
 
 - **Move a desktop: drag its pill.** The grab zone is the drawn pill with 10 px around it (`PILL_PAD_X`, `PILL_PAD_Y`)
   and the gap up to the desktop's bottom edge. The pill under the dot gets brighter. Hold the left button and drag:
-  nothing moves until the dot is more than 4 canvas px (`CLICK_PX`) from where you pressed, then the desktop follows so
-  that the pill stays under the dot. Release to drop it. An open panel's top strip is the same pill and drags the same
-  way.
+  nothing moves until the dot is more than 4 canvas px (`CLICK_PX`) from where you pressed, then the desktop turns
+  round you so that, inside the view, the pill stays under the dot. In anchor mode it carries on round you past the
+  view's edge, and a pill anywhere round you can be grabbed again (see
+  [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Release to drop it. An open panel's
+  top strip is the same pill and drags the same way.
 - **Open a pill: click it.** A press and release that never moved more than 4 px is a click, not a drag: it expands that
   desktop's pill into its placement panel, closing any other, or collapses it if it is the open one. A key that changes
   the open panel while the button is down (Escape, Tab, Ctrl+Alt+L) wins: that release is dropped, so it never undoes
@@ -221,15 +224,17 @@ With the dot:
 
 Hit testing order: an open panel is drawn on top (the renderer draws its desktop's glass last, over every other pill),
 so it is tested first (the pointer is mapped onto the open desktop's surface, where the panel is drawn). Then, front
-desktop first, each desktop's corners, its pill zone and the desktop itself.
+desktop first, each desktop's corners, its pill zone and the desktop itself. In anchor mode a pill zone is also tested
+along the pointer's stretched direction (below); corners, panels and desktops are only ever hit under the dot.
 
 Hit testing uses the same maths the renderer draws with (`spike/src/view.cpp` `place_point`, mirrored in
-`free_pointer.py`), including offset, distance, yaw, pitch, roll and curvature, front desktop first. The renderer reports
-the overview's canvas, field of view and settled desktop slots on its status socket (`overview_geometry`) whenever they
-change. The dot is world-locked on the overview's plane like the desktops' slots. The cursor is read 250 times a
-second in the overview with the read-only `cursorpos` query, and each change wakes the supervisor loop at once; the
-renderer draws the dot on the next frame (`overview_pointer` op) and eases placements (35 ms time constant), so drags
-look smooth at the display's rate.
+`tools/native_spike/orbit.py`), including the orbit round you, distance and curvature, with every desktop facing you,
+front desktop first. For an orbited desktop the pointer's ray is first turned back by its orbit
+(`orbit.unorbit_pointer`). The renderer reports the overview's canvas, field of view and settled desktop slots on its
+status socket (`overview_geometry`) whenever they change. The dot is world-locked on the overview's plane like the
+desktops' slots. The cursor is read 250 times a second in the overview with the read-only `cursorpos` query, and each
+change wakes the supervisor loop at once; the renderer draws the dot on the next frame (`overview_pointer` op) and eases
+placements (35 ms time constant), so drags look smooth at the display's rate.
 
 The free pointer is off in typing mode (Ctrl+Alt+T: the cursor stays a normal cursor everywhere), while zoomed in and
 while a VR video plays (`resize_press` / `resize_release` are in `IGNORED_WHILE_PLAYING`). It stays on while a
@@ -312,18 +317,112 @@ else should have reacted. Then repeat with Ctrl+Alt+Right before zooming in.
 
 ### Moving desktops in the overview (the pill under the desktop)
 
-A pill drag (above) changes the desktop's **Left/right** and **Down/up** placement. Placement is free, with three guards
-instead of a snap grid:
+A pill drag (above) changes the desktop's **Left/right** and **Down/up** placement. Since 2026-11-02
+(`3dof-free-placement`) these turn the desktop round you, so it can go anywhere around you. Everything in this section
+is covered by offline tests only. It has not been run in an isolated VM or tried in the glasses.
 
-- **Back to the row.** Each direction snaps to the desktop's own slot when within 4%, so putting it back is easy.
-- **No bad overlap.** A desktop may cover another by at most 10% of the smaller one's area, judged on the overview's
-  rectangles (apparent size included, tilt ignored). If a move would overlap more, the desktop slides along the free
-  direction or stops at the edge. To pass a neighbour, lift it clear of the row first. A desktop already overlapping
-  (set from the panel) can always move to where it overlaps less.
-- **In reach.** The limits are the Left/right and Down/up placements' own: one desktop width or height from its slot.
+**The orbit.** Left/right (`x`) and Down/up (`y`) are whole tenths of a degree on the wire and in the profile
+(`geometry.PLACEMENT_BOUNDS`, `ipc.cpp` `kPlacementBounds` and `Model.js` `PLACEMENT_BOUNDS` hold the same ranges). `x`
+runs from −1800 to 1800, positive to the right; −1800 and 1800 are the same place, directly behind you. `y` runs from
+−900 to 900, positive up; ±900 is straight overhead or underfoot. `x = y = 0` is the desktop's own slot in the row.
+The renderer eases `x` the short way round (`ease_toward`), so a desktop crossing behind you never swings back through
+the front. For scale, a 16:9 desktop is about 13° wide in the overview.
 
-The position is the desktop's **Left/right** and **Down/up** placement. It is saved to the glasses model's profile like
-a size (half a second after the last change, and on release), and the panel's **Place** tab shows it.
+**Always facing you.** Every desktop is a billboard toward your eye, which in 3DoF is where your head is. At its slot,
+while it is dragged and wherever it ends up, it is square to your line of sight and upright along its meridian. There
+is no setting for which way it faces. `spike/src/view.cpp` `place_point` places each canvas pixel (px, py) of a desktop
+this way, in float, and `tools/native_spike/orbit.py` `place_point` mirrors it exactly for hit testing and the guard
+(the `placement_contract` ctest compares the two):
+
+- The canvas is W × H px with half-FOV tangents hw, hh, so sx = 2hw / W and sy = 2hh / H. The desktop's slot is its
+  tile (tx, ty, tw_px, th_px) with centre (cx, cy); tw = tw_px · sx. d is Distance as a fraction (1 = the slot), or 1
+  if it is not above 0.
+- The slot's centre on the overview's plane (z = −1) is wx = (2cx / W − 1) · hw, wy = (1 − 2cy / H) · hh. Its direction
+  from the eye is a0 = atan2(wx, 1) and e0 = atan2(wy, √(1 + wx²)), and the desktop's centre is
+  r = √(1 + wx² + wy²) · d away.
+- The pixel's offset is u = (px − cx) · sx, v = (cy − py) · sy. Its local point is (u, v, 0), or on a curved desktop
+  (rc = tw / curvature, φ = u / rc) (rc sin φ, v, rc (1 − cos φ)), the edges toward you. The local point is pushed
+  straight ahead, q = (local.x, local.y, local.z − r), lifted by E = e0 + y about the horizontal axis,
+  q = (q.x, cos E · q.y − sin E · q.z, sin E · q.y + cos E · q.z), and turned by A = a0 + x about the vertical axis
+  through the eye: world = (cos A · q.x − sin A · q.z, q.y, sin A · q.x + cos A · q.z). Here x and y are in radians,
+  the wire's tenths of a degree times π / 1800.
+
+So `x = y = 0` is no longer the flat canvas plane for a desktop off the middle of the view: the side desktops of the
+default row now turn to face you. A centred desktop at Distance 100 is still exactly in the plane z = −1, and zooming
+still brings the zoomed desktop flat in front of you (it is centred). Moving a desktop from its slot is the rigid
+rotation about the eye Az(a0 + x) · El(y) · Az(−a0) (`orbit.rotation`), which hit testing (`orbit.unorbit_pointer`)
+and the guard's footprints use. The yaw, pitch and roll settings, which used to turn a desktop in place, were removed
+on 2026-11-02 from the settings panel, the glass panel, the wire and the profiles.
+
+**The drag.** The desktop turns by the change in the pointer's direction since the press (`orbit.drag_target`), so
+inside the view the pill stays under the dot. Each direction snaps back to the slot within 0.5° (`orbit.SNAP`, 5
+tenths). Left/right wraps round behind you; Down/up stops at ±90°.
+
+- **Anchor mode** (the desktops fixed in the room). The dot can go half a view past each edge of the view
+  (`OverviewPointer._clamp`). A drag stretches that reach smoothly (`orbit.pointer_direction`): its far left and right
+  ends point directly behind you and its top and bottom ends straight up and down, so any direction round you is one
+  drag away from wherever the pill was pressed. Inside the view the stretch changes nothing. The dot itself is not
+  moved by it: it stays on the overview's plane in front of you.
+- **Grabbing a pill again** (anchor mode). Pills are also hit-tested along that stretched direction
+  (`orbit.stretched_pointer`, used by `free_pointer.hit`), so a pill anywhere round you lights up when the stretched
+  direction meets it and can be grabbed again; the grabbed pill then follows the stretched direction exactly. Looking
+  at a desktop behind you, you see its pill light up but not the dot. Desktops, corners and the open panel are still
+  only hit under the dot itself.
+- **Follow and locked modes.** The view turns with your head, so there is no stretch and no stretched hit test: the
+  desktop only follows the dot, as far as the dot goes.
+- Whether a drag is stretched is fixed when it starts. Its target is followed unwrapped and only wrapped for the wire,
+  so a desktop held against a neighbour does not flip round the other way when the target passes behind you.
+
+**No overlap.** Desktops never overlap as seen from your eye. Each desktop's footprint is the set of directions from
+the eye that it covers: its true placed outline (distance, orbit and curvature included; a curved desktop uses its
+convex hull, so the guard errs early), widened by a 6 canvas-px margin all round (`MARGIN_PX`, the width of the
+highlight frame) and by the 34 px strip under it that holds its pill and the pill's grab padding (`PILL_ZONE_PX`). A
+drag moves along the straight path toward where the pointer wants it and stops before the first step that would make
+two footprints share a direction, so it never jumps through a neighbour, however fast the pointer moves. If that path
+is blocked it slides along the neighbour, sideways first or up and down first, whichever ends closer to the target. The
+corner of that slide is sent first, so the renderer's straight-line easing does not cut through the neighbour. Each
+pair is judged on its own: a desktop that already overlaps another (set from the panel) may move anywhere it overlaps
+that one no more than now and every other one not at all, so it is never stuck. To pass a neighbour, lift it clear of
+the row first, or carry it round behind you. The sliders and keys (in the glass panel and in the settings panel) and
+the corner resize are not guarded.
+
+**Keys.** With a pill open, Left / Right change Left/right by 0.2° and Shift+Left / Shift+Right by 15°
+(`view.MENU_STEPS`); it wraps past 180° to the other side (`orbit.wrap`) and never stops. Down/up steps by 0.2° and
+10° and stops at ±90°. The glass panel shows these two in whole degrees, rounded ("+13°", "-180°"; "+13deg" with the
+pixel font, for width), Distance in percent and Curvature in degrees. The settings panel's **Place** tab shows tenths
+("12.5°"), and its one-line summary reads like "moved 12.5° right, 3° up". Its preview keeps a desktop beside or behind
+you at the end of the row.
+
+**Zoom.** Zooming into a desktop still brings it flat and full size in front of you (`faded`): it is centred, so
+facing you is the same as flat. The other desktops' orbits fade with the zoom (`zoomed_placement`: `x` and `y` scaled
+by 1 − zoom), so while zoomed they are back at their row slots beside it, facing you and keeping their distance and
+curvature, and they go back out on zoom-out. An orbit is an angle round you, which does not fit the zoomed layout's
+spread-out slots.
+
+The position is saved to the glasses model's profile like a size (half a second after the last change, and on
+release), and the panel's **Place** tab shows it.
+
+**Fields, units and installing.** A placement now has exactly four integer fields, in this order: `x`, `y`,
+`distance` (percent, 50 to 200) and `curvature` (degrees, 0 to 120) (`geometry.PLACEMENT_KEYS`). A wire placement
+object with any other keys, the old seven included, is malformed. Until 2026-11-02 a placement also had `yaw`, `pitch`
+and `roll`, and `x` and `y` were a flat offset in percent of the desktop's own width and height, from −100 to 100: at
+most one desktop from its slot. A profile saved before then still loads (`profiles._placement`,
+`geometry.legacy_placement`): its yaw, pitch and roll are dropped, its distance and curvature are kept, and its `x` /
+`y` now read as tenths of a degree, so at most 10°, about where they were. Install the renderer, the Python supervisor
+and controller, and the panel QML together (see [Build and install](#build-and-install)). An older renderer rejects
+the new supervisor's four-field `placement` and `placement_menu` frames. An older panel shows four-field placements as
+flat, and the controller refuses the seven-field placements it sends. A Python-only rollback resets to flat, when the
+profile loads, every placement the new version saved (they have four fields).
+
+**Limitations.**
+
+- In follow and locked modes a desktop placed outside the view stays out of sight. Zooming into it (select it with
+  Ctrl+Alt+Left / Right, then Ctrl+Alt+Up) or switching to anchor mode (Ctrl+Alt+V) brings it back.
+- For a desktop far round you, only its pill is in the pointer's reach. Its open panel, its corners and the desktop
+  itself (moving the cursor into it, clicking it to focus it) are not. The keyboard works: Ctrl+Alt+Left / Right
+  selects it, Ctrl+Alt+L opens its panel, the arrows change it and R resets it to flat.
+- Mixed installs, as above: the renderer, Python and QML must come from the same build. A Python-only rollback resets
+  placements.
 
 The pill, the open panel and the corner bracket share one left-button bind (`resize_press` / `resize_release`, bound
 only while the pointer is free) and never compete: the open panel is tested first, and a corner zone wins over a pill
@@ -331,8 +430,11 @@ where they meet. If the run dies while the pointer is free, the next left click 
 bind and shows the cursor again where free mode found it.
 
 Until 2026-11-02 the move handle was a thin grey bar 4 px tall, drawn above each desktop. The glass pill under the
-desktop replaced it. The wire op (`move_handle`) and the move maths (snap, overlap guard, reach) are unchanged; only
-the 4 px click threshold is new.
+desktop replaced it; the wire op (`move_handle`) stayed the same and only the 4 px click threshold was new. Later the
+same day the flat offset's move maths gave way to the orbit and guard above: its 4% snap, its allowance of 10% overlap
+of the smaller desktop's area (judged on approximate overview rectangles) and its reach of one desktop width or height
+are gone, and `resize.allowed_move` became `orbit.allowed_move`. After that every desktop was made to face you, and the
+yaw, pitch and roll settings were removed.
 
 ### Help card pages
 
@@ -379,16 +481,16 @@ This replaces the earlier placement menu: a head-locked card in the middle of th
 that drew its own pointer over the card. The card, Ctrl+Alt+M, mouse mode, the renderer's `menu_pointer` op and its
 `menu_geometry` status line are gone. The overview free pointer does that job now.
 
-**The placement panel.** It is drawn on the desktop's own surface, so a tilted or curved desktop tilts and curves its
-panel. It is 480 × 322 canvas px with 18 px corners, centred under the desktop, its top where the pill's top is (10 px
-under the desktop). The top strip, 42 px tall, shows "XR-n" and "Placement" with a small grabber where the pill was.
-That strip is still the pill: drag it to move the desktop, click it to collapse the panel. Below it are the seven
-settings, in order: **Left/right**, **Down/up**, **Distance**, **Yaw** (turn left or right), **Pitch** (tilt up or
-down), **Roll** (tilt sideways) and **Curvature**. Each row has its label, a slider and the current value with units.
-The selected row sits on a faint accent band. The slider's ends are the setting's limits, the same as the settings
-panel's sliders, and the stretch from the flat value to the knob is coloured. The footer lists the keys (↑↓ field, ←→
-adjust, Tab next, R flat). Desktop and setting selection wrap round. R puts every setting of the open desktop back to
-flat.
+**The placement panel.** It is drawn on the desktop's own surface, so it faces you with its desktop and a curved desktop
+curves its panel. It is 480 × 220 canvas px with 18 px corners, centred under the desktop, its top where the pill's top
+is (10 px under the desktop). The top strip, 42 px tall, shows "XR-n" and "Placement" with a small grabber where the
+pill was. That strip is still the pill: drag it to move the desktop, click it to collapse the panel. Below it are the
+four settings, in order: **Left/right**, **Down/up**, **Distance** and **Curvature** (`kPlacementMenuFields`; there were
+seven, with Yaw, Pitch and Roll, and the panel was 322 px tall, until 2026-11-02). Each row has its label, a slider and
+the current value with units: whole degrees for Left/right and Down/up, percent for Distance, degrees for Curvature. The
+selected row sits on a faint accent band. The slider's ends are the setting's limits, the same as the settings panel's
+sliders, and the stretch from the flat value to the knob is coloured. The footer lists the keys (↑↓ field, ←→ adjust,
+Tab next, R flat). Desktop and setting selection wrap round. R puts every setting of the open desktop back to flat.
 
 **With the pointer.** Press on a slider (its row, from 12 px before the knob's lowest position to 12 px past its highest,
 `PANEL_KNOB_LO` / `PANEL_KNOB_HI` and `PANEL_SLOP_PX` in `free_pointer.py`: about 5 px past each end of the drawn track)
@@ -431,9 +533,11 @@ pill and panel geometry from `spike/include/xr/glass.hpp`, and the `glass_contra
 display-only frames drive the renderer:
 
 - `placement_menu` `{open, desktop, field, placements}` now means "this desktop's pill is expanded into its panel";
-  `open: false` collapses it. While the free pointer holds one of the open panel's sliders the payload also carries
-  `surface`, the open desktop's placement at the press: the renderer draws the panel on it (the desktop itself follows
-  its live placement) until a frame without it. `surface` is only valid with `open: true`.
+  `open: false` collapses it. `field` is one of `x`, `y`, `distance`, `curvature`, and each placement object has exactly
+  those four keys (see [Fields, units and installing](#moving-desktops-in-the-overview-the-pill-under-the-desktop)).
+  While the free pointer holds one of the open panel's sliders the payload also carries `surface`, the open desktop's
+  placement at the press: the renderer draws the panel on it (the desktop itself follows its live placement) until a
+  frame without it. `surface` is only valid with `open: true`.
 - `move_handle` `{visible, desktop, hover, active}` shows the pills under every desktop and brightens the hovered or
   dragged one. The renderer draws an open panel even when `visible` is false.
 
@@ -472,6 +576,13 @@ when they fit a page; the overlay turns and wraps pages and reopens on page 1; t
 `help_geometry_json` maps them onto the canvas; text only shrinks as the output gets shorter, and the card is laid out
 again when the output size changes. `tests/native_spike/test_help_pages.py` covers the page keys, the `sections` /
 `turn` frame, the `help_geometry` line and the free pointer's clicks on the card.
+
+The placement round you, with every desktop facing you (see
+[Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), adds
+`tests/native_spike/test_orbit.py` for `tools/native_spike/orbit.py`, and the `placement_contract` ctest, which compares
+`orbit.place_point` with the renderer's `place_point`. `test_free_pointer.py`, `test_glass_pills.py`,
+`test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py` (older profiles that still carry yaw, pitch and roll)
+and the `view`, `hud`, `glass`, `ipc` and `placement_menu_ipc` ctests were updated for it. All of these are offline.
 
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 

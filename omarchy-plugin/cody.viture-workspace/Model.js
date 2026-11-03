@@ -106,18 +106,31 @@ function selectOperations(selected, target, capabilities) {
 
 // Per-desktop placement: integer fields, mirrored from tools/native_spike/geometry.py PLACEMENT_BOUNDS
 // (tests/native_spike/test_placement.py compares the tables). Presentation only; editable while running.
-const PLACEMENT_BOUNDS = {x: [-100, 100], y: [-100, 100], distance: [50, 200], yaw: [-60, 60], pitch: [-45, 45], roll: [-45, 45], curvature: [0, 120]};
-const PLACEMENT_KEYS = ["x", "y", "distance", "yaw", "pitch", "roll", "curvature"];
+// x / y turn the desktop round you in tenths of a degree (tools/native_spike/orbit.py): x to the right (+-1800 is behind
+// you), y up (900 straight overhead). Distance is whole percent, curvature whole degrees. Every desktop always faces
+// you, upright, so there is no facing setting (the turning angles were removed on 2026-11-02: a placement that still
+// carries them is refused here; older saved profiles load without them, tools/native_spike/profiles.py).
+const PLACEMENT_BOUNDS = {x: [-1800, 1800], y: [-900, 900], distance: [50, 200], curvature: [0, 120]};
+const PLACEMENT_KEYS = ["x", "y", "distance", "curvature"];
+const PLACEMENT_UNITS = {x: "°", y: "°", distance: "%", curvature: "°"};
 
-// Slider labels; the angle terms keep their names plus plain wording. Shared by the editor and placementSummary.
-const PLACEMENT_LABELS = {x: "Left / right", y: "Down / up", distance: "Distance", yaw: "Yaw (turn left/right)",
-                          pitch: "Pitch (tilt up/down)", roll: "Roll (tilt sideways)", curvature: "Curvature"};
+// Slider labels, shared by the editor.
+const PLACEMENT_LABELS = {x: "Left / right", y: "Down / up", distance: "Distance", curvature: "Curvature"};
 
 function placementLabel(key) { return PLACEMENT_LABELS[key] || ""; }
 
 function placementBounds(key) { return (PLACEMENT_BOUNDS[key] || [0, 0]).slice(); }
 
-function defaultPlacement() { return {x:0, y:0, distance:100, yaw:0, pitch:0, roll:0, curvature:0}; }
+// A field's value as the editor shows it: "12.5°" / "-3°" for the orbit's tenths, "100%", "20°". "" for a value that
+// is not an integer or a key that is not a placement field. -0 shows as "0°" (String(-0) is "0"; v < 0 is false).
+function placementValueText(key, v) {
+    if (!Number.isInteger(v) || !Object.prototype.hasOwnProperty.call(PLACEMENT_UNITS, key)) return "";
+    if (key !== "x" && key !== "y") return v + PLACEMENT_UNITS[key];
+    const a = Math.abs(v);
+    return (v < 0 ? "-" : "") + Math.floor(a / 10) + (a % 10 ? "." + (a % 10) : "") + "°";
+}
+
+function defaultPlacement() { return {x:0, y:0, distance:100, curvature:0}; }
 
 // A fresh, exact-key placement if every field is an in-range integer, else null.
 function placementEdit(p) {
@@ -148,23 +161,33 @@ function withPlacement(placements, index, placement) {
 function placementSummary(p) {
     if (!placementEdit(p) || isFlat(p)) return "flat, in line";
     const parts = [];
-    if (p.x || p.y) parts.push("offset " + p.x + "%, " + p.y + "%");
+    if (p.x || p.y) {
+        const moved = [];
+        if (p.x) moved.push(placementValueText("x", Math.abs(p.x)) + (p.x > 0 ? " right" : " left"));
+        if (p.y) moved.push(placementValueText("y", Math.abs(p.y)) + (p.y > 0 ? " up" : " down"));
+        parts.push("moved " + moved.join(", "));
+    }
     if (p.distance !== 100) parts.push("distance " + p.distance + "%");
-    for (const key of ["yaw", "pitch", "roll"])  // only the angles in use, so the one-line summary stays short
-        if (p[key]) parts.push(PLACEMENT_LABELS[key] + " " + p[key] + "°");
     if (p.curvature) parts.push("curved " + p.curvature + "°");
     return parts.join(" · ");
 }
 
-// Approximate top-down preview of placed tiles: offset (y up), apparent size 100/distance, yaw as foreshortening,
-// roll as rotation (QML rotation is clockwise). Curvature is listed, not drawn. Flat placements return rects unchanged.
+// Approximate front view of placed tiles: the turn round you as an offset (a desktop is about PREVIEW_HEIGHT_DEG tall
+// in the overview; the centre is kept inside the row, so a desktop beside or behind you shows at the row's edge),
+// apparent size 100/distance. Every desktop faces you, so a tile is never foreshortened or rotated. Curvature is
+// listed, not drawn. Flat placements return rects unchanged.
+const PREVIEW_HEIGHT_DEG = 7;
 function placedRects(rects, placements) {
+    if (!rects || !rects.length) return [];  // previewRects gives [] when nothing fits; Math.min() of nothing is Infinity
+    const left = Math.min.apply(null, rects.map(function(r) { return r.x; }));
+    const right = Math.max.apply(null, rects.map(function(r) { return r.x + r.width; }));
     return rects.map(function(r, i) {
         const p = placementEdit((placements || [])[i]) || defaultPlacement();
         const k = 100 / p.distance;
-        const w = r.width * k * Math.cos(p.yaw * Math.PI / 180), h = r.height * k * Math.cos(p.pitch * Math.PI / 180);
-        // The renderer scales the centre with distance, so the apparent offset does not shrink.
-        const cx = r.x + r.width / 2 + p.x / 100 * r.width, cy = r.y + r.height / 2 - p.y / 100 * r.height;
-        return {x: cx - w / 2, y: cy - h / 2, width: w, height: h, rotation: -p.roll};
+        const w = r.width * k, h = r.height * k;
+        const perDeg = r.height / PREVIEW_HEIGHT_DEG;  // the orbit turns the desktop: its apparent size stays
+        const cx = Math.min(Math.max(r.x + r.width / 2 + p.x / 10 * perDeg, left), right);
+        const cy = Math.min(Math.max(r.y + r.height / 2 - p.y / 10 * perDeg, r.y), r.y + r.height);
+        return {x: cx - w / 2, y: cy - h / 2, width: w, height: h};
     });
 }

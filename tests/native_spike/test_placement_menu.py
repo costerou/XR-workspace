@@ -44,8 +44,8 @@ from tools.native_spike.ipc import decode_control, PrivateServer
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).with_name('fixtures') / 'placement_menu_payloads.json'
 NAMES = ['XR-1', 'XR-2', 'XR-3']
-TILTED = {'x': -20, 'y': 10, 'distance': 120, 'yaw': 25, 'pitch': -5, 'roll': 3, 'curvature': 40}
-MENU_FIELDS = ('x', 'y', 'distance', 'yaw', 'pitch', 'roll', 'curvature')  # contract order = menu order
+TILTED = {'x': -20, 'y': 10, 'distance': 120, 'curvature': 40}
+MENU_FIELDS = ('x', 'y', 'distance', 'curvature')  # contract order = menu order
 MENU_ACTIONS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev',
                 'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset')
 MENU_PAYLOAD_KEYS = {'open', 'desktop', 'field', 'placements'}
@@ -288,7 +288,7 @@ class MenuOpenCloseTests(unittest.TestCase):
     def test_menu_never_touches_view_layout_settings_or_focus(self):
         m = Menu(self)
         view_before = m.c.state.view()
-        m.goto(desktop=2, field='yaw')
+        m.goto(desktop=2, field='curvature')
         for op in ('menu_inc', 'menu_inc_big', 'menu_dec', 'menu_reset', 'menu_desktop_prev', 'menu_field_prev', 'menu_toggle'):
             m.send(op)
         self.assertEqual(m.settings.saved, [])          # layout.json / profile view settings untouched
@@ -337,11 +337,11 @@ class MenuNavigationTests(unittest.TestCase):
 
     def test_reopen_starts_on_the_viewed_desktop_and_keeps_the_field(self):
         """MENU-WIRING's choice, adopted: opening selects the desktop being looked at (view selection); the field stays."""
-        m = Menu(self); m.goto(desktop=2, field='roll')
+        m = Menu(self); m.goto(desktop=2, field='curvature')
         m.send('menu_toggle')
         self.assertEqual(m.send('next')[0]['op'], 'view')   # look at XR-2 while the menu is closed
         m.send('menu_toggle')
-        self.assertEqual((m.menu['open'], m.menu['desktop'], m.menu['field']), (True, m.c.state.selected, 'roll'))
+        self.assertEqual((m.menu['open'], m.menu['desktop'], m.menu['field']), (True, m.c.state.selected, 'curvature'))
         self.assertEqual(m.menu['desktop'], 1)
 
 
@@ -373,9 +373,22 @@ class MenuAdjustTests(unittest.TestCase):
                          {k: v for k, v in TILTED.items() if k != 'distance'})
         self.assertEqual((m.c.state.placements[0], m.c.state.placements[2]), (TILTED, TILTED))
 
+    def test_x_wraps_round_past_behind_you(self):
+        for start, op, want in ((1799, 'menu_inc', 1801 - 3600), (1700, 'menu_inc_big', 1850 - 3600), (-1799, 'menu_dec', 1799),
+                                (1800, 'menu_inc', 1802 - 3600)):
+            with self.subTest(start=start, op=op):
+                m = Menu(self, initial=[g.DEFAULT_PLACEMENT, {**g.DEFAULT_PLACEMENT, 'x': start}, g.DEFAULT_PLACEMENT])
+                m.goto(desktop=1, field='x')
+                frames = m.send(op)
+                self.assertEqual(m.value(), want)
+                self.assertIn('placement', m.ops(frames))
+                g.validate_placements(m.c.state.placements)
+
     def test_clamped_exactly_at_every_bound(self):
-        """From one step inside each bound, inc/dec land exactly on it (not short), then stay there with no frame."""
+        """From one step inside each bound, inc/dec land exactly on it (not short), then stay there with no frame. x, the
+        turn round you, has no bound to stop at: it carries on round past behind you (test_x_wraps_round_past_behind_you)."""
         for field in MENU_FIELDS:
+            if field == 'x': continue
             lo, hi = g.PLACEMENT_BOUNDS[field]
             for bound, near, ops in ((hi, hi - 1, ('menu_inc', 'menu_inc_big')), (lo, lo + 1, ('menu_dec', 'menu_dec_big'))):
                 for op in ops:
@@ -396,18 +409,22 @@ class MenuAdjustTests(unittest.TestCase):
         for field in MENU_FIELDS:
             lo, hi = g.PLACEMENT_BOUNDS[field]
             m.goto(desktop=2, field=field)
-            for _ in range(300): m.send('menu_inc_big')
-            self.assertEqual(m.value(), hi, field)
-            for _ in range(300): m.send('menu_dec_big')
-            self.assertEqual(m.value(), lo, field)
+            for _ in range(300):
+                m.send('menu_inc_big')
+                self.assertTrue(lo <= m.value() <= hi, field)
+            if field != 'x': self.assertEqual(m.value(), hi, field)  # x turns on round you: always in range, never stuck
+            for _ in range(300):
+                m.send('menu_dec_big')
+                self.assertTrue(lo <= m.value() <= hi, field)
+            if field != 'x': self.assertEqual(m.value(), lo, field)
 
     def test_reset_restores_flat_default_for_the_selected_desktop_only(self):
-        m = Menu(self, initial=[TILTED] * 3); m.goto(desktop=1, field='pitch')
+        m = Menu(self, initial=[TILTED] * 3); m.goto(desktop=1, field='distance')
         frames = m.send('menu_reset')
         self.assertEqual(m.c.state.placements, [TILTED, g.DEFAULT_PLACEMENT, TILTED])
         self.assertEqual(m.placement_frames(frames), [[TILTED, g.DEFAULT_PLACEMENT, TILTED]])
         self.assertEqual(m.menu['placements'], [TILTED, g.DEFAULT_PLACEMENT, TILTED])
-        self.assertEqual((m.menu['desktop'], m.menu['field']), (1, 'pitch'))  # selection kept
+        self.assertEqual((m.menu['desktop'], m.menu['field']), (1, 'distance'))  # selection kept
         self.assertNotIn('placement', m.ops(m.send('menu_reset')))           # already flat: nothing to send
 
     def test_external_panel_change_refreshes_an_open_menu(self):
@@ -423,7 +440,7 @@ class MenuAdjustTests(unittest.TestCase):
 @NEEDS_WIRING
 class MenuLiveApplyTests(unittest.TestCase):
     def test_every_change_sends_a_placement_frame_and_a_menu_frame(self):
-        m = Menu(self); m.goto(desktop=2, field='yaw')
+        m = Menu(self); m.goto(desktop=2, field='curvature')
         for op in ('menu_inc', 'menu_inc_big', 'menu_dec', 'menu_dec_big'):
             with self.subTest(op=op):
                 frames = m.send(op)
@@ -463,14 +480,14 @@ class MenuPersistenceTests(unittest.TestCase):
         self.assertLessEqual(len(m.store.saved), 2, f'{len(m.store.saved)} profile writes for 20 key presses')
 
     def test_close_persists_the_current_placements(self):
-        m = Menu(self); m.goto(desktop=1, field='roll')
+        m = Menu(self); m.goto(desktop=1, field='curvature')
         for _ in range(5): m.send('menu_inc')
         m.send('menu_toggle')
         self.assertTrue(m.wait_saved(m.c.state.placements), f'saved {m.store.value}, live {m.c.state.placements}')
         self.assertEqual(m.store.saved[-1], m.c.state.placements)
 
     def test_debounced_save_lands_without_closing(self):
-        m = Menu(self); m.goto(desktop=0, field='yaw'); m.send('menu_inc')
+        m = Menu(self); m.goto(desktop=0, field='curvature'); m.send('menu_inc')
         expected = copy.deepcopy(m.c.state.placements)
         # Some implementations flush from the supervisor loop rather than a timer; give them their hook if present.
         deadline = time.monotonic() + 3
@@ -775,8 +792,9 @@ class NoScopeChangeTests(unittest.TestCase):
         self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True})
 
     def test_placement_bounds_unchanged(self):
-        self.assertEqual(g.PLACEMENT_BOUNDS, {'x': (-100, 100), 'y': (-100, 100), 'distance': (50, 200), 'yaw': (-60, 60),
-                                              'pitch': (-45, 45), 'roll': (-45, 45), 'curvature': (0, 120)})
+        # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); the rest are unchanged.
+        self.assertEqual(g.PLACEMENT_BOUNDS, {'x': (-1800, 1800), 'y': (-900, 900), 'distance': (50, 200),
+                                              'curvature': (0, 120)})
 
 
 if __name__ == '__main__':

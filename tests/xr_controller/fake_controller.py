@@ -32,9 +32,9 @@ def fixture(state):
                            dict(width=3840,height=1080,scale=1),
                            dict(width=3440,height=1440,scale=1.25)]
     # A wraparound arrangement: outer desktops angled in, the middle ultrawide curved.
-    profile['placements'] = [dict(x=0,y=0,distance=100,yaw=20,pitch=0,roll=0,curvature=0),
-                             dict(x=0,y=0,distance=100,yaw=0,pitch=0,roll=0,curvature=60),
-                             dict(x=0,y=10,distance=120,yaw=-20,pitch=0,roll=3,curvature=0)]
+    profile['placements'] = [dict(x=0,y=0,distance=100,curvature=0),
+                             dict(x=0,y=0,distance=100,curvature=60),
+                             dict(x=0,y=10,distance=120,curvature=0)]
     scope = dict(run_id='offline', model='luma-ultra', output='DP-2', recovery_output='DP-1',
                  desktops=profile['desktops'], tracking='xrlinuxdriver',
                  mode_switch=dict(width=1920,height=1200,refresh_hz=120))

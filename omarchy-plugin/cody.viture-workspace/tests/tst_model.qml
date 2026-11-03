@@ -126,37 +126,134 @@ TestCase {
         const flat = Model.defaultPlacement();
         compare(Model.placementEdit(flat), flat);
         verify(Model.isFlat(flat));
-        const edge = {x:-100, y:100, distance:200, yaw:-60, pitch:45, roll:-45, curvature:120};
+        compare(flat, {x:0, y:0, distance:100, curvature:0});  // exactly the four fields of geometry.DEFAULT_PLACEMENT
+        const edge = {x:-100, y:100, distance:200, curvature:120};
         compare(Model.placementEdit(edge), edge);
-        for (const key of ["x","y","distance","yaw","pitch","roll","curvature"]) {
+        // x / y are the orbit in tenths of a degree: right round to behind you, up to straight overhead.
+        const behind = {x:1800, y:-900, distance:50, curvature:0};
+        compare(Model.placementEdit(behind), behind);
+        const otherWay = Object.assign({}, flat, {x:-1800, y:900});
+        compare(Model.placementEdit(otherWay), otherWay);
+        for (const bad of [{x:1801}, {x:-1801}, {y:901}, {y:-901}, {x:2.5}, {y:-0.5}])
+            compare(Model.placementEdit(Object.assign({}, flat, bad)), null, JSON.stringify(bad));
+        for (const key of ["x","y","distance","curvature"]) {
             const b = Model.placementBounds(key);
             compare(Model.placementEdit(Object.assign({}, flat, {[key]:b[0]-1})), null);
             compare(Model.placementEdit(Object.assign({}, flat, {[key]:b[1]+1})), null);
             compare(Model.placementEdit(Object.assign({}, flat, {[key]:0.5})), null);
         }
         compare(Model.placementEdit(Object.assign({}, flat, {z:0})), null);
+        // The facing settings are gone (every desktop faces you): a placement still carrying them is refused, even at 0.
+        compare(Model.placementEdit(Object.assign({}, flat, {yaw:0, pitch:0, roll:0})), null);
+        compare(Model.placementEdit(Object.assign({}, edge, {yaw:-60, pitch:45, roll:-45})), null);
+        for (const key of ["yaw", "pitch", "roll"]) {
+            compare(Model.placementEdit(Object.assign({}, flat, {[key]:0})), null, key);
+            compare(Model.placementBounds(key), [0, 0], key);  // not a field
+        }
+        compare(Model.placementEdit({x:0, y:0, distance:100}), null);
         compare(Model.placementEdit(null), null);
+        compare(Model.placementBounds("x"), [-1800, 1800]);
+        compare(Model.placementBounds("y"), [-900, 900]);
         compare(Model.placementBounds("distance"), [50, 200]);
+        compare(Model.placementBounds("curvature"), [0, 120]);
+        Model.placementBounds("x")[0] = 0;  // a copy: the table stays as it is
+        compare(Model.placementBounds("x"), [-1800, 1800]);
+    }
+    function test_placementValueText() {
+        compare(Model.placementValueText("x", 125), "12.5°");
+        compare(Model.placementValueText("x", -125), "-12.5°");
+        compare(Model.placementValueText("y", -30), "-3°");
+        compare(Model.placementValueText("y", 30), "3°");
+        compare(Model.placementValueText("y", -5), "-0.5°");
+        compare(Model.placementValueText("x", 1800), "180°");
+        compare(Model.placementValueText("x", -1800), "-180°");
+        compare(Model.placementValueText("x", -1799), "-179.9°");
+        compare(Model.placementValueText("y", 900), "90°");
+        compare(Model.placementValueText("y", -900), "-90°");
+        compare(Model.placementValueText("x", 0), "0°");
+        compare(Model.placementValueText("x", -0), "0°");
+        compare(Model.placementValueText("distance", 100), "100%");
+        compare(Model.placementValueText("distance", 50), "50%");
+        compare(Model.placementValueText("curvature", 120), "120°");
+        compare(Model.placementValueText("curvature", -0), "0°");
+        for (const key of ["yaw", "pitch", "roll"])  // removed: not placement fields
+            compare(Model.placementValueText(key, 20), "", key);
+        for (const bad of [12.5, -0.1, NaN, Infinity, -Infinity, "5", null, undefined, true, [5], {}])
+            for (const key of ["x", "y", "distance", "curvature"])
+                compare(Model.placementValueText(key, bad), "", key + " " + String(bad));
+        compare(Model.placementValueText("z", 5), "");
+        compare(Model.placementValueText("toString", 5), "");
+        compare(Model.placementValueText(undefined, 5), "");
     }
     function test_withPlacement() {
-        const tilt = {x:10, y:0, distance:100, yaw:20, pitch:0, roll:0, curvature:30};
+        const tilt = {x:10, y:0, distance:100, curvature:30};
         compare(Model.withPlacement(undefined, 1, tilt), [Model.defaultPlacement(), tilt, Model.defaultPlacement()]);
         compare(Model.withPlacement([tilt, {bad:1}], 2, tilt), [tilt, Model.defaultPlacement(), tilt]);
         compare(Model.withPlacement([tilt, tilt, tilt], 0, {x:999}), [tilt, tilt, tilt]);
+        compare(Model.withPlacement([tilt, tilt, tilt], 0, Object.assign({}, tilt, {x:1801})), [tilt, tilt, tilt]);
+        const behind = Object.assign(Model.defaultPlacement(), {x:-1800, y:900});
+        compare(Model.withPlacement([tilt, tilt, tilt], 1, behind), [tilt, behind, tilt]);
         compare(Model.placementSummary(Model.defaultPlacement()), "flat, in line");
-        compare(Model.placementSummary(tilt), "offset 10%, 0% · Yaw (turn left/right) 20° · curved 30°");
-        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {pitch:-5, roll:3})),
-                "Pitch (tilt up/down) -5° · Roll (tilt sideways) 3°");
+        compare(Model.placementSummary(tilt), "moved 1° right · curved 30°");
+        compare(Model.placementSummary({x:-125, y:30, distance:150, curvature:20}),
+                "moved 12.5° left, 3° up · distance 150% · curved 20°");
+        // A placement still carrying the removed facing settings is invalid: it is not summarised, and not kept.
+        const legacy = Object.assign({}, tilt, {yaw:20, pitch:-5, roll:3});
+        compare(Model.placementSummary(legacy), "flat, in line");
+        compare(Model.withPlacement([legacy, tilt, tilt], 1, legacy), [Model.defaultPlacement(), tilt, tilt]);
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:-125, y:-30})), "moved 12.5° left, 3° down");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:125, y:30})), "moved 12.5° right, 3° up");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {y:5})), "moved 0.5° up");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:-1, y:-900})), "moved 0.1° left, 90° down");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:1800, distance:150})),
+                "moved 180° right · distance 150%");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:-0, y:-0})), "flat, in line");
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:1801})), "flat, in line");  // invalid
+        compare(Model.placementSummary(Object.assign(Model.defaultPlacement(), {x:12.5})), "flat, in line");
     }
     function test_placedRects() {
         const rects = [{x:0, y:0, width:100, height:50}];
-        compare(Model.placedRects(rects, []), [{x:0, y:0, width:100, height:50, rotation:-0}]);
-        const r = Model.placedRects(rects, [{x:50, y:20, distance:200, yaw:60, pitch:0, roll:10, curvature:0}])[0];
-        fuzzyCompare(r.width, 25, 0.001);   // half size at 200%, cos(60°) foreshortening
+        compare(Model.placedRects(rects, []), [{x:0, y:0, width:100, height:50}]);
+        compare(Model.placedRects(rects, undefined), [{x:0, y:0, width:100, height:50}]);
+        verify(!("rotation" in Model.placedRects(rects, [])[0]), "every desktop faces you: a tile is never rotated");
+        compare(Model.placedRects([], []), []);
+        compare(Model.placedRects([], [Model.defaultPlacement()]), []);
+        compare(Model.placedRects(Model.previewRects([], 800, 400, 20), undefined), []);
+        const r = Model.placedRects(rects, [{x:50, y:20, distance:200, curvature:60}])[0];
+        fuzzyCompare(r.width, 50, 0.001);   // half size at 200%; it faces you, so it is never foreshortened
         fuzzyCompare(r.height, 25, 0.001);
-        fuzzyCompare(r.x + r.width / 2, 100, 0.001);  // centre offset by half its width
-        fuzzyCompare(r.y + r.height / 2, 15, 0.001);  // +y is up
-        compare(r.rotation, -10);
+        fuzzyCompare(r.x + r.width / 2, 50 + 5 * 50 / 7, 0.001);  // 5° right; a desktop is about 7° tall
+        fuzzyCompare(r.y + r.height / 2, 25 - 2 * 50 / 7, 0.001);  // 2° and +y is up
+        verify(!("rotation" in r));
+        // A placement still carrying the removed facing settings is invalid and draws flat.
+        compare(Model.placedRects(rects, [{x:50, y:20, distance:200, yaw:60, pitch:0, roll:10, curvature:0}]),
+                [{x:0, y:0, width:100, height:50}]);
+        const down = Model.placedRects(rects, [Object.assign(Model.defaultPlacement(), {x:-50, y:-20})])[0];
+        fuzzyCompare(down.x + down.width / 2, 50 - 5 * 50 / 7, 0.001);
+        fuzzyCompare(down.y + down.height / 2, 25 + 2 * 50 / 7, 0.001);
+        fuzzyCompare(down.width, 100, 0.001);  // the orbit turns the desktop round you: its apparent size stays
+        fuzzyCompare(down.height, 50, 0.001);
+
+        // A row of three: a centre is kept inside the row, so a desktop beside, behind or above you shows at its edge.
+        const row = [{x:10, y:20, width:100, height:50}, {x:120, y:20, width:100, height:50}, {x:230, y:20, width:100, height:50}];
+        const flat = Model.defaultPlacement();
+        const placed = Model.placedRects(row, [Object.assign({}, flat, {x:-1800}), Object.assign({}, flat, {y:900}),
+                                               Object.assign({}, flat, {x:1800, y:-900})]);
+        compare(placed.length, 3);
+        fuzzyCompare(placed[0].x + placed[0].width / 2, 10, 0.001);   // the row's left edge
+        fuzzyCompare(placed[0].y + placed[0].height / 2, 45, 0.001);
+        fuzzyCompare(placed[1].x + placed[1].width / 2, 170, 0.001);
+        fuzzyCompare(placed[1].y + placed[1].height / 2, 20, 0.001);  // the row's top
+        fuzzyCompare(placed[2].x + placed[2].width / 2, 330, 0.001);  // the row's right edge
+        fuzzyCompare(placed[2].y + placed[2].height / 2, 70, 0.001);  // the row's bottom
+        for (const t of placed) { fuzzyCompare(t.width, 100, 0.001); fuzzyCompare(t.height, 50, 0.001); }
+        const middleRight = Model.placedRects(row, [flat, Object.assign({}, flat, {x:1800}), flat])[1];
+        fuzzyCompare(middleRight.x + middleRight.width / 2, 330, 0.001);
+        const middleLeft = Model.placedRects(row, [flat, Object.assign({}, flat, {x:-1800}), flat])[1];
+        fuzzyCompare(middleLeft.x + middleLeft.width / 2, 10, 0.001);
+        // Invalid placements (old units out of range, non-integers) draw flat.
+        const odd = Model.placedRects(row, [Object.assign({}, flat, {x:1801}), Object.assign({}, flat, {y:0.5}), null]);
+        for (let i = 0; i < 3; ++i) { fuzzyCompare(odd[i].x, row[i].x, 0.001); fuzzyCompare(odd[i].y, row[i].y, 0.001); }
     }
     function test_placementEditorIdle() {
         const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),index:1});
@@ -164,7 +261,7 @@ TestCase {
         verify(waitForRendering(editor));
         verify(!findChild(editor,"placementReset").enabled);
         editor.setField("curvature", 45.4);
-        editor.setField("yaw", -20);
+        editor.setField("distance", 150);
         compare(editor.draft.curvature, 45);
         verify(findChild(editor,"placementReset").enabled);
         placementSpy.target=editor; placementSpy.clear();
@@ -174,13 +271,41 @@ TestCase {
         mouseClick(findChild(editor,"placementSave"));
         compare(placementSpy.count,1);
         compare(placementSpy.signalArguments[0][0].curvature,45);
-        compare(placementSpy.signalArguments[0][0].yaw,-20);
+        compare(placementSpy.signalArguments[0][0], {x:0, y:0, distance:150, curvature:45});  // exactly the four fields
         editor.busy=true;
         verify(!findChild(editor,"placementSave").enabled);
         verify(!slider.enabled);
-        editor.placement={x:5, y:0, distance:100, yaw:0, pitch:0, roll:0, curvature:0};
+        editor.placement={x:5, y:0, distance:100, curvature:0};
         compare(editor.draft.x,5);
+        compare(findChild(editor,"placementValue_x").text,"0.5°");
+        compare(findChild(editor,"placementValue_y").text,"0°");
+        compare(findChild(editor,"placementValue_distance").text,"100%");
         placementSpy.target=null;
+    }
+    function test_placementValueLabels() {
+        // The orbit sliders span the new tenths of a degree, and the widest values fit their column at the panel's width.
+        const widest={x:-1799, y:-899, distance:200, curvature:120};
+        const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:widest});
+        verify(waitForRendering(editor));
+        compare(findChild(editor,"placement_x").from,-1800);
+        compare(findChild(editor,"placement_x").to,1800);
+        compare(findChild(editor,"placement_y").from,-900);
+        compare(findChild(editor,"placement_y").to,900);
+        compare(findChild(editor,"placement_x").value,-1799);
+        const expected={x:"-179.9°", y:"-89.9°", distance:"200%", curvature:"120°"};
+        for (const key of Object.keys(expected)) {
+            const label=findChild(editor,"placementValue_" + key);
+            verify(label !== null, key);
+            compare(label.text, expected[key]);
+            verify(label.width >= label.implicitWidth, key + " value clipped: " + label.width + " < " + label.implicitWidth);
+        }
+        // The Omarchy shell's font is monospace (JetBrainsMono Nerd Font), wider than the test's default sans.
+        const xValue=findChild(editor,"placementValue_x");
+        xValue.font.family="monospace";
+        verify(xValue.width >= xValue.implicitWidth, "monospace -179.9° clipped: " + xValue.width + " < " + xValue.implicitWidth);
+        editor.setField("x", -1800.4);  // a slider value rounds to a whole tenth
+        compare(editor.draft.x,-1800);
+        compare(findChild(editor,"placementValue_x").text,"-180°");
     }
     function test_placementEditorLive() {
         const editor=createTemporaryObject(placementComponent,testCase,{width:640,placement:Model.defaultPlacement(),live:true});
@@ -190,7 +315,7 @@ TestCase {
         mousePress(slider); mouseRelease(slider);  // live: release applies
         compare(placementSpy.count,1);
         verify(Model.placementEdit(placementSpy.signalArguments[0][0]) !== null);
-        editor.setField("roll", 12);
+        editor.setField("curvature", 12);
         mouseClick(findChild(editor,"placementReset"));  // live: Flat applies immediately
         compare(placementSpy.count,2);
         verify(Model.isFlat(placementSpy.signalArguments[1][0]));
@@ -199,25 +324,39 @@ TestCase {
     }
     function test_desktopEditorPlacement() {
         const editor=createTemporaryObject(desktopComponent,testCase,{width:660,desktop:{width:1920,height:1080,scale:1},
-            placement:{x:0, y:0, distance:150, yaw:0, pitch:0, roll:0, curvature:20}});
+            placement:{x:0, y:0, distance:150, curvature:20}});
         verify(waitForRendering(editor));
         compare(findChild(editor,"placement_distance").value,150);
         compare(findChild(editor,"placement_curvature").value,20);
     }
     function test_placementLabels() {
-        compare(Model.placementLabel("yaw"), "Yaw (turn left/right)");
-        compare(Model.placementLabel("pitch"), "Pitch (tilt up/down)");
-        compare(Model.placementLabel("roll"), "Roll (tilt sideways)");
+        compare(Model.placementLabel("x"), "Left / right");
+        compare(Model.placementLabel("y"), "Down / up");
         compare(Model.placementLabel("distance"), "Distance");
+        compare(Model.placementLabel("curvature"), "Curvature");
         // At the panel's editor width every label fits its column (no clipping or eliding).
         const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:Model.defaultPlacement()});
         verify(waitForRendering(editor));
-        for (const key of ["x","y","distance","yaw","pitch","roll","curvature"]) {
+        for (const key of ["x","y","distance","curvature"]) {
             const label=findChild(editor,"placementLabel_" + key);
             verify(label !== null, key);
             compare(label.text, Model.placementLabel(key));
             verify(label.width >= label.implicitWidth, key + " label clipped: " + label.width + " < " + label.implicitWidth);
             verify(findChild(editor,"placement_" + key).width >= 200, key + " slider squeezed");
         }
+    }
+    function test_placementEditorHasNoFacingSettings() {
+        // Every desktop always faces you: four slider rows (the glass panel's kPlacementMenuFields), no turning rows.
+        const editor=createTemporaryObject(placementComponent,testCase,{width:660,placement:Model.defaultPlacement()});
+        verify(waitForRendering(editor));
+        compare(findChild(editor,"placementRows").count, 4);
+        for (const key of ["yaw", "pitch", "roll"]) {
+            compare(Model.placementLabel(key), "", key);
+            compare(findChild(editor,"placement_" + key), null, key);
+            compare(findChild(editor,"placementLabel_" + key), null, key);
+        }
+        const hint=findChild(editor,"placementHint").text;
+        verify(hint.indexOf("always faces you") >= 0, hint);
+        verify(!/\b(yaw|pitch|roll)\b/i.test(hint), hint);
     }
 }

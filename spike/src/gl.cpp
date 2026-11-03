@@ -16,8 +16,9 @@ namespace {
 std::uint64_t now_us() {
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
-// World point (view.hpp place_point: canvas plane at z=-1 spanning the FOV, then per-desktop placement)
-// -> head rotation -> perspective. A default placement and identity rotation reproduce the head-locked NDC exactly.
+// World point (view.hpp place_point: canvas plane at z=-1 spanning the FOV, each desktop turned to face the eye, then
+// per-desktop placement) -> head rotation -> perspective. A centred desktop with the default placement and identity
+// rotation reproduces the head-locked NDC exactly; an off-centre one keeps its centre there and faces you.
 #define XR_PROJECT \
     "uniform mat3 view; uniform vec2 half_fov;\n" \
     "vec4 project(vec3 p) { vec3 q = view * p;\n" \
@@ -392,7 +393,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
     }
     if (s.glass_program) {
-        // Glass pills: blended over the desktops, each on its own desktop's surface (a tilted desktop tilts its pill),
+        // Glass pills: blended over the desktops, each on its own desktop's surface (it faces you with its desktop),
         // back to front, except that the open panel's desktop comes last (glass_draw_order): the supervisor hit-tests
         // the open panel as the top layer. The open one morphs into its placement panel; its content fades in over the
         // glass. While a slider is held the open panel stays on its press-time surface (GlassFrame::surface).

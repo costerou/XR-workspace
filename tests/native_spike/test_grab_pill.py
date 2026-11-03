@@ -1,43 +1,35 @@
-"""Overview glass pill moves, shared pieces (resize.py): the overlap guard, the ops and the cursor restore on bind
-removal. Hit zones, the pill drag itself and the hidden cursor are tested in test_free_pointer.py; pill clicks, the
-placement panel and its sliders in test_glass_pills.py.
+"""Overview glass pill moves, shared pieces (resize.py): the ops and the cursor restore on bind removal; a smoke test of
+the no-overlap guard (orbit.py, in depth in test_orbit.py). Hit zones, the pill drag itself and the hidden cursor are
+tested in test_free_pointer.py; pill clicks, the placement panel and its sliders in test_glass_pills.py.
 
 Offline only. No compositor, renderer binary or glasses.
 """
+import json
+from pathlib import Path
 import unittest
 from unittest import mock
 
-from tools.native_spike import resize, xr_control
+from tools.native_spike import free_pointer as fp, orbit, resize, xr_control
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
-ASPECTS = [16 / 9] * 3
+ROOT = Path(__file__).resolve().parents[2]
+G = fp.parse_overview_geometry(json.loads(json.loads((ROOT / 'tests/native_spike/fixtures/overview_pointer_payloads.json')
+                                                     .read_text())['geometry']['line'])['overview_geometry'])
 FLAT = [dict(DEFAULT_PLACEMENT) for _ in range(3)]
 BIND_ARGS = ('/usr/bin/python3', '/x/tools/native_spike/xr_control.py', '/run/user/1000/c.sock', 'a' * 32, 'e' * 64)
 
 
 class MoveMathTests(unittest.TestCase):
-    def test_overview_rectangles_and_overlap(self):
-        rects = resize.apparent_rects(ASPECTS, FLAT)
-        self.assertAlmostEqual(rects[1][0], 1.5 * 16 / 9)
-        self.assertTrue(all(resize.overlap_ok(i, FLAT, ASPECTS) for i in range(3)))
-        pushed = [{**FLAT[0], 'x': 50}] + FLAT[1:]
-        self.assertFalse(resize.overlap_ok(0, pushed, ASPECTS))
-        self.assertTrue(resize.overlap_ok(0, [{**FLAT[0], 'x': 8}] + FLAT[1:], ASPECTS))  # a 10 % touch is allowed
-        self.assertTrue(resize.overlap_ok(0, [{**FLAT[0], 'x': 60, 'y': 100}] + FLAT[1:], ASPECTS))  # above the row: free
-        far = [{**FLAT[0], 'x': 50, 'distance': 200}] + FLAT[1:]  # half size: its overlap is smaller
-        self.assertLess(resize._covered(0, far, ASPECTS), resize._covered(0, pushed, ASPECTS))
-
-    def test_allowed_move_blocks_slides_and_never_traps(self):
-        self.assertEqual(resize.allowed_move(0, (0, 0), (0, 80), FLAT, ASPECTS), (0, 80))
-        x, y = resize.allowed_move(0, (0, 0), (60, 0), FLAT, ASPECTS)
-        self.assertEqual(y, 0); self.assertLess(x, 15); self.assertGreater(x, 0)  # stops at the neighbour
-        x, y = resize.allowed_move(0, (0, 0), (60, 30), FLAT, ASPECTS)  # slides: all the way up, x as far as it may
-        self.assertEqual(y, 30); self.assertGreater(x, 10); self.assertLess(x, 20)
-        lifted = [{**FLAT[0], 'y': 100}] + FLAT[1:]
-        self.assertEqual(resize.allowed_move(0, (0, 100), (100, 100), lifted, ASPECTS), (100, 100))  # over the row: free
-        stuck = [{**FLAT[0], 'x': 60}] + FLAT[1:]  # overlapping already (set from the panel): can still get out
-        self.assertEqual(resize.allowed_move(0, (60, 0), (0, 0), stuck, ASPECTS), (0, 0))
-        self.assertEqual(resize.allowed_move(0, (60, 0), (100, 0), stuck, ASPECTS)[0], 60)  # but not deeper in
+    """The move maths moved to orbit.py with 360-degree placement (2026-11-02); test_orbit.py covers it in depth."""
+    def test_the_old_flat_guard_is_gone_and_the_orbit_guard_allows_no_overlap(self):
+        for name in ('apparent_rects', 'overlap_ok', 'allowed_move', 'MAX_OVERLAP', 'SNAP_PCT'):
+            self.assertFalse(hasattr(resize, name), name)
+        x, y = orbit.allowed_move(G, 0, (0, 0), (600, 0), FLAT)  # straight into XR-2: stops before it touches
+        self.assertEqual(y, 0); self.assertLess(x, 9)
+        self.assertEqual(orbit.overlap(orbit.footprint(G, G['tiles'][0], {**FLAT[0], 'x': x}), orbit.footprint(G, G['tiles'][1], FLAT[1])), 0)
+        self.assertEqual(orbit.allowed_move(G, 0, (0, 0), (0, 300), FLAT), (0, 300))  # straight up: free
+        lifted = [{**FLAT[0], 'y': 300}] + FLAT[1:]
+        self.assertEqual(orbit.allowed_move(G, 0, (0, 300), (400, 300), lifted), (400, 300))  # over the row: free
 
 
 class OpsTests(unittest.TestCase):

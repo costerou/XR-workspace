@@ -115,17 +115,36 @@ sent, a small notification tells you why.
 
 ## Placing desktops
 
-You can move, tilt, curve and resize each desktop in space. Your layout is saved for your glasses model and comes back
-next session. There are three ways to do it: the panel, the glass pill under each desktop in the glasses, and the
-mouse in the overview.
+You can move, curve and resize each desktop in space, and put it anywhere around you: beside you, behind you,
+above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
+it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
 
 **In the panel.** Before starting, click a desktop. During a session, use the **Place** section. Each desktop has
-these settings: left/right, down/up, distance (how big it looks), yaw (turn left or right), pitch (tilt up or down),
-roll (tilt sideways) and curvature.
+four settings: left/right, down/up, distance (how big it looks) and curvature.
+
+Left/right and down/up move the desktop round you, in degrees. Left/right goes all the way round: 180° (or −180°) is
+directly behind you. Down/up goes from −90° (underfoot) to 90° (straight overhead). 0, 0 is the desktop's usual place
+in the row. The **Place** section sums a moved desktop up in one line, for example "moved 12.5° right, 3° up". Its
+small preview shows a desktop that is beside or behind you at the end of the row.
+
+**Every desktop faces you** (new, not yet tried in the glasses). Each desktop is always turned square to you and kept
+upright: in its place in the row, while you drag it, and wherever you leave it. So the two side desktops of the row
+now turn a little toward you instead of sitting flat beside the middle one. Overhead or underfoot, a desktop faces
+straight down or up at you. There is no setting to turn or tilt a desktop any more: the yaw, pitch and roll settings
+are gone from the panel, from the glass pill and from saved layouts.
+
+**Older saved layouts.** Until 2 November 2026 left/right and down/up were a share of the desktop's own size, and each
+desktop also had yaw, pitch and roll. A layout saved before then still loads. Its left/right and down/up now read as
+at most 10°, so a moved desktop comes back about where it was. Its yaw, pitch and roll are dropped, and its distance
+and curvature are kept. Update the program that draws in the glasses, the background helper and the panel together
+(see [docs/technical.md](docs/technical.md#build-and-install)): the way they talk about placements changed, so an older
+copy of any one of them can't take the new placements. Going back to an older background helper alone resets the
+placements this version saved to flat.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small frosted-glass pill just under it. Click a pill with the grey dot (see the
-next part) and it grows smoothly into that desktop's own placement panel: one slider for each setting, with its value.
+next part) and it grows smoothly into that desktop's own placement panel: four sliders, one for each setting
+(Left/right, Down/up, Distance, Curvature), each with its value.
 Or press **Ctrl+Alt+L** to open the pill of the selected desktop. If you are zoomed in, Ctrl+Alt+L zooms out first so
 you can see it. Only one pill is open at a time: opening another one closes the first. Changes apply straight away,
 and there's no Save button.
@@ -147,6 +166,12 @@ With a pill open:
 | Esc | Close the pill |
 | Ctrl+Alt+L | Close the pill |
 
+For left/right one press is 0.2° and Shift+Left / Shift+Right is 15°. It never stops: past 180° it carries on round to
+the other side. For down/up one press is 0.2° and Shift is 10°, and it stops at 90° up or down. The pill shows whole
+degrees, so a single small step may not change the number there; the panel's **Place** section shows the tenths. The
+keys and sliders don't stop at other desktops, so they can push one desktop over another. Only dragging the pill (below)
+keeps them apart.
+
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
 Zooming in (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 
@@ -158,10 +183,16 @@ In the overview your mouse is no longer stuck inside the desktops:
   disappears and a small grey dot takes its place. Move the dot back onto a desktop and the normal cursor comes back
   right there.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
-  desktop follows like a window by its title bar. It snaps back into its slot if you drop it close by, and it won't
-  overlap its neighbours by much. A click that doesn't move opens the pill instead of moving anything.
+  desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
+  slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
+  before touching one (a small gap is kept, and the strip with its pill counts as part of the desktop), and if you
+  keep pushing at an angle it slides along that desktop's edge. However fast you move, it never jumps through one. To
+  get past a neighbour, lift it clear of the row first, or carry it round behind you. A desktop that already overlaps
+  another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
+  that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
+  Resizing doesn't stop at other desktops.
 - **Focus a desktop:** click it with the dot. That desktop is selected (Ctrl+Alt+Up zooms into it) and the normal
   cursor appears where you clicked. Moving the mouse into a desktop selects it too.
 
@@ -172,6 +203,28 @@ pill stays until you close it or until 30 seconds pass without input.
 
 Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
 edit the desktop in the panel.
+
+**Desktops all around you** (new, not yet tried in the glasses). Carrying a desktop round you works in anchor mode
+(**Ctrl+Alt+V**, see above), where the desktops stay fixed in the room:
+
+- **Carry a desktop round you.** Drag its pill as above. Inside the view the pill stays under the dot. Keep dragging
+  past the edge of the view and the desktop speeds up. The dot can go about half a view past each edge. At its far left
+  or right end the desktop is directly behind you, and at its top or bottom end it is straight overhead or underfoot.
+  It faces you the whole way.
+- **Pick it up again.** Turn round to look at the desktop and move the mouse out past the edge of the view on the
+  desktop's side, the way you dragged it there, until its pill lights up. The dot itself stays in front of you, so you
+  won't see it. Then drag as usual. This works for pills only: a far desktop's corners and the desktop itself only
+  react under the dot.
+- **Zooming in.** Zooming into a desktop still brings it flat in front of you. While you are zoomed in, the desktops
+  you moved round you go back to their places in the row, and they return when you zoom out.
+- **Follow and locked modes.** There the view turns with your head, so a dragged desktop only goes where the dot goes.
+  A desktop you put outside the view stays out of sight. Zoom into it (select it with Ctrl+Alt+Left / Right, then
+  Ctrl+Alt+Up) or switch back to anchor mode to see it.
+- **Out of the mouse's reach.** For a desktop far round you, the mouse can only reach its pill, not its corners, its
+  open pill panel or the desktop itself. Use the keys: Ctrl+Alt+Left / Right selects it, Ctrl+Alt+L opens its pill,
+  the arrows change it and R puts it back flat in its slot.
+
+All of this is checked by offline tests only. It has not been tried in an isolated VM or in the glasses.
 
 ## VR video
 

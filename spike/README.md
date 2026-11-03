@@ -34,19 +34,28 @@ supervisor owns the state and the hit testing (`tools/native_spike/free_pointer.
 
 - `move_handle` `{"visible": bool, "desktop": 0..2, "hover": bool, "active": bool}`: `visible` shows a pill under every
   desktop; `desktop` with `hover` or `active` is the one under the pointer or being dragged, drawn brighter.
-- `placement_menu` `{"open": bool, "desktop": 0..2, "field": "x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature",
+- `placement_menu` `{"open": bool, "desktop": 0..2, "field": "x"|"y"|"distance"|"curvature",
   "placements": [3 placements]}`: `open` expands that desktop's pill into its placement panel (a click on the pill or
   **Ctrl+Alt+L** for the selected desktop; Ctrl+Alt+P is pose prediction); `open: false` collapses it. Only one is open.
   With `open`, an optional `"surface": placement` (sent while the free pointer holds one of the panel's sliders: the
   desktop's placement at the press) is the placement the open panel is drawn on, while the desktop follows its live
   placement; the supervisor measures the drag on the same surface, so the knob stays under the pointer.
 
-The renderer only draws them; placements are applied by the separate `placement` frame.
+The renderer only draws them; placements are applied by the separate `placement` frame. A placement is exactly four
+integers, `{"x", "y", "distance", "curvature"}` (an object with any other key, such as the removed `yaw`, `pitch` or
+`roll`, is rejected): `x` / `y` are an orbit round you in tenths of a degree (`include/xr/view.hpp` `Placement`;
+`tools/native_spike/orbit.py` mirrors `place_point`, the `placement_contract` test compares the two), shown on the
+panel in whole degrees; `distance` is percent of the slot's distance, `curvature` degrees of arc. Every desktop always
+faces you (a billboard toward the eye: at its slot, while dragged and anywhere round you it is square to the line of
+sight and upright along its meridian), so there is no facing setting; a centred desktop at its slot is still exactly
+the canvas plane, an off-centre one turns toward you about its centre. While zoomed in, every orbit fades back to its
+row slot and the zoomed desktop comes flat in front of you (`zoomed_placement`).
 
-- Geometry, in canvas px on the desktop's own surface (a tilted or curved desktop tilts and curves its pill): the pill
-  is 24% of the desktop's width (64–160 px) by 14 px, centred 10 px under it. The panel is 480×322 with 18 px corners,
-  centred under the desktop with its top at the pill's top. Its 42 px top strip is still the pill (drag to move, click
-  to collapse); below it, one 34 px row per field with label, slider and value, then a key-hint footer.
+- Geometry, in canvas px on the desktop's own surface (it faces you with its desktop; a curved desktop curves its
+  pill): the pill is 24% of the desktop's width (64–160 px) by 14 px, centred 10 px under it. The panel is 480×220 with
+  18 px corners, centred under the desktop with its top at the pill's top. Its 42 px top strip is still the pill (drag
+  to move, click to collapse); below it, one 34 px row per field (Left / right, Down / up, Distance, Curvature) with
+  label, slider and value, then a key-hint footer.
 - Look: a dark translucent tint (a fifth of the theme accent), lighter toward the top, a top gloss, a 1 px hairline
   brighter at the top, rounded corners and a soft drop shadow, from one GLSL fragment shader (`glass_fragment_shader`)
   with a CPU mirror (`glass_shade`). Hover and drag brighten it. Every pixel stays at or under `kCardMaxLevel`
@@ -63,4 +72,4 @@ The renderer only draws them; placements are applied by the separate `placement`
 - `capture_report` includes `placement_menu` (`open`, `desktop`, `shown`, `hidden`, `renders`).
 - Tests: `glass` (geometry, look, panel content, animation and its hold until the overview, draw order, a held
   slider's surface), `glass_render` (shader against its CPU mirror on a surfaceless EGL context; skipped without
-  EGL/GLES) and `glass_contract`. Offline only; not yet tried in the glasses.
+  EGL/GLES), `glass_contract` and `placement_contract`. Offline only; not yet tried in the glasses.

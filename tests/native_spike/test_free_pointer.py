@@ -14,7 +14,7 @@ import time
 import unittest
 from unittest import mock
 
-from tools.native_spike import free_pointer as fp, resize, view, xr_control
+from tools.native_spike import free_pointer as fp, orbit, resize, view, xr_control
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS
 from tools.native_spike.profiles import LayoutStore
 
@@ -93,24 +93,37 @@ class ContractTests(unittest.TestCase):
 
 
 class ProjectionTests(unittest.TestCase):
-    def test_flat_desktops_map_one_to_one_and_back(self):
+    def test_desktops_at_their_slots_map_and_map_back(self):
+        # The centred desktop is the canvas itself; the side ones face you, so they are turned toward the eye.
         for tile in G['tiles']:
             for q in ((tile[0], tile[1]), (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2), (tile[0] + tile[2] - 1, tile[1] + 7)):
                 p = fp.project(G, tile, DEFAULT_PLACEMENT, *q)
-                self.assertAlmostEqual(p[0], q[0], places=3); self.assertAlmostEqual(p[1], q[1], places=3)
+                if tile is T1: self.assertAlmostEqual(p[0], q[0], places=3); self.assertAlmostEqual(p[1], q[1], places=3)
+                back = fp.unproject(G, tile, DEFAULT_PLACEMENT, p)
+                self.assertAlmostEqual(back[0], q[0], delta=0.05); self.assertAlmostEqual(back[1], q[1], delta=0.05)
+        centre = fp.project(G, T0, DEFAULT_PLACEMENT, T0[0] + T0[2] / 2, T0[1] + T0[3] / 2)
+        self.assertAlmostEqual(centre[0], T0[0] + T0[2] / 2, delta=0.01)  # a side desktop's centre stays where its slot is
 
-    def test_offset_and_distance_move_and_scale_about_the_centre(self):
-        p = {**DEFAULT_PLACEMENT, 'x': 50, 'y': 20, 'distance': 200}
+    def test_the_orbit_turns_the_desktop_round_you_and_distance_scales_it_about_its_centre(self):
         cx, cy = T0[0] + T0[2] / 2, T0[1] + T0[3] / 2
-        c = fp.project(G, T0, p, cx, cy)
-        self.assertAlmostEqual(c[0], cx + 0.5 * T0[2], places=3)
-        self.assertAlmostEqual(c[1], cy - 0.2 * T0[3], places=3)  # +y is up
-        corner = fp.project(G, T0, p, T0[0], T0[1])
-        self.assertAlmostEqual(c[0] - corner[0], T0[2] / 4, places=3)  # half the apparent size
+        def direction(p):
+            x, y, z = fp.place_point(G, T0, p, cx, cy)
+            return math.degrees(math.atan2(x, -z)), math.degrees(math.atan2(y, math.hypot(x, z))), math.dist((x, y, z), (0, 0, 0))
+        a0, e0, r0 = direction(DEFAULT_PLACEMENT)
+        a, e, r = direction({**DEFAULT_PLACEMENT, 'x': 500, 'y': 200, 'distance': 200})  # 50 degrees right, 20 up, twice as far
+        self.assertAlmostEqual(a, a0 + 50, places=4); self.assertAlmostEqual(e, e0 + 20, places=4)
+        self.assertAlmostEqual(r, 2 * r0, places=6)
+        self.assertGreater(direction({**DEFAULT_PLACEMENT, 'x': 1800})[0] % 360, 90)  # behind you
+        def size(p):  # the angle from its centre to a corner, seen from the eye
+            c, k = fp.place_point(G, T0, p, cx, cy), fp.place_point(G, T0, p, T0[0], T0[1])
+            return math.acos(sum(a * b for a, b in zip(c, k)) / (math.dist(c, (0, 0, 0)) * math.dist(k, (0, 0, 0))))
+        self.assertAlmostEqual(size({**DEFAULT_PLACEMENT, 'x': 500, 'distance': 200}), size(DEFAULT_PLACEMENT) / 2, delta=0.02 * size(DEFAULT_PLACEMENT))
+        self.assertAlmostEqual(size({**DEFAULT_PLACEMENT, 'x': -1200, 'y': 300}), size(DEFAULT_PLACEMENT), places=9)  # a rigid turn
+        self.assertLess(fp.project(G, T0, {**DEFAULT_PLACEMENT, 'y': 20}, cx, cy)[1], cy)  # +y is up
 
     def test_unproject_inverts_tilted_and_curved_placements(self):
-        for p in ({**DEFAULT_PLACEMENT, 'yaw': 40, 'pitch': -30, 'roll': 30, 'curvature': 90, 'distance': 60},
-                  {**DEFAULT_PLACEMENT, 'yaw': -60, 'pitch': 45, 'roll': -45, 'x': -100, 'y': 100, 'distance': 200},
+        for p in ({**DEFAULT_PLACEMENT, 'curvature': 90, 'distance': 60},
+                  {**DEFAULT_PLACEMENT, 'x': -100, 'y': 100, 'distance': 200},
                   {**DEFAULT_PLACEMENT, 'curvature': 120, 'distance': 140, 'y': -40}):
             for q in ((T1[0] + 3, T1[1] + 3), (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2), (T1[0] + T1[2] - 3, T1[1] + T1[3] - 3)):
                 with self.subTest(p=p, q=q):
@@ -120,7 +133,7 @@ class ProjectionTests(unittest.TestCase):
 
     def test_at_the_extreme_bounds_the_answer_is_still_on_the_surface_under_the_pointer(self):
         # Fully curved, turned and tilted, a desktop can fold so two of its pixels line up; either is under the pointer.
-        p = {**DEFAULT_PLACEMENT, 'yaw': 60, 'pitch': -45, 'roll': 45, 'curvature': 120, 'distance': 50}
+        p = {**DEFAULT_PLACEMENT, 'curvature': 120, 'distance': 50}
         for q in ((T1[0] + 3, T1[1] + 3), (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)):
             target = fp.project(G, T1, p, *q)
             back = fp.unproject(G, T1, p, target)
@@ -130,6 +143,18 @@ class ProjectionTests(unittest.TestCase):
 
     def test_a_point_behind_the_eye_is_not_on_the_canvas(self):
         self.assertIsNone(fp.to_canvas(G, (0.1, 0.1, 0.5)))
+
+    def test_desktops_turned_round_you_are_hit_on_their_own_surface_and_never_from_behind(self):
+        for x, y in ((150, 0), (-300, 80), (0, -250), (420, 300)):
+            p = {**DEFAULT_PLACEMENT, 'x': x, 'y': y, 'curvature': 40}
+            for q in ((T1[0] + 5, T1[1] + 5), (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)):
+                with self.subTest(x=x, y=y, q=q):
+                    back = fp.unproject(G, T1, p, fp.project(G, T1, p, *q))
+                    self.assertAlmostEqual(back[0], q[0], delta=0.25); self.assertAlmostEqual(back[1], q[1], delta=0.25)
+        behind = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': 1800}, dict(DEFAULT_PLACEMENT)]
+        self.assertIsNone(fp.project(G, T1, behind[1], T1[0] + T1[2] / 2, T1[1] + T1[3] / 2))  # not on the canvas
+        self.assertIsNone(fp.unproject(G, T1, behind[1], (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)))
+        self.assertIsNone(fp.hit(G, behind, (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)))  # where its slot was: nothing now
 
 
 class HitTests(unittest.TestCase):
@@ -153,11 +178,12 @@ class HitTests(unittest.TestCase):
         self.assertIsNone(fp.hit(None, FLAT, (0, 0))); self.assertIsNone(fp.hit(G, FLAT, None))
 
     def test_the_pill_zone_never_reaches_a_corner(self):
-        tile = (0.0, 100.0, 60.0, 40.0)  # a very small desktop: the pill is wider than the space between the corners
+        x0, y0 = G['w'] / 2 - 30, G['h'] / 2 - 20  # centred, so it is the canvas itself
+        tile = (x0, y0, 60.0, 40.0)  # a very small desktop: the pill is wider than the space between the corners
         g = dict(G, tiles=[tile])
         z = fp.corner_zone(tile)
         for x in range(-12, 72, 2):
-            h = fp.hit(g, FLAT[:1], (x, 140 + 3))  # the gap under the desktop
+            h = fp.hit(g, FLAT[:1], (x0 + x, y0 + 40 + 3))  # the gap under the desktop
             if abs(x) <= z or abs(x - 60) <= z: self.assertEqual(h and h[0], 'corner', x)  # corners win
             elif h is not None: self.assertEqual(h, ('pill', 0), x)
 
@@ -168,7 +194,7 @@ class HitTests(unittest.TestCase):
         self.assertEqual(fp.front_order(G, near)[0], 0)
 
     def test_tilted_desktops_are_hit_on_their_own_surface(self):
-        tilted = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'yaw': 45, 'curvature': 60}, dict(DEFAULT_PLACEMENT)]
+        tilted = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'curvature': 60}, dict(DEFAULT_PLACEMENT)]
         q = (T1[0] + 500, T1[1] + 300)
         h = fp.hit(G, tilted, fp.project(G, T1, tilted[1], *q))
         self.assertEqual(h[:2], ('desktop', 1))
@@ -176,13 +202,18 @@ class HitTests(unittest.TestCase):
 
 
 class DragMathTests(unittest.TestCase):
-    def test_the_bar_stays_under_the_pointer(self):
-        self.assertEqual(fp.move_target((0, 0), 0, 0, T0), (0, 0))
-        self.assertEqual(fp.move_target((0, 0), T0[2] / 2, 0, T0), (50, 0))     # half a width right: x = 50 %
-        self.assertEqual(fp.move_target((0, 0), 0, T0[3] / 4, T0), (0, -25))   # down is -y
-        self.assertEqual(fp.move_target((0, 0), 1e6, -1e6, T0), (PLACEMENT_BOUNDS['x'][1], PLACEMENT_BOUNDS['y'][1]))
-        self.assertEqual(fp.move_target((10, 0), -T0[2] * 0.07, 0, T0), (0, 0))  # 3 % from the slot: snaps back
-        self.assertEqual(fp.move_target((10, 0), -T0[2] * 0.04, 0, T0), (6, 0))
+    def test_the_pill_stays_under_the_pointer(self):
+        # orbit.drag_target (mapping, reach, wrap and snap: test_orbit.py) keeps the pill under the dot inside the view.
+        x, y, w, h = fp.pill_rect(T1)
+        press = (x + w / 2, y + h / 2)
+        for move in ((150, 0), (-220, -90), (60, 140)):
+            with self.subTest(move=move):
+                pointer = (press[0] + move[0], press[1] + move[1])
+                p = {**DEFAULT_PLACEMENT, **dict(zip('xy', orbit.drag_target(G, (0, 0), press, pointer)))}
+                seen = fp.project(G, T1, p, *press)
+                self.assertLess(math.hypot(seen[0] - pointer[0], seen[1] - pointer[1]), 6)
+        self.assertEqual(orbit.drag_target(G, (0, 0), press, press), (0, 0))
+        self.assertEqual(PLACEMENT_BOUNDS['x'], (-orbit.X_LIMIT, orbit.X_LIMIT))
 
     def test_the_corner_follows_the_pointer_along_its_diagonal(self):
         w, h = T0[2], T0[3]
@@ -243,7 +274,8 @@ class PointerBase(unittest.TestCase):
         """Free mode from XR-1's bottom edge, then the dot onto desktop i's glass pill (under the desktop)."""
         self.at(X1 + 960, 540); self.at(X1 + 960, 1079)
         x, y, w, h = fp.pill_rect(G['tiles'][i])
-        out = self.move_canvas(x + w / 2 - self.p.pointer[0], y + h / 2 - self.p.pointer[1])
+        aim = fp.project(G, G['tiles'][i], self.control.state.placements[i], x + w / 2, y + h / 2)
+        out = self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
         self.assertEqual(self.p.hover, ('pill', i))
         return out
 
@@ -378,25 +410,86 @@ class ClickTests(PointerBase):
         out = self.op('resize_press')
         self.assertTrue(last(out, 'overview_pointer')['held'])
         self.assertFalse(self.p.pills['active'])  # held, not moving yet: a release now would be a click
-        out = self.move_canvas(T0[2] * 0.2, -T0[3] * 0.5)
+        out = self.move_canvas(0, -T0[3] * 1.3)  # lifted clear of the row (it may not overlap XR-2)...
         self.assertEqual(last(out, 'move_handle')['active'], True)
+        out = self.move_canvas(T0[2] * 0.2, 0)   # ...then to the right
         p = self.control.state.placements[0]
-        self.assertEqual((p['x'], p['y']), (20, 50))
-        self.assertEqual(frames_of(out, 'placement')['desktops'][0]['x'], 20)
+        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)
+        self.assertEqual((p['x'], p['y']), want); self.assertGreater(p['x'], 0); self.assertGreater(p['y'], 0)
+        self.assertEqual(frames_of(out, 'placement')['desktops'][0]['x'], want[0])
         self.assertEqual(self.store.saves, 0)  # debounced while dragging
         pill = fp.pill_rect(T0)  # the pill is still under the pointer
         centre = fp.project(G, T0, p, pill[0] + pill[2] / 2, pill[1] + pill[3] / 2)
         self.assertLess(math.hypot(centre[0] - self.p.pointer[0], centre[1] - self.p.pointer[1]), 8)
         self.op('resize_release')
-        self.assertEqual(self.store.saved[0]['x'], 20); self.assertEqual(self.store.saved[0]['y'], 50)
+        self.assertEqual((self.store.saved[0]['x'], self.store.saved[0]['y']), want)
         self.assertIsNone(self.p.drag)
         self.assertFalse(self.control.state.menu_open)  # a drag is not a click: the pill did not expand
 
     def test_pill_drag_respects_the_overlap_guard(self):
         self.on_pill(0); self.op('resize_press')
-        self.move_canvas(T0[2] * 0.6, 0)  # straight into XR-2
+        self.move_canvas(T0[2] * 0.6, 0)  # straight into XR-2: stops just before it touches
         self.assertGreater(self.control.state.placements[0]['x'], 0)
-        self.assertLess(self.control.state.placements[0]['x'], 15)
+        self.assertLess(self.control.state.placements[0]['x'], 9)  # the slots are 40 px (~0.9 degrees) apart
+        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, self.control.state.placements[0]), orbit.footprint(G, T1, FLAT[1])), 0)
+        self.op('resize_release')
+
+    def test_in_anchor_mode_a_pill_drag_reaches_behind_you_and_round_the_other_side(self):
+        self.on_pill(2); self.op('resize_press')
+        self.move_canvas(G['w'] * 3, 0)  # push the dot to the far right of its reach
+        self.assertEqual(self.p.pointer[0], G['w'] * 1.5)
+        x = self.control.state.placements[2]['x']
+        self.assertGreater(x, 1500)  # all the way round to behind you (XR-3's slot is right of centre)
+        for _ in range(40): self.move_canvas(-G['w'] / 10, 0)  # back the other way, round your right side
+        back = self.control.state.placements[2]
+        self.assertLess(abs(back['x']), 20)  # in front again, stopped beside XR-2 rather than passing through it
+        self.assertEqual(orbit.overlap(orbit.footprint(G, G['tiles'][2], back), orbit.footprint(G, T1, FLAT[1])), 0)
+        self.op('resize_release')
+        self.assertEqual(self.store.saved[2]['x'], self.control.state.placements[2]['x'])
+
+    def test_a_pill_far_round_you_lights_up_under_the_stretched_pointer_and_drags_on(self):
+        from tests.native_spike.test_orbit import direction, pointer_for
+        far = {**DEFAULT_PLACEMENT, 'x': 1200}  # XR-3 turned 120 degrees round to your right: out of the view
+        self.control.state.placements = [dict(DEFAULT_PLACEMENT), dict(DEFAULT_PLACEMENT), far]
+        self.at(X1 + 960, 540); self.at(X1 + 960, 1079)  # free mode
+        x, y, w, h = fp.pill_rect(G['tiles'][2])
+        aim = pointer_for(*direction(fp.place_point(G, G['tiles'][2], far, x + w / 2, y + h / 2)))
+        out = self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
+        self.assertEqual(self.p.hover, ('pill', 2))
+        self.assertEqual(last(out, 'move_handle'), {'visible': True, 'desktop': 2, 'hover': True, 'active': False})
+        self.op('resize_press')
+        self.move_canvas(-40, 0)
+        self.assertLess(self.control.state.placements[2]['x'], 1200)  # back toward the front
+        self.op('resize_release')
+        self.assertEqual(self.store.saved[2]['x'], self.control.state.placements[2]['x'])
+        self.assertIsNone(fp.hit(G, self.control.state.placements, aim))  # follow / locked: no stretch, nothing there
+
+    def test_a_mode_change_mid_drag_does_not_make_the_desktop_jump(self):
+        self.on_pill(2); self.op('resize_press')
+        self.move_canvas(G['w'] * 0.5, 0)
+        before = self.control.state.placements[2]['x']
+        self.op('mode_next')  # Ctrl+Alt+V: anchor -> follow
+        self.assertNotEqual(self.control.state.mode, 'anchor')
+        self.move_canvas(1, 0)
+        self.assertLess(abs(self.control.state.placements[2]['x'] - before), 30)  # the reach it began with carries on
+        self.op('resize_release')
+
+    def test_a_cursor_on_a_desktop_turned_behind_you_never_breaks_the_pointer(self):
+        self.control.state.placements = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': 1800}, {**DEFAULT_PLACEMENT, 'x': 800}]
+        for cursor in ((X2 + 960, 540), (X2 + 960, 0), (X3 + 5, 300), (X3 + 1919, 300), (X1 + 960, 540), (X1 + 960, 1079)):
+            out = self.at(*cursor)  # keyboard warps or hand motion onto them: no exception, every frame in range
+            for f in out:
+                if f['op'] == 'overview_pointer':
+                    self.assertLessEqual(abs(f['payload']['x']), fp.MAX_POINTER_PX)
+                    self.assertLessEqual(abs(f['payload']['y']), fp.MAX_POINTER_PX)
+        self.move_canvas(G['w'] * 3, G['h'] * 3)
+        self.assertEqual(self.p.pointer, (G['w'] * 1.5, G['h'] * 1.5))
+
+    def test_in_follow_and_locked_modes_the_desktop_only_follows_the_dot(self):
+        self.control.state.mode = 'locked'
+        self.on_pill(2); self.op('resize_press')
+        self.move_canvas(G['w'] * 3, 0)
+        self.assertLess(self.control.state.placements[2]['x'], 450)  # the dot's own direction, not round behind you
         self.op('resize_release')
 
     def test_drag_a_corner_from_outside_to_resize(self):
@@ -438,16 +531,18 @@ class GateTests(PointerBase):
     def test_on_while_a_placement_panel_is_open_and_a_drag_carries_on(self):
         # The glass pills replaced the head-locked menu card: the free pointer is how an open panel is clicked.
         self.on_pill(0); self.op('resize_press')
-        self.move_canvas(T0[2] * 0.1, -T0[3])  # lifted clear of the row: no overlap guard in the way
+        self.move_canvas(T0[2] * 0.1, -T0[3] * 1.3)  # lifted clear of the row: no overlap guard in the way
         out = self.op('menu_toggle') + self.move_canvas(T0[2] * 0.3, 0)
         self.assertTrue(self.control.state.menu_open)
         self.assertEqual(self.p.mode, 'free'); self.assertEqual(self.p.want[1], 'free')
         self.assertIsNotNone(self.p.drag)
-        self.assertEqual(self.control.state.placements[0]['x'], 40)
-        self.assertEqual(last(out, 'placement_menu')['placements'][0]['x'], 40)  # the open panel shows the drag
+        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)[0]
+        self.assertGreater(want, 0)
+        self.assertEqual(self.control.state.placements[0]['x'], want)
+        self.assertEqual(last(out, 'placement_menu')['placements'][0]['x'], want)  # the open panel shows the drag
         self.assertTrue(last(out, 'overview_pointer')['visible'])
         self.op('resize_release')
-        self.assertEqual(self.store.saved[0]['x'], 40)
+        self.assertEqual(self.store.saved[0]['x'], want)
         self.assertTrue(self.control.state.menu_open)
 
     def test_off_in_typing_mode_and_a_drag_is_saved(self):

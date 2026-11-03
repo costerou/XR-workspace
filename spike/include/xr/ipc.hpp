@@ -31,13 +31,15 @@ struct HelpPayload {
     bool visible = false; std::vector<std::pair<std::string, std::string>> rows;
     std::vector<std::uint32_t> sections; std::int32_t turn = 0;
 };
-// Per-desktop placement, absolute: {"desktops":[{x,y,distance,yaw,pitch,roll,curvature},...]}, 1..3 entries in managed-output
-// order, every field an integer inside kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS).
-struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, yaw = 0, pitch = 0, roll = 0, curvature = 0; };
+// Per-desktop placement, absolute: {"desktops":[{x,y,distance,curvature},...]}, 1..3 entries in managed-output order, each
+// object exactly those four keys (the removed yaw / pitch / roll are rejected), every field an integer inside
+// kPlacementBounds (mirrors tools/native_spike/geometry.py PLACEMENT_BOUNDS): x / y the orbit round you in tenths of a
+// degree (view.hpp Placement), distance in percent, curvature in degrees. Every desktop always faces you.
+struct WirePlacement { std::int32_t x = 0, y = 0, distance = 100, curvature = 0; };
 struct PlacementPayload { std::vector<WirePlacement> desktops; };
 // Placement panel (a glass pill expanded: a pill click or Ctrl+Alt+L in the supervisor; Ctrl+Alt+P is pose prediction),
 // display only (the supervisor owns the state and applies placements with `placement`):
-// {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"yaw"|"pitch"|"roll"|"curvature","placements":[3 placements]}
+// {"open":bool,"desktop":0..2,"field":"x"|"y"|"distance"|"curvature","placements":[3 placements]}
 // plus, only with open=true and only while the overview free pointer holds one of the panel's sliders, "surface":placement
 // (the open desktop's placement at the press: the panel is drawn on it, while the desktop follows its live placement, so
 // the knob stays under the pointer the supervisor measures on that same surface). Placements as above. `field` is the

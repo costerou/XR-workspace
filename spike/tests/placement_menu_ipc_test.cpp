@@ -59,8 +59,9 @@ int main(int argc, char** argv) {
         if (!menu->surface) continue;
         ++surfaces;
         const auto& w = *menu->surface; const auto& j = p.at("surface");
-        if (w.x != j.at("x") || w.y != j.at("y") || w.distance != j.at("distance") || w.yaw != j.at("yaw") || w.pitch != j.at("pitch") ||
-            w.roll != j.at("roll") || w.curvature != j.at("curvature")) { ++failures; std::cerr << "surface decoded wrong: " << p.dump() << "\n"; }
+        if (j.size() != 4 || w.x != j.at("x") || w.y != j.at("y") || w.distance != j.at("distance") || w.curvature != j.at("curvature")) {
+            ++failures; std::cerr << "surface decoded wrong: " << p.dump() << "\n";
+        }
     }
     if (ok && surfaces == 0) { ++failures; std::cerr << "the fixture has no valid payload with a surface\n"; }
     // The old head-locked menu's mouse-mode pointer op ("menu_pointer") is gone with the menu card: rejected outright.

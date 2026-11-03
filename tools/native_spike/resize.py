@@ -9,11 +9,9 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
     the desktop editor set; they change only at session start through the journaled, read-back output creation, so
     this feature adds no compositor output mutation and no journal record kind. The aspect ratio is always kept.
   * A pill drag moves the desktop like a title bar through its `x` / `y` placement (the pill sits under the desktop;
-    an expanded pill's panel header drags the same way). Free placement with two guards, not a snap grid: each axis
-    snaps back to the desktop's own row slot (0) within SNAP_PCT, and a move is clamped so the desktop overlaps no
-    other desktop by more than MAX_OVERLAP of the smaller one's area (approximate overview rectangles: shared height,
-    own aspect, apparent size 100/distance, rotation ignored, gaps ignored so the guard errs early). If the target
-    overlaps, the desktop slides along the free axis, else stops.
+    an expanded pill's panel header drags the same way). Since 2026-11-02 that placement is an orbit round your head
+    and a drag can carry a desktop anywhere round you without ever overlapping another: orbit.py (drag_target,
+    allowed_move) replaced the flat offset, its 10% overlap allowance and its one-desktop reach.
   * Sizes and positions are saved with the other placements in the glasses model's profile (PlacementStore), 0.5 s
     after the last change and at once on release.
   * Every free-pointer click (corner and pill drags, pill clicks, panel sliders) uses the same modal left-button binds
@@ -29,8 +27,6 @@ from . import view
 RESIZE_OPS = ('resize_press', 'resize_release')
 CORNERS = ('tl', 'tr', 'bl', 'br')
 RESIZE_BUTTON = 'mouse:272'   # left button
-SNAP_PCT = 4             # an axis within this many percent of the row slot snaps to it
-MAX_OVERLAP = 0.10       # share of the smaller desktop's area another desktop may cover after a move
 # Free pointer (free_pointer.py): the cursor's visibility and position from before it was hidden, restored by every
 # removal of the left-button binds (including xr_control.py's stale-bind cleanup after a run died in free mode).
 GRAB_TABLE = 'xr_workspace_grab'
@@ -56,71 +52,6 @@ def outputs_from_monitors(raw, names):
             continue
         out.append({'index': index, 'x': x, 'y': y, 'width': w / scale, 'height': h / scale})
     return out
-
-
-def _snap(value):
-    return 0 if abs(value) <= SNAP_PCT else value
-
-
-def apparent_rects(aspects, placements):
-    """Approximate overview rectangles (cx, cy, w, h) in units of the shared tile height: tiles side by side with no gap,
-    offset by x/y percent of their own size, apparent size 100/distance. Rotation and curvature are ignored."""
-    out, left = [], 0.0
-    for aspect, p in zip(aspects, placements):
-        k = 100 / p['distance']
-        out.append((left + aspect / 2 + p['x'] / 100 * aspect, p['y'] / 100, aspect * k, k))
-        left += aspect
-    return out
-
-
-def _overlap(a, b):
-    w = min(a[0] + a[2] / 2, b[0] + b[2] / 2) - max(a[0] - a[2] / 2, b[0] - b[2] / 2)
-    h = min(a[1] + a[3] / 2, b[1] + b[3] / 2) - max(a[1] - a[3] / 2, b[1] - b[3] / 2)
-    return max(w, 0) * max(h, 0)
-
-
-def overlap_ok(index, placements, aspects):
-    """False if desktop `index` covers another desktop by more than MAX_OVERLAP of the smaller one's area."""
-    rects = apparent_rects(aspects, placements)
-    if index >= len(rects): return True
-    a = rects[index]
-    return all(_overlap(a, b) <= MAX_OVERLAP * min(a[2] * a[3], b[2] * b[3]) + 1e-9 for i, b in enumerate(rects) if i != index)
-
-
-def _with(placements, index, xy):
-    return [{**p, 'x': xy[0], 'y': xy[1]} if i == index else p for i, p in enumerate(placements)]
-
-
-def _covered(index, placements, aspects):
-    rects = apparent_rects(aspects, placements)
-    return sum(_overlap(rects[index], b) for i, b in enumerate(rects) if i != index)
-
-
-def allowed_move(index, current, target, placements, aspects):
-    """The (x, y) a move toward `target` may take from `current` without a bad overlap: the target if it is fine, else the
-    closest of: as far as possible straight toward it, x first then y, y first then x (so a desktop slides along a
-    neighbour instead of sticking to it). A desktop that already overlaps (set from the panel) may still move anywhere it
-    overlaps no more than now, so it is never stuck."""
-    now = _covered(index, _with(placements, index, current), aspects)
-
-    def ok(xy):
-        trial = _with(placements, index, xy)
-        return overlap_ok(index, trial, aspects) or _covered(index, trial, aspects) <= now + 1e-9
-
-    def reach(a, b):  # farthest whole-percent point from a toward b that stays ok
-        best, steps = a, max(abs(b[0] - a[0]), abs(b[1] - a[1]))
-        for i in range(1, steps + 1):
-            xy = (round(a[0] + (b[0] - a[0]) * i / steps), round(a[1] + (b[1] - a[1]) * i / steps))
-            if not ok(xy): break
-            best = xy
-        return best
-
-    current, target = tuple(current), tuple(target)
-    if ok(target): return target
-    candidates = [reach(current, target),
-                  reach(reach(current, (target[0], current[1])), target),
-                  reach(reach(current, (current[0], target[1])), target)]
-    return min(candidates, key=lambda xy: ((xy[0] - target[0]) ** 2 + (xy[1] - target[1]) ** 2, xy != current))
 
 
 def install_resize_binds_lua(python, client, control_socket, run_id, session):

@@ -169,14 +169,14 @@ int main(int argc, char** argv) {
                     else if (m->op == xr::ControlOp::placement_menu) {
                         // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
                         if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
-                            std::array<std::array<std::int32_t, 7>, 3> placements{};
+                            std::array<std::array<std::int32_t, 4>, 3> placements{};
                             for (std::size_t i = 0; i < placements.size(); ++i) {
                                 const auto& w = menu->placements[i];
-                                placements[i] = {w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature};
+                                placements[i] = {w.x, w.y, w.distance, w.curvature};
                             }
-                            std::optional<std::array<std::int32_t, 7>> surface;
+                            std::optional<std::array<std::int32_t, 4>> surface;
                             if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
-                                surface = std::array<std::int32_t, 7>{w->x, w->y, w->distance, w->yaw, w->pitch, w->roll, w->curvature};
+                                surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};
                             presentation.set_placement_menu(menu->open, menu->desktop, menu->field, placements, surface);
                         }
                     }
@@ -193,9 +193,9 @@ int main(int argc, char** argv) {
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
                     }
                     else if (m->op == xr::ControlOp::placement) {
-                        std::vector<std::array<std::int32_t, 7>> placements;
+                        std::vector<std::array<std::int32_t, 4>> placements;
                         for (const auto& w : std::get<xr::PlacementPayload>(m->payload).desktops)
-                            placements.push_back({w.x, w.y, w.distance, w.yaw, w.pitch, w.roll, w.curvature});
+                            placements.push_back({w.x, w.y, w.distance, w.curvature});
                         presentation.set_placements(placements);
                     }
                     else if (m->op == xr::ControlOp::view) {

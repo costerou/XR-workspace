@@ -69,23 +69,24 @@ Vec3 place_point(const Canvas& c, const FRect& tile, const Placement& pl, float 
     if (c.view_w <= 0 || c.view_h <= 0) return {};
     const float sx = 2 * c.half_w / c.view_w, sy = 2 * c.half_h / c.view_h;  // world units per canvas pixel
     const float cx = tile.x + tile.width / 2, cy = tile.y + tile.height / 2;
-    const float tw = tile.width * sx, th = tile.height * sy;
+    const float tw = tile.width * sx;
     const float d = pl.distance > 0 ? pl.distance : 1.f;
-    const Vec3 centre{((2 * cx / c.view_w - 1) * c.half_w + pl.x * tw) * d, ((1 - 2 * cy / c.view_h) * c.half_h + pl.y * th) * d, -d};
+    // The slot's centre on the canvas plane (z = -1): its direction (azimuth a0, elevation e0) and distance from the eye.
+    const float wx = (2 * cx / c.view_w - 1) * c.half_w, wy = (1 - 2 * cy / c.view_h) * c.half_h;
+    const float a0 = std::atan2(wx, 1.f), e0 = std::atan2(wy, std::sqrt(1 + wx * wx));
+    const float r = std::sqrt(1 + wx * wx + wy * wy) * d;
     const float u = (px - cx) * sx, v = (cy - py) * sy;
     Vec3 local{u, v, 0};
     if (pl.curvature > kMinCurvature && tw > 0) {
-        const float r = tw / pl.curvature, phi = u / r;
-        local = {r * std::sin(phi), v, r * (1 - std::cos(phi))};  // toward the viewer at the edges
+        const float rc = tw / pl.curvature, phi = u / rc;
+        local = {rc * std::sin(phi), v, rc * (1 - std::cos(phi))};  // toward the viewer at the edges
     }
-    // R = Ry(yaw) * Rx(pitch) * Rz(roll)
-    const float cr = std::cos(pl.roll), sr = std::sin(pl.roll);
-    Vec3 a{cr * local.x - sr * local.y, sr * local.x + cr * local.y, local.z};
-    const float cp = std::cos(pl.pitch), sp = std::sin(pl.pitch);
-    Vec3 b{a.x, cp * a.y - sp * a.z, sp * a.y + cp * a.z};
-    const float cyaw = std::cos(pl.yaw), syaw = std::sin(pl.yaw);
-    Vec3 w{cyaw * b.x + syaw * b.z, b.y, -syaw * b.x + cyaw * b.z};
-    return {centre.x + w.x, centre.y + w.y, centre.z + w.z};
+    // Straight ahead, square to the line of sight; then up by e0 + y and round by a0 + x: it always faces the eye.
+    Vec3 q{local.x, local.y, local.z - r};
+    const float ce = std::cos(e0 + pl.y), se = std::sin(e0 + pl.y);
+    q = {q.x, ce * q.y - se * q.z, se * q.y + ce * q.z};
+    const float ca = std::cos(a0 + pl.x), sa = std::sin(a0 + pl.x);
+    return {ca * q.x - sa * q.z, q.y, sa * q.x + ca * q.z};
 }
 
 std::vector<MeshVertex> tile_mesh(const Canvas& c, const FRect& tile, const Placement& pl, const FRect& rect) {
@@ -110,7 +111,15 @@ float zoom_weight(float zoom, float position, std::size_t index) {
 
 Placement faded(const Placement& p, float weight) {
     const float k = 1 - clampf(weight, 0, 1);
-    return {p.x * k, p.y * k, lerp(1.f, p.distance, k), p.yaw * k, p.pitch * k, p.roll * k, p.curvature};
+    return {p.x * k, p.y * k, lerp(1.f, p.distance, k), p.curvature};
+}
+
+Placement zoomed_placement(const Placement& p, float zoom, float position, std::size_t index) {
+    Placement out = faded(p, zoom_weight(zoom, position, index));
+    const float k = 1 - clampf(zoom, 0, 1);  // every orbit fades back to its row slot while zoomed
+    out.x *= k;
+    out.y *= k;
+    return out;
 }
 
 std::vector<std::size_t> draw_order(const Canvas& c, std::span<const FRect> tiles, std::span<const Placement> placements) {
@@ -170,13 +179,13 @@ Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, f
     if (!(dt_ms > 0)) return from;
     const float k = std::exp(-dt_ms / tau_ms);
     auto step = [&](float a, float b) { const float v = b + (a - b) * k; return std::fabs(v - b) < 2e-4f ? b : v; };
-    return {step(from.x, to.x), step(from.y, to.y), step(from.distance, to.distance), step(from.yaw, to.yaw),
-            step(from.pitch, to.pitch), step(from.roll, to.roll), step(from.curvature, to.curvature)};
+    // The orbit's turn round you: the short way (a desktop crossing behind you stays behind you).
+    const float turn = std::remainder(from.x - to.x, 2 * float(M_PI));
+    return {step(to.x + turn, to.x), step(from.y, to.y), step(from.distance, to.distance), step(from.curvature, to.curvature)};
 }
 
 bool same_placement(const Placement& a, const Placement& b) {
-    return a.x == b.x && a.y == b.y && a.distance == b.distance && a.yaw == b.yaw && a.pitch == b.pitch && a.roll == b.roll &&
-           a.curvature == b.curvature;
+    return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature;
 }
 
 void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms) {

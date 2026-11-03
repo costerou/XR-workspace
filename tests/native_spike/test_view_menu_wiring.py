@@ -63,6 +63,7 @@ class MenuStateTests(unittest.TestCase):
     def test_steps_clamp_to_bounds_and_reset_flattens_only_the_menu_desktop(self):
         s = view.ViewState(NAMES); s.apply_menu('menu_toggle')
         for field in PLACEMENT_KEYS:
+            if field == 'x': continue  # the turn round you wraps instead (test_left_right_keys_carry_a_desktop_on_round...)
             s.menu_field = field
             small, big = view.MENU_STEPS[field]
             start = s.placements[0][field]
@@ -73,11 +74,11 @@ class MenuStateTests(unittest.TestCase):
             for _ in range(100): s.apply_menu('menu_dec_big')
             self.assertEqual(s.placements[0][field], PLACEMENT_BOUNDS[field][0])
             self.assertFalse(s.apply_menu('menu_dec'))
-        s.apply_menu('menu_desktop_next'); s.menu_field = 'yaw'; s.apply_menu('menu_dec')
-        self.assertEqual(s.placements[1]['yaw'], -1)
+        s.apply_menu('menu_desktop_next'); s.menu_field = 'distance'; s.apply_menu('menu_dec')
+        self.assertEqual(s.placements[1]['distance'], 100 - view.MENU_STEPS['distance'][0])
         s.apply_menu('menu_desktop_prev')
         self.assertTrue(s.apply_menu('menu_reset'))
-        self.assertEqual(s.placements[0], DEFAULT_PLACEMENT); self.assertEqual(s.placements[1]['yaw'], -1)
+        self.assertEqual(s.placements[0], DEFAULT_PLACEMENT); self.assertEqual(s.placements[1]['distance'], 100 - view.MENU_STEPS['distance'][0])
         self.assertFalse(s.apply_menu('menu_reset'))  # already flat
         with self.assertRaises(ValueError): s.apply_menu('zoom_in')
 
@@ -109,18 +110,30 @@ class MenuControlTests(unittest.TestCase):
         self.assertEqual([f['op'] for f in self.send(c, 'menu_field_next')], ['placement_menu'])
         out = self.send(c, 'menu_inc_big')
         self.assertEqual([f['op'] for f in out], ['placement', 'placement_menu'])
-        self.assertEqual(out[0]['payload']['desktops'][0]['y'], 10)
-        self.assertEqual(out[1]['payload']['placements'][0]['y'], 10)
+        self.assertEqual(out[0]['payload']['desktops'][0]['y'], view.MENU_STEPS['y'][1])
+        self.assertEqual(out[1]['payload']['placements'][0]['y'], view.MENU_STEPS['y'][1])
         ids = [f['request_id'] for f in out]; self.assertEqual(ids, sorted(ids))
         c.state.placements[0]['y'] = PLACEMENT_BOUNDS['y'][1]
         self.assertEqual(self.send(c, 'menu_inc'), [])  # clamped no-op: nothing sent
         closed = self.send(c, 'menu_toggle')
         self.assertEqual([f['op'] for f in closed], ['placement_menu']); self.assertFalse(closed[0]['payload']['open'])
         self.assertEqual(self.send(c, 'menu_inc'), [])  # closed: ignored
-        self.assertEqual(c.status_reply({})['placements'][0]['y'], 100)  # panel sync via status
+        self.assertEqual(c.status_reply({})['placements'][0]['y'], PLACEMENT_BOUNDS['y'][1])  # panel sync via status
+
+    def test_left_right_keys_carry_a_desktop_on_round_past_behind_you(self):
+        c = self.control()
+        self.send(c, 'menu_toggle')  # field x of desktop 0
+        c.state.placements[0]['x'] = 1700
+        self.send(c, 'menu_inc_big')  # 170 + 15 degrees: 185 right is 175 left
+        self.assertEqual(c.state.placements[0]['x'], 1700 + view.MENU_STEPS['x'][1] - 3600)
+        self.send(c, 'menu_dec_big')
+        self.assertEqual(c.state.placements[0]['x'], 1700)
+        c.state.placements[0]['y'] = PLACEMENT_BOUNDS['y'][1]
+        self.send(c, 'menu_field_next'); self.send(c, 'menu_inc_big')
+        self.assertEqual(c.state.placements[0]['y'], PLACEMENT_BOUNDS['y'][1])  # up stops overhead
 
     def test_frames_decode_in_the_python_mirror_shape(self):
-        frame = view.placement_menu_frame('run', 's', 3, {'open': True, 'desktop': 2, 'field': 'roll',
+        frame = view.placement_menu_frame('run', 's', 3, {'open': True, 'desktop': 2, 'field': 'curvature',
                                                           'placements': [DEFAULT_PLACEMENT] * 3})
         self.assertTrue(frame.endswith(b'\n') and frame.count(b'\n') == 1)
         for bad in ({'open': True, 'desktop': 3, 'field': 'x', 'placements': [DEFAULT_PLACEMENT] * 3},
@@ -146,7 +159,7 @@ class MenuControlTests(unittest.TestCase):
         self.assertEqual(store.saves, 3); self.assertEqual(store.saved[0], DEFAULT_PLACEMENT)
 
     def test_two_output_run_keeps_the_third_saved_placement(self):
-        third = {**DEFAULT_PLACEMENT, 'yaw': 30}
+        third = {**DEFAULT_PLACEMENT}
         store = MemoryPlacements([DEFAULT_PLACEMENT, DEFAULT_PLACEMENT, third])
         c = view.ViewControl(view.ViewState(['XR-1', 'XR-2']), 'run', 'session', lambda n: None, None, None, placements=store)
         c.on_message({'op': 'menu_toggle'}); c.on_message({'op': 'menu_inc'}); c.on_message({'op': 'menu_toggle'})
@@ -286,7 +299,7 @@ class ManagedMenuWiringTests(unittest.TestCase):
                 control.on_message({'op': 'menu_desktop_next'}); control.on_message({'op': 'menu_inc_big'})
                 self.assertIsNotNone(control.save_due)
                 self.assertEqual(profiles.PlacementStore(store.path, store.model).load()[1]['x'], 0)  # not yet saved
-            self.assertEqual(profiles.PlacementStore(store.path, store.model).load()[1]['x'], 10)
+            self.assertEqual(profiles.PlacementStore(store.path, store.model).load()[1]['x'], view.MENU_STEPS['x'][1])
             client.remove_view_binds.assert_called_once()
             self.assertIsNone(control.menu_binds)
 

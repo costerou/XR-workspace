@@ -58,6 +58,9 @@ int main() {
     // Panel layout: rows below the header, sliders between the label and value columns, footer inside.
     CHECK(kPanelRowsTop >= kPanelHeaderH && kPanelKnobLo < kPanelKnobHi && kPanelTrackX0 > kPanelPad && kPanelTrackX1 < kPanelW - kPanelPad);
     CHECK(kPanelFooterTop + float(kPanelHintPx) <= kPanelH && kGrabberTop + kGrabberH < kPanelHeaderH);
+    // Four rows (left / right, down / up, distance, curvature: every desktop faces you, so there is no facing setting).
+    static_assert(kPlacementMenuFields == 4);
+    CHECK(kPanelFooterTop == kPanelRowsTop + 4 * kPanelRowH + 8 && kPanelFooterTop == 190.f && kPanelH == 220.f);
 
     // Look: every pixel of every state stays at or under the cards' 191/255 cap, premultiplied, with any accent.
     for (const auto& accent : {std::array<float, 3>{1, 1, 1}, std::array<float, 3>{0.55f, 0.55f, 0.55f}, std::array<float, 3>{1, 0, 0.3f}})
@@ -110,7 +113,7 @@ int main() {
     for (const HudFont* f : fonts) {
         PlacementMenuState st; st.open = true; st.desktop = 1; st.field = 3;
         for (auto& p : st.placements) p = placement_menu_flat();
-        st.placements[1] = {12, -7, 150, -30, 45, 0, 90};
+        st.placements[1] = {125, -70, 150, 90};
         const auto im = render_glass_panel(st, f);
         CHECK(im.width == std::uint32_t(kPanelW) && im.height == std::uint32_t(kPanelH) && premultiplied(im));
         CHECK(brightest(im) <= kCardMaxLevel && brightest(im) >= 140);
@@ -130,8 +133,27 @@ int main() {
             if (runs.size() < 2) continue;
             const float left_centre = float(runs[0].first) + kPanelKnobR, right_centre = float(runs[0].second) + 1 - kPanelKnobR;
             CHECK(std::fabs(left_centre - kPanelKnobLo) <= 1.5f && std::fabs(right_centre - kPanelKnobHi) <= 1.5f);
+            CHECK(runs[1].first >= std::uint32_t(kPanelTrackX1));  // the value text starts right of the slider track
             CHECK(runs.back().second < std::uint32_t(kPanelW - kPanelPad) + 2);
         }
+        // Every field's value, at both bounds and one step in from the low one, in both weights (the selected row is bold), is
+        // inked right of the slider track: drawn right-aligned at kPanelW - kPanelPad as render_glass_panel does, its leftmost
+        // pixel is past kPanelTrackX1. (The orbit's tenths show as whole degrees for this: "-179.9°" would be ~101 px against
+        // the 84 px value column.)
+        for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field)
+            for (const std::int32_t v : {bounds[field].first, bounds[field].second, std::int32_t(bounds[field].first + 1)})
+                for (const bool bold : {false, true}) {
+                    PlacementMenuState at = st;
+                    at.placements[1][field] = v;
+                    const std::string value = placement_menu_rows(at, f == nullptr)[field].value;
+                    const float width = float(f ? f->measure(value, kPanelTextPx, bold) : hud_text_width(value, 2));
+                    const float left = kPanelW - kPanelPad - width;
+                    CHECK(left >= kPanelTrackX1);
+                    if (!f) continue;  // the pixel font inks from its left edge
+                    int ink = int(kPanelW);
+                    f->draw(value, kPanelTextPx, bold, int(std::lround(left)), 100, [&](int x, int, float cov) { if (cov > 0) ink = std::min(ink, x); });
+                    CHECK(ink >= int(kPanelTrackX1) && ink < int(kPanelW));
+                }
     }
     CHECK(glass_panel_hint(true).find("TAB") != std::string::npos && glass_panel_hint(false).find("Tab") != std::string::npos);
     for (unsigned char c : glass_panel_hint(true)) CHECK(c >= 0x20 && c < 0x7f);
@@ -150,7 +172,7 @@ int main() {
         for (double t = 1000; t < 1000 + kGlassExpandMs; t += 10) CHECK(g.expand(1, t + 10) >= g.expand(1, t));
         CHECK(g.image().width == std::uint32_t(kPanelW) && g.renders() == 1);
         CHECK(!g.set(st, 1500) && g.renders() == 1);
-        for (int v = -20; v < -10; ++v) { st.placements[1][3] = v; CHECK(g.set(st, 1500)); }
+        for (int v = 10; v < 20; ++v) { st.placements[1][3] = v; CHECK(g.set(st, 1500)); }
         CHECK(g.renders() == 1); g.image(); CHECK(g.renders() == 2);  // ten values, one render
         PlacementMenuState next = st; next.desktop = 2;
         CHECK(g.set(next, 2000) && g.content_desktop() == 2 && g.opened() == 2 && g.closed() == 1);
@@ -237,11 +259,12 @@ int main() {
 
     // A held slider: the open panel is drawn on the press-time surface, the desktop's own placement is untouched.
     {
-        const MenuPlacement wire{20, -10, 150, 30, -45, 5, 60};
+        const MenuPlacement wire{20, -10, 150, 60};
         const Placement p = placement_from_wire(wire);
         const float rad = 3.14159265f / 180.f;
-        CHECK(near(p.x, 0.2f) && near(p.y, -0.1f) && near(p.distance, 1.5f) && near(p.yaw, 30 * rad) && near(p.pitch, -45 * rad) &&
-              near(p.roll, 5 * rad) && near(p.curvature, 60 * rad));
+        CHECK(near(p.x, 2 * rad) && near(p.y, -1 * rad) && near(p.distance, 1.5f) && near(p.curvature, 60 * rad));
+        const Placement edge = placement_from_wire({-1800, 900, 50, 120});
+        CHECK(near(edge.x, -180 * rad) && near(edge.y, 90 * rad) && near(edge.distance, 0.5f) && near(edge.curvature, 120 * rad));
         GlassPills g;
         PlacementMenuState st; st.open = true; st.desktop = 1;
         CHECK(g.set(st, 0) && !g.frame(true, 300).surface && g.frame(true, 300).surface_desktop == -1);
@@ -249,7 +272,7 @@ int main() {
         CHECK(g.set(st, 400, wire));
         const GlassFrame held = g.frame(true, 400);
         CHECK(g.generation() == generation && g.renders() == renders);  // the surface alone does not re-render the content
-        CHECK(held.surface && held.surface_desktop == 1 && near(held.surface->x, 0.2f) && near(held.surface->distance, 1.5f));
+        CHECK(held.surface && held.surface_desktop == 1 && near(held.surface->x, 2 * rad) && near(held.surface->distance, 1.5f));
         CHECK(!g.set(st, 410, wire));
         CHECK(g.set(st, 500) && !g.frame(true, 500).surface && !g.surface());  // released: back on the live placement
         PlacementMenuState shut = st; shut.open = false;

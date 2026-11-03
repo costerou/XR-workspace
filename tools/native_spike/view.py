@@ -14,12 +14,12 @@ Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
 Mode, cursor follow, prediction and spacing are saved in layout.json. The renderer shows a short pop-up
 in the glasses whenever the viewing mode, cursor follow or prediction changes (and the viewing mode at start).
-Per-desktop placement (position, distance, yaw/pitch/roll, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
+Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
 Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a frosted-glass pill
 under every desktop (spike/include/xr/glass.hpp). One at a time expands, with a short morph, into that desktop's own
-placement panel: the same seven settings the panel edits (position, distance, yaw/pitch/roll, curvature) as sliders.
+placement panel: the same four settings the panel edits (left/right, down/up, distance, curvature) as sliders.
 Ctrl+Alt+L expands the selected desktop's pill (zooming out to the overview first if zoomed in) or collapses whichever
 is open; the overview free pointer clicks a pill to expand it (collapsing any other) and the pill, or anything outside
 the panel, to collapse it. While a panel is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R,
@@ -107,8 +107,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
 IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
-MENU_STEPS = {'x': (2, 10), 'y': (2, 10), 'distance': (5, 25), 'yaw': (1, 10), 'pitch': (1, 10), 'roll': (1, 10),
-              'curvature': (2, 20)}
+MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
 MENU_SAVE_DELAY = 0.5  # seconds after the last panel change (key, slider or pill drag) before the profile is written
 # The help card and an open placement panel close by themselves after this many seconds without input (a run key, a
 # free-pointer click or slider, pointer motion while a panel is open, or a panel placement change), so static text does
@@ -336,7 +335,11 @@ class ViewState:
             small, big = MENU_STEPS[self.menu_field]
             step = (big if op.endswith('_big') else small) * (1 if op.startswith('menu_inc') else -1)
             lo, hi = PLACEMENT_BOUNDS[self.menu_field]
-            updated = {**current, self.menu_field: min(max(current[self.menu_field] + step, lo), hi)}
+            value = current[self.menu_field] + step
+            if self.menu_field == 'x':  # the turn round you carries on round past behind you (orbit.py), never stops
+                from .orbit import wrap
+                value = wrap(value)
+            updated = {**current, self.menu_field: min(max(value, lo), hi)}
         if updated == current: return False
         self.placements = [updated if i == self.menu_desktop else p for i, p in enumerate(self.placements)]
         return True

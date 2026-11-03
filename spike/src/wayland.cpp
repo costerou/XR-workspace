@@ -162,7 +162,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     ViewAnimator view{220.f};
     // Per-desktop placement (ipc.hpp WirePlacement units), in capture order; absent entries are flat.
-    std::vector<std::array<std::int32_t, 7>> placements;
+    std::vector<std::array<std::int32_t, 4>> placements;
     std::uint64_t placement_updates = 0;
     Placement target_placement(std::size_t i) const {
         if (i >= placements.size()) return {};
@@ -187,7 +187,7 @@ struct Presentation::Impl : SurfaceRequests {
         const float zoom = view.zoom(), position = view.position();
         for (std::size_t i = 0; i < captures.size(); ++i) {
             const Placement p = i < eased.size() ? eased[i] : target_placement(i);
-            out.push_back(faded(p, zoom_weight(zoom, position, i)));  // the zoomed desktop comes flat in front of you
+            out.push_back(zoomed_placement(p, zoom, position, i));  // the zoomed desktop flat in front, the rest at their slots
         }
         return out;
     }
@@ -622,7 +622,7 @@ std::string Presentation::capture_report() const {
            ",\"placements\":[";
     for (std::size_t i = 0; i < impl_->placements.size(); ++i) {
         out += i ? ",[" : "[";
-        for (std::size_t k = 0; k < 7; ++k) out += (k ? "," : "") + std::to_string(impl_->placements[i][k]);
+        for (std::size_t k = 0; k < impl_->placements[i].size(); ++k) out += (k ? "," : "") + std::to_string(impl_->placements[i][k]);
         out += "]";
     }
     out += "]}";
@@ -757,13 +757,13 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
     if (impl_->help.set(visible, help, double(monotonic_ms()), turn)) impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(bool open, std::uint32_t desktop, std::uint32_t field,
-                                      const std::array<std::array<std::int32_t, 7>, 3>& placements,
-                                      const std::optional<std::array<std::int32_t, 7>>& surface) {
+                                      const std::array<std::array<std::int32_t, 4>, 3>& placements,
+                                      const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
     PlacementMenuState state{open, desktop, field, placements};
     if (impl_->glass.set(state, double(monotonic_ms()), surface)) impl_->cadence.invalidate();
 }
-void Presentation::set_placements(const std::vector<std::array<std::int32_t, 7>>& placements) {
+void Presentation::set_placements(const std::vector<std::array<std::int32_t, 4>>& placements) {
     if (!impl_) return;
     impl_->placements.assign(placements.begin(), placements.begin() + std::ptrdiff_t(std::min(placements.size(), impl_->captures.size())));
     ++impl_->placement_updates;
