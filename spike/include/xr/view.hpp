@@ -170,6 +170,17 @@ private:
         float zoom_now = 1, look_now = 0;
     } switch_;
 };
+// Where desktop `index` is round you: the direction {azimuth, elevation} (radians; +az right, +el up, place_point's) of
+// its centre as placed in the overview (its slot in `overview` plus its orbit), which zoomed_placements keeps at every zoom.
+// Follow and locked modes turn the canvas so the focused desktop's direction is straight ahead (pose.hpp aim_rotation,
+// ModeController::set_aim). {0, 0} if `index` is out of range or the canvas is empty.
+std::array<float, 2> focus_direction(const Canvas& canvas, std::span<const FRect> overview, std::span<const Placement> placements,
+                                     std::size_t index);
+// How far follow and locked modes centre the view on ViewAnimator::focus() (0 = the overview's own centre straight ahead,
+// 1 = the focused desktop straight ahead): zoom() + look(), at most 1. Continuous through zooms and every phase of a
+// switch: zooming out of the current desktop it eases to the overview's centre, the turn pans to the target (look 0 -> 1)
+// and zooming in keeps the target centred (zoom + look = 1). In anchor mode the room stays put and look_turn turns instead.
+float focus_weight(const ViewAnimator& view);
 // The view turn of a desktop switch at `look` (ViewAnimator::look): a rotation applied to world points before the head's
 // view (draw with view * look_turn), turning desktop `from`'s overview direction (slot in `overview` plus its orbit) toward
 // `to`'s. At look 1 `to`'s direction comes exactly where `from`'s was, upright; at look 0 (and whenever an index is out of
