@@ -87,6 +87,46 @@ std::array<std::uint32_t, 2> video_texture_size(std::uint32_t w, std::uint32_t h
     return {std::max<std::uint32_t>(1, std::uint32_t(std::lround(w * s))), std::max<std::uint32_t>(1, std::uint32_t(std::lround(h * s)))};
 }
 
+void VideoFramePacer::tick(std::int64_t now) {
+    constexpr std::int64_t kMin = 2'000'000, kMax = 50'000'000;  // 500 Hz .. 20 Hz; anything else is not a display frame
+    const std::int64_t dt = last_tick_ ? now - last_tick_ : 0;
+    last_tick_ = now;
+    if (dt < kMin || dt > kMax) return;
+    samples_[next_] = dt;
+    next_ = (next_ + 1) % kSamples;
+    count_ = std::min(count_ + 1, kSamples);
+    if (count_ < 5) return;  // too few gaps for a median: keep the default
+    auto sorted = samples_;
+    const auto mid = sorted.begin() + std::ptrdiff_t(count_ / 2);
+    std::nth_element(sorted.begin(), mid, sorted.begin() + std::ptrdiff_t(count_));
+    interval_ = *mid;
+}
+
+bool VideoFramePacer::due(std::int64_t target, std::int64_t now) {
+    if (!pending_since_) pending_since_ = now;
+    const std::int64_t t = interval_, early_by = target - (now + t);  // > 0: it would be on screen before its time
+    if (early_by <= t / 2 || now - pending_since_ >= kMaxHoldNs) return true;  // the vblank nearest the target, or late
+    const std::int64_t spacing = target - last_target_;
+    if (last_target_ && spacing > 0 && spacing < 1'000'000'000 && early_by <= t && now - last_drawn_ >= spacing - t / 2) return true;
+    ++held_;
+    return false;
+}
+
+void VideoFramePacer::drawn(std::int64_t target, std::int64_t now) {
+    const double lead = double(target - (now + interval_)) / 1e6, interval = double(interval_) / 1e6;
+    if (!timed_) lead_min_ = lead_max_ = lead;
+    lead_min_ = std::min(lead_min_, lead); lead_max_ = std::max(lead_max_, lead); lead_sum_ += lead; ++timed_;
+    if (lead > interval) ++early_; else if (lead < -interval) ++late_;
+    last_target_ = target; last_drawn_ = now; pending_since_ = 0;
+}
+
+void VideoFramePacer::untimed() { last_target_ = 0; pending_since_ = 0; }
+void VideoFramePacer::restart() { untimed(); }
+
+VideoFramePacer::Stats VideoFramePacer::stats() const {
+    return {held_, timed_, early_, late_, lead_min_, timed_ ? lead_sum_ / double(timed_) : 0.0, lead_max_};
+}
+
 const char* video_state_name(VideoState s) {
     switch (s) {
     case VideoState::off: return "off";

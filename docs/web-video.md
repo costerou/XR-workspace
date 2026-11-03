@@ -27,7 +27,9 @@ video link, and yt-dlp found no video on it: copy the video's own link instead*.
 
 While it plays, every [VR video key](vr-video.md#using-it) works the same way: Space, Tab, Up/Down, Esc, Ctrl+Alt+Space.
 **Left/Right and Shift+Left/Right** seek by restarting the stream at the new position. Presses within 0.4 s are
-combined into one restart, which takes about 1–2 s on a good connection (the card reappears, then the picture). The
+combined into one restart (the card reappears, then the picture). Offline, against a 200 Mbit/s local server, the new
+stream's first byte comes about 0.1 s after the restart and the renderer's first frame about 40 ms after that; a real
+site adds its own connection and seek time. Before, every restart first waited 3 s for the old relay to stop. The
 panel shows *Streaming from <site> (progressive / hls / dash) · position / length*.
 
 If something cannot play, a desktop notification and the panel say why: *the site refused the stream (HTTP 403)…*,
@@ -66,9 +68,14 @@ Ctrl+Alt+U ─ xr_control.py: wl-paste once ─┐       (panel: "Paste from bro
   given User-Agent, `-reconnect` for dropped connections, a 15 s read timeout, and `-c copy` (no re-encoding,
   full quality). The output is **NUT**, which carries every codec mpv plays and starts cleanly mid-stream. Matroska
   cannot take ADTS AAC after a seek into an HLS segment. A reader thread fills a 128 MiB read-ahead, about 10 s of
-  8K at 100 Mbit/s. A non-blocking writer thread feeds the pipe. A paused video holds the stream back through the pipe,
-  and stopping never waits on the renderer. ffmpeg runs in its own process group with a minimal environment and is
-  killed on exit, seek, replacement and run end.
+  8K at 100 Mbit/s. A non-blocking writer thread feeds the pipe. Both pipes (ffmpeg to the run, the run to the
+  renderer) are 1 MiB instead of the kernel's 64 KiB, so the renderer reads 16x less often. A paused video holds the
+  stream back through the pipe, and stopping never waits on the renderer. ffmpeg runs in its own process group with a
+  minimal environment and is killed (SIGKILL, at once: its output is being discarded) on exit, seek, replacement and
+  run end; a wake-up pipe ends both threads within milliseconds. Stopping used to send SIGTERM, which left ffmpeg
+  blocked writing to the pipe nobody read any more, and took the full 3 s join timeout on the supervisor loop.
+- **Renderer** on a seek: the open frame for the restarted stream reuses the playing player (vr-video.md, *Reopening
+  and closing*), so the glasses do not freeze while mpv is torn down and set up again.
 - **Position and seeking**: a pipe cannot seek, so the run keeps a position estimate. That is the relay's start
   position plus the time the renderer reported *playing* (at most 1 s counted per poll). A seek restarts the relay
   at the estimate ± the step, clamped to [0, length − 3 s]. Seeking back after *Ended* works the same way. A relay that
@@ -102,7 +109,7 @@ Ctrl+Alt+U ─ xr_control.py: wl-paste once ─┐       (panel: "Paste from bro
 - **Links that need the browser's login cookies** fail with HTTP 401/403. Signed CDN links work until they expire,
   but some sites check a session cookie on every request. Nothing reads Chromium's cookie store.
 - **`blob:` players** (MSE fed by custom JavaScript) have no link to send; copy the page link and let yt-dlp find it.
-- **Seeking** takes a relay restart (~1–2 s). HLS seeks land on a segment boundary (usually 2–6 s before the target).
+- **Seeking** takes a relay restart: the site's connection and seek time, plus about 0.15 s here. HLS seeks land on a segment boundary (usually 2–6 s before the target).
   The card's clock counts from the last restart, and its length shows `--:--`, because the stream on the pipe has no
   index. The panel shows the real position and length. Seeking while paused resumes playback.
 - **Long pauses**: if the site drops the idle connection, ffmpeg reconnects with a range request. If that fails, the
@@ -142,8 +149,11 @@ Offline only: no glasses, no compositor, no real website.
   - URL and web-request validation, format-token mapping, quality ranking, source choice, the clipboard parsers (run
     and bind helper agree), failure reasons that never contain the link, and the relay command line.
   - The real relay and probe against a local HTTP server with byte ranges (generated H.264/AAC clip, MP4 and HLS):
-    every frame copied unchanged into NUT, start positions, a 403 reported as such, and stop not blocked by a paused
-    reader.
+    every frame copied unchanged into NUT, start positions, a 403 reported as such, stop not blocked by a paused
+    reader, and 1 MiB pipes.
+  - `RelayStopTests`, against a throttled (200 Mbit/s) local server so ffmpeg is still downloading: stop with a paused
+    renderer, with a full read-ahead and while the renderer reads, each under 1 s with ffmpeg gone (all four took
+    3.0 s before), and a seek (`WebStream.start`) that returns in under 1 s and delivers from the new position.
   - The whole run path (`VideoControl` with the real probe and relay) from a web request to the renderer's descriptor.
   - `VideoControl` with stand-ins: resume position, combined seeks, paused time not counted, clamping, dropped-link
     resume then give-up, live streams, replacing and closing stop the relay, local files unchanged.
@@ -154,9 +164,9 @@ Offline only: no glasses, no compositor, no real website.
   the refusals: no video on the page, yt-dlp missing, and a media link that turns out to be HTML. A real local page
   embedding a clip plays through yt-dlp, ffprobe and the relay. A page without video gives the "web page link" reason,
   not an exit code.
-- `spike/tests/video_render_test.cpp` (`ctest -R video_render`): the **unchanged renderer's VideoPlayer** plays the
-  relay's container from a pipe (`ffmpeg -c copy -f nut pipe:1`). On the Ryzen iGPU: `vaapi-copy`, 1024×512, upright,
-  pause, held at the end.
+- `spike/tests/video_render_test.cpp` (`ctest -R video_render`): the renderer's VideoPlayer plays the relay's container
+  from a pipe (`ffmpeg -c copy -f nut pipe:1`). On the Ryzen iGPU: `vaapi` (zero copy), 1024×512, upright, pause, held
+  at the end. A second relay pipe reopened into the same player while paused plays from its start, as a seek does.
 - `tests/xr_controller/test_video.py`: the controller forwards `url`/`web` opens while running, refuses bad ones, and
   writes no consent. The panel test drives *Paste from browser* (stand-in wl-paste), typed links and the stream line.
 - `python -m tools.native_spike.bind_check`: Ctrl+Alt+U clashes with nothing in Cody's Hyprland config (14 run binds).

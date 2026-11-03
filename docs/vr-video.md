@@ -136,19 +136,62 @@ own EGL context (`mpv_render_context`), and it brings audio, A/V sync, exact see
 one dependency. Each new video frame is drawn once into an RGBA texture the size of the video. That is a GPU
 YUV→RGB conversion, not a CPU copy. The projection pass then samples that texture at the display rate.
 
-Hardware decode: `hwdec=vaapi,vaapi-copy,auto-safe`. With the renderer's Wayland display passed to mpv, `vaapi`
-decodes on the GPU and imports the frames into GL as dmabufs, with no copy. If that interop is unavailable, `vaapi-copy`
-still decodes on the GPU and copies through system memory; failing both, mpv decodes in software. The path taken is
-in the renderer's exit report on stderr (`"hwdec"`); the panel does not show it yet. The offline tests have no Wayland
-display, so they exercised `vaapi-copy` and software. The zero-copy `vaapi` path is untested until the first physical
-run.
+Hardware decode: `hwdec=vaapi,vaapi-copy,auto-safe`, on the GPU that draws the video. The player finds the render node
+of the GPU its GL context draws on: the context's device UUID (`GL_EXT_memory_object`) matched against EGL's devices
+(`EGL_EXT_device_persistent_id`, `EGL_EXT_device_drm_render_node`). It does not use the EGL display's own device,
+which names the other GPU under PRIME (`DRI_PRIME`); without UUIDs it uses a node only if there is a single GPU. mpv
+gets that node (`MPV_RENDER_PARAM_DRM_DISPLAY_V2`, `render_fd` only). `vaapi` then decodes there and imports each frame
+into GL as a dmabuf, with no copy, with or without a Wayland display. If that interop is unavailable, `vaapi-copy`
+decodes on the same GPU (`vaapi-device`) and copies through system memory; failing both, mpv decodes in software. The
+Wayland display is used for VA-API only when no node is found, as before. mpv would try it first, and libva then
+opens the compositor's main device, which need not be the renderer's GPU. The path taken is in the renderer's exit report on
+stderr (`"hwdec"`, `"va_device"`); the panel does not show it yet. Offline, on surfaceless EGL, both GPUs of this machine
+decode with `vaapi` (zero copy), the iGPU by default and the RX 7800 XT with `DRI_PRIME=pci-0000_03_00_0`; see
+[Performance](#performance). The glasses' outputs (DP-1, DP-2) are on the RX 7800 XT.
 
 mpv is locked down inside the renderer: no config files, scripts, ytdl, OSC, key bindings or IPC socket, no sibling
 subtitle/audio files, no shader or ICC cache (no disk writes), no clipboard. mpv 0.40+ would otherwise open its own
 Wayland connection and bind `wl_seat` for the clipboard, which this renderer never does. Only exact
-`loadfile fdclose://N`, `cycle pause` and `seek` commands are sent, all asynchronous, and events are polled without
-blocking, so rendering never waits on mpv. `XR_MPV_LOG=v` in the renderer's environment prints mpv's log to stderr
-for diagnosis.
+`loadfile fdclose://N`, `cycle pause`, `seek`, `stop` and `set pause no` commands are sent, all asynchronous, and events
+are polled without blocking, so rendering never waits on mpv. `XR_MPV_LOG=v` in the renderer's environment prints mpv's
+log to stderr for diagnosis.
+
+### Frame timing
+
+mpv gives each decoded frame a target time, the moment it should be seen in sync with the sound, and hands it over up
+to `video-timing-offset` (50 ms) earlier. The player renders with `MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME` off, so the
+timing is its own job. It used to draw every frame as soon as mpv handed it over, which put each frame on screen during
+its predecessor's slot: about one video frame ahead of the sound (25–33 ms at 30 fps, 33–42 ms at 24 fps).
+
+Now `VideoFramePacer` (`video.hpp`) holds the frame until its display frame; mpv keeps it pending meanwhile:
+
+- A frame drawn on a display frame is taken to be on screen one display interval later (the next vblank after the
+  swap). The interval is the median of the last 15 gaps between display frames, so a missed vsync does not move it.
+- A frame goes on the display frame whose vblank is nearest its target, or at once if it is late.
+- After one frame, the next follows after the video's own frame spacing (2 display frames at 60 fps on 120 Hz, 4 at 30)
+  as long as that keeps it at most one display interval early. Without this, a target halfway between two vblanks flips
+  between them with timing noise: judder.
+- So every frame is on screen between half a display interval late and one interval early, against the 1-interval
+  latency assumption. Redraws (pause) and frames without a target are drawn at once; no frame is held over 100 ms.
+
+The renderer has no presentation-latency figure for the video path, so the one-interval assumption is not measured in
+the glasses. If the compositor adds a frame, the picture is that much later than the sound (8 ms at 120 Hz).
+
+### Reopening and closing
+
+A web video's seek restarts its stream, and the run sends the renderer a fresh open (web-video.md). Opening another
+video while one plays does the same. `VideoMode::open` then reuses the playing `VideoPlayer` (`reopen`): mpv stops the
+previous file, the player hands back the frames mpv still has (never shown) until mpv reports idle, which it does after
+destroying its video output, and then loads the next file into the same mpv instance. The render context, its shaders
+and the VA-API interop are kept, and nothing of the previous file can be shown: the texture stays black until the new
+file's first frame, as with a new player. A player that failed, or whose file has not started, is replaced as before.
+So is one that has drawn about an hour of 60 fps frames: mpv 0.41's libmpv GL path keeps a GL fence per rendered frame
+until its render context is freed (about 175 bytes each, 37 MB an hour at 60 fps; an mpv leak this code cannot reach),
+and a fresh player bounds that to what one long file always had.
+
+Closing (Esc, or a reopen that cannot reuse) first stops mpv the same way, then frees it. Before, `mpv_render_context_free`
+sat out mpv's own 200 ms wait (`flip_page`) for the frame it had handed over, on the renderer thread, so the glasses
+froze for a fifth of a second on every close and every web seek.
 
 ### Session, consent and journal
 
@@ -211,6 +254,47 @@ usable mapping for these.
   180° side-by-side at 8K (≈ 23 px per degree per eye).
 - **HDR** video is tone-mapped to SDR by mpv. No subtitles, playlists or audio-track switching in this version.
 
+## Performance
+
+Timing harnesses, offline (no display, glasses or compositor), run by hand because their numbers depend on machine load:
+
+- `build/native-spike/video_bench [--gpu /dev/dri/renderD128] [--seconds 6] [--restarts 8]` (not run by ctest) drives the
+  real `VideoPlayer` and `VideoSphere` at a simulated 120 Hz display on surfaceless EGL. It generates clips with a
+  frame-number barcode (hardware encoder where it can) and reports the decode path, CPU time of `update()`, GPU time of
+  each new frame, display frames over the 8.33 ms budget (`glFinish` each frame, a missed vsync in the glasses), and the
+  video frames shown, dropped and juddered, read back from the texture.
+- `python3 tests/native_spike/bench_web_video.py` times the relay: pump throughput and CPU, `StreamRelay.stop()` with the
+  real ffmpeg downloading from a 200 Mbit/s local server, a seek's supervisor-loop stall, and time to first byte.
+
+Before → after on the RX 7800 XT (the glasses' GPU): the harness-only commit and this one, two interleaved rounds each,
+6 s windows, 2026-11-02, load average 14–18 from other work on the machine:
+
+| Clip | Decode | GPU per new frame | Display frames over budget | Video frames shown (dropped) | Judder |
+| --- | --- | --- | --- | --- | --- |
+| 4K60 H.264 | vaapi-copy → vaapi | 1.7–2.1 → 0.48 ms | 0–3 → 0–6 of ~715 | 360 → 359–360 of 360 | 6–7 → 1–14 |
+| 5.7K60 HEVC | vaapi-copy → vaapi | 3.5–3.9 → 1.09 ms | 2–6 → 0–1 | 360 → 359–360 | 11–33 → 0–2 |
+| 8K30 HEVC | vaapi-copy → vaapi | 6.7–7.1 → 2.2 ms | 27–86 → 1–2 | 180 → 179–180 of 180 | 42–105 → 2–4 |
+| 8K60 HEVC 10-bit | vaapi-copy → vaapi | 11.3–12.0 → 2.2 ms | 60–81 → 1–6 | **45–46 (88–97) → 346–359 (0–13)** of 359 | 0 → 2–8 |
+| 8K30 AV1 | vaapi-copy → vaapi | 17.1 → 2.2 ms | 122–140 of ~300 → 0 of 720 | **39–43 (94–108) → 180 (0)** of 179 | 0 → 0 |
+
+"Over budget": CPU + GPU of one display frame above 8.33 ms, a missed vsync in the glasses. Judder: a gap between new
+video frames that is not the clip's cadence. The remaining misses follow the machine's load: in the same rounds the
+harness thread itself woke late 1–20 times. Before, 8K60 and 8K AV1 showed one frame in four, so there was no cadence
+left to judder.
+
+- Frame timing (same build, holding off vs on): 30 fps frames were on screen 15–18 ms early on average (up to 25 ms)
+  beyond the one-interval allowance, 179–204 per 6 s more than an interval early. Now: mean −4 to +7 ms, at most
+  +8.3 ms (one interval), none beyond.
+- Close while playing: 155–220 ms → 2–30 ms. Web seek in the renderer (reopen, 6 per round): close 155 ms (max 220) +
+  first frame 247 ms with a 17–19 ms worst display frame → no close, first frame 34–35 ms, worst display frame 8–10 ms.
+- Web relay (web-video.md): `StreamRelay.stop()` while ffmpeg downloads 3,003–3,008 ms → 4–13 ms; a seek blocked the
+  supervisor loop 3,004–3,009 ms → 4–98 ms, the new stream's first byte 3,053–3,081 ms → median 118 ms; pump CPU
+  0.47–0.55 → 0.25 s per GiB, renderer reads per MiB 16 → 1.9.
+- On the Ryzen iGPU, `vaapi-copy` decoded on the RX 7800 XT (mpv's default `renderD128`) and uploaded every frame to the
+  iGPU. It now decodes on the iGPU with zero copy, but mpv's default scaling passes are too heavy there from 4K60 up
+  (GPU 10 ms per 4K frame); the glasses do not use it. mpv's cheaper single-pass path (`profile=fast`) would fit, but it
+  changes the picture (bilinear instead of lanczos chroma), so it is not used.
+
 ## 120 Hz vs 60 Hz
 
 The projection runs every display refresh with a fresh pose, so head motion is smooth at the display rate even for a
@@ -250,17 +334,24 @@ Offline only (no display, glasses or compositor):
 
   | Clip | Codec, container | Layout | Decoded with |
   | --- | --- | --- | --- |
-  | 1024×512 | H.264, MP4 | 360° mono | vaapi-copy |
-  | 1024×512 | HEVC, MKV | 180° side-by-side | vaapi-copy |
-  | 512×512 | VP9, WebM (Opus audio) | 360° top-bottom | vaapi-copy |
-  | 1024×512 | AV1 (SVT), MKV | fisheye 190° side-by-side | vaapi-copy |
+  | 1024×512 | H.264, MP4 | 360° mono | vaapi (zero copy) |
+  | 1024×512 | HEVC, MKV | 180° side-by-side | vaapi (zero copy) |
+  | 512×512 | VP9, WebM (Opus audio) | 360° top-bottom | vaapi (zero copy) |
+  | 1024×512 | AV1 (SVT), MKV | fisheye 190° side-by-side | vaapi (zero copy) |
   | 7680×3840 | H.264, MP4 | 360° mono | software (beyond H.264 hardware limits) |
-  | 8192×4096 | HEVC, MP4 | 180° side-by-side | vaapi-copy |
+  | 8192×4096 | HEVC, MP4 | 180° side-by-side | vaapi (zero copy) |
   | not a video | — | — | reported as an error |
 
   Each clip is checked upright (top-left quadrant of the picture at the top-left of the texture), projected (looking
   up-left lands in the top-left quadrant), paused and resumed, seeked forward, played to the end (last frame held,
-  *ended*), and seeked back.
+  *ended*), and seeked back. Each must not decode with `vaapi-copy` when the render node is known, and none of its
+  frames may go on screen more than a display interval early. `reopen` plays a second file (a blue clip: its first
+  frame shown is blue, never the previous picture) and then a relay pipe while paused (it plays). A failed player is not
+  reused. Closing a playing video takes under 150 ms (2 ms measured; it was over 200 ms).
+- `video` also runs `VideoFramePacer` on a simulated 120 Hz display with ±1 ms timing noise and an mpv-like decoder:
+  24, 30 and 60 fps keep a steady cadence at 16 phases each (at most one adjustment), 25 and 50 fps use only the two
+  neighbouring spacings, a 0.1 % clock drift slips at most 4 times in 10 s, and every frame is on screen between half
+  an interval late and one interval early. Without the cadence rule the same checks fail 29 times.
 - `tests/native_spike/test_video.py`: requests, the shared payload fixture, detection (metadata, names, shape), limits,
   file checks, a real ffprobe of a generated Matroska file with a `stereo_mode` tag, the control state machine
   (open closes the help card and an open placement pill, key handling, ignored desktop keys, idle close, error and no-support exits, request-id

@@ -12,11 +12,13 @@ VideoMode::~VideoMode() { close(); }
 void VideoMode::set_font(std::unique_ptr<HudFont> font) { card_.set_font(std::move(font)); }
 
 void VideoMode::open(int fd, const VideoFormat& format, std::string title, wl_display* display, double now_ms, bool audio) {
-    close();
+    if (active_) card_.set_visible(false, 0);  // as close(): the open fades the card in again
     active_ = true; format_ = format; title_ = std::move(title); why_.clear(); ++opened_;
     if (!sphere_) sphere_ = VideoSphere::create(why_);
-    if (!sphere_) { if (fd >= 0) ::close(fd); }
-    else player_ = VideoPlayer::open(fd, {audio, true, display}, why_);
+    const VideoPlayer::Options options{audio, true, display};
+    if (!sphere_) { if (fd >= 0) ::close(fd); player_.reset(); }
+    // A web video's seek (a relay restart) or another video while one plays: the same player, without tearing mpv down.
+    else if (!player_ || !player_->reopen(fd, options)) { player_.reset(); player_ = VideoPlayer::open(fd, options, why_); }
     card_.set_visible(true, now_ms);
     prepare(now_ms);
 }

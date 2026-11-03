@@ -49,6 +49,39 @@ std::vector<EyeViewport> eye_viewports(std::uint32_t width, std::uint32_t height
 constexpr std::uint32_t kVideoMaxTextureSide = 8192;
 std::array<std::uint32_t, 2> video_texture_size(std::uint32_t width, std::uint32_t height, std::uint32_t max_side = kVideoMaxTextureSide);
 
+// Frame timing (docs/vr-video.md#frame-timing): the display frame a decoded video frame goes on. The decoder (mpv) gives
+// each frame a target time, when it should be seen in sync with the sound, and hands it over up to 50 ms before that.
+// A frame drawn on a display frame is taken to be on screen one display interval later (the next vblank after the
+// swap); the interval is the median of the last 15 gaps between display frames (120 Hz until 5 are known), so a missed
+// vsync does not move it. A frame goes on the
+// display frame whose vblank is nearest its target. After one frame, the next keeps the video's own cadence (2 display
+// frames at 60 fps on 120 Hz, 4 at 30) as long as that keeps it at most one display interval early; otherwise a target
+// halfway between two vblanks flips between them with timing noise (judder). So every frame is on screen between half a
+// display interval late and one interval early. All times are in ns, on one clock.
+class VideoFramePacer {
+public:
+    static constexpr std::int64_t kDefaultIntervalNs = 1'000'000'000 / 120;
+    static constexpr std::int64_t kMaxHoldNs = 100'000'000;  // never hold a frame longer (mpv hands them over <= 50 ms early)
+    void tick(std::int64_t now);                      // once per display frame, before due()
+    bool due(std::int64_t target, std::int64_t now);  // draw the pending frame (due at `target`) on this display frame?
+    void drawn(std::int64_t target, std::int64_t now);  // it was drawn now: the next frame's cadence starts here
+    void untimed();                                   // a frame without a target (a redraw) was drawn: no cadence to keep
+    void restart();                                   // a new file or stream: no cadence, nothing pending
+    std::int64_t interval_ns() const { return interval_; }
+    struct Stats {
+        std::uint64_t held = 0, timed = 0, early = 0, late = 0;  // early / late: by more than one display interval
+        double lead_min_ms = 0, lead_mean_ms = 0, lead_max_ms = 0;  // target - on screen; > 0: on screen before its time
+    };
+    Stats stats() const;
+private:
+    static constexpr std::size_t kSamples = 15;
+    std::array<std::int64_t, kSamples> samples_{};
+    std::size_t count_ = 0, next_ = 0;
+    std::int64_t last_tick_ = 0, interval_ = kDefaultIntervalNs, pending_since_ = 0, last_target_ = 0, last_drawn_ = 0;
+    std::uint64_t held_ = 0, timed_ = 0, early_ = 0, late_ = 0;
+    double lead_sum_ = 0, lead_min_ = 0, lead_max_ = 0;
+};
+
 // Player state. Wire (status JSON "video", tools/native_spike/video.py VIDEO_STATES): off, loading, playing, paused,
 // ended, error.
 enum class VideoState : std::uint8_t { off, loading, playing, paused, ended, error };

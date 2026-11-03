@@ -4,11 +4,13 @@ VideoControl with web streams (open, seek by relay restart, resume after a dropp
 resolved with yt-dlp.
 
 Offline: the only network is 127.0.0.1 inside this test (allow_local=True, which the run never sets)."""
+import fcntl
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import select
 import shutil
 import subprocess
 import tempfile
@@ -336,6 +338,115 @@ class RelayTests(unittest.TestCase):
         while r.returncode is None and time.monotonic() < deadline: time.sleep(0.05)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn('403', r.failure())
+
+    def test_relay_pipes_are_large(self):
+        """1 MiB pipes (fs.pipe-max-size permitting): 16x fewer reads per MiB for the renderer's demuxer."""
+        limit = int(Path('/proc/sys/fs/pipe-max-size').read_text())
+        r, fd = self.relay(self.base + '/beach_180_LR.mp4')
+        try:
+            self.assertEqual(fcntl.fcntl(fd, fcntl.F_GETPIPE_SZ), min(wv.RELAY_PIPE, limit) if limit >= 65536 else 65536)
+            self.assertEqual(fcntl.fcntl(r.proc.stdout.fileno(), fcntl.F_GETPIPE_SZ), min(wv.RELAY_PIPE, limit) if limit >= 65536 else 65536)
+        finally:
+            os.close(fd)
+
+
+class ThrottledHandler(RangeHandler):
+    """A 200 Mbit/s link: ffmpeg is still downloading when a seek or exit stops the relay, as with a real site."""
+    rate = 25e6
+
+    def setup(self):
+        super().setup()
+        raw, rate, t0, sent = self.wfile, self.rate, time.monotonic(), [0]
+
+        class Writer:
+            def write(_, data):
+                n = raw.write(data); sent[0] += len(data)
+                delay = t0 + sent[0] / rate - time.monotonic()
+                if delay > 0: time.sleep(delay)
+                return n
+
+            def __getattr__(_, name): return getattr(raw, name)
+        self.wfile = Writer()
+
+
+@unittest.skipUnless(FFMPEG and FFPROBE, 'ffmpeg/ffprobe not installed')
+class RelayStopTests(unittest.TestCase):
+    """Stopping the real relay while ffmpeg downloads (every seek and exit does): milliseconds, not the 3 s a SIGTERM'd
+    ffmpeg blocked on its full output pipe used to hold the supervisor loop for."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        d = Path(cls.tmp.name)
+        clip = d / 'short.mp4'
+        subprocess.run([FFMPEG, '-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=1280x640:rate=30:duration=4', '-f', 'lavfi', '-i',
+                        'sine=f=440:duration=4', '-c:v', 'libx264', '-preset', 'ultrafast', '-b:v', '20M', '-g', '30', '-pix_fmt', 'yuv420p',
+                        '-c:a', 'aac', '-shortest', str(clip)], check=True)
+        subprocess.run([FFMPEG, '-v', 'error', '-y', '-stream_loop', '14', '-i', str(clip), '-c', 'copy', '-movflags', '+faststart',
+                        str(d / 'long_180_LR.mp4')], check=True)  # 60 s, ~150 MB: far more than the test downloads
+        cls.server = ThreadingHTTPServer(('127.0.0.1', 0), partial(ThrottledHandler, directory=str(d)))
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.url = f'http://127.0.0.1:{cls.server.server_address[1]}/long_180_LR.mp4'
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown(); cls.server.server_close(); cls.tmp.cleanup()
+
+    def stopped_quickly(self, r):
+        t0 = time.monotonic(); r.stop(); took = time.monotonic() - t0
+        self.assertLess(took, 1.0)
+        self.assertIsNotNone(r.returncode)  # ffmpeg is gone, not left running
+        self.assertIsNone(r.failure())      # stopped on purpose
+        return took
+
+    def test_stop_while_downloading_with_a_paused_renderer(self):
+        r = wv.StreamRelay(wv.relay_argv(self.url))
+        fd = r.start()
+        try:
+            deadline = time.monotonic() + 10  # nobody reads: the renderer's pipe fills, ffmpeg keeps filling the read-ahead
+            while r.bytes_in < 4 << 20 and time.monotonic() < deadline: time.sleep(0.05)
+            self.assertGreaterEqual(r.bytes_in, 4 << 20)
+            self.stopped_quickly(r)
+        finally:
+            os.close(fd)
+
+    def test_stop_with_a_full_read_ahead(self):
+        r = wv.StreamRelay(wv.relay_argv(self.url), buffer=2 << 20)  # fills in well under a second
+        fd = r.start()
+        try:
+            deadline = time.monotonic() + 10
+            while r._size < r.limit and time.monotonic() < deadline: time.sleep(0.05)
+            time.sleep(0.3)  # ffmpeg now blocks writing to its own stdout pipe
+            self.stopped_quickly(r)
+        finally:
+            os.close(fd)
+
+    def test_stop_while_the_renderer_reads(self):
+        r = wv.StreamRelay(wv.relay_argv(self.url))
+        fd = r.start()
+        reader = threading.Thread(target=drain, args=(fd,), kwargs={'timeout': 3}, daemon=True)
+        reader.start()
+        time.sleep(1.0)
+        self.stopped_quickly(r)
+        reader.join(5)
+        self.assertFalse(reader.is_alive())  # the renderer's pipe ended: the player sees the end of the stream
+
+    def test_a_seek_does_not_hold_the_supervisor_loop(self):
+        """WebStream.start(at) is what VideoControl._restart_stream runs on the supervisor loop for every seek."""
+        target = {'url': self.url, 'audio': None, 'headers': {}, 'ua': None, 'kind': 'progressive', 'site': '127.0.0.1',
+                  'via': 'direct', 'title': 't', 'hint': 't'}
+        stream = wv.WebStream(target, {'duration': 60.0})
+        fds = [stream.start(0.0)]
+        self.addCleanup(stream.stop)
+        try:
+            time.sleep(1.0)
+            for at in (30.0, 10.0):
+                t0 = time.monotonic(); fds.append(stream.start(at)); took = time.monotonic() - t0
+                self.assertLess(took, 1.0)
+                ready, _, _ = select.select([fds[-1]], [], [], 10)
+                self.assertTrue(ready)  # the new relay delivers
+                self.assertEqual(stream.base, at)
+        finally:
+            for fd in fds: os.close(fd)
 
 
 class FakeSupervisor:

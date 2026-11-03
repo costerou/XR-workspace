@@ -1,11 +1,14 @@
 // VR video, offline: projection maths (the GLSL in video_gl.cpp mirrors video_uv), output eyes, texture caps, the
-// `video` control payload (shared fixture with tests/native_spike/test_video.py) and the controls card's OLED limits.
+// `video` control payload (shared fixture with tests/native_spike/test_video.py), the controls card's OLED limits and
+// the frame timing (VideoFramePacer) on a simulated display.
 #include "xr/ipc.hpp"
 #include "xr/video.hpp"
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <map>
+#include <random>
 #include <string>
 
 using namespace xr;
@@ -169,12 +172,121 @@ void card() {
 }
 }
 
+// Frame timing: a 120 Hz display whose frames start with timing noise, and a decoder that, like mpv, hands each video
+// frame over once the previous one has been shown, at most 50 ms before its target time.
+struct Paced { int frames = 0, judder = 0; double lead_min = 1e9, lead_max = -1e9; std::map<int, int> spacing; };
+Paced pace(double fps, double phase_ms, double jitter_ms, double drift = 1.0, double seconds = 10, unsigned seed = 1) {
+    constexpr std::int64_t T = 8'333'333, kEarly = 50'000'000, t0 = 1'000'000'000;
+    const double F = 1e9 / (fps * drift);  // video frame spacing on the display's clock
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<double> noise(-jitter_ms * 1e6, jitter_ms * 1e6);
+    VideoFramePacer pacer;
+    Paced r;
+    int n = 0, last_tick = -1;
+    auto target = [&](int i) { return t0 + std::int64_t(phase_ms * 1e6 + (i + 1) * F); };
+    std::int64_t available = target(0) - kEarly;
+    const int ideal = int(std::lround(120 / (fps * drift)));
+    for (int k = 0; k < int(seconds * 120); ++k) {
+        const std::int64_t now = t0 + k * T + std::int64_t(noise(rng));
+        pacer.tick(now);
+        if (now < available || !pacer.due(target(n), now)) continue;
+        const double lead = double(target(n) - (now + T)) / 1e6;
+        r.lead_min = std::min(r.lead_min, lead); r.lead_max = std::max(r.lead_max, lead);
+        pacer.drawn(target(n), now);
+        if (last_tick >= 0) {
+            ++r.spacing[k - last_tick];
+            if (std::fabs(120 / (fps * drift) - ideal) < 0.01 && k - last_tick != ideal) ++r.judder;
+        }
+        last_tick = k; ++r.frames;
+        available = std::max(target(n), target(n + 1) - kEarly);  // mpv: frame n + 1 once frame n's time has come
+        ++n;
+    }
+    return r;
+}
+
+void frame_timing() {
+    constexpr double T = 1000.0 / 120, J = 1.0;  // display interval and timing noise, ms
+    // Integer ratios (24, 30, 60 fps on 120 Hz): a steady cadence at every phase, every frame within half a display
+    // interval late .. one interval early. At most one adjustment while the first frames settle.
+    for (double fps : {24.0, 30.0, 60.0})
+        for (int phase = 0; phase < 16; ++phase) {
+            const auto r = pace(fps, phase * T / 16, J, 1.0, 10, unsigned(phase + 1));
+            const bool ok = r.judder <= 1 && r.lead_min >= -T / 2 - 2 * J && r.lead_max <= T + 2 * J && r.frames >= int(fps * 10) - 2;
+            if (!ok) std::fprintf(stderr, "  %g fps phase %d: judder %d lead %.2f..%.2f frames %d\n", fps, phase, r.judder, r.lead_min, r.lead_max, r.frames);
+            CHECK(ok);
+        }
+    // 25 and 50 fps: 4.8 and 2.4 display frames per video frame, so only the two neighbouring spacings.
+    for (double fps : {25.0, 50.0})
+        for (int phase = 0; phase < 8; ++phase) {
+            const auto r = pace(fps, phase * T / 8, J, 1.0, 10, unsigned(phase + 7));
+            const int lo = int(120 / fps), hi = lo + 1;
+            bool spacing_ok = true;
+            for (const auto& [ticks, count] : r.spacing) spacing_ok &= ticks == lo || ticks == hi;
+            CHECK(spacing_ok && r.lead_min >= -T / 2 - 2 * J && r.lead_max <= T + 2 * J);
+        }
+    // The sound's clock runs 0.1 % fast against the display's: the cadence slips by one display frame now and then,
+    // never more than the drift needs (10 s at 0.1 % is 10 ms, a little over one display interval).
+    for (int phase = 0; phase < 8; ++phase) {
+        const auto r = pace(30, phase * T / 8, J, 1.001, 10, unsigned(phase + 31));
+        CHECK(r.lead_min >= -T / 2 - 2 * J && r.lead_max <= T + 2 * J);
+        int off = 0;
+        for (const auto& [ticks, count] : r.spacing) if (ticks != 4) off += count;
+        CHECK(off <= 4);
+    }
+    // Drawing at once (the old behaviour) put 30 fps frames on screen a whole video frame early, 25 ms after the vblank
+    // allowance; the pacer never holds a frame past its time and never draws it more than one interval early.
+    {
+        VideoFramePacer p;
+        const std::int64_t t = 8'333'333;
+        p.tick(0); p.tick(t);
+        CHECK(p.interval_ns() == t);
+        CHECK(!p.due(t + 34'000'000, t));            // handed over 33 ms early: held
+        CHECK(!p.due(t + 34'000'000, t + 2 * t));    // still 1.6 intervals early
+        CHECK(p.due(t + 34'000'000, t + 3 * t));     // its vblank
+        p.drawn(t + 34'000'000, t + 3 * t);
+        CHECK(p.due(t, 5 * t));                      // late: at once
+        const auto st = p.stats();
+        CHECK(st.held == 2 && st.timed == 1 && st.early == 0 && st.late == 0);
+    }
+    // The cadence anchor: a frame 0.8 intervals early goes on screen when the video's spacing has passed since the last
+    // one, but not after a restart (a new file or stream starts with the nearest vblank only).
+    {
+        VideoFramePacer p;  // 30 fps: frame 0 drawn 0.45 intervals early; frame 1's display frame starts 0.15 intervals early
+        const std::int64_t t = 8'333'333, now = 100 * t, target = now + t + t * 45 / 100;
+        p.drawn(target, now);
+        const std::int64_t next = now + 4 * t - t * 15 / 100;
+        CHECK(p.due(target + 4 * t, next));   // 0.6 intervals early, but in the video's cadence
+        p.restart();
+        CHECK(!p.due(target + 4 * t, next));  // no cadence after a restart: only the nearest vblank
+    }
+    // A frame is never held longer than kMaxHoldNs, whatever its target says.
+    {
+        VideoFramePacer p;
+        p.tick(0);
+        CHECK(!p.due(5'000'000'000, 1));
+        CHECK(!p.due(5'000'000'000, VideoFramePacer::kMaxHoldNs - 1));
+        CHECK(p.due(5'000'000'000, VideoFramePacer::kMaxHoldNs + 1));
+    }
+    // The display interval is the median gap: missed vsyncs (double gaps) and a stall do not move it.
+    {
+        VideoFramePacer p;
+        std::int64_t now = 0;
+        for (int k = 0; k < 60; ++k) { now += (k % 7 == 3) ? 16'666'667 : 8'333'333; if (k == 30) now += 400'000'000; p.tick(now); }
+        CHECK(std::llabs(p.interval_ns() - 8'333'333) < 100'000);
+        VideoFramePacer slow;  // a 60 Hz display
+        now = 0;
+        for (int k = 0; k < 20; ++k) { now += 16'666'667; slow.tick(now); }
+        CHECK(std::llabs(slow.interval_ns() - 16'666'667) < 100'000);
+    }
+}
+
 int main(int argc, char** argv) {
     projection();
     outputs();
     labels();
     payloads(argc > 1 ? argv[1] : "tests/native_spike/fixtures/video_payloads.json");
     card();
+    frame_timing();
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::puts("video: ok");
     return 0;

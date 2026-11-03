@@ -16,6 +16,7 @@ refusal says so. Reasons never contain the link (it may hold a signed token) or 
 Seeking restarts the relay at the new position (a pipe cannot seek). The run estimates the position from the renderer's
 playing state, so it can seek, resume after the end, and show the position in the panel.
 """
+import fcntl
 import ipaddress
 import json
 import os
@@ -60,6 +61,10 @@ MAX_START_S = 48 * 3600
 WEB_PROBE_TIMEOUT_S = 25
 RELAY_BUFFER = 128 << 20  # read-ahead between ffmpeg and the renderer: ~10 s of 8K at 100 Mbit/s
 RELAY_CHUNK = 1 << 20
+# Kernel buffer of the two relay pipes (ffmpeg -> run, run -> renderer), up from 64 KiB: 16x fewer reads and wake-ups per
+# MiB, and the renderer's demuxer rides out a stall of the run's threads. 1 MiB is fs.pipe-max-size's default; a lower
+# limit just keeps the kernel's size.
+RELAY_PIPE = 1 << 20
 SEEK_SETTLE_S = 0.4      # seek keys within this long are combined into one relay restart
 END_MARGIN_S = 3         # a seek never lands closer than this to the end
 # The relay's ffmpeg and ffprobe may use only these protocols: no file:, no pipes, no other schemes from a playlist.
@@ -347,12 +352,18 @@ def relay_argv(url, headers=None, ua=None, start=0.0, ffmpeg=None, audio=None):
     return argv
 
 
+def _grow_pipe(fd, size=RELAY_PIPE):
+    try: fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, size)
+    except (OSError, AttributeError, ValueError): pass  # best effort: the default size still works
+
+
 class StreamRelay:
     """One ffmpeg relay: network -> ffmpeg (copy) -> read-ahead buffer -> pipe whose read end goes to the renderer.
 
-    `start()` returns the read end (the caller hands it over and closes its copy). `stop()` ends ffmpeg and the pump.
-    Threads: a reader (ffmpeg stdout/stderr into the buffer, bounded) and a writer (buffer into the renderer's pipe,
-    non-blocking so stop() never waits on a paused renderer)."""
+    `start()` returns the read end (the caller hands it over and closes its copy). `stop()` ends ffmpeg and the pump in
+    a few milliseconds (it runs on the supervisor loop, once per seek). Threads: a reader (ffmpeg stdout/stderr into the
+    buffer, bounded) and a writer (buffer into the renderer's pipe, non-blocking so stop() never waits on a paused
+    renderer); both also watch a wake-up pipe that stop() writes to."""
     def __init__(self, argv, *, popen=subprocess.Popen, buffer=RELAY_BUFFER):
         self.argv, self.popen, self.limit = list(argv), popen, buffer
         self.proc = None
@@ -364,15 +375,22 @@ class StreamRelay:
         self._stop = threading.Event()
         self._threads = []
         self._write_fd = None
+        self._wake = None  # (read, write): stop() wakes both threads at once instead of their 0.25 s polls
 
     def start(self):
         read_fd, write_fd = os.pipe2(os.O_CLOEXEC)
         try:
             os.set_blocking(write_fd, False)
+            _grow_pipe(write_fd)
+            self._wake = os.pipe2(os.O_CLOEXEC | os.O_NONBLOCK)
             self.proc = self.popen(self.argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}, start_new_session=True)
         except BaseException:
-            os.close(read_fd); os.close(write_fd); raise
+            os.close(read_fd); os.close(write_fd)
+            if self._wake: os.close(self._wake[0]); os.close(self._wake[1]); self._wake = None
+            raise
+        out = getattr(self.proc.stdout, 'fileno', None)
+        if out: _grow_pipe(out())
         self._write_fd = write_fd
         for target in (self._read, self._write):
             t = threading.Thread(target=target, daemon=True); t.start(); self._threads.append(t)
@@ -385,12 +403,14 @@ class StreamRelay:
     def _read(self):
         out, err = self.proc.stdout, self.proc.stderr
         fds = {out.fileno(): 'out', err.fileno(): 'err'}
+        wake = self._wake[0]
         try:
             while fds and not self._stop.is_set():
                 with self._cond:
                     while self._size >= self.limit and not self._stop.is_set(): self._cond.wait(0.25)
-                ready, _, _ = select.select(list(fds), [], [], 0.25)
+                ready, _, _ = select.select(list(fds) + [wake], [], [], 0.25)
                 for fd in ready:
+                    if fd == wake: continue  # stop(): the loop condition ends it
                     data = os.read(fd, RELAY_CHUNK)
                     if not data: del fds[fd]; continue
                     if fds[fd] == 'err': self.stderr_tail = (self.stderr_tail + data)[-4096:]
@@ -407,20 +427,20 @@ class StreamRelay:
                 self._eof = True; self._cond.notify_all()
 
     def _write(self):
-        fd = self._write_fd
+        fd, wake = self._write_fd, self._wake[0]
         try:
             while not self._stop.is_set():
                 with self._cond:
                     while not self._chunks and not self._eof and not self._stop.is_set(): self._cond.wait(0.25)
                     if self._stop.is_set() or (not self._chunks and self._eof): break
                     data = self._chunks[0]
-                _, ready, _ = select.select([], [fd], [], 0.25)
-                if not ready: continue
+                _, ready, _ = select.select([wake], [fd], [], 0.25)  # readable `wake`: stop()
+                if fd not in ready: continue
                 try: n = os.write(fd, data)
                 except BlockingIOError: continue
                 with self._cond:
                     if n == len(data): self._chunks.pop(0)
-                    else: self._chunks[0] = data[n:]
+                    else: self._chunks[0] = memoryview(data)[n:]  # no copy of the rest
                     self._size -= n; self.bytes_out += n
                     self._cond.notify_all()
         except OSError: pass  # EPIPE: the renderer closed the video
@@ -436,18 +456,26 @@ class StreamRelay:
     def stop(self, timeout=3.0):
         self._stop.set()
         with self._cond: self._cond.notify_all()
-        if self.proc is not None and self.proc.poll() is None:
-            try: os.killpg(self.proc.pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError): pass
+        if self._wake:
+            try: os.write(self._wake[1], b'x')
+            except OSError: pass
+        # Killed at once: its output is being thrown away, and a copy into a pipe has nothing to finish. A SIGTERM'd
+        # ffmpeg stays blocked writing to the pipe nobody reads any more, which held every seek for the whole join
+        # timeout (3 s).
+        self._kill()
         deadline = time.monotonic() + timeout
         for t in self._threads: t.join(max(0.0, deadline - time.monotonic()))
-        self._kill()
         if self.proc is not None:
             try: self.returncode = self.proc.wait(timeout=1)
             except subprocess.TimeoutExpired: pass
             for f in (self.proc.stdout, self.proc.stderr):
                 try: f.close()
                 except (OSError, AttributeError): pass
+        if self._wake and not any(t.is_alive() for t in self._threads):
+            for w in self._wake:
+                try: os.close(w)
+                except OSError: pass
+            self._wake = None
 
     def failure(self):
         """A reason if ffmpeg ended with an error, else None."""
