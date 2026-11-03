@@ -24,7 +24,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
 | Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to focus it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
 | Glass placement pills (a frosted pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
-| Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; in anchor mode a pill drag carries a desktop anywhere round you and a pill anywhere round you can be grabbed again; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; a pill drag keeps the desktop under the dot and, in anchor mode, a pill anywhere round you can be grabbed again; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Not built yet | More or fewer than three desktops; changing a desktop's resolution or scale while running; head-direction focus. Panel controls for these are greyed out and labelled "coming". |
 
 ## How it fits together
@@ -104,7 +104,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Escape | pill open | Close the pill |
 | Mouse past a desktop's edge | overview | Free pointer: the cursor hides and a dim dot moves through the space around the desktops |
 | Left click a pill | free pointer on a pill, or on the open panel's top strip | Open that desktop's panel (closing any other), or close it if it is the open one |
-| Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode also along the stretched direction, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar; in anchor mode anywhere round you. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
+| Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode also along the stretched direction, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar, the grabbed point staying under the dot. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
 | Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
 | Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, focus a desktop, or nothing in empty space |
 | Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
@@ -356,24 +356,25 @@ rotation about the eye Az(a0 + x) · El(y) · Az(−a0) (`orbit.rotation`), whic
 and the guard's footprints use. The yaw, pitch and roll settings, which used to turn a desktop in place, were removed
 on 2026-11-02 from the settings panel, the glass panel, the wire and the profiles.
 
-**The drag.** The desktop turns by the change in the pointer's direction since the press (`orbit.drag_target`), so
-inside the view the pill stays under the dot. Each direction snaps back to the slot within 0.5° (`orbit.SNAP`, 5
-tenths). Left/right wraps round behind you; Down/up stops at ±90°.
+**The drag.** The point you grabbed stays exactly under the dot (`orbit.drag_target`, `orbit.PillDrag`): at the
+press the pointer's ray is turned back into the desktop's own frame (`orbit.grab_point`), and every move solves for the
+x / y orbit that turns that point onto the ray through the dot (`orbit.solve`), in every mode, inside the view and
+past its edge, up to where the dot stops (half a view past each edge, `OverviewPointer._clamp`). It is off only by the
+wire's tenth of a degree (a few pixels at the edge of the reach) and by the snap: each direction snaps back to the slot
+within 0.5° (`orbit.SNAP`, 5 tenths). Left/right wraps round behind you; Down/up stops at ±90°. A drag therefore
+reaches as far round as the dot goes (about 36° either side of straight ahead); farther round, set Left/right and
+Down/up in the panel.
 
-- **Anchor mode** (the desktops fixed in the room). The dot can go half a view past each edge of the view
-  (`OverviewPointer._clamp`). A drag stretches that reach smoothly (`orbit.pointer_direction`): its far left and right
-  ends point directly behind you and its top and bottom ends straight up and down, so any direction round you is one
-  drag away from wherever the pill was pressed. Inside the view the stretch changes nothing. The dot itself is not
-  moved by it: it stays on the overview's plane in front of you.
-- **Grabbing a pill again** (anchor mode). Pills are also hit-tested along that stretched direction
-  (`orbit.stretched_pointer`, used by `free_pointer.hit`), so a pill anywhere round you lights up when the stretched
-  direction meets it and can be grabbed again; the grabbed pill then follows the stretched direction exactly. Looking
-  at a desktop behind you, you see its pill light up but not the dot. Desktops, corners and the open panel are still
-  only hit under the dot itself.
-- **Follow and locked modes.** The view turns with your head, so there is no stretch and no stretched hit test: the
-  desktop only follows the dot, as far as the dot goes.
-- Whether a drag is stretched is fixed when it starts. Its target is followed unwrapped and only wrapped for the wire,
-  so a desktop held against a neighbour does not flip round the other way when the target passes behind you.
+- Until 2026-11-02 (drag-cursor-sync) a drag in anchor mode read a direction stretched past the view's edge, so its
+  far ends pointed behind you and straight up and down, while the dot stayed on the overview's plane: once the dot left
+  the view the desktop ran ahead of it, faster the further out. That stretch is gone from the drag.
+- **Grabbing a pill again** (anchor mode). Pills are still also hit-tested along that stretched direction
+  (`orbit.stretched_pointer`, used by `free_pointer.hit`), so a pill placed anywhere round you lights up when the
+  stretched direction meets it and can be grabbed; the grabbed point then comes straight under the dot, and follows
+  it from there. Looking at a desktop behind you, you see its pill light up but not the dot. Desktops, corners and the
+  open panel are only hit under the dot itself. Follow and locked modes have no stretched hit test.
+- The drag's target is followed unwrapped and only wrapped for the wire, so a desktop held against a neighbour does
+  not flip round the other way when the target passes behind you.
 
 **No overlap.** Desktops never overlap as seen from your eye. Each desktop's footprint is the set of directions from
 the eye that it covers: its true placed outline (distance, orbit and curvature included; a curved desktop uses its

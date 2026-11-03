@@ -418,7 +418,7 @@ class PillDragTests(Base):
         self.by(0, -T0[3] * 1.3)  # lifted clear of the row (no desktop may overlap another)...
         out = self.by(T0[2] * 0.2, 0)  # ...then to the right
         p = self.state.placements[0]
-        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)  # the turn round you the pointer asks for
+        want = orbit.drag_target(G, self.p.drag['tile'], (0, 0), self.p.drag['start'], self.p.pointer)  # the turn round you the pointer asks for
         self.assertEqual((p['x'], p['y']), want); self.assertGreater(p['x'], 0); self.assertGreater(p['y'], 0)
         self.assertEqual(last(out, 'placement')['desktops'][0]['y'], want[1])
         self.assertNotIn('placement_menu', ops_of(out))  # no panel is open
@@ -456,7 +456,7 @@ class PillDragTests(Base):
         self.assertEqual(self.p.hover, ('pill', 0))
         self.press()
         out = self.by(0, -T0[3] * 0.3)
-        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)
+        want = orbit.drag_target(G, self.p.drag['tile'], (0, 0), self.p.drag['start'], self.p.pointer)
         self.assertGreater(want[1], 0); self.assertEqual(self.state.placements[0]['y'], want[1])
         self.assertEqual(ops_of(out)[:2], ['placement', 'placement_menu'])  # the open panel shows the new value
         self.assertEqual(last(out, 'placement_menu')['placements'][0]['y'], want[1])
@@ -751,7 +751,7 @@ class ClickOutsideTests(Base):
         out = self.press()
         self.assert_closed_and_saved(out)
         self.by(0, -T2[3] * 0.4)
-        want = orbit.drag_target(G, (0, 0), self.p.drag['start'], self.p.pointer)[1]
+        want = orbit.drag_target(G, self.p.drag['tile'], (0, 0), self.p.drag['start'], self.p.pointer)[1]
         self.assertGreater(want, 0); self.assertEqual(self.state.placements[2]['y'], want)
         self.release()
         self.assertFalse(self.state.menu_open)  # a drag, not a click: nothing opens

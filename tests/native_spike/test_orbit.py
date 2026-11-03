@@ -113,7 +113,7 @@ class FacingTests(unittest.TestCase):
     def test_while_dragged_it_keeps_facing_you(self):
         placements = [dict(p) for p in FLAT]
         press = pill_centre(T2)
-        drag = orbit.PillDrag(G, 2, (0, 0), press, around=True)
+        drag = orbit.PillDrag(G, 2, (0, 0), press)
         for k in range(1, 60):
             x, y = drag.follow((press[0] + 25 * k, press[1] - 9 * k), placements)
             placements[2] = {**placements[2], 'x': x, 'y': y}
@@ -163,18 +163,39 @@ class DragMappingTests(unittest.TestCase):
 
     def test_drag_target_wraps_snaps_and_stops_at_the_poles(self):
         press = pill_centre(T1)
-        self.assertEqual(orbit.drag_target(G, (0, 0), press, press), (0, 0))
-        self.assertEqual(orbit.drag_target(G, (0, 0), press, (press[0] + 4, press[1] - 3)), (0, 0))  # within 0.5 deg: snapped
-        x, _ = orbit.drag_target(G, (1700, 0), press, (press[0] + 600, press[1]))  # 170 + ~13 degrees
+        self.assertEqual(orbit.drag_target(G, T1, (0, 0), press, press), (0, 0))
+        self.assertEqual(orbit.drag_target(G, T1, (0, 0), press, (press[0] + 4, press[1] - 3)), (0, 0))  # within 0.5 deg: snapped
+        x, _ = orbit.drag_target(G, T1, (1700, 0), press, (press[0] + 600, press[1]))  # 170 + ~13 degrees
         self.assertTrue(-1800 <= x < 0)  # on round past behind you
-        self.assertEqual(orbit.drag_target(G, (0, 800), press, (press[0], -H))[1], 900)
-        self.assertTrue(all(PLACEMENT_BOUNDS['x'][0] <= orbit.drag_target(G, (s, 0), press, (px, press[1]))[0] <= PLACEMENT_BOUNDS['x'][1]
+        self.assertEqual(orbit.drag_target(G, T1, (0, 800), press, (press[0], -H))[1], 900)
+        self.assertTrue(all(PLACEMENT_BOUNDS['x'][0] <= orbit.drag_target(G, T1, (s, 0), press, (px, press[1]))[0] <= PLACEMENT_BOUNDS['x'][1]
                             for s in (-1800, 0, 1800) for px in (-W / 2, 0, W, W * 1.5)))
 
-    def test_every_direction_round_you_is_one_drag_away(self):
-        press = pill_centre(T1)
-        seen = {orbit.drag_target(G, (0, 0), press, (px, press[1]))[0] // 300 for px in [W * (i / 50 - 0.5) for i in range(101)]}
-        self.assertLessEqual(set(range(-6, 6)), seen)  # every 30-degree sector round you
+    def test_the_grabbed_point_stays_on_the_dots_ray_across_its_whole_reach(self):
+        # Regression (drag-cursor-sync): in anchor mode the drag read a direction stretched past the view's edge while
+        # the dot is drawn on the plane, so the desktop ran ahead of the dot past the edge. Now, for every desktop,
+        # distance and curvature, along straight runs to each edge and corner of the dot's reach (OverviewPointer._clamp),
+        # the point grabbed at the press is on the dot's own ray to within the wire's tenth of a degree.
+        lo, hi = (-W / 2, -H / 2), (W * 1.5, H * 1.5)
+        ends = [(lo[0], None), (hi[0], None), (None, lo[1]), (None, hi[1]), lo, hi, (lo[0], hi[1]), (hi[0], lo[1])]
+        for i, tile in enumerate(G['tiles']):
+            for extra in ({}, {'distance': 60}, {'distance': 180, 'curvature': 40}, {'curvature': 120}):
+                p0 = {**DEFAULT_PLACEMENT, **extra}
+                x, y, w, h = fp.pill_rect(tile)
+                press = (x + w * 0.8, y + h / 2)  # off the pill's middle too
+                grabbed = fp.unproject(G, tile, p0, press)
+                for end in ends:
+                    end = (press[0] if end[0] is None else end[0], press[1] if end[1] is None else end[1])
+                    for k in range(1, 41):
+                        pointer = (press[0] + (end[0] - press[0]) * k / 40, press[1] + (end[1] - press[1]) * k / 40)
+                        xy = orbit.drag_target(G, tile, (0, 0), press, pointer)
+                        if 0 in xy: continue  # snapped to the slot on that axis (SNAP, half a degree): by design
+                        seen = orbit.place_point(G, tile, {**p0, 'x': xy[0], 'y': xy[1]}, *grabbed)
+                        hw, hh = G['half']
+                        ray = ((2 * pointer[0] / W - 1) * hw, (1 - 2 * pointer[1] / H) * hh, -1.0)
+                        off = math.degrees(orbit._angle(orbit._norm(seen), orbit._norm(ray)))
+                        with self.subTest(i=i, extra=extra, end=end, k=k):
+                            self.assertLess(off, 0.08)  # was up to 180 degrees at the far edge of the reach
 
 
 class RegrabTests(unittest.TestCase):
@@ -196,19 +217,20 @@ class RegrabTests(unittest.TestCase):
         for pointer in ((T0[0] + 30, T0[1] + 40), pill_centre(T1), (W / 2, H - 1), (5, 5)):
             self.assertEqual(fp.hit(G, placements, pointer, around=True), fp.hit(G, placements, pointer))
 
-    def test_a_regrabbed_pill_follows_the_stretched_direction(self):
+    def test_a_regrabbed_pill_comes_under_the_dot(self):
         placements = at(2, x=1200)  # far round to your right, out of the view
         az, el = direction(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))
         press = pointer_for(az, el)
         self.assertEqual(fp.hit(G, placements, press, around=True), ('pill', 2))
-        drag = orbit.PillDrag(G, 2, (1200, 0), press, around=True)
+        self.assertIsNone(fp.hit(G, placements, press))  # found only along the stretched direction
+        drag = orbit.PillDrag(G, 2, (1200, 0), press, reached=True)
         for k in range(1, 30):
-            pointer = (press[0] - 6 * k, press[1])
+            pointer = (press[0] - 6 * k, press[1] - 8 * k)
             x, y = drag.follow(pointer, placements)
             placements[2] = {**placements[2], 'x': x, 'y': y}
-            want = math.degrees(orbit.pointer_direction(G, pointer)[0])
-            got = direction(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))[0]
-            self.assertAlmostEqual((got - want + 540) % 360 - 180, 0, delta=0.15)  # stays under the stretched direction
+            if y == 0: continue  # held at the slot's height (SNAP, half a degree)
+            got = orbit._norm(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))
+            self.assertLess(math.degrees(orbit._angle(got, orbit._ray(G, pointer))), 0.08)  # the grabbed pill, on the dot
 
 
 class FootprintTests(unittest.TestCase):
@@ -269,7 +291,7 @@ class GuardTests(unittest.TestCase):
     def test_a_desktop_held_against_a_neighbour_never_flips_round_the_other_way(self):
         placements = [dict(p) for p in FLAT]
         press = pill_centre(T0)
-        drag = orbit.PillDrag(G, 0, (0, 0), press, around=True)
+        drag = orbit.PillDrag(G, 0, (0, 0), press)
         xs = []
         for k in range(1, 121):  # XR-1 pushed right into XR-2, the pointer carried on to the far edge of its reach
             x, y = drag.follow((press[0] + k * 20, press[1]), placements)
@@ -277,17 +299,10 @@ class GuardTests(unittest.TestCase):
             xs.append(x)
         self.assertTrue(all(0 <= x < 9 for x in xs), xs[-5:])
 
-    def test_the_reach_is_fixed_when_the_drag_begins(self):
-        press = pill_centre(T2)
-        anchor = orbit.PillDrag(G, 2, (0, 0), press, around=True)
-        locked = orbit.PillDrag(G, 2, (0, 0), press, around=False)
-        far = (W * 1.4, press[1])
-        self.assertGreater(anchor.follow(far, FLAT)[0], locked.follow(far, FLAT)[0] + 300)
-
     def test_a_panel_key_meanwhile_is_carried_on_from(self):
         placements = [dict(p) for p in FLAT]
         press = pill_centre(T2)
-        drag = orbit.PillDrag(G, 2, (0, 0), press, around=True)
+        drag = orbit.PillDrag(G, 2, (0, 0), press)
         placements[2]['x'] = drag.follow((press[0] + 50, press[1]), placements)[0]
         placements[2]['x'] = 1795  # a key turned it round behind you meanwhile
         x, _ = drag.follow((press[0] + 51, press[1]), placements)
@@ -302,7 +317,7 @@ class GuardTests(unittest.TestCase):
     def test_a_drag_is_quick_enough_for_the_pointer(self):
         placements = [dict(p) for p in FLAT]
         press = pill_centre(T1)
-        drag = orbit.PillDrag(G, 1, (0, 0), press, around=True)
+        drag = orbit.PillDrag(G, 1, (0, 0), press)
         worst = 0.0
         for k in range(1, 200):
             pointer = (press[0] + 9 * math.sin(k / 9) * k, press[1] - 4 * k)

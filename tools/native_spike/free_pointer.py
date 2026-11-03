@@ -48,10 +48,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
     the same placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front
     desktop first. The overview's slots never move with head pose, so neither does this. In anchor mode past the view,
-    what is under the dot itself always wins; a pill found only along the stretched drag direction is the fallback.
+    what is under the dot itself always wins; a pill found only along the stretched direction (orbit.stretched_pointer) is the fallback.
   * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
-    pill stays under the pointer in the view; in anchor (3DoF) mode the pointer's reach past the view carries it on to
-    anywhere round you, and it never overlaps another desktop. A corner drag changes `distance` so the corner
+    point grabbed stays exactly under the dot across the dot's whole reach, and it never overlaps another desktop. A corner drag changes `distance` so the corner
     follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
     debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
     on zoom-in and when a VR video opens.
@@ -273,7 +272,7 @@ def hit(g, placements, pointer, open_=None, around=False):
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)); then each desktop front to back: ('corner', index, 'tl'|'tr'|'bl'|'br'), ('pill', index),
     ('desktop', index, (px, py) tile pixel). None if nothing. `around` (anchor mode): past the view, pills are found
-    along the pill drag's stretched direction (orbit.stretched_pointer), so a pill anywhere round you can be grabbed."""
+    along a stretched direction (orbit.stretched_pointer), so a pill placed anywhere round you can be grabbed."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
@@ -292,16 +291,22 @@ def hit(g, placements, pointer, open_=None, around=False):
             seen = orbit.stretched_pointer(g, tile, placements[i], pointer)
             qp = unproject(g, tile, {**placements[i], 'x': 0, 'y': 0}, seen) if seen is not None else None
         tx, ty, tw, th = tile
-        px, py, pw, ph = pill_rect(tile)
-        def on_pill(r): return r is not None and px - PILL_PAD_X <= r[0] <= px + pw + PILL_PAD_X and ty + th <= r[1] <= py + ph + PILL_PAD_Y
         if q is not None:
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
-            if on_pill(q): return ('pill', i)
+            if on_pill(tile, q): return ('pill', i)
             if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
-        if on_pill(qp): reached = ('pill', i)
+        if on_pill(tile, qp): reached = ('pill', i)
     return reached
+
+
+def on_pill(tile, q):
+    """True if tile pixel `q` (None: missed) is in a desktop's pill zone: the pill padded by PILL_PAD_X / PILL_PAD_Y,
+    plus the gap up to the desktop's bottom edge."""
+    if q is None: return False
+    px, py, pw, ph = pill_rect(tile)
+    return px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] <= py + ph + PILL_PAD_Y
 
 
 def inside_by(tile, q):
@@ -667,7 +672,9 @@ class OverviewPointer:
                     self.drags += 1
                 else:  # the desktop moves only once the pointer is CLICK_PX away; a release before that is a click
                     self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile, 'moved': False,
-                                 'open_at_press': self._open()}  # after any click-outside collapse above
+                                 'open_at_press': self._open(),  # after any click-outside collapse above
+                                 # grabbed along the stretched direction (hit's fallback past the view), not under the dot
+                                 'reached': h != hit(self.geometry, self.control.state.placements, self.pointer, open_)}
             elif h is not None and h[0] == 'slider':
                 i = h[1]
                 self.drag = {'kind': 'slider', 'index': i, 'field': h[2], 'tile': self._tile(i), 'placement': dict(self._placement(i))}
@@ -702,8 +709,8 @@ class OverviewPointer:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
                 self.moves += 1
-            if 'orbit' not in d:  # the turn round you, never overlapping (orbit.py); its reach fixed by the mode it began in
-                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], around=c.state.mode == 'anchor')
+            if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, never overlapping (orbit.py)
+                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], reached=d.get('reached', False))
             x, y = d['orbit'].follow(self.pointer, c.state.placements)
             updated = {**current, 'x': x, 'y': y}
         if updated == current: return b''

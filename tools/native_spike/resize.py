@@ -10,7 +10,7 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
     this feature adds no compositor output mutation and no journal record kind. The aspect ratio is always kept.
   * A pill drag moves the desktop like a title bar through its `x` / `y` placement (the pill sits under the desktop;
     an expanded pill's panel header drags the same way). Since 2026-11-02 that placement is an orbit round your head
-    and a drag can carry a desktop anywhere round you without ever overlapping another: orbit.py (drag_target,
+    and a drag carries a desktop round you, exactly under the dot, without ever overlapping another: orbit.py (drag_target,
     allowed_move) replaced the flat offset, its 10% overlap allowance and its one-desktop reach.
   * Sizes and positions are saved with the other placements in the glasses model's profile (PlacementStore), 0.5 s
     after the last change and at once on release.
