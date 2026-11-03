@@ -335,7 +335,7 @@ class DocsTests(unittest.TestCase):
         plan = (self.ROOT / 'docs/placement-menu-test-plan.md').read_text()
         self.assertIn('## Window memory: automated coverage and glasses test script', plan)
         self.assertIn('| W1 |', plan)
-        self.assertIn('| W16 |', plan)
+        self.assertIn('| W19 |', plan)
 
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
 pointer script (F1–F22), the round-you script (O1–O19), the roll bracket script (B1–B16) or the window memory script
-(W1–W16) has run in an isolated VM or been tried in the glasses.
+(W1–W19) has run in an isolated VM or been tried in the glasses.
 
 ## Placement pills: automated coverage
 
@@ -490,6 +490,7 @@ stand-in for Hyprland written from reading the 0.56.2 source, so W5, W6 and W8 a
 get it to start (`CBackend::create() failed`), so that check is still open.
 
 Needs your usual go-ahead for a live run. Before W1 note where everything is on your physical monitor, because W16 compares it.
+W17 to W19 check your 2026-11-03 decisions: windows on other monitors stay there, and nothing is ever launched.
 After each Stop, `~/.config/viture-workspace/window-memory.json` shows what was saved, and `journalctl --user -u 'viture-xr-*' |
 grep xr-workspace` shows how many windows came back and any failure. Two windows of one app with the same title are good to
 have: they show the matching at work.
@@ -511,7 +512,10 @@ have: they show the matching at work.
 | W13 | Right after W12 open a pill and press **Add new** | XR-4 is back and its windows return to it, on the same workspace. Nothing flickers on the other desktops, and focus and the cursor stay where they were. |
 | W14 | Press Ctrl+Alt+R twice again, stop and start with three desktops | Those windows go to XR-3, not on top of what XR-3 already shows. Add XR-4: they go back. Move one to XR-1 first and it stays on XR-1. |
 | W15 | Remove XR-2 with its pill, with windows on it. **Add new** in the same session. Then remove XR-2 again, stop and start | The windows go to your normal monitor and come back on Add. After the restart your old XR-3 is XR-2, and its windows are still on it. |
-| W16 | Stop, with windows moved around during the session | Your physical monitor is exactly as it was before W1: Stop's restore is unchanged by any of this. |
+| W16 | Stop, with windows moved around during the session | Your physical monitor is exactly as it was before W1: the windows you moved around on XR come back to it. |
+| W17 | During a session move one window from an XR desktop to DP-2, or any monitor that isn't the one windows return to, and a whole workspace too if you can. Stop, then start | They stay on that monitor through Stop and through the next start, as you left them. Every other window comes back around them. |
+| W18 | After Stop, move a remembered window to DP-2 on purpose. Start | It stays on DP-2. `window-memory.json` no longer lists it after the next capture. |
+| W19 | After a Stop, close a remembered window and start. In a later session, with a terminal remembered on XR-2: Stop, close it, open a new terminal of the same app with a different title on your normal monitor, start | First case: nothing is launched and the spot stays empty. Second: the open terminal takes the remembered spot, by class alone. A closed window's record lasts until the next capture, so it only waits for one start. |
 
 Then note anything that looks wrong: a moment of flicker at start, a desktop showing the wrong workspace, a window that lands
 on the right desktop in the wrong order, focus or the cursor somewhere unexpected after a start, and how a resolution changed

@@ -173,10 +173,12 @@ still starts in follow.
 **Your windows come back too** (new, not yet tried in the glasses). When a session stops, XR Workspace remembers where each
 window was: which desktop, which workspace, its order among the tiled windows (including scrolling columns and their widths),
 its position and size if it was floating, and whether it was fullscreen. The next session puts every window that is still
-open back in that place, once your layout is back. Windows you opened since go where they always go. If a window's desktop no
-longer exists, it goes to the last desktop instead, like XR-4 to XR-3 on a reset. Nothing to press. It is saved for your
-glasses model in `~/.config/viture-workspace/window-memory.json`, which holds window titles, is readable only by you, and
-stays up to date as you move windows, Super drags included. A window is recognised by its identity while Hyprland keeps
+open back in that place, once your layout is back. Nothing is ever reopened for you: a window you closed stays closed, though
+another open window of the same app can take its place. Windows you opened since go where they always go. A window you moved
+to DP-2 or another normal monitor stays there, through Stop and the next session; only the monitor windows return to is
+brought in. If a window's desktop no longer exists, it goes to the last desktop instead, like XR-4 to XR-3 on a reset.
+Nothing to press. It is saved for your glasses model in `~/.config/viture-workspace/window-memory.json`, which holds window
+titles in plain text, is readable only by you, and stays up to date as you move windows, Super drags included. A window is recognised by its identity while Hyprland keeps
 running, and after a Hyprland restart by its app and title, so two identical terminals may swap places.
 
 **Start over: Ctrl+Alt+R** (new, not yet tried in the glasses). Puts every desktop back to the default: three flat

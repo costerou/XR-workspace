@@ -25,6 +25,10 @@ leaves the others to run, and recovery's own evacuation still brings back anythi
      fullscreen window at the monitor's origin, not its tiled slot, so one that was fullscreen at start keeps the slot
      it has now (among the others' order) and goes fullscreen again.
   5. The fallback shows the workspace it showed, and focus goes back to the window (or monitor) that had it.
+
+Only the XR desktops and the fallback are put back. A window or workspace moved to any other monitor during the run (DP-2, a
+second physical monitor) was moved there on purpose and stays, as it is and under the number it has (Cody, 2026-11-03; `off` in
+the Lua). Carried back here it would also be on the fallback at the next start, and adoption would take it into XR.
 """
 import json
 import os
@@ -181,10 +185,11 @@ _LUA = (
     'local n=1 for _,x in ipairs(hl.get_workspaces()) do if x.id>=n then n=x.id+1 end end while T[n] do n=n+1 end return n end '
     'local function aside(x) local n=free(block(x.monitor)) or free(nil) ren(x.id,n) end '
     'local function reg(x) return x and not x.special and x.id>0 end '
+    'local function off(x) local m=x and x.monitor return m and m.name~=F and not m.name:match("^XR%-") end '
     'D(hl.dsp.focus,{monitor=F}) '
     # 1: whole workspaces back under their own ids
     'local cnt={} for _,e in ipairs(W) do local t=T[e[2]] local w=win(e[1]) local c=w and w.workspace '
-    'if t and t[2]==1 and reg(c) and (c.id==e[2] or not T[c.id]) then cnt[e[2]]=cnt[e[2]] or {} '
+    'if t and t[2]==1 and reg(c) and not off(c) and (c.id==e[2] or not T[c.id]) then cnt[e[2]]=cnt[e[2]] or {} '
     'cnt[e[2]][c.id]=(cnt[e[2]][c.id] or 0)+1 end end '
     'local L={} for t,m in pairs(cnt) do for c,k in pairs(m) do L[#L+1]={k,t,c} end end '
     'table.sort(L,function(a,b) if a[1]~=b[1] then return a[1]>b[1] end if a[2]~=b[2] then return a[2]<b[2] end return a[3]<b[3] end) '
@@ -192,10 +197,10 @@ _LUA = (
     'for _,s in ipairs(S) do local c=got[s[1]] if c and c~=s[1] then local n=free(nil) ren(c,n) if ws(n) then tmp[#tmp+1]={n,s[1]} end end end '
     'for _,p in ipairs(tmp) do local x=ws(p[2]) if x then aside(x) end if not ws(p[2]) then ren(p[1],p[2]) end end '
     # 2: windows back onto their workspaces
-    'for _,e in ipairs(W) do local w=win(e[1]) if w and not w.pinned and w.workspace and w.workspace.id~=e[2] then '
+    'for _,e in ipairs(W) do local w=win(e[1]) if w and not w.pinned and w.workspace and w.workspace.id~=e[2] and not off(w.workspace) then '
     'D(hl.dsp.window.move,{workspace=tostring(e[2]),follow=false,window="address:"..e[1]}) end end '
     # 3: onto the fallback; then workspaces opened on an XR desktop during the run
-    'for _,s in ipairs(S) do local x=ws(s[1]) if x and x.monitor and x.monitor.name~=F then '
+    'for _,s in ipairs(S) do local x=ws(s[1]) if x and x.monitor and x.monitor.name~=F and not off(x) then '
     'D(hl.dsp.workspace.move,{workspace=tostring(s[1]),monitor=F}) end end '
     'local X={} for _,x in ipairs(hl.get_workspaces()) do if reg(x) and not T[x.id] and (x.windows or 0)>0 and x.monitor '
     'and x.monitor.name:match("^XR%-%d+$") then X[#X+1]=x.id end end table.sort(X) '
@@ -203,7 +208,7 @@ _LUA = (
     'local n=(not ws(want) and not T[want]) and want or free(base) if n then ren(id,n) if ws(n) then id=n end end end '
     'D(hl.dsp.workspace.move,{workspace=tostring(id),monitor=F}) end '
     # 4: per window: fullscreen off, floating, tiled order, floating geometry, fullscreen
-    'local mine={} for _,e in ipairs(W) do local w=win(e[1]) if w and w.workspace and w.workspace.id==e[2] then mine[#mine+1]=e '
+    'local mine={} for _,e in ipairs(W) do local w=win(e[1]) if w and w.workspace and w.workspace.id==e[2] and not off(w.workspace) then mine[#mine+1]=e '
     'local sel="address:"..e[1] if (w.fullscreen or 0)~=0 or (w.fullscreen_client or 0)~=0 then '
     'D(hl.dsp.window.fullscreen_state,{internal=0,client=0,action="set",window=sel}) end '
     'if w.floating~=(e[3]==1) then D(hl.dsp.window.float,{action=e[3]==1 and "on" or "off",window=sel}) end end end '
@@ -222,7 +227,7 @@ _LUA = (
     'if e[6]>0 and e[7]>0 then D(hl.dsp.window.resize,{x=e[6],y=e[7],window=sel}) end D(hl.dsp.window.move,{x=e[4],y=e[5],window=sel}) end '
     'if e[8]~=0 or e[9]~=0 then D(hl.dsp.window.fullscreen_state,{internal=e[8],client=e[9],action="set",window=sel}) end end '
     # 5: the shown workspace, then focus
-    'if A>0 then local x=ws(A) if x and x.monitor and x.monitor.name~=F then if (x.windows or 0)==0 then aside(x) else '
+    'if A>0 and not (off(ws(A)) and (ws(A).windows or 0)>0) then local x=ws(A) if x and x.monitor and x.monitor.name~=F then if (x.windows or 0)==0 then aside(x) else '
     'D(hl.dsp.workspace.move,{workspace=tostring(A),monitor=F}) end x=ws(A) end D(hl.dsp.focus,{monitor=F}) '
     'if x then pcall(function() hl.get_monitor(F):set_workspace({workspace=x.name}) end) else D(hl.dsp.focus,{workspace=tostring(A)}) end end '
     'if P~="" and win(P) then D(hl.dsp.focus,{window="address:"..P}) elseif PM~="" and hl.get_monitor(PM) then D(hl.dsp.focus,{monitor=PM}) end')

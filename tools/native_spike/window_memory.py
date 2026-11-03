@@ -12,9 +12,9 @@ rule adoption and recovery keep.
 
 Where it lives. window-memory.json beside profiles.json, one entry per glasses model, 0600, always replaced atomically (a
 temporary file in the same directory, fsync, rename). It is its own file so that nothing that rewrites a profile can touch
-it: Ctrl+Alt+R and a discarded setup reset the monitors and leave the windows' memory alone. It holds window titles, as
-Hyprland reports them, cut to TEXT_LIMIT. An empty capture never replaces a memory: a run that ended with nothing on the
-glasses says nothing about where windows belong.
+it: Ctrl+Alt+R and a discarded setup reset the monitors and leave the windows' memory alone. It holds window titles in plain
+text, as Hyprland reports them, cut to TEXT_LIMIT (Cody, 2026-11-03: the file's 0600 is enough, no hashing). An empty capture
+never replaces a memory: a run that ended with nothing on the glasses says nothing about where windows belong.
 
 Keeping it current (WindowTracker). The run marks the memory dirty on Hyprland's window events (a Super drag across
 desktops, a send key, opening, closing, floating, fullscreen, a workspace change), when a Super drag ends (a drag inside a
@@ -24,11 +24,14 @@ loses only the last moment.
 
 Putting them back (place, on run start, after the remembered desktops exist and before the renderer starts):
 
-  1. Which windows. The ones adoption would take: on the physical fallback's regular workspaces, not staying (adopt.occupied).
-     A window on another physical monitor is left alone.
+  1. Which windows. Only windows that are open now, and only the ones adoption would take: on the physical fallback's regular
+     workspaces, not staying (adopt.occupied). Nothing here ever starts a program: a remembered window that has closed is
+     simply not there, and its record goes with the next capture. A window on DP-2 or any other regular monitor stays there,
+     whatever could match it, and Stop leaves it there too (restore.py) (Cody, 2026-11-03).
   2. Which window is which (match), each pass over what the last left, so nothing is assigned twice: same address (only
      within one Hyprland session, and only with the same class: an address is a pointer, so a new window can reuse it), then
-     class + title, class + initial title + pid, class + initial title, class + pid, and last class alone.
+     class + title, class + initial title + pid, class + initial title, class + pid, and last class alone, so an open window
+     of the same app takes a remembered spot whose own window has gone.
   3. Where. The desktop at the same position in the run: profiles keep no names, so a start numbers its desktops from XR-1
      (hyprland.plan_outputs), and after removing XR-2 the old XR-3 is the new XR-2. Past the last one, the last one: the same
      rule as adoption and Ctrl+Alt+R (XR-4 to XR-3), each workspace still its own workspace there.
@@ -55,7 +58,8 @@ keeps all three.
 Desktops that go and come back. A desktop removed during a run (the pill's Remove, Ctrl+Alt+R) parks the memory of its
 windows: they stay remembered for that desktop while they sit where the removal put them (XR-3, or the physical monitor). If
 the same desktop is added again in the run they go straight back. A parked window the user moves elsewhere is simply
-remembered there from then on. At a later start a parked window whose desktop is still missing follows step 3.
+remembered there from then on, or forgotten if that is not an XR desktop. At a later start a parked window whose desktop is
+still missing follows step 3.
 
 Everything here is best effort and fails open: a memory that cannot be read, a plan that cannot be made or a move Hyprland
 refuses leaves the windows to adoption, and the run goes on. Nothing here widens what a run may do: the windows it moves are

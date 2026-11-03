@@ -165,6 +165,12 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual([p.name for p in self.dir.iterdir()], ['window-memory.json'])
 
+    def test_titles_are_plain_text_in_a_private_file(self):
+        # Cody, 2026-11-03: plain text in the 0600 file, no hashing.
+        self.store.save(memory(record(title='report-2026.pdf - viewer', initial='viewer')))
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
+        self.assertIn('report-2026.pdf - viewer', self.path.read_text())
+
     def test_each_model_keeps_its_own(self):
         other = wm.Store(self.path, 'beast')
         other.save(memory(record(address='0xb')))
@@ -332,6 +338,19 @@ class PlanTests(unittest.TestCase):
     def test_only_windows_on_the_source_monitor_are_taken(self):
         p = self.plan(memory(record('0xa')), [win('0xa', 21)], [ws(21, 'DP-2')])
         self.assertTrue(wm.empty(p))
+
+    def test_no_match_of_any_kind_reaches_another_monitor(self):
+        # Cody, 2026-11-03: windows on DP-2 or any other regular monitor stay there, by address, title or class alike.
+        mem = memory(record('0xa', cls='foot', title='vim'), record('0xb', cls='foot', title='zsh', order=1))
+        p = self.plan(mem, [win('0xa', 21, cls='foot', title='vim'), win('0xc', 21, cls='foot', title='zsh'), win('0xd', 31, cls='foot')],
+                      [ws(21, 'DP-2'), ws(31, 'HDMI-A-1')])
+        self.assertTrue(wm.empty(p))
+
+    def test_an_open_window_of_the_same_app_on_the_source_takes_the_remembered_spot(self):
+        # Cody, 2026-11-03: the class-only fallback stays.
+        p = self.plan(memory(record('0xa', 'XR-2', 1, 71, cls='foot', title='vim', initial='a', pid=5)),
+                      [win('0xb', 1, cls='foot', title='other', initial='b', pid=6)], [ws(1, 'DP-1')])
+        self.assertEqual(p['whole'], [(1, 'XR-2', 71)])
 
     def test_a_missing_desktop_goes_to_the_last_one_as_its_own_workspace(self):
         p = self.plan(memory(record('0xa', 'XR-4', 3, 91)), [win('0xa', 1), win('0xb', 2)], [ws(1, 'DP-1'), ws(2, 'DP-1')])
@@ -705,6 +724,22 @@ class RemovalTests(Tracked):
         by = {w['address']: w for w in self.store.load()['windows']}
         self.assertEqual((by['0xa']['output'], by['0xa']['parked']), ('XR-2', False))
         self.assertTrue(by['0xb']['parked'])
+
+    def test_a_parked_window_moved_to_another_monitor_is_left_there(self):
+        # Cody, 2026-11-03: not brought back, even when its desktop returns.
+        t = self.run_()
+        t.leaving('XR-4', None)
+        self.land(5, 'DP-1')
+        t.set_names(XR)
+        self.c.state['clients'][0]['workspace'] = {'id': 21, 'name': '21'}
+        self.c.state['workspaces'].append(ws(21, 'DP-2'))
+        t.mark(); t.poll(self.now)
+        self.assertNotIn('0xa', [w['address'] for w in self.store.load()['windows']])
+        self.c.state['monitors'] = self.c.state['monitors'] + [mon('XR-4', x=9856, active=91)]
+        t.set_names(['XR-1', 'XR-2', 'XR-3', 'XR-4'])
+        t.poll(self.now)
+        moved = [x['address'] for phase, p in self.c.placed if phase == 'moves' for x in p['placed']]
+        self.assertEqual(moved, ['0xb'])
 
     def test_a_parked_window_that_closed_is_forgotten(self):
         t = self.run_()

@@ -8,6 +8,7 @@ window.resize shrinks a scrolling column off the view, as CScrollingAlgorithm::r
 cannot be swapped, moved or resized. Chunks run in turn on one state, and the result is the state as Hyprland's j/ replies
 report it, so a capture can be taken from it. No test here is a glasses pass."""
 import json
+from pathlib import Path
 import shutil
 import subprocess
 import unittest
@@ -563,6 +564,28 @@ class SettleTests(unittest.TestCase):
         self.assertEqual(on(r, '0xa'), 61)
 
 
+class NeverLaunchesTests(unittest.TestCase):
+    """Cody, 2026-11-03: never launch or recreate windows that are not open any more; only restore windows that exist."""
+    def test_a_closed_window_leaves_nothing_to_do(self):
+        p = wm.plan(from_records(rec('0xa', 'XR-2', 71, cls='gone', title='closed')), [], [{'id': 1, 'name': '1', 'monitor': 'DP-1'}],
+                    [{'name': 'DP-1', 'x': 0, 'y': 0, 'width': 1920, 'height': 1200, 'scale': 1.0},
+                     {'name': 'XR-1', 'x': 0, 'y': 0, 'width': 1920, 'height': 1200, 'scale': 1.0},
+                     {'name': 'XR-2', 'x': 0, 'y': 0, 'width': 1920, 'height': 1200, 'scale': 1.0},
+                     {'name': 'XR-3', 'x': 0, 'y': 0, 'width': 1920, 'height': 1200, 'scale': 1.0}], XR3, 'DP-1', instance='inst')
+        self.assertTrue(wm.empty(p))
+        self.assertEqual((wm.moves_lua(p), wm.settle_lua(p)), ([], []))
+
+    def test_nothing_generated_can_start_a_program(self):
+        code = '\n'.join(wm.verify_lua())
+        for word in ('exec', 'spawn', 'io.popen', 'os.execute', 'hl.exec'):
+            self.assertNotIn(word, code)
+
+    def test_the_module_has_no_way_to_start_one(self):
+        source = Path(wm.__file__).read_text().split('"""', 2)[2]  # past the docstring
+        for word in ('subprocess', 'Popen', 'os.system', 'exec_cmd'):
+            self.assertNotIn(word, source)
+
+
 class BatchTests(unittest.TestCase):
     LONG = '0x' + 'f' * 16
 
@@ -670,6 +693,40 @@ class RoundTripTests(unittest.TestCase):
         self.assertEqual((on(after, '0xa'), on(after, '0xb'), on(after, '0xc')), (1, 1, 2))
         self.assertEqual(tiled(after, 1), [['0xa'], ['0xb']])
         self.assertEqual({monitor_of(after, 1), monitor_of(after, 2)}, {'DP-1'})
+
+    def with_dp2(self, state):
+        state['monitors'].append({'name': 'DP-2', 'active': 21, 'block': 2, 'x': -3000})
+        state['workspaces'].append({'id': 21, 'mon': 'DP-2'})
+        return state
+
+    def test_a_window_moved_to_another_monitor_in_a_run_stays_there_through_stop_and_the_next_start(self):
+        state = self.with_dp2(self.session())
+        snapshot, adopting = self.adopted(state)
+        user = 'hl.dispatch(hl.dsp.window.move({workspace="21",follow=false,window="address:0xb"}))'
+        live = run(state, *adopting, user)
+        mem = wm.capture(live['clients'], live['workspaces'], live['monitors'], XR3, instance='inst')
+        self.assertNotIn('0xb', [w['address'] for w in mem['windows']])
+        stopped = run(state, *adopting, user, restore.lua(snapshot))
+        self.assertEqual(on(stopped, '0xb'), 21)
+        p = wm.plan(mem, stopped['clients'], stopped['workspaces'], stopped['monitors'], XR3, 'DP-1', instance='inst')
+        left = run(state, *adopting, user, restore.lua(snapshot), *wm.moves_lua(p))
+        moves = adopt.plan(left['workspaces'], left['clients'], 'DP-1', XR3)
+        back = run(state, *adopting, user, restore.lua(snapshot), *wm.moves_lua(p), *adopt.lua(moves), *wm.settle_lua(p))
+        self.assertEqual(on(back, '0xb'), 21)
+        self.assertEqual(monitor_of(back, 21), 'DP-2')
+
+    def test_a_remembered_window_moved_to_another_monitor_between_sessions_stays_there(self):
+        state = self.with_dp2(world(windows=[{'address': '0xa', 'ws': 21, 'class': 'foot', 'title': 'vim'}, {'address': '0xb', 'ws': 1, 'class': 'foot', 'title': 'zsh'}],
+                                    workspaces=[{'id': 1, 'mon': 'DP-1', 'cols': [{'w': 1, 'list': ['0xb']}]}]))
+        state['workspaces'][-1]['cols'] = [{'w': 1, 'list': ['0xa']}]
+        before = run(state)
+        mem = from_records(rec('0xa', 'XR-2', 71, cls='foot', title='vim'))
+        p = wm.plan(mem, before['clients'], before['workspaces'], before['monitors'], XR3, 'DP-1', instance='inst')
+        # 0xb is on the fallback, and only by class: an open window of that app takes the remembered spot. 0xa stays.
+        self.assertEqual([x['address'] for x in p['placed']], ['0xb'])
+        r = run(state, *wm.moves_lua(p), *wm.settle_lua(p))
+        self.assertEqual(on(r, '0xa'), 21)
+        self.assertEqual(monitor_of(r, on(r, '0xb')), 'XR-2')
 
     def test_a_scrolling_session_keeps_its_columns_and_widths(self):
         windows = wins((5, '0xa'), (5, '0xb'), (5, '0xc'))
