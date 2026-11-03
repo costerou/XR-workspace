@@ -15,7 +15,7 @@ import unittest
 from tools.native_spike import free_pointer as fp, neighbors as nb, orbit, unified_cursor as uc, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
-from test_free_pointer import BIND_ARGS, G, NAMES, OUTPUTS, X1, X2, X3, frames, last
+from test_free_pointer import BIND_ARGS, G, MONITORS, NAMES, OUTPUTS, X1, X2, X3, frames, last
 from test_unified_cursor import FakeUnifiedClient, UnifiedBase
 
 T = G['tiles']
@@ -287,6 +287,53 @@ class SamplerTests(unittest.TestCase):
         while time.monotonic() < deadline and not any(a[2] == 'XR-2' for a in client.args('confine')): time.sleep(0.005)
         self.assertIn((X2 + 960, 1079 - uc.ENTRY_PX, 'XR-2'), client.args('confine'))
         self.assertEqual(self.control.state.placements[1], at_direction(1, 0, 25))  # it stays where it was placed
+
+    def hand(self, client, delta, seconds):
+        """The hand keeps moving by `delta` logical px every 5 ms (relative, as a mouse does, from wherever the cursor was
+        put), Hyprland keeping it on some monitor. Returns every view frame's `selected`, in order."""
+        def onto_a_monitor(c):
+            on = [m for m in MONITORS if m['x'] <= c[0] < m['x'] + m['width'] and m['y'] <= c[1] < m['y'] + m['height']]
+            if on: return c
+            return min(((min(max(c[0], m['x']), m['x'] + m['width'] - 1), min(max(c[1], m['y']), m['y'] + m['height'] - 1))
+                        for m in MONITORS), key=lambda q: abs(q[0] - c[0]) + abs(q[1] - c[1]))
+        selected, deadline = [], time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            client.cursor = onto_a_monitor((client.cursor[0] + delta[0], client.cursor[1] + delta[1]))
+            selected += [f['payload']['selected'] for f in frames(self.control.poll()) if f['op'] == 'view']
+            time.sleep(0.005)
+        return selected
+
+    def test_a_cursor_switch_goes_straight_to_the_destination_and_stays(self):
+        # cursor-switch-no-anim (2026-11-03): "the view goes to the other monitor and then goes back". The cursor path
+        # asks the renderer for exactly one switch, to the desktop the cursor ends up on, and nothing after it: the hand
+        # still pushing through the switch animation (and past the cooldown) never selects another desktop or the old
+        # one. Here the 3D order differs from Hyprland's row (XR-2 above, XR-3 to the right). The turn back seen in anchor
+        # mode is the renderer's switch animation, the same for Ctrl+Alt+Left / Right (fixed there, anchor-switch-stay).
+        placed = [at_direction(0, 0, 0), at_direction(1, 0, 25), at_direction(2, 25, 0)]
+        for start, delta, destination in (((X1 + 1700, 300), (4, 0), 2),   # right: across XR-2 in the row, to XR-3
+                                          ((X1 + 960, 200), (0, -4), 1)):  # up: the clamped top edge, to XR-2 above
+            with self.subTest(destination=destination):
+                self.control.state.selected = 0
+                self.control.state.set_placements(placed)
+                client = FakeUnifiedClient(cursor=start)
+                sampler = self.start(client)
+                self.assertEqual(self.hand(client, delta, uc.SWITCH_COOLDOWN_S + 0.6), [destination])
+                self.assertEqual(self.control.state.selected, destination)
+                self.assertEqual(client.args('confine')[-1][2], NAMES[destination])  # the cursor and focus are there
+                self.assertEqual(self.p.edge_switches, 1)
+                sampler.stop(); self.p.edge_switches = 0
+
+    def test_a_cursor_switch_frame_is_the_key_switch_frame(self):
+        # The renderer animates (and settles) a cursor switch exactly as Ctrl+Alt+Left / Right: the same view frame.
+        self.control.state.selected = 0
+        cursor = last(frames(self.control.switch_desktop(1)), 'view')
+        self.control.state.selected = 0
+        key = last(frames(self.control.on_message({'op': 'next', 'payload': {}})), 'view')
+        self.assertEqual(cursor, key)
+
+    def test_the_push_rests_until_the_switch_animation_has_landed(self):
+        # spike ViewAnimator defaults: zoom out 220 ms, turn 300 ms, zoom in 220 ms. No second push lands mid-animation.
+        self.assertGreater(uc.SWITCH_COOLDOWN_S, (220 + 300 + 220) / 1000)
 
     def test_nothing_that_way_stays_put(self):
         client = FakeUnifiedClient(cursor=(X1 + 960, 500))
