@@ -68,6 +68,12 @@ int main() {
     check(xr::pattern_pixel(299, 0, 300, 100) == 0xff3030ffU, "right blue desktop");
     check(!xr::valid_surface_size(0, 1080) && !xr::valid_surface_size(8192, 8192), "bounded allocation");
     check(xr::valid_surface_size(1920, 1080), "1080p surface");
+    using Px = std::array<std::uint32_t, 2>;
+    check(xr::scaled_surface_size(1536, 960, 150) == Px{1920, 1200}, "glasses at 1.25: native 1920x1200 buffer");
+    check(xr::scaled_surface_size(1536, 960, 0) == Px{1536, 960}, "no fractional scale: logical size");
+    check(xr::scaled_surface_size(1920, 1080, 120) == Px{1920, 1080}, "scale 1: unchanged");
+    check(xr::scaled_surface_size(1366, 768, 180) == Px{2049, 1152}, "1.5: rounded half up");
+    check(xr::scaled_surface_size(4096, 4096, 240) == Px{4096, 4096}, "over the allocation bound: unscaled");
     xr::Presentation presentation;
     check(std::holds_alternative<xr::Error>(presentation.open("../unsafe")), "invalid target rejected before connect");
     check(std::holds_alternative<xr::Error>(presentation.draw_test_pattern()), "draw before configure rejected");

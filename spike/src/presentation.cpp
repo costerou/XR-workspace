@@ -42,6 +42,13 @@ bool valid_surface_size(std::uint32_t width, std::uint32_t height) {
     return width > 0 && height > 0 && width <= 8192 && height <= 8192 &&
            std::uint64_t(width) * height * 4 <= 64 * 1024 * 1024;
 }
+std::array<std::uint32_t, 2> scaled_surface_size(std::uint32_t width, std::uint32_t height, std::uint32_t scale120) {
+    if (!scale120 || !valid_surface_size(width, height)) return {width, height};
+    // Round half up, as the compositor does for the logical-to-buffer mapping (1536 x 1.25 = 1920 exactly).
+    const auto w = std::uint32_t((std::uint64_t(width) * scale120 + 60) / 120), h = std::uint32_t((std::uint64_t(height) * scale120 + 60) / 120);
+    if (!valid_surface_size(w, h)) return {width, height};
+    return {w, h};
+}
 std::uint32_t pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) {
     if (!valid_surface_size(width, height) || x >= width || y >= height) return 0xff000000U;
     constexpr std::uint32_t colors[] = {0xffff3030U, 0xff30ff30U, 0xff3030ffU};

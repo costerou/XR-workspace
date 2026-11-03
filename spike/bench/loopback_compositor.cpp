@@ -18,6 +18,8 @@
 #include "linux-dmabuf-v1-server-protocol.h"
 #define namespace layer_namespace
 #include "wlr-layer-shell-unstable-v1-server-protocol.h"
+#include "fractional-scale-v1-server-protocol.h"
+#include "viewporter-server-protocol.h"
 #undef namespace
 #include "xr/capture.hpp"
 #include <EGL/egl.h>
@@ -77,6 +79,9 @@ struct Options {
     // another size and straight back in one flush, plus an unchanged batch; "resize" alternates the source size, failing
     // frames whose buffer no longer fits (buffer_constraints). Every kChurnMs of the measured window.
     std::string churn;
+    // Fractional scale (120ths, 0: none): wp_viewporter and wp_fractional_scale_manager_v1 are advertised and the renderer's
+    // surface is told this preferred scale, as Hyprland does for the glasses at 1.25 (150).
+    std::uint32_t fractional_scale = 0;
 };
 constexpr double kChurnMs = 150;
 
@@ -284,6 +289,7 @@ struct Server {
     std::vector<std::uint32_t> row;
     std::uint64_t readback_failures = 0;
     std::uint64_t blank_frames = 0, churn_events = 0, constraint_failures = 0;  // blank: a tile that had shown a frame shows none
+    std::int32_t buffer_w = 0, buffer_h = 0, dest_w = -1, dest_h = -1;  // the last committed buffer; the viewport destination
 
     StampInfo* lookup(std::uint32_t stamp) {
         auto& s = stamps[stamp & 0xffff];
@@ -292,6 +298,10 @@ struct Server {
     wl_resource* output_resource(int index) {
         for (auto* r : outputs[std::size_t(index)]->resources) if (wl_resource_get_client(r) == client) return r;
         return nullptr;
+    }
+    // A canvas (surface-logical) coordinate in a buffer `buffer_side` px across a `logical_side` surface (a fractional scale).
+    static std::uint32_t to_buffer(std::uint32_t v, std::uint32_t buffer_side, std::uint32_t logical_side) {
+        return buffer_side == logical_side ? v : std::uint32_t(std::uint64_t(v) * buffer_side / logical_side);
     }
     // Which capture frame each tile of `buffer` shows.
     bool read_stamps(wl_resource* buffer, std::array<std::uint32_t, 3>& out) {
@@ -303,7 +313,7 @@ struct Server {
             wl_shm_buffer_begin_access(shm);
             const auto* px = static_cast<const std::uint32_t*>(wl_shm_buffer_get_data(shm));
             for (std::size_t i = 0; i < tiles.size() && i < 3; ++i) {
-                const auto x = tiles[i].x + tiles[i].width / 2, y = tiles[i].y + tiles[i].height / 2;
+                const auto x = to_buffer(tiles[i].x + tiles[i].width / 2, w, kOutW), y = to_buffer(tiles[i].y + tiles[i].height / 2, h, kOutH);
                 if (x < w && y < h) out[i] = px[std::size_t(y) * stride + x] & 0xffffffu;
             }
             wl_shm_buffer_end_access(shm);
@@ -313,7 +323,8 @@ struct Server {
         if (!d || !g_gpu) return false;
         std::int32_t y_last = -1;
         for (std::size_t i = 0; i < tiles.size() && i < 3; ++i) {
-            const auto x = std::int32_t(tiles[i].x + tiles[i].width / 2), y = std::int32_t(tiles[i].y + tiles[i].height / 2);
+            const auto x = std::int32_t(to_buffer(tiles[i].x + tiles[i].width / 2, std::uint32_t(d->width), kOutW)),
+                       y = std::int32_t(to_buffer(tiles[i].y + tiles[i].height / 2, std::uint32_t(d->height), kOutH));
             if (y != y_last && !d->read_row(y, row)) { ++readback_failures; return false; }
             y_last = y;
             if (x >= 0 && std::size_t(x) < row.size()) out[i] = row[std::size_t(x)];
@@ -372,6 +383,8 @@ void surface_commit(wl_client*, wl_resource* r) {
         if (s->commit_has_buffer && s->commit_buf.r && s->commit_buf.r != s->pending_buf.r && s->commit_buf.r != s->shown.r)
             wl_buffer_send_release(s->commit_buf.r);  // replaced before it was ever shown
         s->commit_buf.set(s->pending_buf.r); s->commit_has_buffer = true;
+        if (auto* shm = wl_shm_buffer_get(s->pending_buf.r)) { g->buffer_w = wl_shm_buffer_get_width(shm); g->buffer_h = wl_shm_buffer_get_height(shm); }
+        else if (auto* d = static_cast<Dmabuf*>(wl_resource_get_user_data(s->pending_buf.r))) { g->buffer_w = d->width; g->buffer_h = d->height; }
         s->commit_stamps_valid = false;
         if (wl_shm_buffer_get(s->pending_buf.r)) {
             s->commit_stamps_valid = g->read_stamps(s->pending_buf.r, s->commit_stamps);
@@ -458,6 +471,31 @@ const struct zwlr_layer_shell_v1_interface layer_shell_impl = {shell_get_layer_s
 void bind_layer_shell(wl_client* client, void*, std::uint32_t version, std::uint32_t id) {
     auto* r = wl_resource_create(client, &zwlr_layer_shell_v1_interface, int(version), id);
     wl_resource_set_implementation(r, &layer_shell_impl, nullptr, nullptr);
+}
+
+// ---- wp_viewporter / wp_fractional_scale_manager_v1 (--fractional-scale) ----
+void viewport_source(wl_client*, wl_resource*, wl_fixed_t, wl_fixed_t, wl_fixed_t, wl_fixed_t) {}
+void viewport_destination(wl_client*, wl_resource*, std::int32_t w, std::int32_t h) { g->dest_w = w; g->dest_h = h; }
+const struct wp_viewport_interface viewport_impl = {destroy_resource, viewport_source, viewport_destination};
+void viewporter_get_viewport(wl_client* client, wl_resource* r, std::uint32_t id, wl_resource*) {
+    auto* res = wl_resource_create(client, &wp_viewport_interface, wl_resource_get_version(r), id);
+    wl_resource_set_implementation(res, &viewport_impl, nullptr, nullptr);
+}
+const struct wp_viewporter_interface viewporter_impl = {destroy_resource, viewporter_get_viewport};
+void bind_viewporter(wl_client* client, void*, std::uint32_t version, std::uint32_t id) {
+    auto* r = wl_resource_create(client, &wp_viewporter_interface, int(version), id);
+    wl_resource_set_implementation(r, &viewporter_impl, nullptr, nullptr);
+}
+const struct wp_fractional_scale_v1_interface fractional_impl = {destroy_resource};
+void fractional_get(wl_client* client, wl_resource* r, std::uint32_t id, wl_resource*) {
+    auto* res = wl_resource_create(client, &wp_fractional_scale_v1_interface, wl_resource_get_version(r), id);
+    wl_resource_set_implementation(res, &fractional_impl, nullptr, nullptr);
+    wp_fractional_scale_v1_send_preferred_scale(res, g->opt.fractional_scale);
+}
+const struct wp_fractional_scale_manager_v1_interface fractional_manager_impl = {destroy_resource, fractional_get};
+void bind_fractional(wl_client* client, void*, std::uint32_t version, std::uint32_t id) {
+    auto* r = wl_resource_create(client, &wp_fractional_scale_manager_v1_interface, int(version), id);
+    wl_resource_set_implementation(r, &fractional_manager_impl, nullptr, nullptr);
 }
 
 // ---- wp_presentation ----
@@ -770,7 +808,8 @@ std::uint64_t process_ctx_switches(pid_t pid) {
 void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..3] [--tracking (bwrap)]\n"
-                         "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--check]\n");
+                         "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
+                         "                  [--check]\n");
 }
 }  // namespace
 
@@ -791,6 +830,7 @@ int main(int argc, char** argv) {
         else if (a == "--check") opt.check = true;
         else if (a == "--constraint-churn") opt.churn = next();
         else if (a == "--tracking") opt.tracking = true;
+        else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
@@ -850,6 +890,10 @@ int main(int argc, char** argv) {
     wl_global_create(server.display, &wl_compositor_interface, 4, nullptr, bind_compositor);
     wl_global_create(server.display, &zwlr_layer_shell_v1_interface, 4, nullptr, bind_layer_shell);
     wl_global_create(server.display, &wp_presentation_interface, 1, nullptr, bind_presentation);
+    if (opt.fractional_scale) {
+        wl_global_create(server.display, &wp_viewporter_interface, 1, nullptr, bind_viewporter);
+        wl_global_create(server.display, &wp_fractional_scale_manager_v1_interface, 1, nullptr, bind_fractional);
+    }
     if (capture) {
         wl_global_create(server.display, &ext_output_image_capture_source_manager_v1_interface, 1, nullptr, bind_source_manager);
         wl_global_create(server.display, &ext_image_copy_capture_manager_v1_interface, 1, nullptr, bind_copy_manager);
@@ -1070,6 +1114,13 @@ int main(int argc, char** argv) {
         if ((opt.mode == "gl-shm" || opt.mode == "cpu") && !(out.contains("capture_paths") && out["capture_paths"][0]["path"] == "shm")) fail("not on the shm path");
         // Constraint churn (layout changes): no desktop ever goes blank, and constraints that come back to the buffers' own
         // size re-create nothing (one allocation per desktop for the whole run).
+        if (opt.fractional_scale) {  // drawn at the native pixels, shown on the logical surface (GL; CPU stays logical)
+            const auto want = [&](std::uint32_t v) { return std::int32_t((std::uint64_t(v) * opt.fractional_scale + 60) / 120); };
+            const bool scaled = gl ? server.buffer_w == want(kOutW) && server.buffer_h == want(kOutH)
+                                   : server.buffer_w == std::int32_t(kOutW) && server.buffer_h == std::int32_t(kOutH);
+            if (!scaled) fail("committed buffer not at the fractional scale's size");
+            if (server.dest_w != std::int32_t(kOutW) || server.dest_h != std::int32_t(kOutH)) fail("viewport destination is not the logical size");
+        }
         if (capture && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
         if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
         if (capture && opt.churn == "bounce") {

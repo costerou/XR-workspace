@@ -4,6 +4,8 @@
 #include "ext-image-capture-source-v1-client-protocol.h"
 #include "ext-image-copy-capture-v1-client-protocol.h"
 #include "linux-dmabuf-v1-client-protocol.h"
+#include "fractional-scale-v1-client-protocol.h"
+#include "viewporter-client-protocol.h"
 #include "dmabuf.hpp"
 #include "xr/capture.hpp"
 #include "gl.hpp"
@@ -48,6 +50,15 @@ struct Presentation::Impl : SurfaceRequests {
     zwlr_layer_surface_v1* layer = nullptr;
     wl_callback* frame = nullptr;
     wp_presentation* presentation = nullptr;
+    // Native resolution (optional): the glasses run at a fractional scale (1.25), so the surface's logical size (width x
+    // height, the canvas everything is laid out in) is fewer pixels than the panel. With both globals the frame is drawn
+    // at the preferred scale (px_w x px_h, scaled_surface_size) and the viewport maps it back onto the logical size, so
+    // the compositor shows it 1:1 instead of upscaling it. Without them: drawn at the logical size, as before.
+    wp_viewporter* viewporter = nullptr;
+    wp_fractional_scale_manager_v1* fractional_manager = nullptr;
+    wp_viewport* viewport = nullptr;
+    wp_fractional_scale_v1* fractional = nullptr;
+    std::uint32_t scale120 = 0, px_w = 0, px_h = 0;
     Metrics metrics;
     struct Feedback {
         Impl* owner = nullptr;
@@ -723,6 +734,11 @@ struct Presentation::Impl : SurfaceRequests {
         } else if (s.capture_requested && std::strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3 && !s.linux_dmabuf) {
             // Optional: absent or removed means SHM capture; no listener (format events are ignored).
             s.linux_dmabuf = static_cast<zwp_linux_dmabuf_v1*>(wl_registry_bind(registry, id, &zwp_linux_dmabuf_v1_interface, 3));
+        } else if (std::strcmp(interface, "wp_viewporter") == 0 && !s.viewporter) {
+            s.viewporter = static_cast<wp_viewporter*>(wl_registry_bind(registry, id, &wp_viewporter_interface, 1));
+        } else if (std::strcmp(interface, "wp_fractional_scale_manager_v1") == 0 && !s.fractional_manager) {
+            s.fractional_manager = static_cast<wp_fractional_scale_manager_v1*>(
+                wl_registry_bind(registry, id, &wp_fractional_scale_manager_v1_interface, 1));
         } else if (std::strcmp(interface, "wl_output") == 0 && version >= 4) {
             auto output = std::make_unique<Output>(); output->global = id;
             output->proxy = static_cast<wl_output*>(wl_registry_bind(registry, id, &wl_output_interface, 4));
@@ -751,9 +767,24 @@ struct Presentation::Impl : SurfaceRequests {
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
         s.help.set_viewport(w, h);  // the help card's text size comes from the output height
-        if (s.gl) s.gl->resize(w, h);
+        s.apply_scale();
         s.half_w = 0;  // recompute FOV split for the new aspect
     }
+    // The buffer size for the current logical size and preferred scale; sent with the next commit (the next swap).
+    void apply_scale() {
+        if (!width || !height) return;
+        const auto px = viewport ? scaled_surface_size(width, height, scale120) : std::array<std::uint32_t, 2>{width, height};
+        px_w = px[0]; px_h = px[1];
+        if (viewport) wp_viewport_set_destination(viewport, int(width), int(height));
+        if (gl) gl->resize(width, height, px_w, px_h);
+        cadence.invalidate();
+    }
+    static void preferred_scale(void* data, wp_fractional_scale_v1*, uint32_t scale) {
+        auto& s = *static_cast<Impl*>(data);
+        if (scale == s.scale120) return;
+        s.scale120 = scale; s.apply_scale();
+    }
+    inline static const wp_fractional_scale_v1_listener fractional_listener{preferred_scale};
     static void layer_closed(void* data, zwlr_layer_surface_v1*) { static_cast<Impl*>(data)->closed = true; }
     inline static const zwlr_layer_surface_v1_listener layer_listener{configure, layer_closed};
     static void frame_done(void* data, wl_callback* callback, uint32_t) {
@@ -820,6 +851,10 @@ struct Presentation::Impl : SurfaceRequests {
         if (copy_manager) ext_image_copy_capture_manager_v1_destroy(copy_manager);
         if (source_manager) ext_output_image_capture_source_manager_v1_destroy(source_manager);
         if (presentation) wp_presentation_destroy(presentation);
+        if (fractional) wp_fractional_scale_v1_destroy(fractional);
+        if (viewport) wp_viewport_destroy(viewport);
+        if (fractional_manager) wp_fractional_scale_manager_v1_destroy(fractional_manager);
+        if (viewporter) wp_viewporter_destroy(viewporter);
         if (frame) wl_callback_destroy(frame);
         if (layer) zwlr_layer_surface_v1_destroy(layer);
         if (surface) wl_surface_destroy(surface);
@@ -904,6 +939,9 @@ std::string Presentation::capture_report() const {
            ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
            (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
+    out += ",\"surface\":{\"logical\":[" + std::to_string(impl_->width) + "," + std::to_string(impl_->height) + "],\"buffer\":[" +
+           std::to_string(impl_->px_w) + "," + std::to_string(impl_->px_h) + "],\"scale120\":" + std::to_string(impl_->scale120) +
+           ",\"viewport\":" + (impl_->viewport ? "true" : "false") + "}";
     {  // software timing only; see predict.hpp
         auto stats = [](const LatencySummary& l) {
             return "{\"count\":" + std::to_string(l.count) + ",\"dropped\":" + std::to_string(l.dropped) + ",\"mean_ms\":" +
@@ -985,6 +1023,11 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
         if (!missing.empty()) return Error{"capture", "capture constraints unavailable for " + missing};
     }
     s->surface = wl_compositor_create_surface(s->compositor);
+    if (s->viewporter && s->fractional_manager) {  // native resolution; the scale arrives with or after the first configure
+        s->viewport = wp_viewporter_get_viewport(s->viewporter, s->surface);
+        s->fractional = wp_fractional_scale_manager_v1_get_fractional_scale(s->fractional_manager, s->surface);
+        wp_fractional_scale_v1_add_listener(s->fractional, &Impl::fractional_listener, s.get());
+    }
     s->layer = zwlr_layer_shell_v1_get_layer_surface(s->shell, s->surface, s->selected->proxy,
                  ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "xr-workspace-spike-test-pattern");
     zwlr_layer_surface_v1_add_listener(s->layer, &Impl::layer_listener, s.get());
@@ -997,6 +1040,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
     if (!s->configured || s->closed) return Error{"configure", "configure failed or timed out"};
     if (s->capture_requested) {
         s->gl = GlCompositor::create(s->display, s->surface, s->width, s->height, s->captures.size(), s->gl_fallback);
+        if (s->gl) s->gl->resize(s->width, s->height, s->px_w, s->px_h);  // a scale that came before it
         if (!s->gl && s->gl_fallback.empty()) s->gl_fallback = "unknown";
         s->uploaded.assign(s->captures.size(), 0);
         s->drawn.assign(s->captures.size(), 0);

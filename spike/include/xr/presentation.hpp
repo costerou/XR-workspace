@@ -24,6 +24,10 @@ struct SurfaceRequests {
 void apply_presentation_policy(SurfaceRequests&);
 std::uint32_t layer_version(std::uint32_t advertised);
 bool valid_surface_size(std::uint32_t width, std::uint32_t height);
+// The buffer size that fills a width x height (logical) surface pixel for pixel at wp_fractional_scale_v1 preferred
+// scale `scale120` (120ths: 150 = 1.25). The glasses run at 1.25, so the 1536x960 surface is drawn at the panel's own
+// 1920x1200 instead of being upscaled by the compositor. No scale (0), or a result valid_surface_size refuses: unscaled.
+std::array<std::uint32_t, 2> scaled_surface_size(std::uint32_t width, std::uint32_t height, std::uint32_t scale120);
 std::uint32_t pattern_pixel(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
 
 // Pure callback/ownership gate used by the real adapter and offline tests.
