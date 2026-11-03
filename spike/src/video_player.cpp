@@ -1,4 +1,5 @@
 #include "video_player.hpp"
+#include "video_gl.hpp"
 #include <unistd.h>
 #ifdef XR_HAVE_MPV
 #include <mpv/client.h>
@@ -134,6 +135,8 @@ struct VideoPlayer::Impl {
     std::uint64_t frames = 0, reallocations = 0, gl_errors = 0, reopens = 0, discarded = 0;
     // GL limits, read once: a glGet per display frame is a driver round trip (a full sync with Mesa's glthread).
     GLint max_texture = 0, max_attribs = 0;
+    std::uint32_t levels = 0;  // mip levels of `tex`
+    float anisotropy = 1;      // applied to `tex` (video_texture_filtering)
     // VA-API zero copy on the EGL context's own GPU (mpv's DRM display parameters; mpv keeps a pointer to this).
     int render_fd = -1;
     mpv_opengl_drm_params_v2 drm{-1, -1, -1, nullptr, -1};
@@ -163,12 +166,17 @@ struct VideoPlayer::Impl {
         const auto fitted = max_texture > 0 ? video_texture_size(size[0], size[1], std::uint32_t(max_texture)) : size;
         if (!fitted[0] || !fitted[1]) return false;
         if (fitted[0] == tex_w && fitted[1] == tex_h && tex) return true;
-        if (!tex) glGenTextures(1, &tex);
+        // Immutable storage with the full mip chain (video_gl.hpp: the projection pass samples it trilinear and
+        // anisotropic where the frame is minified): a new size is a new texture. RGBA8 stays: mpv dithers to the target
+        // depth, and the panel path is 8-bit, so a 10-bit/half-float target would only drop that dither.
+        if (tex) { glDeleteTextures(1, &tex); tex = 0; tex_w = tex_h = 0; rendered = false; }
+        glGenTextures(1, &tex);
         if (!fbo) glGenFramebuffers(1, &fbo);
         glBindTexture(GL_TEXTURE_2D, tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GLsizei(fitted[0]), GLsizei(fitted[1]), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        anisotropy = video_texture_filtering();
+        levels = video_texture_levels(fitted[0], fitted[1]);
+        glTexStorage2D(GL_TEXTURE_2D, GLsizei(levels), GL_RGBA8, GLsizei(fitted[0]), GLsizei(fitted[1]));
+        glBindTexture(GL_TEXTURE_2D, 0);
         if (glGetError() != GL_NO_ERROR) {  // e.g. out of GPU memory: an error state, never a GL error left for the frame
             while (glGetError() != GL_NO_ERROR) {}
             fail("cannot allocate a " + std::to_string(fitted[0]) + "x" + std::to_string(fitted[1]) + " video texture");
@@ -270,6 +278,9 @@ struct VideoPlayer::Impl {
         for (int i = 0; i < 16 && glGetError() != GL_NO_ERROR; ++i) ++gl_errors;
         if (rc < 0) { fail("mpv render failed"); return false; }
         if (!show) { ++discarded; return true; }
+        // The mip chain of the new picture (one 8K frame: well under a millisecond on the RX 7800 XT, once per video frame).
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex); glGenerateMipmap(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, 0);
+        if (glGetError() != GL_NO_ERROR) { while (glGetError() != GL_NO_ERROR) {} ++gl_errors; }
         rendered = true; ++frames;
         render_sum_ms += ms; render_max_ms = std::max(render_max_ms, ms);
         return true;
@@ -470,6 +481,7 @@ std::string VideoPlayer::report() const {
     return "{\"decoder\":\"libmpv\",\"hwdec\":\"" + s.hwdec + "\",\"va_device\":\"" + (s.render_node.empty() ? std::string("default") : s.render_node) +
            "\",\"video\":[" + std::to_string(s.video_w) + "," + std::to_string(s.video_h) +
            "],\"texture\":[" + std::to_string(s.tex_w) + "," + std::to_string(s.tex_h) + "],\"frames\":" + std::to_string(s.frames) +
+           ",\"mip_levels\":" + std::to_string(s.levels) + ",\"anisotropy\":" + num(s.anisotropy) +
            ",\"reallocations\":" + std::to_string(s.reallocations) + ",\"gl_errors\":" + std::to_string(s.gl_errors) +
            ",\"reopens\":" + std::to_string(s.reopens) + ",\"discarded\":" + std::to_string(s.discarded) +
            ",\"drops\":" + std::to_string(s.drops) + ",\"held\":" + std::to_string(t.held) + ",\"early\":" + std::to_string(t.early) +

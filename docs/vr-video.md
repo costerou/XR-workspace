@@ -109,8 +109,32 @@ the frame:
   the circle.
 - Stereo selects the eye's half of the frame (side-by-side: left half for the left eye; top-bottom: top half).
 
-A full-screen pass is exact (no sphere tessellation, no seams at the poles) and costs almost nothing: **0.02 ms per
-1920×1200 frame on the RX 7800 XT** from an 8K texture (0.71 ms on the Ryzen iGPU).
+A full-screen pass is exact (no sphere tessellation, no seams at the poles) and costs almost nothing: **0.05 ms per
+1920×1200 frame on the RX 7800 XT** from an 8K texture with the sampling below (0.03 ms with plain bilinear; 2.0 ms
+on the Ryzen iGPU, which the glasses do not use).
+
+### Sampling
+
+The glasses show about 48 px per degree and an 8K 360° frame has about 21, so most of the view magnifies the frame
+about 2×. Plain bilinear filtering blurs that, so the pass handles it like this:
+
+- **Magnified** (under one texel per pixel, most of the view): a Catmull-Rom cubic (Keys a = −0.5) in 5 bilinear taps
+  of the full-size frame. A step edge comes out about 1.3× steeper than bilinear (`video_render`: 9 vs 7 levels per
+  pixel at 40× magnification). Its taps are clamped half a texel inside the eye's half of the frame, so nothing of
+  the other eye bleeds in at side-by-side and top-bottom edges.
+- **Minified** (towards the equirect poles and fisheye rims): trilinear mipmaps with 16×
+  anisotropic filtering. The player regenerates the mip chain once per new video frame (0.4 ms for 8K on the
+  RX 7800 XT, about 0.2 ms more GPU time per new frame in `video_bench`). From 0.75 to 1 texel per pixel the two
+  blend smoothly.
+- **The 360° seam:** u wraps from 1 to 0 between neighbouring pixels, and implicit derivatives would pick the smallest
+  mip there, which shows up as a line. The shader passes explicit gradients, taken from whichever of u and the
+  half-turned u is continuous at that pixel.
+- `XR_VIDEO_FILTER=bilinear|catmull-rom|sharp` in the renderer's environment picks the magnification filter for A/B
+  checks (`sharp`: Keys a = −0.75, more acutance and a little more ringing). Unset means `catmull-rom`.
+- The texture stays RGBA8. mpv dithers to the target's depth and the panel path is 8-bit, so a 10-bit or half-float
+  target would only lose that dither. mpv's own scalers are its defaults (lanczos for chroma, `hermite` with
+  linear-light correct downscaling for frames over 8192). The frame is drawn at its own size, so only chroma
+  upsampling applies. Debanding stays off: it costs a full 8K pass per frame and softens detail.
 
 ### Stereo output
 
@@ -249,9 +273,9 @@ usable mapping for these.
   the RX 7800 XT. 8K60 is close to the limit; the panel warns above 4K at more than 60 fps. 8K H.264 (7680×3840, synthetic) decoded in
   software at real time in the tests, but real 8K H.264 at high bitrate will likely not keep up.
 - **Sharpness:** the Luma Ultra shows about 48 px per degree at the centre (1920 px over ~40° horizontal, from the 46°
-  diagonal fallback). An 8K 360° video has 7680 / 360 ≈ 21 px per degree, a 4K 360° one only ≈ 11. Video is always
-  magnified, never minified, so no mipmaps are needed, but resolution is the main quality limit: prefer 8K 360° or
-  180° side-by-side at 8K (≈ 23 px per degree per eye).
+  diagonal fallback). An 8K 360° video has 7680 / 360 ≈ 21 px per degree, a 4K 360° one only ≈ 11. Most of the view
+  is magnified (Catmull-Rom there, see [Sampling](#sampling)); the poles and fisheye rims minify (mipmaps). Resolution
+  is still the main quality limit: prefer 8K 360° or 180° side-by-side at 8K (≈ 23 px per degree per eye).
 - **HDR** video is tone-mapped to SDR by mpv. No subtitles, playlists or audio-track switching in this version.
 
 ## Performance
@@ -329,7 +353,9 @@ Offline only (no display, glasses or compositor):
 - `ctest -R video` runs `video` (projection maths, eye viewports, texture caps, wire payloads, the card's brightness
   limit) and `video_render`. `video_render` runs on a surfaceless EGL context, on both the Ryzen iGPU and the RX 7800 XT
   (`DRI_PRIME=pci-0000_03_00_0`). It checks the projection pass against the CPU maths (18,090 samples, every projection
-  and stereo layout, both eyes, turned heads), the card through the real `GlHud` (brightest channel 186/255), and real
+  and stereo layout, both eyes, turned heads), the sampling (a magnified edge steeper than bilinear, a minified
+  one-texel checker grey on 99.4% of pixels against 48.9% without mipmaps, no mip line on the 360° seam, no bleed
+  across side-by-side eyes), the card through the real `GlHud` (brightest channel 186/255), and real
   decoding through `VideoPlayer` of clips it generates with ffmpeg:
 
   | Clip | Codec, container | Layout | Decoded with |
