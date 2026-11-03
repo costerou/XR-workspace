@@ -134,6 +134,7 @@ struct GlCompositor::Impl {
     // The panel texture's pixels as last uploaded. A slider drag re-renders the panel up to once per frame but changes one
     // row of it: only the rows that differ from this copy are uploaded (none if a re-render left the pixels as they were).
     std::vector<std::uint8_t> panel_pixels; std::uint32_t panel_w = 0, panel_h = 0;
+    void upload_panel(const HudImage& im, std::uint64_t generation);  // binds the panel texture on unit 0; uploads if new
     bool swap() { if (surface == EGL_NO_SURFACE) { glFlush(); return true; } return eglSwapBuffers(display, surface); }
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
@@ -393,6 +394,8 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
     return t.valid;
 }
 
+static_assert(sizeof(Canvas) == 4 * sizeof(float) && sizeof(FRect) == 4 * sizeof(float) && sizeof(Placement) == 7 * sizeof(float),
+              "a mesh key holds every field of tile_mesh's inputs: extend it with them");
 GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& rect, Attr attr) {
     const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
                                     on.distance, on.yaw, on.pitch, on.roll, on.curvature, rect.x, rect.y, rect.width, rect.height,
@@ -426,6 +429,26 @@ GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float 
     return m.count;
 }
 
+void GlCompositor::Impl::upload_panel(const HudImage& im, std::uint64_t generation) {
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, panel_texture);  // sampler `tex` = unit 0 (link-time value)
+    if (generation == panel_uploaded) return;
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    const std::size_t row = std::size_t(im.width) * 4;
+    if (im.width == panel_w && im.height == panel_h && panel_pixels.size() == im.rgba.size()) {
+        std::uint32_t top = 0, bottom = im.height;  // the changed rows: [top, bottom)
+        while (top < bottom && !std::memcmp(&im.rgba[top * row], &panel_pixels[top * row], row)) ++top;
+        while (bottom > top && !std::memcmp(&im.rgba[(bottom - 1) * row], &panel_pixels[(bottom - 1) * row], row)) --bottom;
+        if (top < bottom) {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, GLint(top), GLsizei(im.width), GLsizei(bottom - top), GL_RGBA, GL_UNSIGNED_BYTE, &im.rgba[top * row]);
+            std::memcpy(&panel_pixels[top * row], &im.rgba[top * row], (bottom - top) * row);
+        }
+    } else {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(im.width), GLsizei(im.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, im.rgba.data());
+        panel_pixels = im.rgba; panel_w = im.width; panel_h = im.height;
+    }
+    panel_uploaded = generation;
+}
+
 bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
                                  float highlight_alpha, const Mat3& view, float half_w, float half_h) {
     auto& s = *impl_;
@@ -452,6 +475,16 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glEnableVertexAttribArray(static_cast<GLuint>(loc));
     };
     glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
+    if (s.glass_program && s.panel_program && s.glass.content >= 0 && s.glass.image && s.glass.generation != s.panel_uploaded) {
+        // A new panel image is uploaded before anything is drawn (the driver flushes queued work before a large upload
+        // from client memory), under exactly the conditions on which the glass loop below draws it.
+        const auto& g = s.glass;
+        const auto c = std::size_t(g.content);
+        const auto& im = *g.image;
+        if (c < tiles.size() && c < s.textures.size() && c < g.expand.size() && !(std::clamp(g.expand[c], 0.f, 1.f) <= 0.f) &&
+            !(g.content_alpha <= 0.f) && im.width && im.height && im.rgba.size() == std::size_t(im.width) * im.height * 4)
+            s.upload_panel(im, g.generation);
+    }
     glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
     if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
         // Drawn first over black, so no blending is needed: glow, then border, then the tiles (back to front) cover
@@ -528,24 +561,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             if (!im.width || !im.height || im.rgba.size() != std::size_t(im.width) * im.height * 4) continue;
             glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
             program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov);
-            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, s.panel_texture);  // sampler `tex` = unit 0 (link-time value)
-            if (g.generation != s.panel_uploaded) {
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                const std::size_t row = std::size_t(im.width) * 4;
-                if (im.width == s.panel_w && im.height == s.panel_h && s.panel_pixels.size() == im.rgba.size()) {
-                    std::uint32_t top = 0, bottom = im.height;  // the changed rows: [top, bottom)
-                    while (top < bottom && !std::memcmp(&im.rgba[top * row], &s.panel_pixels[top * row], row)) ++top;
-                    while (bottom > top && !std::memcmp(&im.rgba[(bottom - 1) * row], &s.panel_pixels[(bottom - 1) * row], row)) --bottom;
-                    if (top < bottom) {
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, GLint(top), GLsizei(im.width), GLsizei(bottom - top), GL_RGBA, GL_UNSIGNED_BYTE, &im.rgba[top * row]);
-                        std::memcpy(&s.panel_pixels[top * row], &im.rgba[top * row], (bottom - top) * row);
-                    }
-                } else {
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(im.width), GLsizei(im.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, im.rgba.data());
-                    s.panel_pixels = im.rgba; s.panel_w = im.width; s.panel_h = im.height;
-                }
-                s.panel_uploaded = g.generation;
-            }
+            s.upload_panel(im, g.generation);  // already uploaded before the first draw: binds it
             glUniform1f(s.panel_loc.alpha, std::min(g.content_alpha, 1.f));
             // The content rides on the morphing shape (it only shows over the last quarter, when the shape is near full size).
             const GLsizei n = s.build(s.panel_meshes[i], canvas, tiles[i], glass_on(i), r, Impl::Attr::rect_uv);
