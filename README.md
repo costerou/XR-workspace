@@ -295,8 +295,10 @@ pushing aside whatever is there now.
 
 **While a pill is open** (new, not yet tried in the glasses) your desktops ease up a little, so the whole panel fits in view
 with your head level, key hints included, and ease back down when it closes. A background stays where it is. **The open pill
-follows the selected desktop:** select another desktop in the overview (Ctrl+Alt+Left / Right) and its pill opens as the old one
-closes. If no pill is open, selecting a desktop opens nothing.
+follows the selected desktop:** select another desktop in the overview (Ctrl+Alt+Left / Right, the dot moving onto it, or a click
+on it) and its pill opens as the old one closes. If no pill is open, selecting a desktop opens nothing. A click into a window keeps
+the pill open, but its plain keys (arrows, Tab, R, U, N, Delete, Esc) go back to the window so you can type. Click the panel to
+get them back.
 
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.

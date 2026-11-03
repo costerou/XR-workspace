@@ -125,6 +125,71 @@ class FollowTests(unittest.TestCase):
         self.assertNotEqual(self.c.follow_focus(), b'')
         self.assertEqual(self.c.follow_focus(), b'')  # it is there now
 
+    def test_a_click_selecting_a_desktop_moves_it_too(self):
+        self.send('menu_toggle')
+        frames = [json.loads(line) for line in self.c.select_desktop(2).splitlines()]
+        self.assertEqual([f['op'] for f in frames], ['view', 'placement_menu'])
+        self.assertEqual((self.c.state.selected, self.c.state.menu_desktop, self.c.state.menu_open), (2, 2, True))
+        self.assertEqual(self.c.select_desktop(2), b'')  # it is there
+
+    def test_a_click_on_the_selected_desktop_brings_a_panel_tab_took_elsewhere(self):
+        self.send('menu_toggle')
+        self.send('menu_desktop_next')
+        self.assertEqual((self.c.state.selected, self.c.state.menu_desktop), (0, 1))
+        self.assertEqual(self.menu([json.loads(line) for line in self.c.select_desktop(0).splitlines()])['desktop'], 0)
+
+    def test_a_click_selecting_with_every_pill_collapsed_opens_nothing(self):
+        frames = [json.loads(line) for line in self.c.select_desktop(1).splitlines()]
+        self.assertEqual([f['op'] for f in frames], ['view'])
+        self.assertFalse(self.c.state.menu_open)
+
+    def join(self):
+        for t in self.c._menu_threads: t.join(2)
+        return self.binds
+
+    def test_a_press_on_a_desktop_moves_the_panel_and_gives_the_keyboard_back(self):
+        self.send('menu_toggle')
+        self.send('menu_desktop_next')  # the panel on XR-2, XR-1 selected: the press is on XR-1
+        self.assertEqual(self.menu([json.loads(line) for line in self.c.desktop_press().splitlines()])['desktop'], 0)
+        self.assertTrue(self.c.state.menu_open)
+        self.assertEqual(self.join(), [True, False])  # R, Delete and the rest are the window's again
+
+    def test_the_panel_keys_stay_off_through_more_presses_and_moves(self):
+        self.send('menu_toggle')
+        self.c.desktop_press()
+        self.c.desktop_press()
+        self.send('next')
+        self.assertEqual(self.c.state.menu_desktop, 1)
+        self.assertEqual(self.join(), [True, False])
+
+    def test_using_the_panel_brings_its_keys_back(self):
+        self.send('menu_toggle')
+        self.c.desktop_press()
+        self.c.panel_keys_on()
+        self.c.panel_keys_on()  # once
+        self.assertEqual(self.join(), [True, False, True])
+
+    def test_keys_come_back_with_the_next_panel(self):
+        self.send('menu_toggle')
+        self.c.desktop_press()
+        self.send('menu_toggle')
+        self.assertFalse(self.c.menu_keys_off)
+        self.send('menu_toggle')
+        self.assertEqual(self.join(), [True, False, True])
+
+    def test_a_reload_leaves_the_keys_off(self):
+        self.send('menu_toggle')
+        self.c.desktop_press()
+        self.join()
+        self.c._menu_binds_installed = False  # a config reload dropped them
+        self.c._sync_menu_binds(force=True)
+        self.assertEqual(self.join(), [True, False])
+
+    def test_a_press_with_no_panel_does_nothing(self):
+        self.assertEqual(self.c.desktop_press(), b'')
+        self.assertFalse(self.c.menu_keys_off)
+        self.assertEqual(self.join(), [])
+
     def test_the_pointer_selecting_a_desktop_moves_it_too(self):
         self.send('menu_toggle')
         pointer = fp.OverviewPointer(self.c)

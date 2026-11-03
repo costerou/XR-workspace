@@ -95,16 +95,17 @@ class ClickSelectTests(PointerBase):
         self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
         self.assertEqual(self.p.want[1:], ('desktop', fp.surface_to_layout(T1, OUTPUTS[1], q)))  # the cursor under the dot
 
-    def test_a_click_outside_an_open_panel_closes_it_and_still_selects(self):
+    def test_a_click_on_another_desktop_selects_it_and_the_panel_goes_there(self):
         self.control.pill_click(0)
         q = (T1[0] + T1[2] * 0.3, T1[1] + T1[3] * 0.4)
         self.free_by_card(1, q)
         self.assertTrue(self.control.state.menu_open)
         self.control.state.selected = 0
         self.focused_after('resize_press')
-        self.assertFalse(self.control.state.menu_open)  # the press collapses it
+        self.assertEqual((self.control.state.menu_open, self.control.state.menu_desktop, self.p.outside_closes), (True, 0, 0))  # not a click outside
         self.focused_after('resize_release')
         self.assertEqual(self.control.state.selected, 1)
+        self.assertEqual((self.control.state.menu_open, self.control.state.menu_desktop), (True, 1))
         self.assertFalse(self.control.state.zoomed)
 
     def test_a_click_in_empty_space_selects_nothing(self):

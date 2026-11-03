@@ -7,8 +7,8 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Two modes, switched by where the pointer is:
       - desktop: the pointer is inside a desktop. The real cursor is visible there (the capture paints it) and every
         click, hover, window drag and window-border resize goes to the window under it as usual (here the run never
-        sees those clicks; the run's unified cursor sees left clicks through non-consuming binds and closes an open
-        placement panel on one: unified_cursor.py). The pointer's place in space is
+        sees those clicks; the run's unified cursor sees left clicks through non-consuming binds, and on one an open
+        placement panel comes to that desktop with its keys off the keyboard: unified_cursor.py). The pointer's place in space is
         the cursor's position mapped onto that desktop's surface.
       - free: the cursor reached the edge of its desktop, or crossed onto another monitor. The cursor is hidden and
         parked in the middle of its monitor (put back there whenever it strays RECENTRE_PX), and its motion moves a
@@ -79,9 +79,10 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     pills, corners (resize), the roll brackets, an open panel and the help card are hit first and keep their own drags. On
     the selected desktop (unified_cursor.py, desktop mode) the press already went to the window, so only holding still
     there lifts it (moving first is the window's own drag or selection); the lift then turns the dot free, as at an edge.
-    A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
-    collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
-    still starts its drag or click, a desktop is still selected, empty space does nothing more).
+    A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners, or a
+    desktop, collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's
+    pill still starts its drag or click, empty space does nothing more). A press on a desktop keeps it: selecting that
+    desktop takes the panel there (view.ViewControl.select_desktop, follow_focus; Cody, 2026-11-03).
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, only when it changes). A desktop change (a pill's Add / Remove / Ultrawide) keeps
     the last layout: the renderer does not report one again unless it changed, so a dropped one could be gone for the
@@ -218,6 +219,9 @@ PANEL_BRIGHTNESS_TOP = PANEL_BACKGROUND_TOP + PANEL_ROW_H  # 284
 # that action for the panel's desktop (view.ViewControl.desktop_action; desktops.py does the work).
 PANEL_PAD = 22.0
 PANEL_ACTIONS_TOP, PANEL_ACTION_H, PANEL_ACTION_W, PANEL_ACTION_GAP = 324.0, 32.0, 138.0, 11.0
+# What a press finds on the open panel's own desktop that belongs to the panel: not a click outside it (OverviewPointer.on_op).
+PANEL_KINDS = ('pill', 'panel', 'slider', 'corner', 'edge', 'action', 'scale', 'scale_box', 'resolution', 'resolution_box',
+               'background', 'background_box', 'background_switch')
 PANEL_ACTIONS = ('ultrawide', 'add', 'remove')
 MAX_DESKTOPS = geometry.MAX_DESKTOPS
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
@@ -1321,13 +1325,13 @@ class OverviewPointer:
                 self.help_clicks += 1
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._frames(False)) or None
-            if open_ is not None and not (h is not None and h[1] == open_ and h[0] in ('pill', 'panel', 'slider', 'corner', 'edge', 'action',
-                                                                                       'scale', 'scale_box', 'resolution',
-                                                                                       'resolution_box', 'background',
-                                                                                       'background_box', 'background_switch')):
+            own = open_ is not None and h is not None and h[1] == open_ and h[0] in PANEL_KINDS
+            if own: self.control.panel_keys_on()  # the panel is in use: its keys are back if a window had them
+            if open_ is not None and not own and not (h is not None and h[0] == 'desktop'):
                 self.outside_closes += 1
                 out += self.control.pill_close()  # a click outside collapses the open panel; the press carries on (what
-                # it hit was not on that panel, so the panel's going changes nothing about it)
+                # it hit was not on that panel, so the panel's going changes nothing about it). A desktop is no outside:
+                # selecting it brings the panel there.
             elif getattr(self.control.state, 'scale_picker', False) and (h is None or h[0] not in ('scale', 'scale_box')):
                 out += self.control.scale_close()  # a press on the panel away from the open Scale list closes it
             elif getattr(self.control.state, 'resolution_picker', False) and (h is None or h[0] not in ('resolution', 'resolution_box')):

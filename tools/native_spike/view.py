@@ -56,7 +56,8 @@ Overview free pointer (free_pointer.py): in the overview the mouse can leave a d
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
 pill (expand / collapse its panel), press or drag an open panel's sliders, roll a desktop with its arrows, or move onto
 any desktop (no click maximizes: only Ctrl+Alt+Up does); inside a desktop the real cursor works on windows as usual (a
-click there goes to the window, and the unified cursor's non-consuming bind also closes an open panel).
+click there goes to the window, and the unified cursor's non-consuming bind also brings an open panel to that desktop
+and takes its keys off the keyboard: ViewControl.desktop_press).
 resize_press and resize_release come from left-button binds: modal (consuming) while the pointer is outside the
 desktops, non-consuming over them (unified_cursor.py); they are not USER_OPS.
 
@@ -988,6 +989,7 @@ class ViewControl:
         self.bumps = 0                # diagnostics: edits that pushed another desktop out of the way
         self._menu_lock = threading.Lock()
         self._menu_binds_installed = False
+        self.menu_keys_off = False    # a press on a desktop gave the keyboard back to the window, the panel staying (desktop_press)
         self._menu_threads = []
         self.overview_pointer = None  # optional free_pointer.OverviewPointer (overview free pointer); set by managed.view_controls
         self.wake = None    # optional socket the supervisor loop also waits on (the free pointer's sampler pokes it)
@@ -1201,6 +1203,24 @@ class ViewControl:
         if not s.menu_open or s.zoomed or s.typing or self.video_active or s.selected == s.menu_desktop: return b''
         self.flush()
         return self._menu_update(lambda: s.open_menu(s.selected) or False)
+
+    def desktop_press(self):
+        """A left press on a desktop's content with a panel open (unified_cursor: the window has the click). The panel stays
+        (Cody, 2026-11-03: clicking another desktop moves it there, so a press on a desktop is no click outside it), on that
+        desktop if it was on another, and its modal keys come off: they are plain keys (R, U, N, Delete, arrows, Tab, Escape),
+        and the typing is the window's now. A press on the panel or its pill brings them back (panel_keys_on), and a collapse
+        forgets it. Renderer frames (bytes), b'' if the panel stayed where it was."""
+        out = self.follow_focus()
+        if self.state.menu_open and not self.menu_keys_off:
+            self.menu_keys_off = True
+            self._sync_menu_binds()
+        return out
+
+    def panel_keys_on(self):
+        """A press on the open panel or its pill: the panel is in use again, so its modal keys are back (desktop_press)."""
+        if not self.menu_keys_off: return
+        self.menu_keys_off = False
+        self._sync_menu_binds()
 
     def pill_click(self, desktop):
         """A click on `desktop`'s pill (or its open panel's header): expand it, collapsing any other (only one is open),
@@ -1586,14 +1606,14 @@ class ViewControl:
         (anchor-no-click-maximize, 2026-11-03: a click never maximizes; Ctrl+Alt+Up and the panel's Maximize do). The
         highlight moves there, as Ctrl+Alt+Left / Right move it. The free pointer then brings the real cursor back onto
         that desktop under the dot, and that warp gives its monitor Hyprland's focus (focus-follows-mouse; no focus thread
-        here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel was already collapsed by
-        the press (free_pointer: Clicks). One view frame, or b'' when stale (zoomed in, typing mode, a VR video, no such
-        desktop) or already selected."""
+        here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel goes to that desktop
+        (follow_focus; free_pointer: Clicks, a press on a desktop does not collapse it). Frames (bytes): a view frame and
+        the panel's if it moved, b'' when stale (zoomed in, typing mode, a VR video, no such desktop) or nothing changed."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
-        if desktop == self.state.selected: return b''
+        if desktop == self.state.selected: return self.follow_focus()  # Tab may have taken the panel elsewhere
         self.state.selected = desktop
-        return self._frame()
+        return self._frame() + self.follow_focus()
 
     def switch_desktop(self, desktop):
         """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
@@ -1627,6 +1647,7 @@ class ViewControl:
         if self.overview_pointer is not None: self.overview_pointer.set_roll_geometry(tilts)
 
     def _sync_menu_binds(self, force=False):
+        if not self.state.menu_open: self.menu_keys_off = False  # the next panel starts with its keys
         if self.menu_binds is None: return
         # Compositor call: never on the watchdog loop. The worker applies the state current when it runs, serialized,
         # so a fast open/close/open cannot leave the binds out of step with the panel.
@@ -1635,7 +1656,7 @@ class ViewControl:
 
     def _menu_bind_work(self, force):
         with self._menu_lock:
-            binds, want = self.menu_binds, self.state.menu_open
+            binds, want = self.menu_binds, self.state.menu_open and not self.menu_keys_off
             if binds is not None and (want != self._menu_binds_installed or (force and want)):
                 try:
                     binds(want)

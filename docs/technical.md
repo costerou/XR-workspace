@@ -134,9 +134,9 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Left click a pill | free pointer on a pill, or on the open panel's top strip | Open that desktop's panel (closing any other), or close it if it is the open one |
 | Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode anywhere round you, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar, the grabbed point staying under the dot; in anchor mode all the way round you. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
 | Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
-| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, select a desktop, or nothing in empty space |
+| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, or nothing in empty space. A click on a desktop is not a click outside: the panel goes to that desktop |
 | Left-drag a desktop edge or corner | free pointer on a resize handle, just outside the desktop ([Handles and content](#handles-and-content)); the dot shows two arrows | Resize that desktop about its centre, keeping its shape: outward is bigger, inward is smaller. An edge follows the dot along its normal (new 2026-11-03), a corner along its diagonal. The open desktop's own edges and corners do not close its panel. A click there does nothing |
-| Left click a desktop | over its content the cursor is the real one: every click is the window's alone, and closes an open pill. Only next to the open help card is the dot still free there | There, select it on the release and hand it the real cursor at that spot (its monitor focused); this click reaches no window. No click maximizes (since 2026-11-03; Ctrl+Alt+Up does) |
+| Left click a desktop | over its content the cursor is the real one: every click is the window's, and an open pill comes to that desktop with its keys off the keyboard. Only next to the open help card is the dot still free there | There, select it on the release and hand it the real cursor at that spot (its monitor focused); this click reaches no window. No click maximizes (since 2026-11-03; Ctrl+Alt+Up does) |
 | Left press-hold (`HOLD_S` 0.35 s) or drag (> `WINDOW_DRAG_PX` 12 canvas px) on a desktop, then release on another desktop | **Off since 2026-11-03** (`OverviewPointer.window_drag`): a press, hold or drag on a desktop is its window's. With it on: holding still over a desktop | Move the window under the press onto the workspace that desktop shows (`send.WindowSender.drop`, Hyprland move with `follow = false`): no zoom, no selection change. A ghost outline follows the dot and the target desktop is framed (`overview_pointer` frame `drag`). Released anywhere else: nothing moves |
 | Super + left-drag | a window, over a desktop | Hyprland's own window move (Omarchy's bind), across desktops too: [Super drags](#super-drags). Handles do nothing while it lasts |
 | Super + right-drag | a window, over a desktop | Hyprland's own window resize. The mouse stays on that desktop until you let go |
@@ -600,7 +600,8 @@ under the dot, then installs the left button's non-consuming binds. The focus ma
 focused window whatever the focus-follows-mouse setting; the warp after it puts the cursor back under the dot (a
 monitor focus alone moves the cursor to that monitor's last window) and, with focus-follows-mouse, focuses the window
 under the dot. The pointer binds no key. An open placement pill's modal keys (arrows, Tab, R, U, N, Delete, Esc) would
-take typing meant for a window, so a left press on a window (desktop mode) closes the pill, like any click outside it.
+take typing meant for a window, so a left press on a window (desktop mode) takes them off the keyboard
+(`ViewControl.desktop_press`). The pill stays open, on that desktop, and a press on the panel or its pill brings its keys back.
 Window drag (hold a window to lift it onto another desktop) is off (`OverviewPointer.window_drag = False`): it took
 long presses and slow drags from apps.
 
@@ -734,8 +735,8 @@ still for the whole overview and let no click or wheel reach a window.
 - **Overview, over a desktop:** the real cursor is the pointer. Hand motion moves it, and the dot is drawn where it
   maps onto that desktop's surface, in anchor, locked and follow mode. It stays hidden, but hover, focus-follows-mouse,
   every button, the wheel and the keyboard reach the window under it. The left button is bound *non-consuming*
-  (`non_consuming = true`), so the window gets the click as usual. The run sees it too: a press closes an open pill
-  (its modal keys would take the typing), and that is all; it never zooms in (until 2026-11-03,
+  (`non_consuming = true`), so the window gets the click as usual. The run sees it too: a press brings an open pill to
+  that desktop and takes its modal keys off the keyboard, and that is all; it never zooms in (until 2026-11-03,
   `anchor-no-click-maximize`, a press and release less than 4 canvas px apart did). While the button is held the dot
   never goes free and the cursor stays on that desktop: if Hyprland lets it onto another monitor, it is pulled back, so
   a drag inside an app keeps going and the window gets its release.
@@ -1246,7 +1247,7 @@ You can also place desktops from inside the glasses, without the settings panel.
 small pill in the theme's colour under it (Material Design 3; see The look below). Click a pill with the free pointer's dot, or press **Ctrl+Alt+L** for the selected
 desktop's pill, and it expands into that desktop's own placement panel. (Ctrl+Alt+P was already taken by pose
 prediction.) Ctrl+Alt+L again, Escape, a click on the panel's top strip (the pill itself) or a click outside the panel
-collapses it. Only one pill is open at a time: opening another collapses the first, and Tab / Shift+Tab move the open
+(on a pill or in empty space; a desktop is not outside, the panel goes there) collapses it. Only one pill is open at a time: opening another collapses the first, and Tab / Shift+Tab move the open
 panel to the next / previous desktop. Pressed while zoomed in, Ctrl+Alt+L first zooms out to the overview so the pill is
 visible; the pill only starts growing once the overview is reached, so the whole expansion is seen. Zooming in
 (Ctrl+Alt+Up) closes an open panel first, saved, with its keys released. Everything here is covered by offline tests

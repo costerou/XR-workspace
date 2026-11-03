@@ -409,6 +409,24 @@ class PillClickTests(Base):
         self.assertEqual(self.press() + self.release(), [])  # the run never gets such a click; if it did, nothing happens
         self.assertTrue(self.state.menu_open)
 
+    def test_a_press_on_the_panel_brings_back_the_keys_a_press_on_a_desktop_gave_up(self):
+        self.open_by_click(0)
+        self.control.desktop_press()
+        self.assertEqual(self.join(), [True, False])
+        self.to(*on_panel(T0, 30, 150))
+        self.press(); self.release()
+        self.assertTrue(self.state.menu_open)
+        self.assertEqual(self.join(), [True, False, True])
+
+    def test_a_click_outside_collapses_and_forgets_them(self):
+        self.open_by_click(0)
+        self.control.desktop_press()
+        self.assertEqual(self.join(), [True, False])
+        self.to(*pill_centre(T1))
+        self.press()  # another pill: a click outside closes it, and that forgets the keys
+        self.assertFalse(self.state.menu_open)
+        self.assertFalse(self.control.menu_keys_off)
+
 
 class PillDragTests(Base):
     def grab(self, i=0):
