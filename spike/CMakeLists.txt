@@ -202,6 +202,12 @@ if(XR_ENABLE_PRESENTATION)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
   add_test(NAME hud COMMAND hud_test)
+  # HudFont's glyph / advance / metrics caches never change what is drawn or measured; UTF-8 decoding matches the reference.
+  add_executable(hud_font_test tests/hud_font_test.cpp)
+  target_link_libraries(hud_font_test PRIVATE xr_hud)
+  target_compile_options(hud_font_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME hud_font COMMAND hud_font_test)
+  set_tests_properties(hud_font PROPERTIES SKIP_RETURN_CODE 77)
   # Help card fit (Ctrl+Alt+H): sized from the output so it never clips, at every scale up to 2.
   add_executable(help_card_test tests/help_card_test.cpp)
   target_link_libraries(help_card_test PRIVATE xr_hud)
