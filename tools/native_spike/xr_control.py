@@ -8,12 +8,14 @@ nothing more. The run checks and opens the file itself (video.py).
 video_paste (Ctrl+Alt+U) reads the clipboard once (wl-paste): an http(s) video or video page link, and sends it as
 video_open. The run checks it, resolves a page link with yt-dlp and relays the stream (web_video.py, docs/web-video.md).
 If the clipboard holds no link, a desktop notification says so and nothing is sent.
+
+Start-up cost is input latency: every bound key, and every overview click (resize_press / resize_release), starts this
+helper. The common path imports nothing beyond the interpreter's own start-up modules and _socket (json, re and socket
+would more than double its start-up); an empty-payload frame is written directly, byte for byte what json.dumps writes.
+json, re, socket and struct are imported only on the paths that need them (a payload, the clipboard, a stale cleanup).
 """
-import json
+import _socket
 import os
-import re
-import socket
-import struct
 import sys
 import time
 
@@ -35,8 +37,29 @@ REMOVE_VIDEO_BINDS = ('for _, b in ipairs(xr_workspace_video_binds or {}) do '
 HELPER_OPS = ('video_paste',)  # handled here: becomes video_open with the clipboard's web video
 MAX_CLIPBOARD = 16384  # web_video.MAX_CLIPBOARD (the control frame limit)
 VIDEO_FILTER = 'Videos | *.mp4 *.MP4 *.mkv *.MKV *.webm *.mov *.MOV *.m4v *.avi *.ts *.m2ts'
-TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')
-INSTANCE = re.compile(r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z')
+# TOKEN and INSTANCE stay module attributes (compiled on first use, __getattr__ below); the key path checks tokens with
+# _is_token, which accepts exactly what TOKEN.match accepts.
+_PATTERNS = {'TOKEN': r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z', 'INSTANCE': r'[0-9a-f]{40}_[0-9]+_[0-9]+\Z'}
+_ALNUM = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')
+_TOKEN_CHARS = _ALNUM | frozenset('_.:-')  # also exactly the characters json.dumps writes unescaped and unchanged
+
+
+def _pattern(name):
+    value = globals().get(name)
+    if value is None:
+        import re
+        value = globals()[name] = re.compile(_PATTERNS[name])
+    return value
+
+
+def __getattr__(name):
+    if name in _PATTERNS: return _pattern(name)
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
+
+def _is_token(value):
+    """TOKEN.match(value) for a string, without re: one leading letter or digit, then up to 127 of [A-Za-z0-9_.:-]."""
+    return 0 < len(value) <= 128 and value[0] in _ALNUM and _TOKEN_CHARS.issuperset(value)
 # Same text as view.remove_menu_binds_lua() (tests compare); duplicated because this helper is stdlib-only under -I.
 # Its tail is the legacy mouse-mode cleanup (view._LEGACY_MOUSE_CLEANUP_LUA): an older run's left-button binds go and the
 # cursor is shown and put back; a no-op when there are none.
@@ -69,14 +92,21 @@ def drop_stale_menu_binds(environ=os.environ, code=REMOVE_MENU_BINDS):
     arrows, Tab, R and Escape work again (and an older build's mouse-mode left button and hidden cursor, LEGACY_OPS).
     Fixed Lua only, on the compositor that ran this bind (its own environment). Every cleanup (`code`, the left
     button's too) also shows a cursor the dead run hid in the overview (SHOW_OVERVIEW_CURSOR)."""
+    return _eval_stale(environ, code + ' ' + SHOW_OVERVIEW_CURSOR)
+
+
+def _eval_stale(environ, code):
+    """One fixed-Lua eval on the compositor that ran this bind (its own environment); True if it answered ok."""
+    import socket
+    import struct
     runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
-    if not runtime.startswith('/') or not INSTANCE.match(instance): return False
+    if not runtime.startswith('/') or not _pattern('INSTANCE').match(instance): return False
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             s.settimeout(0.5); s.connect(f'{runtime}/hypr/{instance}/.socket.sock')
             uid = struct.unpack('3i', s.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
             if uid != os.getuid(): return False
-            s.sendall(('/eval ' + code + ' ' + SHOW_OVERVIEW_CURSOR).encode())
+            s.sendall(('/eval ' + code).encode())
             return s.recv(64).strip() == b'ok'
     except OSError:
         return False
@@ -148,36 +178,49 @@ def clipboard_payload(text):
     t = (text or '').strip()
     if not t: return None, 'The clipboard is empty. Copy a video link first.'
     if len(t) > MAX_CLIPBOARD: return None, 'The clipboard holds too much text to be a video link.'
+    import re
     if re.match(r'https?://\S+\Z', t, re.IGNORECASE): return {'url': t}, None
     return None, 'The clipboard holds no video link. Copy the video page or video link first.'
 
 
 def drop_stale_video_binds(environ=os.environ):
     """A video key with no run listening: the run ended with a video playing. Remove its modal binds (fixed Lua)."""
-    runtime, instance = environ.get('XDG_RUNTIME_DIR', ''), environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
-    if not runtime.startswith('/') or not INSTANCE.match(instance): return False
-    try:
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-            s.settimeout(0.5); s.connect(f'{runtime}/hypr/{instance}/.socket.sock')
-            uid = struct.unpack('3i', s.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
-            if uid != os.getuid(): return False
-            s.sendall(('/eval ' + REMOVE_VIDEO_BINDS).encode())
-            return s.recv(64).strip() == b'ok'
-    except OSError:
-        return False
+    return _eval_stale(environ, REMOVE_VIDEO_BINDS)
+
+
+def _plain(run_id, session, op, payload):
+    """An empty payload and strings that json.dumps writes unchanged: the frame needs no json."""
+    return (type(payload) is dict and not payload and type(run_id) is str and type(session) is str and type(op) is str
+            and _TOKEN_CHARS.issuperset(run_id) and _TOKEN_CHARS.issuperset(session) and _TOKEN_CHARS.issuperset(op))
+
+
+def control_frame(run_id, session, op, payload, request_id):
+    """The control frame: json.dumps(..., separators=(',', ':'), ensure_ascii=False) plus a newline. An empty payload
+    with plain strings (every key press and click) is written directly: the same bytes, without importing json."""
+    if type(request_id) is int and _plain(run_id, session, op, payload):
+        return '{"schema":1,"request_id":%d,"run_id":"%s","session":"%s","op":"%s","payload":{}}\n' % (
+            request_id, run_id, session, op)
+    import json
+    return json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': op,
+                       'payload': payload}, separators=(',', ':'), ensure_ascii=False) + '\n'
 
 
 def send(path, run_id, session, op, payload):
-    frame = json.dumps({'schema': 1, 'request_id': time.time_ns(), 'run_id': run_id, 'session': session, 'op': op,
-                        'payload': payload}, separators=(',', ':'), ensure_ascii=False) + '\n'
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5); s.connect(path); s.sendall(frame.encode())
+    # A frame that needs json imports it before the request id is stamped, so the id is still taken just before the
+    # send (ids must arrive in order: the run drops an older one as a replay).
+    if not _plain(run_id, session, op, payload): import json  # noqa: F401
+    data = control_frame(run_id, session, op, payload, time.time_ns()).encode()
+    s = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+    try:
+        s.settimeout(0.5); s.connect(path); s.sendall(data)
+    finally:
+        s.close()
 
 
 def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
     if len(argv) != 5: return 2
     path, run_id, session, op = argv[1:]
-    if op not in OPS + VIDEO_OPS + HELPER_OPS or not TOKEN.match(run_id) or not TOKEN.match(session) or not path.startswith('/'): return 2
+    if op not in OPS + VIDEO_OPS + HELPER_OPS or not _is_token(run_id) or not _is_token(session) or not path.startswith('/'): return 2
     payload = {}
     if op == 'video_open':
         try: send(path, run_id, session, 'video_exit', {})  # a playing video hides the desktop the picker opens on

@@ -33,10 +33,27 @@ class Store:
     def save(self,model,profile): save_profile(profiles_path(),model,profile)
 
 
+# What `systemctl is-active` prints, per unit. It exits 0 for a unit in ACTIVE_STATES; anything else is not alive.
+ACTIVE_STATES=('active','reloading','refreshing')
+UNIT_STATES=ACTIVE_STATES+('inactive','failed','activating','deactivating','maintenance')
+
+
 class Units:
     def __init__(self,runtime): self.runtime=Path(runtime)
     def alive(self,run_id):
         return subprocess.run(['systemctl','--user','is-active','--quiet','viture-xr-'+token(run_id)],timeout=2).returncode==0
+    def alive_many(self,run_ids):
+        """{run_id: alive(run_id)} with one systemctl call for all of them (it prints each unit's state, one per line),
+        not one per run: the probe asks this every second for every finished run still in the state directory. Any
+        answer that is not exactly one known state per unit falls back to alive() for each."""
+        units=['viture-xr-'+token(r) for r in run_ids]
+        if len(units)<2: return {r:self.alive(r) for r in run_ids}
+        done=subprocess.run(['systemctl','--user','is-active',*units],timeout=2,stdout=subprocess.PIPE,text=True)
+        states=done.stdout.splitlines()
+        if (len(states)!=len(units) or any(s not in UNIT_STATES for s in states)
+                or (done.returncode==0)!=any(s in ACTIVE_STATES for s in states)):
+            return {r:self.alive(r) for r in run_ids}
+        return {r:s in ACTIVE_STATES for r,s in zip(run_ids,states)}
     def stop(self,run_id):
         # SIGINT reaches the runner's KeyboardInterrupt teardown, not its renderer child.
         subprocess.run(['systemctl','--user','kill','--kill-whom=main','--signal=SIGINT','viture-xr-'+token(run_id)],check=True,timeout=2)
@@ -51,15 +68,18 @@ class Units:
                     frame=dict(schema=1,request_id=request_id,run_id=run_id,session=token(session),op=op,payload=payload or {})
                     conn.sendall((json.dumps(frame,separators=(',',':'),allow_nan=False)+'\n').encode())
                     if op == 'status':
+                        # The reply is one line (a few kB, every second while a run is up): read what has arrived, up to
+                        # the newline, instead of one byte per call. Nothing after the line is used.
                         raw=bytearray(); deadline=time.monotonic()+.25
                         while len(raw)<MAX_FRAME:
                             remaining=deadline-time.monotonic()
                             if remaining<=0: return False
                             conn.settimeout(remaining)
-                            chunk=conn.recv(1)
+                            chunk=conn.recv(MAX_FRAME-len(raw))
                             if not chunk: return False
-                            raw.extend(chunk)
-                            if chunk==b'\n':
+                            end=chunk.find(b'\n')
+                            raw.extend(chunk if end<0 else chunk[:end+1])
+                            if end>=0:
                                 reply=strict_json(raw)
                                 if (not isinstance(reply,dict) or reply.get('schema')!=1 or reply.get('request_id')!=request_id
                                         or reply.get('run_id')!=run_id or reply.get('session')!=session): return False
@@ -85,11 +105,15 @@ class Host:
         # A controller restart can fall between launch and the first journal write,
         # or between completed recovery and plugin unload. Both still own a unit.
         known={j['run_id'] for j in result['journals']}
+        runs=[]
         for path in sorted(self.state_dir.glob('*.json')):
             if path.name.endswith(('.result.json', '.progress.json')): continue
             raw=read_private_json(path)
             run_id=raw.get('run_id')
-            if run_id and path.name==run_id+'.json' and run_id not in known and Units(self.runtime).alive(run_id):
+            if run_id and path.name==run_id+'.json' and run_id not in known: runs.append(run_id)
+        alive=Units(self.runtime).alive_many(runs) if runs else {}
+        for run_id in runs:
+            if alive[run_id]:
                 phase=None
                 try:
                     progress=read_private_json(self.state_dir/(run_id+'.progress.json'))

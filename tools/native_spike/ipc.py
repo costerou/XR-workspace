@@ -19,17 +19,17 @@ def token(value):
 
 
 def _pairs(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result: raise ValueError("duplicate key")
-        result[key] = value
+    result = dict(pairs)  # json hands over a list of (key, value): fewer entries in the dict means a repeated key
+    if len(result) != len(pairs): raise ValueError("duplicate key")
     return result
 
 
+def _nonfinite(value): raise ValueError("nonfinite number")
+
+
 def strict_json(raw):
-    def invalid(value): raise ValueError("nonfinite number")
     try:
-        return json.loads(raw, object_pairs_hook=_pairs, parse_constant=invalid)
+        return json.loads(raw, object_pairs_hook=_pairs, parse_constant=_nonfinite)
     except (UnicodeError, RecursionError, OverflowError) as exc:
         raise ValueError("invalid JSON") from exc
 
@@ -137,10 +137,18 @@ class PrivateServer:
         raw = bytearray()
         try:
             while len(raw) < MAX_FRAME:
-                chunk = conn.recv(1)
+                # Look at what has arrived, then take it only up to and including the newline: anything after the frame
+                # stays unread on the connection, as with one-byte reads, at a few system calls a frame instead of two a
+                # byte (every overview click comes through here).
+                chunk = conn.recv(MAX_FRAME - len(raw), socket.MSG_PEEK)
                 if not chunk: raise ValueError("truncated message")
-                raw.extend(chunk)
-                if chunk == b"\n": return self.queue.push(bytes(raw))
+                end = chunk.find(b"\n")
+                want = len(chunk) if end < 0 else end + 1
+                while want:
+                    taken = conn.recv(want)
+                    if not taken: raise ValueError("truncated message")
+                    raw.extend(taken); want -= len(taken)
+                if end >= 0: return self.queue.push(bytes(raw))
         except (TimeoutError, ConnectionError) as exc:
             raise ValueError("incomplete message") from exc
         raise ValueError("oversized message")
@@ -164,6 +172,11 @@ def read_private_json(path, limit=16384):
         st = os.fstat(stream.fileno())
         if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or stat.S_IMODE(st.st_mode) != 0o600 or st.st_nlink != 1:
             raise PermissionError('consent must be owned regular single-link mode 0600')
-        raw = stream.read(limit + 1)
+        # The first limit + 1 bytes, as one read(limit + 1) gives, without a limit-sized buffer per call (the
+        # controller reads every journal with a 1 MiB limit each second): size the read from fstat, and keep reading if
+        # the file has grown since.
+        want = min(limit + 1, st.st_size + 1)
+        raw = stream.read(want)
+        if len(raw) == want and want < limit + 1: raw += stream.read(limit + 1 - want)
     if len(raw) > limit: raise ValueError('consent too large')
     return strict_json(raw)
