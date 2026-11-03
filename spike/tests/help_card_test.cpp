@@ -99,7 +99,7 @@ std::vector<HelpRow> help_rows() {  // exactly view.help_rows(), sections marked
             {"Ctrl+Alt+Right", "Next desktop"},
             {"Ctrl+Alt+[ / ]", "Less / more space between desktops"},
             {"Ctrl+Alt+Space", "Recenter the view"},
-            {"Ctrl+Alt+V", "Cycle viewing mode", true},
+            {"Ctrl+Alt+V / A", "View mode / anchor: animate cursor switch", true},
             {"Ctrl+Alt+P", "Toggle pose prediction"},
             {"Ctrl+Alt+T", "Typing mode: XR keys off / on"},
             {"Ctrl+Alt+D", "Privacy: main display off / on"},

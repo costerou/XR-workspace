@@ -71,9 +71,11 @@ class ProfileTests(unittest.TestCase):
         profiles.save_profile(self.path, 'beast', full)
         store = profiles.ProfileStore(self.path, 'beast')
         self.assertEqual(store.load(), view.DEFAULT_SETTINGS)
-        store.save({'spacing': 60, 'mode': 'follow', 'prediction': False})
-        self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False})
-        with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'cursor_follow': True, 'prediction': False})
+        store.save({'spacing': 60, 'mode': 'follow', 'prediction': False, 'cursor_switch_animate': False})
+        self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False, 'cursor_switch_animate': False})
+        with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'cursor_follow': True, 'prediction': False,
+                                                        'cursor_switch_animate': True})
+        with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'prediction': False})  # all four keys
         after = profiles.load_profile(self.path, 'beast')
         self.assertEqual({k: after[k] for k in ('desktops', 'tracking', 'mode_switch', 'fallback')},
                          {k: full[k] for k in ('desktops', 'tracking', 'mode_switch', 'fallback')})

@@ -77,6 +77,7 @@ def _view_part(data):
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= view.MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in view.MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']  # an old cursor_follow is dropped
+    if type(data.get('cursor_switch_animate')) is bool: out['cursor_switch_animate'] = data['cursor_switch_animate']
     return out
 
 

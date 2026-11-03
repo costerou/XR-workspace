@@ -157,7 +157,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         try: initial = placements.load() if placements is not None else None
         except (OSError, ValueError): initial = None
         control = view.ViewControl(view.ViewState(capture, saved['spacing'], saved['mode'],
-                                                   saved['prediction'], _initial_placements(initial, capture)), run_id, session,
+                                                   saved['prediction'], _initial_placements(initial, capture),
+                                                   saved.get('cursor_switch_animate', True)), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,

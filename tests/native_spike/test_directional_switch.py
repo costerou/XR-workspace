@@ -1,7 +1,7 @@
 """Directional desktop switching (neighbors.py, unified_cursor.EdgePush): zoomed in, pushing the cursor past an edge of
 the selected desktop switches to the desktop placed that way round you in 3D (yaw / pitch / roll as drawn), not just the
-next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in) and every desktop
-left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
+next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in; in anchor mode with
+Ctrl+Alt+A's animation off an instant cut, the view frame's `cut`) and every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
 
 Regression: dot-cursor monitor switching was removed on 2026-11-02 (the cursor never left home); it comes back here,
 chosen by placement. Overview click-to-zoom and the Ctrl+Alt arrows are unchanged (test_unified_cursor.py).
@@ -203,7 +203,7 @@ class ControlTests(UnifiedBase):
     def test_switch_desktop_is_the_key_switch_zoomed_in(self):
         self.op('zoom_in')
         out = frames(self.control.switch_desktop(2))
-        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True})
+        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True})  # animates
         self.assertEqual(self.control.state.placements, flat())  # nothing is moved
         for stale in (2, 5, -1, 'x'): self.assertEqual(self.control.switch_desktop(stale), b'')
         self.op('zoom_out')
@@ -212,6 +212,33 @@ class ControlTests(UnifiedBase):
         self.assertEqual(self.control.switch_desktop(0), b'')
         self.control.state.typing = False; self.control.video_active = True
         self.assertEqual(self.control.switch_desktop(0), b'')
+
+    def test_anchor_with_the_animation_off_a_cursor_switch_cuts(self):
+        # Ctrl+Alt+A (2026-11-03): anchor mode with cursor_switch_animate off, the push past an edge cuts straight to the
+        # target (`cut`: no zoom out / turn / zoom in, no camera move). Ctrl+Alt+Left / Right and every other view frame
+        # keep the renderer's animations (no `cut` key at all).
+        self.assertEqual(self.control.state.mode, 'anchor')
+        self.control.on_message({'op': view.CURSOR_ANIM_OP})
+        self.assertFalse(self.control.state.cursor_switch_animate)
+        self.op('zoom_in')
+        self.assertIs(last(frames(self.control.switch_desktop(1)), 'view')['cut'], True)
+        self.assertEqual(self.control.state.selected, 1)
+        self.assertNotIn('cut', self.control.state.view())  # the state itself never holds it: the next frame animates
+        for op in ('next', 'prev', 'zoom_out', 'zoom_in', 'spacing_up'):
+            self.assertNotIn('cut', last(self.op(op), 'view'), op)
+        self.p.request_switch(self.control.state.selected, 2)
+        self.assertIs(last(frames(self.control.poll()), 'view')['cut'], True)  # the loop's switch is the cut one
+        self.control.on_message({'op': view.CURSOR_ANIM_OP})  # back on: animates again
+        self.assertNotIn('cut', last(frames(self.control.switch_desktop(0)), 'view'))
+
+    def test_follow_and_locked_always_animate_a_cursor_switch(self):
+        self.control.state.cursor_switch_animate = False  # the toggle is anchor-only
+        self.op('zoom_in')
+        for mode, desktop in (('follow', 1), ('locked', 2)):
+            self.control.state.mode = mode
+            out = last(frames(self.control.switch_desktop(desktop)), 'view')
+            self.assertNotIn('cut', out, mode)
+            self.assertEqual(out['selected'], desktop)
 
     def test_the_pointer_reads_the_placed_layout(self):
         self.assertEqual([self.p.neighbour(e) for e in ('left', 'right', 'up')], [None, 1, None])

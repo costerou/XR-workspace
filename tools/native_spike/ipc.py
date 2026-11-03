@@ -56,7 +56,7 @@ def decode_control(raw):
                   "menu_ultrawide", "menu_add", "menu_delete",
                   "resize_press", "resize_release", "send_glasses", "send_glasses_1",
                   "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
-                  "help_next", "privacy_display"): raise ValueError("invalid operation")
+                  "help_next", "privacy_display", "cursor_anim_toggle"): raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")

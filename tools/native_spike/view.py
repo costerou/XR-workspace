@@ -93,7 +93,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
          ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
          ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
-         PRIVACY_BIND)  # Ctrl+Alt+D: main display off / on (privacy.py)
+         PRIVACY_BIND,  # Ctrl+Alt+D: main display off / on (privacy.py)
+         ('CTRL + ALT + A', 'cursor_anim_toggle'))  # anchor mode: cursor switches animate / jump (CURSOR_ANIM_OP)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -101,6 +102,15 @@ HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
 TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
+# Ctrl+Alt+A: whether a cursor switch in anchor mode (the push past an edge, ViewControl.switch_desktop) animates (on, the
+# default: the renderer's zoom out / turn / zoom in) or jumps (off: the frame's `cut`, the renderer shows the new desktop
+# zoomed in at its placement at once and never turns the view, so it stays where you look). Saved with the view settings
+# as `cursor_switch_animate`. Follow and locked modes and Ctrl+Alt+Left / Right always animate. Ctrl+Alt+A is free in
+# Omarchy (its Ctrl+Alt chords are Super+Ctrl+Alt+*, Ctrl+Alt+Delete and Ctrl+Alt+Tab); bind_check.py checks the real config.
+CURSOR_ANIM_OP = 'cursor_anim_toggle'
+CURSOR_ANIM_TOASTS = {True: 'Cursor switch animation on: anchor mode animates to the next desktop. Ctrl+Alt+A turns it off.',
+                      False: 'Cursor switch animation off: anchor mode jumps to the next desktop, the view stays put. '
+                             'Ctrl+Alt+A turns it on.'}
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
 HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
@@ -110,7 +120,8 @@ HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overvi
                 'typing_toggle': 'Typing mode: XR keys off / on',
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
-                'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on'}
+                'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
+                CURSOR_ANIM_OP: 'Anchor: cursor switch animates / jumps'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -124,7 +135,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP,)
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, CURSOR_ANIM_OP)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -161,6 +172,8 @@ HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recent
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action).
 HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+              # Ctrl+Alt+A shares the mode row, so the card keeps its row count (help_card_test: roomiest text)
+              'mode_next': (CURSOR_ANIM_OP, 'View mode / anchor: animate cursor switch'),
               'video_open': ('video_paste', 'VR video: file / copied web link'),  # docs/web-video.md
               'help_prev': ('help_next', 'Help: previous / next page')}
 
@@ -293,12 +306,16 @@ def warp_cursor_lua(x, y):
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', prediction=True, placements=None):
+    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', prediction=True, placements=None,
+                 cursor_switch_animate=True):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
-        if mode not in MODES or type(prediction) is not bool: raise ValueError('invalid view mode')
+        if mode not in MODES or type(prediction) is not bool or type(cursor_switch_animate) is not bool:
+            raise ValueError('invalid view mode')
         self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.mode, self.prediction = mode, prediction
+        # Ctrl+Alt+A (CURSOR_ANIM_OP): anchor-mode cursor switches animate (True) or jump (False). Saved.
+        self.cursor_switch_animate = cursor_switch_animate
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
@@ -442,7 +459,8 @@ class ViewState:
                 'cursor_follow': False, 'prediction': self.prediction, 'typing': self.typing}
 
     def settings(self):
-        return {'spacing': self.spacing, 'mode': self.mode, 'prediction': self.prediction}
+        return {'spacing': self.spacing, 'mode': self.mode, 'prediction': self.prediction,
+                'cursor_switch_animate': self.cursor_switch_animate}
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
@@ -474,7 +492,7 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True}
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True, 'cursor_switch_animate': True}
 
 
 def load_settings(path):
@@ -489,6 +507,7 @@ def load_settings(path):
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
+    if type(data.get('cursor_switch_animate')) is bool: out['cursor_switch_animate'] = data['cursor_switch_animate']
     return out
 
 
@@ -505,7 +524,7 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
-            and type(settings.get('prediction')) is bool)
+            and type(settings.get('prediction')) is bool and type(settings.get('cursor_switch_animate')) is bool)
 
 
 def load_spacing(path):
@@ -686,8 +705,10 @@ class ViewControl:
         self.next_id += 1
         return frame
 
-    def _frame(self):
-        frame = view_frame(self.run_id, self.session, self.next_id, self.state.view())
+    def _frame(self, cut=False):
+        """A view frame; `cut` (a cursor switch, switch_desktop): the renderer shows the new selection at once, with no
+        zoom out / turn / zoom in (spike/include/xr/ipc.hpp ViewPayload)."""
+        frame = view_frame(self.run_id, self.session, self.next_id, {**self.state.view(), 'cut': True} if cut else self.state.view())
         self.next_id += 1
         return frame
 
@@ -862,15 +883,28 @@ class ViewControl:
 
     def switch_desktop(self, desktop):
         """Zoomed in, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
-        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so the renderer zooms
-        out, turns to it and zooms in, every desktop staying where it is placed. The sampler gives its monitor focus and
-        brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
-        One view frame, or b'' when stale (not zoomed in, typing mode, a VR video, no such desktop, already selected)."""
+        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do. Whether it animates is
+        decided here: in anchor mode with Ctrl+Alt+A's cursor_switch_animate off, the frame's `cut` has the renderer show
+        it zoomed in at its placement at once, the view never turned (free look: it stays where you look); otherwise (the
+        default, and always in follow and locked) the renderer zooms out, turns to it and zooms in. Every desktop stays
+        where it is placed. The sampler gives its monitor focus and brings the cursor in over the matching edge (no focus
+        thread here: that would warp the cursor to the middle). One view frame, or b'' when stale (not zoomed in, typing
+        mode, a VR video, no such desktop, already selected)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
         if not self.state.zoomed or self.state.typing or self.video_active: return b''
         self.last_input = self.clock()
         self.state.selected = desktop
-        return self._frame()
+        animate = self.state.mode != 'anchor' or self.state.cursor_switch_animate
+        return self._frame() if animate else self._frame(cut=True)
+
+    def _cursor_anim_toggle(self):
+        """Ctrl+Alt+A: anchor-mode cursor switches animate / jump (CURSOR_ANIM_OP), saved, with a toast. No frame: the
+        renderer's view is unchanged until the next cursor switch."""
+        self.state.cursor_switch_animate = not self.state.cursor_switch_animate
+        try: self.settings.save(self.state.settings())
+        except (OSError, ValueError): pass
+        self._tell(CURSOR_ANIM_TOASTS[self.state.cursor_switch_animate])
+        return None
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""
@@ -986,6 +1020,8 @@ class ViewControl:
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None
+        if isinstance(message, dict) and message.get('op') == CURSOR_ANIM_OP:
+            return self._cursor_anim_toggle()
         if isinstance(message, dict) and message.get('op') == PRIVACY_OP:  # the compositor call runs off the loop
             if self.privacy is not None: self.privacy.request()
             return None

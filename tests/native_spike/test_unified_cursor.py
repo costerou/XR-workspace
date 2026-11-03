@@ -450,7 +450,8 @@ class CursorFollowRemovedTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'layout.json'
             path.write_text('{"spacing": 60, "mode": "follow", "cursor_follow": true, "prediction": false}')
-            self.assertEqual(view.load_settings(path), {'spacing': 60, 'mode': 'follow', 'prediction': False})
+            self.assertEqual(view.load_settings(path), {'spacing': 60, 'mode': 'follow', 'prediction': False,
+                                                        'cursor_switch_animate': True})
 
 
 class WiringTests(unittest.TestCase):
