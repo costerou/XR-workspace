@@ -123,6 +123,17 @@ std::vector<Vec3> canvas_disc(const Canvas& canvas, float x, float y, float radi
 // and where (az, el) is that point's own direction it is canvas_disc exactly. Empty under canvas_disc's conditions.
 std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float az, float el, float radius,
                                  int segments = kFreePointerSegments);
+// Window drag (free_pointer.py): the dragged window's ghost, a w x h canvas px rectangle outline `thickness` px wide (on
+// the inside of w x h), centred on canvas (x, y) and turned to (az, el) exactly as direction_disc turns the dot, so it
+// follows the dot anywhere round you. Triangle strip (outer / inner corner pairs, closed: 10 vertices). Empty if the
+// canvas is empty, w or h <= 0, or thickness <= 0. Its grey stays under the cards' cap like the dot's.
+constexpr float kGhostThicknessPx = 2.f, kGhostLevel = 150.f / 255.f;
+// The desktop a dragged window would land on: an accent frame kDropFramePx wide just inside its edge, on its surface.
+constexpr float kDropFramePx = 4.f;
+// That frame: top, bottom, left and right bands (canvas px on the desktop's tile), kDropFramePx wide just inside its edge
+// (shrunk to fit a tile narrower than two bands).
+std::array<FRect, 4> drop_frame(const FRect& tile);
+std::vector<Vec3> direction_outline(const Canvas& canvas, float x, float y, float az, float el, float w, float h, float thickness);
 // The supervisor's free-pointer hit testing needs the overview's layout: one status line
 // {"overview_geometry":{"w":W,"h":H,"half":[half_w,half_h],"tiles":[[x,y,w,h],...]}} with canvas px to 2 decimals and the
 // half-FOV tangents to 5 (tools/native_spike/free_pointer.py parse_overview_geometry), one tile per desktop (1..kMaxDesktops).

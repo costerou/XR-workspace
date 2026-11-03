@@ -69,6 +69,10 @@ public:
     // canvas (x, y) on the overview's plane, drawn over the desktops and under the cards; visible false: none.
     // `directed`: the dot is drawn in direction (az, el) degrees instead (view.hpp direction_disc), anywhere round you.
     void set_free_pointer(bool visible, float x, float y, float level, bool directed = false, float az = 0, float el = 0);
+    // Window drag (free_pointer.py): a grey w x h canvas px outline (view.hpp direction_outline) round the free pointer,
+    // turned with it, and an accent frame (view.hpp drop_frame) on desktop `target` (< 0: none). w or h <= 0: no ghost.
+    // Drawn only while the free pointer is.
+    void set_window_drag(float w, float h, int target);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
     // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.

@@ -322,6 +322,7 @@ struct Presentation::Impl : SurfaceRequests {
     struct MoveHandle { bool visible = false, hover = false, active = false; std::uint32_t desktop = 0; std::uint64_t shown = 0; } pills;
     struct FreePointer {
         bool visible = false, held = false, directed = false; std::int32_t x = 0, y = 0, az = 0, el = 0; std::uint64_t shown = 0;
+        std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // window drag (0: none)
     } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
     std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
@@ -1066,11 +1067,12 @@ void Presentation::set_move_handle(bool visible, std::uint32_t desktop, bool hov
     impl_->cadence.invalidate();
 }
 void Presentation::set_overview_pointer(bool visible, std::int32_t x, std::int32_t y, bool held, bool directed, std::int32_t az,
-                                        std::int32_t el) {
+                                        std::int32_t el, std::int32_t ghost_w, std::int32_t ghost_h, std::int32_t target) {
     if (!impl_) return;
     auto& p = impl_->free_pointer;
     if (visible && !p.visible) ++p.shown;
     p.visible = visible; p.x = x; p.y = y; p.held = held; p.directed = directed; p.az = az; p.el = el;
+    p.ghost_w = ghost_w; p.ghost_h = ghost_h; p.target = target;
     impl_->cadence.invalidate();
 }
 void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
@@ -1290,6 +1292,7 @@ Status Presentation::draw_test_pattern() {
         s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
                                s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
                                float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f);
+        s.gl->set_window_drag(float(s.free_pointer.ghost_w), float(s.free_pointer.ghost_h), free_pointer ? s.free_pointer.target : -1);
         s.last_head = head;
         const auto& placed = s.resolved_placements(tiles);
         // focus(): the desktop the zoom is on (the one being left while a switch zooms out), drawn on top once zoomed in.

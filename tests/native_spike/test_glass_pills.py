@@ -768,6 +768,7 @@ class ClickOutsideTests(Base):
         self.assertEqual(self.p.hover[:2], ('desktop', 1)); self.assertEqual(self.p.mode, 'free')
         out = self.press()
         self.assert_closed_and_saved(out)
+        out += self.release()  # a click (no hold): zoom in on its release
         self.assertTrue(self.state.zoomed); self.assertEqual(self.state.selected, 1)
         self.assertEqual(last(out, 'view')['selected'], 1)
         self.assertEqual(self.p.focus_clicks, 1)

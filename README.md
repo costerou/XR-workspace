@@ -211,6 +211,12 @@ In the overview your mouse is no longer stuck inside the desktops:
 - **Zoom into a desktop:** click it with the dot. The window under the dot gets the click and the view zooms into that
   desktop, as Ctrl+Alt+Up does. It gets the focus and the normal cursor appears where you clicked. A press that drags
   (moving a window, selecting text) doesn't zoom.
+- **Move a window to another desktop** (new, not yet tried in the glasses): press on the window and hold the button for
+  a moment, then drag. A small outline of the window follows the dot and the desktop under it gets a coloured frame.
+  Let go over that desktop and the window moves there, onto the workspace it shows. The view doesn't zoom in and the
+  selected desktop stays the same. Let go anywhere else (its own desktop, a pill, empty space) and nothing moves. On a
+  desktop other than the selected one you can also just start dragging. On the selected desktop, moving before you've
+  held still drags inside the window as usual. A quick click still zooms in. Pinned windows can't be moved this way.
 - **The mouse stays on its desktop.** It only ever works the selected desktop and never moves onto another monitor, zoomed
   in or in the overview. Moving the dot over another desktop does nothing until you click it: that click (or
   Ctrl+Alt+Left / Right) is how you switch.

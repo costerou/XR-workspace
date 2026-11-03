@@ -243,10 +243,10 @@ std::vector<Vec3> canvas_disc(const Canvas& c, float x, float y, float radius, i
     return out;
 }
 
-std::vector<Vec3> direction_disc(const Canvas& c, float x, float y, float az, float el, float radius, int segments) {
-    const float cx = std::clamp(x, 0.f, std::max(c.view_w, 0.f)), cy = std::clamp(y, 0.f, std::max(c.view_h, 0.f));
-    auto fan = canvas_disc(c, cx, cy, radius, segments);
-    if (fan.empty()) return fan;
+namespace {
+// Points on the canvas plane drawn round canvas (cx, cy) (already clamped into the view), turned about the eye to (az, el)
+// by Az(az) . El(el - e) . Az(-a), (a, e) that point's own direction (direction_disc).
+void turn_to(const Canvas& c, float cx, float cy, float az, float el, std::vector<Vec3>& fan) {
     const double wx = (2.0 * cx / c.view_w - 1) * c.half_w, wy = (1 - 2.0 * cy / c.view_h) * c.half_h;
     const double a = std::atan2(wx, 1.0), e = std::atan2(wy, std::hypot(wx, 1.0));
     const double ca = std::cos(-a), sa = std::sin(-a), ce = std::cos(el - e), se = std::sin(el - e), cz = std::cos(az), sz = std::sin(az);
@@ -256,7 +256,36 @@ std::vector<Vec3> direction_disc(const Canvas& c, float x, float y, float az, fl
         py = qy; pz = qz;
         v = {float(cz * px - sz * pz), float(py), float(sz * px + cz * pz)};            // Az(az)
     }
+}
+}  // namespace
+
+std::vector<Vec3> direction_disc(const Canvas& c, float x, float y, float az, float el, float radius, int segments) {
+    const float cx = std::clamp(x, 0.f, std::max(c.view_w, 0.f)), cy = std::clamp(y, 0.f, std::max(c.view_h, 0.f));
+    auto fan = canvas_disc(c, cx, cy, radius, segments);
+    if (!fan.empty()) turn_to(c, cx, cy, az, el, fan);
     return fan;
+}
+
+std::vector<Vec3> direction_outline(const Canvas& c, float x, float y, float az, float el, float w, float h, float thickness) {
+    if (c.view_w <= 0 || c.view_h <= 0 || !(w > 0) || !(h > 0) || !(thickness > 0)) return {};
+    const float cx = std::clamp(x, 0.f, c.view_w), cy = std::clamp(y, 0.f, c.view_h);
+    auto at = [&](float px, float py) { return Vec3{(2 * px / c.view_w - 1) * c.half_w, (1 - 2 * py / c.view_h) * c.half_h, -1.f}; };
+    const float ow = w / 2, oh = h / 2, iw = std::max(ow - thickness, 0.f), ih = std::max(oh - thickness, 0.f);
+    const float sx[] = {-1, 1, 1, -1}, sy[] = {-1, -1, 1, 1};
+    std::vector<Vec3> strip;
+    for (int k = 0; k <= 4; ++k) {
+        const int i = k % 4;
+        strip.push_back(at(cx + sx[i] * ow, cy + sy[i] * oh));
+        strip.push_back(at(cx + sx[i] * iw, cy + sy[i] * ih));
+    }
+    turn_to(c, cx, cy, az, el, strip);
+    return strip;
+}
+
+std::array<FRect, 4> drop_frame(const FRect& t) {
+    const float bx = std::min(kDropFramePx, std::max(t.width, 0.f) / 2), by = std::min(kDropFramePx, std::max(t.height, 0.f) / 2);
+    return {FRect{t.x, t.y, t.width, by}, FRect{t.x, t.y + t.height - by, t.width, by},
+            FRect{t.x, t.y + by, bx, t.height - 2 * by}, FRect{t.x + t.width - bx, t.y + by, bx, t.height - 2 * by}};
 }
 
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h) {

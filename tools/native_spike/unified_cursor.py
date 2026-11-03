@@ -18,6 +18,10 @@ same day: the cursor never switches desktops or monitors):
     press and release with the dot no more than free_pointer.CLICK_PX apart is a click and zooms into home (the
     Ctrl+Alt+Up path). A drag or a selection does not zoom. While the button is held the dot never turns free and the
     cursor stays on home (pulled back if Hyprland let it onto another monitor), so the window gets its release.
+    Window drag (free_pointer.py): holding the button free_pointer.HOLD_S with the dot no more than CLICK_PX from the
+    press lifts the window under it instead (_lift_home): the dot turns free right there, as at an edge (the grab
+    parks the hidden cursor and takes the release), the ghost follows it, and the release over another desktop moves
+    the window there. Moving first is the window's own drag or selection and never lifts it.
   * Overview, off home (free mode). The cursor reaching home's edge pixel turns the dot free: the cursor is hidden and
     parked just inside home where it left (input_lock.park_point; leash input_lock.LEASH_PX), and its motion moves the
     dot through space. Over pills, corners, panels, the help card and the other desktops it is only the dot: the free
@@ -99,7 +103,7 @@ class UnifiedPointer(fp.OverviewPointer):
     """The overview free pointer with the real cursor on home (module docstring)."""
     def __init__(self, control, clock=time.monotonic):
         super().__init__(control, clock)
-        self.click = None  # over home, left button down: {'start'} (the dot at the press)
+        self.click = None  # over home, left button down: {'start', 'at', 'moved'} (the dot and time at the press)
         self.rehomes = self.pullbacks = self.window_clicks = self.follows = 0  # diagnostics
 
     def _home(self):
@@ -114,7 +118,9 @@ class UnifiedPointer(fp.OverviewPointer):
             self.rehomes += 1
         elif self.mode == 'free' and self.active():
             out += self._follow(now)
-        return out + super().poll(now)
+        out += super().poll(now)
+        if self.click is not None and self.mode == 'desktop' and self.active(): out += self._hold_home(now)
+        return out
 
     def _to_home(self, now):
         """Desktop mode in the middle of home, the cursor warped there (a key switch, or a cursor that came onto
@@ -238,7 +244,7 @@ class UnifiedPointer(fp.OverviewPointer):
         out = b''
         live = self.active() and self.mode == 'desktop' and self.pointer is not None
         if op == 'resize_press':
-            self.click = {'start': self.pointer} if live and not idle else None
+            self.click = {'start': self.pointer, 'at': now, 'moved': False} if live and not idle else None
         else:
             c, self.click = self.click, None
             self.window_clicks += 1
@@ -248,6 +254,36 @@ class UnifiedPointer(fp.OverviewPointer):
                 self.release_at = (int(cursor[0]), int(cursor[1])) if cursor is not None else None  # stays where clicked
                 out += self.control.focus_desktop(self._home())
         return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
+
+
+    def _hold_home(self, now):
+        """Over home with the button down: moving more than CLICK_PX first is the window's own drag (never lifts); held
+        HOLD_S still, the window under the cursor lifts (_lift_home)."""
+        c = self.click
+        if c['moved'] or self.pointer is None or c['start'] is None: return b''
+        if math.hypot(self.pointer[0] - c['start'][0], self.pointer[1] - c['start'][1]) > fp.CLICK_PX:
+            c['moved'] = True
+            return b''
+        if now - c['at'] < fp.HOLD_S: return b''
+        return self._lift_home(c, now)
+
+    def _lift_home(self, c, now):
+        """The held press on home becomes a window drag, and the dot turns free where it is (the grab hides and parks the
+        cursor and takes the left button's release, which ends the drag in OverviewPointer.on_op)."""
+        home = self._home()
+        o, tile, p = self._output(home), self._tile(home), self._placement(home)
+        with self._lock: cursor = self._abs
+        if o is None or tile is None or p is None or cursor is None: return b''
+        q = fp.unproject(self.geometry, tile, p, self.pointer) or (tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
+        self.click = None
+        self.drag = self._window_press(home, q, self.pointer, (int(cursor[0]), int(cursor[1])), c['at'])
+        self._lift(self.drag)
+        self.drag['target'] = fp.desktop_at(self.geometry, self._rolled(), self.pointer)
+        self.gain = self._gain(home)
+        self.mode, self.desktop, self.hover, self.last_move = 'free', home, None, now
+        self.exits += 1
+        self._set_want('free', self._park(o, (cursor[0] - o['x'], cursor[1] - o['y'])))
+        return self._frames(False)
 
 
 class UnifiedSampler(il.LockedSampler):
