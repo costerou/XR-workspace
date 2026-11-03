@@ -14,6 +14,7 @@ import time
 import unittest
 
 from tools.native_spike import bump, free_pointer as fp, orbit, view
+from test_free_pointer import PointerBase, X1  # the free pointer driven like the sampler would (same directory)
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, validate_placements
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -449,6 +450,118 @@ class RunTests(unittest.TestCase):
         self.assertLess(view.GLIDE_MS, view.MAX_GLIDE_MS)
         # The renderer's bound (spike/include/xr/ipc.hpp) is the same.
         self.assertIn(f'kMaxPlacementGlideMs = {view.MAX_GLIDE_MS};', (ROOT / 'spike/include/xr/ipc.hpp').read_text())
+
+
+# --- handles off the content only -----------------------------------------------------------------------------------------
+class ContentIsNeverAGrabZoneTests(unittest.TestCase):
+    """Clicks, drags and scrolling on a desktop's content go to its apps (anchor-no-click-maximize), so the grab zones (a
+    corner square, a pill and its padding) never take a point on any desktop's content, and the moves, resizes and
+    bumps they start only ever start off it (free_pointer.hit: content before grab zones)."""
+    def layouts(self):
+        yield 'the row', G, FLAT
+        yield 'bumped tight (a margin apart)', G, bump.push(G, 0, FLAT, {'x': 300})[0]
+        yield 'grown, neighbours pushed', G, bump.push(G, 1, FLAT, {'distance': 30})[0]
+        yield 'four desktops', G4, [dict(DEFAULT_PLACEMENT) for _ in range(4)]
+        yield 'curved and far', G, [{**DEFAULT_PLACEMENT, 'curvature': 90, 'distance': 160}, dict(DEFAULT_PLACEMENT),
+                                    {**DEFAULT_PLACEMENT, 'curvature': 120}]
+        yield 'lifted just over the next', G, bump.push(G, 0, at(0, x=132, y=150), {'y': 40})[0]
+        yield 'overlapping (an older panel)', G, at(1, x=60)
+
+    @staticmethod
+    def samples(tile):
+        """Tile pixels on the content: the middle, along every edge and right in every corner (0.5, 2 and 8 px in)."""
+        tx, ty, tw, th = tile
+        for inset in (0.5, 2.0, 8.0):
+            xs, ys = (tx + inset, tx + tw / 2, tx + tw - inset), (ty + inset, ty + th / 2, ty + th - inset)
+            for px in xs:
+                for py in ys: yield px, py
+
+    def test_every_point_on_any_desktops_content_is_content(self):
+        for name, g, ps in self.layouts():
+            for i, tile in enumerate(g['tiles']):
+                for px, py in self.samples(tile):
+                    h = fp.hit(g, ps, fp.project(g, tile, ps[i], px, py))
+                    self.assertIsNotNone(h, (name, i, px, py))
+                    self.assertEqual(h[0], 'desktop', (name, i, px, py, h))
+
+    def test_off_the_content_the_corners_and_pills_still_grab(self):
+        for name, g, ps in self.layouts():
+            if name.startswith('overlapping'): continue  # (there one desktop's corner lies on the other's content)
+            for i, tile in enumerate(g['tiles']):
+                tx, ty, tw, th = tile
+                z = fp.corner_zone(tile) * 0.6
+                for corner, (cx, cy) in (('tl', (tx - z, ty - z)), ('tr', (tx + tw + z, ty - z)), ('bl', (tx - z, ty + th + z)),
+                                         ('br', (tx + tw + z, ty + th + z))):
+                    got = fp.hit(g, ps, fp.project(g, tile, ps[i], cx, cy))
+                    if name == 'the row': self.assertEqual(got, ('corner', i, corner))
+                    else: self.assertEqual(got[0], 'corner', (name, i, corner, got))  # tight: a neighbour's corner may be nearer
+                x, y, w, h = fp.pill_rect(tile)
+                self.assertEqual(fp.hit(g, ps, fp.project_glass(g, tile, ps[i], x + w / 2, y + h / 2)), ('pill', i), (name, i))
+
+    def test_the_open_panel_and_the_roll_icons_are_drawn_over_everything_and_keep_their_points(self):
+        # What is drawn on top is what the dot is on: the open panel and the roll icons are glass drawn after every
+        # desktop.
+        x, y, w, h = fp.panel_rect(T0)
+        self.assertEqual(fp.hit(G, FLAT, fp.project_glass(G, T0, FLAT[0], x + 280, y + 60), open_=0)[:2], ('slider', 0))
+        rx, ry, rw, rh = fp.roll_icon_rect(T1, 'ccw')
+        self.assertEqual(fp.hit(G, FLAT, fp.project(G, T1, FLAT[1], rx + rw / 2, ry + rh / 2), icons=['both'] * 3), ('roll', 1, 'ccw'))
+
+
+
+class PressOnContentTests(PointerBase):
+    """The free pointer itself: a press and drag on content, even right in a desktop's corner, moves, resizes and bumps
+    nothing; the same drag just off the corner resizes, bumping the neighbour."""
+    def dot_onto(self, tile_px):
+        self.free_at_top(lx=1900)  # free just above XR-1's top edge, near its top-right corner
+        aim = fp.project(G, T0, self.control.state.placements[0], *tile_px)
+        self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
+        self.assertEqual(self.p.mode, 'free')
+
+    def test_a_drag_from_the_content_in_a_corner_never_resizes_or_bumps(self):
+        self.dot_onto((T0[0] + T0[2] - 2, T0[1] + 2))  # in XR-1's top-right corner square, on the desktop
+        self.assertEqual(self.p.hover[:2], ('desktop', 0))
+        self.op('resize_press')
+        self.assertNotIn((self.p.drag or {}).get('kind'), ('corner', 'pill'))
+        self.move_canvas(40, -40); self.move_canvas(40, -40)
+        self.op('resize_release')
+        self.assertEqual(self.control.state.placements, FLAT)  # nothing resized, moved or pushed
+        self.assertFalse(self.p.shown['visible'] and self.p.shown.get('active'))
+
+    def test_the_same_drag_just_off_the_corner_resizes_and_bumps(self):
+        self.dot_onto((T0[0] + T0[2] + 5, T0[1] - 5))  # the same corner, off the desktop
+        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
+        self.op('resize_press')
+        self.assertEqual(self.p.drag['kind'], 'corner')
+        for _ in range(4): self.move_canvas(40, -40)  # outward: bigger
+        self.op('resize_release')
+        s = self.control.state.placements
+        self.assertLess(s[0]['distance'], 100)
+        self.assertGreater(s[1]['x'], 0)  # XR-2 bumped out of the way
+        self.assertGreater(self.p.bumps, 0)
+        CollisionTests.assert_clear(self, G, s)
+
+
+class UnifiedPressOnContentTests(PressOnContentTests):
+    """The run's own pointer (unified_cursor.UnifiedPointer): the dot stays a dot over every desktop but the selected one,
+    right across their content, so that is where a corner square's inner half used to start a resize. Deep in another
+    desktop's corner, a press and drag is that desktop's, never a resize or a bump."""
+    def setUp(self):
+        super().setUp()
+        from tools.native_spike import unified_cursor as uc
+        self.p = self.control.overview_pointer = uc.UnifiedPointer(self.control, clock=self.clock)
+        self.addCleanup(self.p.close)
+        self.control.set_overview_geometry(G)
+
+    def test_deep_in_another_desktops_corner_a_drag_never_resizes_or_bumps(self):
+        self.at(X1 + 960, 300); self.at(X1 + 960, 0)  # free off XR-1 (home)'s top edge
+        aim = fp.project(G, T1, FLAT[1], T1[0] + 10, T1[1] + 10)  # in XR-2's top-left corner square, on XR-2
+        self.move_canvas(aim[0] - self.p.pointer[0], aim[1] - self.p.pointer[1])
+        self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', 1)))
+        self.op('resize_press')
+        self.assertNotIn((self.p.drag or {}).get('kind'), ('corner', 'pill'))
+        self.move_canvas(-40, -40)
+        self.op('resize_release')
+        self.assertEqual(self.control.state.placements, FLAT)
 
 
 if __name__ == '__main__':

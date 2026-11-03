@@ -288,7 +288,8 @@ and the run's keys, slider press and drag, settings panel and glide), `test_free
 | B10 | Lift XR-2 high (Down/up near +80°), lift XR-1 under it and push XR-1 up into XR-2 | XR-2 never goes past straight overhead. XR-1 stops where it still fits; nothing overlaps. Drag on sideways: XR-1 slides along. |
 | B11 | Flick a pill fast across the whole row | Every desktop in the way is pushed ahead; none ends up on the far side of the one you move, none overlaps. |
 | B12 | Stop the session and start again | Three flat desktops in the row: nothing of the moves or pushes is kept. |
-| B13 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
+| B13 | In the overview, press inside a desktop's corner, on its content, and drag | It goes to the app there (a window drag, a selection); the desktop does not resize and nothing is bumped. Just outside the same corner the bracket shows and a drag resizes. |
+| B14 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
