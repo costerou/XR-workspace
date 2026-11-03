@@ -307,12 +307,13 @@ class ManagedAdoptionTests(unittest.TestCase):
             managed.run_managed(self.Transport(self.path), consent, Path(self.tmp.name), desktops=desktops)
         return seen
 
-    def test_capture_run_starts_with_a_desktop_per_workspace_up_to_the_maximum(self):
+    def test_capture_run_keeps_its_three_desktops_whatever_the_workspace_count(self):
+        # Six occupied workspaces: still the run's own three (profiles.startup_desktops); the rest go to XR-3 (below).
         from tools.native_spike.supervisor import CAPTURE_SCOPE
-        two = [{'width': 1920, 'height': 1080, 'scale': 1.0}, {'width': 2560, 'height': 1440, 'scale': 1.25}]
-        seen = self.specs_for(self.consent(capture=CAPTURE_SCOPE), two)
-        self.assertEqual([s['name'] for s in seen['specs']], ['XR-1', 'XR-2', 'XR-3', 'XR-4'])
-        self.assertEqual([(s['width'], s['scale']) for s in seen['specs']][2:], [(2560, 1.25)] * 2)
+        three = [{'width': 1920, 'height': 1080, 'scale': 1.0}] * 2 + [{'width': 2560, 'height': 1440, 'scale': 1.25}]
+        seen = self.specs_for(self.consent(capture=CAPTURE_SCOPE), three)
+        self.assertEqual([s['name'] for s in seen['specs']], ['XR-1', 'XR-2', 'XR-3'])
+        self.assertEqual([(s['width'], s['scale']) for s in seen['specs']], [(1920, 1.0)] * 2 + [(2560, 1.25)])
         self.assertTrue(seen['adopt'])
 
     def test_test_pattern_run_is_unchanged(self):

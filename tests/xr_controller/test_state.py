@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from tools.native_spike.profiles import DEFAULT_PROFILE
+from tools.native_spike.geometry import DEFAULT_DESKTOP
 from tools.native_spike.panel_consent import load_panel_consent, build_consent
 from tools.xr_controller.state import Controller
 from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME
@@ -46,6 +47,15 @@ class StateTests(unittest.TestCase):
         self.assertEqual(len(self.c.snapshot()['pending']['scope']['desktops']),3)
         self.c.request(dict(op='cancel'))
         self.assertIsNone(self.c.snapshot()['pending'])
+
+    def test_start_scope_is_always_three_desktops(self):
+        # A saved count (a pill's Add) and saved placements are not restored at start (profiles.startup_desktops).
+        wide={'width':2560,'height':1080,'scale':1.0}
+        self.c.store.profile.update(desktops=[wide]*4,placements=[dict(x=10,y=0,distance=150,curvature=30)]*4)
+        self.assertEqual(self.begin()['scope']['desktops'],[wide]*3)
+        self.c.request(dict(op='cancel'))
+        self.c.store.profile.update(desktops=[wide],placements=[dict(x=0,y=0,distance=100,curvature=0)])
+        self.assertEqual(self.begin()['scope']['desktops'],[wide,DEFAULT_DESKTOP,DEFAULT_DESKTOP])
 
     def test_runner_failure_stays_visible_until_next_start(self):
         import json
