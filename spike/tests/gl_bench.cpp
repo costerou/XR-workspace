@@ -439,6 +439,9 @@ int bench(std::uint32_t w, std::uint32_t h, int frames) {
         time("font.draw x10", 2000, [&](int) {
             for (int k = 0; k < 10; ++k) font->draw("Curvature  +12\xc2\xb0", 24, k & 1, 0, 24, [&](int, int, float c) { sink = sink + c; });
         });
+        time("font.draw76 x4", 2000, [&](int) {  // the pop-up's big line (scale 4 = 76 px, bold)
+            for (int k = 0; k < 4; ++k) font->draw("Anchor Locked", 76, true, 0, 80, [&](int, int, float c) { sink = sink + c; });
+        });
     }
     time("card.panel (slider drag)", 300, [&](int i) { auto im = render_glass_panel(panel_state(drag_yaw(i)), font); sink = sink + im.rgba[0]; });
     time("card.popup", 300, [&](int) { auto im = render_hud_card(view_mode_lines(std::uint8_t(0)), kAccent, font); sink = sink + im.rgba[0]; });

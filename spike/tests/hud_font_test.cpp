@@ -71,7 +71,8 @@ int main() {
     const std::vector<Query> queries{
         {"XR-2", 24, true}, {"Placement", 24, false}, {"Curvature  +12\xc2\xb0", 18, false},
         {"\xe2\x86\x91\xe2\x86\x93 field  \xe2\x86\x90\xe2\x86\x92 adjust", 18, false}, {"\xef\x80\x81 nerd \xe4\xb8\xad", 30, true},
-        {"bad \xff\xfe trunc \xe2\x86", 24, false}, {"over \xc0\xaf \xf7\xbf\xbf\xbf \xed\xa0\x80", 12, true}, {"", 24, false}, {"Mm", 160, false}};
+        {"bad \xff\xfe trunc \xe2\x86", 24, false}, {"over \xc0\xaf \xf7\xbf\xbf\xbf \xed\xa0\x80", 12, true}, {"", 24, false}, {"Mm", 160, false},
+        {"XR-2", 24, false}, {"Placement", 24, true}, {"Mm", 160, true}};  // the same glyphs and sizes in the other face
     // Cold: a fresh font per query (nothing cached when it is drawn).
     std::vector<Result> cold;
     for (const auto& q : queries) {
