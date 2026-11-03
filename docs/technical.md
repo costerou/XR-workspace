@@ -360,8 +360,10 @@ still for the whole overview and let no click or wheel reach a window.
   and the lowest angle / cos(off-axis) wins: the nearest, an off-axis one counting as further. A desktop within 1° of
   directly behind has no bearing. With no overview layout reported yet, right and left are the next and previous in the
   row and up and down nothing. Once the push reaches 48 px (`PUSH_PX`, each part within 0.25 s of the last, on one
-  edge), the loop selects that desktop (`ViewControl.switch_desktop`, the Ctrl+Alt+Left / Right path, so the renderer
-  zooms out, turns and zooms in and no desktop moves) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
+  edge), the loop selects that desktop (`ViewControl.switch_desktop`, the Ctrl+Alt+Left / Right path but with no animation:
+  its view frame carries `"cut": true`, so the renderer shows the new desktop zoomed in at its placement at once, and no
+  desktop moves; the keys' zoom out, turn and zoom in, whose turn eases back while zooming in, looked like going to the
+  other desktop and coming back) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
   opposite edge of the new home, as far along it as it left, and focuses that monitor (`confine_lua`). Then no push
   counts for 0.8 s. Over an edge Hyprland lets the cursor cross (onto the next XR monitor or the physical one) the
   overshoot counts and the cursor goes back as above; a jump over 400 px is a warp and never counts. At an edge
@@ -375,7 +377,7 @@ still for the whole overview and let no click or wheel reach a window.
   removes the whole table (`xr_control.py` `REMOVE_RESIZE_BINDS`).
 
 Not covered: how the push past an edge feels in the glasses (the 48 px threshold, the 12 px nudge at a clamped edge
-next to a top bar, the 0.8 s rest against the renderer's switch animation); `tests/native_spike/test_directional_switch.py`
+next to a top bar, the 0.8 s rest after a switch); `tests/native_spike/test_directional_switch.py`
 checks the neighbour picking, the push and the sampler offline only. The zoomed-in confinement is reactive, so for up to one 4 ms sample the cursor (and focus-follows-mouse)
 can be on the neighbouring monitor before it is put back; touchpad scrolling while free, which Hyprland cannot bind; a
 desktop config with `binds.pass_mouse_when_bound`; and a starved sampler thread. To check in the glasses: zoomed in,
