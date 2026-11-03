@@ -92,6 +92,7 @@ struct Scenario {
     bool pills = false; int hover = -1;
     float expand = 0; bool panel = false, panel_drag = false;
     bool help = false, popup = false, handle = false, pointer = false;
+    int drag_target = -1; bool ghost = false;  // overview window drag: the ghost round the dot, the target desktop framed
     bool upload_each_frame = false;
 };
 
@@ -114,6 +115,8 @@ std::vector<Scenario> scenarios() {
     { Scenario s{"panel_curved_drag"}; s.pills = true; s.expand = 1; s.panel = true; s.panel_drag = true; s.pointer = true;
       s.placements = {tilted_left, curved, tilted_right}; out.push_back(s); }
     { Scenario s{"help_card"}; s.pills = true; s.help = true; s.pointer = true; out.push_back(s); }
+    { Scenario s{"window_drag"}; s.pills = true; s.pointer = true; s.ghost = true; s.drag_target = 2; s.placements = {tilted_left, curved, tilted_right};
+      out.push_back(s); }
     { Scenario s{"video_card"}; s.kind = Kind::video; s.popup = true; out.push_back(s); }
     return out;
 }
@@ -166,7 +169,8 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     if (s.expand > 0) glass.top = 1;
     if (s.panel) { glass.content = 1; glass.image = &panel_image(r, s, frame, glass.generation); glass.content_alpha = 1.f; }
     gl.set_glass(glass);
-    gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, kFreePointerLevel);
+    gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, s.ghost ? kFreePointerHeldLevel : kFreePointerLevel);
+    gl.set_window_drag(s.ghost ? 72.f : 0.f, s.ghost ? 45.f : 0.f, s.drag_target);
     const double t = now_us();
     CHECK(gl.draw_and_swap(tiles, placements, int(s.position), 1.f - s.zoom, head(frame, s.head_motion), half_w, half_h));
     return now_us() - t;
@@ -254,6 +258,28 @@ int check(std::uint32_t w, std::uint32_t h) {
                              ref[i][std::size_t(f)][first / 3 * 3 + 1], ref[i][std::size_t(f)][first / 3 * 3 + 2], (last / 3) % w, (last / 3) / w);
             }
             ++failures;
+        }
+    }
+    {  // The window drag draws: the ghost's grey outline round the dot, and the target desktop's accent frame.
+        const auto drag = std::size_t(std::find_if(list.begin(), list.end(), [](const Scenario& s) { return s.ghost; }) - list.begin());
+        const auto plain = std::size_t(std::find_if(list.begin(), list.end(), [](const Scenario& s) { return !std::strcmp(s.name, "overview_curved_pills"); }) - list.begin());
+        CHECK(drag < list.size() && plain < list.size());
+        if (drag < list.size() && plain < list.size()) {
+            const auto& a = ref[drag][0]; const auto& b = ref[plain][0];
+            const std::uint32_t gx = std::uint32_t(float(w) * 0.55f), gy = h - 1 - std::uint32_t(float(h) * 0.42f);  // GL rows: bottom-up
+            std::size_t ring = 0, elsewhere = 0;
+            for (std::uint32_t y = 0; y < h; ++y)
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    const std::size_t k = (std::size_t(y) * w + x) * 3;
+                    if (a[k] == b[k] && a[k + 1] == b[k + 1] && a[k + 2] == b[k + 2]) continue;
+                    const long dx = long(x) - long(gx), dy = long(y) - long(gy);
+                    if (std::labs(dx) <= 10 && std::labs(dy) <= 10) continue;         // the held dot's own level
+                    else if (std::labs(dx) <= 38 && std::labs(dy) <= 25) ++ring;       // the 72 x 45 ghost outline
+                    else ++elsewhere;                                                  // the target's frame
+                }
+            CHECK(ring > 100);
+            CHECK(elsewhere > 200);
+            if (ring <= 100 || elsewhere <= 200) std::fprintf(stderr, "window drag: ghost %zu px, frame %zu px\n", ring, elsewhere);
         }
     }
     // Resize: drawing at a new size then back matches fresh compositors at each size.

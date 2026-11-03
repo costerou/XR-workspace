@@ -139,7 +139,7 @@ class EdgeTests(UnifiedBase):
         self.free()
         q = (T1[0] + T1[2] * 0.25, T1[1] + T1[3] * 0.75)
         self.aim(1, q)
-        out = self.op('resize_press')
+        out = self.op('resize_press') + self.op('resize_release')
         self.assertTrue(last(out, 'view')['zoomed']); self.assertEqual(last(out, 'view')['selected'], 1)
         self.control.join_focus(2)
         self.assertEqual(self.focused, ['XR-2'])

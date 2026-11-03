@@ -111,11 +111,11 @@ class LockTests(LockBase):
         self.control.state.selected = 0
         out = self.op('resize_press')  # the left button is the run's while captured
         self.assertEqual(self.p.mode, 'free')
+        self.assertEqual(self.p.want[1:], ('free', (X2 + 960, 540)))  # no hand-back to the window under the dot
+        out += self.op('resize_release')  # a click: zoom in on the release
         self.assertEqual(self.control.state.selected, 1)
         self.assertEqual(last(out, 'view')['selected'], 1)
-        self.assertEqual(self.p.want[1:], ('free', (X2 + 960, 540)))  # no hand-back to the window under the dot
         self.assertEqual(self.p.focus_clicks, 1)
-        self.assertEqual(self.op('resize_release'), [])
 
     def test_the_other_buttons_do_nothing_but_end_a_drag(self):
         self.at(X1 + 960, 540)

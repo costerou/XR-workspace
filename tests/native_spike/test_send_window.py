@@ -202,7 +202,10 @@ class AllowlistTests(unittest.TestCase):
         client._request = lambda req, timeout=h.DEADLINE: sent.append(req) or b'ok'
         self.assertEqual(client.mutate(send.move_command('0xabc', 41)), 'ok')
         self.assertEqual(sent, [b'/dispatch hl.dsp.window.move({ workspace = "41", follow = true, window = "address:0xabc" })'.decode()])
-        for bad in ('dispatch hl.dsp.window.move({ workspace = "41", follow = false, window = "address:0xabc" })',
+        # The overview's window drag moves without following (send.DROP); anything else is still refused.
+        self.assertEqual(client.mutate(send.move_command('0xabc', 41, follow=False)), 'ok')
+        self.assertEqual(sent[-1], '/dispatch hl.dsp.window.move({ workspace = "41", follow = false, window = "address:0xabc" })')
+        for bad in ('dispatch hl.dsp.window.move({ workspace = "41", follow = maybe, window = "address:0xabc" })',
                     'dispatch hl.dsp.window.move({ workspace = "0", follow = true, window = "address:0xabc" })',
                     'dispatch hl.dsp.window.move({ workspace = "-98", follow = true, window = "address:0xabc" })',
                     'dispatch hl.dsp.window.move({ workspace = "4294967296", follow = true, window = "address:0xabc" })',

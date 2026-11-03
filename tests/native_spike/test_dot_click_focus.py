@@ -225,7 +225,7 @@ class ClickZoomSamplerTests(unittest.TestCase):
         q = (T1[0] + T1[2] * 0.25, T1[1] + T1[3] * 0.75)
         self.p.pointer = q  # the dot onto XR-2 (hand motion; driving it there sample by sample adds nothing here)
         out = frames(self.control.on_message({'op': 'resize_press', 'payload': {}}))
-        self.control.on_message({'op': 'resize_release', 'payload': {}})
+        out += frames(self.control.on_message({'op': 'resize_release', 'payload': {}}))  # a click zooms on its release
         self.assertTrue(last(out, 'view')['zoomed'])
         self.assertTrue(self.wait(lambda: client.count('release') == 1))
         self.control.join_focus(2)

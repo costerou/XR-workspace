@@ -31,21 +31,24 @@ class ClickFocusTests(PointerBase):
         self.free_on(X2)
         self.assertEqual(self.p.hover[:2], ('desktop', 1))
         self.control.state.selected = 0  # e.g. Ctrl+Alt+Left since the dot came up here
-        out = self.focused_after('resize_press')
+        self.focused_after('resize_press')  # the press alone: maybe a window drag (on hold), nothing focused yet
+        self.assertEqual(self.focused, [])
+        self.assertFalse(self.control.state.zoomed)
+        out = self.focused_after('resize_release')
         self.assertEqual(self.focused, ['XR-2'])
         self.assertEqual(self.control.state.selected, 1)
         self.assertEqual([(f['payload']['selected'], f['payload']['zoomed']) for f in out if f['op'] == 'view'], [(1, True)])
         self.assertTrue(self.control.state.zoomed)  # zoomed into it, as Ctrl+Alt+Up does
         self.assertEqual(self.p.release_at, (X2 + 960, fp.INSET_PX))  # where the cursor shows: at the click
         self.assertEqual(self.p.focus_clicks, 1)
-        self.assertEqual(self.focused_after('resize_release'), [])
-        self.assertEqual(self.focused, ['XR-2'])  # the release asks nothing more
+        self.assertEqual(self.focused_after('resize_press', 'resize_release'), [])  # zoomed in: no overview click now
+        self.assertEqual(self.focused, ['XR-2'])
 
     def test_the_selected_desktop_still_gets_hyprland_focus(self):
         # The selection is the run's; Hyprland's focus can be elsewhere (the hidden cursor was parked on another monitor).
         self.free_on(X2)
         self.assertEqual(self.control.state.selected, 1)  # moving into XR-2 selected it already
-        out = self.focused_after('resize_press')
+        out = self.focused_after('resize_press', 'resize_release')
         self.assertEqual(self.focused, ['XR-2'])
         self.assertEqual(last(out, 'view')['selected'], 1)  # the same desktop, zoomed into
         self.assertTrue(last(out, 'view')['zoomed'])
@@ -57,7 +60,7 @@ class ClickFocusTests(PointerBase):
         self.assertEqual((self.p.mode, self.p.desktop), ('free', 0))
         self.move_canvas(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 1, T1[1] + T1[3] / 2)[0] - self.p.pointer[0], 0)
         self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', 1)))
-        self.focused_after('resize_press')
+        self.focused_after('resize_press', 'resize_release')
         self.assertEqual(self.focused, ['XR-2'])
         self.assertEqual(self.control.state.selected, 1)
         self.assertTrue(self.control.state.zoomed)
@@ -78,7 +81,8 @@ class ClickFocusTests(PointerBase):
         self.assertTrue(self.control.state.menu_open)
         self.free_on(X2)
         self.focused_after('resize_press')
-        self.assertFalse(self.control.state.menu_open)
+        self.assertFalse(self.control.state.menu_open)  # the press collapses it
+        self.focused_after('resize_release')
         self.assertEqual(self.focused, ['XR-2'])
 
     def test_a_click_in_empty_space_focuses_nothing(self):
@@ -123,7 +127,7 @@ class ClickFocusTests(PointerBase):
         self.addCleanup(gate.set)
         self.free_on(X2)
         self.control.state.selected = 0
-        out = self.op('resize_press')  # returns while the compositor call is still waiting
+        out = self.op('resize_press') + self.op('resize_release')  # returns while the compositor call is still waiting
         self.assertEqual(last(out, 'view')['selected'], 1)
         self.assertEqual(calls, [])
         gate.set()
@@ -135,7 +139,7 @@ class ClickFocusTests(PointerBase):
         self.control.focus = refuse
         self.free_on(X2)
         self.control.state.selected = 0
-        out = self.focused_after('resize_press')
+        out = self.focused_after('resize_press', 'resize_release')
         self.assertEqual(last(out, 'view')['selected'], 1)
         self.assertTrue(self.control.state.zoomed)  # the view still zooms in
 

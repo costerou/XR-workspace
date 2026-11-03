@@ -44,7 +44,8 @@ bool placement(const Json& value, WirePlacement& out) {
 }
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     const bool directed = p.is_object() && (p.contains("az") || p.contains("el"));
-    if (!p.is_object() || p.size() != (directed ? 6u : 4u)) return false;
+    const bool drag = p.is_object() && p.contains("drag");
+    if (!p.is_object() || p.size() != (directed ? 6u : 4u) + (drag ? 1u : 0u)) return false;
     for (const char* key : {"visible", "held"})
         if (!p.contains(key) || !p[key].is_boolean()) return false;
     std::int32_t xy[2];
@@ -70,7 +71,22 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
             dir[i] = std::int32_t(v);
         }
     }
-    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1]};
+    std::int32_t ghost[3] = {0, 0, -1};  // w, h, target
+    if (drag) {
+        const auto& d = p["drag"];
+        if (!d.is_object() || d.size() != 3u) return false;
+        const char* keys[] = {"w", "h", "target"};
+        const std::int64_t lo[] = {1, 1, -1}, hi[] = {kMaxGhostPx, kMaxGhostPx, std::int64_t(kMaxDesktops) - 1};
+        for (int i = 0; i < 3; ++i) {
+            if (!d.contains(keys[i]) || !d[keys[i]].is_number_integer()) return false;
+            const auto& n = d[keys[i]];
+            if (n.is_number_unsigned() && n.get<std::uint64_t>() > std::uint64_t(hi[i])) return false;
+            const auto v = n.get<std::int64_t>();
+            if (v < lo[i] || v > hi[i]) return false;
+            ghost[i] = std::int32_t(v);
+        }
+    }
+    out = {p["visible"].get<bool>(), xy[0], xy[1], p["held"].get<bool>(), directed, dir[0], dir[1], drag, ghost[0], ghost[1], ghost[2]};
     return true;
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {

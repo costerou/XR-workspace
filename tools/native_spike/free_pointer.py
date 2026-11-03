@@ -41,9 +41,22 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
       - elsewhere in the open panel: nothing (it stays open).
       - corner: resize (the `distance` placement), as before. A release that resized nothing, pressed on the corner
         zone's inner half (on the desktop), is a click on the desktop (below).
-      - desktop: zoom into it, leaving the overview, as Ctrl+Alt+Up does (view.ViewControl.focus_desktop: selected, its
-        monitor focused in Hyprland, zoomed in). The cursor then shows there, under the dot (_click_desktop / release_at;
-        input_lock.LockedSampler), so focus-follows-mouse agrees.
+      - desktop: a click zooms into it, leaving the overview, as Ctrl+Alt+Up does (view.ViewControl.focus_desktop:
+        selected, its monitor focused in Hyprland, zoomed in). The cursor then shows there, under the dot (_click_desktop /
+        release_at; input_lock.LockedSampler), so focus-follows-mouse agrees. The zoom comes on the release, and only for
+        a click: see Window drag.
+  * Window drag (overview-window-drag, 2026-11-03): pressing on a desktop and holding the button HOLD_S, or moving the dot
+    more than WINDOW_DRAG_PX first, lifts the window under the press instead of zooming; a release before either is the
+    click above. Lifted, the window's ghost (a small outline, its shape scaled down: ghost_size) follows the dot, and the
+    desktop under the dot, if it is another one, is framed in the accent (the `overview_pointer` frame's `drag`). A
+    release over another desktop moves the window onto the workspace that desktop shows (send.WindowSender.drop: one
+    Hyprland move, follow off, so focus, cursor and the selected desktop stay as they were; the dot never selects a
+    desktop on its own); a release anywhere else (its own desktop, a pill, empty space) puts nothing anywhere. Which
+    window: the one shown at the press (send.window_at, looked up off the loop once it lifts); none there (an empty
+    desktop), pinned windows and the help card's own clicks drag nothing. Only a press on a desktop's surface starts it:
+    pills, corners (resize), the roll icons, an open panel and the help card are hit first and keep their own drags. On
+    the selected desktop (unified_cursor.py, desktop mode) the press already went to the window, so only holding still
+    there lifts it (moving first is the window's own drag or selection); the lift then turns the dot free, as at an edge.
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
     collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
     still starts its drag or click, a desktop is still focused, empty space does nothing more).
@@ -138,6 +151,12 @@ PANEL_ACTIONS = ('ultrawide', 'add', 'remove')
 MAX_DESKTOPS = geometry.MAX_DESKTOPS
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
 CLICK_PX = 4.0            # a pill press moving less than this (canvas px) before release is a click: the desktop stays put
+HOLD_S = 0.35             # a press on a desktop held this long (without WINDOW_DRAG_PX of motion) lifts its window
+WINDOW_DRAG_PX = 12.0     # ... or moved this far (canvas px) from the press first; a release before either is a click
+# The dragged window's ghost: its apparent size times GHOST_SCALE, the longer side kept within GHOST_MIN_PX..GHOST_MAX_PX
+# (canvas px; ipc.hpp kMaxGhostPx bounds the wire); GHOST_DEFAULT until the window's size is known.
+GHOST_SCALE, GHOST_MIN_PX, GHOST_MAX_PX, GHOST_DEFAULT = 0.3, 24, 160, (72, 45)
+MAX_GHOST_PX = 512
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
 # Past the edge of the view a corner drag speeds up by this much (resize_reach): the pointer stops half a view past each
 # edge (OverviewPointer._clamp), so a corner following it 1:1 could not take a desktop to the distance bound's ten times.
@@ -479,11 +498,44 @@ def resize_reach(g, point):
     return (axis(point[0], g['w']), axis(point[1], g['h']))
 
 
+def desktop_at(g, placements, pointer):
+    """The desktop whose surface is under canvas point `pointer` (front to back, the rectangle only: not its pill or the
+    outer half of its corners), or None. Where a dragged window would land."""
+    if g is None or pointer is None: return None
+    for i in front_order(g, placements):
+        tile = g['tiles'][i]
+        q = unproject(g, tile, placements[i], pointer)
+        if q is not None and tile[0] <= q[0] < tile[0] + tile[2] and tile[1] <= q[1] < tile[1] + tile[3]: return i
+    return None
+
+
+def ghost_size(window, output, tile, placement):
+    """(w, h) canvas px of a dragged window's ghost: `window` (send.window_at: its 'w' / 'h' in layout px) as it appears
+    on its desktop (`output` its monitor, `tile` its overview slot, `placement` its distance), times GHOST_SCALE, the
+    longer side kept within GHOST_MIN_PX..GHOST_MAX_PX. GHOST_DEFAULT if any of it is unknown."""
+    try:
+        k = tile[2] / output['width'] * 100 / placement['distance'] * GHOST_SCALE
+        w, h = float(window['w']) * k, float(window['h']) * k
+    except (TypeError, KeyError, ZeroDivisionError, IndexError):
+        return GHOST_DEFAULT
+    if not (math.isfinite(w) and math.isfinite(h)) or w <= 0 or h <= 0: return GHOST_DEFAULT
+    longer = max(w, h)
+    f = min(max(longer, GHOST_MIN_PX), GHOST_MAX_PX) / longer
+    return (min(max(int(round(w * f)), 1), MAX_GHOST_PX), min(max(int(round(h * f)), 1), MAX_GHOST_PX))
+
+
 def overview_pointer_frame(run_id, session, request_id, pointer):
     """Renderer `overview_pointer` frame: {visible, x, y, held} and, while the dot is shown, {az, el}: x/y canvas
     px, az / el the dot's direction in hundredths of a degree (orbit.pointer_direction; the renderer draws the dot
-    there). spike/src/ipc.cpp checks the same."""
+    there). While a window is dragged also {drag: {w, h, target}}: the ghost's size (canvas px, 1..MAX_GHOST_PX) and the
+    desktop it would land on (-1: none). spike/src/ipc.cpp checks the same."""
     keys = {'visible', 'x', 'y', 'held'}
+    drag = pointer.get('drag') if isinstance(pointer, dict) else None
+    if isinstance(pointer, dict) and 'drag' in pointer and (not isinstance(drag, dict) or set(drag) != {'w', 'h', 'target'}
+                             or any(type(drag[k]) is not int or not 1 <= drag[k] <= MAX_GHOST_PX for k in 'wh')
+                             or type(drag['target']) is not int or not -1 <= drag['target'] < MAX_DESKTOPS):
+        raise ValueError('invalid overview pointer')
+    if isinstance(pointer, dict) and 'drag' in pointer: keys = keys | {'drag'}
     if (not isinstance(pointer, dict) or set(pointer) not in (keys, keys | {'az', 'el'}) or type(pointer['visible']) is not bool
             or type(pointer['held']) is not bool
             or any(type(pointer[k]) is not int or not -MAX_POINTER_PX <= pointer[k] <= MAX_POINTER_PX for k in 'xy')
@@ -542,6 +594,9 @@ class OverviewPointer:
         #         surface both the drag and the renderer's panel use until the release)
         # Roll:   {'kind': 'roll', 'index', 'side', 'start', 'from', 'level', 'centre', 'moved'}  (from: its roll at the press,
         #         level: the roll that levels it; centre: the desktop's centre on the canvas, what the dot turns it round)
+        # Window: {'kind': 'window', 'index', 'on', 'start', 'at', 'point', 'lifted', 'window', 'target', 'token'}  (on:
+        #         tile px pressed, for the click's zoom; at: press time; point: layout px pressed on the desktop's monitor;
+        #         window: None looking up, False none there, else send.window_at's dict; target: desktop under the dot)
         self.drag = None
         self.tilts = []            # parse_roll_geometry, from the renderer: each desktop's tilt from level, or None
         self.rolls = [0] * MAX_DESKTOPS  # each desktop's levelling roll, 1/100 degree (this run only)
@@ -559,6 +614,9 @@ class OverviewPointer:
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
         self.actions = 0  # diagnostics: desktop-row button presses
+        self.window_lifts = self.window_drops = self.window_cancels = 0  # diagnostics: window drags
+        self._found = None  # (token, window) from the sender's lookup thread, taken on the loop (_take_found)
+        self._token = 0
         reader, writer = socket.socketpair()
         reader.setblocking(False); writer.setblocking(False)
         self.wake_reader, self._wake_writer = reader, writer
@@ -782,8 +840,10 @@ class OverviewPointer:
                 self._set_want('away')
                 fresh = True  # the cursor where it already is counts: a still mouse never sends another sample
                 if self.rehome: self.summoned, self.rehome = True, False
+            self._take_found()
             if self.mode == 'free':
                 if motion[0] or motion[1]: out += self._move(motion[0] * self.gain, motion[1] * self.gain, now)
+                out += self._hold(now)
             elif fresh and cursor is not None and applied >= self._sync:
                 out += self._absolute(cursor, now)
             else:
@@ -792,6 +852,7 @@ class OverviewPointer:
         if idle:
             out += self._end_drag()
             self.hover = None
+        self._take_found()  # a lookup answered meanwhile (at once, for a cached one) shows in this frame
         return out + self._frames(idle)
 
     def _absolute(self, cursor, now):
@@ -888,6 +949,10 @@ class OverviewPointer:
                     out += self.control.pill_click(d['index'])
                 else:  # a key changed the open panel while the button was down: that key wins, the release is dropped
                     self.stale_clicks += 1
+            elif d is not None and d['kind'] == 'window':
+                self.drag = None
+                if d['lifted']: out += self._drop_window(d)
+                else: out += self._click_desktop(d['index'], d['on'])  # a click, as before: zoom into it
             elif d is not None and d['kind'] == 'roll' and not d['moved']:  # a click: level it at once
                 self.roll_clicks += 1
                 self.rolls[d['index']] = d['level']
@@ -938,10 +1003,72 @@ class OverviewPointer:
             elif h is not None and h[0] == 'action':  # the desktop row: Ultrawide / Add / Remove for the panel's desktop
                 self.actions += 1
                 out += self.control.desktop_action(h[1], h[2])
-            elif h is not None and h[0] == 'desktop':  # zoom into it (selected, focused, zoomed in: Ctrl+Alt+Up's path)
-                out += self._click_desktop(h[1], h[2])
+            elif h is not None and h[0] == 'desktop':  # a click zooms into it on release; a hold or drag lifts its window
+                self.drag = self._window_press(h[1], h[2], self.pointer, self._to_layout(h[1], h[2]), now)
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._frames(False)) or None
+
+    # --- window drag ------------------------------------------------------------------------------------------------
+    def _window_press(self, i, q, start, point, now):
+        """A press on desktop i at tile pixel q (dot at canvas `start`, layout pixel `point` on its monitor): a window drag
+        not lifted yet. Released as it is, it is a click."""
+        return {'kind': 'window', 'index': i, 'on': q, 'start': start, 'at': now, 'point': point, 'lifted': False,
+                'window': None, 'target': None, 'token': None}
+
+    def _hold(self, now):
+        """Free mode, every tick: a press held HOLD_S lifts its window even if the dot never moved."""
+        d = self.drag
+        if d is None or d['kind'] != 'window' or d['lifted'] or now - d['at'] < HOLD_S: return b''
+        self._lift(d)
+        d['target'] = desktop_at(self.geometry, self._rolled(), self.pointer)
+        return b''
+
+    def _lift(self, d):
+        """The press becomes a window drag: ask (off the loop) which window is shown where it was pressed."""
+        d['lifted'] = True
+        self.window_lifts += 1
+        sender = getattr(self.control, 'sender', None)
+        names = self.control.state.names
+        if sender is None or d['point'] is None or d['index'] >= len(names):
+            d['window'] = False  # nothing can be moved: the drag shows nothing and its release does nothing
+            return
+        self._token += 1
+        d['token'] = token = self._token
+        def found(window):  # the sender's worker thread
+            with self._lock: self._found = (token, window)
+            self._poke()
+        sender.lookup(names[d['index']], d['point'], found)
+
+    def _take_found(self):
+        """The lookup's answer, for the drag that asked (a later drag ignores an earlier one's)."""
+        with self._lock: found, self._found = self._found, None
+        d = self.drag
+        if found is None or d is None or d['kind'] != 'window' or d['token'] != found[0]: return
+        window = found[1]
+        d['window'] = window if isinstance(window, dict) and not window.get('pinned') else False
+
+    def _drop_window(self, d):
+        """Release of a lifted window: onto the desktop under the dot if that is another one, else nowhere."""
+        self._take_found()
+        target = desktop_at(self.geometry, self._rolled(), self.pointer) if self.pointer is not None else None
+        names = self.control.state.names
+        sender = getattr(self.control, 'sender', None)
+        if target is None or target == d['index'] or d['window'] is False or sender is None \
+                or d['index'] >= len(names) or target >= len(names):
+            self.window_cancels += 1
+            return b''
+        self.window_drops += 1
+        sender.drop(d['window'], names[d['index']], d['point'], names[target])
+        return b''
+
+    def _drag_display(self):
+        """The `overview_pointer` frame's `drag` while a lifted window is dragged, else None."""
+        d = self.drag
+        if d is None or d['kind'] != 'window' or not d['lifted'] or d['window'] is False: return None
+        i = d['index']
+        w, h = ghost_size(d['window'], self._output(i), self._tile(i), self._placement(i)) if d['window'] else GHOST_DEFAULT
+        t = d['target']
+        return {'w': w, 'h': h, 'target': t if t is not None and t != i and t < MAX_DESKTOPS else -1}
 
     def _frames(self, idle):
         return self._handle() + self._pills(idle) + self._pointer_frame(idle) + self._roll_frame(idle)
@@ -961,6 +1088,12 @@ class OverviewPointer:
             if q is None: return b''
             return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
         dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
+        if d['kind'] == 'window':
+            if not d['lifted']:
+                if math.hypot(dx, dy) <= WINDOW_DRAG_PX: return b''  # still a click (or a hold: _hold)
+                self._lift(d)
+            d['target'] = desktop_at(self.geometry, self._rolled(), self.pointer)
+            return b''  # the ghost and the target go out with the dot (_pointer_frame)
         if d['kind'] == 'roll':  # the desktop turns with the dot round its centre, toward level only, never past it
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
@@ -1060,8 +1193,11 @@ class OverviewPointer:
             want = {'visible': True, 'x': x, 'y': y, 'held': self.drag is not None,
                     'az': min(max(round(math.degrees(az) * 100), -MAX_POINTER_AZ), MAX_POINTER_AZ),
                     'el': min(max(round(math.degrees(el) * 100), -MAX_POINTER_EL), MAX_POINTER_EL)}
+            drag = self._drag_display()
+            if drag is not None: want['drag'] = drag
         else:
-            want = {**self.sent, 'visible': False, 'held': False}
+            want = {k: v for k, v in self.sent.items() if k != 'drag'}
+            want.update(visible=False, held=False)
         if want == self.sent: return b''
         self.sent = want
         return self._send(overview_pointer_frame, want)

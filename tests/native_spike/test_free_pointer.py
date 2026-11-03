@@ -493,6 +493,8 @@ class ClickTests(PointerBase):
         self.at(X2 + 960, 540); self.at(X2 + 960, 0)  # XR-2 top edge: free, still on XR-2's top row
         self.control.state.selected = 0
         out = self.op('resize_press')
+        self.assertFalse(self.control.state.zoomed)  # a click zooms on its release (a hold would lift the window)
+        out += self.op('resize_release')
         self.assertTrue(self.control.state.zoomed)
         self.assertEqual(self.control.state.selected, 1)
         self.assertEqual(last(out, 'view')['selected'], 1); self.assertTrue(last(out, 'view')['zoomed'])

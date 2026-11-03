@@ -23,8 +23,14 @@ recovery incomplete) when a pinned window is on it. So:
 With no run, the binds do not exist. If a run died and its binds survived, xr_control.py finds no socket and shows a
 short desktop notification instead; nothing moves.
 
+The overview's window drag (free_pointer.py: Window drag) uses the same worker: lookup() finds the window shown at the
+pressed point (window_at, from Hyprland's clients and monitors) and drop() moves that window by address onto the target
+desktop's active regular workspace with follow off (DROP), so neither focus nor the selected desktop changes. The same
+safety rules hold: never a pinned window, never a special workspace, nothing once close() ran.
+
 Refusals and failures show a short desktop notification (notify-send, best-effort) and never affect the run.
 """
+import math
 import os
 from pathlib import Path
 import re
@@ -43,13 +49,53 @@ APP = 'VITURE Workspace'
 # The one dispatch a send makes (hyprland.HyprlandClient.mutate allowlists exactly this shape). It is the call Omarchy's
 # own move-window-to-workspace bind makes (default/hypr/monitor-workspaces.lua), with follow on.
 MOVE = 'dispatch hl.dsp.window.move({{ workspace = "{workspace}", follow = true, window = "address:{address}" }})'
-MOVE_PATTERN = r'dispatch hl\.dsp\.window\.move\(\{ workspace = "([1-9][0-9]{0,9})", follow = true, window = "address:0x[0-9a-f]{1,16}" \}\)'
+MOVE_PATTERN = r'dispatch hl\.dsp\.window\.move\(\{ workspace = "([1-9][0-9]{0,9})", follow = (true|false), window = "address:0x[0-9a-f]{1,16}" \}\)'
+# The overview's window drag (free_pointer.py) moves the window without following it: the focus, the cursor and the
+# selected desktop stay where they are (the dot never switches desktops on its own).
+DROP = 'dispatch hl.dsp.window.move({{ workspace = "{workspace}", follow = false, window = "address:{address}" }})'
 
 
-def move_command(address, workspace):
+def move_command(address, workspace, follow=True):
     if not isinstance(address, str) or not ADDRESS.match(address): raise ValueError('invalid window address')
     if type(workspace) is not int or not 0 < workspace <= 2147483647: raise ValueError('invalid workspace')
-    return MOVE.format(workspace=workspace, address=address)
+    return (MOVE if follow else DROP).format(workspace=workspace, address=address)
+
+
+def _monitor(monitors, name):
+    """(monitor dict, its active regular workspace id or None) for output `name`, or (None, None)."""
+    if not isinstance(monitors, list): raise ValueError('invalid monitors')
+    found = [m for m in monitors if isinstance(m, dict) and m.get('name') == name]
+    if len(found) != 1: return None, None
+    active = found[0].get('activeWorkspace')
+    workspace = active.get('id') if isinstance(active, dict) else None
+    return found[0], (workspace if type(workspace) is int and workspace > 0 else None)
+
+
+def window_at(clients, monitors, name, x, y):
+    """The window shown at layout point (x, y) on output `name` (Hyprland `clients` / `monitors` JSON), as
+    {'address', 'w', 'h', 'pinned'}, or None. What is shown there: a fullscreen window on that output's active workspace
+    covers it; otherwise floating windows (and pinned ones, on every workspace of their monitor) are above tiled ones, the
+    most recently focused first (Hyprland raises a focused floating window)."""
+    monitor, workspace = _monitor(monitors, name)
+    if monitor is None or workspace is None or not isinstance(clients, list): return None
+    def number(v): return type(v) in (int, float) and math.isfinite(v)
+    found = []
+    for c in clients:
+        if not isinstance(c, dict) or not isinstance(c.get('address'), str) or not ADDRESS.match(c['address']): continue
+        if c.get('mapped') is False or c.get('hidden') is True: continue
+        ws = c.get('workspace')
+        on = (isinstance(ws, dict) and ws.get('id') == workspace) or (c.get('pinned') is True and c.get('monitor') == monitor.get('id'))
+        at, size = c.get('at'), c.get('size')
+        if not on or not isinstance(at, list) or not isinstance(size, list) or len(at) != 2 or len(size) != 2 \
+                or not all(number(v) for v in at + size) or size[0] <= 0 or size[1] <= 0:
+            continue
+        if not (at[0] <= x < at[0] + size[0] and at[1] <= y < at[1] + size[1]): continue
+        rank = 0 if c.get('fullscreen') not in (None, False, 0) else 1 if c.get('floating') is True or c.get('pinned') is True else 2
+        history = c.get('focusHistoryID')
+        found.append((rank, history if type(history) is int and history >= 0 else 1 << 30, c))
+    if not found: return None
+    c = min(found, key=lambda f: f[:2])[2]
+    return {'address': c['address'], 'w': c['size'][0], 'h': c['size'][1], 'pinned': c.get('pinned') is True}
 
 
 def notify(message, run=subprocess.run, environ=os.environ):
@@ -127,6 +173,55 @@ class WindowSender:
         if reply != 'ok': return 'Hyprland did not move the window.'
         self.moves += 1
         return None
+
+    # --- the overview's window drag (free_pointer.py) ----------------------------------------------------------------
+    def lookup(self, name, point, done):
+        """From the supervisor loop: find the window shown at layout `point` on output `name` off the loop, then call
+        done(window_at's dict or None) from the worker. Never blocks on the compositor; nothing if closed."""
+        if self.closed: return
+        def work():
+            try:
+                found = window_at(self.client.query('clients', timeout=self.deadline),
+                                  self.client.query('monitors', timeout=self.deadline), name, *point)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                found = None
+            done(found)
+        self._start(work)
+
+    def drop(self, window, source, point, target):
+        """From the supervisor loop: move the dragged window (window_at's dict, or None: whatever window_at finds at layout
+        `point` on output `source` now) onto the workspace output `target` shows, not following it. Off the loop,
+        serialized with the send keys; a refusal or failure is a desktop notification."""
+        if self.closed: return
+        def work():
+            with self._lock:
+                if self.closed: return
+                try: message = self.drop_now(window, source, point, target)
+                except (OSError, ValueError, TypeError, KeyError, AttributeError): message = 'Could not move the window.'
+            if message and self.notify is not None: self.notify(message)
+        self._start(work)
+
+    def drop_now(self, window, source, point, target):
+        """Do it now (caller holds the lock). Returns a message for the user, or None if it moved."""
+        if target not in self.names: return f'{target} is not part of this session.'
+        monitors = self.client.query('monitors', timeout=self.deadline)
+        if window is None:
+            window = window_at(self.client.query('clients', timeout=self.deadline), monitors, source, *point)
+            if window is None: return None  # nothing under the press: nothing to move
+        if window.get('pinned'): return 'Pinned windows stay where they are: unpin it first.'
+        address = window.get('address')
+        if not isinstance(address, str) or not ADDRESS.match(address): return 'Could not identify the window.'
+        found, workspace = _monitor(monitors, target)
+        if found is None: return f'{target} is not available.'
+        if workspace is None: return f'{target} is not showing a regular workspace.'
+        reply = self.client.mutate(move_command(address, workspace, follow=False))
+        if reply != 'ok': return 'Hyprland did not move the window.'
+        self.moves += 1
+        return None
+
+    def _start(self, work):
+        t = threading.Thread(target=work, daemon=True); t.start()
+        self._threads = [x for x in self._threads if x.is_alive()] + [t]
 
     def close(self, timeout=None):
         """Run end, before the binds go and recovery starts: no move starts after this; waits (bounded) for one in flight."""
