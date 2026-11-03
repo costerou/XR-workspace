@@ -470,10 +470,13 @@ float popup_alpha(double t) {
 }
 
 std::vector<HudLine> view_mode_lines(std::uint8_t mode) {
+    // Maximize-follow (2026-11-03): the overview is always anchor; a maximized screen follows you, or is locked by choice
+    // (Ctrl+Alt+V there). Only the start (anchor) and Ctrl+Alt+V show this card: a maximize changes the mode quietly.
     const char* name = mode == 1 ? "Locked" : mode == 2 ? "Follow" : "Anchor";
-    const char* hint = mode == 1 ? "Screens move with your head" : mode == 2 ? "Screens ease back in front of you"
-                                                                             : "Screens stay fixed in the room";
-    return {{"View mode", 2, kDim}, {name, 4, kWhite, true}, {hint, 2, kDim}, {"Ctrl+Alt+V to change", 1, kDim}};
+    const char* hint = mode == 1 ? "Maximized screen moves with your head" : mode == 2 ? "Maximized screen eases in front of you"
+                                                                                      : "Screens stay fixed in the room";
+    const char* how = mode == 1 ? "Ctrl+Alt+V for follow" : mode == 2 ? "Ctrl+Alt+V for locked" : "A maximized screen follows you";
+    return {{"View mode", 2, kDim}, {name, 4, kWhite, true}, {hint, 2, kDim}, {how, 1, kDim}};
 }
 
 std::vector<HudLine> cursor_follow_lines(bool on) {

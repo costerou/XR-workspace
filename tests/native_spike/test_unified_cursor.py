@@ -158,10 +158,11 @@ class EdgeTests(UnifiedBase):
         self.assertLessEqual(abs(x - (X1 + 0.3 * 1920)), 3); self.assertLessEqual(abs(y - 0.6 * 1080), 3)
 
     def test_every_viewing_mode_hands_home_back_at_the_matching_point(self):
+        # The overview is always anchor now (maximize-follow); every mode is still checked, the mode forced.
         for mode in view.MODES:
-            with self.subTest(mode=mode):
+            with self.subTest(mode=mode), \
+                    mock.patch.object(view.ViewState, 'mode', new_callable=mock.PropertyMock, return_value=mode):
                 self.setUp()
-                self.control.state.mode = mode
                 self.free()
                 self.aim(0, (T0[0] + T0[2] * 0.5, T0[1] + T0[3] * 0.25))
                 self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 0))

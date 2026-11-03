@@ -79,7 +79,9 @@ public:
     std::string capture_report() const;  // bounded JSON; never contains pixel data
     // Animate the glasses view (overview / zoom into `selected`, gap `spacing`); capture mode only.
     // Shows a short pop-up for the viewing mode (first call, and on change), cursor follow, prediction and typing mode
-    // (on change). `center`: a cursor switch; in anchor mode it lands with the target centred in view. `cut`: a cursor
+    // (on change). A mode change that comes with a maximize (zoomed in) or un-maximize gets no pop-up: it holds the room
+    // while the desktop zooms in and restores it on the way back (ModeController::Change, maximize-follow).
+    // `center`: a cursor switch; in anchor mode it lands with the target centred in view. `cut`: a cursor
     // switch with its animation off (anchor mode): shown at once, the view not turned (ViewAnimator).
     void set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode = 0, bool cursor_follow = false,
                   bool prediction = false, bool typing = false, bool center = false, bool cut = false);

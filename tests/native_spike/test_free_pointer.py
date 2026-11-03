@@ -630,12 +630,12 @@ class ClickTests(PointerBase):
         self.assertIn('az', self.p.sent)
         self.assertLess(self.off_dot(1, (T1[0] + T1[2] / 4, T1[1] + T1[3] / 4)), 0.02)
 
-    def test_a_mode_change_mid_drag_does_not_make_the_desktop_jump(self):
+    def test_a_mode_key_mid_drag_does_not_make_the_desktop_jump(self):
         self.on_pill(2); self.op('resize_press')
         self.move_canvas(G['w'] * 0.5, 0)
         before = self.control.state.placements[2]['x']
-        self.op('mode_next')  # Ctrl+Alt+V: anchor -> follow
-        self.assertNotEqual(self.control.state.mode, 'anchor')
+        self.op('mode_next')  # Ctrl+Alt+V: the overview is always anchor (maximize-follow), so nothing changes
+        self.assertEqual(self.control.state.mode, 'anchor')
         self.move_canvas(1, 0)
         self.assertLess(abs(self.control.state.placements[2]['x'] - before), 30)  # the reach it began with carries on
         self.op('resize_release')
@@ -653,7 +653,10 @@ class ClickTests(PointerBase):
         self.assertEqual(self.p.pointer, (G['w'] * (1 + ru) / 2, G['h'] * (1 + rv) / 2))
 
     def test_in_follow_and_locked_modes_the_desktop_only_follows_the_dot(self):
-        self.control.state.mode = 'locked'
+        # The overview is always anchor now (maximize-follow); the pointer's own rule for a turning view is kept and
+        # checked with the mode forced.
+        mode = mock.patch.object(view.ViewState, 'mode', new_callable=mock.PropertyMock, return_value='locked')
+        mode.start(); self.addCleanup(mode.stop)
         self.on_pill(2); self.op('resize_press')
         self.move_canvas(G['w'] * 3, 0)
         self.assertLess(self.control.state.placements[2]['x'], 450)  # the dot's own direction, not round behind you

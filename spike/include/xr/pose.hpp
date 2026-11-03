@@ -85,8 +85,8 @@ std::array<float, 3> canvas_up(Quat reference, Quat anchor);
 Quat aim_rotation(float az, float el);
 
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
-//   anchor: fixed in space (3DoF world-locked) where the canvas was when anchor mode was entered;
-//           a recentre moves it straight ahead
+//   anchor: fixed in space (3DoF world-locked) where the canvas was when anchor mode was entered (un-maximizing: back
+//           where the room was left, set_mode's restore); a recentre moves it straight ahead
 //   locked: 0DoF, rigidly attached to the display (head-locked, includes roll)
 //   follow: always following, no dead zone: a critically damped rotational spring pulls the
 //           canvas toward the full head orientation (roll included). From rest it accelerates,
@@ -95,14 +95,27 @@ Quat aim_rotation(float az, float el);
 // put the canvas at head * aim (follow: the spring's head * aim), so the focused desktop sits straight ahead wherever it
 // was dragged; anchor ignores it except that a recentre puts the aim straight ahead. Identity = the canvas centre.
 // Mode changes blend smoothly from wherever the canvas currently is; steady states are exact.
+// Maximize-follow (2026-11-03): the overview is always anchor and a maximized (zoomed-in) desktop follow or locked, so the
+// supervisor changes the mode with every maximize and un-maximize. The room (pinned_: where anchor holds the canvas) is
+// kept through a maximize, and un-maximizing goes back to it, so every desktop is in the overview exactly where it was.
 enum class ViewMode : std::uint8_t { anchor = 0, locked = 1, follow = 2 };
 class ModeController {
 public:
     // follow_omega: spring natural frequency (rad/s); higher = snappier. 8 covers ~90% of a turn in 0.5 s.
     struct Tuning { float transition_ms = 300, follow_omega = 8.f; };
+    // How a mode change starts (set_mode):
+    //   blend (a manual change, Ctrl+Alt+V): from wherever the canvas is now; entering anchor pins the room there.
+    //   maximize (anchor -> follow / locked, a desktop maximized from the overview): the room is kept and the canvas held
+    //     exactly where it is until land_maximize() (call it once the zoom-in has landed, so the desktop grows in place);
+    //     then the mode starts from there as a blend does (follow: follow_ * aim = here, nothing moves at all).
+    //   restore (follow / locked -> anchor, un-maximized back to the overview): the canvas blends back to the room kept
+    //     since the maximize instead of pinning where it is now. A recentre in between moved the room (recenter()).
+    enum class Change : std::uint8_t { blend, maximize, restore };
     ModeController() = default;
     explicit ModeController(Tuning t) : tuning_(t) {}
-    void set_mode(ViewMode mode, double now_ms);
+    void set_mode(ViewMode mode, double now_ms, Change how = Change::blend);
+    void land_maximize(double now_ms);  // a held maximize: its mode takes over from here (no-op unless holding())
+    bool holding() const { return holding_; }
     void recenter();  // the reference moved to the current head: the aim (anchor: the canvas centre) is straight ahead
     void set_aim(Quat aim) { aim_ = aim; }  // per frame, before update()
     // Anchor: turn the world-locked canvas by `turn` (canvas frame: anchor' = anchor * turn), e.g. a landed desktop switch
@@ -113,16 +126,17 @@ public:
     ViewMode mode() const { return mode_; }
     // Advance with the head's relative orientation; returns the canvas anchor for this frame.
     Quat update(Quat head, double now_ms);
-    bool settled() const;  // nothing animating (no mode blend; follow spring at rest)
+    bool settled() const;  // nothing animating (no mode blend or held maximize; follow spring at rest)
     Quat anchor() const { return anchor_; }  // the canvas anchor update() last returned
 private:
     Quat target(Quat head) const;
     Tuning tuning_{};
     ViewMode mode_ = ViewMode::anchor;
     Quat anchor_{}, from_{}, follow_{}, pinned_{};  // pinned_: the world-locked anchor pose; follow_: the spring's head
+    Quat held_{};  // a held maximize: where the canvas stays until land_maximize
     Quat aim_{};
     double started_ms_ = -1, last_ms_ = -1;
     std::array<float, 3> velocity_{};  // follow angular velocity (rad/s, canvas frame)
-    bool transitioning_ = false;
+    bool transitioning_ = false, holding_ = false;
 };
 }

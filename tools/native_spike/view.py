@@ -1,31 +1,38 @@
-"""Glasses view controls for a managed capture run: zoom in/out, switch desktop, spacing.
+"""Glasses view controls for a managed capture run: maximize / overview, switch desktop, spacing.
 
 Keyboard binds exist only while a run is active (user preference: Ctrl+Alt+arrows stay free for
 text navigation otherwise). They run xr_control.py, which sends one frame to this run's private
 control socket. The selected desktop's monitor gets Hyprland's focus (and the cursor with it).
 
-Viewing modes (T2, Ctrl+Alt+V cycles): anchor (world-locked 3DoF), follow (world-locked inside a
-dead zone, eases back in front) and locked (0DoF, head-locked). The overview exists in anchor mode only
-(ViewState.overview_allowed): follow and locked are always zoomed in, Ctrl+Alt+Down there moves to the next desktop, and
-every switch there (keys, a cursor push) cuts straight to the desktop with no zoom out / turn / zoom in. Ctrl+Alt+H toggles a help card in
+Maximized and the overview (maximize-follow, 2026-11-03; INAIR Pod style). The overview shows every desktop; a
+maximized desktop (the `zoomed` state: a click on it in the overview, or Ctrl+Alt+Up) fills the view. The viewing mode
+(T2: anchor, world-locked 3DoF; follow, eases back in front of you; locked, 0DoF head-locked) follows from that state
+(ViewState.mode): the overview is always anchor, and every maximize starts in follow. While maximized, Ctrl+Alt+V
+toggles follow and locked (MAXIMIZED_MODES); in the overview it changes nothing and a toast says why
+(MODE_OVERVIEW_TOAST). Un-maximizing (Ctrl+Alt+Down, Ctrl+Alt+L, a pill) returns to anchor, and the renderer puts the
+room back exactly as it was left (spike pose.hpp ModeController::Change), so every desktop is where it was. Every run
+starts in the overview, in anchor; the saved mode is no longer read. Maximized, every desktop switch (keys, a cursor
+push) cuts straight to the desktop with no zoom out / turn / zoom in. Ctrl+Alt+H toggles a help card in
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
 click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
 selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by a click on a desktop in the
-overview, or, zoomed in, by pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop;
+overview, or, maximized, by pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop;
 neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor crossed onto in Hyprland's layout) was removed on
 2026-11-02.
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
-Mode, prediction, spacing and the VR video quality settings (quality.py) are saved in layout.json. The renderer shows a short pop-up
-in the glasses whenever the viewing mode or prediction changes (and the viewing mode at start).
+Prediction, spacing, the Ctrl+Alt+A choice and the VR video quality settings (quality.py) are saved in layout.json (its
+`mode` stays for the file's schema, always "anchor", and is not read). The renderer shows a short pop-up in the glasses
+when Ctrl+Alt+V changes the viewing mode or prediction changes (and the viewing mode at start), not for the mode change
+a maximize or un-maximize makes.
 Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
 Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a frosted-glass pill
 under every desktop (spike/include/xr/glass.hpp). One at a time expands, with a short morph, into that desktop's own
 placement panel: the same four settings the panel edits (left/right, down/up, distance, curvature) as sliders.
-Ctrl+Alt+L expands the selected desktop's pill (zooming out to the overview first if zoomed in) or collapses whichever
+Ctrl+Alt+L expands the selected desktop's pill (back to the overview first if maximized) or collapses whichever
 is open; the overview free pointer clicks a pill to expand it (collapsing any other) and the pill, or anything outside
 the panel, to collapse it. While a panel is open a second, modal bind set (MENU_BINDS: arrows, Shift+arrows, Tab, R,
 Escape) is installed and it is removed again on close: Up/Down pick the setting, Left/Right adjust it (Shift: big step),
@@ -33,7 +40,7 @@ Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that 
 Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu` frame
 (open + desktop = the expanded pill; while the free pointer holds a slider, also `surface`, the press-time placement the
 renderer keeps the panel on) and saved to the profile 500 ms after the last change, or at once when the panel
-collapses. Zooming in collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
+collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
 pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to focus it; inside a
@@ -86,7 +93,9 @@ from .send import SEND_OPS
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
 USER_OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'recenter', 'mode_next',
             'prediction', 'help')
-MODES = ('anchor', 'follow', 'locked')  # cycle order
+MODES = ('anchor', 'follow', 'locked')  # every viewing mode (the renderer's; the panel's set_settings)
+# Ctrl+Alt+V's cycle while maximized; a maximize always starts in the first. The overview is always anchor (ViewState.mode).
+MAXIMIZED_MODES = ('follow', 'locked')
 # Hyprland Lua key strings join modifiers with " + " (e.g. "SUPER + SHIFT + R").
 BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CTRL + ALT + left', 'prev'),
          ('CTRL + ALT + right', 'next'), ('CTRL + ALT + bracketleft', 'spacing_down'), ('CTRL + ALT + bracketright', 'spacing_up'),
@@ -109,8 +118,9 @@ TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
 # Ctrl+Alt+A: toggles ViewState.cursor_switch_animate (ViewControl.cursor_switch_flags): on (the default) an anchor-mode
 # cursor switch pans to and centres the next desktop; off it jumps there at once, the view never turned (it stays where
 # you look). Saved with the view settings, so it survives XR restarts. Follow and locked modes and Ctrl+Alt+Left / Right
-# are unaffected. Ctrl+Alt+A is free in Omarchy (its Ctrl+Alt chords are Super+Ctrl+Alt+*, Ctrl+Alt+Delete and
-# Ctrl+Alt+Tab); bind_check.py checks the real config.
+# are unaffected. Since maximize-follow (2026-11-03) a maximized desktop is follow or locked, never anchor, so no cursor
+# switch reads it any more; the bind and the saved choice are kept as they were. Ctrl+Alt+A is free in Omarchy (its
+# Ctrl+Alt chords are Super+Ctrl+Alt+*, Ctrl+Alt+Delete and Ctrl+Alt+Tab); bind_check.py checks the real config.
 CURSOR_ANIM_OP = 'cursor_anim_toggle'
 CURSOR_ANIM_TOASTS = {True: 'Cursor switch animation on: anchor mode pans to the next desktop. Ctrl+Alt+A turns it off.',
                       False: 'Cursor switch animation off: anchor mode jumps to the next desktop, the view stays put. '
@@ -124,11 +134,14 @@ CURSOR_ANIM_TOASTS = {True: 'Cursor switch animation on: anchor mode pans to the
 PLAYBACK_MENU_OP = 'playback_menu_toggle'
 PLAYBACK_MENU_TOASTS = {True: 'VR video menu hidden: it no longer pops up on play or seek. Ctrl+Alt+C shows it again.',
                         False: 'VR video menu shown: it pops up on play and seek. Ctrl+Alt+C hides it.'}
+# Ctrl+Alt+V in the overview (maximize-follow): nothing to change, the overview is always anchored. Says why, once per press.
+MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (click it, or Ctrl+Alt+Up): '
+                       'it follows you, and Ctrl+Alt+V switches it between follow and locked.')
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
+HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
-                'mode_next': 'Cycle viewing mode', 'prediction': 'Toggle pose prediction',
+                'mode_next': 'Maximized: follow / locked', 'prediction': 'Toggle pose prediction',
                 'help': 'Help; Ctrl+Alt+G/B: window to glasses/back',
                 'typing_toggle': 'Typing mode: XR keys off / on',
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
@@ -188,7 +201,7 @@ HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recent
 # tuple of ops, all on the one row ('Ctrl+Alt+O / U / C').
 HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               # Ctrl+Alt+A shares the mode row, so the card keeps its row count (help_card_test: roomiest text)
-              'mode_next': (CURSOR_ANIM_OP, 'View mode / anchor: animate cursor switch'),
+              'mode_next': (CURSOR_ANIM_OP, 'Maximized: follow / locked; anchor anim'),
               # docs/web-video.md; Ctrl+Alt+C shares the row, so the card keeps its row count (help_card_test: roomiest text)
               'video_open': (('video_paste', PLAYBACK_MENU_OP), 'VR video: file / web link / hide controls'),
               'help_prev': ('help_next', 'Help: previous / next page')}
@@ -331,18 +344,21 @@ def warp_cursor_lua(x, y):
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, mode='anchor', prediction=True, placements=None,
-                 cursor_switch_animate=True, video_quality=None):
+    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, cursor_switch_animate=True,
+                 video_quality=None):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
-        if mode not in MODES or type(prediction) is not bool or type(cursor_switch_animate) is not bool:
-            raise ValueError('invalid view mode')
-        # The overview exists in anchor mode only (overview_allowed): follow and locked runs start zoomed in.
-        self.names, self.zoomed, self.selected = list(names), mode != 'anchor', 0
+        if type(prediction) is not bool or type(cursor_switch_animate) is not bool: raise ValueError('invalid view mode')
+        # Every run starts in the overview, anchored (maximize-follow): `zoomed` is the maximized state, and the viewing
+        # mode follows from it (the `mode` property). There is no saved mode to start in any more.
+        self.names, self.zoomed, self.selected = list(names), False, 0
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
-        self.mode, self.prediction = mode, prediction
+        self.prediction = prediction
+        # The maximized desktop's mode (MAXIMIZED_MODES): follow at every maximize, Ctrl+Alt+V toggles it while maximized.
+        self.maximized_mode = MAXIMIZED_MODES[0]
         # A cursor switch (ViewControl.switch_desktop) animates: in anchor mode it pans to and centres the desktop. False:
-        # in anchor mode it cuts at once and the view stays where the head looks. Follow and locked ignore it. Toggled by
-        # Ctrl+Alt+A (CURSOR_ANIM_OP) and saved with the view settings (ViewControl.cursor_switch_flags reads it).
+        # in anchor mode it cuts at once and the view stays where the head looks. Follow and locked ignore it (and a
+        # maximized desktop is never anchor now: it is inert, kept as saved). Toggled by Ctrl+Alt+A (CURSOR_ANIM_OP) and
+        # saved with the view settings (ViewControl.cursor_switch_flags reads it).
         self.cursor_switch_animate = cursor_switch_animate
         # VR video quality (quality.py: read it with quality.video_quality); changed by the video's quality menu and
         # saved with the view settings. Missing or invalid settings fall back to quality.DEFAULTS.
@@ -484,6 +500,12 @@ class ViewState:
         self.placements = placements
         return True
 
+    @property
+    def mode(self):
+        """The viewing mode (MODES), from the maximized state: the overview is always anchor; maximized, follow (every
+        maximize starts there) or locked (Ctrl+Alt+V). The renderer gets it in every view frame."""
+        return self.maximized_mode if self.zoomed else 'anchor'
+
     def view(self):
         """Renderer payload. `cursor_follow` is always false: the feature is gone, but the renderer's view decoder
         (spike/src/ipc.cpp) still requires the key, so an installed renderer keeps working."""
@@ -491,42 +513,34 @@ class ViewState:
                 'cursor_follow': False, 'prediction': self.prediction, 'typing': self.typing}
 
     def settings(self):
-        return {'spacing': self.spacing, 'mode': self.mode, 'prediction': self.prediction,
+        """The saved view settings. `mode` stays for the saved file's schema (profiles.py, an installed panel), always
+        'anchor': every run starts in the anchored overview and the saved mode is never read (maximize-follow)."""
+        return {'spacing': self.spacing, 'mode': 'anchor', 'prediction': self.prediction,
                 'cursor_switch_animate': self.cursor_switch_animate, 'video_quality': dict(self.video_quality)}
-
-    def overview_allowed(self):
-        """The overview (zoomed out: all desktops, free pointer, pills, panels) exists in anchor mode only. Follow and
-        locked are always zoomed in: entering them zooms in, Ctrl+Alt+Down there moves straight to the next desktop, and
-        every desktop switch there is a cut (ViewControl: the frame's `cut`, no zoom out / turn / zoom in)."""
-        return self.mode == 'anchor'
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
         if op not in USER_OPS: raise ValueError('unsupported view operation')
         if op in ('recenter', 'help'): return None  # head-tracking reference / overlay only; the view layout is unchanged
-        if op == 'mode_next':
-            self.mode = MODES[(MODES.index(self.mode) + 1) % len(MODES)]
-            if self.zoomed or self.overview_allowed(): return None
-            self.zoomed = True  # follow / locked have no overview: into the selected desktop
-            return self.names[self.selected]
-        if op == 'zoom_out' and not self.overview_allowed():
-            if len(self.names) < 2: return None  # follow / locked: no overview; the next desktop (wrapping), zoomed in
-            self.zoomed, self.selected = True, (self.selected + 1) % len(self.names)
-            return self.names[self.selected]
+        if op == 'mode_next':  # maximized: follow <-> locked; the overview is always anchor (ViewControl says so)
+            if self.zoomed:
+                self.maximized_mode = MAXIMIZED_MODES[(MAXIMIZED_MODES.index(self.maximized_mode) + 1) % len(MAXIMIZED_MODES)]
+            return None
         if op == 'prediction':
             self.prediction = not self.prediction
             return None
-        if op == 'zoom_in':
+        if op == 'zoom_in':  # maximize: every maximize starts in follow (Ctrl+Alt+Up again keeps a chosen locked)
+            if not self.zoomed: self.maximized_mode = MAXIMIZED_MODES[0]
             self.zoomed = True
             return self.names[self.selected]
-        if op == 'zoom_out':
+        if op == 'zoom_out':  # un-maximize: the overview, anchor (the renderer puts the room back as it was)
             self.zoomed = False
             return None
         if op in ('next', 'prev'):
             target = self.selected + (1 if op == 'next' else -1)
             if not 0 <= target < len(self.names): return None
             self.selected = target
-            return self.names[target]  # overview: highlight; zoomed: anchor zooms out, turns, zooms in (follow/locked cut); focused
+            return self.names[target]  # overview: highlight; maximized: a cut straight to it (follow / locked); focused
         self.spacing = min(max(self.spacing + (SPACING_STEP if op == 'spacing_up' else -SPACING_STEP), 0), MAX_SPACING)
         return None
 
@@ -785,18 +799,16 @@ class ViewControl:
         return out
 
     def _zoom_out(self):
-        """To the overview (the pills and panels are drawn there only), as Ctrl+Alt+Down does. A view frame. Anchor
-        mode only (ViewState.overview_allowed; callers check)."""
+        """Un-maximize to the overview (the pills and panels are drawn there only; anchor), as Ctrl+Alt+Down does. A view
+        frame."""
         if self.overview_pointer is not None: self.overview_pointer.summon()  # a cursor off the desktops comes into one
         self.state.apply('zoom_out')
         return self._frame()
 
     def _on_menu(self, op):
-        """Panel key op. Ctrl+Alt+L while zoomed in zooms out first, so the expanding pill is seen."""
+        """Panel key op. Ctrl+Alt+L while maximized goes back to the overview first, so the expanding pill is seen."""
         if op in MENU_DESKTOP_OPS:  # U / N / Delete: the open panel's desktop row
             return (self.desktop_action(self.state.menu_desktop, MENU_DESKTOP_OPS[op]) if self.state.menu_open else b'') or None
-        if op == 'menu_toggle' and not self.state.menu_open and not self.state.overview_allowed():
-            return None  # follow / locked: no overview, so no pill to expand
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
         return (out + self._menu_update(lambda: self.state.apply_menu(op))) or None
 
@@ -807,7 +819,6 @@ class ViewControl:
         collapsing panel is saved at once and the idle close restarts. Renderer frames (bytes)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.typing or self.video_active: return b''  # the free pointer is off then; a stale click does nothing
-        if not self.state.overview_allowed(): return b''  # follow / locked: no overview, no pills (a stale click)
         self.last_input = self.clock()
         if self.state.menu_open and self.state.menu_desktop == desktop: return self._on_menu('menu_toggle') or b''
         if self.state.menu_open: self.flush()  # the other desktop's panel collapses: its changes are saved at once
@@ -922,7 +933,7 @@ class ViewControl:
         t = threading.Thread(target=work, daemon=True); t.start(); self._threads.append(t)
 
     def focus_desktop(self, desktop):
-        """A circle-cursor (free pointer) click on `desktop` in the overview: select it and zoom into it, leaving the
+        """A circle-cursor (free pointer) click on `desktop` in the overview: select it and maximize it (follow), leaving the
         overview, exactly as Ctrl+Alt+Up does on the selected desktop (an open panel collapses first, saved; its output
         gets Hyprland's monitor focus off the loop; one view frame). The free pointer and the input lock then let go of
         the mouse as on any zoom-in. Frames (bytes), b'' for a stale click."""
@@ -932,15 +943,13 @@ class ViewControl:
         return self.on_message({'op': 'zoom_in', 'payload': {}}) or b''
 
     def switch_desktop(self, desktop):
-        """Zoomed in, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
-        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so in anchor mode the
-        renderer zooms out, turns to it and zooms in, every desktop staying where it is placed (follow and locked: a cut,
-        straight there with no overview step). The frame's `center` makes the anchor-mode
-        turn start from the centre of the view, so it pans straight to the desktop the cursor is on and centres it there
-        (pushing back pans to and centres the other); follow and locked centre it already. cursor_switch_flags decides
-        (anchor mode with the animation off: a cut instead). The sampler gives its monitor focus and
+        """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
+        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do. A maximized desktop is
+        follow or locked (maximize-follow), so it is a cut, straight there with no overview step, every desktop staying
+        where it is placed, and the aim centres it. cursor_switch_flags decides (anchor mode, which a maximized desktop no
+        longer has, would pan with `center`, or cut with Ctrl+Alt+A's animation off). The sampler gives its monitor focus and
         brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
-        One view frame, or b'' when stale (not zoomed in, typing mode, a VR video, no such desktop, already selected)."""
+        One view frame, or b'' when stale (not maximized, typing mode, a VR video, no such desktop, already selected)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
         if not self.state.zoomed or self.state.typing or self.video_active: return b''
         self.last_input = self.clock()
@@ -948,12 +957,12 @@ class ViewControl:
         return self._frame(**self.cursor_switch_flags())
 
     def cursor_switch_flags(self):
-        """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Anchor mode, animated
-        (default): `center`, so the switch pans straight to the desktop and lands with it centred. Anchor mode with
-        ViewState.cursor_switch_animate off: `cut`, no animation and no turn of the view, so it stays wherever the head
-        looks. Follow and locked have no overview (ViewState.overview_allowed): always `cut`, straight onto the desktop
-        with no zoom out / turn / zoom in (their aim then centres it)."""
-        if not self.state.overview_allowed() or not self.state.cursor_switch_animate: return {'cut': True}
+        """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Follow and locked (every
+        maximized desktop, maximize-follow): always `cut`, straight onto the desktop with no zoom out / turn / zoom in
+        (their aim then centres it). Anchor mode, animated (default): `center`, so the switch pans straight to the desktop
+        and lands with it centred; with ViewState.cursor_switch_animate off: `cut`, no animation and no turn of the view,
+        so it stays wherever the head looks. (Anchor is the overview's mode now, where no cursor switch happens.)"""
+        if self.state.mode != 'anchor' or not self.state.cursor_switch_animate: return {'cut': True}
         return {'center': True}
 
     def _cursor_anim_toggle(self):
@@ -1093,22 +1102,21 @@ class ViewControl:
                                  'op': 'recenter', 'payload': {}}, separators=(',', ':')) + '\n').encode()
             self.next_id += 1
             return frame
-        # Zooming in collapses an open panel first (saved, keys released): pills and panels live in the overview. So does
-        # leaving anchor mode for follow (no overview there: ViewState.overview_allowed, the mode change zooms in).
-        leaving = message['op'] == 'zoom_in' or (message['op'] == 'mode_next' and self.state.mode == 'anchor')
-        out = (self._on_menu('menu_toggle') or b'') if leaving and self.state.menu_open else b''
+        # Maximizing collapses an open panel first (saved, keys released): pills and panels live in the overview.
+        out = (self._on_menu('menu_toggle') or b'') if message['op'] == 'zoom_in' and self.state.menu_open else b''
+        if message['op'] == 'mode_next' and not self.state.zoomed:
+            self._tell(MODE_OVERVIEW_TOAST)  # the overview is always anchored: nothing changes, say why
         before = self.state.view()
-        if message['op'] == 'zoom_out' and self.state.zoomed and self.state.overview_allowed() and \
-                self.overview_pointer is not None:
+        if message['op'] == 'zoom_out' and self.state.zoomed and self.overview_pointer is not None:
             self.overview_pointer.summon()  # a cursor off the desktops comes into the selected one
-        # Follow / locked: a key that changes the zoomed-in desktop (Ctrl+Alt+Left / Right, and Ctrl+Alt+Down there)
-        # moves straight to it, no overview step (`cut`, as cursor_switch_flags).
-        direct = not self.state.overview_allowed() and self.state.zoomed and message['op'] in ('next', 'prev', 'zoom_out')
+        # Maximized (follow / locked): Ctrl+Alt+Left / Right move straight to the desktop, no overview step (`cut`, as
+        # cursor_switch_flags).
+        direct = self.state.mode != 'anchor' and self.state.zoomed and message['op'] in ('next', 'prev')
         target = self.state.apply(message['op'])
         if target is not None:
             # Never block the watchdog loop on a compositor reply.
             t = threading.Thread(target=self._focus, args=(target,), daemon=True); t.start(); self._threads.append(t)
-        if message['op'] in ('spacing_up', 'spacing_down', 'mode_next', 'prediction'):
+        if message['op'] in ('spacing_up', 'spacing_down', 'prediction'):  # (the mode is not saved: maximize-follow)
             try: self.settings.save(self.state.settings())  # a settings store (profiles.LayoutStore/ProfileStore)
             except (OSError, ValueError): pass
         if self.state.view() != before:

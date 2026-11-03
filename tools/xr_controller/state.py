@@ -13,7 +13,7 @@ from tools.native_spike.panel_consent import build_consent, write_consent, load_
 from tools.native_spike.profiles import _check, startup_desktops
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
-from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MODES, SPACING_STEP
+from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
 
@@ -160,7 +160,13 @@ class Controller:
                     return dict(forwarded=True)
                 operations=[]
                 if 'mode' in settings:
-                    operations += ['mode_next']*((MODES.index(target['mode'])-MODES.index(current['mode']))%len(MODES))
+                    # Maximize-follow: the mode follows the live view, not the saved settings. The overview is always
+                    # anchor; a maximized desktop toggles follow / locked with mode_next.
+                    live=self.live.get('view') or {}
+                    if target['mode']!=live.get('mode'):
+                        if not live.get('zoomed'): raise ValueError('the overview is always anchored: maximize a desktop to choose follow or locked')
+                        if target['mode'] not in MAXIMIZED_MODES: raise ValueError('anchor is the overview: un-maximize (Overview) to go back to it')
+                        operations += ['mode_next']*((MAXIMIZED_MODES.index(target['mode'])-MAXIMIZED_MODES.index(live['mode']))%len(MAXIMIZED_MODES))
                 if 'spacing' in settings:
                     delta=target['spacing']-current['spacing']
                     if delta%SPACING_STEP: raise ValueError('live spacing must use 20 pixel steps')

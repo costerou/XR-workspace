@@ -87,15 +87,15 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+H | Show or hide the help card |
 | Ctrl+Alt+PgUp / PgDn | Previous / next page of the help card, when it has more than one |
 | Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
-| Ctrl+Alt+Up | Zoom into the selected desktop |
-| Ctrl+Alt+Down | Zoom out to see all desktops (the overview). The mouse can then move anywhere around them, and each desktop has a small glass pill under it |
+| Ctrl+Alt+Up | Maximize the selected desktop: it fills your view and follows your head |
+| Ctrl+Alt+Down | Back to the overview of all desktops, fixed in the room. The mouse can then move anywhere around them, and each desktop has a small glass pill under it |
 | Ctrl+Alt+Left / Right | Select the previous / next desktop |
 | Ctrl+Alt+[ / ] | Less / more space between desktops |
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
-| Ctrl+Alt+V | Change how the desktops follow your head (see below) |
+| Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
-| Ctrl+Alt+A | Anchor mode: pushing the mouse to another desktop pans there and centres it (on by default) or jumps there at once, the view staying where you look. Remembered between sessions |
-| Ctrl+Alt+L | Open or close the placement pill of the selected desktop (zooms out to the overview first) |
+| Ctrl+Alt+A | Anchor mode: pushing the mouse to another desktop pans there and centres it (on by default) or jumps there at once, the view staying where you look. Remembered between sessions. A maximized desktop is never in anchor mode now, so for the moment this changes nothing you can see |
+| Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
 | Ctrl+Alt+1 / 2 / 3 / 4 | Send the window you're using to XR-1 / XR-2 / XR-3 / XR-4 |
 | Ctrl+Alt+B | Send the window back from the glasses to your normal monitor |
@@ -110,13 +110,22 @@ you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it ag
 A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
 control. The panel's buttons work in both modes.
 
-**Ctrl+Alt+V** cycles through three ways the desktops can behave:
+**Overview and Maximized** (new, not yet tried in the glasses). The way the desktops move with your head goes with
+what you are looking at, as on the INAIR Pod:
 
-- **Anchor:** the desktops stay fixed in the room. Turn your head to look at a different one.
-- **Follow:** the desktops stay put for small head moves and drift back in front of you if you turn away.
-- **Locked:** the desktops are fixed to your view, like a normal screen glued to your face.
+- **The overview** shows all your desktops, and they always stay fixed in the room (**anchor**). Turn your head to
+  look at a different one. Every session starts here.
+- **Maximized:** click a desktop in the overview (or select it and press Ctrl+Alt+Up) and it fills your view and
+  **follows** your head: it eases back in front of you when you turn. Press **Ctrl+Alt+V** to **lock** it to your view
+  instead, like a normal screen glued to your face, and again to go back to follow. Every maximize starts in follow.
+- **Back to the overview** (Ctrl+Alt+Down, Ctrl+Alt+L or a pill): the desktops are fixed in the room again, exactly
+  where they were before you maximized, wherever you turned meanwhile. Ctrl+Alt+Space (recenter) while maximized
+  brings the overview back centred on the desktop you had maximized.
 
-**Sending windows.** Ctrl+Alt+G sends a window to the desktop you are zoomed into, or the one highlighted in the
+Ctrl+Alt+V in the overview changes nothing; a small notification says why. The little card in the glasses names the
+mode when the session starts and when Ctrl+Alt+V changes it, not on every maximize.
+
+**Sending windows.** Ctrl+Alt+G sends a window to the desktop you have maximized, or the one highlighted in the
 overview. The number keys work on any keyboard layout. A pinned window can't be sent; unpin it first. If nothing can be
 sent, a small notification tells you why.
 
@@ -152,8 +161,8 @@ placements this version saved to flat.
 (**Ctrl+Alt+Down**) each desktop has a small frosted-glass pill just under it. Click a pill with the grey dot (see the
 next part) and it grows smoothly into that desktop's own placement panel: four sliders, one for each setting
 (Left/right, Down/up, Distance, Curvature), each with its value.
-Or press **Ctrl+Alt+L** to open the pill of the selected desktop. If you are zoomed in, Ctrl+Alt+L zooms out first so
-you can see it. Only one pill is open at a time: opening another one closes the first. Changes apply straight away,
+Or press **Ctrl+Alt+L** to open the pill of the selected desktop. If a desktop is maximized, Ctrl+Alt+L goes back to
+the overview first so you can see it. Only one pill is open at a time: opening another one closes the first. Changes apply straight away,
 and there's no Save button.
 
 With a pill open:
@@ -183,7 +192,7 @@ keys and sliders don't stop at other desktops, so they can push one desktop over
 keeps them apart.
 
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
-Zooming in (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
+Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 
 **With the mouse in the overview** (new, not yet tried in the glasses). Press **Ctrl+Alt+Down** to see all desktops.
 In the overview your mouse is no longer stuck inside the desktops:
@@ -209,35 +218,36 @@ In the overview your mouse is no longer stuck inside the desktops:
   round glass button with a curved arrow appears above its higher top corner, in anchor mode. Click it and the desktop
   rolls level. Or hold it and drag the dot round the desktop to roll it yourself; it only turns the way the arrow
   points and stops when it is level. A level desktop has no button. Levelling lasts for the session only.
-- **Zoom into a desktop:** click it with the dot. The window under the dot gets the click and the view zooms into that
-  desktop, as Ctrl+Alt+Up does. It gets the focus and the normal cursor appears where you clicked. A press that drags
-  (moving a window, selecting text) doesn't zoom.
+- **Maximize a desktop:** click it with the dot. The window under the dot gets the click and the desktop is maximized,
+  as Ctrl+Alt+Up does: it grows where it is to fill your view, then follows your head. It gets the focus and the
+  normal cursor appears where you clicked. A press that drags (moving a window, selecting text) doesn't maximize.
 - **Move a window to another desktop** (new, not yet tried in the glasses): press on the window and hold the button for
   a moment, then drag. A small outline of the window follows the dot and the desktop under it gets a coloured frame.
-  Let go over that desktop and the window moves there, onto the workspace it shows. The view doesn't zoom in and the
+  Let go over that desktop and the window moves there, onto the workspace it shows. Nothing is maximized and the
   selected desktop stays the same. Let go anywhere else (its own desktop, a pill, empty space) and nothing moves. On a
   desktop other than the selected one you can also just start dragging. On the selected desktop, moving before you've
-  held still drags inside the window as usual. A quick click still zooms in. Pinned windows can't be moved this way.
+  held still drags inside the window as usual. A quick click still maximizes. Pinned windows can't be moved this way.
 - **The mouse stays on its desktop.** It only ever works the selected desktop. In the overview, moving the dot over
   another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
-- **Push the mouse past an edge to switch** (new, not yet tried in the glasses): zoomed in, keep pushing the mouse past
-  an edge of the desktop and the view switches to the desktop placed that way round you, with the same zoom out, turn
-  and zoom in as Ctrl+Alt+Left / Right. In anchor mode the view pans straight to that desktop and centres it. Follow and locked have no overview: there the push, Ctrl+Alt+Left / Right and Ctrl+Alt+Down (next desktop) move straight to the desktop with no zoom out, and switching to follow or locked zooms in. In anchor mode **Ctrl+Alt+A** turns that animation off: the mouse jumps to the new desktop at once and the view stays where you look (press it again to bring the animation back; remembered). It goes by where the desktops are placed, so pushing up reaches a desktop you put
+- **Push the mouse past an edge to switch** (new, not yet tried in the glasses): maximized, keep pushing the mouse past
+  an edge of the desktop and the view switches to the desktop placed that way round you, as Ctrl+Alt+Left / Right do:
+  straight to it, with no trip through the overview, and it comes in front of you (follow) or stays locked to your view.
+  It goes by where the desktops are placed, so pushing up reaches a desktop you put
   above, and a desktop off at an angle is reached from the side it is nearest. The mouse comes in at the matching edge
   of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
   beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)
   doesn't switch. Not in typing mode or during a VR video.
 
 If your mouse is on your normal monitor when you press Ctrl+Alt+Down, it jumps into the middle of the selected desktop.
-Zooming in (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
+Maximizing (Ctrl+Alt+Up) gives the mouse back as normal. The dot, pills and bracket are off in typing mode (Ctrl+Alt+T)
 and while a video plays, and they hide after 30 seconds without moving the mouse (move it to bring them back). An open
 pill stays until you close it or until 30 seconds pass without input.
 
 Resizing changes how big a desktop looks, not its resolution. To change resolution or sharpness, stop the session and
 edit the desktop in the panel.
 
-**Desktops all around you** (new, not yet tried in the glasses). Carrying a desktop round you works in anchor mode
-(**Ctrl+Alt+V**, see above), where the desktops stay fixed in the room:
+**Desktops all around you** (new, not yet tried in the glasses). Carrying a desktop round you works in the overview,
+where the desktops always stay fixed in the room (anchor, see above):
 
 - **Carry a desktop round you.** Drag its pill as above. Inside the view the pill stays under the dot. Keep dragging
   past the edge of the view and the desktop speeds up. The dot can go about half a view past each edge. At its far left
@@ -247,11 +257,8 @@ edit the desktop in the panel.
   desktop's side, the way you dragged it there, until its pill lights up. The dot itself stays in front of you, so you
   won't see it. Then drag as usual. This works for pills only: a far desktop's corners and the desktop itself only
   react under the dot.
-- **Zooming in.** Zooming into a desktop still brings it flat in front of you. While you are zoomed in, the desktops
-  you moved round you go back to their places in the row, and they return when you zoom out.
-- **Follow and locked modes.** There the view turns with your head, so a dragged desktop only goes where the dot goes.
-  A desktop you put outside the view stays out of sight. Zoom into it (select it with Ctrl+Alt+Left / Right, then
-  Ctrl+Alt+Up) or switch back to anchor mode to see it.
+- **Maximized.** Maximizing a desktop brings it in front of you, wherever you put it: select it with Ctrl+Alt+Left /
+  Right and press Ctrl+Alt+Up, even when it is behind you. Back in the overview every desktop is where you left it.
 - **Out of the mouse's reach.** For a desktop far round you, the mouse can only reach its pill, not its corners, its
   open pill panel or the desktop itself. Use the keys: Ctrl+Alt+Left / Right selects it, Ctrl+Alt+L opens its pill,
   the arrows change it and R puts it back flat in its slot.

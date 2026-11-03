@@ -1,7 +1,9 @@
-"""Directional desktop switching (neighbors.py, unified_cursor.EdgePush): zoomed in, pushing the cursor past an edge of
+"""Directional desktop switching (neighbors.py, unified_cursor.EdgePush): maximized, pushing the cursor past an edge of
 the selected desktop switches to the desktop placed that way round you in 3D (yaw / pitch / roll as drawn), not just the
-next one in the row, with the Ctrl+Alt+Left / Right switch (the renderer zooms out, turns, zooms in; in anchor mode it
-pans straight to the desktop and centres it, the frame's `center`) and every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge.
+next one in the row, with the Ctrl+Alt+Left / Right switch (a maximized desktop follows you or is locked, so it is a
+`cut` straight there, which the aim then centres; anchor mode, now the overview's only, would pan with `center`) and
+every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge. The maximize /
+overview modes themselves: MaximizeFollowTests.
 
 Regression: dot-cursor monitor switching was removed on 2026-11-02 (the cursor never left home); it comes back here,
 chosen by placement. Overview click-to-zoom and the Ctrl+Alt arrows are unchanged (test_unified_cursor.py).
@@ -11,6 +13,7 @@ Offline only: the fixture's overview layout, fake clocks and a fake compositor c
 import math
 import time
 import unittest
+from unittest import mock
 
 from tools.native_spike import free_pointer as fp, neighbors as nb, orbit, unified_cursor as uc, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
@@ -200,10 +203,11 @@ class EdgePushTests(unittest.TestCase):
 
 
 class ControlTests(UnifiedBase):
-    def test_switch_desktop_is_the_key_switch_zoomed_in(self):
+    def test_switch_desktop_is_the_key_switch_maximized(self):
         self.op('zoom_in')
         out = frames(self.control.switch_desktop(2))
-        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True, 'center': True})
+        # Maximized desktops follow you (maximize-follow): the push is a cut, straight there, as the keys are.
+        self.assertEqual(last(out, 'view'), {**self.control.state.view(), 'selected': 2, 'zoomed': True, 'cut': True})
         self.assertEqual(self.control.state.placements, flat())  # nothing is moved
         for stale in (2, 5, -1, 'x'): self.assertEqual(self.control.switch_desktop(stale), b'')
         self.op('zoom_out')
@@ -214,101 +218,121 @@ class ControlTests(UnifiedBase):
         self.assertEqual(self.control.switch_desktop(0), b'')
 
     def test_the_cursor_switch_animation_flag(self):
-        # cursor_switch_animate (default on; Ctrl+Alt+A toggles it): anchor mode on gets `center` (pan to and centre), off
-        # cuts (`cut`: no animation, no turn, the view stays where the head looks). Follow and locked have no overview
-        # (overview-anchor-only, 2026-11-03): they always cut, straight to the desktop with no zoom out / turn / zoom in,
-        # and so do their keys. Anchor-mode keys never carry either flag.
+        # cursor_switch_animate (default on; Ctrl+Alt+A toggles it, saved) only ever shaped an anchor-mode switch: on,
+        # `center` (pan to and centre); off, `cut`. A maximized desktop is follow or locked (maximize-follow, 2026-11-03),
+        # where every switch, keys included, is a cut whatever the flag, so the flag reaches no switch now. Its anchor
+        # branch is kept and checked here with the mode forced, should a maximized anchor mode come back.
         self.op('zoom_in')
         s = self.control.state
         self.assertIs(s.cursor_switch_animate, True)
         self.assertNotIn('cursor_switch_animate', s.view())  # never sent to the renderer; saved (s.settings()) since Ctrl+Alt+A
         self.assertIs(s.settings()['cursor_switch_animate'], True)
-        for animate, mode, flags in ((True, 'anchor', {'center': True}), (True, 'follow', {'cut': True}),
-                                     (True, 'locked', {'cut': True}), (False, 'anchor', {'cut': True}),
-                                     (False, 'follow', {'cut': True}), (False, 'locked', {'cut': True})):
-            with self.subTest(animate=animate, mode=mode):
-                s.cursor_switch_animate, s.mode = animate, mode
-                self.assertEqual(self.control.cursor_switch_flags(), flags)
-                target = (s.selected + 1) % len(s.names)
-                self.assertEqual(last(frames(self.control.switch_desktop(target)), 'view'), {**s.view(), **flags})
-                self.assertEqual(s.selected, target)  # the switch itself always happens
-                key = last(self.op('next' if s.selected < len(s.names) - 1 else 'prev'), 'view')
-                self.assertNotIn('center', key)
-                self.assertEqual('cut' in key, mode != 'anchor')
+        for animate in (True, False):
+            for mode in view.MAXIMIZED_MODES:
+                with self.subTest(animate=animate, mode=mode):
+                    s.cursor_switch_animate, s.maximized_mode = animate, mode
+                    self.assertEqual(self.control.cursor_switch_flags(), {'cut': True})
+                    target = (s.selected + 1) % len(s.names)
+                    self.assertEqual(last(frames(self.control.switch_desktop(target)), 'view'), {**s.view(), 'cut': True})
+                    self.assertEqual(s.selected, target)  # the switch itself always happens
+                    key = last(self.op('next' if s.selected < len(s.names) - 1 else 'prev'), 'view')
+                    self.assertNotIn('center', key); self.assertIs(key['cut'], True)
+            with self.subTest(animate=animate, mode='anchor'), \
+                    mock.patch.object(view.ViewState, 'mode', new_callable=mock.PropertyMock, return_value='anchor'):
+                s.cursor_switch_animate = animate
+                self.assertEqual(self.control.cursor_switch_flags(), {'center': True} if animate else {'cut': True})
 
 
-class OverviewAnchorOnlyTests(UnifiedBase):
-    """Regression (overview-anchor-only, 2026-11-03): the overview exists in anchor mode only. In follow and locked the
-    renderer's zoom out / turn / zoom in switch (spike ViewAnimator, run whenever a switch is not `cut`) passed through
-    the overview on every key switch and dot-cursor crossing, and Ctrl+Alt+Down opened it. There every move between
-    desktops is now a cut, straight there, and the view never leaves the zoomed-in desktop."""
+class MaximizeFollowTests(UnifiedBase):
+    """Maximize-follow (2026-11-03, INAIR Pod style): the overview is always anchor (the desktops fixed in the room); a
+    maximized desktop (zoomed in: a click on it in the overview, or Ctrl+Alt+Up) follows you, every maximize starting in
+    follow, and Ctrl+Alt+V while maximized toggles it to locked and back. Un-maximizing (Ctrl+Alt+Down, Ctrl+Alt+L, a
+    pill click) returns to anchor; the renderer then puts the room back exactly as it was (spike focus_center_test).
+    Every run starts in the overview, anchored, whatever mode was saved (test_fresh_start). Replaces overview-anchor-only,
+    where follow and locked had no overview and Ctrl+Alt+Down there moved to the next desktop."""
     def view_of(self, out):
         return last(out, 'view')
 
-    def test_follow_and_locked_never_reach_the_overview(self):
+    def test_a_run_starts_in_the_overview_anchored(self):
         s = self.control.state
-        for mode in ('follow', 'locked'):
-            with self.subTest(mode=mode):
-                s.mode, s.zoomed, s.selected = mode, True, 0
-                out = self.view_of(self.op('zoom_out'))  # Ctrl+Alt+Down: straight to the next desktop, wrapping
-                self.assertEqual(out, {**s.view(), 'cut': True})
-                self.assertEqual((out['zoomed'], out['selected']), (True, 1))
-                self.op('zoom_out'); self.op('zoom_out')
-                self.assertEqual((s.zoomed, s.selected), (True, 0))
-                for op, want in (('next', 1), ('prev', 0)):  # Ctrl+Alt+Left / Right: a cut too
-                    self.assertEqual(self.view_of(self.op(op)), {**s.view(), 'cut': True})
-                    self.assertEqual(s.selected, want)
-                self.assertIsNone(self.view_of(self.op('prev')))  # at the end of the row: nothing, still zoomed
-                self.assertTrue(s.zoomed)
-                out = self.view_of(frames(self.control.switch_desktop(2)))  # the dot cursor pushed onto another desktop
-                self.assertEqual(out, {**s.view(), 'cut': True}); self.assertNotIn('center', out)
-                self.assertIsNone(self.control.on_message({'op': 'menu_toggle', 'payload': {}}))  # no pill to open
-                self.assertEqual(self.control.pill_click(0), b'')
-                self.assertFalse(s.menu_open)
+        self.assertEqual((s.zoomed, s.mode), (False, 'anchor'))
+        self.assertEqual(view.ViewState(NAMES).view()['mode'], 'anchor')
+
+    def test_maximizing_follows_and_the_overview_is_anchor(self):
+        s = self.control.state
+        out = self.view_of(self.op('zoom_in'))  # Ctrl+Alt+Up: maximized, following
+        self.assertEqual((out['zoomed'], out['mode']), (True, 'follow'))
+        self.assertNotIn('cut', out); self.assertNotIn('center', out)  # the renderer's zoom in, then follow takes over
+        out = self.view_of(self.op('zoom_out'))  # Ctrl+Alt+Down: the overview again, anchored
+        self.assertEqual((out['zoomed'], out['mode'], out['selected']), (False, 'anchor', 0))
+        self.assertNotIn('cut', out)
+        out = self.view_of(frames(self.control.focus_desktop(2)))  # a click on a desktop in the overview maximizes it
+        self.assertEqual((out['zoomed'], out['mode'], out['selected']), (True, 'follow', 2))
+        self.assertEqual(s.placements, flat())  # maximize and back never move a desktop
         self.join()
-        self.assertIn('XR-2', self.focused)  # the desktop moved to gets Hyprland's focus as with any switch
+        self.assertEqual(self.focused[-1], 'XR-3')
 
-    def test_anchor_mode_keeps_its_overview_and_animated_switches(self):
+    def test_every_maximize_starts_in_follow_and_ctrl_alt_v_picks_locked(self):
         s = self.control.state
-        self.assertEqual(s.mode, 'anchor')
-        self.assertFalse(s.zoomed)  # a run starts in the overview
         self.op('zoom_in')
-        self.assertEqual(self.view_of(self.op('next')), s.view())  # the key switch animates: no cut, no center
-        self.assertEqual(self.view_of(frames(self.control.switch_desktop(2))), {**s.view(), 'center': True})
-        self.assertEqual(self.view_of(self.op('zoom_out')), {**s.view(), 'zoomed': False})
-        self.assertEqual(s.selected, 2)
+        out = self.view_of(self.op('mode_next'))  # Ctrl+Alt+V while maximized: locked
+        self.assertEqual((out['zoomed'], out['mode']), (True, 'locked'))
+        self.assertEqual(self.view_of(self.op('mode_next'))['mode'], 'follow')  # and back
+        self.op('mode_next')
+        self.assertIsNone(self.view_of(self.op('zoom_in') or b''))  # Ctrl+Alt+Up again: still maximized, still locked
+        self.assertEqual(s.mode, 'locked')
+        self.assertEqual(self.view_of(self.op('next'))['mode'], 'locked')  # a switch keeps the chosen mode
+        self.assertEqual(self.view_of(self.op('zoom_out'))['mode'], 'anchor')
+        self.assertEqual(self.view_of(self.op('zoom_in'))['mode'], 'follow')  # the next maximize: follow again
 
-    def test_leaving_anchor_mode_zooms_in_and_closes_the_overview(self):
+    def test_ctrl_alt_v_in_the_overview_changes_nothing(self):
         s = self.control.state
         self.assertIsNotNone(self.control.on_message({'op': 'menu_toggle', 'payload': {}}))
         self.assertTrue(s.menu_open)  # a pill expanded in the overview
-        out = self.view_of(self.op('mode_next'))  # anchor -> follow: into the selected desktop, the panel collapsed
-        self.assertEqual((out['mode'], out['zoomed'], out['selected']), ('follow', True, 0))
-        self.assertNotIn('cut', out)
-        self.assertFalse(s.menu_open)
-        self.op('mode_next')  # follow -> locked: still zoomed in
-        self.assertEqual((s.mode, s.zoomed), ('locked', True))
-        self.op('mode_next')  # locked -> anchor: zoomed in, the overview one Ctrl+Alt+Down away again
-        self.assertEqual((s.mode, s.zoomed), ('anchor', True))
-        self.assertFalse(self.view_of(self.op('zoom_out'))['zoomed'])
+        self.assertIsNone(self.control.on_message({'op': 'mode_next', 'payload': {}}))  # no frame: the view is unchanged
+        self.assertEqual((s.zoomed, s.mode, s.menu_open), (False, 'anchor', True))
 
-    def test_a_follow_or_locked_run_starts_zoomed_in(self):
-        for mode in ('follow', 'locked'):
+    def test_maximized_switches_cut_and_ctrl_alt_down_un_maximizes(self):
+        s = self.control.state
+        for mode in view.MAXIMIZED_MODES:
             with self.subTest(mode=mode):
-                st = view.ViewState(NAMES, mode=mode)
-                self.assertTrue(st.zoomed)
-                self.assertEqual(st.apply('zoom_out'), NAMES[1]); self.assertTrue(st.zoomed)
-        self.assertFalse(view.ViewState(NAMES).zoomed)
-        one = view.ViewState(NAMES[:1], mode='follow')
-        self.assertIsNone(one.apply('zoom_out')); self.assertEqual((one.zoomed, one.selected), (True, 0))
+                self.op('zoom_in')
+                if s.mode != mode: self.op('mode_next')
+                self.assertEqual(s.mode, mode)
+                for op, want in (('next', 1), ('prev', 0)):  # Ctrl+Alt+Left / Right: a cut, straight there
+                    self.assertEqual(self.view_of(self.op(op)), {**s.view(), 'cut': True})
+                    self.assertEqual(s.selected, want)
+                self.assertIsNone(self.view_of(self.op('prev')))  # at the end of the row: nothing, still maximized
+                out = self.view_of(frames(self.control.switch_desktop(2)))  # the cursor pushed onto another desktop
+                self.assertEqual(out, {**s.view(), 'cut': True}); self.assertNotIn('center', out)
+                out = self.view_of(self.op('zoom_out'))  # Ctrl+Alt+Down: back to the overview, never the next desktop
+                self.assertEqual((out['zoomed'], out['mode'], out['selected']), (False, 'anchor', 2))
+                self.assertNotIn('cut', out)
+                self.op('prev'); self.op('prev')
+
+    def test_the_pill_un_maximizes_back_to_the_anchored_overview(self):
+        s = self.control.state
+        self.op('zoom_in'); self.op('mode_next')  # maximized, locked
+        out = frames(self.control.on_message({'op': 'menu_toggle', 'payload': {}}))  # Ctrl+Alt+L: overview first, then the pill
+        self.assertEqual((last(out, 'view')['zoomed'], last(out, 'view')['mode']), (False, 'anchor'))
+        self.assertTrue(s.menu_open)
+        self.control.on_message({'op': 'menu_toggle', 'payload': {}})
+        self.op('zoom_in')
+        out = frames(self.control.pill_click(1))  # a (stale) pill click while maximized: the overview, that desktop's pill
+        self.assertEqual((last(out, 'view')['zoomed'], last(out, 'view')['mode']), (False, 'anchor'))
+        self.assertEqual((s.menu_open, s.menu_desktop), (True, 1))
+        out = frames(self.control.on_message({'op': 'zoom_in', 'payload': {}}))  # maximizing collapses it first
+        self.assertFalse(s.menu_open)
+        self.assertEqual(last(out, 'view')['mode'], 'follow')
 
     def join(self):
         self.control.join_focus(2)
 
-    def test_ctrl_alt_a_turns_the_anchor_animation_off_and_on(self):
-        # The key drives the same flag: off, the push past an edge (and the loop's own switch) cuts; back on, it centres.
+    def test_ctrl_alt_a_is_kept_and_saved_but_a_maximized_switch_cuts_anyway(self):
+        # The key still flips the saved choice (no frame of its own); maximized desktops follow or are locked, so the push
+        # past an edge and the loop's own switch cut either way.
         self.assertEqual(self.control.state.mode, 'anchor')
-        self.assertIsNone(self.control.on_message({'op': view.CURSOR_ANIM_OP}))  # no frame of its own
+        self.assertIsNone(self.control.on_message({'op': view.CURSOR_ANIM_OP}))
         self.assertFalse(self.control.state.cursor_switch_animate)
         self.op('zoom_in')
         self.assertIs(last(frames(self.control.switch_desktop(1)), 'view').get('cut'), True)
@@ -316,8 +340,9 @@ class OverviewAnchorOnlyTests(UnifiedBase):
         out = last(frames(self.control.poll()), 'view')
         self.assertIs(out.get('cut'), True); self.assertNotIn('center', out)
         self.control.on_message({'op': view.CURSOR_ANIM_OP})
+        self.assertTrue(self.control.state.cursor_switch_animate)
         out = last(frames(self.control.switch_desktop(0)), 'view')
-        self.assertIs(out.get('center'), True); self.assertNotIn('cut', out)
+        self.assertIs(out.get('cut'), True); self.assertNotIn('center', out)
 
     def test_the_pointer_reads_the_placed_layout(self):
         self.assertEqual([self.p.neighbour(e) for e in ('left', 'right', 'up')], [None, 1, None])
@@ -428,16 +453,18 @@ class SamplerTests(unittest.TestCase):
                 self.assertEqual(self.p.edge_switches, 1)
                 sampler.stop(); self.p.edge_switches = 0
 
-    def test_a_cursor_switch_frame_is_the_key_switch_frame_centred(self):  # (the flag on: the default)
-        # The renderer animates a cursor switch as Ctrl+Alt+Left / Right (the same frame), plus `center`: in anchor mode it
-        # lands with the desktop the cursor is on centred in view (spike focus_center_test). The keys never send it, and
-        # the state never holds it.
+    def test_a_cursor_switch_frame_is_the_key_switch_frame(self):  # (the flag on: the default)
+        # Maximized (follow, maximize-follow) a cursor switch is the Ctrl+Alt+Left / Right frame: a cut straight to the
+        # desktop, which the follow aim then centres (spike focus_center_test). Neither sends `center`, and the state never
+        # holds either flag.
+        self.assertEqual(self.control.state.mode, 'follow')
         self.control.state.selected = 0
         cursor = last(frames(self.control.switch_desktop(1)), 'view')
         self.control.state.selected = 0
         key = last(frames(self.control.on_message({'op': 'next', 'payload': {}})), 'view')
-        self.assertEqual(cursor, {**key, 'center': True})
-        self.assertNotIn('center', self.control.state.view())
+        self.assertEqual(cursor, key)
+        self.assertIs(cursor['cut'], True)
+        self.assertNotIn('center', self.control.state.view()); self.assertNotIn('cut', self.control.state.view())
         for op in ('prev', 'next', 'zoom_out', 'zoom_in'):
             self.assertNotIn('center', last(frames(self.control.on_message({'op': op, 'payload': {}})), 'view'), op)
 

@@ -205,24 +205,38 @@ std::array<float, 3> canvas_up(Quat reference, Quat anchor) {
     return apply(kDriverToGl, v);
 }
 
-void ModeController::set_mode(ViewMode mode, double now_ms) {
+void ModeController::set_mode(ViewMode mode, double now_ms, Change how) {
     if (mode == mode_) return;
+    holding_ = false;  // a maximize still held when the mode changes again: that change starts from where it is held
+    if (how == Change::maximize && mode_ == ViewMode::anchor) {
+        // The room (pinned_) is untouched and the canvas stays where it is: the zoom-in grows the desktop in place.
+        held_ = anchor_; holding_ = true; transitioning_ = false; velocity_ = {};
+        mode_ = mode;
+        return;
+    }
     from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;
     if (mode == ViewMode::follow) { follow_ = quat_mul(anchor_, quat_conj(aim_)); velocity_ = {}; }  // follow_ * aim = here
-    if (mode == ViewMode::anchor) pinned_ = anchor_;  // anchor where the canvas is right now
-    mode_ = mode;
+    if (mode == ViewMode::anchor && how != Change::restore) pinned_ = anchor_;  // anchor where the canvas is right now
+    mode_ = mode;  // restore: the blend heads back to the room as it was left
+}
+void ModeController::land_maximize(double now_ms) {
+    if (!holding_) return;
+    holding_ = false;
+    from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;  // follow: from == its target, so nothing moves
+    if (mode_ == ViewMode::follow) { follow_ = quat_mul(anchor_, quat_conj(aim_)); velocity_ = {}; }  // the aim has landed
 }
 void ModeController::turn_anchor(Quat turn) {
     pinned_ = quat_normalized(quat_mul(pinned_, turn)).value_or(pinned_);
     if (mode_ == ViewMode::anchor && !transitioning_) anchor_ = pinned_;
 }
-void ModeController::recenter() { follow_ = Quat{}; anchor_ = from_ = pinned_ = aim_; transitioning_ = false; velocity_ = {}; }
+void ModeController::recenter() { follow_ = Quat{}; anchor_ = from_ = pinned_ = held_ = aim_; transitioning_ = false; velocity_ = {}; }
 Quat aim_rotation(float az, float el) {
     // GL: the view must apply R^T = El(el)^T . Az(az)^T (place_point's R = Az(az) . El(el)); in the driver frame (x forward,
     // y left, z up) that is a pitch of el about +y after a yaw of az about +z.
     return quat_mul(Quat{0, std::sin(el / 2), 0, std::cos(el / 2)}, Quat{0, 0, std::sin(az / 2), std::cos(az / 2)});
 }
 Quat ModeController::target(Quat head) const {
+    if (holding_) return held_;
     switch (mode_) {
     case ViewMode::locked: return quat_mul(head, aim_);
     case ViewMode::follow: return quat_mul(follow_, aim_);
@@ -233,7 +247,7 @@ Quat ModeController::target(Quat head) const {
 Quat ModeController::update(Quat head, double now_ms) {
     const double dt = last_ms_ < 0 ? 0 : std::clamp(now_ms - last_ms_, 0.0, 100.0);
     last_ms_ = now_ms;
-    if (mode_ == ViewMode::follow && dt > 0) {
+    if (mode_ == ViewMode::follow && !holding_ && dt > 0) {
         // Critically damped spring on the rotation error (axis-angle in the canvas frame):
         // a = w^2 e - 2 w v. Semi-implicit Euler in <=4 ms substeps (stable for w*h << 1).
         const float w = tuning_.follow_omega;
@@ -265,6 +279,6 @@ Quat ModeController::update(Quat head, double now_ms) {
 }
 bool ModeController::settled() const {
     const float v = std::sqrt(velocity_[0] * velocity_[0] + velocity_[1] * velocity_[1] + velocity_[2] * velocity_[2]);
-    return !transitioning_ && (mode_ != ViewMode::follow || v < 0.01f);  // < 0.6 deg/s
+    return !transitioning_ && !holding_ && (mode_ != ViewMode::follow || v < 0.01f);  // < 0.6 deg/s
 }
 }

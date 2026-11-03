@@ -115,6 +115,25 @@ int main() {
         CHECK(both > t.image().height);  // first update in typing mode: mode card plus the typing section
     }
     StatusPopups bad; CHECK(bad.update(9, false, 0));  // out-of-range mode is treated as anchor
+    // Maximize-follow (2026-11-03): a maximize switches to follow and an un-maximize back to anchor by themselves; only a
+    // Ctrl+Alt+V change gets the mode card. track_mode takes the mode quietly; before the first update it changes nothing.
+    {
+        StatusPopups q;
+        q.track_mode(2);
+        CHECK(q.update(0, false, true, false, 0.0) && q.generation() == 1);  // the start: anchor, shown
+        q.track_mode(2);
+        CHECK(!q.update(2, false, true, false, 3000.0) && q.generation() == 1);  // maximized: follow, quietly
+        CHECK(q.update(1, false, true, false, 3100.0) && q.generation() == 2);   // Ctrl+Alt+V: locked, shown
+        q.track_mode(0);
+        CHECK(!q.update(0, false, true, false, 6000.0) && q.generation() == 2);  // un-maximized: anchor, quietly
+        q.track_mode(2);
+        CHECK(q.update(2, false, false, false, 9000.0) && q.generation() == 3);  // a prediction toggle still shows its card
+    }
+    // The mode card says what each mode means now: the overview anchored, a maximized screen following or locked.
+    CHECK(joined(view_mode_lines(0)).find("maximized screen follows you") != std::string::npos);
+    CHECK(joined(view_mode_lines(2)).find("Maximized screen") != std::string::npos);
+    CHECK(joined(view_mode_lines(2)).find("Ctrl+Alt+V for locked") != std::string::npos);
+    CHECK(joined(view_mode_lines(1)).find("Ctrl+Alt+V for follow") != std::string::npos);
 
     // Help card: brackets have real pixel glyphs; card grows with rows, is premultiplied and
     // rounded; with the system font it also renders.

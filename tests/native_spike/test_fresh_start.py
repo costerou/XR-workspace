@@ -1,5 +1,7 @@
-"""Every XR start is fresh: three desktops, all flat; saved placements and a saved desktop count are not restored, while
-the other saved settings (spacing, mode, prediction, cursor_switch_animate) still are."""
+"""Every XR start is fresh: three desktops, all flat, in the overview, anchored; saved placements, a saved desktop count and a
+saved viewing mode are not restored (maximize-follow: the overview is always anchor), while the other saved settings
+(spacing, prediction, cursor_switch_animate) still are."""
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -23,7 +25,7 @@ class StartupDesktopsTests(unittest.TestCase):
 
 
 class FreshPlacementTests(unittest.TestCase):
-    def test_saved_placements_are_not_restored_but_other_settings_are(self):
+    def test_saved_placements_and_mode_are_not_restored_but_other_settings_are(self):
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Path(tmp) / 'run'; runtime.mkdir(mode=0o700)
             client = mock.Mock(runtime_dir=runtime, event_stream=None)
@@ -36,7 +38,9 @@ class FreshPlacementTests(unittest.TestCase):
             with managed.view_controls(client, 'run', 'session', NAMES, store=store) as control:
                 s = control.state
                 self.assertEqual(s.placements, [DEFAULT_PLACEMENT] * 3)  # all flat
-                self.assertEqual((s.spacing, s.mode, s.prediction, s.cursor_switch_animate), (60, 'follow', False, False))
+                self.assertEqual((s.zoomed, s.mode), (False, 'anchor'))  # the overview, anchored: the saved follow is not read
+                self.assertEqual(json.loads(control.initial_frame().split(b'\n')[0])['payload']['mode'], 'anchor')
+                self.assertEqual((s.spacing, s.prediction, s.cursor_switch_animate), (60, False, False))
             self.assertEqual(profiles.load_profile(path, 'luma-ultra')['cursor_switch_animate'], False)
 
 

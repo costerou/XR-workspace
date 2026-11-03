@@ -26,13 +26,13 @@ class ViewStateTests(unittest.TestCase):
         v = view.ViewState(NAMES, spacing=40)
         self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False})
         self.assertEqual(v.apply('next'), 'XR-2')            # overview: highlight + focus
-        self.assertEqual(v.apply('zoom_in'), 'XR-2')         # zoom into the highlighted desktop
-        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False})
-        self.assertEqual(v.apply('next'), 'XR-3')            # zoomed: slide + focus
+        self.assertEqual(v.apply('zoom_in'), 'XR-2')         # maximize the highlighted desktop: it follows you
+        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False})
+        self.assertEqual(v.apply('next'), 'XR-3')            # maximized: slide + focus
         self.assertIsNone(v.apply('next'))                   # clamped at the last desktop: no change
         self.assertEqual(v.apply('prev'), 'XR-2')
-        self.assertIsNone(v.apply('zoom_out'))               # back to overview keeps focus where it is
-        self.assertEqual(v.view()['zoomed'], False)
+        self.assertIsNone(v.apply('zoom_out'))               # back to overview keeps focus where it is, anchored
+        self.assertEqual((v.view()['zoomed'], v.view()['mode']), (False, 'anchor'))
         self.assertEqual(v.apply('prev'), 'XR-1'); self.assertIsNone(v.apply('prev'))
         with self.assertRaises(ValueError): v.apply('explode')
 
@@ -164,8 +164,8 @@ class SupervisorControlTests(unittest.TestCase):
         frames = [json.loads(l) for l in renderer.recv(65536).decode().splitlines()]
         self.assertEqual([f['payload'] for f in frames],
                          [{'zoomed': False, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False},
-                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False},
-                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False}])
+                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False},
+                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False}])
         ids = [f['request_id'] for f in frames]
         self.assertEqual(ids, sorted(ids)); self.assertGreater(ids[0], 1)  # start frame used 1
         control.join_focus(timeout=2)
@@ -218,13 +218,24 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         return view.ViewControl(state or view.ViewState(NAMES), 'run', 'session',
                                 (focused if focused is not None else []).append, LayoutStore(self.settings), None)
 
-    def test_mode_cycles_and_is_saved_with_spacing(self):
-        c = self.control()
+    def test_maximized_mode_toggles_and_is_never_saved(self):
+        # Maximize-follow (2026-11-03): the overview is always anchor; Ctrl+Alt+V there changes nothing and says why.
+        # Maximized, it toggles follow and locked. The mode is not a saved setting any more ('anchor' in the file).
+        told = []
+        c = self.control(); c.notify = told.append
+        self.assertIsNone(c.on_message({'op': 'mode_next'}))
+        c.join_focus()
+        self.assertEqual(told, [view.MODE_OVERVIEW_TOAST])
+        self.assertEqual((c.state.mode, c.state.zoomed), ('anchor', False))
+        self.assertIn('Maximize a desktop', told[0])
+        self.assertEqual(json.loads(c.on_message({'op': 'zoom_in'}))['payload']['mode'], 'follow')
         modes = [json.loads(c.on_message({'op': 'mode_next'}))['payload']['mode'] for _ in range(3)]
-        self.assertEqual(modes, ['follow', 'locked', 'anchor'])
-        c.on_message({'op': 'mode_next'}); c.on_message({'op': 'spacing_up'})
-        self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'follow', 'prediction': True,
+        self.assertEqual(modes, ['locked', 'follow', 'locked'])
+        self.assertEqual(len(told), 1)  # no toast while maximized: the renderer's pop-up shows the new mode
+        c.on_message({'op': 'spacing_up'})
+        self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'anchor', 'prediction': True,
                                                              'cursor_switch_animate': True, 'video_quality': {'filter': 'catmull-rom', 'deband': False}})
+        self.assertEqual(view.MAXIMIZED_MODES, ('follow', 'locked'))
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
         self.assertIn(('CTRL + ALT + V', 'mode_next'), view.BINDS)
         self.assertNotIn('cursor_follow', [op for _, op in view.BINDS])  # cursor follow was removed (2026-11-02)
@@ -260,7 +271,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertTrue(view.load_settings(self.settings)['cursor_switch_animate'])
         self.assertEqual(told, [view.CURSOR_ANIM_TOASTS[False], view.CURSOR_ANIM_TOASTS[True]])
         self.assertIn('Ctrl+Alt+A', told[0])
-        self.assertIn(['Ctrl+Alt+V / A', 'View mode / anchor: animate cursor switch'], view.help_rows())
+        self.assertIn(['Ctrl+Alt+V / A', 'Maximized: follow / locked; anchor anim'], view.help_rows())
         c.state.typing = True  # its bind is gone in typing mode: a stale key does nothing
         self.assertIsNone(c.on_message({'op': view.CURSOR_ANIM_OP}))
         self.assertTrue(c.state.cursor_switch_animate)
@@ -282,7 +293,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
                     {'spacing': 40, 'mode': 'anchor', 'prediction': True},
                     {'spacing': 40, 'mode': 'anchor', 'prediction': True, 'cursor_switch_animate': 'no'}):
             with self.subTest(bad), self.assertRaises(ValueError): view.save_settings(self.settings, bad)
-        with self.assertRaises(ValueError): view.ViewState(NAMES, mode='orbit')
+        with self.assertRaises(TypeError): view.ViewState(NAMES, mode='follow')  # no saved mode to start in any more
 
     def test_help_toggles_card_with_every_bind_and_leaves_view_alone(self):
         c = self.control(focused=[])

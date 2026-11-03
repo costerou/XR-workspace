@@ -119,6 +119,20 @@ TestCase {
         compare(Model.desktopEdit(7682,1080,1), null);
         compare(Model.desktopEdit(3440,1440,1.25), {width:3440,height:1440,scale:1.25});
     }
+    // Maximize-follow (2026-11-03): the panel says Maximized / Overview, never "zoom"; the overview is always anchored.
+    function test_viewLabels() {
+        compare(Model.viewLabel({}), "awaiting measured state");
+        compare(Model.viewLabel(undefined), "awaiting measured state");
+        compare(Model.viewLabel({zoomed:false, mode:"anchor"}), "Overview · anchor");
+        compare(Model.viewLabel({zoomed:true, mode:"follow"}), "Maximized · follow");
+        compare(Model.viewLabel({zoomed:true, mode:"locked"}), "Maximized · locked");
+        compare(Model.operationLabel("zoom_in"), "Maximize");
+        compare(Model.operationLabel("zoom_out"), "Overview");
+        compare(Model.operationLabel("mode_next"), "Maximized: follow / locked");
+        compare(Model.operationLabel("something_new"), "something_new");
+        for (const op of ["prev","next","zoom_in","zoom_out","recenter","mode_next","spacing_up","spacing_down","prediction"])
+            verify(Model.operationLabel(op).toLowerCase().indexOf("zoom") < 0, op);
+    }
     function test_selectOperations() {
         compare(Model.selectOperations(0,3,["next","prev"]), ["next","next","next"]);  // a fourth desktop added in XR
         compare(Model.selectOperations(0,Model.MAX_DESKTOPS,["next"]), []);

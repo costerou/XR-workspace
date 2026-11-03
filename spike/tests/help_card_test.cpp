@@ -93,13 +93,13 @@ void check_fit(const HudImage& im, std::uint32_t w, std::uint32_t h, const std::
 }
 
 std::vector<HelpRow> help_rows() {  // exactly view.help_rows(), sections marked (tests/native_spike/test_resize.py checks)
-    return {{"Ctrl+Alt+Up", "Zoom into the selected desktop"},
+    return {{"Ctrl+Alt+Up", "Maximize the selected desktop"},
             {"Ctrl+Alt+Down", "Overview: free mouse, pills, corners"},
             {"Ctrl+Alt+Left", "Previous desktop"},
             {"Ctrl+Alt+Right", "Next desktop"},
             {"Ctrl+Alt+[ / ]", "Less / more space between desktops"},
             {"Ctrl+Alt+Space", "Recenter the view"},
-            {"Ctrl+Alt+V / A", "View mode / anchor: animate cursor switch", true},
+            {"Ctrl+Alt+V / A", "Maximized: follow / locked; anchor anim", true},
             {"Ctrl+Alt+P", "Toggle pose prediction"},
             {"Ctrl+Alt+T", "Typing mode: XR keys off / on"},
             {"Ctrl+Alt+D", "Privacy: main display off / on"},
