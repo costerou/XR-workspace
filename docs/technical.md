@@ -108,6 +108,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+G | run | Send the focused window to the glasses: the desktop selected in the view |
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
+| Ctrl+Alt+D | run | Privacy mode: main physical display off / on (DPMS), so only the glasses show content (see [Privacy mode](#privacy-mode-main-display-off)) |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
 | Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step). Left/right: 0.2°, Shift 15°, and it carries on past 180° to the other side. Down/up: 0.2°, Shift 10°, and it stops at ±90°. Not stopped by other desktops |
@@ -149,6 +150,29 @@ different chord), and in this project's binds; `python -m tools.native_spike.bin
 Ctrl+Alt+P has its own help card row. Cursor follow (Ctrl+Alt+F: the view switched to the monitor the cursor crossed
 onto) was removed on 2026-11-02; a `cursor_follow` saved in layout.json or a profile is ignored, and the renderer's
 `view` payload still carries `cursor_follow: false` because the installed renderer's decoder requires the key.
+
+### Privacy mode (main display off)
+
+**Ctrl+Alt+D** during a run turns the main physical display off, so only the glasses show content. Press it again to
+turn the display back on. The main display is the run's physical fallback (the monitor Stop and Recover return windows to,
+e.g. the Odyssey on DP-1). Failing that, it is the only monitor that is not the glasses' output, not an XR-n desktop and
+has no VITURE in its description. The display is blanked with DPMS, not disabled. Disabling it would make Hyprland
+move its workspaces and windows onto another output, and the run's guard and recovery need it connected. DPMS leaves
+the layout, the workspaces and XR capture as they are: the renderer captures only the headless XR-n outputs and
+presents on the glasses' own output. With Omarchy's `key_press_enables_dpms` / `mouse_move_enables_dpms`, Hyprland
+0.56.2 would turn every monitor back on at the next key or mouse move. To stop that, the blank is followed in the same
+eval by a no-op `dpms on` for the glasses' output, which resets Hyprland's global DPMS flag (`tools/native_spike/privacy.py`).
+
+Each switch shows a desktop notification, which appears on the focused desktop, so in the glasses. The display comes
+back on when the run ends, and recovery turns the fallback on before anything else: Stop, a renderer or controller
+crash, the panel's Recover. If the run died and its binds survived, Ctrl+Alt+D turns every monitor's DPMS on. The run's
+guard accepts a DPMS-off fallback (it must still be connected and enabled). Ctrl+Alt+D is off in typing mode like the
+other run binds, and works while a VR video plays.
+
+Limits: windows on the blanked display still take input, and Ctrl+Alt+B still sends windows there. An idle daemon's
+resume, or a config reload that re-lights the panel, can turn it back on; one press of Ctrl+Alt+D blanks it again
+(the key reads the display's current state). Offline tests only (`tests/native_spike/test_privacy.py`); not yet tried
+on the live desktop.
 
 ### Head tracking from the command line
 

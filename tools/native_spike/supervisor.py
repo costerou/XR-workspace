@@ -316,8 +316,9 @@ def _send_frame(sock, frame):
     if sent < len(data): sock.sendall(data[sent:])
 
 
-def validate_physical_pair(client, session, output, recovery_output):
-    """Read-only conservative connector check; not output ownership proof."""
+def validate_physical_pair(client, session, output, recovery_output, recovery_asleep_ok=False):
+    """Read-only conservative connector check; not output ownership proof. `recovery_asleep_ok`: the run's guard lets
+    the recovery output be DPMS-off (privacy mode, privacy.py); it must still be connected, enabled and not mirrored."""
     import re
     from .hyprland import monitors
     from .ipc import token
@@ -328,7 +329,9 @@ def validate_physical_pair(client, session, output, recovery_output):
     for name in (output, recovery_output):
         if not re.fullmatch(r'(?:DP|HDMI-A|eDP|DVI-D)-[0-9]+', name):
             raise ValueError('approved output must be a physical connector')
-        matches = [m for m in snapshot if m['name'] == name and not m['disabled'] and m['dpmsStatus'] and m['mirrorOf'] == 'none']
+        asleep_ok = recovery_asleep_ok and name == recovery_output
+        matches = [m for m in snapshot if m['name'] == name and not m['disabled'] and (m['dpmsStatus'] or asleep_ok)
+                   and m['mirrorOf'] == 'none']
         if len(matches) != 1: raise ValueError('approved usable physical output missing')
 
 

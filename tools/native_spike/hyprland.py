@@ -221,6 +221,16 @@ class HyprlandClient:
         self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
         if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
 
+    def set_dpms(self, name, on, keep=None):
+        """Privacy mode (Ctrl+Alt+D, privacy.py): the physical output `name` DPMS off (`keep`: the glasses' output,
+        dispatched `on` in the same eval so input does not wake `name`) or back on. Generated Lua only, from validated
+        connector names; never free-form eval."""
+        from .privacy import blank_lua, wake_lua
+        if on: self._eval(wake_lua(name))
+        else:
+            if keep is None: raise ValueError('blanking needs the glasses output')
+            self._eval(blank_lua(name, keep))
+
     # Ownership plugin lifecycle. Wire strings follow hyprctl's request format ('/plugin load <abs path>',
     # '/plugin unload <abs path>', 'j/plugin list'); they MUST be confirmed against the VM's Hyprland before
     # any live use (Task 12). The JSON list has no path field, so readback is by plugin name.

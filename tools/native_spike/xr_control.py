@@ -28,14 +28,18 @@ OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'rec
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'menu_ultrawide', 'menu_add',
        'menu_delete', 'resize_press', 'resize_release',
        'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back', 'typing_toggle',
-       'help_prev', 'help_next'
-       ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS + LEGACY_OPS
+       'help_prev', 'help_next', 'privacy_display'
+       ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS
+                       # + privacy.PRIVACY_OP + LEGACY_OPS
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit')
 # Same text as video.remove_video_binds_lua() (tests compare): a video key with no run listening gives the keys back.
 REMOVE_VIDEO_BINDS = ('for _, b in ipairs(xr_workspace_video_binds or {}) do '
                       'if tostring(b) ~= "HL.Keybind(expired)" then b:remove() end end xr_workspace_video_binds = nil')
+# Ctrl+Alt+D (privacy.PRIVACY_OP) with no run listening: the run died with the main display off. Every monitor's DPMS on
+# (fixed Lua, the same text as privacy.WAKE_ALL_LUA; tests compare).
+WAKE_ALL_DISPLAYS = 'hl.dispatch(hl.dsp.dpms({action="on"}))'
 HELPER_OPS = ('video_paste',)  # handled here: becomes video_open with the clipboard's web video
 MAX_CLIPBOARD = 16384  # web_video.MAX_CLIPBOARD (the control frame limit)
 VIDEO_FILTER = 'Videos | *.mp4 *.MP4 *.mkv *.MKV *.webm *.mov *.MOV *.m4v *.avi *.ts *.m2ts'
@@ -242,6 +246,7 @@ def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
         if op.startswith('menu_'): drop_stale_menu_binds()  # incl. Escape (menu_toggle); harmless if none are left
         if op.startswith('resize_'): drop_stale_menu_binds(code=REMOVE_RESIZE_BINDS)  # give the left button back
         if op.startswith('send_'): notify_no_session()  # nothing moves
+        if op == 'privacy_display': _eval_stale(os.environ, WAKE_ALL_DISPLAYS)  # never leave the main display dark
         return 1
     return 0
 

@@ -48,6 +48,10 @@ Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1..4 to
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
 add no help card row; the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
 
+Privacy mode (Ctrl+Alt+D, privacy.py): the main physical display (the run's fallback, e.g. DP-1) DPMS off / on, so
+only the glasses show content; the run and recovery turn it back on. A run bind with its own help card row; off in
+typing mode like the other run binds.
+
 Typing mode (Ctrl+Alt+T, TYPING_OP): one chord that hands the keyboard back while the run keeps going. Entering it
 collapses an open placement panel and closes the help card, then reinstalls the run's bind table with only the
 Ctrl+Alt+T bind in it: the view binds, the send-window binds, the panel's modal binds, the overview free pointer (its
@@ -71,6 +75,7 @@ import threading
 import time
 
 from .geometry import MAX_DESKTOPS
+from .privacy import PRIVACY_BIND, PRIVACY_OP
 from .send import SEND_OPS
 
 DEFAULT_SPACING, MAX_SPACING, SPACING_STEP = 40, 400, 20
@@ -85,7 +90,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + L', 'menu_toggle'),
          ('CTRL + ALT + O', 'video_open'),  # video_open: the bind helper shows a file picker first (video.py)
          ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
-         ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'))  # help card pages (HELP_PAGE_OPS)
+         ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
+         PRIVACY_BIND)  # Ctrl+Alt+D: main display off / on (privacy.py)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -102,7 +108,7 @@ HELP_ACTIONS = {'zoom_in': 'Zoom into the selected desktop', 'zoom_out': 'Overvi
                 'typing_toggle': 'Typing mode: XR keys off / on',
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
-                'help_next': 'Next help page'}
+                'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -116,7 +122,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP,)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -146,7 +152,7 @@ EXTRA_HELP_ROWS = ()
 # Help card sections, in order: the op naming each row (a pair's first op). The renderer keeps a section on one page when
 # it fits one and draws a faint rule between sections. An op in BINDS but in no section lands in the last one.
 HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recenter'),  # moving around the desktops
-                 ('mode_next', 'prediction', 'typing_toggle'),                          # modes
+                 ('mode_next', 'prediction', 'typing_toggle', PRIVACY_OP),              # modes
                  ('menu_toggle', 'video_open'),                                          # placement and VR video
                  ('help', 'help_prev'))                                                  # this card
 
@@ -638,6 +644,7 @@ class ViewControl:
         self.overview_pointer = None  # optional free_pointer.OverviewPointer (overview free pointer); set by managed.view_controls
         self.wake = None    # optional socket the supervisor loop also waits on (the free pointer's sampler pokes it)
         self.sender = None  # optional send.WindowSender (Ctrl+Alt+G/1-4/B); set by managed.view_controls
+        self.privacy = None  # optional privacy.PrivacyDisplay (Ctrl+Alt+D); set by managed.view_controls
         # The open panel's desktop row (desktops.py): the run's DesktopManager (managed runs only), the supervisor whose
         # guard a change pauses and replaces (attach_supervisor), callbacks told the new output names once a change is
         # done (the free pointer's sampler), and `notify` (text) -> None for a refusal (a desktop notification).
@@ -964,6 +971,9 @@ class ViewControl:
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
+            return None
+        if isinstance(message, dict) and message.get('op') == PRIVACY_OP:  # the compositor call runs off the loop
+            if self.privacy is not None: self.privacy.request()
             return None
         if isinstance(message, dict) and message.get('op') in HELP_PAGE_OPS:
             return self.help_turn(HELP_PAGE_OPS[message['op']]) or None

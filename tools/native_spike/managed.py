@@ -16,8 +16,9 @@ class ManagedGuard:
     specs: list
 
     def __call__(self):
+        # The fallback may be DPMS-off during a run: Ctrl+Alt+D's privacy mode (privacy.py).
         validate_physical_pair(self.broker.transport, self.broker.session,
-                               self.output, self.broker.approved_physical)
+                               self.output, self.broker.approved_physical, recovery_asleep_ok=True)
         for spec in self.specs:
             self.broker.verify(self.broker.inspect(spec['id']), spec)
 
@@ -31,6 +32,8 @@ def recover_managed(client, consent, path):
         raise OwnershipBlocked('managed recovery requires the canonical runtime journal')
     path = canonical
     session = client.verified_session()['id']
+    from .privacy import wake
+    wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
         journal = Journal.open(path, consent['run_id'], session, existing_only=True)
@@ -46,6 +49,10 @@ def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=No
     taken at start (`snapshot`, else the one saved in the state directory). The saved one goes once recovery completes;
     an incomplete recovery keeps it, so the next attempt restores again."""
     from . import restore
+    from .privacy import wake
+    # Privacy mode (Ctrl+Alt+D) may have left the fallback DPMS-off: it comes back first, whatever ended the run.
+    saved = getattr(journal, 'broker', None)
+    if isinstance(saved, dict): wake(client, saved.get('recovery_output'))
     if snapshot is None:
         try: snapshot = restore.load(run_id, layouts)
         except (OSError, ValueError): snapshot = None
@@ -170,6 +177,10 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             from .send import WindowSender, notify as notify_text
             control.sender = WindowSender(client, capture, fallback)
             control.notify = notify_text  # a desktop change that could not be done says why
+        # Privacy mode (Ctrl+Alt+D): the main physical display DPMS off / on. Closed (display back on) before recovery.
+        if hasattr(client, 'set_dpms') and output is not None:
+            from .privacy import PrivacyDisplay
+            control.privacy = PrivacyDisplay(client, output, fallback)
         if desktops is not None:
             control.desktops = desktops
             if placements is not None: desktops.store = placements  # the profile takes the new desktops
@@ -192,6 +203,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if video is not None: video.close()  # removes the video keys if a video was playing; none are added after this
         if control is not None and control.sender is not None:
             control.sender.close()  # no window move may start after this; one in flight lands before recovery runs
+        if control is not None and control.privacy is not None:
+            control.privacy.close()  # the main display back on; no toggle starts after this
         if control is not None:
             control.flush()  # a panel or drag change still inside its save delay
             control.stop_menu_binds()  # no modal panel bind may land after the removal below
