@@ -37,15 +37,18 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
         that same press-time surface (the `placement_menu` frame's `surface`) while the desktop itself moves live, so
         the knob stays under the pointer. On release the panel joins its desktop again.
       - elsewhere in the open panel: nothing (it stays open).
-      - corner: resize (the `distance` placement), as before.
-      - desktop: select it, focus its monitor in Hyprland (view.ViewControl.focus_desktop), hand the cursor back there.
+      - corner: resize (the `distance` placement), as before. A release that resized nothing, pressed on the corner
+        zone's inner half (on the desktop), is a click on the desktop (below).
+      - desktop: select it, focus its monitor in Hyprland (view.ViewControl.focus_desktop), hand the cursor back there
+        (_clicked; under the input lock the held cursor moves there instead, so focus-follows-mouse agrees).
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
     collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
     still starts its drag or click, a desktop is still focused, empty space does nothing more).
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
     the same placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front
-    desktop first. The overview's slots never move with head pose, so neither does this.
+    desktop first. The overview's slots never move with head pose, so neither does this. In anchor mode past the view,
+    what is under the dot itself always wins; a pill found only along the stretched drag direction is the fallback.
   * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
     pill stays under the pointer in the view; in anchor (3DoF) mode the pointer's reach past the view carries it on to
     anywhere round you, and it never overlaps another desktop. A corner drag changes `distance` so the corner
@@ -280,23 +283,25 @@ def hit(g, placements, pointer, open_=None, around=False):
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
     stretched = around and orbit.beyond_view(g, pointer)
+    reached = None  # past the view: the first pill found only along the stretched direction (what is under the dot wins)
     for i in front_order(g, placements):
         tile = g['tiles'][i]
         q = unproject(g, tile, placements[i], pointer)
-        qp = q
-        if stretched:
+        qp = None
+        if stretched and reached is None:
             seen = orbit.stretched_pointer(g, tile, placements[i], pointer)
             qp = unproject(g, tile, {**placements[i], 'x': 0, 'y': 0}, seen) if seen is not None else None
-        if q is None and qp is None: continue
         tx, ty, tw, th = tile
-        z = corner_zone(tile)
-        for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
-            if q is not None and abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
         px, py, pw, ph = pill_rect(tile)
-        if qp is not None and px - PILL_PAD_X <= qp[0] <= px + pw + PILL_PAD_X and ty + th <= qp[1] <= py + ph + PILL_PAD_Y:
-            return ('pill', i)
-        if q is not None and tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
-    return None
+        def on_pill(r): return r is not None and px - PILL_PAD_X <= r[0] <= px + pw + PILL_PAD_X and ty + th <= r[1] <= py + ph + PILL_PAD_Y
+        if q is not None:
+            z = corner_zone(tile)
+            for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
+                if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
+            if on_pill(q): return ('pill', i)
+            if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
+        if on_pill(qp): reached = ('pill', i)
+    return reached
 
 
 def inside_by(tile, q):
@@ -513,6 +518,11 @@ class OverviewPointer:
         self.entries += 1
         return self._select(i)
 
+    def _clicked(self, i, q):
+        """A click on desktop i at tile pixel q (after focus_desktop): the cursor comes back there, so Hyprland's
+        focus-follows-mouse agrees with the focus the click asked for."""
+        return self._enter(i, q)
+
     # --- the loop -------------------------------------------------------------------------------------------------
     def poll(self, now):
         """Supervisor tick: apply the newest cursor sample; returns renderer frames (bytes)."""
@@ -628,6 +638,12 @@ class OverviewPointer:
                     out += self.control.pill_click(d['index'])
                 else:  # a key changed the open panel while the button was down: that key wins, the release is dropped
                     self.stale_clicks += 1
+            elif d is not None and d['kind'] == 'corner' and d.get('on') is not None and self.pointer is not None \
+                    and math.hypot(self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]) <= CLICK_PX \
+                    and self.control.state.placements[d['index']]['distance'] == d['distance']:
+                self.drag = None  # a click on the desktop's own corner, not a resize: focus it like any desktop click
+                self.focus_clicks += 1
+                out += self.control.focus_desktop(d['index']) + self._clicked(d['index'], d['on'])
             out += self._end_drag()
         elif self.active() and self.mode == 'free' and not idle and self.pointer is not None:
             out += self._end_drag()  # a press during a drag: its release was lost; finish that one first
@@ -644,7 +660,10 @@ class OverviewPointer:
             if h is not None and h[0] in ('corner', 'pill'):
                 i, tile, p = h[1], self._tile(h[1]), self._placement(h[1])
                 if h[0] == 'corner':
-                    self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile}
+                    q = unproject(self.geometry, tile, p, self.pointer)  # the corner zone's inner half is on the desktop
+                    on = q if q is not None and inside_by(tile, q) >= 0 else None
+                    self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile,
+                                 'on': on}  # a release there that resized nothing is a click on the desktop: it focuses
                     self.drags += 1
                 else:  # the desktop moves only once the pointer is CLICK_PX away; a release before that is a click
                     self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile, 'moved': False,
@@ -658,7 +677,7 @@ class OverviewPointer:
             elif h is not None and h[0] == 'desktop':  # focus it and hand the cursor back right there
                 self.focus_clicks += 1
                 out += self.control.focus_desktop(h[1])  # selected, and its monitor gets Hyprland's focus (off the loop)
-                out += self._enter(h[1], h[2])
+                out += self._clicked(h[1], h[2])
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._handle() + self._pills(False) + self._pointer_frame(False)) or None
 
