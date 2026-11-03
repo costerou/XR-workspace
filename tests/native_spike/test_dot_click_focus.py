@@ -123,7 +123,7 @@ class LockedClickZoomTests(LockBase):
         self.assertEqual(self.focused, [])
         self.assertFalse(self.control.state.zoomed)  # empty space: nothing
         q = (T1[0] + T1[2] * 0.7, T1[1] + T1[3] * 0.4)
-        self.dot_to(fp.project(G, T1, placed, *q, around=True))  # on XR-2 as drawn, billboarded toward you
+        self.dot_to(fp.project(G, T1, placed, *q))  # on XR-2 as drawn, billboarded toward you
         self.assertEqual(self.p.hover[:2], ('desktop', 1))
         self.assertAlmostEqual(self.p.hover[2][0], q[0], delta=0.05); self.assertAlmostEqual(self.p.hover[2][1], q[1], delta=0.05)
         self.click()
@@ -141,18 +141,18 @@ class LockedClickZoomTests(LockBase):
                       {**DEFAULT_PLACEMENT, 'x': 150}]
         self.control.state.placements = placements
         self.assertEqual(self.control.state.mode, 'anchor')
-        target = fp.project(G, T2, placements[2], *centre(T2), around=True)
-        self.assertTrue(orbit.beyond_view(G, target))
-        self.assertEqual(fp.hit(G, placements, target, around=True)[:2], ('desktop', 2))
+        target = fp.project(G, T2, placements[2], *centre(T2))
+        self.assertGreater(abs(target[0] - G['w'] / 2), G['w'] / 2)  # past the view
+        self.assertEqual(fp.hit(G, placements, target)[:2], ('desktop', 2))
         pill = fp.pill_rect(T0)
-        on_pill = fp.project(G, T0, placements[0], pill[0] + pill[2] / 2, pill[1] + pill[3] / 2, around=True)
-        self.assertTrue(orbit.beyond_view(G, on_pill))
-        self.assertEqual(fp.hit(G, placements, on_pill, around=True), ('pill', 0))
+        on_pill = fp.project(G, T0, placements[0], pill[0] + pill[2] / 2, pill[1] + pill[3] / 2)
+        self.assertGreater(abs(on_pill[0] - G['w'] / 2), G['w'] / 2)
+        self.assertEqual(fp.hit(G, placements, on_pill), ('pill', 0))
         self.at(X3 + 960, 540)
         self.dot_to(target)
         self.assertEqual(self.p.hover[:2], ('desktop', 2))
         dot = self.p.sent  # the dot as last sent to the renderer
-        az, el = orbit.pointer_direction(G, self.p.pointer, True)
+        az, el = orbit.pointer_direction(G, (dot['x'], dot['y']))  # the whole pixel the frame carries
         self.assertEqual((dot['az'], dot['el']), (round(math.degrees(az) * 100), round(math.degrees(el) * 100)))
         seen = orbit.place_point(G, T2, placements[2], *centre(T2))  # the dot is drawn on XR-3's middle
         self.assertAlmostEqual(math.degrees(math.atan2(seen[0], -seen[2])), dot['az'] / 100, delta=0.02)
@@ -164,7 +164,7 @@ class LockedClickZoomTests(LockBase):
 
     def test_a_click_on_the_inner_half_of_a_corner_zooms_in_and_a_drag_there_still_resizes(self):
         self.at(X2 + 960, 540)
-        inner = (T0[0] + T0[2] - 4, T0[1] + 4)  # XR-1's top-right corner zone, on the desktop
+        inner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] - 4, T0[1] + 4)  # XR-1's top-right corner zone, on it
         self.dot_to(inner)
         self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
         self.op('resize_press'); self.op('resize_release'); self.op('resize_press')

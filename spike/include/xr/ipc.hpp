@@ -78,8 +78,8 @@ struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool
 // y in canvas px, each -kMaxPointerPx..kMaxPointerPx (the pointer can go past the view's edge, beyond the desktops). held =
 // a pill, corner or panel-slider press/drag is in progress. Optionally also "az":int,"el":int (both or neither): the dot's
 // direction in hundredths of a degree (az -kMaxPointerAz..kMaxPointerAz, positive right; el -kMaxPointerEl..kMaxPointerEl,
-// positive up), sent past the view in anchor mode, where the pointer's reach is stretched round you (orbit.py
-// pointer_direction): the dot is then drawn in that direction (view.hpp direction_disc), anywhere round you.
+// positive up). The supervisor sends it whenever the dot is shown (the dot's direction is linear in the pointer, orbit.py
+// pointer_direction, and goes round you in anchor mode): the dot is then drawn in that direction (view.hpp direction_disc).
 // Malformed: rejected with kInvalidOverviewPointerCode and dropped, like move_handle.
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
 constexpr std::int32_t kMaxPointerAz = 18000, kMaxPointerEl = 9000;

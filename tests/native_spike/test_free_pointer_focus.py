@@ -10,9 +10,10 @@ import threading
 import unittest
 
 from tools.native_spike import free_pointer as fp, view
+from tools.native_spike.geometry import DEFAULT_PLACEMENT
 from tools.native_spike.hyprland import HyprlandClient
 
-from test_free_pointer import T1, X1, X2, PointerBase, frames, last
+from test_free_pointer import G, T1, X1, X2, PointerBase, frames, last
 
 
 class ClickFocusTests(PointerBase):
@@ -54,7 +55,7 @@ class ClickFocusTests(PointerBase):
         # XR-2 (less than ENTER_PX in, so still free) and clicks there: XR-2 gets the focus, not the parking monitor.
         self.at(X1 + 1900, 540); self.at(X2 + 6, 540)
         self.assertEqual((self.p.mode, self.p.desktop), ('free', 0))
-        self.move_canvas(T1[0] - self.p.pointer[0] + 1, 0)
+        self.move_canvas(fp.project(G, T1, DEFAULT_PLACEMENT, T1[0] + 1, T1[1] + T1[3] / 2)[0] - self.p.pointer[0], 0)
         self.assertEqual((self.p.mode, self.p.hover[:2]), ('free', ('desktop', 1)))
         self.focused_after('resize_press')
         self.assertEqual(self.focused, ['XR-2'])

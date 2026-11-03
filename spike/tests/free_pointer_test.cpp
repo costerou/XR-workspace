@@ -3,7 +3,8 @@
 //    is the ignorable kind (dropped, never fatal);
 //  * the `overview_geometry` status line is exactly what the supervisor's parser was tested against;
 //  * the dot is a closed disc on the canvas plane at the requested pixel, the same every time (no drift or orbit), or, given
-//    a direction (past the view in anchor mode), the same disc turned to that direction round you;
+//    a direction (the supervisor always gives one: linear in the pointer, round you in anchor mode), the same disc turned
+//    to that direction round you;
 //  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention).
 #include "xr/ipc.hpp"
 #include "xr/view.hpp"
@@ -110,9 +111,10 @@ int main(int argc, char** argv) try {
     CHECK(canvas_disc(canvas, 1, 1, 0).empty());
     CHECK(canvas_disc(canvas, 1, 1, 6, 2).empty());
 
-    // Past the view in anchor mode the dot is drawn in its direction round you: centred there (behind you, overhead), the
-    // same rigid disc (every rim point as far from the centre, as seen from the eye, as on the plane), upright, and
-    // exactly canvas_disc at the view's edge where the stretch begins, so it never jumps there.
+    // Given a direction the dot is drawn there: centred on it (behind you, overhead, or inside the view, where the
+    // supervisor's linear direction is a little off the plane point's own), the same rigid disc (every rim point as far
+    // from the centre, as seen from the eye, as on the plane), upright, and exactly canvas_disc when the direction is the
+    // plane point's own.
     auto dir = [](const Vec3& v) {
         return std::pair{std::atan2(double(v.x), -double(v.z)), std::atan2(double(v.y), std::hypot(double(v.x), double(v.z)))};
     };
@@ -123,7 +125,9 @@ int main(int argc, char** argv) try {
     };
     const double pi = M_PI;
     for (const auto& [x, y, az, el] : {std::tuple{2880.f, 600.f, float(pi), 0.f}, std::tuple{2400.f, 100.f, 2.1f, 0.5f},
-                                        std::tuple{-700.f, -500.f, -2.8f, 1.45f}, std::tuple{960.f, 1700.f, 0.f, -1.3f}}) {
+                                        std::tuple{-700.f, -500.f, -2.8f, 1.45f}, std::tuple{960.f, 1700.f, 0.f, -1.3f},
+                                        // inside the view: orbit.pointer_direction's (u * half_w, v * half_h)
+                                        std::tuple{1500.f, 400.f, 0.2025f, 0.075f}, std::tuple{100.f, 1150.f, -0.3225f, -0.20625f}}) {
         const auto fan = direction_disc(canvas, x, y, az, el, kFreePointerRadiusPx);
         CHECK(fan.size() == std::size_t(kFreePointerSegments) + 2);
         const auto [a, e] = dir(fan[0]);

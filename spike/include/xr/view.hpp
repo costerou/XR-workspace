@@ -88,7 +88,7 @@ Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, f
 bool same_placement(const Placement& a, const Placement& b);
 constexpr float kPlacementEaseMs = 35.f;
 // Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
-// or past the view in anchor mode in its direction round you (direction_disc), world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
+// or in its direction round you when the frame gives one (direction_disc; the supervisor always does), world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
 // the real one). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at
 // or under the cards' 191/255 cap (micro-OLED retention); the supervisor hides it after 30 s without pointer movement.
 constexpr float kFreePointerLevel = 170.f / 255.f, kFreePointerHeldLevel = 184.f / 255.f;
@@ -98,10 +98,9 @@ constexpr int kFreePointerSegments = 20;
 // canvas plane. Empty if the canvas is empty, radius <= 0 or segments < 3.
 std::vector<Vec3> canvas_disc(const Canvas& canvas, float x, float y, float radius, int segments = kFreePointerSegments);
 // The same disc drawn in direction (az, el) radians round you (az positive right, el positive up; the overview pointer
-// frame's az / el, past the view in anchor mode): canvas_disc at (x, y) clamped into the view, turned about the eye by
+// frame's az / el): canvas_disc at (x, y) clamped into the view, turned about the eye by
 // Az(az) . El(el - e) . Az(-a), (a, e) that clamped point's direction, so its centre lands on (az, el), it stays upright,
-// and at the view's edge (where the supervisor's stretch begins and (az, el) is that point's own direction) it is
-// canvas_disc exactly: the dot never jumps. Empty under canvas_disc's conditions.
+// and where (az, el) is that point's own direction it is canvas_disc exactly. Empty under canvas_disc's conditions.
 std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float az, float el, float radius,
                                  int segments = kFreePointerSegments);
 // The supervisor's free-pointer hit testing needs the overview's layout: one status line

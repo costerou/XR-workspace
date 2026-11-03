@@ -216,7 +216,7 @@ above were changed for this.
 
 Automated coverage (offline only):
 
-- `tests/native_spike/test_orbit.py`: `tools/native_spike/orbit.py`: the placement maths, the stretched reach past the
+- `tests/native_spike/test_orbit.py`: `tools/native_spike/orbit.py`: the placement maths, the dot's linear reach past the
   view and the re-grab of a pill round you, the drag target (wrap, snap, poles) and the no-overlap guard (stop before
   touching, slide, no jumping through, an existing overlap never deeper, no flip round behind you).
 - `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`: hit testing and drags on desktops that are moved
@@ -228,7 +228,7 @@ Automated coverage (offline only):
 - Not done: nothing here has run in an isolated VM or in the glasses.
 
 Not checked offline: how the side desktops look now that they turn toward you, whether text stays readable on a desktop
-overhead or behind you, how the speed-up past the view's edge feels, whether a pill can be found again without seeing
+overhead or behind you, how the dot's steady angle per mouse pixel feels past the view's edge, whether a pill can be found again without seeing
 the dot, how big the guard's gap looks, the frame time with desktops all round you, and comfort. The steps below cover
 them.
 

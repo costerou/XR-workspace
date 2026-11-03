@@ -39,23 +39,25 @@ def pill_centre(tile):
 
 
 def pointer_for(az, el):
-    """The canvas point whose stretched direction (anchor mode) is (az, el) degrees: bisection on the monotone map."""
-    def solve(f, lo, hi, want):
-        for _ in range(80):
-            mid = (lo + hi) / 2
-            if f(mid) < want: lo = mid
-            else: hi = mid
-        return (lo + hi) / 2
-    hw, hh = G['half']
-    u = solve(lambda u: math.degrees(orbit._azimuth(u, hw, True)), -orbit.REACH, orbit.REACH, az)
-    v = solve(lambda v: math.degrees(orbit._elevation(u, v, hw, hh, True)), -orbit.REACH, orbit.REACH, el)
-    return ((u + 1) * W / 2, (1 - v) * H / 2)
+    """The canvas point whose dot (orbit.pointer_direction) is in direction (az, el) degrees."""
+    a, e = math.radians(az), math.radians(el)
+    return orbit.pointer_at(G, (math.cos(e) * math.sin(a), math.sin(e), -math.cos(e) * math.cos(a)))
+
+
+def in_view(pointer):
+    """True if the dot at canvas point `pointer` is inside the view the overview was laid out in (on its plane)."""
+    q = orbit.plane_at(G, orbit.pointer_ray(G, pointer))
+    return q is not None and 0 <= q[0] <= W and 0 <= q[1] <= H
+
+
+ANCHOR_REACH = orbit.reach(G, True)
+LO, HI = (W * (1 - ANCHOR_REACH[0]) / 2, H * (1 - ANCHOR_REACH[1]) / 2), (W * (1 + ANCHOR_REACH[0]) / 2, H * (1 + ANCHOR_REACH[1]) / 2)
 
 
 class OrbitGeometryTests(unittest.TestCase):
     def test_the_centred_desktop_at_its_slot_is_the_canvas_exactly(self):
         for q in ((T1[0], T1[1]), (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2), (T1[0] + T1[2], T1[1] + T1[3] + 30)):
-            p = fp.project(G, T1, DEFAULT_PLACEMENT, *q)  # (the fixture's slots are rounded to 0.01 px: not quite centred)
+            p = fp.to_canvas(G, fp.place_point(G, T1, DEFAULT_PLACEMENT, *q))  # (the fixture's slots are rounded to 0.01 px)
             self.assertAlmostEqual(p[0], q[0], places=3); self.assertAlmostEqual(p[1], q[1], places=3)
 
     def test_x_turns_round_you_and_y_lifts_along_the_meridian_rigidly(self):
@@ -76,12 +78,17 @@ class OrbitGeometryTests(unittest.TestCase):
         p = {**DEFAULT_PLACEMENT, 'x': 700, 'y': -120, 'yaw': 30, 'curvature': 80, 'distance': 140}
         self.assertEqual(fp.place_point(G, T2, p, 1500, 600), orbit.place_point(G, T2, p, 1500, 600))
 
-    def test_a_desktop_turned_far_round_projects_nowhere(self):
-        # Past ~70 degrees the canvas point would exceed the wire's MAX_POINTER_PX; behind you it does not exist.
+    def test_a_desktop_turned_far_round_is_off_the_plane_but_still_under_a_dot(self):
+        # Past ~70 degrees the plane point would exceed the wire's MAX_POINTER_PX; behind you it does not exist. The dot
+        # (project: the pointer whose direction is that point's) reaches it anywhere round you.
+        c = (T1[0] + T1[2] / 2, T1[1] + T1[3] / 2)
         for x in (750, 900, 1800, -1800):
             p = {**DEFAULT_PLACEMENT, 'x': x}
-            self.assertIsNone(fp.project(G, T1, p, T1[0] + T1[2] / 2, T1[1] + T1[3] / 2), x)
-        self.assertIsNotNone(fp.project(G, T1, {**DEFAULT_PLACEMENT, 'x': 400}, T1[0] + T1[2] / 2, T1[1] + T1[3] / 2))
+            self.assertIsNone(fp.to_canvas(G, fp.place_point(G, T1, p, *c)), x)
+            pointer = fp.project(G, T1, p, *c)
+            seen = orbit._norm(fp.place_point(G, T1, p, *c))
+            self.assertLess(math.degrees(orbit._angle(seen, orbit.pointer_ray(G, pointer))), 1e-6)
+        self.assertIsNotNone(fp.to_canvas(G, fp.place_point(G, T1, {**DEFAULT_PLACEMENT, 'x': 400}, *c)))
 
 
 class FacingTests(unittest.TestCase):
@@ -126,40 +133,65 @@ class FacingTests(unittest.TestCase):
 
 
 class DragMappingTests(unittest.TestCase):
-    def test_inside_the_view_the_stretch_is_the_pointers_own_direction(self):
-        for pointer in ((0, 0), (W, H), (W / 3, H * 0.8), (W / 2, H / 2)):
-            a, e = orbit.pointer_direction(G, pointer, True)
-            b, f = orbit.pointer_direction(G, pointer, False)
-            self.assertAlmostEqual(a, b, places=12); self.assertAlmostEqual(e, f, places=12)
-            hw, hh = G['half']
-            ray = ((2 * pointer[0] / W - 1) * hw, (1 - 2 * pointer[1] / H) * hh, -1)
-            self.assertAlmostEqual(math.degrees(a), direction(ray)[0], places=9)
-            self.assertAlmostEqual(math.degrees(e), direction(ray)[1], places=9)
+    def test_the_dots_angle_is_linear_in_the_pointer_all_the_way_round(self):
+        # Regression (drag-speed-linear): the dot was the pointer's ray through the plane inside the view (atan) and, in
+        # anchor mode, a quadratic stretch from the view's edge to behind you over half a view, so past the edge each
+        # mouse pixel turned the dot up to ~12x further. Now every pixel is the same angle, both axes, the whole reach.
+        hw, hh = G['half']
+        rate = (math.degrees(2 * hw / W), math.degrees(2 * hh / H))  # the plane's own rate at the view's centre
+        self.assertAlmostEqual(rate[0], rate[1], places=6)  # square pixels: the same angle per pixel either way
+        for k in range(int(LO[0]), int(HI[0])):
+            a0 = math.degrees(orbit.pointer_direction(G, (k, H / 2))[0])
+            a1 = math.degrees(orbit.pointer_direction(G, (k + 1, H / 2))[0])
+            self.assertAlmostEqual(a1 - a0, rate[0], places=9, msg=k)
+        for k in range(int(LO[1]) + 1, int(HI[1]) - 1):
+            for x in (W / 2, 0, LO[0], W * 2.7):  # the same at any azimuth (no coupling between the axes)
+                e0 = math.degrees(orbit.pointer_direction(G, (x, k))[1])
+                e1 = math.degrees(orbit.pointer_direction(G, (x, k + 1))[1])
+                self.assertAlmostEqual(e0 - e1, rate[1], places=9, msg=(x, k))
 
     def test_the_edges_of_the_pointers_reach_are_behind_you_and_overhead(self):
-        # REACH mirrors OverviewPointer._clamp (half a view past each edge): pushing the dot as far as it goes.
-        clamp = fp.OverviewPointer._clamp(type('P', (), {'geometry': G})(), (1e9, -1e9))
-        self.assertEqual(clamp, (W * (1 + orbit.REACH) / 2, H * (1 - orbit.REACH) / 2))
-        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (W * 1.5, H / 2))[0]), 180)
-        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (-W / 2, H / 2))[0]), -180)
-        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (W / 2, -H / 2))[1]), 90)
-        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (W / 2, H * 1.5))[1]), -90)
-        self.assertLess(math.degrees(orbit.pointer_direction(G, (W * 1.5, H / 2), around=False)[0]), 40)  # follow / locked
+        def clamp(mode, point):
+            me = type('P', (), {'geometry': G, 'drag': None, 'control': type('C', (), {'state': type('S', (), {'mode': mode})()})()})()
+            me._around = lambda: fp.OverviewPointer._around(me)
+            return fp.OverviewPointer._clamp(me, point)
+        self.assertEqual(clamp('anchor', (1e9, -1e9)), (HI[0], LO[1]))
+        self.assertEqual(clamp('anchor', (-1e9, 1e9)), (LO[0], HI[1]))
+        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (HI[0], H / 2))[0]), 180)
+        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (LO[0], H / 2))[0]), -180)
+        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (W / 2, LO[1]))[1]), 90)
+        self.assertAlmostEqual(math.degrees(orbit.pointer_direction(G, (W / 2, HI[1]))[1]), -90)
+        for mode in ('follow', 'locked'):  # the view turns with your head: half a view past each edge
+            self.assertEqual(clamp(mode, (1e9, -1e9)), (W * (1 + orbit.REACH) / 2, H * (1 - orbit.REACH) / 2))
+            self.assertLess(math.degrees(orbit.pointer_direction(G, (W * 1.5, H / 2))[0]), 45)
 
-    def test_the_stretch_is_smooth_and_monotone(self):
-        hw, hh = G['half']
+    def test_a_drag_turns_the_desktop_the_same_angle_for_every_mouse_pixel(self):
+        # Regression (drag-speed-linear): a pill dragged at a steady mouse speed turned the desktop faster and faster past
+        # the view's edge. Now equal pointer steps turn the grabbed point equal angles all the way round you, and the
+        # guarded drag (neighbours parked overhead and underfoot, out of the way) does the same.
+        hw, _ = G['half']
+        press = pill_centre(T1)
+        grabbed = fp.unproject(G, T1, DEFAULT_PLACEMENT, press)
+        placements = [{**DEFAULT_PLACEMENT, 'y': 900}, dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'y': -900}]
+        drag = orbit.PillDrag(G, 1, (0, 0), press)
+        step = 24  # canvas px per pointer update
+        want = math.degrees(2 * hw / W) * step
         last = None
-        for i in range(-400, 401):
-            u = i / 200
-            a = orbit._azimuth(u, hw, True)
-            if last is not None:
-                self.assertGreater(a, last)
-                self.assertLess(a - last, 0.05)  # no jump, the join at the view's edge included
-            last = a
-        eps = 1e-6
-        slope_in = (orbit._azimuth(1, hw, True) - orbit._azimuth(1 - eps, hw, True)) / eps
-        slope_out = (orbit._azimuth(1 + eps, hw, True) - orbit._azimuth(1, hw, True)) / eps
-        self.assertAlmostEqual(slope_in, slope_out, places=3)
+        for sign in (1, -1):
+            for k in range(1, int((HI[0] - press[0]) / step) - 1):
+                pointer = (press[0] + sign * step * k, press[1])
+                xy = orbit.drag_target(G, T1, (0, 0), press, pointer)
+                x, y = drag.follow(pointer, placements) if sign == 1 else (None, None)
+                if x is not None: placements[1] = {**placements[1], 'x': x, 'y': y}
+                for got in [xy] + ([(x, y)] if x is not None else []):
+                    az = direction(orbit.place_point(G, T1, {**DEFAULT_PLACEMENT, 'x': got[0], 'y': got[1]}, *grabbed))[0]
+                    with self.subTest(sign=sign, k=k):
+                        if got[0] == 0: continue  # snapped to the slot (SNAP)
+                        # under the dot, so it turned the dot's own angle: k steps of the same size, to the tenth
+                        self.assertAlmostEqual(az, math.degrees(orbit.pointer_direction(G, pointer)[0]), delta=0.08)
+                        self.assertAlmostEqual(az - math.degrees(orbit.pointer_direction(G, press)[0]), sign * want * k, delta=0.08)
+            last = sign
+        self.assertEqual(last, -1)
 
     def test_drag_target_wraps_snaps_and_stops_at_the_poles(self):
         press = pill_centre(T1)
@@ -177,7 +209,7 @@ class DragMappingTests(unittest.TestCase):
         # distance and curvature, along straight runs to each edge and corner of the dot's reach (OverviewPointer._clamp),
         # the point grabbed at the press is on the dot's own ray (stretched round you in anchor mode, where the
         # renderer draws it) to within the wire's tenth of a degree.
-        lo, hi = (-W / 2, -H / 2), (W * 1.5, H * 1.5)
+        lo, hi = LO, HI
         ends = [(lo[0], None), (hi[0], None), (None, lo[1]), (None, hi[1]), lo, hi, (lo[0], hi[1]), (hi[0], lo[1])]
         for i, tile in enumerate(G['tiles']):
             for extra in ({}, {'distance': 60}, {'distance': 180, 'curvature': 40}, {'curvature': 120}):
@@ -185,30 +217,30 @@ class DragMappingTests(unittest.TestCase):
                 x, y, w, h = fp.pill_rect(tile)
                 press = (x + w * 0.8, y + h / 2)  # off the pill's middle too
                 grabbed = fp.unproject(G, tile, p0, press)
-                for end, around in ((e, a) for e in ends for a in (False, True)):
+                for end in ends:
                     end = (press[0] if end[0] is None else end[0], press[1] if end[1] is None else end[1])
                     for k in range(1, 41):
                         pointer = (press[0] + (end[0] - press[0]) * k / 40, press[1] + (end[1] - press[1]) * k / 40)
-                        xy = orbit.drag_target(G, tile, (0, 0), press, pointer, around)
+                        xy = orbit.drag_target(G, tile, (0, 0), press, pointer)
                         if 0 in xy or abs(xy[1]) == 900: continue  # snapped to the slot (SNAP), or at a pole: by design
-                        if abs(math.degrees(orbit.pointer_direction(G, pointer, around)[1])) > 88.5:
+                        if abs(math.degrees(orbit.pointer_direction(G, pointer)[1])) > 88.5:
                             continue  # the dot at a pole: an upright desktop brings a point off its middle only so close
                         seen = orbit.place_point(G, tile, {**p0, 'x': xy[0], 'y': xy[1]}, *grabbed)
-                        off = math.degrees(orbit._angle(orbit._norm(seen), orbit.pointer_ray(G, pointer, around)))
-                        with self.subTest(i=i, extra=extra, end=end, around=around, k=k):
+                        off = math.degrees(orbit._angle(orbit._norm(seen), orbit.pointer_ray(G, pointer)))
+                        with self.subTest(i=i, extra=extra, end=end, k=k):
                             self.assertLess(off, 0.08)  # was up to 180 degrees at the far edge of the reach
 
 
 class FullTurnTests(unittest.TestCase):
     def test_pointer_at_is_the_dots_direction_inverted(self):
-        for around in (False, True):
+        if True:
             for i in range(-20, 21):
                 for j in range(-20, 21):
-                    pointer = (W / 2 + i * W / 20 * (1 if around else 0.5), H / 2 + j * H / 20 * (1 if around else 0.5))
-                    back = orbit.pointer_at(G, orbit.pointer_ray(G, pointer, around), around)
-                    if around and abs(j) == 20: continue  # straight up / down: every azimuth is the same place
-                    if around and abs(i) == 20 and back[0] != pointer[0]: back = (W - back[0], back[1])  # behind: +-180
-                    with self.subTest(around=around, i=i, j=j):
+                    pointer = (W / 2 + i * (HI[0] - W / 2) / 20, H / 2 + j * (HI[1] - H / 2) / 20)
+                    back = orbit.pointer_at(G, orbit.pointer_ray(G, pointer))
+                    if abs(j) == 20: continue  # straight up / down: every azimuth is the same place
+                    if abs(i) == 20 and abs(back[0] - pointer[0]) > 1: back = (W - back[0], back[1])  # behind: +-180
+                    with self.subTest(i=i, j=j):
                         self.assertAlmostEqual(back[0], pointer[0], places=5); self.assertAlmostEqual(back[1], pointer[1], places=5)
 
     def test_in_anchor_mode_every_direction_round_you_is_one_drag_away_under_the_dot(self):
@@ -216,11 +248,11 @@ class FullTurnTests(unittest.TestCase):
         for az in range(-170, 180, 20):
             for el in (-70, -30, 0, 30, 70):
                 pointer = pointer_for(az, el)
-                xy = orbit.drag_target(G, T1, (0, 0), press, pointer, around=True)
+                xy = orbit.drag_target(G, T1, (0, 0), press, pointer)
                 seen = orbit._norm(orbit.place_point(G, T1, {**DEFAULT_PLACEMENT, 'x': xy[0], 'y': xy[1]}, *press))
                 with self.subTest(az=az, el=el):
-                    self.assertLessEqual(abs(pointer[0] - W / 2), W * orbit.REACH / 2 + 1e-6)
-                    self.assertLess(math.degrees(orbit._angle(seen, orbit.pointer_ray(G, pointer, True))), 0.6)  # SNAP at most
+                    self.assertLessEqual(abs(pointer[0] - W / 2), HI[0] - W / 2 + 1e-6)
+                    self.assertLess(math.degrees(orbit._angle(seen, orbit.pointer_ray(G, pointer))), 0.6)  # SNAP at most
                     self.assertAlmostEqual(direction(seen)[0], az, delta=0.6)
 
 
@@ -233,30 +265,36 @@ class RegrabTests(unittest.TestCase):
                     validate_placements(placements)
                     az, el = direction(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))
                     pointer = pointer_for(az, el)
-                    self.assertLessEqual(abs(pointer[0] - W / 2), W * orbit.REACH / 2 + 1e-6)
-                    h = fp.hit(G, placements, pointer, around=True)
-                    if orbit.beyond_view(G, pointer): self.assertEqual(h, ('pill', 2))
+                    self.assertLessEqual(abs(pointer[0] - W / 2), HI[0] - W / 2 + 1e-6)
+                    h = fp.hit(G, placements, pointer)
+                    if not in_view(pointer): self.assertEqual(h, ('pill', 2))
                     else: self.assertIsNotNone(h)  # inside the view the dot's own ray: the pill, or a desktop over it
 
-    def test_without_the_stretch_nothing_changes_inside_the_view(self):
-        placements = at(1, yaw=30, curvature=60)
-        for pointer in ((T0[0] + 30, T0[1] + 40), pill_centre(T1), (W / 2, H - 1), (5, 5)):
-            self.assertEqual(fp.hit(G, placements, pointer, around=True), fp.hit(G, placements, pointer))
+    def test_inside_the_view_the_dot_hits_what_is_on_the_plane_under_it(self):
+        # (the centred desktop at its slot is the canvas; the others are turned to face you)
+        placements = at(0, curvature=60)
+        q = fp.hit(G, placements, orbit.from_plane(G, (T1[0] + 30, T1[1] + 40)))
+        self.assertEqual(q[:2], ('desktop', 1))
+        self.assertAlmostEqual(q[2][0], T1[0] + 30, places=2); self.assertAlmostEqual(q[2][1], T1[1] + 40, places=2)
+        self.assertEqual(fp.hit(G, FLAT, orbit.from_plane(G, pill_centre(T1))), ('pill', 1))
+        for corner in ((T2[0] + 1, T2[1] + 1), (T2[0] + T2[2] - 1, T2[1] + T2[3] - 1)):
+            self.assertEqual(fp.hit(G, FLAT, orbit.from_plane(G, corner))[:2], ('corner', 2))
+        for empty in ((W / 2, H - 1), (5, 5)):
+            self.assertIsNone(fp.hit(G, placements, orbit.from_plane(G, empty)))
 
     def test_a_regrabbed_pill_follows_the_dot_round_you(self):
         placements = at(2, x=1200)  # far round to your right, out of the view
         az, el = direction(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))
         press = pointer_for(az, el)
-        self.assertEqual(fp.hit(G, placements, press, around=True), ('pill', 2))
-        self.assertIsNone(fp.hit(G, placements, press))  # follow / locked: the dot there is in front, on nothing
-        drag = orbit.PillDrag(G, 2, (1200, 0), press, around=True)
+        self.assertEqual(fp.hit(G, placements, press), ('pill', 2))
+        drag = orbit.PillDrag(G, 2, (1200, 0), press)
         for k in range(1, 30):
             pointer = (press[0] - 6 * k, press[1] - 8 * k)
             x, y = drag.follow(pointer, placements)
             placements[2] = {**placements[2], 'x': x, 'y': y}
             if y == 0: continue  # held at the slot's height (SNAP, half a degree)
             got = orbit._norm(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))
-            self.assertLess(math.degrees(orbit._angle(got, orbit.pointer_ray(G, pointer, True))), 0.08)  # on the dot
+            self.assertLess(math.degrees(orbit._angle(got, orbit.pointer_ray(G, pointer))), 0.08)  # on the dot
 
 
 class FootprintTests(unittest.TestCase):
