@@ -48,9 +48,13 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
     still starts its drag or click, a desktop is still focused, empty space does nothing more).
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
-    status socket (`overview_geometry`, when it changes). Hit testing maps the pointer onto each desktop's surface with
-    the same placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front
-    desktop first. The overview's slots never move with head pose, so neither does this. The dot's direction is
+    status socket (`overview_geometry`, only when it changes). A desktop change (a pill's Add / Remove / Ultrawide) keeps
+    the last layout: the renderer does not report one again unless it changed, so a dropped one could be gone for the
+    rest of the run (a Remove's second notice, the same desktops again). Until a layout with one slot per desktop
+    arrives the pointer is off (active); one with the right count (Ultrawide, a Remove's second notice) is used until
+    the renderer's next report replaces it. Hit testing maps the pointer onto each desktop's surface with the same
+    placement maths as spike/src/view.cpp place_point (orbit, distance, curvature; always facing you), front desktop
+    first. The overview's slots never move with head pose, so neither does this. The dot's direction is
     linear in the pointer (orbit.pointer_direction: the same angle per mouse pixel everywhere), and in anchor mode its
     reach goes all the way round you (orbit.reach): the renderer always draws it in that direction (the
     `overview_pointer` frame's az / el), and the hit test and the desktop-mode cursor mapping (project / unproject) read
@@ -523,6 +527,7 @@ class OverviewPointer:
         self._lock = threading.Lock()
         self._abs, self._motion, self._applied, self._outputs, self._fresh = None, [0.0, 0.0], 0, [], False
         self.geometry = None       # parse_overview_geometry, from the renderer
+        self.layout_stale = False  # the desktops changed since it came (_layout_ready)
         self.help_geometry = None  # parse_help_geometry, from the renderer: the help card while it is up in the overview
         self.outputs = []          # resize.outputs_from_monitors, from the sampler
         self.mode = 'off'          # off (not in the overview), away (cursor not on a desktop), desktop, free
@@ -548,6 +553,7 @@ class OverviewPointer:
         self.want = (0, 'off', None)  # (serial, 'off'|'away'|'desktop'|'free', layout point or None); read by the sampler
         self._sync = 0                # cursor samples count in desktop mode only once the sampler applied this serial
         self.summoned = False         # Ctrl+Alt+Down: bring a cursor that is off the desktops into the selected one
+        self.rehome = False           # a desktop change: summon the cursor once the pointer is back (desktops_changed)
         self.release_at = None        # a dot click that zooms in: where the cursor shows once the overview lets go
         self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
@@ -568,11 +574,18 @@ class OverviewPointer:
         return not s.zoomed and not getattr(self.control, 'video_active', False) and not getattr(s, 'typing', False)
 
     def active(self):
-        return self.overview() and self.geometry is not None and len(self.outputs) > 0
+        return self.overview() and self._layout_ready() and len(self.outputs) > 0
+
+    def _layout_ready(self):
+        """A renderer layout to hit-test with. After a desktop change the last one is kept, and used once it has one slot
+        per desktop (until the renderer's next report, which replaces it)."""
+        g = self.geometry
+        if g is None: return False
+        return not self.layout_stale or len(g['tiles']) == len(self.control.state.names)
 
     # --- inputs ---------------------------------------------------------------------------------------------------
     def set_geometry(self, geometry):
-        self.geometry = geometry
+        self.geometry, self.layout_stale = geometry, False
         self._poke()
 
     def set_help_geometry(self, geometry):
@@ -588,15 +601,25 @@ class OverviewPointer:
 
     def desktops_changed(self):
         """The run's desktops changed (a pill's Add / Remove / Ultrawide): every index may mean another desktop now. Any
-        drag ends where it is, and hit testing waits for the renderer's new layout and the sampler's new monitors."""
-        self.drag = self.hover = self.geometry = None
-        names = list(self.control.state.names)  # each desktop keeps its own levelling roll; its tilt is measured again
+        drag ends where it is, and hit testing waits for the sampler's new monitors and a renderer layout with one slot per
+        desktop (_layout_ready). The last layout and tilts are kept, never dropped: the renderer reports them only when
+        they change, so a dropped one may never come again (dot-cursor-new-desktop). Once the pointer is back it brings
+        the cursor onto the selected desktop (rehome), wherever the change left it."""
+        self.drag = self.hover = None
+        self.layout_stale = True
+        names = list(self.control.state.names)  # each desktop keeps its own levelling roll and last measured tilt
         by_name = dict(zip(self.roll_names, self.rolls))
         self.rolls = [by_name.get(n, 0) for n in names] + [0] * (MAX_DESKTOPS - len(names))
-        self.roll_names, self.tilts = names, []
+        by_name = dict(zip(self.roll_names, self.tilts))
+        self.tilts = [by_name.get(n) for n in names] if len(self.tilts) == len(self.roll_names) else []
+        self.roll_names = names
         self.outputs = []
         with self._lock: self._outputs = []
         if self.desktop is not None and self.desktop >= len(self.control.state.names): self.desktop = None
+        if self.mode != 'off':  # back in through away, as on entering the overview: the cursor is placed afresh
+            self.mode, self.hover, self.pointer = 'off', None, None
+            self._set_want('off')
+        self.rehome = True
         self._poke()
 
     def feed(self, cursor, motion, outputs, applied):
@@ -757,6 +780,8 @@ class OverviewPointer:
             if self.mode == 'off':
                 self.mode, self.desktop, self.pointer = 'away', None, None
                 self._set_want('away')
+                fresh = True  # the cursor where it already is counts: a still mouse never sends another sample
+                if self.rehome: self.summoned, self.rehome = True, False
             if self.mode == 'free':
                 if motion[0] or motion[1]: out += self._move(motion[0] * self.gain, motion[1] * self.gain, now)
             elif fresh and cursor is not None and applied >= self._sync:

@@ -467,7 +467,7 @@ class ModeTests(PointerBase):
         self.op('zoom_in'); self.at(100, 100)
         self.assertEqual(self.p.mode, 'off')
         self.op('zoom_out')
-        self.at(100, 100); self.at(100, 101)
+        self.at(100, 100)  # the first sample back in the overview counts, even with a still mouse
         self.assertEqual(self.p.mode, 'desktop')
         self.assertEqual(self.p.want[1:], ('desktop', (X1 + 960, 540)))
         self.at(X1 + 960, 540)

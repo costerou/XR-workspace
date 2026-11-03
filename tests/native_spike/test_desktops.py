@@ -518,9 +518,16 @@ class PointerTests(unittest.TestCase):
         control = mock.Mock(); control.state = view.ViewState(['XR-1'])
         pointer = fp.OverviewPointer(control)
         self.addCleanup(pointer.close)
-        pointer.drag, pointer.geometry, pointer.outputs, pointer.desktop = {'kind': 'pill'}, {'w': 1}, [{'index': 2}], 2
+        pointer.drag, pointer.outputs, pointer.desktop = {'kind': 'pill'}, [{'index': 2}], 2
+        pointer.set_geometry({'w': 1, 'tiles': [(0, 0, 1, 1)] * 3})
         pointer.desktops_changed()
-        self.assertEqual((pointer.drag, pointer.geometry, pointer.outputs, pointer.desktop), (None, None, [], None))
+        self.assertEqual((pointer.drag, pointer.outputs, pointer.desktop), (None, [], None))
+        # The last layout is kept (the renderer may never report it again: dot-cursor-new-desktop), but one with a slot
+        # per old desktop is not hit-tested with until the renderer's new one comes.
+        self.assertEqual(pointer.geometry['w'], 1)
+        self.assertFalse(pointer._layout_ready())
+        pointer.set_geometry({'w': 2, 'tiles': [(0, 0, 1, 1)]})
+        self.assertTrue(pointer._layout_ready())
 
 
 class WireTests(unittest.TestCase):
