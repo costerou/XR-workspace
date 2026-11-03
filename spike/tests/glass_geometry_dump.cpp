@@ -20,7 +20,8 @@ int main() {
         {"roll_icon_px", kRollIconPx}, {"roll_icon_gap", kRollIconGap},
         {"actions_top", kPanelActionsTop}, {"action_h", kPanelActionH}, {"action_w", kPanelActionW}, {"action_gap", kPanelActionGap},
         {"actions", float(kPanelActions)}, {"max_desktops", float(kMaxDesktops)},
-        {"scale_top", kPanelScaleTop}, {"scale_item_h", kScaleItemH}, {"scale_list_gap", kScaleListGap}};
+        {"scale_top", kPanelScaleTop}, {"scale_item_h", kScaleItemH}, {"scale_list_gap", kScaleListGap},
+        {"resolution_top", kPanelResolutionTop}, {"resolution_item_h", kResItemH}, {"resolution_list_gap", kResListGap}};
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
@@ -31,6 +32,16 @@ int main() {
     for (std::size_t i = 0; i < kScaleSteps; ++i) out += std::string(i ? "," : "") + rect(glass_scale_item(i));
     out += "],\"scale_percents\":[";
     for (std::size_t i = 0; i < kScaleSteps; ++i) out += std::string(i ? "," : "") + std::to_string(unsigned(kScalePercents[i]));
+    out += "],\"resolution_box\":" + rect(glass_resolution_box()) + ",\"resolution_list\":" + rect(glass_resolution_list()) +
+           ",\"resolution_items\":[";
+    for (std::size_t i = 0; i < kResolutionCount; ++i) out += std::string(i ? "," : "") + rect(glass_resolution_item(i));
+    out += "],\"resolutions\":[";
+    for (std::size_t i = 0; i < kResolutionCount; ++i)
+        out += std::string(i ? "," : "") + "[" + std::to_string(unsigned(kResolutions[i].width)) + "," +
+               std::to_string(unsigned(kResolutions[i].height)) + "]";
+    out += "],\"resolution_groups\":[";
+    for (std::size_t g = 0; g < kResolutionGroupCount; ++g)
+        out += std::string(g ? "," : "") + "[\"" + kResolutionGroups[g].name + "\"," + std::to_string(kResolutionGroups[g].count) + "]";
     out += "],\"cases\":[";
     const FRect tiles[] = {{100, 300, 459, 258}, {0, 0, 4000, 2000}, {10, 20, 120, 60}, {5, 5, 40, 30}, {-200.5f, 410.25f, 812, 457}};
     first = true;

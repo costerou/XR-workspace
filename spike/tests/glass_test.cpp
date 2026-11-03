@@ -61,11 +61,45 @@ int main() {
     CHECK(kPanelFooterTop + float(kPanelHintPx) <= kPanelH && kGrabberTop + kGrabberH < kPanelHeaderH);
     // Four rows (left / right, down / up, distance, curvature: every desktop faces you, so there is no facing setting).
     static_assert(kPlacementMenuFields == 4);
-    // Then the Scale row (one row: label and dropdown box), then the desktop row (Ultrawide / Add / Remove) between it
-    // and the footer, inside the paddings.
-    CHECK(kPanelScaleTop == kPanelRowsTop + 4 * kPanelRowH && kPanelActionsTop == kPanelScaleTop + kPanelRowH + 6 &&
-          kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
-    CHECK(kPanelFooterTop == 262.f && kPanelH == 292.f);
+    // Then the Resolution row and the Scale row (one row each: label and dropdown box), then the desktop row (Ultrawide /
+    // Add / Remove) between them and the footer, inside the paddings.
+    CHECK(kPanelResolutionTop == kPanelRowsTop + 4 * kPanelRowH && kPanelScaleTop == kPanelResolutionTop + kPanelRowH &&
+          kPanelActionsTop == kPanelScaleTop + kPanelRowH + 6 && kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
+    CHECK(kPanelFooterTop == 296.f && kPanelH == 326.f);
+    {  // the Resolution box: the Scale box's twin one row up; its list above it over the slider rows and their band
+        const FRect box = glass_resolution_box(), scale = glass_scale_box();
+        CHECK(box.x == scale.x && box.width == scale.width && box.height == scale.height && near(box.y + kPanelRowH, scale.y));
+        CHECK(box.y >= kPanelResolutionTop && box.y + box.height <= kPanelResolutionTop + kPanelRowH);
+        const FRect list = glass_resolution_list();
+        CHECK(list.x == 10.f && near(list.x + list.width, kPanelW - 10.f) && near(list.y, kPanelRowsTop) && list.y >= kPanelHeaderH);
+        CHECK(near(list.y + list.height + kResListGap, box.y) && near(list.height, 6 * kResItemH));  // headings + five rows
+        // One column per shape, left to right: its heading on top, its sizes under it in kResolutions order.
+        std::size_t i = 0;
+        for (std::size_t g = 0; g < kResolutionGroupCount; ++g) {
+            const FRect h = glass_resolution_heading(g);
+            CHECK(near(h.y, list.y) && near(h.width, list.width / 3) && near(h.x, list.x + float(g) * h.width) && h.height == kResItemH);
+            for (std::size_t row = 0; row < kResolutionGroups[g].count; ++row, ++i) {
+                const FRect r = glass_resolution_item(i);
+                CHECK(r.x == h.x && r.width == h.width && r.height == kResItemH && near(r.y, h.y + float(1 + row) * kResItemH));
+                CHECK(r.y + r.height <= list.y + list.height + 1e-3f);
+            }
+        }
+        CHECK(i == kResolutionCount && glass_resolution_item(kResolutionCount).width == 0.f &&
+              glass_resolution_heading(kResolutionGroupCount).width == 0.f);
+        // Cody's sizes (2026-11-03): 16:9, 16:10 and ultrawide, every one a desktop the broker takes at 100%.
+        CHECK((kResolutions[0] == Resolution{1280, 720} && kResolutions[4] == Resolution{3840, 2160} &&
+               kResolutions[5] == Resolution{1680, 1050} && kResolutions[7] == Resolution{2560, 1600} &&
+               kResolutions[8] == Resolution{2560, 1080} && kResolutions[10] == Resolution{5120, 1440}));
+        for (const auto& r : kResolutions)
+            CHECK(r.width >= kDesktopMinW && r.width <= kDesktopMaxW && r.height >= kDesktopMinH && r.height <= kDesktopMaxH &&
+                  r.width % 2 == 0 && r.height % 2 == 0);
+        CHECK(std::string(kResolutionGroups[0].name) == "16:9" && std::string(kResolutionGroups[2].name) == "Ultrawide");
+        PlacementMenuState st;
+        for (std::size_t k = 0; k < kResolutionCount; ++k) CHECK(glass_resolution_enabled(k, st));
+        CHECK(!glass_resolution_enabled(kResolutionCount, st));
+        st.busy = true; for (std::size_t k = 0; k < kResolutionCount; ++k) CHECK(!glass_resolution_enabled(k, st));
+        CHECK(glass_resolution_label(1920, 1080) == "1920x1080" && glass_resolution_label(0, 0) == "--");
+    }
     {  // the Scale box sits in its row, right of the label column up to the padding; its list above it, under the header
         const FRect box = glass_scale_box();
         CHECK(box.x == kPanelTrackX0 && near(box.x + box.width, kPanelW - kPanelPad) && box.y >= kPanelScaleTop &&
@@ -79,7 +113,7 @@ int main() {
         CHECK(glass_scale_item(kScaleSteps).width == 0.f);
         // 100..200% in quarter steps, then 250% and 300%: the broker's own (spike/ownership/registry.cpp validDesktop).
         CHECK((kScalePercents == std::array<std::uint16_t, kScaleSteps>{100, 125, 150, 175, 200, 250, 300}));
-        CHECK(glass_scale_item(0).y >= kPanelHeaderH && near(glass_scale_item(0).y, kPanelHeaderH + 2));  // all seven fit
+        CHECK(glass_scale_item(0).y >= kPanelHeaderH && near(glass_scale_item(0).y, kPanelRowsTop + kPanelRowH - 2));  // all seven fit
         PlacementMenuState st; st.scale = 100; st.scales = 0b1110111;  // 1920x1080: 175% does not divide it
         CHECK(glass_scale_enabled(0, st) && glass_scale_enabled(2, st) && !glass_scale_enabled(3, st) && glass_scale_enabled(4, st));
         CHECK(glass_scale_enabled(5, st) && glass_scale_enabled(6, st));
@@ -311,6 +345,66 @@ int main() {
             CHECK(is(px_at(render_glass_panel(unknown, f), box.x + 4, box.y + box.height / 2), m.on_surface, 0.04f));
             PlacementMenuState busy = a; busy.busy = true;
             CHECK(is(px_at(render_glass_panel(busy, f), box.x + 4, box.y + box.height / 2), m.on_surface, 0.04f));
+        }
+        {  // the Resolution row: the box shows the size; the open list covers the sliders with every size by shape
+            const auto row_top = std::uint32_t(kPanelResolutionTop), row_bottom = std::uint32_t(kPanelResolutionTop + kPanelRowH);
+            PlacementMenuState a = st; a.resolution_w = 1920; a.resolution_h = 1080; a.scale = 100; a.scales = 0b1110111;
+            PlacementMenuState b = a; b.resolution_w = 2560; b.resolution_h = 1440;
+            const auto ia = render_glass_panel(a, f), ib = render_glass_panel(b, f);
+            CHECK(!changed_columns(ia, ib, row_top, row_bottom).empty());   // "1920x1080" vs "2560x1440"
+            CHECK(changed_columns(ia, ib, 0, row_top).empty() && changed_columns(ia, ib, row_bottom, std::uint32_t(kPanelH)).empty());
+            PlacementMenuState open = a; open.resolution_picker = true;
+            const auto io = render_glass_panel(open, f);
+            CHECK(premultiplied(io) && brightest(io) <= kCardMaxLevel);
+            const FRect list = glass_resolution_list();
+            const auto list_top = std::uint32_t(list.y), list_bottom = std::uint32_t(kResBoxY);
+            CHECK(!changed_columns(ia, io, list_top, list_bottom).empty());                 // the list is drawn over the sliders
+            CHECK(changed_columns(ia, io, std::uint32_t(kPanelScaleTop), std::uint32_t(kPanelH)).empty());  // not below its box
+            CHECK(changed_columns(ia, io, 0, std::uint32_t(list.y) - 1).empty());          // nor over the header
+            PlacementMenuState moved = open; moved.resolution_w = 5120; moved.resolution_h = 1440;
+            CHECK(!changed_columns(io, render_glass_panel(moved, f), list_top, list_bottom).empty());  // the band follows
+            PlacementMenuState busy = open; busy.busy = true;
+            CHECK(!changed_columns(io, render_glass_panel(busy, f), list_top, list_bottom).empty());   // every size dimmed
+            // The widest size fits its column with the text's padding, and the box, in the buttons' font; "Resolution"
+            // fits the label column.
+            for (const auto& r : kResolutions) {
+                const auto label = glass_resolution_label(r.width, r.height);
+                const auto w = f ? f->measure(label, 18, true) : hud_text_width(label, 2);
+                CHECK(float(w) + 12 + 4 <= list.width / 3 && float(w) + 12 + 28 <= kResBoxW);
+            }
+            CHECK((f ? f->measure("Resolution", kPanelTextPx, false) : hud_text_width("Resolution", 2)) + 8 <= std::uint32_t(kPanelTrackX0 - kPanelPad));
+            // Material Design 3 (default theme), as the Scale dropdown: a filled text field with its active indicator
+            // (2 px of primary while open); the open list an opaque menu (surface container) with the current size on the
+            // secondary container; unknown or busy, the field M3 disabled.
+            const auto& m = glass_theme_scheme(kGlassThemeDefault);
+            auto px_at = [](const HudImage& panel_im, float x, float y) {
+                const auto* p = &panel_im.rgba[(std::size_t(y) * panel_im.width + std::size_t(x)) * 4];
+                return std::array<int, 4>{p[0], p[1], p[2], p[3]};
+            };
+            auto is = [](std::array<int, 4> got, std::array<float, 3> c, float al) {
+                for (int k = 0; k < 3; ++k) if (std::abs(got[std::size_t(k)] - int(std::lround(c[std::size_t(k)] * al * 255))) > 1) return false;
+                return std::abs(got[3] - int(std::lround(al * 255))) <= 1;
+            };
+            const FRect box = glass_resolution_box();
+            CHECK(is(px_at(ia, box.x + 4, box.y + box.height / 2), m.surface_container_highest, 1));
+            CHECK(is(px_at(ia, box.x + box.width / 2, box.y + box.height - 1), m.on_surface_variant, 1));
+            CHECK(is(px_at(io, box.x + box.width / 2, box.y + box.height - 2), m.primary, 1));
+            const FRect fhd = glass_resolution_item(2), uhd = glass_resolution_item(4), uw = glass_resolution_item(10);
+            CHECK(is(px_at(io, fhd.x + 6, fhd.y + fhd.height / 2), m.secondary_container, 1));   // 1920x1080: current
+            CHECK(is(px_at(io, uhd.x + 6, uhd.y + uhd.height / 2), m.surface_container, 1));     // 3840x2160: not
+            CHECK(is(px_at(io, uw.x + 6, uw.y + uw.height / 2), m.surface_container, 1));
+            const FRect empty = glass_resolution_heading(2);  // the ultrawide column's last rows are empty menu
+            CHECK(is(px_at(io, empty.x + 6, list.y + list.height - 4), m.surface_container, 1));
+            PlacementMenuState unknown = a; unknown.resolution_w = unknown.resolution_h = 0;
+            CHECK(is(px_at(render_glass_panel(unknown, f), box.x + 4, box.y + box.height / 2), m.on_surface, 0.04f));
+            PlacementMenuState busy_box = a; busy_box.busy = true;
+            CHECK(is(px_at(render_glass_panel(busy_box, f), box.x + 4, box.y + box.height / 2), m.on_surface, 0.04f));
+            // One list at a time: with the Scale list open instead, nothing of this one is drawn (its first column is left
+            // of the Scale list: the sliders' labels show there as with both closed).
+            PlacementMenuState scale_open = a; scale_open.picker = true;
+            const auto is_ = render_glass_panel(scale_open, f);
+            CHECK(uhd.x + uhd.width < kScaleBoxX && px_at(is_, uhd.x + 6, uhd.y + uhd.height / 2) == px_at(ia, uhd.x + 6, uhd.y + uhd.height / 2));
+            CHECK(px_at(io, uhd.x + 6, uhd.y + uhd.height / 2) != px_at(ia, uhd.x + 6, uhd.y + uhd.height / 2));
         }
         for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
             PlacementMenuState lo = st, hi = st;

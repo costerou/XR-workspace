@@ -1,4 +1,4 @@
-"""Live desktop changes from a glass pill in the glasses: Ultrawide, Add, Remove and Scale.
+"""Live desktop changes from a glass pill in the glasses: Ultrawide, Add, Remove, Resolution and Scale.
 
 The open placement panel (an expanded glass pill, glass.hpp) has a row of three buttons under its sliders, also on keys
 while it is open (view.MENU_BINDS: U, N, Delete):
@@ -13,6 +13,14 @@ Above that row, the panel's Scale dropdown (SCALE): that desktop's Hyprland outp
 geometry.SCALES (only the ones that divide its resolution exactly can be picked: geometry.valid_scales). Its pixel size
 stays; its logical width changes, so the desktops to its right slide along the row (a reshape like Ultrawide's). The
 profile takes the new scale with the desktops, so the next session starts with it.
+
+Above Scale, the Resolution dropdown (RESOLUTION): that desktop's pixel size becomes the picked one of
+geometry.RESOLUTIONS (16:9, 16:10 and ultrawide sizes), live and in place, by the same reshape: the broker swaps the
+headless output's monitor rule, which re-sizes only that output (no other output is touched, nothing is modeset, the run
+goes on), its workspaces and windows stay on it, and the renderer keeps showing its last frame until one at the new
+size arrives. Its scale stays if it divides the new size, else it becomes the nearest step that does
+(geometry.with_resolution). Its placement in the glasses stays too: the overview gives every desktop the same height,
+so only a change of shape makes it wider or narrower where it is. The profile takes the new size with the desktops.
 
 Every desktop of a run is a managed output the ownership broker made (spike/ownership/plugin.cpp), side by side in
 Hyprland's layout in name order, starting where the run's first desktop started. A change is a plan (plan(), pure)
@@ -41,10 +49,11 @@ import time
 import uuid
 
 from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide, validate_desktop,
-                       with_scale)
+                       with_resolution, with_scale)
 
 ACTIONS = ('ultrawide', 'add', 'remove')  # the panel's desktop row (its buttons, free_pointer.PANEL_ACTIONS)
 SCALE = 'scale'  # the panel's Scale dropdown: plan(..., SCALE, index, scale=s)
+RESOLUTION = 'resolution'  # the panel's Resolution dropdown: plan(..., RESOLUTION, index, size=(width, height))
 REMOVE_ARM_S = 4.0  # the Remove button's second press must come this soon after the first
 REFRESH_MILLIHZ = 120000
 
@@ -89,13 +98,14 @@ def lay_out(desktops, origin):
     return out
 
 
-def plan(specs, placements, action, index, origin=None, held=(), scale=None):
+def plan(specs, placements, action, index, origin=None, held=(), scale=None, size=None):
     """The broker steps for `action` on desktop `index` of `specs` (the run's live outputs in name order, with ids).
     `placements`: one per spec. `held`: names Add must not take besides those of `specs` (DesktopManager.held: a failed
     create's journal record holds its name until recovery). `scale`: the new output scale for SCALE (geometry.with_scale).
-    ValueError if the action cannot be done (Add at MAX_DESKTOPS or with no free name, Remove of the last one, a scale
-    that does not divide the desktop exactly)."""
-    if action not in ACTIONS + (SCALE,): raise ValueError('unknown desktop action')
+    `size`: the new (width, height) for RESOLUTION (geometry.with_resolution). ValueError if the action cannot be done
+    (Add at MAX_DESKTOPS or with no free name, Remove of the last one, a scale that does not divide the desktop exactly,
+    a size the broker would refuse)."""
+    if action not in ACTIONS + (SCALE, RESOLUTION): raise ValueError('unknown desktop action')
     if not specs or type(index) is not int or not 0 <= index < len(specs): raise ValueError('no such desktop')
     if len(placements) != len(specs): raise ValueError('one placement per desktop required')
     specs = sorted(specs, key=lambda s: number(s['name']))
@@ -109,6 +119,9 @@ def plan(specs, placements, action, index, origin=None, held=(), scale=None):
         desktops[target] = toggle_ultrawide(desktops[target])
     elif action == SCALE:
         desktops[target] = with_scale(desktops[target], scale)
+    elif action == RESOLUTION:
+        if not isinstance(size, (tuple, list)) or len(size) != 2: raise ValueError('a resolution is a width and a height')
+        desktops[target] = with_resolution(desktops[target], *size)
     elif action == 'add':
         if len(specs) >= MAX_DESKTOPS: raise ValueError(f'at most {MAX_DESKTOPS} desktops')
         free = next((n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops and f'XR-{n}' not in held), None)

@@ -1,5 +1,5 @@
 {
- "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders. Placements have exactly x, y, distance, curvature (the facing settings yaw, pitch, roll were removed: every desktop faces you). \"placements\" has one entry per desktop of the run (1..4). Optional \"names\" (each desktop's XR-n number, increasing), \"wide\", \"armed\" and \"busy\" describe the open panel's desktop row (Ultrawide / Add / Remove). Optional \"scale\" (the open desktop's Hyprland output scale in percent: 100, 125, 150, 175, 200, 250 or 300), \"scales\" (the percents it can take, increasing) and \"picker\" (its Scale dropdown list is open; only with an open panel) describe the panel's Scale row.",
+ "_comment": "Shared by tests/native_spike/test_placement_menu.py (reference validator, Python frames) and spike/tests/placement_menu_ipc_test.cpp (renderer decode_control). Payloads of the supervisor->renderer view op \"placement_menu\". \"surface\" (optional, open only) is the placement an open panel is drawn on while the free pointer holds one of its sliders. Placements have exactly x, y, distance, curvature (the facing settings yaw, pitch, roll were removed: every desktop faces you). \"placements\" has one entry per desktop of the run (1..4). Optional \"names\" (each desktop's XR-n number, increasing), \"wide\", \"armed\" and \"busy\" describe the open panel's desktop row (Ultrawide / Add / Remove). Optional \"scale\" (the open desktop's Hyprland output scale in percent: 100, 125, 150, 175, 200, 250 or 300), \"scales\" (the percents it can take, increasing) and \"picker\" (its Scale dropdown list is open; only with an open panel) describe the panel's Scale row. Optional \"resolution\" (the open desktop's [width, height] in pixels: even, 640..7680 x 480..4320) and \"resolution_picker\" (its Resolution dropdown list is open; only with an open panel, never together with \"picker\") describe the panel's Resolution row.",
  "valid": [
   {
    "open": true,
@@ -476,6 +476,210 @@
    ],
    "scale": 150,
    "scales": []
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "resolution": [
+    1920,
+    1080
+   ],
+   "resolution_picker": true,
+   "scale": 100,
+   "scales": [
+    100,
+    125,
+    150,
+    200,
+    250,
+    300
+   ],
+   "picker": false,
+   "busy": false,
+   "names": [
+    1,
+    2,
+    3
+   ],
+   "wide": false,
+   "armed": false
+  },
+  {
+   "open": false,
+   "desktop": 0,
+   "field": "x",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "resolution": [
+    2560,
+    1440
+   ],
+   "resolution_picker": false
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "resolution": [
+    5120,
+    1440
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "resolution": [
+    2800,
+    1400
+   ],
+   "resolution_picker": false,
+   "scale": 175,
+   "scales": [
+    100,
+    125,
+    175,
+    200,
+    250
+   ],
+   "picker": true
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "resolution": [
+    640,
+    480
+   ]
+  },
+  {
+   "open": true,
+   "desktop": 1,
+   "field": "distance",
+   "placements": [
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    },
+    {
+     "x": 0,
+     "y": 0,
+     "distance": 100,
+     "curvature": 0
+    }
+   ],
+   "resolution": [
+    7680,
+    4320
+   ]
   }
  ],
  "invalid": [
@@ -2489,6 +2693,488 @@
      }
     ],
     "picker": true
+   }
+  },
+  {
+   "why": "resolution_picker not a bool",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920,
+     1080
+    ],
+    "resolution_picker": 1
+   }
+  },
+  {
+   "why": "resolution_picker open on a collapsed panel",
+   "payload": {
+    "open": false,
+    "desktop": 0,
+    "field": "x",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920,
+     1080
+    ],
+    "resolution_picker": true
+   }
+  },
+  {
+   "why": "both dropdown lists open",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920,
+     1080
+    ],
+    "resolution_picker": true,
+    "scale": 100,
+    "picker": true
+   }
+  },
+  {
+   "why": "resolution is a string",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": "1920x1080"
+   }
+  },
+  {
+   "why": "resolution has three numbers",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920,
+     1080,
+     60
+    ]
+   }
+  },
+  {
+   "why": "resolution has one number",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920
+    ]
+   }
+  },
+  {
+   "why": "resolution width odd",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1921,
+     1080
+    ]
+   }
+  },
+  {
+   "why": "resolution height odd",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920,
+     1079
+    ]
+   }
+  },
+  {
+   "why": "resolution below the bounds",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     320,
+     240
+    ]
+   }
+  },
+  {
+   "why": "resolution width past the bounds",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     8192,
+     1440
+    ]
+   }
+  },
+  {
+   "why": "resolution height past the bounds",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     3840,
+     4322
+    ]
+   }
+  },
+  {
+   "why": "resolution not whole pixels",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     1920.5,
+     1080
+    ]
+   }
+  },
+  {
+   "why": "resolution negative",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     -1920,
+     1080
+    ]
+   }
+  },
+  {
+   "why": "resolution holds a bool",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": [
+     true,
+     1080
+    ]
+   }
+  },
+  {
+   "why": "resolution an object",
+   "payload": {
+    "open": true,
+    "desktop": 1,
+    "field": "distance",
+    "placements": [
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     },
+     {
+      "x": 0,
+      "y": 0,
+      "distance": 100,
+      "curvature": 0
+     }
+    ],
+    "resolution": {
+     "width": 1920,
+     "height": 1080
+    }
    }
   }
  ]

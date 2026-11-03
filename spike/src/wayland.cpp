@@ -156,6 +156,7 @@ struct Presentation::Impl : SurfaceRequests {
         ext_image_copy_capture_frame_v1* frame = nullptr;
         SessionConstraints constraints;
         CaptureBuffers buffers;  // when to (re)create the capture buffers, and the size of the frame on screen
+        ResizeSettle resize;     // ...not at once after its output was resized
         std::array<std::unique_ptr<Buffer>, 2> slots{};
         int capturing = -1, ready = -1;
         bool stopped = false;
@@ -417,12 +418,15 @@ struct Presentation::Impl : SurfaceRequests {
         c.owner->capture_next(c);    // same buffers: keep capturing into them; no-op while a re-creation is pending
     }
     // After each dispatch: re-create the buffers of a capture whose constraints changed, once no frame is in flight
-    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing.
+    // (CaptureBuffers::settle), so constraints that change and change back within one dispatch re-create nothing; after
+    // a resize, only kResizeSettleMs later (ResizeSettle: the output's clients catch up behind the frame on screen).
     void settle_captures() {
         if (!allocation_enabled) return;
+        const auto now = monotonic_ms();
         for (auto& p : captures) {
             auto& c = *p;
             if (c.stopped) continue;
+            if (c.resize.hold(c.buffers, now)) continue;  // pump() comes back here at least every 50 ms
             if (c.buffers.settle(c.frame != nullptr)) allocate(c);
             else capture_next(c);
         }
@@ -920,6 +924,7 @@ std::string Presentation::capture_report() const {
                ",\"failures\":" + std::to_string(c.failures) + ",\"width\":" + std::to_string(plan ? plan->width : 0) +
                ",\"height\":" + std::to_string(plan ? plan->height : 0) + ",\"format\":" + std::to_string(plan ? plan->format : 0) +
                ",\"constraint_batches\":" + std::to_string(c.buffers.batches()) + ",\"reallocations\":" + std::to_string(c.buffers.reallocations()) +
+               ",\"resize_settles\":" + std::to_string(c.resize.settles()) +
                ",\"path\":\"" + (c.path == Impl::Capture::Path::Dmabuf ? "dmabuf" : c.path == Impl::Capture::Path::Shm ? "shm" : "none") +
                "\",\"dmabuf_frames\":" + std::to_string(c.dmabuf_frames) +
                (c.path == Impl::Capture::Path::Dmabuf ? ",\"fourcc\":" + std::to_string(c.choice.fourcc) + ",\"modifier\":" + std::to_string(c.choice.modifier) : std::string()) +

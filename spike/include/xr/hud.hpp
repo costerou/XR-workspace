@@ -237,6 +237,10 @@ struct PlacementMenuState {
     std::uint16_t scale = 0;
     std::uint8_t scales = 0;
     bool picker = false;
+    // The Resolution dropdown above it (glass.hpp glass_resolution_box): the open desktop's pixel size (0 x 0 = unknown:
+    // the box is drawn empty and dimmed) and its list open (never together with the Scale list).
+    std::uint16_t resolution_w = 0, resolution_h = 0;
+    bool resolution_picker = false;
     bool operator==(const PlacementMenuState&) const = default;
 };
 // Slider range of each field, {lo, hi}: the same bounds the renderer accepts (ipc.cpp kPlacementBounds, tested).

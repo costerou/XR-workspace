@@ -217,10 +217,10 @@ class PointerTests(unittest.TestCase):
             self.assertGreaterEqual(iy, fp.PANEL_HEADER_H)
             self.assertEqual(fp.panel_hit(ix + iw / 2, iy + ih / 2, 1, picker=True), ('scale', 1, percent))
             self.assertNotEqual(fp.panel_hit(ix + iw / 2, iy + ih / 2, 1)[0], 'scale')  # closed: the sliders there
-        # Open, the sliders beside and under the list do not grab. With seven steps the list reaches above the first
-        # slider row, so no slider grabs while it is open; closed, they all do again.
+        # Open, no slider grabs: not beside or under the list, nor in the first row above it (since the Resolution row
+        # went above Scale, the seven steps reach the second slider row); closed, they all do again.
         self.assertEqual(fp.panel_hit(fp.PANEL_SCALE_BOX[0] - 3, fp.scale_item_rect(0)[1] + 3, 1, picker=True), ('panel', 1))
-        self.assertLessEqual(fp.scale_item_rect(0)[1], fp.PANEL_ROWS_TOP)
+        self.assertTrue(fp.PANEL_ROWS_TOP < fp.scale_item_rect(0)[1] <= fp.PANEL_ROWS_TOP + fp.PANEL_ROW_H)
         self.assertNotEqual(fp.panel_hit(fp.PANEL_KNOB_LO, fp.PANEL_ROWS_TOP + 3, 1, picker=True)[0], 'slider')
         self.assertEqual(fp.panel_hit(fp.PANEL_KNOB_LO, fp.PANEL_ROWS_TOP + 3, 1)[0], 'slider')
         # The desktop row is under the Scale row, inside the panel.
