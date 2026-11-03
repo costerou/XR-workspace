@@ -21,7 +21,7 @@ public:
 private:
     GlHud() = default;
     unsigned program_ = 0, texture_ = 0;
-    int pos_ = -1, uv_ = -1, sampler_ = -1, alpha_ = -1;
+    int pos_ = -1, uv_ = -1, alpha_ = -1;
     std::uint64_t uploaded_ = 0;
     std::uint32_t tex_w_ = 0, tex_h_ = 0;
 };

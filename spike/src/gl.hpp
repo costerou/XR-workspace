@@ -23,6 +23,9 @@ public:
     // Returns nullptr (with `why`) if EGL/GLES are unavailable; the caller reports the fallback.
     static std::unique_ptr<GlCompositor> create(wl_display*, wl_surface*, std::uint32_t width, std::uint32_t height,
                                                 std::size_t sources, std::string& why);
+    // The same compositor without a window (tests and benchmarks): a surfaceless EGL context drawing into its own
+    // width x height RGBA8 framebuffer, left bound and current; "swap" is a glFlush. nullptr (with `why`) without one.
+    static std::unique_ptr<GlCompositor> create_offscreen(std::uint32_t width, std::uint32_t height, std::size_t sources, std::string& why);
     ~GlCompositor();
     void resize(std::uint32_t width, std::uint32_t height);
     // Upload one source frame (32-bit wl_shm XRGB/ARGB, little-endian B,G,R,X bytes).
