@@ -84,8 +84,9 @@ Placement faded(const Placement& placement, float weight);
 //     the overview (a uniform scale about the eye), curvature included.
 // Nothing ever goes back to its default place or snaps straight ahead. zoom 0 (the overview): `placements` unchanged.
 // `placements` shorter than `tiles` leaves the rest at the default.
-// keep_size (anchor mode): the zoomed desktop also keeps its overview size, as every other one does, so a desktop resized
-// bigger (or smaller) than the view is never fitted back to it; the camera may frame it, the desktop is not resized.
+// keep_size (anchor mode): zooming in never shrinks the zoomed desktop. One resized bigger than the view keeps its overview
+// size, as every other one does, instead of being fitted back to it; any other (the default size, or resized smaller)
+// still grows to fill the view exactly as without it.
 // Follow and locked pass false: the zoomed desktop fits the glasses as above.
 std::vector<Placement> zoomed_placements(const Canvas& canvas, std::span<const FRect> overview, std::span<const FRect> tiles,
                                          std::span<const Placement> placements, float zoom, float position,

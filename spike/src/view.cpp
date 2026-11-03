@@ -158,8 +158,12 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
         // Held at its overview size: every length (tile, radius, curvature's arc) scales by k about the eye.
         const float d = own.distance > 0 ? own.distance : 1.f;
         const float rigid = d * (now.height / was.height) * radius(was) / radius(now);
+        // The zoomed one fades to 1: it grows to fill the view. keep_size: one that is already bigger than that fill (its
+        // overview size against zoomed_layout's fit height, centred in view) keeps its overview size instead.
+        const float fit_h = std::min(c.view_h, c.view_w * was.height / was.width);
+        const bool bigger_than_fit = d * (fit_h / was.height) * radius(was) < 1.f;
         out[i] = {std::remainder(own.x + ov.az - cur.az, 2 * float(M_PI)), own.y + ov.el - cur.el,
-                  keep_size ? rigid : lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature, own.roll};
+                  keep_size && bigger_than_fit ? rigid : lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature, own.roll};
     }
     return out;
 }

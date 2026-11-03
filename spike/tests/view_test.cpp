@@ -385,8 +385,9 @@ int main() {
         CHECK(zoom_draw_order(back_to_front, 1, 7) == back_to_front);
     }
     // Anchor mode keeps a resized desktop's size (regression, 2026-11-03: a desktop resized bigger than the zoom-fit size
-    // shrank back to it on zoom-in). keep_size: the zoomed desktop, like every other, is seen exactly as in the overview at
-    // every zoom (each corner's direction from the eye). Without it (follow / locked) it still fits the view (distance 1).
+    // shrank back to it on zoom-in). keep_size: a zoomed desktop already bigger than the fit is, like every other, seen
+    // exactly as in the overview at every zoom (each corner's direction from the eye). Without it (follow / locked) it
+    // still fits the view (distance 1).
     {
         const auto ov = overview_layout(eq, 1920, 1200, 40);
         auto width_deg = [&](const FRect& t, const Placement& p) {
@@ -395,7 +396,7 @@ int main() {
             return std::acos(std::clamp(dot(l, r), -1.f, 1.f)) * 180.f / pi;
         };
         for (std::size_t target = 0; target < 3; ++target)
-            for (const float d : {0.2f, 0.25f, 1.6f}) {  // resized bigger than the fit (0.2, 0.25) and smaller (1.6)
+            for (const float d : {0.2f, 0.25f}) {  // resized bigger than the fit
                 std::vector<Placement> own{Placement{-0.4f, 0.1f, 1.3f, 0.f}, Placement{}, Placement{0.3f, -0.1f, 0.8f, 0.f}};
                 own[target] = Placement{0.2f, 0.1f, d, 0.f};
                 for (float z : {0.f, 0.5f, 1.f}) {
@@ -412,11 +413,45 @@ int main() {
                 CHECK(fit[target].distance == 1.f && kept[target].distance != 1.f);
                 const float was = width_deg(ov[target], own[target]);
                 CHECK(near(width_deg(zl[target], kept[target]), was, 1e-2f));
-                if (d < 0.3f) CHECK(width_deg(zl[target], fit[target]) < was - 1.f);  // fitting would have shrunk it
+                CHECK(width_deg(zl[target], fit[target]) < was - 1.f);  // fitting would have shrunk it
                 for (std::size_t i = 0; i < 3; ++i) {
                     if (i == target) continue;
                     CHECK(same_placement(kept[i], fit[i]));  // the others are the same in every mode
                 }
+            }
+    }
+    // Anchor mode's overview click / Ctrl+Alt+Up still zooms in (regression, 2026-11-03: keep_size held every zoomed
+    // desktop at its overview size, so in anchor mode zooming in changed nothing). A desktop not bigger than the fit (the
+    // default size, or resized smaller) grows to fill the view exactly as in follow / locked; the others still keep their
+    // overview size.
+    {
+        const auto ov = overview_layout(eq, 1920, 1200, 40);
+        auto width_deg = [&](const FRect& t, const Placement& p) {
+            const float cy = t.y + t.height / 2;
+            const Vec3 l = unit(place_point(cv, t, p, t.x, cy)), r = unit(place_point(cv, t, p, t.x + t.width, cy));
+            return std::acos(std::clamp(dot(l, r), -1.f, 1.f)) * 180.f / pi;
+        };
+        for (std::size_t target = 0; target < 3; ++target)
+            for (const float d : {1.f, 0.6f, 1.6f}) {  // the default size, resized a little bigger (still under the fit), smaller
+                std::vector<Placement> own{Placement{-0.4f, 0.1f, 1.3f, 0.f}, Placement{}, Placement{0.3f, -0.1f, 0.8f, 0.f}};
+                own[target] = Placement{0.2f, 0.1f, d, 0.f};
+                const float was = width_deg(ov[target], own[target]);
+                float last = was;
+                for (float z : {0.25f, 0.5f, 0.75f, 1.f}) {
+                    const auto tl = blended_layout(eq, 1920, 1200, 40, z, float(target));
+                    const auto anchor = zoomed_placements(cv, ov, tl, own, z, float(target), true);
+                    const auto other = zoomed_placements(cv, ov, tl, own, z, float(target));
+                    CHECK(same_placement(anchor[target], other[target]));  // zooms exactly as follow / locked
+                    const float now = width_deg(tl[target], anchor[target]);
+                    if (d >= 1.f) CHECK(now >= last - 1e-3f);  // grows all the way (0.6 dips mid-zoom as follow does)
+                    last = now;
+                    for (std::size_t i = 0; i < 3; ++i)
+                        if (i != target) CHECK(same_placement(anchor[i], other[i]));
+                }
+                const auto zl = zoomed_layout(eq, 1920, 1200, 40, float(target));
+                const auto anchor = zoomed_placements(cv, ov, zl, own, 1, float(target), true);
+                CHECK(anchor[target].distance == 1.f);  // fills the view
+                CHECK(width_deg(zl[target], anchor[target]) > was + 5.f);  // visibly zoomed in
             }
     }
     // The switch's view turn (look_turn) is a camera rotation only: identity at rest, a proper rotation, and at look 1 the
