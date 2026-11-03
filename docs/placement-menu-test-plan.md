@@ -189,7 +189,7 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F6 | Bring the dot round XR-1's side (or push the mouse down past XR-1's bottom edge) onto the pill under XR-1 | That pill gets brighter. No corner bracket. |
 | F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot, facing you all the way. It is not stopped one desktop height down or width left of its slot: it goes as far as the dot goes (in anchor mode on round you, see O8). |
 | F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values in degrees. The dot stays where it is. |
-| F9 | Drag XR-1's pill right toward XR-2 at the same height | XR-1 keeps following the dot and bumps XR-2 out of the way (and XR-3 after it), with a small gap kept between them (XR-1's pill strip counts as part of XR-1). Drag back: XR-2 and XR-3 stay where they were pushed. Lift it above the row first and it passes over without bumping. Dropped within half a degree of its slot it snaps in. See B1–B15. |
+| F9 | Drag XR-1's pill right toward XR-2 at the same height | XR-1 keeps following the dot and bumps XR-2 out of the way (and XR-3 after it), with a small gap kept between them (XR-1's pill strip counts as part of XR-1). Drag back: XR-2 and XR-3 stay where they were pushed. Lift it above the row first and it passes over without bumping. Dropped within half a degree of its slot it snaps in. See B1–B16. |
 | F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner. |
 | F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). Growing bumps XR-2 out of the way; shrinking leaves it there. |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
@@ -270,7 +270,8 @@ its way, and they stay where they were pushed (`tools/native_spike/bump.py`; see
 [technical.md](technical.md#bumping-desktops-out-of-the-way)). Automated (offline) coverage:
 `tests/native_spike/test_bump.py` (collision detection on the footprints, push resolution, cascades, no room near the
 poles and in a full ring, hysteresis, a jittering pointer, determinism, random edits never leaving a new overlap, timing,
-the handles, Super + drag, and the run's keys, slider press and drag, settings panel, glide and normal save path), `test_free_pointer.py` and `test_glass_pills.py`
+settling a changed or restored layout, the handles, Super + drag, and the run's keys, slider press and drag, settings
+panel, glide and normal save path), `test_free_pointer.py` and `test_glass_pills.py`
 (the pill drag bumps), and the ctests `view` (`glide_toward`, `step_placements`) and `ipc` (`glide`). Not yet tried in
 an isolated VM or in the glasses.
 
@@ -284,13 +285,14 @@ an isolated VM or in the glasses.
 | B6 | Open XR-1's pill, select Left/right and press Shift+Right a few times | XR-1 and the desktops it runs into glide together, about a quarter of a second each press, with no snap. A press that bumps nothing moves as before. |
 | B7 | Still in the panel, press R | XR-1 goes back to its slot and pushes aside whatever is there now. |
 | B8 | Click far along the Distance slider (smaller number = bigger), then drag the knob | The click glides; the drag follows the knob, the neighbours moving with it. |
-| B9 | In the settings panel's Place section, set a desktop's left/right so it would land on another and Apply | The other desktop is pushed aside in the glasses (and the Place section shows its new values after a moment). |
+| B9 | In the settings panel's Place section, set a desktop's left/right so it lands on another and Apply | It lands exactly there, over the other desktop, and nothing is pushed. |
 | B10 | Lift XR-2 high (Down/up near +80°), lift XR-1 under it and push XR-1 up into XR-2 | XR-2 never goes past straight overhead. XR-1 stops where it still fits; nothing overlaps. Drag on sideways: XR-1 slides along. |
 | B11 | Flick a pill fast across the whole row | Every desktop in the way is pushed ahead; none ends up on the far side of the one you move, none overlaps. |
 | B12 | Bump a desktop, wait 2 s, stop the session and start again | The layout comes back as you left it, the bumped desktop where it was pushed (saved like any move; a start only restores it with the remembered layout, `remember-layout-reset-bind`). |
 | B13 | In the overview, press and drag on a desktop's content, also near its corners and edges | It goes to the app there; the desktop does not move or resize and nothing is bumped. From the handles round it (pill, a resize corner or edge just outside) the same drag moves or resizes it and bumps its neighbours. |
-| B14 | In the overview, hold Super and drag from a pill, a corner and a window, with the left and the right button | A window moves or resizes as Hyprland does it (or nothing, off a window). No desktop moves or resizes and nothing is bumped. Then start a pill drag, press Super, let go of the button first: the desktop stays where it is and no longer follows the mouse. |
-| B15 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
+| B14 | In the overview, hold Super and drag from a pill, a corner and a window, with the left and the right button | A window moves or resizes as Hyprland does it (or nothing, off a window). No desktop moves or resizes and nothing is bumped. Then start a pill drag and press Super with the button still held: the drag stops there, the desktop no longer follows the mouse, and letting go does nothing. Super on its own still does what it always did (a tap, Super + a key, Super + drag). |
+| B15 | Leave the overlap from B9 in place and press Ctrl+Alt+[ or ] (spacing), or add a desktop | The desktops that overlap glide apart, the selected one staying put, the others the shortest way to a clear spot. Nothing moves when nothing overlaps. With the remembered layout: an old saved layout that overlaps comes apart the same way right after the start. |
+| B16 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 

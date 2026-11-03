@@ -21,8 +21,12 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
   * Super + drag is a window's, never a monitor's (Hyprland's own bindm movewindow / resizewindow). The press bind has
     no modifier and Hyprland matches a bind's modifiers exactly, so with Super (or any modifier) held the press never
     reaches the run: no monitor move, resize or bump can start. It must stay that way: no ignore_mods on it, and no
-    bind here on a Super chord. The release bind is the other way round (ignore_mods): a monitor drag whose button comes
-    up with Super held must still end, or it would stay on the dot with no button down; with no drag it does nothing.
+    bind here on a Super chord. A monitor drag that began before Super went down stops when it does: the two Super keys
+    are bound, non-consuming (they still do everything they did) and ignoring modifiers, to CANCEL_OP
+    (OverviewPointer.super_down), in the same table, so only while the left button is the run's, and every removal
+    of it takes them too (a dead run's: the next Super press cleans up like a click). pcall'd: a refused bind is left
+    out, never breaking the left button. The release bind ignores modifiers as well: however a monitor drag's button
+    comes up, the drag ends and never stays on the dot; with no drag it does nothing.
   * OLED care: the bracket's brightest level is 184/255 and no glass pixel passes 191/255 (the cards' cap); they hide
     after OVERLAY_IDLE_CLOSE_S without pointer movement. Neither drifts or orbits.
 """
@@ -34,6 +38,8 @@ from .geometry import MAX_DESKTOPS
 RESIZE_OPS = ('resize_press', 'resize_release')
 CORNERS = ('tl', 'tr', 'bl', 'br')
 RESIZE_BUTTON = 'mouse:272'   # left button
+CANCEL_OP = 'resize_cancel'   # Super went down (OverviewPointer.super_down); xr_control.CANCEL_OP, ipc.decode_control
+SUPER_KEYS = ('Super_L', 'Super_R')
 # Free pointer (free_pointer.py): the cursor's visibility and position from before it was hidden, restored by every
 # removal of the left-button binds (including xr_control.py's stale-bind cleanup after a run died in free mode).
 GRAB_TABLE = 'xr_workspace_grab'
@@ -68,9 +74,12 @@ def install_resize_binds_lua(python, client, control_socket, run_id, session):
     for t in (run_id, session):
         if not isinstance(t, str) or not view.SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
     base = f'{python} -I {client} {control_socket} {run_id} {session}'
+    keys = ' '.join(f'do local ok, b = pcall(hl.bind, "{key}", hl.dsp.exec_cmd(c .. "{CANCEL_OP}"), '
+                    f'{{ ignore_mods = true, non_consuming = true }}) if ok and b then t[#t + 1] = b end end' for key in SUPER_KEYS)
     return (remove_resize_binds_lua() + f' local c = "{base} " {BIND_TABLE} = {{ '
             f'hl.bind("{RESIZE_BUTTON}", hl.dsp.exec_cmd(c .. "resize_press")), '
-            f'hl.bind("{RESIZE_BUTTON}", hl.dsp.exec_cmd(c .. "resize_release"), {{ release = true, ignore_mods = true }}) }}')
+            f'hl.bind("{RESIZE_BUTTON}", hl.dsp.exec_cmd(c .. "resize_release"), {{ release = true, ignore_mods = true }}) }} '
+            f'local t = {BIND_TABLE} {keys}')
 
 
 def remove_resize_binds_lua():

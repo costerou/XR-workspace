@@ -1,8 +1,9 @@
 """Bumping in the overview (bump.py, monitor-collision-bump): a desktop moved or resized pushes the desktops it runs into out
 of its way, smoothly, cascading, and they stay where they were pushed. Collision detection on the footprints as seen
-from the eye (orbit, distance and curvature included), push resolution, cascades, no room, stability, how a run uses it
-(the pill drag, the corner resize, the panel's keys and sliders, the settings panel, the glide, the normal save path:
-pushed desktops are saved with the layout like any other move). The renderer's glide is in the ctests view
+from the eye (orbit, distance and curvature included), push resolution, cascades, no room, stability, a changed or restored
+layout pushing overlapping desktops apart (settle), how a run uses it (the pill drag, the corner resize, the panel's keys
+and sliders, the settings panel's Apply as given, the glide, the normal save path: pushed desktops are saved with the
+layout like any other move), the hit-zone handles and Super + drag. The renderer's glide is in the ctests view
 (glide_toward) and ipc (the frame's `glide`).
 
 Offline only. No compositor, renderer binary or glasses.
@@ -17,7 +18,8 @@ import time
 import unittest
 from unittest import mock
 
-from tools.native_spike import bind_check, bump, free_pointer as fp, input_lock, managed, orbit, profiles, resize, unified_cursor, view
+from tools.native_spike import (bind_check, bump, free_pointer as fp, input_lock, ipc, managed, orbit, profiles, resize, unified_cursor,
+                                view, xr_control)
 from test_free_pointer import PointerBase, X1  # the free pointer driven like the sampler would (same directory)
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, validate_placements
 
@@ -355,10 +357,116 @@ class StabilityTests(unittest.TestCase):
         self.assertLess(time.perf_counter() - t, 0.25)
 
 
+# --- a changed or restored layout ------------------------------------------------------------------------------------------
+class SettleTests(unittest.TestCase):
+    """bump.settle: desktops that overlap with no mover to push them are pushed apart."""
+    def assert_clear(self, g, placements):
+        CollisionTests.assert_clear(self, g, placements)
+
+    def test_a_layout_with_nothing_overlapping_is_left_exactly_as_it_is(self):
+        for g, ps in ((G, FLAT), (G, at(0, x=-300, y=120)), (G, bump.push(G, 0, FLAT, {'x': 300})[0]),
+                      (G4, [dict(DEFAULT_PLACEMENT) for _ in range(4)])):
+            self.assertEqual(bump.settle(g, ps), (ps, ()))
+
+    def test_an_old_saved_overlap_is_pushed_apart(self):
+        stuck = at(1, x=60)  # XR-2 over XR-3, saved before bumping or by an Apply
+        self.assertGreater(overlaps(G, stuck)[(1, 2)], 0)
+        out, moved = bump.settle(G, stuck)
+        self.assertEqual(moved, (2,)); self.assertEqual(out[:2], stuck[:2])  # the later desktop gives way
+        self.assert_clear(G, out)
+        validate_placements(out)
+
+    def test_it_is_the_nearest_clear_spot(self):
+        out, _ = bump.settle(G, at(1, x=60))
+        self.assertEqual(out[2]['y'], 0); self.assertGreater(out[2]['x'], 0)  # straight out, sideways: the short way
+        near = {**out[2], 'x': out[2]['x'] - 1}
+        self.assertFalse(bump.apart(orbit.footprint(G, T1, out[1]), orbit.footprint(G, T2, near)))  # a tenth less would touch
+
+    def test_desktops_right_on_top_of_each_other_come_apart(self):
+        ps = [{**DEFAULT_PLACEMENT, 'x': 132}, dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': -132}]
+        out, moved = bump.settle(G, ps)
+        self.assertEqual(len(moved), 2)
+        self.assert_clear(G, out)
+
+    def test_the_desktops_to_keep_stay_and_the_others_give_way(self):
+        stuck = at(1, x=60)
+        out, moved = bump.settle(G, stuck, (2,))
+        self.assertEqual(moved, (1,)); self.assertEqual(out[2], stuck[2])
+        self.assert_clear(G, out)
+        out, moved = bump.settle(G, stuck, (9, -1, 2, 2))  # stale or repeated indices do no harm
+        self.assertEqual(moved, (1,))
+
+    def test_settled_stays_settled(self):
+        once, _ = bump.settle(G, at(1, x=60))
+        self.assertEqual(bump.settle(G, once), (once, ()))
+
+    def test_the_row_at_spacing_zero_is_no_overlap(self):
+        # Tiles touching: only the frames round them overlap, the desktops do not. They stay in their slots, flat.
+        w = 640.0
+        g = {**G, 'tiles': [(i * w, 435.0, w, w * 9 / 16) for i in range(3)]}
+        self.assertGreater(overlaps(g, FLAT)[(0, 1)], 0)
+        self.assertEqual(bump.settle(g, FLAT), (FLAT, ()))
+        out, moved = bump.settle(g, at(1, x=20))  # a moved one does count
+        self.assertTrue(moved)
+        self.assertEqual(overlaps(g, out)[(1, 2)], 0)
+
+    def test_a_huge_desktop_pushes_its_neighbours_clear(self):
+        out, moved = bump.settle(G, at(1, distance=10), (1,))
+        self.assertEqual(moved, (0, 2))
+        self.assert_clear(G, out)
+
+    def test_it_goes_round_a_desktop_that_is_in_the_way(self):
+        # XR-3 over XR-2, with XR-1 hard up against XR-2's other side: its nearest clear spot is past nothing that blocks it.
+        ps = [{**DEFAULT_PLACEMENT, 'x': 0}, dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': -132}]
+        out, _ = bump.settle(G, ps)
+        self.assert_clear(G, out)
+
+    def test_near_a_pole_it_stays_in_bounds(self):
+        ps = [{**DEFAULT_PLACEMENT, 'x': 132, 'y': 890}, {**DEFAULT_PLACEMENT, 'y': 890}, dict(DEFAULT_PLACEMENT)]
+        out, _ = bump.settle(G, ps)
+        validate_placements(out)
+        self.assert_clear(G, out)
+
+    def test_with_no_room_anywhere_it_stays_and_nothing_breaks(self):
+        full = [{**DEFAULT_PLACEMENT, 'distance': 10, 'curvature': 120} for _ in range(3)]
+        out, moved = bump.settle(G, full)
+        validate_placements(out)
+        self.assertEqual(bump.settle(G, full), (out, moved))  # the same every time
+        self.assertEqual(bump.settle(G, out)[0], bump.settle(G, bump.settle(G, out)[0])[0])  # and no jitter
+
+    def test_without_a_layout_or_alone_nothing_changes(self):
+        stuck = at(1, x=60)
+        self.assertEqual(bump.settle(None, stuck), (stuck, ()))
+        self.assertEqual(bump.settle({**G, 'tiles': G['tiles'][:2]}, stuck), (stuck, ()))  # stale
+        self.assertEqual(bump.settle({**G, 'tiles': G['tiles'][:1]}, stuck[:1]), (stuck[:1], ()))
+
+    def test_random_layouts_all_come_out_clear(self):
+        rng = random.Random(11)
+        for g in (G, G4):
+            for _ in range(40):
+                ps = [{'x': rng.randint(-500, 500), 'y': rng.randint(-250, 250), 'distance': rng.choice((60, 100, 100, 150)),
+                       'curvature': rng.choice((0, 0, 40))} for _ in g['tiles']]
+                out, moved = bump.settle(g, ps)
+                validate_placements(out)
+                self.assert_clear(g, out)
+                self.assertEqual(bump.settle(g, out), (out, ()))
+                for i, (a, b) in enumerate(zip(ps, out)):
+                    if i not in moved: self.assertEqual(a, b)  # only those that had to move moved
+                    self.assertEqual((a['distance'], a['curvature']), (b['distance'], b['curvature']))  # never resized
+
+    def test_quick_enough_for_the_loop(self):
+        full = [{**DEFAULT_PLACEMENT, 'distance': 10, 'curvature': 120} for _ in range(3)]
+        t = time.perf_counter()
+        bump.settle(G, full)  # no room: every direction searched in full
+        self.assertLess(time.perf_counter() - t, 0.2)
+
+
 # --- in a run: ViewControl's keys, sliders and settings panel, and the glide ------------------------------------------------
 class Layout:
     """The overview free pointer as ViewControl sees it: the renderer's overview layout."""
+    drag = None
     def __init__(self, g): self.geometry = g
+    def set_geometry(self, g): self.geometry = g
     def summon(self): pass
     def poll(self, now): return b''
 
@@ -410,6 +518,16 @@ class RunTests(unittest.TestCase):
         c.on_message({'op': 'menu_toggle'})
         out = c.on_message({'op': 'menu_dec'})  # XR-1 0.2 degrees left: nothing there
         self.assertEqual(placement(out), {'desktops': at(0, x=-view.MENU_STEPS['x'][0])})  # no glide
+        out = c.on_message({'op': 'menu_dec_big'})  # 15 degrees left: a long way, and still nothing there
+        self.assertNotIn('glide', placement(out))
+
+    def test_a_slider_click_that_bumps_nothing_stays_as_it_is(self):
+        c = run_control()
+        c.on_message({'op': 'menu_toggle'})
+        out = c.pill_slide(0, 'distance', (150 - 10) / 190, surface=dict(DEFAULT_PLACEMENT))  # smaller: nothing to push
+        self.assertEqual(c.state.placements[0]['distance'], 150)
+        self.assertNotIn('glide', placement(out))
+        c.pill_release()
 
     def test_reset_walks_home_and_pushes_whatever_sits_in_its_slot(self):
         c = run_control(placements=[{**DEFAULT_PLACEMENT, 'y': 300}, {**DEFAULT_PLACEMENT, 'x': -140}, dict(DEFAULT_PLACEMENT)])
@@ -434,17 +552,16 @@ class RunTests(unittest.TestCase):
         self.assertIsNone(c._pusher)
         CollisionTests.assert_clear(self, G, c.state.placements)
 
-    def test_the_settings_panel_apply_bumps_too(self):
+    def test_the_settings_panel_apply_applies_exactly_as_given(self):
         c = run_control()
-        out = c.on_message({'op': 'placement', 'payload': {'desktops': at(2, x=-80)}})  # XR-3 eight degrees left, into XR-2
-        s = c.state.placements
-        self.assertEqual(s[2]['x'], -80); self.assertLess(s[1]['x'], 0); self.assertLess(s[0]['x'], 0)
-        self.assertEqual(placement(out)['glide'], view.GLIDE_MS)
-        CollisionTests.assert_clear(self, G, s)
-        # Two desktops changed at once (an older panel's stale copy): applied as given, as before.
-        both = at(0, base=at(2, x=-80), x=200)
-        c.on_message({'op': 'placement', 'payload': {'desktops': both}})
-        self.assertEqual(c.state.placements, both)
+        over = at(2, x=-80)  # XR-3 eight degrees left, onto XR-2
+        out = c.on_message({'op': 'placement', 'payload': {'desktops': over}})
+        self.assertEqual(c.state.placements, over)  # nothing pushed, the overlap stays
+        self.assertGreater(overlaps(G, over)[(1, 2)], 0)
+        self.assertEqual(placement(out), {'desktops': over})  # no glide
+        self.assertEqual(c.bumps, 0)
+        self.assertIsNone(c.poll())  # and nothing settles it: the layout did not change
+        self.assertEqual(c.state.placements, over)
 
     def test_without_the_overview_layout_edits_apply_as_given(self):
         c = run_control(g=None)
@@ -483,12 +600,11 @@ class RunTests(unittest.TestCase):
         self.assertEqual(store.saved, [c.state.placements])
         self.assertEqual(store.saved[0][0]['distance'], 30); self.assertNotEqual(store.saved[0][1], DEFAULT_PLACEMENT)
 
-    def test_a_settings_panel_apply_that_bumps_is_saved_at_once_with_the_pushed_desktops(self):
+    def test_a_settings_panel_apply_is_saved_at_once_as_given(self):
         store = Store()
         c = run_control(store=store)
         c.on_message({'op': 'placement', 'payload': {'desktops': at(2, x=-80)}})
-        self.assertEqual(store.saved, [c.state.placements])
-        self.assertLess(store.saved[0][1]['x'], 0)
+        self.assertEqual(store.saved, [at(2, x=-80)])
 
     def test_a_run_saves_bumped_positions_in_the_profile_with_the_layout(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -503,6 +619,81 @@ class RunTests(unittest.TestCase):
                 self.assertGreater(control.bumps, 0)
                 self.assertGreater(moved[1]['x'], 0); self.assertGreater(moved[2]['x'], 0)
             self.assertEqual(profiles.load_profile(store.path, store.model)['placements'], moved)  # saved by the run's end
+
+    # --- the layout changing -------------------------------------------------------------------------------------------
+    def test_a_restored_layout_that_overlaps_is_pushed_apart_when_the_layout_arrives(self):
+        store = Store()
+        stuck = at(1, x=60)
+        c = run_control(g=None, placements=stuck, store=store)
+        self.assertIsNone(c.poll())  # no layout yet
+        c.set_overview_geometry(G)
+        out = c.poll()
+        s = c.state.placements
+        self.assertEqual(s[:2], stuck[:2]); self.assertNotEqual(s[2], stuck[2])
+        CollisionTests.assert_clear(self, G, s)
+        self.assertEqual(placement(out), {'desktops': s, 'glide': view.GLIDE_MS})  # it bumped: it glides
+        self.assertEqual(store.saved, [])  # saved like any move: after the delay
+        c.poll(c.save_due)
+        self.assertEqual(store.saved, [s])
+        self.assertIsNone(c.poll())  # once
+
+    def test_a_layout_with_no_overlap_sends_nothing(self):
+        c = run_control(g=None)
+        c.set_overview_geometry(G)
+        self.assertIsNone(c.poll())
+        self.assertEqual((c.bumps, c.save_due), (0, None))
+
+    def test_the_spacing_or_a_desktop_change_settles_too_through_the_layout_they_report(self):
+        moved = at(1, x=5)  # half a degree right of its slot: just clear of XR-3 in the row as it is
+        self.assertEqual(overlaps(G, moved)[(1, 2)], 0)
+        w = 640.0
+        closer = {**G, 'tiles': [(i * w, 435.0, w, w * 9 / 16) for i in range(3)]}  # less spacing: the slots came closer
+        self.assertGreater(overlaps(closer, moved)[(1, 2)], 0)
+        c = run_control(placements=moved)
+        c.set_overview_geometry(closer)
+        self.assertEqual(placement(c.poll())['glide'], view.GLIDE_MS)
+        self.assertEqual(overlaps(closer, c.state.placements)[(1, 2)], 0)
+
+    def test_the_selected_desktop_and_the_open_panels_stay_put(self):
+        stuck = at(1, x=60)
+        c = run_control(g=None, placements=stuck)
+        c.state.selected = 2
+        c.set_overview_geometry(G); c.poll()
+        self.assertEqual(c.state.placements[2], stuck[2]); self.assertNotEqual(c.state.placements[1], stuck[1])
+        c = run_control(g=None, placements=stuck)
+        c.state.open_menu(2)
+        c.set_overview_geometry(G)
+        frames_out = frames(c.poll())
+        self.assertEqual(c.state.placements[2], stuck[2])
+        self.assertEqual([f['payload']['placements'] for f in frames_out if f['op'] == 'placement_menu'][-1], c.state.placements)
+
+    def test_it_waits_for_a_drag_and_a_desktop_change(self):
+        stuck = at(1, x=60)
+        c = run_control(g=None, placements=stuck)
+        c.overview_pointer.drag = {'kind': 'pill'}
+        c.set_overview_geometry(G)
+        self.assertIsNone(c.poll()); self.assertEqual(c.state.placements, stuck)
+        c.overview_pointer.drag = None
+        c.state.desktops_busy = True
+        self.assertIsNone(c.poll()); self.assertEqual(c.state.placements, stuck)
+        c.state.desktops_busy = False
+        self.assertIsNotNone(c.poll())
+        CollisionTests.assert_clear(self, G, c.state.placements)
+
+    def test_a_layout_for_other_desktops_waits_for_the_right_one(self):
+        stuck = at(1, x=60)
+        c = run_control(g=None, placements=stuck)
+        c.set_overview_geometry({**G, 'tiles': G['tiles'][:2]})  # stale: from before a pill's Add
+        self.assertIsNone(c.poll()); self.assertEqual(c.state.placements, stuck)
+        c.set_overview_geometry(G)
+        self.assertIsNotNone(c.poll())
+
+    def test_an_apply_overlap_is_pushed_apart_by_the_next_layout_change(self):
+        c = run_control()
+        c.on_message({'op': 'placement', 'payload': {'desktops': at(2, x=-80)}})
+        c.set_overview_geometry(dict(G))
+        self.assertIsNotNone(c.poll())
+        CollisionTests.assert_clear(self, G, c.state.placements)
 
     def test_glide_frames_are_checked(self):
         frame = json.loads(view.placement_frame('run', 'session', 9, FLAT, glide=view.GLIDE_MS))
@@ -666,37 +857,132 @@ class HandleContractTests(PointerBase):
         self.assertIsNone(self.p.drag)
         self.assertEqual(self.control.state.placements, FLAT)
 
-    def test_a_monitor_drag_let_go_with_super_held_ends_and_does_not_stay_on_the_dot(self):
-        x, y, w, h = fp.pill_rect(T0)
-        self.dot_onto(0, (x + w / 2, y + h / 2), glass=True)
+    def super_key(self):
+        """A Super key going down: what its bind runs (resize.py), through the control socket's path."""
+        return self.op(resize.CANCEL_OP)
+
+    def pill_drag(self, i=0):
+        x, y, w, h = fp.pill_rect(G['tiles'][i])
+        self.dot_onto(i, (x + w / 2, y + h / 2), glass=True)
+        self.assertEqual(self.p.hover, ('pill', i))
         self.button(True)  # no modifier: the monitor's drag
+
+    def test_super_going_down_stops_a_monitor_move_where_it_is(self):
+        self.pill_drag()
         for _ in range(3): self.move_canvas(40, 0)
         moved = [dict(p) for p in self.control.state.placements]
         self.assertNotEqual(moved, FLAT)
-        self.button(False, {'SUPER'})  # Super went down meanwhile: the release still arrives (ignore_mods)
+        self.super_key()
+        self.assertIsNone(self.p.drag); self.assertEqual(self.p.super_stops, 1)
+        self.assertEqual(self.store.saved, moved)  # saved as on a release, pushed desktops with it
+        for _ in range(3): self.move_canvas(40, 0)
+        self.assertEqual(self.control.state.placements, moved)  # nothing follows the dot any more, or bumps
+        self.button(False, {'SUPER'})  # the button comes up later: nothing held
+        self.button(False)
+        self.assertFalse(self.control.state.menu_open)  # and no click
+        self.assertEqual(self.control.state.placements, moved)
+
+    def test_super_going_down_stops_a_resize_where_it_is(self):
+        self.dot_onto(0, (T0[0] + T0[2] + 5, T0[1] - 5))
+        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
+        self.button(True)
+        for _ in range(2): self.move_canvas(40, -40)
+        size = [dict(p) for p in self.control.state.placements]
+        self.assertLess(size[0]['distance'], 100)
+        self.super_key()
+        self.assertIsNone(self.p.drag)
+        for _ in range(2): self.move_canvas(40, -40)
+        self.assertEqual(self.control.state.placements, size)
+
+    def test_super_going_down_before_a_held_pill_has_moved_is_no_click_and_no_move(self):
+        self.pill_drag()
+        self.super_key()
+        self.move_canvas(40, 0)
+        self.button(False)
+        self.assertEqual(self.control.state.placements, FLAT)
+        self.assertFalse(self.control.state.menu_open); self.assertEqual(self.p.pill_clicks, 0)
+
+    def test_super_going_down_stops_a_held_slider_and_its_panel_goes_back_on_its_desktop(self):
+        self.control.pill_click(0)  # XR-1's panel open
+        x, y, _, _ = fp.panel_rect(T0)
+        row = fp.PANEL_ROWS_TOP + fp.PANEL_ROW_H * 2.5  # Distance
+        self.dot_onto(0, (x + fp.PANEL_KNOB_LO + 40, y + row), glass=True)
+        self.assertEqual(self.p.hover[:3], ('slider', 0, 'distance'))
+        self.button(True)
+        self.assertEqual(self.p.drag['kind'], 'slider'); self.assertIsNotNone(self.control.state.menu_surface)
+        self.super_key()
+        self.assertIsNone(self.p.drag); self.assertIsNone(self.control.state.menu_surface)
+        s = [dict(p) for p in self.control.state.placements]
+        self.move_canvas(60, 0)
+        self.assertEqual(self.control.state.placements, s)
+
+    def test_super_going_down_leaves_a_window_drag_and_an_idle_pointer_alone(self):
+        self.assertIsNone(self.control.on_message({'op': resize.CANCEL_OP, 'payload': {}}))  # nothing held: nothing
+        self.dot_onto(1, (T1[0] + 2, T1[1] + T1[3] / 2))  # on XR-2's content, in the edge's sliver: the dot's still
+        self.assertEqual(self.p.hover[:2], ('desktop', 1))
+        self.button(True)
+        self.assertEqual(self.p.drag['kind'], 'window')
+        self.super_key()
+        self.assertEqual(self.p.drag['kind'], 'window')
+        self.assertEqual(self.p.super_stops, 0)
+        self.button(False)
+
+    def test_a_monitor_drag_let_go_with_super_held_still_ends(self):
+        # The release ignores modifiers too, so a drag ends however its button comes up: also if the Super keys' pcall'd
+        # binds were refused and super_down never came.
+        self.pill_drag()
+        for _ in range(3): self.move_canvas(40, 0)
+        moved = [dict(p) for p in self.control.state.placements]
+        self.assertNotEqual(moved, FLAT)
+        self.button(False, {'SUPER'})
         self.assertIsNone(self.p.drag)
         for _ in range(3): self.move_canvas(40, 0)
         self.assertEqual(self.control.state.placements, moved)  # nothing follows the dot any more
 
+    def test_a_layout_arriving_during_a_drag_settles_when_the_drag_ends(self):
+        self.control.poll()  # (the setUp's layout)
+        self.control.state.placements = at(2, x=-80)  # overlapping XR-2, from an Apply
+        self.pill_drag(0)
+        self.control.set_overview_geometry(dict(G))
+        self.control.poll()
+        self.assertEqual(self.control.state.placements[2]['x'], -80)
+        self.button(False)
+        self.control.poll()
+        CollisionTests.assert_clear(self, G, self.control.state.placements)
+
 
 class BindRuleTests(unittest.TestCase):
     """Super + drag stays Hyprland's: what makes that true of the binds the run installs."""
-    def test_the_press_matches_modifiers_exactly_and_only_the_release_ignores_them(self):
+    def test_the_press_matches_modifiers_exactly_and_the_release_ignores_them(self):
         binds = free_pointer_binds()
         self.assertEqual([(chord, op) for chord, op, _ in binds], [(resize.RESIZE_BUTTON, 'resize_press'), (resize.RESIZE_BUTTON, 'resize_release')])
         self.assertEqual(binds[0][2], '')  # no option at all on the press: no ignore_mods, no transparent, no non_consuming
         self.assertEqual(binds[1][2], 'release = true, ignore_mods = true')
 
-    def test_no_bind_of_the_run_takes_a_super_chord_and_only_that_release_ignores_modifiers(self):
+    def test_the_super_keys_are_watched_without_taking_them(self):
+        lua = resize.install_resize_binds_lua(*bind_check.DUMMY_ARGS)
+        keys = re.findall(r'pcall\(hl\.bind, "([^"]+)", hl\.dsp\.exec_cmd\(c \.\. "(\w+)"\), \{ ([^}]*) \}\)', lua)
+        self.assertEqual(keys, [(key, resize.CANCEL_OP, 'ignore_mods = true, non_consuming = true') for key in resize.SUPER_KEYS])
+        self.assertEqual(resize.SUPER_KEYS, ('Super_L', 'Super_R'))
+        self.assertEqual(lua.count(f'{resize.BIND_TABLE}[') + lua.count('t[#t + 1] = b'), 2)  # in the table every removal clears
+
+    def test_no_bind_of_the_run_takes_a_super_chord(self):
         args = bind_check.DUMMY_ARGS
         for lua in (view.install_binds_lua(*args), view.install_menu_binds_lua(*args), view.install_send_binds_lua(*args),
                     resize.install_resize_binds_lua(*args), unified_cursor.click_binds_lua(*args),
                     input_lock.lock_binds_lua(*args)):
             self.assertNotIn('SUPER', lua)
-        self.assertEqual(resize.install_resize_binds_lua(*args).count('ignore_mods'), 1)
         for lua in (view.install_binds_lua(*args), view.install_menu_binds_lua(*args), unified_cursor.click_binds_lua(*args),
                     input_lock.lock_binds_lua(*args)):
             self.assertNotIn('ignore_mods', lua)
+
+    def test_the_cancel_op_reaches_the_run_and_a_dead_run_cleans_up_on_it(self):
+        self.assertEqual(xr_control.CANCEL_OP, resize.CANCEL_OP)
+        frame = (json.dumps({'schema': 1, 'request_id': 1, 'run_id': 'run', 'session': 's', 'op': resize.CANCEL_OP, 'payload': {}}) + '\n').encode()
+        self.assertEqual(ipc.decode_control(frame)['op'], resize.CANCEL_OP)
+        with mock.patch.object(xr_control, 'drop_stale_menu_binds') as drop:
+            self.assertEqual(xr_control.main(['x', '/nonexistent/c.sock', 'run', 's', resize.CANCEL_OP]), 1)
+        drop.assert_called_once_with(code=xr_control.REMOVE_RESIZE_BINDS)
 
 
 class UnifiedHandleContractTests(HandleContractTests):

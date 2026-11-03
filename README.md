@@ -167,18 +167,25 @@ copy of any one of them can't take the new placements. Going back to an older ba
 placements this version saved to flat.
 
 **Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
-(dragging its pill or a corner, the sliders and keys of its pill, or the panel's **Place** section), it never goes
-through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
+in the overview (dragging its pill or a corner, or the sliders and keys of its pill), it never goes through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
 runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
 doesn't pull it back, and it is saved with your layout like any other move. What counts is how they look from where you sit, curve and size included: a small desktop far
 away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
 you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
 push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
 fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
-desktops glides them there together in a quarter of a second; while you drag they move with your hand. Only the
-handles round a desktop do this (its pill, its resize corners and edges, its pill's sliders and keys); pressing and
-dragging on a desktop's content goes to the app there and never moves, resizes or bumps anything. Super + drag is
-your window manager's as always: it moves or resizes a window, never a desktop, and bumps nothing.
+desktops glides them there together in a quarter of a second; one that bumps nothing moves as it always did, and while
+you drag they move with your hand. Only the handles round a desktop do this (its pill, its resize corners and edges, its
+pill's sliders and keys); pressing and dragging on a desktop's content goes to the app there and never moves, resizes or
+bumps anything. Super + drag is your window manager's as always: it moves or resizes a window, never a desktop, and
+bumps nothing. Press Super while you are dragging a desktop and the drag stops right there.
+
+The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
+
+When the layout itself changes, desktops that overlap afterwards are pushed apart by themselves, gliding the same way:
+when a session starts with a saved layout that overlaps, when you change the spacing, and when you add, remove or widen
+a desktop. The selected desktop stays where it is, and the others move the shortest way to a clear spot. That includes an
+overlap you made with Apply, the next time the layout changes.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the

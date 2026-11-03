@@ -80,7 +80,8 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     handles do (RESIZE_DRAGS, _resize_to, orbit.PillDrag): content is the apps', and a Super + drag is Hyprland's window
     move or resize, whose press never reaches the run (resize.py). All are saved like a panel key change (0.5 s
     debounce, and at once on release), pushed desktops with them. Drags also end, and save, after
-    OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in and when a VR video opens.
+    OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in, when a VR video opens and when Super goes down
+    (super_down).
   * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is
     up the renderer reports where it lies on the canvas under the current head rotation (`help_geometry`, the card and,
     on a paged card, its previous / next arrows and page indicator; parse_help_geometry). It is the top layer for the
@@ -180,6 +181,8 @@ POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 # press on content (hit: 'desktop') is the apps' and never starts either; nor do the roll handles, sliders (ViewControl
 # bumps those) or a window drag.
 RESIZE_DRAGS = ('corner', 'resize')
+# What Super going down stops (OverviewPointer.super_down): every drag of a monitor. A window drag is the window's.
+MONITOR_DRAGS = RESIZE_DRAGS + ('pill', 'slider', 'roll')
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
@@ -690,6 +693,7 @@ class OverviewPointer:
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
         self.actions = 0  # diagnostics: desktop-row button presses
         self.bumps = 0    # diagnostics: drag updates that pushed another desktop out of the way (bump.py)
+        self.super_stops = 0  # diagnostics: monitor drags stopped by Super going down (super_down)
         self.window_lifts = self.window_drops = self.window_cancels = 0  # diagnostics: window drags
         self._found = None  # (token, window) from the sender's lookup thread, taken on the loop (_take_found)
         self._token = 0
@@ -1091,6 +1095,15 @@ class OverviewPointer:
                 self.drag = self._window_press(h[1], h[2], self.pointer, self._to_layout(h[1], h[2]), now)
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._frames(False)) or None
+
+    def super_down(self):
+        """Super went down (resize.py's bind on the Super keys, there while the left button is the run's): Super + drag is
+        a window's, so a monitor drag in progress (MONITOR_DRAGS; it began without Super) stops where it is, saved as on a
+        release. It is no click: the button's later release finds nothing held. Frames or None."""
+        d = self.drag
+        if d is None or d['kind'] not in MONITOR_DRAGS: return None
+        self.super_stops += 1
+        return (self._end_drag() + self._frames(False)) or None
 
     # --- window drag ------------------------------------------------------------------------------------------------
     def _window_press(self, i, q, start, point, now):

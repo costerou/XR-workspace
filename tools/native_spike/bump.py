@@ -7,16 +7,21 @@ Design:
     orbit.MARGIN_PX and by the strip under it holding its glass pill (orbit.PILL_ZONE_PX). Two desktops collide when
     their footprints share a direction (apart: a separating great circle through an edge of either, the spherical form
     of the separating-axis test; orbit.overlap for footprints too wide for it). Touching is allowed.
-  * One desktop is the mover: a pill drag, a corner resize, a slider or key of its open panel, or an Apply in the
-    settings panel changes one desktop's placement. It walks the straight path from where it is to where it was asked
-    to go (x / y, distance and curvature together) in steps of at most STEP_TENTHS of edge travel (longer ones on a
-    path too long for MAX_WALK_STEPS, and bigger strides while its bounding cone is clear of every other desktop's), so
-    however far one update takes it, it never jumps through a desktop.
+  * One desktop is the mover: a pill drag, a corner resize, or a slider or key of its open panel changes one desktop's
+    placement (the settings panel's Apply does not bump: it applies exactly as given). It walks the straight path from
+    where it is to where it was asked to go (x / y, distance and curvature together) in steps of at most STEP_TENTHS of
+    edge travel (longer ones on a path too long for MAX_WALK_STEPS, and bigger strides while its bounding cone is clear
+    of every other desktop's), so however far one update takes it, it never jumps through a desktop.
   * Each step pushes. Every desktop the mover now covers is moved straight out of its way by the least turn round you
     (x) or lift (y), in whole tenths of a degree, that clears it: the minimum translation of a physics engine, on the
     sphere. A desktop pushed into another pushes that one the same way, and so on (cascading); one may be pushed more
-    than once in a step. A pair that already overlapped before the edit (a desktop change re-laying out the row, say)
-    is left as it is: that pair may not get deeper, so nothing is ever stuck.
+    than once in a step. A pair that already overlapped before the edit (an Apply, or no room to settle it) is left as it
+    is: that pair may not get deeper, so nothing is ever stuck.
+  * The layout changing settles (settle): a new overview layout, or a restored setup, can leave desktops overlapping
+    with no mover to push them. Desktop by desktop, those to keep first, each one that covers a desktop already gone
+    through goes to the nearest clear spot, straight along x or y; the rest stay exactly where they are. Once clear
+    nothing moves, so it never jitters. The row itself is no overlap (two desktops both flat in their slots, at spacing
+    0 only their frames touch), and a desktop with no clear spot anywhere stays where it is.
   * Stable. A push is never longer than PUSH_REACH times the step's own travel (plus PUSH_SLACK), so a desktop is never
     flung across the room; a desktop keeps the way it was last pushed while that costs at most HYSTERESIS tenths more
     than the cheapest (no flip-flopping between sideways and up / down at a corner); and a pushed desktop never springs
@@ -28,9 +33,9 @@ Design:
     keys) then slides along whatever cannot give way, sideways first or up / down first, whichever ends closer; the
     slide's corner is handed back first, so the renderer's straight easing never cuts through the neighbour.
   * Smooth. The pushed desktops move with the mover, step for step, and go to the renderer in the same `placement`
-    frame, which eases every desktop alike (spike view.hpp ease_toward; a discrete edit that pushes asks for a glide,
-    view.GLIDE_MS: every desktop of the frame slides along one smootherstep curve together, glide_toward), so they move
-    out of the way together and never cross on screen.
+    frame, which eases every desktop alike (spike view.hpp ease_toward; a discrete edit that pushes, or a settle, asks
+    for a glide, view.GLIDE_MS: every desktop of the frame slides along one smootherstep curve together, glide_toward),
+    so they move out of the way together and never cross on screen.
   * Saved like any move. A pushed desktop is a placement like any other: it is in the placements the run's normal save
     path writes (ViewControl.flush, the debounce, at once on release), so it comes back with the layout.
   * The levelling roll (free_pointer.py's roll icons) is ignored here, as it was by the guard: a few degrees of roll
@@ -39,6 +44,7 @@ Design:
 import math
 
 from . import orbit
+from .geometry import DEFAULT_PLACEMENT
 
 DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))  # a push: turn round you (x: right, left) or lift (y: up, down)
 STEP_TENTHS = 4.0     # the mover's steps: at most this much edge travel (tenths of a degree) while anything is near
@@ -49,6 +55,7 @@ HYSTERESIS = 2        # tenths of a degree: a desktop keeps the way it was last 
 MAX_PUSHES = 12       # pushes per step (a cascade through every desktop a few times over); more is a loop: no room
 POLE_COS = 0.25       # near a pole a turn round you moves a desktop little: x pushes reach at most 1 / POLE_COS further
 TOWARD = -0.25        # a push direction closing on the pusher by more than this (normalized) is never tried
+SETTLE_STEP = 15      # tenths of a degree: how coarsely settle looks for a clear spot (no desktop is under ~6 degrees wide)
 _EPS = 1e-12
 
 
@@ -312,6 +319,54 @@ class Pusher:
             a = -orbit._dot(step, cp) / (size * sin_t) if size > 0 else 0.0
             away += [a, -a]
         return sorted((d for d in range(len(DIRECTIONS)) if away[d] >= TOWARD), key=lambda d: (d != remembered, -away[d], d))
+
+    def _clear_spot(self, state, k, others):
+        """The nearest place for desktop k, straight along x or y (the turn at most half way round, the lift to the poles),
+        that covers none of the desktops `others`. None if there is none."""
+        sk = state[k]
+        cos_el = max(math.sqrt(max(0.0, 1 - self._print(k, sk).centre[1] ** 2)), POLE_COS)
+
+        def clear(d, t):
+            dx, dy = DIRECTIONS[d]
+            to = (sk[0] + dx * t, sk[1] + dy * t) + sk[2:]
+            return abs(to[1]) <= orbit.Y_LIMIT and not any(self._hits(k, to, i, state[i]) for i in others)
+        best = None  # (travel, direction, t)
+        for d, (dx, _) in enumerate(DIRECTIONS):
+            per = cos_el if dx else 1.0
+            lo, t, most = 0, SETTLE_STEP, orbit.X_LIMIT if dx else 2 * orbit.Y_LIMIT
+            while t <= most and (best is None or lo * per < best[0]):
+                if clear(d, t):
+                    t = lo + _least(lambda s, lo=lo, d=d: clear(d, lo + s), t - lo)
+                    if best is None or t * per < best[0]: best = (t * per, d, t)
+                    break
+                lo, t = t, t + SETTLE_STEP
+        if best is None: return None
+        dx, dy = DIRECTIONS[best[1]]
+        return (sk[0] + dx * best[2], sk[1] + dy * best[2]) + sk[2:]
+
+
+def settle(g, placements, first=()):
+    """(placements, the desktops moved) with no two desktops overlapping, for a layout that changed under them: module
+    docstring, the layout changing settles. `first`: the desktops to keep where they are ahead of the others (the rest in
+    order). Without a geometry with one slot per desktop, or alone: unchanged."""
+    n = len(placements)
+    out = [dict(p) for p in placements]
+    if g is None or len(g['tiles']) != n or n < 2: return out, ()
+    pusher = Pusher(g, 0)
+    pusher._limit = {}
+    state = [(p['x'], p['y'], p['distance'], p['curvature']) for p in placements]
+    flat = [p == DEFAULT_PLACEMENT for p in placements]
+    placed, moved = [], []
+    for k in dict.fromkeys(tuple(i for i in first if 0 <= i < n) + tuple(range(n))):
+        others = [i for i in placed if not (flat[i] and flat[k])]
+        if any(pusher._hits(k, state[k], i, state[i]) for i in others):
+            to = pusher._clear_spot(state, k, others)
+            if to is not None:
+                state[k], flat[k] = to, False
+                moved.append(k)
+        placed.append(k)
+    for k in moved: out[k] = _wire({**out[k], 'x': state[k][0], 'y': state[k][1]})
+    return out, tuple(sorted(moved))
 
 
 def _between(a, b, t):

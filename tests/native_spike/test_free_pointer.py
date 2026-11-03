@@ -881,8 +881,9 @@ local function show(tag) print(tag, state.invisible, state.x, state.y, state.bin
             fp.grab_pointer_lua(*BIND_ARGS, 3520, 540), 'show("grab2")',
             resize.remove_resize_binds_lua(), 'show("dead")',
             resize.remove_resize_binds_lua(), 'show("again")']))
-        self.assertEqual(out, [['grab', 'true', '3520', '540', '2'], ['regrab', 'true', '3520', '540', '2'],
-                               ['release', 'false', '4500', '30', '0'], ['grab2', 'true', '3520', '540', '2'],
+        # 4 binds: the left button's press and release, and the two Super keys' (resize.py)
+        self.assertEqual(out, [['grab', 'true', '3520', '540', '4'], ['regrab', 'true', '3520', '540', '4'],
+                               ['release', 'false', '4500', '30', '0'], ['grab2', 'true', '3520', '540', '4'],
                                ['dead', 'false', '4500', '30', '0'],  # back where free mode found it, visible
                                ['again', 'false', '4500', '30', '0']])
 

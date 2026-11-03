@@ -30,9 +30,12 @@ the viewing mode at start), not for the mode change a maximize or un-maximize ma
 Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
 `placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
 It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
-Every edit of one desktop (the panel's Apply, the pill panel's keys and sliders, the free pointer's drags) bumps the
-desktops it runs into out of its way (bump.py, ViewControl._bump); a discrete one that bumped glides (GLIDE_MS). Pushed
-desktops are placements like any other and are saved with them.
+An edit of one desktop in the overview (the pill panel's keys and sliders, the free pointer's drags) bumps the desktops it
+runs into out of its way (bump.py, ViewControl._bump); a discrete one that bumped glides (GLIDE_MS). The panel's Apply is
+the exception: it applies exactly as given, even over another desktop. When the layout itself changes (the renderer
+reports a new overview layout: a run's start with a restored setup, spacing, a desktop added, removed or widened), the
+desktops that overlap now are pushed apart (bump.settle, ViewControl._settle). Pushed desktops are placements like any
+other and are saved with them.
 Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a glass pill
 under every desktop (spike/include/xr/glass.hpp). One at a time expands, with a short morph, into that desktop's own
 placement panel: the same four settings the panel edits (left/right, down/up, distance, curvature) as sliders.
@@ -164,9 +167,10 @@ MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overvie
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
 MENU_SAVE_DELAY = 0.5  # seconds after the last panel change (key, slider or pill drag) before the profile is written
-# Bumping (bump.py): a discrete edit (a panel key, a slider press, an Apply from the settings panel) that pushed other
-# desktops out of the way asks the renderer to glide every desktop there together over GLIDE_MS, along one smootherstep
-# curve, instead of its quick exponential easing (drags stream their updates and keep that). spike/include/xr/ipc.hpp
+# Bumping (bump.py): a discrete edit (a panel key, a slider press) that pushed other desktops out of the way, and a layout
+# change that pushed desktops apart, ask the renderer to glide every desktop there together over GLIDE_MS, along one
+# smootherstep curve, instead of its quick exponential easing (drags stream their updates and keep that; an edit that
+# pushed nothing moves as it always did). spike/include/xr/ipc.hpp
 # kMaxPlacementGlideMs bounds the wire (MAX_GLIDE_MS).
 GLIDE_MS = 240
 MAX_GLIDE_MS = 1000
@@ -764,6 +768,7 @@ class ViewControl:
         self.clock = clock
         self.save_due = None          # monotonic deadline of a pending debounced placement save
         self._pusher = None           # bump.Pusher of the desktop the panel keys / sliders last moved (kept while it is)
+        self._settle_due = False      # the renderer reported a new overview layout: overlaps to push apart (_settle)
         self.bumps = 0                # diagnostics: edits that pushed another desktop out of the way
         self._menu_lock = threading.Lock()
         self._menu_binds_installed = False
@@ -808,11 +813,10 @@ class ViewControl:
         return g if g is not None and len(g['tiles']) == len(self.state.placements) else None
 
     def _bump(self, before, keep=False):
-        """A key, slider or settings-panel edit changed one desktop's placement (`before`: every placement until then): it
-        goes there along the straight path from where it was, pushing every desktop it runs into out of its way, and
-        stops where there is no room (bump.py). `keep`: the same edit goes on (a held slider), so the Pusher keeps which
-        way it pushed each desktop. True if another desktop moved. Several desktops changed at once (an older panel's
-        stale copy), or no layout yet: applied as given."""
+        """A key or slider edit changed one desktop's placement (`before`: every placement until then): it goes there along
+        the straight path from where it was, pushing every desktop it runs into out of its way, and stops where there is
+        no room (bump.py). `keep`: the same edit goes on (a held slider), so the Pusher keeps which way it pushed each
+        desktop. True if another desktop moved. No layout yet: applied as given."""
         from . import bump
         after = self.state.placements
         changed = [i for i, (p, q) in enumerate(zip(before, after)) if p != q]
@@ -828,6 +832,23 @@ class ViewControl:
         if not pusher.pushed: return False
         self.bumps += 1
         return True
+
+    def _settle(self):
+        """The layout changed (set_overview_geometry): desktops that overlap now, a restored setup's, or after a spacing or
+        desktop change, are pushed apart (bump.settle), the open panel's and the selected desktop staying put, gliding and
+        saved like any move. Not under a drag or a desktop change: it stays due until they are over. Frames (bytes)."""
+        if not self._settle_due: return b''
+        from . import bump
+        s, op = self.state, self.overview_pointer
+        g = self._overview_layout()
+        if g is None or getattr(op, 'drag', None) is not None or s.desktops_busy: return b''
+        self._settle_due = False
+        placements, moved = bump.settle(g, s.placements, ([s.menu_desktop] if s.menu_open else []) + [s.selected])
+        if not moved: return b''
+        s.placements = placements
+        self.bumps += 1
+        self.save_due = self.clock() + MENU_SAVE_DELAY
+        return self._placement_frame(glide=True) + (self._menu_frame() if s.menu_open else b'')
 
     def _style_frame(self):
         """Theme border colour for the highlight; empty if unknown or unchanged. Never fatal."""
@@ -1079,8 +1100,10 @@ class ViewControl:
         return {'cut': True} if self.state.mode != 'anchor' else {'center': True}
 
     def set_overview_geometry(self, geometry):
-        """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""
+        """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing.
+        It only reports one that changed, so desktops may overlap now: poll pushes them apart (_settle)."""
         if self.overview_pointer is not None: self.overview_pointer.set_geometry(geometry)
+        self._settle_due = True
 
     def set_roll_geometry(self, tilts):
         """Supervisor: each desktop's tilt from level (free_pointer.parse_roll_geometry), for the roll-level icons."""
@@ -1115,6 +1138,7 @@ class ViewControl:
             if self.state.remove_armed and (self.remove_armed_at is None or now - self.remove_armed_at >= REMOVE_ARM_S):
                 self.state.remove_armed = False
                 out += self._menu_frame()
+        out += self._settle()
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
@@ -1189,6 +1213,8 @@ class ViewControl:
             return self._on_menu(message['op'])
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
+        if isinstance(message, dict) and message.get('op') == 'resize_cancel':  # resize.CANCEL_OP: Super went down
+            return self.overview_pointer.super_down() if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None
@@ -1226,18 +1252,16 @@ class ViewControl:
         return out or None
 
     def _on_placement(self, payload):
-        """Absolute placements from the panel; applied live and saved to the glasses profile. One desktop changed (an Apply
-        edits one): it goes there pushing the desktops it runs into out of its way, gliding (_bump). Invalid: ignored."""
-        placed = list(self.state.placements)
+        """Absolute placements from the panel; applied exactly as given (no bumping, even over another desktop), live, and
+        saved to the glasses profile. Invalid: ignored."""
         try:
             if not isinstance(payload, dict) or not self.state.set_placements(payload.get('desktops')): return None
         except ValueError:
             return None
-        pushed = self._bump(placed)
         self.save_due = None  # this save also covers any pending pill-panel change
         self._save_placements()
         # An open glass panel shows the panel's values too.
-        return self._placement_frame(glide=pushed) + (self._menu_frame() if self.state.menu_open else b'')
+        return self._placement_frame() + (self._menu_frame() if self.state.menu_open else b'')
 
     def on_events(self, data):
         """Hyprland socket2 bytes: a config reload re-applies the run's binds and style. Monitor focus never switches

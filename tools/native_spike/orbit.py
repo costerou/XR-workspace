@@ -37,8 +37,8 @@ Design (3dof-free-placement, 2026-11-02):
     included; a curved desktop's outline is replaced by its convex hull, so it errs early). Desktops that do not share a
     direction neither intersect nor hide each other.
   * No overlap (bump.py, monitor-collision-bump, 2026-11-03): a desktop moved or resized in the overview (a pill drag, a
-    corner resize, its open panel's sliders and keys, the settings panel) pushes every desktop it runs into out of its
-    way, cascading, and they stay where they were pushed; where there is no room it stops, as the guard before it did.
+    corner resize, its open panel's sliders and keys) pushes every desktop it runs into out of its way, cascading, and
+    they stay where they were pushed; where there is no room it stops, as the guard before it did.
     Until then the pill drag stopped at a neighbour and slid along it (allowed_move), and everything else went
     through.
 """
