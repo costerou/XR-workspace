@@ -158,8 +158,11 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
         // Held at its overview size: every length (tile, radius, curvature's arc) scales by k about the eye.
         const float d = own.distance > 0 ? own.distance : 1.f;
         const float rigid = d * (now.height / was.height) * radius(was) / radius(now);
+        // Zoomed (weight 1): distance 1, it fills the view. keep_size: only a desktop seen bigger than that (rigid < 1)
+        // keeps its size; anything smaller still grows to fill the view (min: continuous where rigid crosses 1).
+        const float fit = lerp(rigid, 1.f, zoom_weight(z, position, i));
         out[i] = {std::remainder(own.x + ov.az - cur.az, 2 * float(M_PI)), own.y + ov.el - cur.el,
-                  keep_size ? rigid : lerp(rigid, 1.f, zoom_weight(z, position, i)), own.curvature, own.roll};
+                  keep_size ? std::min(rigid, fit) : fit, own.curvature, own.roll};
     }
     return out;
 }
