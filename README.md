@@ -149,7 +149,7 @@ copy of any one of them can't take the new placements. Going back to an older ba
 placements this version saved to flat.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
-(**Ctrl+Alt+Down**) each desktop has a small frosted-glass pill just under it. Click a pill with the grey dot (see the
+(**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the
 next part) and it grows smoothly into that desktop's own placement panel: four sliders, one for each setting
 (Left/right, Down/up, Distance, Curvature), each with its value.
 Or press **Ctrl+Alt+L** to open the pill of the selected desktop. If you are zoomed in, Ctrl+Alt+L zooms out first so

@@ -23,10 +23,11 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Cursor-follow retest | After the startup-state fix (`b309827`, in this branch), Cody reported a cursor-follow retest on the Luma Ultra (start XR, wait for calibration, fullscreen YouTube) with no blackout. That is a human-reported result, and the earlier blackout's root cause is unproven. Details: [feasibility/native-spike/luma-cursor-follow-retest.md](feasibility/native-spike/luma-cursor-follow-retest.md). |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
 | Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to zoom into it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
-| Glass placement pills (a frosted pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Glass placement pills (a Material Design 3 tonal pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; a pill drag keeps the desktop under the dot, and in anchor mode the dot, and so the drag, reaches all the way round you; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
-| Roll-level icons (in anchor mode a desktop that is not level as you see it, judged against gravity from the head tracker, gets a small curved arrow (no button behind it, in the theme accent like the monitor border) above its higher top corner; a click levels it, a drag rolls it toward level and never past) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the icon's size, side, arrow and colours, the `roll` frame), `glass_contract` and `placement_contract` (the icon rect and the rolled surface, renderer against supervisor); `tests/native_spike/test_roll_level.py`. Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the icon reads on the OLED panels and how the drag feels are unverified. See [Roll-level icons](#roll-level-icons). |
+| Roll-level icons (in anchor mode a desktop that is not level as you see it, judged against gravity from the head tracker, gets a small curved arrow (no button behind it, in the theme's M3 primary) above its higher top corner; a click levels it, a drag rolls it toward level and never past) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the icon's size, side, arrow and colours, the `roll` frame), `glass_contract` and `placement_contract` (the icon rect and the rolled surface, renderer against supervisor); `tests/native_spike/test_roll_level.py`. Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the icon reads on the OLED panels and how the drag feels are unverified. See [Roll-level icons](#roll-level-icons). |
 | Live desktops from the glass pill (Ultrawide, Add new, Remove; 1..4 desktops; `tools/native_spike/desktops.py`, the renderer's `desktops` control op, the broker's `reshape` op) | Offline tests only: `tests/native_spike/test_desktops.py` (plans, journaled broker steps with the real journal and the C++ request validator, the supervisor loop, pointer hits, profiles), ctest `ipc`, `glass`, `glass_contract`, `capture`, `ownership`. Not run in an isolated VM or in the glasses: whether Hyprland keeps a capture session through a reshape (the renderer restarts it if not), the new panel row's look, and the guard swap are unverified. The ownership plugin, renderer, supervisor, controller and panel must be installed together. |
+| Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
 | Not built yet | Changing a desktop's resolution or scale while running other than the Ultrawide toggle; head-direction focus. |
 
 ## How it fits together
@@ -553,8 +554,8 @@ the wire placement) and sends it with the icons in the `roll` op: `{"roll":[r,r,
 (`Placement::roll`, eased like a placement, at every zoom), so it still faces you. A desktop more than 0.5° from level
 shows one icon above its higher top corner (`glass.hpp roll_icon`): above the top-left a counter-clockwise arrow, above
 the top-right a clockwise one. It is 22 px across and 8 px above the corner as you see it whatever the desktop's size or
-distance: one plain curved arrow (a thick half-turn arc and a large head) with no button behind it, in the monitor
-border's and glow's colour (the Omarchy theme accent, following theme changes live like the pills), lifted toward white
+distance: one plain curved arrow (a thick half-turn arc and a large head) with no button behind it, in the
+theme's M3 primary (from the Omarchy theme accent, following theme changes live like the pills), lifted toward tone 98
 while hovered or dragged. Its hit box is that 22 px square plus 4 px of padding. The icons show and hide with the pills. A click levels the desktop; a press and drag turns it with the dot
 round its centre, only toward level and never past it. The icons are drawn over every desktop, so they are hit-tested
 before any desktop's corners, pill or surface (a nearer neighbour in a tight overview never takes an icon's click).
@@ -592,7 +593,7 @@ Offline only: none of the paging has been tried in the glasses.
 ### Placement pills
 
 You can also place desktops from inside the glasses, without the settings panel. In the overview, each desktop has a
-small frosted-glass pill under it. Click a pill with the free pointer's dot, or press **Ctrl+Alt+L** for the selected
+small pill in the theme's colour under it (Material Design 3; see The look below). Click a pill with the free pointer's dot, or press **Ctrl+Alt+L** for the selected
 desktop's pill, and it expands into that desktop's own placement panel. (Ctrl+Alt+P was already taken by pose
 prediction.) Ctrl+Alt+L again, Escape, a click on the panel's top strip (the pill itself) or a click outside the panel
 collapses it. Only one pill is open at a time: opening another collapses the first, and Tab / Shift+Tab move the open
@@ -639,23 +640,37 @@ the new one drawn on top. An expansion that starts while the view is zoomed in o
 until the overview is reached (`GlassPills::frame`), so a panel opened with Ctrl+Alt+L from a zoomed-in view does not
 pop in nearly full size; a collapse is never held.
 
-**The look.** Frosted glass in the Omarchy theme colour, lighter toward the top, a soft gloss along the top, a 1 px
-hairline in the theme colour that is brighter at the top edge, fully rounded ends and a soft drop shadow. The colour is
-the highlight border's and glow's (`general:col.active_border`, sent as the `style` frame at the start of a run and
-after every config reload, which `omarchy-theme-set` does), so switching the theme recolours the pills, an open panel's
-band and slider fills, the border and the glow together in the running session; the renderer's status reports the
-colour it has (`theme.accent`) and how many switches reached it (`theme.updates`). The collapsed pill is the border
-colour itself scaled by one factor (`kGlassPillScale`), so its hue, saturation and lightness follow the theme: a pale
-theme gives a pale pill, a dark one a darker pill, and the grey themes (Vantablack, White, Lumon, Kanagawa) each give
-their own grey. Only an accent too dark to show on the see-through OLED is lifted to a floor. The factor keeps even a
-white border's pill under the cap below while dragged. The open panel stays calm behind its text: the theme's hue at one
-brightness, 55% of it over neutral slate. Grey themes give grey glass. The highlights
-are the theme colour at the cards' dimmed accent level (`spike/include/xr/glass_theme.hpp`). The collapsed pill is 14 px tall and 24% of the desktop's width (64–160 px). Hover and drag brighten it.
-The renderer draws it with one GLSL fragment shader (`glass_fragment_shader` in `spike/src/glass.cpp`) whose CPU mirror
-(`glass_shade`) is checked against it on a real GLES context. On the glasses' micro-OLED panels black is see-through, so
-the glass is mostly its own tint. No pixel of it passes 191/255 (`kCardMaxLevel`), the panel stays dark behind its text,
-and the text uses the help card's dimmed colours. Nothing on it moves on its own. Pills and panels are drawn only in the
-overview; any zoom hides them. Whether the glass reads well on the OLED panels has not been checked in the glasses.
+**The look.** Material Design 3 (`spike/include/xr/material.hpp`). The colours are an M3 dark scheme whose seed is the
+highlight border's and glow's colour (`general:col.active_border`, sent as the `style` frame at the start of a run and
+after every config reload, which `omarchy-theme-set` does), so switching the theme recolours the pills, an open panel,
+the roll arrows, the resize handle, the pop-ups, the help and video cards, the border and the glow together in the
+running session; the renderer's status reports the colour it has (`theme.accent`) and how many switches reached it
+(`theme.updates`). It is M3's *fidelity* variant: the primary palette keeps the border colour's own hue and chroma, and
+the primary container is the border colour at its own tone, pressed into tones 28–82 so a near-black border still shows
+on the see-through OLED and a white one does not glare. So a pale theme gives a pale pill, a dark one a darker pill, the
+grey themes (Vantablack, White, Lumon, Kanagawa) each give their own grey, and grey themes give a grey scheme. The other
+roles take M3's dark-scheme tones (primary 80, on primary 20, secondary container 30, surface containers 4–22, on surface
+90, outline 60, outline variant 30), in OKLCH hue and chroma with CIE L* tone. Every role is then scaled by 191/255, so
+the brightest possible role lands exactly on the OLED cap and nothing drawn from the scheme passes it.
+
+The collapsed pill is a flat tonal capsule in the primary container at elevation 1, 14 px tall and 24% of the desktop's
+width (64–160 px). Hovering it lays M3's state layer over it (its on-colour at 8%) and lifts it to elevation 2; dragging
+it, 16% and elevation 4. The open panel is a surface container (high) with a 1 px outline-variant edge at elevation 3 and
+M3's drag handle (on-surface-variant at 40%); hovering or dragging its header puts the state layer on the header strip
+only. Its rows are an M3 list of sliders: labels on-surface, values on-surface-variant, the selected row on a fully
+rounded secondary-container band, each slider a primary track (24% where inactive), fill and handle, the selected
+handle with a 10% focus halo. The desktop row's buttons are fully rounded filled tonal buttons with a Material icon
+before the label (width, add, remove): the primary while Ultrawide is on, the error container while Remove asks for its
+second click, M3's disabled look (on-surface at 12% / 38%) when they do nothing now; with the pixel font they have
+labels only. The roll arrows are the primary, lifted along the primary palette toward tone 98 while hovered or dragged;
+the resize handle is on-surface-variant, the primary while held. The pop-ups and the help and video cards are extra-large
+rounded (28 px) surface containers with an outline-variant edge: a pop-up's new state in the primary, the help card's
+dividers in the outline variant, the video's progress M3's linear indicator. The renderer draws the glass with one GLSL
+fragment shader (`glass_fragment_shader` in `spike/src/glass.cpp`, one `style` uniform block from `glass_style`) whose
+CPU mirror (`glass_shade`) is checked against it on a real GLES context. On the glasses' micro-OLED panels black is
+see-through, so the glass is mostly its own colour; the panel stays dark behind its text. Nothing on it moves on its
+own. Pills and panels are drawn only in the overview; any zoom hides them. Whether the look reads well on the OLED
+panels has not been checked in the glasses.
 
 Each change moves the desktop straight away. There is no Save or Apply step. Changes are saved to the glasses model's
 profile half a second after the last change, at once when a slider is released, and again when the panel closes. The
@@ -702,8 +717,10 @@ animation, held until the overview is reached, the draw order and a held slider'
 against its CPU mirror over black and over a bright desktop, and the cap over black, also in theme colours, on a
 surfaceless EGL context; it reports skipped, exit 77, where EGL or GLES is missing), `glass_contract` (runs
 `glass_geometry_dump` and checks that `tools/native_spike/free_pointer.py` uses the same pill and panel geometry) and
-`glass_theme` (for every Omarchy theme's border colour: the pill's hue and brightness, the cap in every state, the
-panel's highlights, and an open panel re-rendered once on a theme switch). `tests/native_spike/test_pill_theme.py`
+`glass_theme` (for every Omarchy theme's border colour: the pill's hue and brightness, the state layers and the cap in
+every state, the panel's parts, the roll arrow and resize handle colours, and an open panel re-rendered once on a theme
+switch). `material` checks the M3 palette itself for every theme (each role's tone, the seed's hue, greys staying grey,
+contrast between each role and what it sits on, the cap), the state layer, shape and elevation tokens, and the icons. `tests/native_spike/test_pill_theme.py`
 covers the supervisor side: the theme colour reaches the renderer as the `style` frame, with a pill open too, and
 through the installed wiring (Supervisor, VideoControl, real sockets) on every `configreloaded`. `menu_geometry_contract` and
 `placement_menu_style` were removed with the head-locked menu card. `help_card` (`spike/tests/help_card_test.cpp`) took over the help card's fit checks: the real rows fit 1920×1200 @1.25

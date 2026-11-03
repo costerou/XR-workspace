@@ -1,4 +1,5 @@
-// Glass pills (glass.hpp): geometry, the morph, the look's OLED cap, the panel content and the expand animation.
+// Glass pills (glass.hpp): geometry, the morph, the look (Material Design 3: a tonal pill, an outlined dialog surface,
+// state layers, elevation) under the OLED cap, the panel content and the expand animation.
 #include "xr/glass.hpp"
 #include <algorithm>
 #include <cmath>
@@ -98,28 +99,72 @@ int main() {
                 CHECK(top <= kGlassCap + 1e-5f && top > 0.15f && alpha > 0.8f);
             }
     CHECK(near(kGlassCap * 255.f, float(kCardMaxLevel), 0.01f));
-    {
-        const auto look = glass_look({0.5f, 0.5f, 0.5f}, kGlassIdle, 1.f);
+    {  // the open panel: an M3 surface container (high), flat, an outline-variant edge, elevation 3
+        const std::array<float, 3> accent{0.5f, 0.5f, 0.5f};
+        const auto& m = glass_theme_scheme(accent);
+        const auto look = glass_look(accent, kGlassIdle, 1.f);
         const FRect r = panel; const float radius = kPanelRadius;
         const float cx = r.x + r.width / 2, cy = r.y + r.height / 2;
         const auto mid = glass_shade(look, r, radius, cx, cy, 1.f);
-        CHECK(near(mid[3], look.fill, 1e-3f) && mid[0] < 0.25f);  // translucent and dark behind the text
+        CHECK(near(mid[3], kPanelFill, 1e-4f) && mid[0] < 0.25f);  // nearly opaque, dark behind the text
+        for (int c = 0; c < 3; ++c) CHECK(near(mid[std::size_t(c)], m.surface_container_high[std::size_t(c)] * kPanelFill, 1e-5f));
         const auto high = glass_shade(look, r, radius, cx, r.y + 2.f, 1.f), low = glass_shade(look, r, radius, cx, r.y + r.height - 4.f, 1.f);
-        CHECK(high[0] > mid[0] && mid[0] > low[0]);  // gloss at the top, lighter toward the top
+        CHECK(high == mid && low == mid);  // flat: no gloss, no gradient
         const auto rim = glass_shade(look, r, radius, cx, r.y + 0.5f, 1.f);
-        CHECK(rim[0] > high[0]);  // the hairline
+        CHECK(rim[0] > mid[0] && near(rim[0], m.outline_variant[0], 1e-4f));  // the outlined edge
         const auto corner = glass_shade(look, r, radius, r.x + 1.f, r.y + 1.f, 1.f);
         CHECK(corner[3] < 0.5f);  // rounded corner: mostly outside (only shadow)
         const auto shadow = glass_shade(look, r, radius, cx, r.y + r.height + 4.f, 1.f), far = glass_shade(look, r, radius, cx, r.y + r.height + 200.f, 1.f);
         CHECK(shadow[3] > 0.1f && shadow[0] == 0.f && far[3] < 1e-4f);  // a black soft shadow below, nothing far away
         CHECK(glass_shade(look, r, radius, cx, cy, 0.5f)[3] == mid[3] * 0.5f);
-        const auto hover = glass_shade(glass_look({0.5f, 0.5f, 0.5f}, kGlassHover, 1.f), r, radius, cx, r.y + 0.5f, 1.f);
-        CHECK(hover[0] > rim[0]);  // hover brightens the rim
-        const auto g = grabber_look(kGlassIdle);
-        CHECK(g.shadow == 0.f && g.gloss == 0.f);
+        // Hovering or dragging its header lays the state layer (on-surface, 8% / 16%) on the header strip only.
+        for (const auto [level, opacity] : {std::pair{kGlassHover, kMdStateHover}, std::pair{kGlassActive, kMdStateDragged}}) {
+            const auto hovered = glass_look(accent, level, 1.f);
+            CHECK(near(hovered.state_alpha, opacity, 1e-6f) && hovered.state_px == kPanelHeaderH && hovered.state == m.on_surface);
+            const auto header = glass_shade(hovered, r, radius, cx, r.y + kPanelHeaderH / 2, 1.f);
+            const auto want = md_layer(m.surface_container_high, m.on_surface, opacity);
+            for (int c = 0; c < 3; ++c) CHECK(near(header[std::size_t(c)], want[std::size_t(c)] * kPanelFill, 1e-5f));
+            CHECK(glass_shade(hovered, r, radius, cx, r.y + kPanelHeaderH + 1.f, 1.f) == mid);  // the rows: untouched
+        }
+        CHECK(glass_look(accent, kGlassActive, 1.f).shadow_sigma > look.shadow_sigma);  // dragged: raised
+        const auto g = grabber_look(kGlassIdle);  // M3's drag handle: on-surface-variant at 40%, no shadow, no edge
+        CHECK(g.shadow == 0.f && g.outline_alpha == 0.f && g.state_alpha == 0.f && near(g.fill, 0.4f, 1e-6f));
+        CHECK(grabber_look(kGlassHover).fill > g.fill && grabber_look(kGlassActive).fill > grabber_look(kGlassHover).fill);
+    }
+    {  // the collapsed pill: the primary container, opaque and flat, its on-colour as the state layer over all of it
+        const std::array<float, 3> accent{0.48f, 0.64f, 0.97f};
+        const auto& m = glass_theme_scheme(accent);
+        const FRect r = glass_morph(tile, 0);
+        const float radius = glass_radius(tile, 0), cx = r.x + r.width / 2;
+        float sigma = 0;
+        for (const auto [level, opacity] : {std::pair{kGlassIdle, 0.f}, std::pair{kGlassHover, kMdStateHover}, std::pair{kGlassActive, kMdStateDragged}}) {
+            const auto look = glass_look(accent, level, 0.f);
+            CHECK(look.fill == 1.f && look.outline_alpha == 0.f && near(glass_state_opacity(level), opacity, 1e-6f));
+            const auto want = md_layer(m.primary_container, m.on_primary_container, opacity);
+            for (const float y : {r.y + 1.5f, r.y + r.height / 2, r.y + r.height - 1.5f}) {
+                const auto px = glass_shade(look, r, radius, cx, y, 1.f);
+                for (int c = 0; c < 3; ++c) CHECK(near(px[std::size_t(c)], want[std::size_t(c)], 1e-5f));
+                CHECK(near(px[3], 1.f, 1e-6f));
+            }
+            CHECK(look.shadow_sigma > sigma);  // elevation 1, then 2 hovered, 4 dragged
+            sigma = look.shadow_sigma;
+        }
+        CHECK(glass_state_opacity(kGlassIdle) == 0.f && glass_state_opacity(0.f) == 0.f && glass_state_opacity(9.f) == kMdStateDragged);
+        // Midway through the morph the container, its on-colour and the state strip are between the pill's and the panel's.
+        const auto half = glass_look(accent, kGlassIdle, 0.5f);
+        CHECK(near(half.state_px, (kGlassPillH + kPanelHeaderH) / 2, 1e-4f) && near(half.outline_alpha, 0.5f, 1e-6f));
+        for (int c = 0; c < 3; ++c)
+            CHECK(near(half.container[std::size_t(c)], (m.primary_container[std::size_t(c)] + m.surface_container_high[std::size_t(c)]) / 2, 1e-6f));
+    }
+    {  // the shader's style uniform carries every look input, in the documented order
+        GlassLook k;
+        k.container = {0.1f, 0.2f, 0.3f}; k.fill = 0.4f; k.outline = {0.5f, 0.6f, 0.7f}; k.outline_alpha = 0.8f;
+        k.state = {0.9f, 0.11f, 0.12f}; k.state_alpha = 0.13f; k.state_px = 14; k.shadow = 0.15f; k.shadow_sigma = 16; k.shadow_dy = 17;
+        CHECK((glass_style(k) == std::array<float, 16>{0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 0.11f, 0.12f, 0.13f, 14, 0.15f, 16, 17}));
     }
     const std::string shader = glass_fragment_shader();
     CHECK(shader.find("0.74901961") != std::string::npos && shader.find("gl_FragColor") != std::string::npos);
+    CHECK(shader.find("uniform vec4 style[4]") != std::string::npos && kGlassStyleVecs == 4);
 
     // Panel content: kPanelW x kPanelH, premultiplied, transparent between its parts, under the cap but readable; the
     // selected row has a band; a knob at a field's bounds sits on kPanelKnobLo / kPanelKnobHi.
@@ -156,9 +201,45 @@ int main() {
                 CHECK(changed_columns(im, other_im, 0, row_top).empty());             // nothing above the row moves
             }
             if (f) for (std::size_t a = 0; a < kPanelActions; ++a)
-                for (bool armed : {false, true})  // every label fits its button
+                for (bool armed : {false, true}) {  // every label fits its button, with its 16 px icon and 8 px of padding
                     CHECK(f->measure(glass_panel_action_label(a, armed), kPanelActionPx, true) + 8 <= std::uint32_t(kPanelActionW));
+                    CHECK(f->measure(glass_panel_action_label(a, armed), 18, true) + 16 + 6 + 2 * 8 <= std::uint32_t(kPanelActionW));
+                }
             for (std::size_t a = 0; a < kPanelActions; ++a) CHECK(hud_text_width(glass_panel_action_label(a, true), 2) + 8 <= std::uint32_t(kPanelActionW));
+            // Each button is a fully rounded M3 container: filled tonal; the primary while Ultrawide is on; the error
+            // container while Remove is armed; on-surface at 12% when it does nothing now. Sampled 4 px in from its left
+            // end, inside the rounding and short of its content (at least kButtonPadMin in).
+            const auto& m = glass_theme_scheme(kGlassThemeDefault);
+            auto container_at = [&](const HudImage& panel_im, std::size_t a) {
+                const FRect r = glass_panel_action(a);
+                const auto* p = &panel_im.rgba[(std::size_t(r.y + r.height / 2) * panel_im.width + std::size_t(r.x + 4)) * 4];
+                return std::array<int, 4>{p[0], p[1], p[2], p[3]};
+            };
+            auto is = [](std::array<int, 4> got, std::array<float, 3> c, float a) {
+                for (int k = 0; k < 3; ++k) if (std::abs(got[std::size_t(k)] - int(std::lround(c[std::size_t(k)] * a * 255))) > 1) return false;
+                return std::abs(got[3] - int(std::lround(a * 255))) <= 1;
+            };
+            CHECK(is(container_at(im, 0), m.secondary_container, 1) && is(container_at(im, 1), m.secondary_container, 1));
+            PlacementMenuState wide = st; wide.wide = true; wide.armed = true;
+            const auto wide_im = render_glass_panel(wide, f);
+            CHECK(is(container_at(wide_im, 0), m.primary, 1) && is(container_at(wide_im, 2), m.error_container, 1));
+            PlacementMenuState busy = st; busy.busy = true;
+            const auto busy_im = render_glass_panel(busy, f);
+            for (std::size_t a = 0; a < kPanelActions; ++a) CHECK(is(container_at(busy_im, a), m.on_surface, kMdDisabledContainer));
+            CHECK(glass_panel_button_style(1, busy).content_alpha == kMdDisabledContent);
+            CHECK(glass_panel_button_style(0, wide).content == m.on_primary && glass_panel_button_style(2, wide).content == m.on_error_container);
+            // The real font has room for an icon before each label: the icon's ink sits left of the label's.
+            if (f) {
+                const FRect r = glass_panel_action(1);  // "Add new" with a plus
+                const auto row = std::uint32_t(r.y + r.height / 2);
+                int first = -1;
+                for (std::uint32_t x = std::uint32_t(r.x + 4); x < std::uint32_t(r.x + r.width - 4) && first < 0; ++x) {
+                    const auto* p = &im.rgba[(std::size_t(row) * im.width + x) * 4];
+                    if (std::abs(int(p[0]) - container_at(im, 1)[0]) > 40) first = int(x);
+                }
+                const float label = float(f->measure(glass_panel_action_label(1, false), 18, true));
+                CHECK(first >= 0 && float(first) < r.x + (r.width - (16 + 6 + label)) / 2 + 9);  // the plus, not the label
+            }
         }
         for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
             PlacementMenuState lo = st, hi = st;

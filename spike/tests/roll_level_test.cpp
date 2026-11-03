@@ -1,7 +1,7 @@
 // Roll-level icons, renderer side: the levelling roll (view.hpp Placement::roll) turns a desktop about its own line of
 // sight and keeps it facing you; desktop_tilt measures a desktop's roll from the world's up (pose.hpp canvas_up); the
 // icon (glass.hpp roll_icon / roll_arrow) is a lone arrow, a fixed size as you see it, above the higher top corner, in
-// the theme accent like the monitor border; the `roll` control frame (ipc.hpp RollPayload) and its malformed-frame handling.
+// the theme's M3 primary; the `roll` control frame (ipc.hpp RollPayload) and its malformed-frame handling.
 #include "xr/glass.hpp"
 #include "xr/ipc.hpp"
 #include "xr/pose.hpp"
@@ -198,17 +198,16 @@ int main() {
         CHECK(roll_arrow(FRect{}, 0).band.empty());
     }
 
-    // Colour: the monitor border's and glow's, the theme accent itself (so it follows a live theme change), lifted toward
-    // white when hovered or dragged, never past white.
+    // Colour: an M3 icon in the theme's primary (the scheme of the accent, so it follows a live theme change), lifted
+    // along the primary palette toward its tone 98 when hovered, all the way when dragged; under the OLED cap throughout.
     for (const auto accent : {std::array<float, 3>{1, 1, 1}, std::array<float, 3>{0.48f, 0.64f, 0.97f}, kGlassThemeDefault,
                               std::array<float, 3>{0, 0, 0}, std::array<float, 3>{0.9f, 0.2f, 0.1f}}) {
+        const auto& m = glass_theme_scheme(accent);
         const auto idle = roll_arrow_color(accent, kGlassIdle), hover = roll_arrow_color(accent, kGlassHover),
                    hot = roll_arrow_color(accent, kGlassActive);
-        for (int c = 0; c < 3; ++c) {
-            CHECK(near(idle[c], accent[c], 1e-6f));
-            CHECK(idle[c] <= hover[c] + 1e-6f && hover[c] <= hot[c] + 1e-6f && hot[c] <= 1.f);
-            CHECK(near(hot[c], accent[c] + (1 - accent[c]) * 0.3f, 1e-5f));
-        }
+        CHECK(idle == m.primary && hot == m.primary_bright && roll_arrow_color(accent, 9.f) == hot);
+        CHECK(glass_luma(idle) < glass_luma(hover) && glass_luma(hover) < glass_luma(hot));
+        for (int c = 0; c < 3; ++c) CHECK(idle[c] <= kGlassCap + 1e-6f && hover[c] <= kGlassCap + 1e-6f && hot[c] <= kGlassCap + 1e-6f);
     }
     {
         const auto a = roll_arrow_color({0.9f, 0.2f, 0.1f}, kGlassIdle), b = roll_arrow_color({0.1f, 0.5f, 0.9f}, kGlassIdle);

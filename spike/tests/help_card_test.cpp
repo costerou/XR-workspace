@@ -31,7 +31,7 @@ int failures = 0;
 #define CHECK(cond) do { if (!(cond)) { ++failures; std::cerr << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; } } while (0)
 
 constexpr std::uint32_t kSurfaceW = 1536, kSurfaceH = 960;  // 1920x1200 output at scale 1.25, logical pixels
-constexpr std::uint32_t kPad = 34, kBorder = 2, kRadius = 14;  // help card chrome (hud.cpp kHelpPad, kBorder, kRadius)
+constexpr std::uint32_t kPad = 34, kBorder = 1, kRadius = 28;  // help card chrome (hud.cpp kHelpPad, kBorder, kRadius: M3 extra large)
 constexpr std::array<float, 3> kAccent{0.48f, 0.64f, 0.97f};
 constexpr float kScales[] = {1.0f, 1.25f, 1.5f, 1.6f, 1.75f, 2.0f};
 

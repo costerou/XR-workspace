@@ -62,9 +62,10 @@ public:
     // Keyboard help card, head-locked in the middle of the view, under the pop-ups; `drop_px`
     // moves it down (fade-in rise). Same lifetime/upload rules as set_popup.
     void set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
-    // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop`, grey `level` (0..1); desktop < 0: none.
+    // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop` at `level` (view.hpp kHandleLevelIdle /
+    // kHandleLevelActive), in the theme's M3 colours (glass.hpp corner_handle_color); desktop < 0: none.
     void set_corner_handle(int desktop, std::uint32_t corner, float level);
-    // Glass pills (glass.hpp): a frosted capsule under each desktop, on its own surface, and the open one morphing into its
+    // Glass pills (glass.hpp): a Material Design 3 tonal capsule under each desktop, on its own surface, and the open one morphing into its
     // placement panel with the panel's content (frame.image, re-uploaded when frame.generation changes) fading in.
     // Drawn blended over the desktops, under the corner handle and the free pointer. Nothing to draw: a default frame.
     void set_glass(const GlassFrame& frame);
@@ -76,7 +77,7 @@ public:
     // turned with it, and an accent frame (view.hpp drop_frame) on desktop `target` (< 0: none). w or h <= 0: no ghost.
     // Drawn only while the free pointer is.
     void set_window_drag(float w, float h, int target);
-    void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
+    void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow, and the M3 scheme's seed (theme)
     // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
     // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.
     // The help card and the glass pills are not drawn: the supervisor closes them before a video opens.

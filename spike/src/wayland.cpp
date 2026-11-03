@@ -1084,8 +1084,12 @@ void Presentation::enable_tracking(std::string prefix) {
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (!impl_ || !impl_->gl) return;
-    impl_->gl->set_accent(r, g, b);                              // highlight border, glow and the pills' glass
-    impl_->glass.set_accent({r / 255.f, g / 255.f, b / 255.f});  // an open panel's highlights (glass_theme.hpp)
+    const std::array<float, 3> seed{r / 255.f, g / 255.f, b / 255.f};  // the seed of the M3 scheme (material.hpp)
+    impl_->gl->set_accent(r, g, b);  // highlight border, glow, the pills' glass, the roll icons and the resize handle
+    impl_->glass.set_accent(seed);   // an open panel (glass_theme.hpp)
+    impl_->popups.set_accent(seed, double(monotonic_ms()));  // the pop-ups and the cards, redrawn if showing
+    impl_->help.set_accent(seed);
+    if (impl_->video) impl_->video->set_accent(seed);
     if (impl_->accent != std::array<std::uint8_t, 3>{r, g, b}) { impl_->accent = {r, g, b}; ++impl_->accent_updates; }
     impl_->cadence.invalidate();
 }
@@ -1095,6 +1099,7 @@ void Presentation::video_open(int fd, const VideoFormat& format, const std::stri
     if (!s.video) {
         s.video = std::make_unique<VideoMode>();
         std::string why; s.video->set_font(HudFont::load(kHudFontFamily, why));
+        s.video->set_accent({s.accent[0] / 255.f, s.accent[1] / 255.f, s.accent[2] / 255.f});  // the theme colour so far
         s.video->set_quality(s.video_quality);
     }
     s.video->open(fd, format, title, s.display, double(monotonic_ms()));

@@ -169,10 +169,15 @@ bool VideoControlsOverlay::update(const VideoCardState& state, double) {
     return true;
 }
 void VideoControlsOverlay::render() {
-    image_ = render_video_card(state_, {}, font_.get());
+    image_ = render_video_card(state_, accent_, font_.get());
     rendered_ = state_; dirty_ = false; ++generation_;
 }
 void VideoControlsOverlay::set_font(std::unique_ptr<HudFont> font) { font_ = std::move(font); dirty_ = true; }
+bool VideoControlsOverlay::set_accent(std::array<float, 3> accent) {
+    if (accent == accent_) return false;
+    accent_ = accent; dirty_ = true;
+    return true;
+}
 float VideoControlsOverlay::alpha(double now_ms) const { return generation_ ? fade_.alpha(now_ms) : 0.f; }
 bool VideoControlsOverlay::animating(double now_ms) const { return generation_ && fade_.animating(now_ms); }
 }

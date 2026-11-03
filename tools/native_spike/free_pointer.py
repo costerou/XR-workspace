@@ -18,7 +18,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     the modes never flap at an edge. Moving into a desktop (or clicking it) also selects it, so Ctrl+Alt+Up zooms into
     the desktop the pointer is on and the highlight shows it.
   * Glass pills (spike/include/xr/glass.hpp, mirrored here: pill_rect, panel_rect and the PILL_* / PANEL_* constants; the
-    ctest `glass_contract` compares them): a frosted-glass pill sits PILL_GAP under every desktop, on that desktop's own
+    ctest `glass_contract` compares them): a glass pill (a Material Design 3 tonal capsule) sits PILL_GAP under every desktop, on that desktop's own
     surface. One at a time expands into the desktop's placement panel (PANEL_W x PANEL_H, centred under the desktop, its
     top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. Glass keeps one
     size whatever the desktop's: a resize moves it with the desktop's bottom edge but never scales it (glass_to_desktop,
