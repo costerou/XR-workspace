@@ -221,7 +221,7 @@ int main() {
     {
         const auto bounds = placement_menu_bounds();
         static_assert(std::tuple_size_v<std::remove_const_t<decltype(bounds)>> == 4);  // x, y, distance, curvature: no yaw / pitch / roll
-        CHECK(bounds[0] == std::make_pair(-1800, 1800) && bounds[1] == std::make_pair(-900, 900) && bounds[2] == std::make_pair(50, 200) &&
+        CHECK(bounds[0] == std::make_pair(-1800, 1800) && bounds[1] == std::make_pair(-900, 900) && bounds[2] == std::make_pair(10, 200) &&
               bounds[3] == std::make_pair(0, 120));
         // Card origin: the formula GlHud draws centred cards with (bottom edge floor((H - h) / 2 - drop) from below).
         for (auto [W, H, w, h, drop] : {std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t, float>{1536, 960, 1229, 733, 0},

@@ -110,7 +110,7 @@ function selectOperations(selected, target, capabilities) {
 // you), y up (900 straight overhead). Distance is whole percent, curvature whole degrees. Every desktop always faces
 // you, upright, so there is no facing setting (the turning angles were removed on 2026-11-02: a placement that still
 // carries them is refused here; older saved profiles load without them, tools/native_spike/profiles.py).
-const PLACEMENT_BOUNDS = {x: [-1800, 1800], y: [-900, 900], distance: [50, 200], curvature: [0, 120]};
+const PLACEMENT_BOUNDS = {x: [-1800, 1800], y: [-900, 900], distance: [10, 200], curvature: [0, 120]};
 const PLACEMENT_KEYS = ["x", "y", "distance", "curvature"];
 const PLACEMENT_UNITS = {x: "°", y: "°", distance: "%", curvature: "°"};
 

@@ -24,6 +24,7 @@ ColumnLayout {
     Label { visible:root.snapshot.display_mode !== undefined || root.snapshot.uptime !== undefined; text:(root.snapshot.display_mode || "") + (root.snapshot.uptime !== undefined ? " · " + root.snapshot.uptime + " s" : "") }
     Rectangle {
         Layout.fillWidth:true; Layout.preferredHeight:135; color:Qt.darker(Commons.Color.background,1.2); radius:6
+        clip:true  // a desktop resized past the view (up to 10x) stays inside the preview
         Repeater {
             model:Model.placedRects(Model.previewRects(root.desktops,parent.width-24,96,10),root.placements)
             delegate: Rectangle {
@@ -31,6 +32,7 @@ ColumnLayout {
                 required property var modelData
                 required property int index
                 x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
+                z:-modelData.width*modelData.height  // bigger behind: a huge desktop never hides a smaller one's click
                 color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.view.selected===index ? Commons.Color.accent : Commons.Color.muted
                 Label { anchors.centerIn:parent; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11; text:"XR-"+(tile.index+1)+"\n"+root.desktops[tile.index].width+"×"+root.desktops[tile.index].height+" · "+root.desktops[tile.index].scale*100+"%" }
                 // Use only advertised relative operations; the panel waits for each reply.

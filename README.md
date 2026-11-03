@@ -191,7 +191,8 @@ In the overview your mouse is no longer stuck inside the desktops:
   another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
   that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
-  it bigger and inward to make it smaller. It can go from half to twice its normal size, and it keeps its shape.
+  it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
+  field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Resizing doesn't stop at other desktops.
 - **Level a tilted desktop:** if a desktop looks tilted (say you recentred with your head tipped to one side), a small
   round glass button with a curved arrow appears above its higher top corner, in anchor mode. Click it and the desktop

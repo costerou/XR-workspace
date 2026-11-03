@@ -61,6 +61,14 @@ std::vector<MeshVertex> tile_mesh(const Canvas& canvas, const FRect& tile, const
 // sight to its centre is within kTiltMinDeg of straight up or down (level means nothing there) or anything is degenerate.
 constexpr float kTiltMinDeg = 10.f;
 std::optional<float> desktop_tilt(const Canvas& canvas, const FRect& tile, const Placement& placement, const Vec3& up);
+// Glass under a desktop (its pill and the placement panel, glass.hpp; canvas px laid out against the tile) keeps one
+// apparent size whatever the desktop's size: a resize (its `distance`) moves it with the desktop's bottom edge but never
+// scales it. Glass point (gx, gy) is drawn at the desktop surface point anchor + (g - anchor) * distance, anchor the
+// tile's bottom-centre, so at distance 1 it is the tile's own px. tools/native_spike/free_pointer.py glass_to_desktop
+// mirrors it (the placement_contract ctest compares them).
+std::array<float, 2> glass_to_desktop(const FRect& tile, const Placement& placement, float gx, float gy);
+// tile_mesh for glass rect `rect`: world points through glass_to_desktop; px / py stay glass px (u, v as tile_mesh's).
+std::vector<MeshVertex> glass_mesh(const Canvas& canvas, const FRect& tile, const Placement& placement, const FRect& rect);
 // Zooming into a desktop brings it to distance 1 (it fills the view): weight 1 removes its orbit and distance (curvature is
 // part of its shape and is kept). zoom_weight is zoom times closeness of `position` to `index`.
 float zoom_weight(float zoom, float position, std::size_t index);

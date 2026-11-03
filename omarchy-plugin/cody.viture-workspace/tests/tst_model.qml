@@ -154,7 +154,7 @@ TestCase {
         compare(Model.placementEdit(null), null);
         compare(Model.placementBounds("x"), [-1800, 1800]);
         compare(Model.placementBounds("y"), [-900, 900]);
-        compare(Model.placementBounds("distance"), [50, 200]);
+        compare(Model.placementBounds("distance"), [10, 200]);  // down to 10: ten times the size
         compare(Model.placementBounds("curvature"), [0, 120]);
         Model.placementBounds("x")[0] = 0;  // a copy: the table stays as it is
         compare(Model.placementBounds("x"), [-1800, 1800]);
@@ -233,6 +233,10 @@ TestCase {
         fuzzyCompare(down.y + down.height / 2, 25 + 2 * 50 / 7, 0.001);
         fuzzyCompare(down.width, 100, 0.001);  // the orbit turns the desktop round you: its apparent size stays
         fuzzyCompare(down.height, 50, 0.001);
+        const huge = Model.placedRects(rects, [Object.assign(Model.defaultPlacement(), {distance:10})])[0];
+        compare(huge, {x:-450, y:-225, width:1000, height:500});  // ten times the size about its centre (the preview clips it)
+        compare(Model.placementEdit(Object.assign(Model.defaultPlacement(), {distance:10})).distance, 10);
+        compare(Model.placementEdit(Object.assign(Model.defaultPlacement(), {distance:9})), null);
 
         // A row of three: a centre is kept inside the row, so a desktop beside, behind or above you shows at its edge.
         const row = [{x:10, y:20, width:100, height:50}, {x:120, y:20, width:100, height:50}, {x:230, y:20, width:100, height:50}];

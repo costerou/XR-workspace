@@ -4,8 +4,9 @@ logical-pixel zones and its 30 Hz pointer poller; the pills' look and geometry a
 
 Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
   * What changes is the desktop's size in space, never its pixels. A corner drag drives the existing per-desktop
-    `distance` placement (geometry.PLACEMENT_BOUNDS, 50..200): apparent size is 100/distance, so a desktop can be shown
-    from half to twice its default size and the clamp is the placement's own. Resolution and Hyprland scale stay what
+    `distance` placement (geometry.PLACEMENT_BOUNDS, 10..200): apparent size is 100/distance, so a desktop can be shown
+    from half to ten times its default size (well past the field of view; raised from twice on 2026-11-02) and the
+    clamp is the placement's own. Resolution and Hyprland scale stay what
     the desktop editor set; they change only at session start through the journaled, read-back output creation, so
     this feature adds no compositor output mutation and no journal record kind. The aspect ratio is always kept.
   * A pill drag moves the desktop like a title bar through its `x` / `y` placement (the pill sits under the desktop;

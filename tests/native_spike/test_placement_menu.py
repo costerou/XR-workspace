@@ -792,8 +792,9 @@ class NoScopeChangeTests(unittest.TestCase):
         self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'prediction': True})  # cursor_follow removed
 
     def test_placement_bounds_unchanged(self):
-        # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); the rest are unchanged.
-        self.assertEqual(g.PLACEMENT_BOUNDS, {'x': (-1800, 1800), 'y': (-900, 900), 'distance': (50, 200),
+        # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); distance's floor went from 50 to
+        # 10 (up to ten times the size, past the field of view: huge resize, 2026-11-02); curvature is unchanged.
+        self.assertEqual(g.PLACEMENT_BOUNDS, {'x': (-1800, 1800), 'y': (-900, 900), 'distance': (10, 200),
                                               'curvature': (0, 120)})
 
 

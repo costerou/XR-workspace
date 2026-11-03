@@ -71,7 +71,7 @@
     {
      "x": -1800,
      "y": -900,
-     "distance": 50,
+     "distance": 10,
      "curvature": 0
     }
    ]
@@ -838,7 +838,7 @@
      {
       "x": 0,
       "y": 0,
-      "distance": 49,
+      "distance": 9,
       "curvature": 0
      }
     ]
@@ -1234,7 +1234,7 @@
     "surface": {
      "x": 0,
      "y": 0,
-     "distance": 49,
+     "distance": 9,
      "curvature": 0
     }
    }

@@ -257,6 +257,63 @@ int main() {
         CHECK(g.frame(true, 2050).top == 2 && g.frame(true, 2000 + kGlassCollapseMs).top == -1);
     }
 
+    // A resize never changes the glass's size: from half to ten times the desktop's size (distance 2 .. 0.1, flat or
+    // curved, at its slot or turned round you) the pill and the panel appear exactly as big as at distance 1, and the
+    // pill stays kGlassPillGap (as seen) under the desktop's bottom edge, which moves with the resize.
+    {
+        const Canvas cv{1920, 1200, 0.36f, 0.225f};
+        const FRect tile{666.67f, 435, 586.67f, 330};
+        auto seen = [&](const Placement& p, std::array<float, 2> q) {  // tile surface px -> where it appears, canvas px
+            const Vec3 w = place_point(cv, tile, p, q[0], q[1]);
+            return std::array<float, 2>{(w.x / -w.z / cv.half_w + 1) * cv.view_w / 2, (1 - w.y / -w.z / cv.half_h) * cv.view_h / 2};
+        };
+        // Apparent size: a glass rect's world width and height (through its centre lines) over the desktop centre's
+        // distance from the eye; on the centred, flat desktop also exactly its size on the canvas.
+        auto size_of = [&](const Placement& p, const FRect& r) {
+            const float cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+            auto world = [&](float gx, float gy) { const auto q = glass_to_desktop(tile, p, gx, gy); return place_point(cv, tile, p, q[0], q[1]); };
+            auto dist = [](Vec3 a, Vec3 b) { return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z)); };
+            const Vec3 c = place_point(cv, tile, p, tile.x + tile.width / 2, tile.y + tile.height / 2);
+            const float eye = std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z);
+            return std::array<float, 2>{dist(world(r.x, cy), world(r.x + r.width, cy)) / eye, dist(world(cx, r.y), world(cx, r.y + r.height)) / eye};
+        };
+        auto canvas_size = [&](const Placement& p, const FRect& r) {
+            const auto a = seen(p, glass_to_desktop(tile, p, r.x, r.y)), b = seen(p, glass_to_desktop(tile, p, r.x + r.width, r.y + r.height));
+            return std::array<float, 2>{b[0] - a[0], b[1] - a[1]};
+        };
+        const FRect pill = glass_pill(tile), panel = glass_panel(tile);
+        const auto pill1 = canvas_size({}, pill);
+        CHECK(near(pill1[0], pill.width, 0.05f) && near(pill1[1], kGlassPillH, 0.05f));  // the default: as laid out
+        for (const float d : {0.1f, 0.25f, 0.5f, 1.5f, 2.f})
+            for (const Placement p : {Placement{0, 0, d, 0}, Placement{0, 0, d, 1.f}, Placement{0.3f, -0.1f, d, 0}}) {
+                const Placement at1{p.x, p.y, 1, p.curvature};
+                const auto a = size_of(p, pill), a1 = size_of(at1, pill);
+                CHECK(near(a[0], a1[0], 0.02f * a1[0]) && near(a[1], a1[1], 0.02f * a1[1]));
+                if (p.curvature == 0) {  // the panel is wide: on a curved desktop its chord shrinks a little as it wraps
+                    const auto b = size_of(p, panel), b1 = size_of(at1, panel);
+                    CHECK(near(b[0], b1[0], 1e-3f * b1[0]) && near(b[1], b1[1], 1e-3f * b1[1]));
+                }
+                if (p.x == 0 && p.curvature == 0) {  // flat at its slot: exactly the same on the canvas, and the gap under
+                    const auto c = canvas_size(p, pill), e = canvas_size(p, panel), e1 = canvas_size({}, panel);  // the (resized) bottom edge too
+                    CHECK(near(c[0], pill1[0], 0.05f) && near(c[1], pill1[1], 0.05f) && near(e[0], e1[0], 0.1f) && near(e[1], e1[1], 0.1f));
+                    const float bottom = seen(p, {tile.x + tile.width / 2, tile.y + tile.height})[1];
+                    CHECK(near(seen(p, glass_to_desktop(tile, p, pill.x + pill.width / 2, pill.y))[1] - bottom, kGlassPillGap, 0.05f));
+                }
+            }
+        // The desktop itself does scale (ten times at the floor) while its glass does not.
+        const float w1 = seen({}, {tile.x + tile.width, 600})[0] - seen({}, {tile.x, 600})[0];
+        const Placement huge{0, 0, 0.1f, 0};
+        CHECK(near(seen(huge, {tile.x + tile.width, 600})[0] - seen(huge, {tile.x, 600})[0], 10 * w1, 0.01f * w1));
+        // The mesh the compositor draws: glass px kept for the shader, world points through glass_to_desktop.
+        for (const auto& v : glass_mesh(cv, tile, huge, pill)) {
+            const auto at = glass_to_desktop(tile, huge, v.px, v.py);
+            const Vec3 w = place_point(cv, tile, huge, at[0], at[1]);
+            CHECK(near(v.world.x, w.x, 1e-5f) && near(v.world.y, w.y, 1e-5f) && near(v.world.z, w.z, 1e-5f));
+            CHECK(near(v.px, pill.x, 1e-2f) || near(v.px, pill.x + pill.width, 1e-2f));
+        }
+        CHECK(glass_to_desktop(tile, {}, 700, 800) == (std::array<float, 2>{700, 800}));  // distance 1: the tile's own px
+    }
+
     // A held slider: the open panel is drawn on the press-time surface, the desktop's own placement is untouched.
     {
         const MenuPlacement wire{20, -10, 150, 60};
@@ -265,6 +322,7 @@ int main() {
         CHECK(near(p.x, 2 * rad) && near(p.y, -1 * rad) && near(p.distance, 1.5f) && near(p.curvature, 60 * rad));
         const Placement edge = placement_from_wire({-1800, 900, 50, 120});
         CHECK(near(edge.x, -180 * rad) && near(edge.y, 90 * rad) && near(edge.distance, 0.5f) && near(edge.curvature, 120 * rad));
+        CHECK(near(placement_from_wire({0, 0, 10, 0}).distance, 0.1f));  // the distance floor: ten times the size
         GlassPills g;
         PlacementMenuState st; st.open = true; st.desktop = 1;
         CHECK(g.set(st, 0) && !g.frame(true, 300).surface && g.frame(true, 300).surface_desktop == -1);

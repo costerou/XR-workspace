@@ -102,6 +102,21 @@ std::vector<MeshVertex> tile_mesh(const Canvas& c, const FRect& tile, const Plac
     return out;
 }
 
+std::array<float, 2> glass_to_desktop(const FRect& tile, const Placement& pl, float gx, float gy) {
+    const float k = pl.distance > 0 ? pl.distance : 1.f;  // as place_point reads it
+    const float ax = tile.x + tile.width / 2, ay = tile.y + tile.height;
+    return {ax + (gx - ax) * k, ay + (gy - ay) * k};
+}
+
+std::vector<MeshVertex> glass_mesh(const Canvas& c, const FRect& tile, const Placement& pl, const FRect& rect) {
+    const float k = pl.distance > 0 ? pl.distance : 1.f;
+    const auto [x, y] = glass_to_desktop(tile, pl, rect.x, rect.y);
+    auto out = tile_mesh(c, tile, pl, {x, y, rect.width * k, rect.height * k});
+    const float ax = tile.x + tile.width / 2, ay = tile.y + tile.height;
+    for (auto& v : out) { v.px = ax + (v.px - ax) / k; v.py = ay + (v.py - ay) / k; }  // back to glass px
+    return out;
+}
+
 float zoom_weight(float zoom, float position, std::size_t index) {
     return clampf(zoom, 0, 1) * std::max(0.f, 1 - std::abs(position - float(index)));
 }

@@ -20,7 +20,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Glass pills (spike/include/xr/glass.hpp, mirrored here: pill_rect, panel_rect and the PILL_* / PANEL_* constants; the
     ctest `glass_contract` compares them): a frosted-glass pill sits PILL_GAP under every desktop, on that desktop's own
     surface. One at a time expands into the desktop's placement panel (PANEL_W x PANEL_H, centred under the desktop, its
-    top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. The state is
+    top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. Glass keeps one
+    size whatever the desktop's: a resize moves it with the desktop's bottom edge but never scales it (glass_to_desktop,
+    view.hpp glass_mesh); pill_rect / panel_rect are glass px. The state is
     view.ViewState's menu_open / menu_desktop; Ctrl+Alt+L and the panel's modal keys drive the same state (view.py).
   * Clicks in free mode, tested front to back (hit): the open panel first (it is drawn on top), then each desktop's
     corners (they win over its pill), its pill zone (the pill padded by PILL_PAD_X / PILL_PAD_Y, plus the gap up to the
@@ -126,6 +128,9 @@ PANEL_ROWS_TOP, PANEL_ROW_H, PANEL_KNOB_LO, PANEL_KNOB_HI = 46.0, 34.0, 191.0, 3
 PANEL_SLOP_PX = 12.0      # a press this far past either end of a slider's knob range still grabs it (the knob and the dot)
 CLICK_PX = 4.0            # a pill press moving less than this (canvas px) before release is a click: the desktop stays put
 MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past this (the distance bound clamps first)
+# Past the edge of the view a corner drag speeds up by this much (resize_reach): the pointer stops half a view past each
+# edge (OverviewPointer._clamp), so a corner following it 1:1 could not take a desktop to the distance bound's ten times.
+RESIZE_OVERSHOOT_GAIN = 8.0
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
@@ -314,6 +319,27 @@ def corner_zone(tile):
     return min(max(CORNER_SHARE * min(tile[2], tile[3]), CORNER_MIN), CORNER_MAX)
 
 
+def glass_to_desktop(tile, p, gx, gy):
+    """Glass px (pill_rect / panel_rect) -> the desktop surface px it is drawn at (spike/src/view.cpp glass_to_desktop):
+    scaled by the desktop's distance about its bottom-centre, so the glass keeps its size however big the desktop is."""
+    k = p['distance'] / 100 if p['distance'] > 0 else 1.0
+    ax, ay = tile[0] + tile[2] / 2, tile[1] + tile[3]
+    return (ax + (gx - ax) * k, ay + (gy - ay) * k)
+
+
+def desktop_to_glass(tile, p, q):
+    """The inverse of glass_to_desktop for desktop surface px `q` (None stays None)."""
+    if q is None: return None
+    k = p['distance'] / 100 if p['distance'] > 0 else 1.0
+    ax, ay = tile[0] + tile[2] / 2, tile[1] + tile[3]
+    return (ax + (q[0] - ax) / k, ay + (q[1] - ay) / k)
+
+
+def project_glass(g, tile, p, gx, gy):
+    """The pointer position (canvas px) whose dot lies on glass point (gx, gy) under a placed desktop (project)."""
+    return project(g, tile, p, *glass_to_desktop(tile, p, gx, gy))
+
+
 def pill_rect(tile):
     """The drawn glass pill (glass.hpp glass_pill): (x, y, w, h) canvas px on the desktop's surface, centred PILL_GAP
     under the desktop."""
@@ -366,7 +392,7 @@ def hit(g, placements, pointer, open_=None, icons=None):
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
         tile = g['tiles'][open_]
-        q = unproject(g, tile, placements[open_], pointer)
+        q = desktop_to_glass(tile, placements[open_], unproject(g, tile, placements[open_], pointer))
         if q is not None:
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_)
@@ -384,7 +410,7 @@ def hit(g, placements, pointer, open_=None, icons=None):
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
-            if on_pill(tile, q): return ('pill', i)
+            if on_pill(tile, desktop_to_glass(tile, placements[i], q)): return ('pill', i)
             if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
     return None
 
@@ -412,6 +438,15 @@ def resize_distance(start, corner, dx, dy, tile):
     scale = max(MIN_SCALE, 100 / start + (dx * vx + dy * vy) / (vx * vx + vy * vy))
     lo, hi = PLACEMENT_BOUNDS['distance']
     return min(max(round(100 / scale), lo), hi)
+
+
+def resize_reach(g, point):
+    """Canvas point `point` as a corner drag measures it: unchanged inside the view, each axis RESIZE_OVERSHOOT_GAIN times
+    as far past an edge. Monotonic, so dragging back in shrinks the desktop the same way."""
+    def axis(v, size):
+        if v < 0: return v * RESIZE_OVERSHOOT_GAIN
+        return size + (v - size) * RESIZE_OVERSHOOT_GAIN if v > size else v
+    return (axis(point[0], g['w']), axis(point[1], g['h']))
 
 
 def overview_pointer_frame(run_id, session, request_id, pointer):
@@ -852,7 +887,8 @@ class OverviewPointer:
             # A key that collapsed or moved the panel meanwhile dropped that surface: the rest of this drag does nothing.
             if c.state.menu_surface is None: return b''
             roll = self.rolls[d['index']] if d['index'] < len(self.rolls) else 0
-            q = unproject(self.geometry, d['tile'], {**d['placement'], 'roll': roll}, self.pointer)
+            placed = {**d['placement'], 'roll': roll}
+            q = desktop_to_glass(d['tile'], placed, unproject(self.geometry, d['tile'], placed, self.pointer))
             if q is None: return b''
             return c.pill_slide(d['index'], d['field'], slider_fraction(q[0] - panel_rect(d['tile'])[0]))
         dx, dy = self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]
@@ -869,7 +905,8 @@ class OverviewPointer:
             return b''  # the `roll` frame goes out with the others (_roll_frame)
         current = c.state.placements[d['index']]
         if d['kind'] == 'corner':
-            updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], dx, dy, d['tile'])}
+            (ax, ay), (bx, by) = resize_reach(self.geometry, d['start']), resize_reach(self.geometry, self.pointer)
+            updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], bx - ax, by - ay, d['tile'])}
         else:
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click

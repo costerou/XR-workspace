@@ -9,7 +9,7 @@ import sys
 
 dump, root = sys.argv[1], sys.argv[2]
 sys.path.insert(0, root)
-from tools.native_spike import orbit  # noqa: E402
+from tools.native_spike import free_pointer as fp, orbit  # noqa: E402
 
 ABS, REL = 2e-4, 1e-4  # the renderer computes in float
 KEYS = ('x', 'y', 'distance', 'curvature')  # every desktop always faces you: no yaw / pitch / roll
@@ -17,7 +17,7 @@ KEYS = ('x', 'y', 'distance', 'curvature')  # every desktop always faces you: no
 data = json.loads(subprocess.run([dump], check=True, capture_output=True, text=True).stdout)
 cases = data['cases']
 assert cases, 'no cases'
-points = worst = behind = turned = rolled = 0
+points = worst = behind = turned = rolled = glass = 0
 for case in cases:
     w, h, hw, hh = case['canvas']
     g = {'w': w, 'h': h, 'half': (hw, hh)}
@@ -35,9 +35,16 @@ for case in cases:
         # At its slot (no orbit, distance 1, flat) an off-centre desktop still faces you, so it leaves the canvas plane
         # z = -1 everywhere but its centre: the billboard is exercised, not only the orbit.
         if p == {'x': 0, 'y': 0, 'distance': 100, 'curvature': 0} and abs(want[2] + 1) > 1e-3: turned += 1
+    # The glass (pill and panel) under it: free_pointer.glass_to_desktop is view.hpp's (fixed size whatever the distance).
+    for gx, gy, *want in case['glass']:
+        got = orbit.place_point(g, tile, p, *fp.glass_to_desktop(tile, p, gx, gy))
+        for a, b in zip(got, want):
+            assert abs(a - b) <= ABS + REL * abs(b), ('glass', case['canvas'], tile, p, (gx, gy), got, want)
+        glass += 1
 # The dump covers the orbit's whole range (both ends of x, behind you, and both poles) and finds desktops behind you.
 xs, ys = {c['placement']['x'] for c in cases}, {c['placement']['y'] for c in cases}
 assert {0, orbit.X_LIMIT, -orbit.X_LIMIT} <= xs and {0, orbit.Y_LIMIT} <= ys and min(ys) < 0, (sorted(xs), sorted(ys))
 assert behind > 0 and turned > 0 and rolled > 0
-print(f"placement contract: {points} points on {len(cases)} placed desktops match (worst error {worst:.1e}, {behind} behind you, "
-      f"{turned} turned to face you at their slot, {rolled} rolled level)")
+assert glass > 0 and 10 in {c['placement']['distance'] for c in cases}
+print(f"placement contract: {points} points and {glass} glass points on {len(cases)} placed desktops match (worst error {worst:.1e}, "
+      f"{behind} behind you, {turned} turned to face you at their slot, {rolled} rolled level)")

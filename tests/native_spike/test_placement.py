@@ -98,6 +98,18 @@ class PlacementProfileTests(unittest.TestCase):
         self.write({'beast': {**profiles.DEFAULT_PROFILE, 'placements': [TILTED, {**TILTED, 'curvature': 999}, TILTED]}})
         self.assertEqual(profiles.load_profile(self.path, 'beast')['placements'], [TILTED, g.DEFAULT_PLACEMENT, TILTED])
 
+    def test_huge_sizes_are_saved_and_loaded_and_below_the_floor_falls_back(self):
+        # Distance's floor is 10 (ten times the size, well past the field of view; it was 50).
+        huge = {**g.DEFAULT_PLACEMENT, 'distance': 10}
+        self.assertEqual(g.PLACEMENT_BOUNDS['distance'], (10, 200))
+        self.assertEqual(g.validate_placement(huge), huge)
+        with self.assertRaises(ValueError): g.validate_placement({**huge, 'distance': 9})
+        store = profiles.PlacementStore(self.path, 'luma-ultra')
+        store.save([huge, {**TILTED, 'distance': 10}, g.DEFAULT_PLACEMENT])
+        self.assertEqual(store.load(), [huge, {**TILTED, 'distance': 10}, g.DEFAULT_PLACEMENT])
+        self.write({'beast': {**profiles.DEFAULT_PROFILE, 'placements': [huge, {**huge, 'distance': 9}, huge]}})
+        self.assertEqual(profiles.load_profile(self.path, 'beast')['placements'], [huge, g.DEFAULT_PLACEMENT, huge])
+
     def test_saved_per_glasses_model(self):
         store = profiles.PlacementStore(self.path, 'luma-ultra')
         store.save([TILTED, g.DEFAULT_PLACEMENT, TILTED])
@@ -172,7 +184,7 @@ class PlacementControlTests(unittest.TestCase):
     def test_invalid_live_placement_ignored(self):
         store = MemoryStore()
         c = self.control(store=store)
-        for payload in ({'desktops': [TILTED] * 2}, {'desktops': [{**TILTED, 'distance': 49}] * 3}, None, {'desktops': 'x'}):
+        for payload in ({'desktops': [TILTED] * 2}, {'desktops': [{**TILTED, 'distance': 9}] * 3}, None, {'desktops': 'x'}):
             with self.subTest(payload=payload):
                 self.assertIsNone(c.on_message({'op': 'placement', 'payload': payload}))
         self.assertEqual((store.saved, c.state.placements), ([], [g.DEFAULT_PLACEMENT] * 3))
