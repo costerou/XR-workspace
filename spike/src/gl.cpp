@@ -83,7 +83,9 @@ struct GlCompositor::Impl {
     struct Texture { GLuint id = 0; std::uint32_t width = 0, height = 0; bool valid = false; };
     std::vector<Texture> textures;
     // Zero-copy: per source, per capture slot, an EGLImage-backed texture; `current` = slot to draw (-1 = SHM).
-    struct Imported { std::array<GLuint, 3> tex{}; std::array<EGLImageKHR, 3> image{EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR}; int current = -1; };
+    // `held`: the last presented frame of buffers since re-created (hold_dmabuf), drawn until the new ones deliver one.
+    struct Imported { std::array<GLuint, 3> tex{}; std::array<EGLImageKHR, 3> image{EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR}; int current = -1;
+                      GLuint held_tex = 0; EGLImageKHR held_image = EGL_NO_IMAGE_KHR; };
     std::vector<Imported> imported;
     GLint swizzle = -1;
     PFNEGLCREATEIMAGEKHRPROC create_image = nullptr;
@@ -96,6 +98,10 @@ struct GlCompositor::Impl {
         for (auto& t : i.tex) if (t) { glDeleteTextures(1, &t); t = 0; }
         for (auto& im : i.image) if (im != EGL_NO_IMAGE_KHR && destroy_image) { destroy_image(display, im); im = EGL_NO_IMAGE_KHR; }
         i.current = -1;
+    }
+    void drop_held(Imported& i) {
+        if (i.held_tex) { glDeleteTextures(1, &i.held_tex); i.held_tex = 0; }
+        if (i.held_image != EGL_NO_IMAGE_KHR && destroy_image) { destroy_image(display, i.held_image); i.held_image = EGL_NO_IMAGE_KHR; }
     }
     std::uint32_t width = 0, height = 0;
     std::string vendor, renderer, version;
@@ -144,7 +150,7 @@ struct GlCompositor::Impl {
             if (offscreen_rb) glDeleteRenderbuffers(1, &offscreen_rb);
             drop_meshes();
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
-            for (auto& i : imported) drop(i);
+            for (auto& i : imported) { drop(i); drop_held(i); }
             hud.reset(); help_hud.reset();
             if (panel_texture) glDeleteTextures(1, &panel_texture);
             if (glass_program) glDeleteProgram(glass_program);
@@ -341,6 +347,7 @@ void GlCompositor::present_dmabuf(std::size_t source, int slot) {
     auto& s = *impl_;
     if (source < s.imported.size() && slot >= 0 && slot < 3 && s.imported[source].tex[std::size_t(slot)]) {
         s.imported[source].current = slot; ++s.imported_frames;
+        s.drop_held(s.imported[source]);
     }
 }
 
@@ -363,6 +370,22 @@ void GlCompositor::set_free_pointer(bool visible, float x, float y, float level)
 }
 
 void GlCompositor::drop_dmabuf(std::size_t source) { if (source < impl_->imported.size()) impl_->drop(impl_->imported[source]); }
+
+bool GlCompositor::hold_dmabuf(std::size_t source) {
+    auto& s = *impl_;
+    if (source >= s.imported.size()) return false;
+    auto& im = s.imported[source];
+    if (im.current < 0 || !im.tex[std::size_t(im.current)]) { s.drop(im); return im.held_tex != 0; }
+    s.drop_held(im);
+    const auto c = std::size_t(im.current);
+    im.held_tex = im.tex[c]; im.held_image = im.image[c]; im.tex[c] = 0; im.image[c] = EGL_NO_IMAGE_KHR;
+    s.drop(im);
+    return true;
+}
+
+void GlCompositor::release_held(std::size_t source) { if (source < impl_->imported.size()) impl_->drop_held(impl_->imported[source]); }
+
+bool GlCompositor::holding(std::size_t source) const { return source < impl_->imported.size() && impl_->imported[source].held_tex; }
 
 void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->accent[0] = r / 255.f; impl_->accent[1] = g / 255.f; impl_->accent[2] = b / 255.f;
@@ -390,6 +413,7 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height), GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     }
     t.valid = glGetError() == GL_NO_ERROR;
+    if (t.valid && source < s.imported.size()) s.drop_held(s.imported[source]);  // the new frame replaces a held one
     s.uploaded_bytes += std::uint64_t(stride) * height;
     s.upload_stat.add(now_us() - start);
     return t.valid;
@@ -515,10 +539,11 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         if (i >= s.textures.size()) continue;
         const auto& im = s.imported[i];
         const bool zero_copy = im.current >= 0;
-        if (!zero_copy && !s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
-        const float tile_swizzle = zero_copy ? 0.f : 1.f;
+        const bool held = !zero_copy && im.held_tex;  // buffers being re-created: the last frame stays up
+        if (!zero_copy && !held && !s.textures[i].valid) continue;  // off-screen tiles are clipped by GL (may rotate into view)
+        const float tile_swizzle = zero_copy || held ? 0.f : 1.f;
         if (tile_swizzle != swizzle) { glUniform1f(s.swizzle, tile_swizzle); swizzle = tile_swizzle; }
-        glBindTexture(GL_TEXTURE_2D, zero_copy ? im.tex[std::size_t(im.current)] : s.textures[i].id);
+        glBindTexture(GL_TEXTURE_2D, zero_copy ? im.tex[std::size_t(im.current)] : held ? im.held_tex : s.textures[i].id);
         const GLsizei n = s.build(s.tile_meshes[i], canvas, tiles[i], s.resolved[i], tiles[i], Impl::Attr::tile_uv);
         attrib(s.pos, 3, 5, 0); attrib(s.uv, 2, 5, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);

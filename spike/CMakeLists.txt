@@ -342,6 +342,15 @@ if(XR_ENABLE_PRESENTATION)
         --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
+    # Constraint churn as a Hyprland layout change or config reload sends it: no desktop goes blank, constraints that come
+    # back re-create nothing, and a real size change keeps the last frame up until the new buffers deliver one.
+    foreach(CHURN bounce resize)
+      foreach(MODE cpu gl-shm gl-dmabuf)
+        add_test(NAME capture_e2e_churn_${CHURN}_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1
+          --constraint-churn ${CHURN} --renderer "$<TARGET_FILE:xr-native-spike>")
+        set_tests_properties(capture_e2e_churn_${CHURN}_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+      endforeach()
+    endforeach()
   endif()
   # Playback timing harness (docs/vr-video.md#performance): run by hand, never by ctest (slow, GPU and load dependent).
   add_executable(video_bench tests/video_bench.cpp src/video_gl.cpp src/video_player.cpp)

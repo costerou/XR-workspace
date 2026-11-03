@@ -43,6 +43,11 @@ protocol XML provenance is in [protocols/PROVENANCE.md](protocols/PROVENANCE.md)
 - `bench/compare.py --bench … --before OLD --after NEW` alternates two renderer builds and prints medians.
 - ctest `capture_e2e_{cpu,pattern,gl-shm,gl-dmabuf}` are 1.5 s smoke runs: frames flow, captured frames reach the
   screen on the expected path, and the renderer exits 0. The GL ones skip (77) without a render node.
+- ctest `capture_e2e_churn_{bounce,resize}_{cpu,gl-shm,gl-dmabuf}` replay what a Hyprland layout change or config
+  reload sends to the capture sessions (`--constraint-churn`): `bounce` resends constraints as another size and straight
+  back in one flush (as a reload does to each XR-n output), `resize` really changes the size. Both fail if a desktop
+  that had shown a frame ever shows none, and `bounce` fails if a desktop's capture buffers were re-created at all
+  (`reallocations` in the renderer's capture report). See `CaptureBuffers` in `include/xr/capture.hpp`.
 
 These are a model of the compositor, not Hyprland. They do not show glasses latency or Hyprland's scheduling.
 
