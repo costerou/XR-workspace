@@ -5,7 +5,11 @@
 //  3. with libmpv and ffmpeg: clips generated here (never downloaded) in several codecs and layouts are decoded by the
 //     real VideoPlayer, checked for orientation, pause, seek and end, and projected through VideoSphere;
 //  4. a web video as the run relays it (tools/native_spike/web_video.py, docs/delightxr.md): ffmpeg copying a clip into
-//     NUT on a pipe, whose read end goes to the same VideoPlayer (no seeking on a pipe: the run restarts the relay).
+//     NUT on a pipe, whose read end goes to the same VideoPlayer (no seeking on a pipe: the run restarts the relay);
+//  5. playback speed and timing (docs/vr-video.md#performance): VA-API decodes with zero copy on the context's own GPU
+//     (never vaapi-copy when a render node is known), no frame goes on screen more than a display interval early,
+//     reopen() plays the next file or stream in the same player with nothing of the previous one shown, and closing a
+//     playing video does not wait for mpv's 200 ms frame timeout.
 // Exit 77 (skipped) without EGL/GLES. argv: [ffmpeg path] [scratch dir].
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -142,12 +146,14 @@ void card_is_dim() {
 
 #ifdef XR_HAVE_MPV
 struct Clip { const char* name; const char* encoder; const char* extra; int w, h; VideoFormat format; };
-// Quadrants (picture coordinates): top-left yellow, top-right green, bottom-left red, bottom-right dark blue.
+// Quadrants (picture coordinates): top-left yellow, top-right green, bottom-left red, bottom-right dark blue. Drawn at
+// 2x2 and scaled up without filtering (the same blocks as a full-size geq, which took minutes at 8K).
 std::string quadrants(int w, int h) {
-    return "nullsrc=s=" + std::to_string(w) + "x" + std::to_string(h) + ":r=30:d=3,format=yuv444p,"
+    return "nullsrc=s=2x2:r=30:d=3,format=yuv444p,"
            "geq=lum='if(lt(Y,H/2),if(lt(X,W/2),210,145),if(lt(X,W/2),81,29))':"
            "cb='if(lt(Y,H/2),if(lt(X,W/2),16,54),if(lt(X,W/2),90,240))':"
-           "cr='if(lt(Y,H/2),if(lt(X,W/2),146,34),if(lt(X,W/2),240,110))'";
+           "cr='if(lt(Y,H/2),if(lt(X,W/2),146,34),if(lt(X,W/2),240,110))',"
+           "scale=" + std::to_string(w) + ":" + std::to_string(h) + ":flags=neighbor,setsar=1";
 }
 bool generate(const std::string& ffmpeg, const Clip& c, const std::string& out) {
     const std::string cmd = "'" + ffmpeg + "' -nostdin -hide_banner -loglevel error -y -f lavfi -i \"" + quadrants(c.w, c.h) +
@@ -246,7 +252,12 @@ void decode(const std::string& ffmpeg, const std::string& dir) {
         CHECK(player->texture() != 0);
         player->seek(-10);
         CHECK(wait_for(*player, [&] { return player->position_s() < 1.0 && player->state() != VideoState::ended; }, 10));
-        std::printf("decode %s: %dx%d -> %dx%d texture, %s\n", c.name, c.w, c.h, tw, th, player->report().c_str());
+        const std::string report = player->report();
+        // Zero copy: with the context's render node known, mpv's vaapi interop imports the decoded surfaces; vaapi-copy
+        // would mean every frame went through system memory. Software decoding ("no") is fine (no VA-API for it).
+        CHECK(report.find("\"va_device\":\"default\"") != std::string::npos || report.find("\"hwdec\":\"vaapi-copy\"") == std::string::npos);
+        CHECK(report.find("\"early\":0,") != std::string::npos);  // never more than one display interval early
+        std::printf("decode %s: %dx%d -> %dx%d texture, %s\n", c.name, c.w, c.h, tw, th, report.c_str());
         ++decoded;
     }
     // A web video as the run relays it: `ffmpeg -i <stream> -c copy -f nut pipe:1` (web_video.relay_argv) into a pipe.
@@ -305,6 +316,95 @@ void decode(const std::string& ffmpeg, const std::string& dir) {
     }
     CHECK(decoded >= 1);
 }
+
+Colour centre(VideoPlayer& p) {
+    GLuint fb = 0; glGenFramebuffers(1, &fb); glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, p.texture(), 0);
+    std::uint8_t px[4]{};
+    glReadPixels(int(p.width() / 4), int(p.height() / 4), 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);  // top-left quadrant
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &fb);
+    return classify(px);
+}
+// Display frames as the renderer makes them: update, (draw), swap report.
+template <class F> bool frames_until(VideoPlayer& p, F done, double seconds) {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
+    while (std::chrono::steady_clock::now() < end) {
+        if (!p.update()) return false;
+        if (done()) return true;
+        p.report_swap();
+        std::this_thread::sleep_for(std::chrono::milliseconds(8));
+    }
+    return false;
+}
+
+// 5. reopen() (a web video's seek, another video while one plays) and closing a playing video.
+void reuse_and_close(const std::string& ffmpeg, const std::string& dir) {
+    if (ffmpeg.empty() || !std::filesystem::exists(ffmpeg)) { std::puts("reuse: SKIP (no ffmpeg to generate clips)"); return; }
+    const std::string quads = dir + "/h264-360-mono.mp4", blue_clip = dir + "/h264-blue.mp4";
+    const std::string cmd = "'" + ffmpeg + "' -nostdin -hide_banner -loglevel error -y -f lavfi -i color=c=0x1830d0:s=1024x512:r=30:d=3"
+                            " -f lavfi -i sine=frequency=440:duration=3 -shortest -pix_fmt yuv420p -c:v libx264 -preset ultrafast -c:a aac '" +
+                            blue_clip + "' >/dev/null 2>&1";
+    if (!std::filesystem::exists(quads) || std::system(cmd.c_str()) != 0) { std::puts("reuse: SKIP (no clips)"); return; }
+    const VideoPlayer::Options options{false, true, nullptr};
+    std::string why;
+    auto player = VideoPlayer::open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), options, why);
+    CHECK(player);
+    if (!player) return;
+    CHECK(frames_until(*player, [&] { return player->texture() && player->state() == VideoState::playing && player->position_s() > 0.5; }, 20));
+    CHECK(centre(*player) == yellow);
+    // The next file in the same player: nothing until its own first frame, which is the new picture, from its start.
+    CHECK(player->reopen(::open(blue_clip.c_str(), O_RDONLY | O_CLOEXEC), options));
+    CHECK(player->texture() == 0 && player->state() == VideoState::loading);
+    Colour first = other;
+    CHECK(frames_until(*player, [&] { if (player->texture() && first == other) first = centre(*player); return player->texture() != 0; }, 20));
+    CHECK(first == blue);  // no frame of the previous file shown
+    CHECK(frames_until(*player, [&] { return player->state() == VideoState::playing; }, 10));
+    CHECK(player->position_s() < 1.5 && player->duration_s() > 2.5);
+    // Play/pause pressed while the reopen waits for mpv: the next file starts paused, as a new player would.
+    CHECK(player->reopen(::open(blue_clip.c_str(), O_RDONLY | O_CLOEXEC), options));
+    player->toggle_pause();
+    CHECK(frames_until(*player, [&] { return player->texture() && player->state() == VideoState::paused; }, 20));
+    // Reopened while paused: plays (a new player would), and from a relay pipe as a web seek does.
+    int p[2];
+    CHECK(::pipe2(p, O_CLOEXEC) == 0);
+    posix_spawn_file_actions_t fa; posix_spawn_file_actions_init(&fa);
+    posix_spawn_file_actions_adddup2(&fa, p[1], 1);
+    posix_spawn_file_actions_addopen(&fa, 2, "/dev/null", O_WRONLY, 0);
+    const char* argv[] = {ffmpeg.c_str(), "-nostdin", "-hide_banner", "-loglevel", "error", "-i", quads.c_str(), "-sn", "-dn",
+                          "-c", "copy", "-f", "nut", "pipe:1", nullptr};
+    pid_t pid = -1;
+    const bool spawned = posix_spawn(&pid, ffmpeg.c_str(), &fa, nullptr, const_cast<char* const*>(argv), environ) == 0;
+    posix_spawn_file_actions_destroy(&fa);
+    ::close(p[1]);
+    CHECK(spawned && player->reopen(p[0], options));
+    CHECK(frames_until(*player, [&] { return player->texture() && player->state() == VideoState::playing; }, 20));
+    CHECK(centre(*player) == yellow);
+    const std::string report = player->report();
+    CHECK(report.find("\"reopens\":3,") != std::string::npos);
+    std::printf("reuse: %s\n", report.c_str());
+    // Closing a playing video: before, mpv_render_context_free sat out mpv's 200 ms wait for the frame it had handed over.
+    double fastest = 1e9;
+    for (int i = 0; i < 3; ++i) {
+        if (i) {
+            player = VideoPlayer::open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), options, why);
+            CHECK(player && frames_until(*player, [&] { return player->texture() && player->state() == VideoState::playing && player->position_s() > 0.5; }, 20));
+        }
+        const auto t0 = std::chrono::steady_clock::now();
+        player.reset();
+        fastest = std::min(fastest, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+    }
+    CHECK(fastest < 150);
+    std::printf("close while playing: %.1f ms (fastest of 3)\n", fastest);
+    if (spawned) { int status = 0; ::waitpid(pid, &status, 0); }
+    // A failed player is not reused: the caller keeps its descriptor and opens a new player.
+    const std::string junk = dir + "/not-a-video.mp4";
+    auto broken = VideoPlayer::open(::open(junk.c_str(), O_RDONLY | O_CLOEXEC), options, why);
+    CHECK(broken && wait_for(*broken, [&] { return broken->state() == VideoState::error; }, 10));
+    const int fd = ::open(quads.c_str(), O_RDONLY | O_CLOEXEC);
+    CHECK(broken && !broken->reopen(fd, options));
+    CHECK(fcntl(fd, F_GETFD) >= 0);  // untouched
+    ::close(fd);
+}
 #endif
 }  // namespace
 
@@ -315,11 +415,13 @@ int main(int argc, char** argv) {
     card_is_dim();
 #ifdef XR_HAVE_MPV
     decode(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
+    reuse_and_close(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
 #else
     (void)argc; (void)argv;
     std::puts("decode: SKIP (built without libmpv)");
     std::string why;
     CHECK(!VideoPlayer::open(-1, {}, why) && !why.empty());
+    std::puts("reuse: SKIP (built without libmpv)");
 #endif
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::puts("video_render: ok");

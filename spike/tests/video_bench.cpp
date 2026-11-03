@@ -300,7 +300,7 @@ Json bench_clip(const Options& o, const Clip& c, const std::string& path, VideoS
     out["unreadable"] = unreadable;
     out["judder"] = judder;
     out["intervals"] = iv;
-    for (const char* k : {"lead_ms", "drops", "early", "render_ms"})
+    for (const char* k : {"lead_ms", "drops", "early", "late", "held", "render_ms", "va_device", "interval_ms"})
         if (final_report.contains(k)) out[k] = final_report[k];
     // Close: the renderer-thread stall of tearing the player down (VideoMode::close / a web seek).
     const auto t_close = now_ns();
@@ -310,20 +310,25 @@ Json bench_clip(const Options& o, const Clip& c, const std::string& path, VideoS
     return out;
 }
 
-// A web video seek: close the playing player and open the next one, as VideoMode::open does on every relay restart.
+// A web video seek: the next stream into the playing player, as VideoMode::open does on every relay restart (reopen(),
+// else a new player), then a full close as on Esc.
 Json bench_restarts(const Options& o, const std::string& path, VideoSphere& sphere) {
     Json out = {{"restarts", o.restarts}};
     std::vector<double> close_ms, open_ms, first_ms, worst_tick_ms;
+    int reused = 0;
     std::unique_ptr<VideoPlayer> player;
     const Target target = make_target(1920, 1200);
     const Mat3 view{1, 0, 0, 0, 1, 0, 0, 0, 1};
     const auto half = half_fov_tan(46.f, 1920, 1200);
     for (int i = 0; i <= o.restarts; ++i) {
+        const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
         const auto t0 = now_ns();
-        player.reset();
+        const bool reuse = player && player->reopen(fd, {false, true, nullptr});
+        reused += reuse;
+        if (!reuse) player.reset();
         const auto t1 = now_ns();
         std::string why;
-        player = VideoPlayer::open(::open(path.c_str(), O_RDONLY | O_CLOEXEC), {false, true, nullptr}, why);
+        if (!reuse) player = VideoPlayer::open(fd, {false, true, nullptr}, why);
         const auto t2 = now_ns();
         if (!player) { out["error"] = why; break; }
         double worst = 0;
@@ -350,7 +355,8 @@ Json bench_restarts(const Options& o, const std::string& path, VideoSphere& sphe
     }
     const auto t_close = now_ns();
     player.reset();
-    close_ms.push_back(ms(now_ns() - t_close));
+    out["final_close_ms"] = ms(now_ns() - t_close);
+    out["reused"] = reused;
     out["close_ms"] = js(stat(close_ms));
     out["open_ms"] = js(stat(open_ms));
     out["first_frame_ms"] = js(stat(first_ms));
@@ -361,11 +367,11 @@ Json bench_restarts(const Options& o, const std::string& path, VideoSphere& sphe
 
 void print_human(const Json& r) {
     if (r.contains("restarts")) {
-        std::printf("restarts x%d: close %.1f ms (max %.1f), open %.1f ms (max %.1f), first frame %.0f ms (max %.0f), worst tick %.1f ms (max %.1f)\n",
-                    r["restarts"].get<int>(), r["close_ms"]["mean"].get<double>(), r["close_ms"]["max"].get<double>(),
+        std::printf("restarts x%d (reused %d): close %.1f ms (max %.1f), open %.1f ms (max %.1f), first frame %.0f ms (max %.0f), worst tick %.1f ms (max %.1f), final close %.1f ms\n",
+                    r["restarts"].get<int>(), r.value("reused", 0), r["close_ms"]["mean"].get<double>(), r["close_ms"]["max"].get<double>(),
                     r["open_ms"]["mean"].get<double>(), r["open_ms"]["max"].get<double>(), r["first_frame_ms"]["mean"].get<double>(),
                     r["first_frame_ms"]["max"].get<double>(), r["worst_tick_until_first_ms"]["mean"].get<double>(),
-                    r["worst_tick_until_first_ms"]["max"].get<double>());
+                    r["worst_tick_until_first_ms"]["max"].get<double>(), r.value("final_close_ms", Json(-1.0)).get<double>());
         return;
     }
     if (r.contains("error")) { std::printf("%-12s error: %s\n", r["clip"].get<std::string>().c_str(), r["error"].get<std::string>().c_str()); return; }
@@ -376,7 +382,10 @@ void print_human(const Json& r) {
                 r["gpu_new_frame_ms"]["mean"].get<double>(), r["gpu_new_frame_ms"]["p99"].get<double>(), r["busy_ms"]["p99"].get<double>(),
                 r["busy_ms"]["max"].get<double>(), r["over_budget"].get<int>(), r["ticks"].get<std::size_t>(), r["shown"].get<std::size_t>(),
                 r["expected_frames"].get<int>(), r["dropped"].get<int>(), r["repeated"].get<int>(), r["judder"].get<int>(), r["close_ms"].get<double>());
-    if (r.contains("lead_ms")) std::printf(" | lead %s", r["lead_ms"].dump().c_str());
+    if (r.contains("lead_ms"))
+        std::printf(" | lead min/mean/max %s ms, early %s late %s held %s, mpv drops %s, render cpu %s ms", r["lead_ms"].dump().c_str(),
+                    r.value("early", Json(0)).dump().c_str(), r.value("late", Json(0)).dump().c_str(), r.value("held", Json(0)).dump().c_str(),
+                    r.value("drops", Json(0)).dump().c_str(), r.value("render_ms", Json(0)).dump().c_str());
     std::printf("\n");
 }
 }  // namespace
