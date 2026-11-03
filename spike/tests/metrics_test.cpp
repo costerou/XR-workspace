@@ -1,12 +1,48 @@
 #include "xr/metrics.hpp"
+#include <atomic>
+#include <cstdlib>
+#include <deque>
 #include <iostream>
+#include <new>
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <limits>
 #include <time.h>
 
+namespace { std::atomic<unsigned long> allocations{0}; }
+// Counted allocations (noinline: GCC otherwise pairs the inlined malloc/free with new/delete and warns).
+[[gnu::noinline]] void* operator new(std::size_t n) {
+    allocations.fetch_add(1, std::memory_order_relaxed);
+    if (void* p = std::malloc(n ? n : 1)) return p;
+    throw std::bad_alloc();
+}
+[[gnu::noinline]] void operator delete(void* p) noexcept { std::free(p); }
+[[gnu::noinline]] void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+
 int failures = 0;
 void check(bool ok, const char* name) { if (!ok) { std::cerr << name << '\n'; ++failures; } }
+// The last-second presentation window as it was kept before the fixed ring (std::deque): the
+// reference the ring must match byte for byte in status_json.
+struct DequeWindow {
+    std::deque<std::uint64_t> recent;
+    std::uint64_t presented = 0;
+    void push(std::uint64_t ts) {
+        ++presented; recent.push_back(ts);
+        while (ts - recent.front() > 1000000000ULL || recent.size() > 4096) recent.pop_front();
+    }
+    std::string status(double now_ms) const {
+        auto j = nlohmann::json::object();
+        if (presented) j["missed"] = 0;
+        std::uint64_t first = 0, last = 0;
+        std::size_t count = 0;
+        for (auto ns : recent) {
+            const double ms = double(ns) / 1e6;
+            if (ms <= now_ms && ms >= now_ms - 1000) { if (!count) first = ns; last = ns; ++count; }
+        }
+        if (count >= 2) j["presented_hz"] = double(count - 1) * 1e9 / double(last - first);
+        return j.dump();
+    }
+};
 int main() {
     xr::Metrics live;
     check(nlohmann::json::parse(live.status_json(2000)).empty(), "status omits unmeasured");
@@ -94,5 +130,38 @@ int main() {
     late.presented(pending, 0, 1, 0, 0, 0, 1, 0, true);
     check(late.snapshot().presented == 0 && late.snapshot().discarded == 0, "late terminal callbacks after teardown ignored");
     check(trace.report().find("\"sustained_cadence_qualified\":false") != std::string::npos, "report never promotes static pattern to cadence proof");
+    // The fixed ring reproduces the deque window exactly: past its 4096 capacity (5 kHz), across the
+    // one-second eviction, irregular gaps and pauses, at many query times.
+    {
+        xr::Metrics ring; ring.bind(1); ring.clock(CLOCK_MONOTONIC);
+        DequeWindow ref;
+        std::uint64_t ts = 5'000'000'000ULL, seq = 0;
+        bool same = true;
+        auto present = [&](std::uint64_t at) {
+            ring.presented(*ring.submit(), std::uint32_t(at / 1000000000ULL >> 32), std::uint32_t(at / 1000000000ULL),
+                           std::uint32_t(at % 1000000000ULL), 0, 0, std::uint32_t(++seq), 0, true);
+            ref.push(at);
+        };
+        auto compare = [&](std::uint64_t at) {
+            for (double back : {-0.3, 0.0, 1.0, 250.0, 999.9, 1000.0, 1500.0}) {
+                const double now = double(at) / 1e6 - back;  // just after, at, and before the newest presentation
+                same = same && ring.status_json(now) == ref.status(now);
+            }
+        };
+        for (int i = 0; i < 12000; ++i) { ts += 200'000; present(ts); if (i % 97 == 0) compare(ts); }       // 5 kHz: capacity bound
+        for (int i = 0; i < 3000; ++i) { ts += 8'333'333 + std::uint64_t(i % 7) * 13'001; present(ts); if (i % 31 == 0) compare(ts); }
+        ts += 2'500'000'000ULL; present(ts); compare(ts);                                                   // a pause empties the window
+        for (int i = 0; i < 500; ++i) { ts += (i % 5 ? 4'166'667 : 16'666'667); present(ts); compare(ts); }
+        check(same, "fixed ring matches the deque window byte for byte");
+        // Recording a presentation never allocates (the deque allocated a block every 64).
+        xr::Metrics alone; alone.bind(1); alone.clock(CLOCK_MONOTONIC);
+        const auto quiet = allocations.load();
+        std::uint64_t t2 = 1'000'000'000ULL;
+        for (unsigned i = 1; i <= 20000; ++i) {
+            t2 += 8'333'333;
+            alone.presented(*alone.submit(), 0, std::uint32_t(t2 / 1000000000ULL), std::uint32_t(t2 % 1000000000ULL), 8333333, 0, i, 0, true);
+        }
+        check(allocations.load() == quiet, "presentation feedback does not allocate");
+    }
     return failures ? 1 : 0;
 }

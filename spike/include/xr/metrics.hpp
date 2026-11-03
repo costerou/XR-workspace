@@ -1,6 +1,6 @@
 #pragma once
 #include <array>
-#include <deque>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -37,10 +37,15 @@ public:
     std::string status_json(double now_ms) const;
 private:
     bool finish(std::uint64_t ticket);
+    void remember(std::uint64_t timestamp);
     TimingSnapshot state_;
     std::array<std::uint64_t, capacity> pending_{};
     std::optional<std::uint64_t> previous_ns_, previous_sequence_, first_valid_ns_, last_valid_ns_;
-    std::deque<std::uint64_t> recent_presentations_;
+    // Valid presentation timestamps of the last second (at most recent_capacity), oldest first, in a
+    // fixed ring: recording a presentation never allocates.
+    static constexpr std::size_t recent_capacity = 4096;  // power of two
+    std::array<std::uint64_t, recent_capacity> recent_{};
+    std::size_t recent_head_ = 0, recent_size_ = 0;
     bool clock_conflict_ = false, interval_anchor_ = false;
 };
 }

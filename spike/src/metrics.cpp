@@ -51,9 +51,7 @@ void Metrics::presented(std::uint64_t ticket, std::uint32_t hi, std::uint32_t lo
     increment(state_.valid_presented);
     if (!first_valid_ns_) first_valid_ns_ = timestamp;
     last_valid_ns_ = timestamp;
-    recent_presentations_.push_back(timestamp);
-    while (timestamp - recent_presentations_.front() > 1000000000ULL || recent_presentations_.size() > 4096)
-        recent_presentations_.pop_front();
+    remember(timestamp);
     if (previous_ns_ && interval_anchor_) {
         constexpr std::array<std::uint64_t, 7> bounds{1000000, 4000000, 8000000, 9000000, 17000000, 34000000, 100000000};
         auto delta = timestamp - *previous_ns_;
@@ -67,6 +65,12 @@ void Metrics::presented(std::uint64_t ticket, std::uint32_t hi, std::uint32_t lo
     }
     previous_ns_ = timestamp; previous_sequence_ = sequence; interval_anchor_ = true;
 }
+void Metrics::remember(std::uint64_t timestamp) {
+    constexpr std::size_t mask = recent_capacity - 1;
+    if (recent_size_ == recent_capacity) { recent_head_ = (recent_head_ + 1) & mask; --recent_size_; }  // full: drop the oldest
+    recent_[(recent_head_ + recent_size_) & mask] = timestamp; ++recent_size_;
+    while (timestamp - recent_[recent_head_] > 1000000000ULL) { recent_head_ = (recent_head_ + 1) & mask; --recent_size_; }
+}
 void Metrics::discarded(std::uint64_t ticket) { if (finish(ticket)) increment(state_.discarded); }
 void Metrics::abandon() {
     for (auto& ticket : pending_) if (ticket) { ticket = 0; increment(state_.abandoned); }
@@ -78,7 +82,8 @@ std::string Metrics::status_json(double now_ms) const {
     if (!clock_conflict_ && std::isfinite(now_ms) && now_ms >= 0) {
         std::uint64_t first = 0, last = 0;
         std::size_t count = 0;
-        for (auto ns : recent_presentations_) {
+        for (std::size_t i = 0; i < recent_size_; ++i) {
+            const auto ns = recent_[(recent_head_ + i) & (recent_capacity - 1)];
             const double ms = double(ns) / 1e6;
             if (ms <= now_ms && ms >= now_ms - 1000) {
                 if (!count) first = ns;

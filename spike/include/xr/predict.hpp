@@ -8,8 +8,10 @@
 //
 // Prediction extrapolates the driver's newest orientation by the angular velocity between its
 // two newest timestamped samples (~16 ms apart), over a bounded horizon:
-//   horizon = pose age + measured read->present + driver constant, capped by the driver's cap,
+//   horizon = pose age + expected read->present + driver constant, capped by the driver's cap,
 //   plus half the driver's scanline adjustment (we render one pose per frame; screen centre).
+// Expected read->present is measured; once the refresh grid is learned it is estimated for this
+// frame's read phase (LatencyTracker::expected_ms), so read timing jitter does not shake the view.
 #include "xr/pose.hpp"
 #include <array>
 #include <cstdint>
@@ -26,7 +28,9 @@ struct LookAhead { float constant_ms = 0, frametime_mult = 0, scanline_ms = 0, c
 std::optional<LookAhead> look_ahead_from(const std::array<float, 4>& raw);
 
 // Body-frame rotation per ms between the two newest samples (axis * rad/ms), or nullopt when the
-// samples are unusable: non-increasing or implausible spacing (outside 2..50 ms), non-finite.
+// samples are unusable: non-increasing or implausible spacing (outside 2..50 ms), non-finite. The
+// spacing is t0 - t1, or the mean of t0 - t1 and t1 - t2 when they differ only by timestamp
+// quantisation (whole, truncated ms): the driver's samples are a fixed number of IMU cycles apart.
 std::optional<std::array<float, 3>> angular_velocity(const PoseHistory& h);
 // Body-frame delta to apply on the right of the newest orientation: newest * delta = predicted.
 // Rotation angle is clamped to max_deg. Identity for horizon <= 0.
@@ -42,6 +46,7 @@ public:
     static constexpr std::size_t capacity = 32;
     static constexpr double bucket_ms = 0.25;
     static constexpr std::size_t buckets = 400;  // 0..100 ms; larger values land in the last bucket
+    static constexpr std::size_t phase_bins = 16;  // read phase within the refresh period
     // The compositor's presentation clock; only CLOCK_MONOTONIC (1) is comparable with our reads.
     void clock(std::uint32_t id) { clock_ok_ = id == 1; }
     bool clock_ok() const { return clock_ok_; }
@@ -49,28 +54,51 @@ public:
     void presented(std::uint64_t ticket, std::uint64_t present_ns);
     void discarded(std::uint64_t ticket);
     void abandon();  // all pending frames lost
-    // Smoothed read->present (EMA); nullopt until a few frames have been measured.
-    std::optional<double> expected_ms() const;
+    // Expected read->present for a pose read at now_ns (CLOCK_MONOTONIC); nullopt until a few frames
+    // have been measured. The smoothed average (EMA) until the refresh grid is learned from presented
+    // timestamps and estimating per read phase on it has beaten the average on recent frames; then
+    // the estimate for a read at this phase (a read later in the refresh period is presented sooner).
+    // No allocation, no system call.
+    std::optional<double> expected_ms(std::uint64_t now_ns) const;
+    std::optional<double> expected_ms() const;  // for a read now (one vDSO clock read)
+    bool phase_aware() const { return use_phase_; }  // the per-phase estimate is in use
     LatencySummary summary() const;
 private:
-    struct Pending { std::uint64_t ticket = 0, read_ns = 0; bool used = false; };
+    struct Pending { std::uint64_t ticket = 0, read_ns = 0; float by_phase_ms = -1, by_ema_ms = -1; bool used = false; };
+    std::optional<double> by_phase(std::uint64_t now_ns) const;
+    void learn_grid(std::uint64_t present_ns);
     std::array<Pending, capacity> pending_{};
     std::array<std::uint64_t, buckets> histogram_{};
     std::uint64_t count_ = 0, dropped_ = 0;
     double sum_ms_ = 0, max_ms_ = 0, ema_ms_ = 0;
     bool clock_ok_ = false;
+    // Refresh grid: the newest presented timestamp and the period between presentations.
+    std::uint64_t grid_ns_ = 0;
+    double period_ms_ = 0;
+    std::uint32_t off_period_ = 0;  // presentations in a row that were not one period apart
+    // Per read-phase bin: smoothed whole periods from the grid point before the read to its presentation.
+    std::array<float, phase_bins> periods_{};
+    std::array<std::uint32_t, phase_bins> phase_count_{};
+    double phase_err_ms_ = 0, ema_err_ms_ = 0;  // smoothed |error| of each estimate on presented frames
+    std::uint32_t compared_ = 0;
+    bool use_phase_ = false;
 };
 
-// Relative pose age: host read time minus device timestamp, less the smallest such value seen
-// (device and host clocks have an unknown fixed offset). At ~1 kHz the minimum approaches the
-// transport floor, so this is age ABOVE the best observed case, not an absolute age.
+// Relative pose age: host read time minus device timestamp, less the smallest such value seen over
+// the last few seconds of device time (device and host clocks have an unknown offset, and a device
+// crystal that drifts against the host by tens of ppm would otherwise grow the age by ms per minute;
+// a feed whose device clock stops keeps its floor, so its age keeps growing). At ~1 kHz the minimum
+// approaches the transport floor, so this is age ABOVE the best recent case, not an absolute age.
 class PoseAge {
 public:
+    static constexpr std::size_t floor_windows = 8;  // one-second windows of device time
     std::optional<double> observe(double host_ms, float device_ms);  // nullopt on reset/backward device clock
     LatencySummary summary() const;
     void reset() { *this = PoseAge{}; }
 private:
-    std::optional<double> floor_ms_;
+    static constexpr std::int64_t kNoWindow = INT64_MIN;
+    std::array<double, floor_windows> window_min_{};  // per device second: smallest host - device
+    std::array<std::int64_t, floor_windows> window_s_ = [] { std::array<std::int64_t, floor_windows> a{}; a.fill(kNoWindow); return a; }();
     float last_device_ms_ = -1;
     std::uint64_t count_ = 0;
     double sum_ms_ = 0, max_ms_ = 0;
