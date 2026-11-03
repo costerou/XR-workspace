@@ -5,7 +5,8 @@ text navigation otherwise). They run xr_control.py, which sends one frame to thi
 control socket. The selected desktop's monitor gets Hyprland's focus (and the cursor with it).
 
 Maximized and the overview (maximize-follow, 2026-11-03; INAIR Pod style). The overview shows every desktop; a
-maximized desktop (the `zoomed` state: a click on it in the overview, or Ctrl+Alt+Up) fills the view. The viewing mode
+maximized desktop (the `zoomed` state: Ctrl+Alt+Up, or the panel's Maximize) fills the view. A click on a desktop in the
+overview only selects it (anchor-no-click-maximize, 2026-11-03: select_desktop); it never maximizes. The viewing mode
 (T2: anchor, world-locked 3DoF; follow, eases back in front of you; locked, 0DoF head-locked) follows from that state
 (ViewState.mode): the overview is always anchor; a maximized desktop is follow or locked. While maximized, Ctrl+Alt+V
 toggles follow and locked (MAXIMIZED_MODES), and that choice sticks: every later maximize in the run uses it, until
@@ -18,9 +19,9 @@ the glasses listing every bind (rows come from BINDS, so it cannot drift), group
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
 click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
 selected desktop's monitor (unified_cursor.py), and the view changes desktop by key, by a click on a desktop in the
-overview, or, maximized, by pushing the cursor past an edge toward a desktop placed that way round you (switch_desktop;
-neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor crossed onto in Hyprland's layout) was removed on
-2026-11-02.
+overview (it selects that desktop and stays in the overview), or, maximized, by pushing the cursor past an edge toward
+a desktop placed that way round you (switch_desktop; neighbors.py). Cursor follow (Ctrl+Alt+F, the monitor the cursor
+crossed onto in Hyprland's layout) was removed on 2026-11-02.
 Head-pose prediction (Ctrl+Alt+P toggles; on by default since live run prd2 on 2026-10-31): the renderer extrapolates the pose by a
 bounded horizon (measured software read->present latency plus the driver's per-glasses look-ahead).
 Prediction, spacing and the VR video quality settings (quality.py) are saved in layout.json (its `mode` stays for the
@@ -44,10 +45,10 @@ renderer keeps the panel on) and saved to the profile 500 ms after the last chan
 collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
-pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to focus it; inside a
-desktop the real cursor works on windows as usual (a click there goes to the window, so it leaves an open panel
-open). resize_press and resize_release come from modal left-button binds that exist only while the pointer is outside
-the desktops; they are not USER_OPS.
+pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to select it (no
+maximize: only Ctrl+Alt+Up maximizes); inside a desktop the real cursor works on windows as usual (a click there goes
+to the window, so it leaves an open panel open). resize_press and resize_release come from modal left-button binds that
+exist only while the pointer is outside the desktops; they are not USER_OPS.
 
 Desktop row (desktops.py): an open panel also has Ultrawide, Add new and Remove buttons (free-pointer presses; keys U, N
 and Delete while it is open: MENU_BINDS). ViewControl.desktop_action plans the change, pauses the run's guard, tells the
@@ -130,10 +131,10 @@ PLAYBACK_MENU_OP = 'playback_menu_toggle'
 PLAYBACK_MENU_TOASTS = {True: 'VR video menu hidden: it no longer pops up on play or seek. Ctrl+Alt+C shows it again.',
                         False: 'VR video menu shown: it pops up on play and seek. Ctrl+Alt+C hides it.'}
 # Ctrl+Alt+V in the overview (maximize-follow): nothing to change, the overview is always anchored. Says why, once per press.
-MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (click it, or Ctrl+Alt+Up), '
+MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Maximize a desktop (select it, then Ctrl+Alt+Up), '
                        'then Ctrl+Alt+V switches it between follow and locked; your choice is kept until XR restarts.')
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: free mouse, pills, corners',
+HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: click selects; pills, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 'mode_next': 'Maximized: follow / locked', 'prediction': 'Toggle pose prediction',
@@ -994,15 +995,19 @@ class ViewControl:
             except (OSError, ValueError, TypeError): pass
         t = threading.Thread(target=work, daemon=True); t.start(); self._threads.append(t)
 
-    def focus_desktop(self, desktop):
-        """A circle-cursor (free pointer) click on `desktop` in the overview: select it and maximize it (follow), leaving the
-        overview, exactly as Ctrl+Alt+Up does on the selected desktop (an open panel collapses first, saved; its output
-        gets Hyprland's monitor focus off the loop; one view frame). The free pointer and the input lock then let go of
-        the mouse as on any zoom-in. Frames (bytes), b'' for a stale click."""
+    def select_desktop(self, desktop):
+        """A circle-cursor (free pointer) click on `desktop` in the overview: select it, and stay in the overview, anchored
+        (anchor-no-click-maximize, 2026-11-03: a click never maximizes; Ctrl+Alt+Up and the panel's Maximize do). The
+        highlight moves there, as Ctrl+Alt+Left / Right move it. The free pointer then brings the real cursor back onto
+        that desktop under the dot, and that warp gives its monitor Hyprland's focus (focus-follows-mouse; no focus thread
+        here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel was already collapsed by
+        the press (free_pointer: Clicks). One view frame, or b'' when stale (zoomed in, typing mode, a VR video, no such
+        desktop) or already selected."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
+        if desktop == self.state.selected: return b''
         self.state.selected = desktop
-        return self.on_message({'op': 'zoom_in', 'payload': {}}) or b''
+        return self._frame()
 
     def switch_desktop(self, desktop):
         """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the

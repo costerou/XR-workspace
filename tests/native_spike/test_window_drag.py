@@ -1,12 +1,13 @@
 """Overview window drag (free_pointer.py: Window drag; unified_cursor.py over home; send.py window_at / WindowSender.drop):
-press and hold on a window on a desktop, then drag, moves that window to another desktop; a quick click still zooms in.
+press and hold on a window on a desktop, then drag, moves that window to another desktop; a quick click still selects
+that desktop (it no longer maximizes it: anchor-no-click-maximize, 2026-11-03), and on home it is the window's alone.
 
 Regression (overview-window-drag, 2026-11-03): before it, a press on a desktop in the overview zoomed into it at once
 (OverviewPointer.on_op called _click_desktop on resize_press), so there was no way to hold a press on a window and the
 overview could not move windows between desktops at all. Now a desktop press waits: released quickly (no HOLD_S hold,
-no WINDOW_DRAG_PX of motion) it is the same click and zooms in; held or dragged, it lifts the window under it, shows its
-ghost round the dot and frames the desktop under the dot, and a release over another desktop moves the window there
-(one Hyprland move, follow off) without zooming in or selecting anything.
+no WINDOW_DRAG_PX of motion) it is the same click (then a zoom-in, now a selection); held or dragged, it lifts the
+window under it, shows its ghost round the dot and frames the desktop under the dot, and a release over another desktop
+moves the window there (one Hyprland move, follow off) without zooming in or selecting anything.
 
 Offline only: fake clock, the free-pointer test rig, a fake window sender (and for send.py a fake Hyprland client).
 No compositor, renderer binary or glasses.
@@ -71,30 +72,35 @@ class DragBase(UnifiedBase):
 
 
 class QuickClickTests(DragBase):
-    def test_a_quick_click_on_another_desktop_still_zooms_into_it(self):
+    def test_a_quick_click_on_another_desktop_selects_it_without_maximizing(self):
         self.free_on(1)
         out = self.op('resize_press')
         self.assertIsNone(last(out, 'view'))  # nothing yet: a hold would lift the window instead
         self.tick(fp.HOLD_S / 2)
         out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed']); self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertFalse(last(out, 'view')['zoomed']); self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))  # the cursor comes back there, under the dot
         self.assertEqual((self.sender.lookups, self.sender.drops, self.p.window_lifts), ([], [], 0))
 
-    def test_a_click_with_a_little_jitter_still_zooms(self):
+    def test_a_click_with_a_little_jitter_still_selects(self):
         self.free_on(1)
         self.op('resize_press')
         self.move_canvas(fp.WINDOW_DRAG_PX * 0.7, 0)  # past the pill's CLICK_PX, short of a window drag
         out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed'])
+        self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertFalse(self.control.state.zoomed)
         self.assertEqual(self.p.window_lifts, 0)
 
-    def test_a_quick_click_on_home_still_reaches_the_window_and_zooms(self):
+    def test_a_quick_click_on_home_reaches_the_window_and_nothing_else(self):
         self.at(X1 + 600, 400)
         self.op('resize_press')
         self.tick(fp.HOLD_S / 2)
         self.assertEqual(self.p.mode, 'desktop')
         out = self.op('resize_release')
-        self.assertTrue(last(out, 'view')['zoomed'])
+        self.assertIsNone(last(out, 'view'))  # the window's click: no maximize, no selection change
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual(self.p.mode, 'desktop')
         self.assertEqual(self.sender.lookups, [])
 
 

@@ -763,14 +763,15 @@ class ClickOutsideTests(Base):
         self.assertNotIn('placement', ops_of(out)); self.assertNotIn('view', ops_of(out))
         self.assertEqual(self.p.mode, 'free'); self.assertIsNone(self.p.drag)
 
-    def test_a_desktop_press_closes_it_and_still_zooms_into_that_desktop(self):
+    def test_a_desktop_press_closes_it_and_still_selects_that_desktop(self):
         self.to(T1[0] + T1[2] / 2, T1[1] + 1)  # just inside XR-2's top edge (less than ENTER_PX: still free)
         self.assertEqual(self.p.hover[:2], ('desktop', 1)); self.assertEqual(self.p.mode, 'free')
         out = self.press()
         self.assert_closed_and_saved(out)
-        out += self.release()  # a click (no hold): zoom in on its release
-        self.assertTrue(self.state.zoomed); self.assertEqual(self.state.selected, 1)
-        self.assertEqual(last(out, 'view')['selected'], 1)
+        out += self.release()  # a click (no hold): selected on its release, never maximized (anchor-no-click-maximize)
+        self.assertFalse(self.state.zoomed); self.assertEqual(self.state.selected, 1)
+        self.assertEqual(last(out, 'view')['selected'], 1); self.assertFalse(last(out, 'view')['zoomed'])
+        self.assertFalse(self.state.menu_open)  # stays closed: the click does not reopen it
         self.assertEqual(self.p.focus_clicks, 1)
 
     def test_another_desktops_pill_drag_closes_it_and_still_moves_that_desktop(self):
@@ -1197,7 +1198,7 @@ class WireTests(unittest.TestCase):
 class HelpCardTextTests(unittest.TestCase):
     def test_the_rows_name_the_pills_and_stay_short(self):
         self.assertEqual(view.HELP_ACTIONS['menu_toggle'], 'Placement pill of the selected desktop')
-        self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: free mouse, pills, corners')
+        self.assertEqual(view.HELP_ACTIONS['zoom_out'], 'Overview: click selects; pills, corners')
         self.assertLessEqual(max(len(a) for a in view.HELP_ACTIONS.values()), 42)  # the card's width is another thread's
         rows = dict(view.help_rows())
         self.assertEqual(rows['Ctrl+Alt+L'], 'Placement pill of the selected desktop')

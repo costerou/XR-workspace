@@ -22,7 +22,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Per-desktop placement (position, distance, curvature; until 2026-11-02 also yaw, pitch and roll) | Physical acceptance on Luma Ultra (2026-11-01; `feature/per-desktop-transform` at `f593574`, which is `ba3ead2` plus `d685884`; pinned renderer `28d934fa…`; ownership plugin `a68bd142…`, the same binary as the panel acceptance). In runs `cf73a329` and `2af10af8`, started from the panel, Cody angled XR-1 and XR-3 with yaw and curved XR-2 from the placement editor. He confirmed in the glasses that the angles and curvature applied correctly in the running session. Only yaw and curvature were reported on; the offset, distance, pitch and roll sliders are covered by offline tests only. That run predates two changes of 2026-11-02, neither tried in the glasses (the "Desktops anywhere around you" row below): Left/right and Down/up are now a turn round you instead of a flat offset, and every desktop now faces you, so the yaw, pitch and roll settings are gone. Of what Cody checked, only curvature is still a setting. Frame-time cost of curved desktops and comfort are unmeasured. Beast is untested. |
 | Cursor-follow retest | After the startup-state fix (`b309827`, in this branch), Cody reported a cursor-follow retest on the Luma Ultra (start XR, wait for calibration, fullscreen YouTube) with no blackout. That is a human-reported result, and the earlier blackout's root cause is unproven. Details: [feasibility/native-spike/luma-cursor-follow-retest.md](feasibility/native-spike/luma-cursor-follow-retest.md). |
 | Beast | Presentation-only physical trials (generated pattern, normal exit, controlled crash). Managed sessions, tracking and capture on Beast are untested. |
-| Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to maximize it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
+| Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to select it; since 2026-11-03 a click never maximizes, Ctrl+Alt+Up does) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
 | Glass placement pills (a Material Design 3 tonal pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; a pill drag keeps the desktop under the dot, and in anchor mode the dot, and so the drag, reaches all the way round you; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Roll-level icons (every desktop in the overview has two small curved arrows (no button behind them, in the theme's M3 primary) above its top corners, counter-clockwise left and clockwise right; a click turns it that way, straight to level when level lies that way (in anchor mode, judged against gravity from the head tracker), else 2°; a drag from either rolls it either way) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the icon's size, side, arrow and colours, the `roll` frame), `glass_contract` and `placement_contract` (the icon rect and the rolled surface, renderer against supervisor); `tests/native_spike/test_roll_level.py`. Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the icon reads on the OLED panels and how the drag feels are unverified. See [Roll-level icons](#roll-level-icons). |
@@ -121,9 +121,9 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Left click a pill | free pointer on a pill, or on the open panel's top strip | Open that desktop's panel (closing any other), or close it if it is the open one |
 | Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode anywhere round you, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar, the grabbed point staying under the dot; in anchor mode all the way round you. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
 | Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
-| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, maximize a desktop, or nothing in empty space |
+| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, select a desktop, or nothing in empty space |
 | Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
-| Left click a desktop | free pointer on a desktop | Maximize it (as Ctrl+Alt+Up; follow) on the release: selected, focused, out of the overview; the cursor shows at that spot |
+| Left click a desktop | free pointer on a desktop | Select it on the release and stay in the overview: it never maximizes (since 2026-11-03; Ctrl+Alt+Up does). The real cursor comes back at that spot on its monitor, which gives the monitor Hyprland's focus; the click itself reaches no window. Over the selected desktop (desktop mode) a click is the window's alone |
 | Left press-hold (`HOLD_S` 0.35 s) or drag (> `WINDOW_DRAG_PX` 12 canvas px) on a desktop, then release on another desktop | free pointer on a desktop, or holding still over the selected desktop | Move the window under the press onto the workspace that desktop shows (`send.WindowSender.drop`, Hyprland move with `follow = false`): no zoom, no selection change. A ghost outline follows the dot and the target desktop is framed (`overview_pointer` frame `drag`). Released anywhere else: nothing moves |
 | Left click a help card arrow or its "2 / 3" | free pointer on the open help card | Previous page (left arrow) or next page (right arrow or the page number). Elsewhere on the card a click does nothing, and it never closes an open pill |
 
@@ -261,9 +261,14 @@ With the dot:
   shorter side, 10–28 px each way), so it reaches outside the desktop. A small dim L-bracket shows inside that corner.
   Drag it: the corner follows the dot along its diagonal, outward bigger, inward smaller. A corner wins where it meets
   the pill's zone.
-- **Maximize a desktop: click it.** The desktop is selected, its monitor gets Hyprland's focus and the view zooms into
-  it (the Ctrl+Alt+Up path). The cursor comes back at the clicked spot, on the clicked monitor. Over a desktop the click
-  also reaches the window under the dot ([the unified overview cursor](#the-unified-overview-cursor)).
+- **Select a desktop: click it.** The desktop is selected and the view stays in the overview, anchored
+  (`ViewControl.select_desktop`, the same view frame as Ctrl+Alt+Left / Right there). Since 2026-11-03
+  (`anchor-no-click-maximize`) a click never maximizes: only Ctrl+Alt+Up (and the panel's Maximize) does. The real
+  cursor comes back at the clicked spot on that desktop's monitor (desktop mode), and that warp gives the monitor
+  Hyprland's focus through focus-follows-mouse. The run asks for no monitor focus itself: Hyprland's monitor focus
+  would warp the cursor to that monitor's last window, away from the dot. The click on another desktop reaches no
+  window (free mode's grab has it); the next one does. Over the selected desktop the click only reaches the window
+  under the dot ([the unified overview cursor](#the-unified-overview-cursor)).
 - A click in empty space does nothing, apart from closing an open panel.
 
 Hit testing order: an open panel is drawn on top (the renderer draws its desktop's glass last, over every other pill),
@@ -328,7 +333,7 @@ Offline tests only (`tests/native_spike/test_unified_cursor.py`, `test_direction
 binds); not run in a live compositor or tried in the glasses. Since 2026-11-02 (`dot-unified-cursor`) the dot is the
 one real cursor, and it only ever controls the selected desktop ("home"). The real Hyprland cursor stays on home's
 monitor, zoomed in and in the overview, and never crosses to another monitor in Hyprland's layout by hand. Switching
-desktops is a key (Ctrl+Alt+Left / Right), in the overview a click on another desktop, which zooms into it, or, zoomed in,
+desktops is a key (Ctrl+Alt+Left / Right), in the overview a click on another desktop, which selects it, or, zoomed in,
 a push past home's edge toward a desktop placed that way (below).
 `tools/native_spike/unified_cursor.py` wraps the free pointer above and replaces the input lock, which held the cursor
 still for the whole overview and let no click or wheel reach a window.
@@ -341,16 +346,18 @@ still for the whole overview and let no click or wheel reach a window.
 - **Overview, over home:** the real cursor is the pointer. Hand motion moves it, and the dot is drawn where it maps onto
   home's surface, in anchor, locked and follow mode. It stays hidden, but hover, focus-follows-mouse, every button and
   the wheel reach the window under it. The left button is bound *non-consuming* (`non_consuming = true`), so the window
-  gets the click as usual. A press and release less than 4 canvas px apart is also a click that zooms into home. A drag
-  or a selection does not zoom. While the button is held the dot never goes free and the cursor stays on home: if
+  gets the click as usual, and that is all a click there does: it never zooms into home (until 2026-11-03,
+  `anchor-no-click-maximize`, a press and release less than 4 canvas px apart also did). The binds are there for the
+  window drag (a press held still lifts the window). While the button is held the dot never goes free and the cursor stays on home: if
   Hyprland lets it onto another monitor, it is pulled back, so the window gets its release.
 - **Overview, off home:** at home's edge pixel the dot goes free. The hidden cursor is parked just inside home where it
   left, at least 100 px (`PARK_MARGIN_PX`) from the edges, and put back once it strays 32 px (`LEASH_PX`). Its motion
   moves the dot through space. Free mode uses the input lock's grab (`input_lock.lock_pointer_lua`): the left button
   drives pills, corners, sliders, the help card and desktop clicks, the right, middle and side buttons only end a drag,
   and the wheel is bound to nothing (with `binds.scroll_event_delay` at 0, restored afterwards). Over another desktop the
-  dot is only the dot: it does not select that desktop or move the cursor there. A click on it zooms into it, and the
-  cursor then shows there, under the dot. Moving the dot 4 px back into home hands the real cursor back under it.
+  dot is only the dot: it does not select that desktop or move the cursor there. A click on it selects it and the view
+  stays in the overview: it becomes home and the real cursor comes back there, under the dot (desktop mode), which
+  gives its monitor Hyprland's focus. That click reaches no window; the next one does. Moving the dot 4 px back into home hands the real cursor back under it.
 - **Keys:** Ctrl+Alt+Left / Right change the selected desktop. Home moves with it, and the cursor and dot go to the
   middle of the new home. Any other jump off home in the overview is pulled back home, or let go if it landed on the
   physical monitor. Cursor follow (Ctrl+Alt+F) was removed: monitor focus events never switch the view.
@@ -388,7 +395,9 @@ can be on the neighbouring monitor before it is put back; touchpad scrolling whi
 desktop config with `binds.pass_mouse_when_bound`; and a starved sampler thread. To check in the glasses: zoomed in,
 push the mouse past every edge of the desktop (it switches to the desktop placed that way, or stays put if none is); in the overview, move the dot across the gaps and over the
 other desktops (nothing there reacts), scroll and right-click inside home (the window reacts), drag a window inside home
-(no zoom), click another desktop (it zooms in there), and repeat after Ctrl+Alt+Right and in each viewing mode.
+(no zoom), click a window on home (it gets the click, nothing is maximized), click another desktop (it is selected,
+the view stays in the overview and the cursor comes back there under the dot; the next click reaches the window there),
+press Ctrl+Alt+Up (that desktop is maximized), and repeat after Ctrl+Alt+Right and in each viewing mode.
 
 ### Moving desktops in the overview (the pill under the desktop)
 
@@ -480,10 +489,10 @@ you at the end of the row.
 
 **Maximized and the overview: the viewing modes.** Since 2026-11-03 (maximize-follow, after the INAIR Pod) the viewing
 mode is no longer a setting of its own: it follows from the view (`ViewState.mode`, a property of `zoomed`). The
-overview is always anchor (3DoF, the desktops fixed in the room). Maximizing (the `zoomed` state; Ctrl+Alt+Up or a
-free-pointer click on a desktop) switches to follow or locked: `ViewState.maximized_mode`, which Ctrl+Alt+V toggles
-while maximized (`MAXIMIZED_MODES`). The choice sticks for the session: every later maximize uses it until Ctrl+Alt+V
-changes it again. It is never saved, so each XR start (a new `ViewState`) maximizes in follow. In the overview
+overview is always anchor (3DoF, the desktops fixed in the room). Maximizing (the `zoomed` state; Ctrl+Alt+Up or the
+panel's Maximize; since 2026-11-03 a free-pointer click on a desktop only selects it) switches to follow or locked:
+`ViewState.maximized_mode`, which Ctrl+Alt+V toggles while maximized (`MAXIMIZED_MODES`). The choice sticks for the
+session: every later maximize uses it until Ctrl+Alt+V changes it again. It is never saved, so each XR start (a new `ViewState`) maximizes in follow. In the overview
 Ctrl+Alt+V changes nothing and `MODE_OVERVIEW_TOAST` says why.
 Un-maximizing (Ctrl+Alt+Down, Ctrl+Alt+L, a pill click) returns to anchor. Every run starts in the overview, anchored:
 `managed.view_controls` no longer passes the saved mode, and `ViewState.settings()` always saves `mode: "anchor"` (the
@@ -555,7 +564,7 @@ profile loads, every placement the new version saved (they have four fields).
   mode only. Maximizing centres any desktop in front of you, wherever it is placed: select it with Ctrl+Alt+Left /
   Right, then Ctrl+Alt+Up.
 - For a desktop far round you, only its pill is in the pointer's reach. Its open panel, its corners and the desktop
-  itself (moving the cursor into it, clicking it to focus it) are not. The keyboard works: Ctrl+Alt+Left / Right
+  itself (moving the cursor into it, clicking it to select it) are not. The keyboard works: Ctrl+Alt+Left / Right
   selects it, Ctrl+Alt+L opens its panel, the arrows change it and R resets it to flat.
 - Mixed installs, as above: the renderer, Python and QML must come from the same build. A Python-only rollback resets
   placements.
@@ -606,7 +615,9 @@ Hit testing and the cursor mapping use the rolled surface; the pill drag and the
 ### Help card pages
 
 The help card (Ctrl+Alt+H) sizes its text from the output height: row text 30 px at 1920x1200 @1.25, where today's 13
-rows sit on one page, stepping down to 18 px on smaller outputs. It keeps the card chrome (padding, border, radius,
+rows sit on one page, stepping down to 18 px on smaller outputs. Its Ctrl+Alt+Down row reads "Overview: click selects;
+pills, corners" since 2026-11-03: a click on a desktop in the overview selects it, and only Ctrl+Alt+Up ("Maximize the
+selected desktop") maximizes. It keeps the card chrome (padding, border, radius,
 dimmed colours) and is laid out again whenever the output is reconfigured.
 
 Rows are grouped in sections (`view.HELP_SECTIONS`: moving around, modes, placement and video, this card), sent as the
@@ -668,7 +679,7 @@ moves live, so the knob stays under the dot. On release the panel joins its desk
 saves. A key that collapses the panel or moves it to another desktop during the drag ends what the drag does. A press
 elsewhere inside the panel does nothing and the panel stays open. A press anywhere else while a panel is open closes it
 first (saved, its keys released), then carries on as usual: on another desktop's pill it starts that pill's click or
-drag, on a desktop it focuses that desktop, and in empty space it does nothing more. Pressing the open desktop's own
+drag, on a desktop it selects that desktop (no maximize), and in empty space it does nothing more. Pressing the open desktop's own
 corners resizes it without closing the panel. A click inside a desktop while the real cursor is there (desktop mode, not
 the dot) goes to the window under it. The run never sees that click, so it does not close the panel.
 
@@ -808,7 +819,7 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
   windows are refused, so recovery can always move the XR desktops' windows back.
 - Run binds use Ctrl+Alt chords. The only unmodified binds are modal: an open placement pill's keys, and the left
   button while the overview's free pointer is outside the desktops (pill click and move, panel sliders, corner resize,
-  click to focus). Both are removed when no longer needed. The free pointer hides the cursor and re-centres it with
+  click to select). Both are removed when no longer needed. The free pointer hides the cursor and re-centres it with
   fixed Lua, and shows it again when the pointer goes back into a desktop, when the overview ends, at run end, or on
   the first click after a dead run. It warps the cursor only onto the run's own XR desktops.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.

@@ -123,8 +123,9 @@ what you are looking at, as on the INAIR Pod:
 
 - **The overview** shows all your desktops, and they always stay fixed in the room (**anchor**). Turn your head to
   look at a different one. Every session starts here.
-- **Maximized:** click a desktop in the overview (or select it and press Ctrl+Alt+Up) and it fills your view and
-  **follows** your head: it eases back in front of you when you turn. Press **Ctrl+Alt+V** to **lock** it to your view
+- **Maximized:** select a desktop in the overview (click it, or Ctrl+Alt+Left / Right), then press **Ctrl+Alt+Up**
+  (or the panel's **Maximize**). It fills your view and **follows** your head: it eases back in front of you when you
+  turn. Clicking a desktop only selects it; it never maximizes it. Press **Ctrl+Alt+V** to **lock** it to your view
   instead, like a normal screen glued to your face, and again to go back to follow. Your choice sticks: every desktop
   you maximize after that uses it, until you press Ctrl+Alt+V again. Each new XR start begins with follow.
 - **Back to the overview** (Ctrl+Alt+Down, Ctrl+Alt+L or a pill): the desktops are fixed in the room again, exactly
@@ -228,15 +229,19 @@ In the overview your mouse is no longer stuck inside the desktops:
   straight to level if level lies that way (say you recentred with your head tipped to one side; judged against
   gravity in anchor mode), else 2° further. Or hold either arrow and drag the dot round the desktop to roll it either
   way, up to 90°; it rests at level as you pass it. Rolling lasts for the session only.
-- **Maximize a desktop:** click it with the dot. The window under the dot gets the click and the desktop is maximized,
-  as Ctrl+Alt+Up does: it grows where it is to fill your view, then follows your head. It gets the focus and the
-  normal cursor appears where you clicked. A press that drags (moving a window, selecting text) doesn't maximize.
+- **Click a desktop** (changed 3 November 2026, not yet tried in the glasses): a click never maximizes a desktop any
+  more. On the selected desktop the click simply goes to the window under the dot, as on any monitor. On another
+  desktop the click selects that desktop and the view stays in the overview: it gets the highlight and the focus, and
+  the mouse comes back there right under the dot, so your next click goes to the window there (the first click itself
+  doesn't reach a window). To maximize, press **Ctrl+Alt+Up** (or the panel's **Maximize**): the selected desktop
+  grows where it is to fill your view, then follows your head.
 - **Move a window to another desktop** (new, not yet tried in the glasses): press on the window and hold the button for
   a moment, then drag. A small outline of the window follows the dot and the desktop under it gets a coloured frame.
   Let go over that desktop and the window moves there, onto the workspace it shows. Nothing is maximized and the
   selected desktop stays the same. Let go anywhere else (its own desktop, a pill, empty space) and nothing moves. On a
   desktop other than the selected one you can also just start dragging. On the selected desktop, moving before you've
-  held still drags inside the window as usual. A quick click still maximizes. Pinned windows can't be moved this way.
+  held still drags inside the window as usual. A quick click is just a click (see above). Pinned windows can't be
+  moved this way.
 - **The mouse stays on its desktop.** It only ever works the selected desktop. In the overview, moving the dot over
   another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
 - **Push the mouse past an edge to switch** (new, not yet tried in the glasses): maximized, keep pushing the mouse past

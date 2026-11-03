@@ -489,16 +489,17 @@ class ModeTests(PointerBase):
 
 
 class ClickTests(PointerBase):
-    def test_click_on_a_desktop_zooms_into_it_and_the_cursor_shows_there(self):
+    def test_click_on_a_desktop_selects_it_and_the_cursor_shows_there(self):
+        # anchor-no-click-maximize (2026-11-03): the click selects, it never maximizes (only Ctrl+Alt+Up does).
         self.at(X2 + 960, 540); self.at(X2 + 960, 0)  # XR-2 top edge: free, still on XR-2's top row
         self.control.state.selected = 0
         out = self.op('resize_press')
-        self.assertFalse(self.control.state.zoomed)  # a click zooms on its release (a hold would lift the window)
+        self.assertEqual(self.control.state.selected, 0)  # a click selects on its release (a hold would lift the window)
         out += self.op('resize_release')
-        self.assertTrue(self.control.state.zoomed)
+        self.assertFalse(self.control.state.zoomed)
         self.assertEqual(self.control.state.selected, 1)
-        self.assertEqual(last(out, 'view')['selected'], 1); self.assertTrue(last(out, 'view')['zoomed'])
-        self.assertEqual(self.p.release_at, (X2 + 960, fp.INSET_PX))
+        self.assertEqual(last(out, 'view')['selected'], 1); self.assertFalse(last(out, 'view')['zoomed'])
+        self.assertEqual((self.p.mode, self.p.want[1:]), ('desktop', ('desktop', (X2 + 960, fp.INSET_PX))))  # under the dot
         self.assertEqual(self.p.focus_clicks, 1)
         self.assertEqual(self.op('resize_release'), [])
 

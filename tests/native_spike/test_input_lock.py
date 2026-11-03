@@ -112,9 +112,11 @@ class LockTests(LockBase):
         out = self.op('resize_press')  # the left button is the run's while captured
         self.assertEqual(self.p.mode, 'free')
         self.assertEqual(self.p.want[1:], ('free', (X2 + 960, 540)))  # no hand-back to the window under the dot
-        out += self.op('resize_release')  # a click: zoom in on the release
+        out += self.op('resize_release')  # a click: selected on the release, never maximized (anchor-no-click-maximize)
         self.assertEqual(self.control.state.selected, 1)
         self.assertEqual(last(out, 'view')['selected'], 1)
+        self.assertFalse(self.control.state.zoomed)
+        self.assertEqual((self.p.mode, self.p.want[1:]), ('free', ('free', (X2 + 960, 540))))  # still held, under the dot
         self.assertEqual(self.p.focus_clicks, 1)
 
     def test_the_other_buttons_do_nothing_but_end_a_drag(self):

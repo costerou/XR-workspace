@@ -41,12 +41,14 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
       - elsewhere in the open panel: nothing (it stays open).
       - corner: resize (the `distance` placement), as before. A release that resized nothing, pressed on the corner
         zone's inner half (on the desktop), is a click on the desktop (below).
-      - desktop: a click zooms into it, leaving the overview, as Ctrl+Alt+Up does (view.ViewControl.focus_desktop:
-        selected, its monitor focused in Hyprland, zoomed in). The cursor then shows there, under the dot (_click_desktop /
-        release_at; input_lock.LockedSampler), so focus-follows-mouse agrees. The zoom comes on the release, and only for
-        a click: see Window drag.
+      - desktop: a click selects it and stays in the overview (anchor-no-click-maximize, 2026-11-03; before that it
+        maximized: view.ViewControl.select_desktop, the highlight moving as Ctrl+Alt+Left / Right move it). Only
+        Ctrl+Alt+Up (and the panel's Maximize) maximizes. The real cursor then comes back there under the dot (_enter:
+        desktop mode), and that warp gives its monitor Hyprland's focus (focus-follows-mouse), so the next click goes
+        to the window there; the click itself went to the run, not to a window. It comes on the release, and only for a
+        click: see Window drag.
   * Window drag (overview-window-drag, 2026-11-03): pressing on a desktop and holding the button HOLD_S, or moving the dot
-    more than WINDOW_DRAG_PX first, lifts the window under the press instead of zooming; a release before either is the
+    more than WINDOW_DRAG_PX first, lifts the window under the press instead of selecting; a release before either is the
     click above. Lifted, the window's ghost (a small outline, its shape scaled down: ghost_size) follows the dot, and the
     desktop under the dot, if it is another one, is framed in the accent (the `overview_pointer` frame's `drag`). A
     release over another desktop moves the window onto the workspace that desktop shows (send.WindowSender.drop: one
@@ -59,7 +61,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     there lifts it (moving first is the window's own drag or selection); the lift then turns the dot free, as at an edge.
     A press while a panel is open on anything but that desktop's own pill / header, panel, sliders or corners
     collapses the panel first (saved, modal keys removed); the press then carries on as listed (another desktop's pill
-    still starts its drag or click, a desktop is still focused, empty space does nothing more).
+    still starts its drag or click, a desktop is still selected, empty space does nothing more).
   * Geometry: the renderer reports the overview's canvas size, FOV split and each desktop's overview slot on its
     status socket (`overview_geometry`, only when it changes). A desktop change (a pill's Add / Remove / Ultrawide) keeps
     the last layout: the renderer does not report one again unless it changed, so a dropped one could be gone for the
@@ -661,7 +663,7 @@ class OverviewPointer:
         # Roll:   {'kind': 'roll', 'index', 'side', 'start', 'from', 'centre', 'moved'}  (from: its roll at the press,
         #         centre: the desktop's centre on the canvas, what the dot turns it round)
         # Window: {'kind': 'window', 'index', 'on', 'start', 'at', 'point', 'lifted', 'window', 'target', 'token'}  (on:
-        #         tile px pressed, for the click's zoom; at: press time; point: layout px pressed on the desktop's monitor;
+        #         tile px pressed, where a click lands; at: press time; point: layout px pressed on the desktop's monitor;
         #         window: None looking up, False none there, else send.window_at's dict; target: desktop under the dot)
         self.drag = None
         self.tilts = []            # parse_roll_geometry, from the renderer: each desktop's tilt from level, or None
@@ -675,7 +677,6 @@ class OverviewPointer:
         self._sync = 0                # cursor samples count in desktop mode only once the sampler applied this serial
         self.summoned = False         # Ctrl+Alt+Down: bring a cursor that is off the desktops into the selected one
         self.rehome = False           # a desktop change: summon the cursor once the pointer is back (desktops_changed)
-        self.release_at = None        # a dot click that zooms in: where the cursor shows once the overview lets go
         self.binds_dropped = False    # config reload: runtime binds and cursor state are gone (sampler redoes them)
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
@@ -878,18 +879,14 @@ class OverviewPointer:
         self.entries += 1
         return self._select(i)
 
-    def _clicked(self, i, q):
-        """A click on desktop i at tile pixel q, just before it zooms in (_click_desktop): where the cursor should show
-        once the overview lets go of it, on that desktop's monitor under the dot (used by input_lock.LockedSampler)."""
-        self.release_at = self._to_layout(i, q)
-
     def _click_desktop(self, i, q):
-        """A dot click on desktop i at tile pixel q: zoom into it, leaving the overview (view.ViewControl.focus_desktop:
-        selected, focused in Hyprland, zoomed in as Ctrl+Alt+Up does). Where the cursor shows is noted first: the sampler
-        may let go of the mouse as soon as the view is zoomed."""
+        """A dot click on desktop i at tile pixel q: select it and stay in the overview (view.ViewControl.select_desktop;
+        anchor-no-click-maximize: a click never maximizes, Ctrl+Alt+Up does). The real cursor comes back there under the
+        dot (_enter), which gives that monitor Hyprland's focus."""
         self.focus_clicks += 1
-        self._clicked(i, q)
-        return self.control.focus_desktop(i)
+        out = self.control.select_desktop(i)
+        if not self.active() or self.control.state.selected != i: return out  # stale: zoomed, typing, a video, gone
+        return out + self._enter(i, q)
 
     # --- the loop -------------------------------------------------------------------------------------------------
     def poll(self, now):
@@ -1019,14 +1016,14 @@ class OverviewPointer:
             elif d is not None and d['kind'] == 'window':
                 self.drag = None
                 if d['lifted']: out += self._drop_window(d)
-                else: out += self._click_desktop(d['index'], d['on'])  # a click, as before: zoom into it
+                else: out += self._click_desktop(d['index'], d['on'])  # a click, as before: select it
             elif d is not None and d['kind'] == 'roll' and not d['moved']:  # a click: that way, to level or a step
                 self.roll_clicks += 1
                 self.rolls[d['index']] = roll_click(self._tilt(d['index']), d['from'], d['side'])
             elif d is not None and d['kind'] == 'corner' and d.get('on') is not None and self.pointer is not None \
                     and math.hypot(self.pointer[0] - d['start'][0], self.pointer[1] - d['start'][1]) <= CLICK_PX \
                     and self.control.state.placements[d['index']]['distance'] == d['distance']:
-                self.drag = None  # a click on the desktop's own corner, not a resize: zoom into it like any desktop click
+                self.drag = None  # a click on the desktop's own corner, not a resize: select it like any desktop click
                 out += self._click_desktop(d['index'], d['on'])
             out += self._end_drag()
         elif self.active() and self.mode == 'free' and not idle and self.pointer is not None:
@@ -1056,7 +1053,7 @@ class OverviewPointer:
                     q = unproject(self.geometry, tile, p, self.pointer)  # the corner zone's inner half is on the desktop
                     on = q if q is not None and inside_by(tile, q) >= 0 else None
                     self.drag = {'kind': 'corner', 'index': i, 'corner': h[2], 'start': self.pointer, 'distance': p['distance'], 'tile': tile,
-                                 'on': on}  # a release there that resized nothing is a click on the desktop: it zooms in
+                                 'on': on}  # a release there that resized nothing is a click on the desktop: it selects it
                     self.drags += 1
                 else:  # the desktop moves only once the pointer is CLICK_PX away; a release before that is a click
                     self.drag = {'kind': 'pill', 'index': i, 'start': self.pointer, 'xy': (p['x'], p['y']), 'tile': tile, 'moved': False,
@@ -1077,7 +1074,7 @@ class OverviewPointer:
             elif h is not None and h[0] == 'scale':  # a step of the open list: that desktop's output scale
                 self.actions += 1
                 out += self.control.scale_pick(h[1], h[2])
-            elif h is not None and h[0] == 'desktop':  # a click zooms into it on release; a hold or drag lifts its window
+            elif h is not None and h[0] == 'desktop':  # a click selects it on release; a hold or drag lifts its window
                 self.drag = self._window_press(h[1], h[2], self.pointer, self._to_layout(h[1], h[2]), now)
             # ('panel', i): elsewhere on the open panel, nothing; None: empty space, nothing (beyond the collapse above)
         return (out + self._frames(False)) or None
