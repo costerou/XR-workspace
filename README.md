@@ -170,6 +170,15 @@ create), the session starts with three flat desktops instead, and the reason is 
 -u viture-workspace-controller`). Follow or locked for a maximized desktop is not part of the layout: every session
 still starts in follow.
 
+**Your windows come back too** (new, not yet tried in the glasses). When a session stops, XR Workspace remembers where each
+window was: which desktop, which workspace, its order among the tiled windows (including scrolling columns and their widths),
+its position and size if it was floating, and whether it was fullscreen. The next session puts every window that is still
+open back in that place, once your layout is back. Windows you opened since go where they always go. If a window's desktop no
+longer exists, it goes to the last desktop instead, like XR-4 to XR-3 on a reset. Nothing to press. It is saved for your
+glasses model in `~/.config/viture-workspace/window-memory.json`, which holds window titles, is readable only by you, and
+stays up to date as you move windows, Super drags included. A window is recognised by its identity while Hyprland keeps
+running, and after a Hyprland restart by its app and title, so two identical terminals may swap places.
+
 **Start over: Ctrl+Alt+R** (new, not yet tried in the glasses). Puts every desktop back to the default: three flat
 1920×1080 desktops at 100%, level, in a row, with the default space between them. It asks first: the first press shows
 a small notification, "Press Ctrl+Alt+R again to reset all monitors", and a second press within three seconds resets. If
@@ -183,7 +192,8 @@ your normal monitor, as with the pill's Remove.
 
 Your saved layout is replaced by the default at the same time, so the next session starts that way too. The layout you
 had is kept as a backup in `~/.config/viture-workspace/profiles.json` (`previous_setup`), one step back: the next reset
-replaces it. There is no key to bring it back yet. A small notification confirms the reset. Ctrl+Alt+R does nothing while
+replaces it. There is no key to bring it back yet. A reset keeps the memory of your windows: windows on a fourth desktop stay on XR-3, and
+if you add that desktop back with a pill's **Add new** during the session they return to it. A small notification confirms the reset. Ctrl+Alt+R does nothing while
 a VR video plays or another desktop change is still running (a notification says so), and in typing mode. The help card
 lists it on the recenter row, as Ctrl+Alt+Space / R.
 

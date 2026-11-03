@@ -22,6 +22,9 @@ return windows to) onto its XR desktops, right after the desktops are created an
   * One Hyprland eval (generated Lua, fixed shape, every value validated) makes all the moves, in one compositor tick:
     no intermediate layout is drawn. A plan too large for one eval is split; each part is still one tick.
 
+A window the last session had on an XR desktop goes back there first (window_memory.py, which runs just before this and after
+the snapshot below): what follows here applies to the windows left on the fallback, so with nothing remembered it is all of them.
+
 Just before the moves, restore.py snapshots the fallback's arrangement (memory and the state directory). Stop and
 Recover put it back in one eval before recovery: the workspaces under their own ids again (this renumbering undone),
 the windows moved one by one on their own workspaces, order, floating, fullscreen and focus as they were. Recovery's
@@ -103,17 +106,20 @@ def plan(workspaces, clients, monitor, names):
 # Workspace move, then (Omarchy only) renumbering into the desktop's block: the slot it had when free; if an empty
 # workspace holds it (the number the desktop started on, which goes away once not shown) that one steps aside; otherwise
 # the first free slot. Each step in pcall: one that fails leaves the others to run, and the eval still answers ok.
+# `home`'s third argument, window_memory.py's: the workspace id whose slot it should take instead of its own.
 _LUA_HEAD = (
     'local ow=type(o)=="table" and type(o.workspaces)=="table" and o.workspaces or nil '
     'local function free(b) for s=10,1,-1 do if not hl.get_workspace(b+s) then return b+s end end end '
-    'local function home(id,name) '
+    'local function home(id,name,s) '
     'if not ow or type(ow.workspace_id)~="function" then return end '
     'local m=hl.get_monitor(name) local w=hl.get_workspace(id) '
     'if not m or not w or not w.monitor or w.monitor.name~=name then return end '
-    'local b=ow.workspace_id(m,1)-1 if id>b and id<=b+10 then return end '
-    'local want=b+(id-1)%10+1 local x=hl.get_workspace(want) '
+    'local b=ow.workspace_id(m,1)-1 local inb=id>b and id<=b+10 '
+    'local want=b+((s or id)-1)%10+1 if want==id or (inb and not s) then return end '
+    'local x=hl.get_workspace(want) '
     'if x and (x.windows or 0)==0 and not (x.monitor and x.monitor.active_workspace and x.monitor.active_workspace.id==want) then '
     'local f=free(b) if f then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(want),id=f})) end x=hl.get_workspace(want) end '
+    'if x and inb then return end '
     'local n=(not x) and want or free(b) '
     'if n then hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(id),id=n})) end end ')
 _LUA_WINDOWS = (

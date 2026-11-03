@@ -35,6 +35,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Material Design 3 look (the pills, the placement panel, the roll arrows, the resize handle, the pop-ups and the help and video cards in one M3 dark scheme seeded by the Omarchy theme colour, every role under the 191/255 OLED cap; see [The look](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Offline tests only: ctest `material` (the palette for every shipped theme: M3 tones, hue, contrast, the cap; tokens; icons), `glass`, `glass_theme`, `glass_render` (the new shader against its CPU mirror on a GLES context), `hud`, `help_card`, `roll_level`, `video`, `video_render`, `gl_frame`. Not run in an isolated VM and not tried in the glasses: how the tonal surfaces, the 8% / 16% state layers, the elevation shadows and the dimmed roles read on the OLED panels is unverified. |
 | Key bind panel (Ctrl+Alt+K: every run key listed with its keys, changed live in the glasses, saved in `keybinds.json`; conflicts with each other and with Hyprland / Omarchy binds found on load and on every change, refused or left off, shown on red rows and in a toast; see [Key bind panel](#key-bind-panel)) | Offline tests only: `tests/native_spike/test_keybinds.py` (chords, the saved file, `hyprctl binds` parsing, conflicts, every panel key, live rebinding through a fake compositor client, the help card, the helper, the wire, the start-up check in `managed.view_controls`), ctest `binds_panel` (fit at every scale, scrolling, the row states' M3 roles, the cap, the fade) and `ipc`, and `bind_check` (Hyprland's own Lua loader takes the panel's submap, catch-all and key subscription). Not run in an isolated VM and not tried in the glasses: Hyprland's `input.keyboard.key` event, `hl.is_key_down` and `hl.exec_cmd` from an event callback have never run on a live compositor here, so whether the keys reach the panel is unverified (see the failsafes there). |
 | Monitor resolution from the glass pill (the open panel's Resolution dropdown, above Scale, in the same Material Design 3 parts and 18 px font; its menu lists 16:9 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160, 16:10 1680x1050, 1920x1200, 2560x1600 and ultrawide 2560x1080, 3440x1440, 3840x1080, 5120x1440 in three columns, the current one marked; a pick resizes that XR desktop's own Hyprland output live and in place through the broker's `reshape`, like Ultrawide: no other output modeset, no XR restart, its windows stay on it, its placement stays; a new shape eases the tile's width and its neighbours' shift (also for Ultrawide); a desktop that shrinks pulls its floating windows back inside it (also for Ultrawide off and a larger Scale); a scale that no longer divides the size becomes the nearest one that does, and the Scale list greys out the rest; the profile keeps the size for the next start; `desktops.RESOLUTION`, `geometry.with_resolution`, `ViewControl.resolution_box` / `resolution_pick`, `fit_windows.py`, `SizeEase`; see [Live resolution changes](#live-resolution-changes-the-pills-resolution-dropdown)) | Offline tests only: `tests/native_spike/test_resolution_dropdown.py` (the list against the renderer's, the nearest-scale rule, plans, payload, the pick end to end through the fake broker into the saved profile with only `reshape` and its read-back on the wire, the C++ request validator for every size, pointer hits), `tests/native_spike/test_fit_windows.py` (which windows move and where, what counts as shrinking, the worker's order and failures, the generated Lua run in a real interpreter against a stand-in), ctest `view` (`SizeEase`: same smoothstep and time as zoom, neighbours between the two layouts), `glass` (layout, the box, the three-column menu in M3 roles, every label fitting), `glass_contract` (box, menu and item geometry, the sizes and groups), `placement_menu_ipc` (the `resolution` / `resolution_picker` fixture cases), `capture` (`ResizeSettle`) and `capture_e2e_churn_resize_*` (a resized capture waits before re-creating its buffers and never goes blank, and on the GPU paths its new shape eases; a reload's bounce does neither). Not run in an isolated VM or in the glasses: whether the swap is free of any visible glitch on the real compositor (wallpaper, bar and windows redrawing within the 100 ms the renderer waits), how windows re-lay out, whether Hyprland carries out the floating-window move and resize on a shown or hidden workspace as restore.py's use of them suggests, how the ease looks (the new frame is squeezed to the old shape as it starts), and how the three-column menu reads on the OLED panels are unverified. The panel grew another row (326 px tall). No broker change: every listed size was already inside `validDesktop`; the renderer, supervisor and controller must be installed together. |
+| Window memory (`remember-window-placement`, 2026-11-03: when XR stops every window on an XR desktop is remembered, with its desktop, workspace, tile order, scrolling column, floating geometry and fullscreen state, in `window-memory.json` beside `profiles.json`; the next start puts each still-open window back after the remembered monitors exist; kept current through Super drags, parked and brought back when a removed desktop is added again in the run, untouched by Ctrl+Alt+R) | Offline tests only: `tests/native_spike/test_window_memory.py`, `test_window_memory_lua.py` (the generated evals in a real Lua interpreter, against a stand-in for Hyprland's API written from the 0.56.2 source) and `test_window_memory_run.py` (the real `_run_owned`, `ViewControl` and `DesktopManager` with a fake broker and compositor). `bind_check` loads the evals and each dispatcher call in the real `Hyprland --verify-config`. Not run against a live Hyprland, in an isolated VM or in the glasses. Glasses steps W1–W16 are in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -230,6 +231,88 @@ Omarchy (its Ctrl+Alt binds are Delete, Tab and Shift+Tab; its reminder keys Sup
 Super+Shift+Ctrl+R are other chords) and in the run's binds; `bind_check` checks the real config. The help card shows it
 on the recenter row (`Ctrl+Alt+Space / R`: both put things back) so the card keeps 14 rows at its roomiest text. The
 `ease` key is new on the wire, so the renderer and the Python side must come from the same build.
+
+### Window memory
+
+Offline tests only (see the status table). `tools/native_spike/window_memory.py` keeps, for each glasses model, where every
+window on the XR desktops is, and the next start puts each still-open window back. Its docstring has the full rules. No
+new bind, no renderer change, nothing new on the wire: installing it needs no new renderer pin.
+
+**The file.** `~/.config/viture-workspace/window-memory.json`, beside `profiles.json`, schema 1, mode 0600, one entry per
+glasses model, always replaced atomically (temp file in the same directory, fsync, `os.replace`; a failed write leaves the
+old file whole). It is a separate file so nothing that rewrites a profile can touch it. It holds window titles as Hyprland
+reports them, cut to 256 characters, and at most 256 windows per model. A file that is corrupt, too large or invalid in any
+field reads as nothing remembered, and the windows go through adoption as they would without it.
+
+| Key | What it holds |
+| --- | --- |
+| `instance` | The Hyprland instance signature it was saved under. An address only means something within one instance. |
+| `desktops` | Per XR output: `width`, `height`, `scale`, the workspace it showed (`active`), and its `placement` and levelling `roll` round you. |
+| `windows` | Per window: `address`, `class`, `title`, `initial_title`, `pid`, `output`, `index` (position among the run's desktops), `workspace`, `layout` (the workspace's `tiledLayout`), `floating`, `at` (relative to the desktop), `size`, `fullscreen`, `client`, `order`, `column`, `parked`, `landing`. |
+
+Only the desktops' regular workspaces count: never a special workspace, a pinned window, the XR Workspace panel or an
+unmapped window (`adopt.stays`), the rule adoption and recovery keep. A run that ends with nothing on the glasses leaves the
+memory as it was.
+
+**Keeping it current.** `ViewControl.on_events` marks the memory dirty on `openwindow`, `closewindow`, `movewindow`,
+`movewindowv2`, `changefloatingmode`, `fullscreen`, `workspace`, `workspacev2`, `moveworkspace`, `moveworkspacev2` and
+`renameworkspace`, and on a Super drag's release (a drag inside a workspace sends no event). `CAPTURE_DELAY_S` (1 s) later a
+worker reads `j/clients`, `j/workspaces` and `j/monitors`, never on the supervisor loop and never during a desktop change, and
+saves only if something changed. Titles and focus do not mark it: they change all the time, and `view_controls` takes a last
+capture at the run's end, after the sender closes and before recovery. So a resize or swap made with no event reaches the
+file at Stop; after a crash the file has the last marked state.
+
+**A start** (`managed._run_owned`): the pre-XR snapshot (`restore.take`), then `WindowTracker.place`, then adoption as ever,
+then `WindowTracker.finish`. By then the broker has created the remembered desktops. Which windows: only those adoption would
+take, on the fallback's regular workspaces and not staying (`adopt.occupied`), so a window on another physical monitor stays
+there. Which is which (`match`, each pass over what the last left, nothing used twice): same address, only in the same
+Hyprland instance and with the same class; class and title; class, initial title and pid; class and initial title; class and
+pid; class alone. Where: the desktop at the same position, because `hyprland.plan_outputs` numbers a start's desktops from
+XR-1, so after removing XR-2 the old XR-3 is the new XR-2. Past the last one, the last one (XR-4 to XR-3), each workspace
+still its own there: `home` and `pick` take the same slot of that desktop's block if free, else the first free one.
+
+How it moves (`plan`, pure; `moves_lua`, `settle_lua`, generated):
+
+1. A physical workspace holding exactly what one remembered workspace held moves whole and takes its id. Stop moved it back
+   whole, so this is the normal case. Tile tree, column widths and split ratios come with it, and nothing is rebuilt.
+2. Anything else moves window by window (`follow=false`) onto the remembered id, made on its desktop if needed. Ids are kept
+   because Omarchy's blocks follow a monitor's identity (`monitor-workspaces.lua`, so XR-1 keeps its block across runs) and its
+   saved layouts are keyed by id. Without Omarchy a free id is used as is; one held on another monitor gives way to the
+   workspace the desktop shows.
+3. Adoption takes what is left, so unmatched windows behave as without this. With nothing remembered, a run does exactly what
+   it did.
+4. Settling: the workspace's layout if it differs (`hl.workspace_rule`, runtime only), floating state and geometry (kept inside
+   a desktop that changed size, as `fit_windows` does), tile order, fullscreen, the workspace each desktop showed, then focus
+   and the cursor as they were.
+
+Tile order goes by slots: `window.swap` exchanges two windows in place whatever the layout (scrolling: `nodeA->target = b`, so
+a column keeps its width), so the remembered windows are sorted into the live slots, left to right then top to bottom, with
+windows the memory does not know after them. Scrolling then checks the columns. Only if they differ: `expel` until every
+window is alone, the slots again, `consume` to form the stacks. Widths go by `colresize`, a share scaled from the live one,
+because `window.resize` clamps a column to the view and would shrink one scrolled off it
+(`CScrollingAlgorithm::resizeTarget`). Master and dwindle tiles go by `window.resize`, only on a desktop of the same logical
+size. `consume`, `expel` and `colresize` act on the focused window of the focused monitor's shown workspace
+(`CLayoutManager::layoutMsg`), so that step, and only that step, moves focus, and each eval puts the cursor back. Anything that
+already fits is not dispatched, so a whole workspace moves with no focus change at all. `scrolling:direction` left, up or down
+keeps the order only: columns are read left to right from `at`, because the column data (`w.layout.column`) is in Lua and `/eval`
+returns nothing. Every eval is under the client's 4096-byte limit (`_batches`), a group of windows stays in one eval while it
+fits, and a workspace with more tiled windows than one eval holds (about 50) gets the first ones in order.
+
+A window-by-window rebuild cannot bring back the heights inside a stacked column, a dwindle tree's exact shape or tab groups
+(their members move on their own). A workspace that moves whole keeps all three.
+
+**A desktop that goes and comes back.** `DesktopManager._run` calls `leaving` before a removal: the tracker captures and parks
+that desktop's records with where the windows are going (`landing`: XR-3 for Ctrl+Alt+R, the fallback for Remove). A parked
+record stays as it is while its window sits on `landing`. If the window moves anywhere else it was moved on purpose and is
+remembered there; if it closes it is forgotten. When the same name is added in the run, `set_names` has the worker bring those
+very windows back (`exact`: by address only, so a closed window can never pull in another), normally as a whole workspace.
+A later start applies the XR-4 to XR-3 rule to a parked window whose desktop is missing, and the record stays parked for
+that run too.
+
+**Ctrl+Alt+R and the memory.** The reset rewrites the profile only. The window memory keeps every window: a fourth desktop's
+windows go to XR-3 as they always have and stay remembered for XR-4, and the three desktops that stay keep their windows. A
+collision bump changes placements only, so it reaches the memory as context. Everything here fails open: a failed read or
+write is one line in the run's journal (`xr-workspace: run: ...`), and a successful start logs how many windows came back.
 
 ### Typing mode
 
@@ -1321,13 +1404,21 @@ and the generated Lua in a real interpreter when one is installed) and checks in
 (`resize_settles`) and, on the GPU paths, its new shape to ease (`shape_eases`), and `capture_e2e_churn_bounce_*` that a
 reload's bounce does neither.
 
+Window memory adds `tests/native_spike/test_window_memory.py` (capture, the file, matching, the plan, the tracker: debounce,
+off-loop reads, the last capture, an empty capture, a start, parking and coming home, the view's events and Super drags),
+`test_window_memory_lua.py` (every generated eval in a real Lua interpreter against a stand-in for Hyprland's API, with layouts,
+columns, focus-only layout messages and swap as the 0.56.2 source has them; batches under 4096 bytes; hostile values; capture,
+Stop's restore and the next start round trips) and `test_window_memory_run.py` (`_run_owned`'s order, `view_controls`' last
+capture, Ctrl+Alt+R and a pill's Remove and Add through the real `ViewControl` and `DesktopManager`). The stand-in is written from
+reading the source, so a wrong reading would pass there: the glasses steps W1–W16 are what check it.
+
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
 ```sh
 python -m tools.native_spike.bind_check
 ```
 
-It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. A digit and its keycode (`1` and `code:10`, the way Omarchy binds workspace digits) count as the same key. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads; it has no event manager either, so a submap switch would crash it, and the check makes `hl.dispatch` inert while this project's Lua loads (keeping the key bind panel's submap switch in Lua, so the panel's own check that it entered its submap still runs). The run and send keys are the key bind panel's saved ones (`--keybinds FILE`), and the panel's submap, catch-all and key subscription are loaded too.
+It loads `~/.config/hypr/hyprland.lua` with `Hyprland --verify-config`, which runs the Lua config without starting a compositor, in a temporary HOME holding a copy of `~/.config/hypr` and the Omarchy state the config reads. It records every chord the config binds, runs this project's generated bind Lua the same way, and compares them. The window memory's generated evals and each dispatcher they call load there too, so Hyprland's own loader and argument checks see them (`window_memory.verify_lua`). A digit and its keycode (`1` and `code:10`, the way Omarchy binds workspace digits) count as the same key. It never contacts the running compositor. Hyprland 0.56.2's `--verify-config` crashes on exit when a config has made timers, so the check replaces `hl.timer` with an inert stand-in while it loads; it has no event manager either, so a submap switch would crash it, and the check makes `hl.dispatch` inert while this project's Lua loads (keeping the key bind panel's submap switch in Lua, so the panel's own check that it entered its submap still runs). The run and send keys are the key bind panel's saved ones (`--keybinds FILE`), and the panel's submap, catch-all and key subscription are loaded too.
 
 Tests use synthetic collectors, fake sockets and temporary directories. They never open a real display or device, and their output is never published as host evidence. Build and link success does not show that the plugin loads at runtime against the installed compositor.
 
