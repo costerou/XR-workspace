@@ -142,10 +142,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             # Typing mode: the run's bind table holds only Ctrl+Alt+T; off: the full set again (view.py docstring).
             client.reinstall_view_binds(*bind_args, typing=on)
 
-        # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
+        # Per-glasses profile (panel runs; the CLI's layout.json store has none): it takes a pill's desktop changes (sizes
+        # and scales for the next start). Placements last one session (monitor-collision-bump): every start is flat, and
+        # the run never writes where its desktops were placed, moved or pushed (ViewControl gets no placement store).
         from .profiles import PlacementStore, ProfileStore
         placements = PlacementStore(store.path, store.model) if isinstance(store, ProfileStore) else None
-        # Every start is flat: the profile's saved placements are not restored (the run still saves its own to it).
         initial = [dict(DEFAULT_PLACEMENT) for _ in capture] if placements is not None else None
         # Every start is in the overview, anchored, and a maximize follows until Ctrl+Alt+V picks locked (maximize-follow):
         # no saved mode is read; spacing, prediction and the VR video quality still are.
@@ -154,7 +155,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                                    video_quality=video_quality(saved)), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
-                                   on_reload=after_reload, placements=placements, menu_binds=menu_binds,
+                                   on_reload=after_reload, placements=None, menu_binds=menu_binds,
                                    typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
         # Overview free pointer (glass pills, corners, panel sliders): cursor reads, its modal left-button binds and cursor
         # hiding, off the supervisor loop. Unified cursor (unified_cursor.py): the real cursor follows the dot, on the

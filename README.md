@@ -141,8 +141,20 @@ sent, a small notification tells you why.
 ## Placing desktops
 
 You can move, curve and resize each desktop in space, and put it anywhere around you: beside you, behind you,
-above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
-it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
+above or below. Where you put them lasts for the session: every XR start begins with three flat desktops in their
+row again, and nothing about where they were is saved. There are three ways to do it: the panel, the glass pill under
+each desktop in the glasses, and the mouse in the overview.
+
+**Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
+(dragging its pill or a corner, the sliders and keys of its pill, or the panel's **Place** section), it never goes
+through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
+runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
+doesn't pull it back. What counts is how they look from where you sit, curve and size included: a small desktop far
+away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
+you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
+push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
+fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
+desktops glides them there together in a quarter of a second; while you drag they move with your hand.
 
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
@@ -158,13 +170,11 @@ now turn a little toward you instead of sitting flat beside the middle one. Over
 straight down or up at you. There is no setting to turn or tilt a desktop any more: the yaw, pitch and roll settings
 are gone from the panel, from the glass pill and from saved layouts.
 
-**Older saved layouts.** Until 2 November 2026 left/right and down/up were a share of the desktop's own size, and each
-desktop also had yaw, pitch and roll. A layout saved before then still loads. Its left/right and down/up now read as
-at most 10°, so a moved desktop comes back about where it was. Its yaw, pitch and roll are dropped, and its distance
-and curvature are kept. Update the program that draws in the glasses, the background helper and the panel together
-(see [docs/technical.md](docs/technical.md#build-and-install)): the way they talk about placements changed, so an older
-copy of any one of them can't take the new placements. Going back to an older background helper alone resets the
-placements this version saved to flat.
+**Saved layouts.** There are none any more: where the desktops were placed is never written, and a layout an older
+version saved is never read (each start is three flat desktops). Update the program that draws in the glasses, the
+background helper and the panel together (see [docs/technical.md](docs/technical.md#build-and-install)): the way they
+talk about placements changed (four settings since 2 November 2026, and the glide of a bump since 3 November), so an
+older copy of any one of them can't take the new placements.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the
@@ -197,8 +207,8 @@ With a pill open:
 For left/right one press is 0.2° and Shift+Left / Shift+Right is 15°. It never stops: past 180° it carries on round to
 the other side. For down/up one press is 0.2° and Shift is 10°, and it stops at 90° up or down. The pill shows whole
 degrees, so a single small step may not change the number there; the panel's **Place** section shows the tenths. The
-keys and sliders don't stop at other desktops, so they can push one desktop over another. Only dragging the pill (below)
-keeps them apart.
+keys and sliders bump other desktops out of the way like a drag does (above), and R walks the desktop back to its slot,
+pushing aside whatever is there now.
 
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
@@ -213,16 +223,15 @@ In the overview your mouse is no longer stuck inside the desktops:
   and the desktop isn't selected until you click it.
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
-  slot if you drop it within half a degree of it. It never overlaps another desktop as you see it: it stops just
-  before touching one (a small gap is kept, and the strip with its pill counts as part of the desktop), and if you
-  keep pushing at an angle it slides along that desktop's edge. However fast you move, it never jumps through one. To
-  get past a neighbour, lift it clear of the row first, or carry it round behind you. A desktop that already overlaps
-  another (set with the sliders or keys) can still be dragged, as long as it doesn't overlap that one more. A click
-  that doesn't move opens the pill instead of moving anything.
+  slot if you drop it within half a degree of it. It never goes through another desktop as you see it: it bumps it
+  out of the way (see [Desktops bump each other out of the way](#placing-desktops); a small gap is kept, and the strip
+  with its pill counts as part of the desktop), and the bumped one stays where it ends up. However fast you move, it
+  never jumps through one. To pass a neighbour without moving it, lift it clear of the row first, or carry it round
+  behind you. A click that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
-  Resizing doesn't stop at other desktops.
+  Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
 - **Level or roll a desktop:** every desktop in the overview has two small curved arrows in your theme's colour above
   its top corners: counter-clockwise on the left, clockwise on the right. Click one and the desktop turns that way:
   straight to level if level lies that way (say you recentred with your head tipped to one side; judged against

@@ -112,6 +112,18 @@ constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 2
 Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, float tau_ms);
 bool same_placement(const Placement& a, const Placement& b);
 constexpr float kPlacementEaseMs = 35.f;
+// A glide (a `placement` frame's glide, ipc.hpp: a discrete edit that bumped desktops out of the way, bump.py): `t` of the
+// way (0..1, clamped) from `from` to `to` along smootherstep, so it starts and lands with no jump in speed, never overshoots
+// and is exactly `to` at t >= 1. Every desktop of the frame takes the same t, so they move out of each other's way
+// together. x the short way round, as ease_toward.
+Placement glide_toward(const Placement& from, const Placement& to, float t);
+// The renderer's drawn placements, one step to `now_ms` toward `targets` (resized to match, new ones at their target):
+// while a glide is under way (glide.ms > 0) every desktop is glide_toward(glide.from[i], targets[i], (now - start) / ms),
+// and once it has landed the glide ends (ms = 0); otherwise each eases toward its target over `dt_ms` (ease_toward).
+// start_glide begins one from what is drawn now (false, and any glide ends, when ms is 0 or nothing is drawn yet).
+struct PlacementGlide { std::vector<Placement> from; double start_ms = 0; float ms = 0; };
+bool start_glide(PlacementGlide& glide, const std::vector<Placement>& drawn, double now_ms, std::uint32_t ms);
+void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>& targets, float dt_ms, double now_ms, PlacementGlide& glide);
 // Overview free pointer (tools/native_spike/free_pointer.py): a small dim dot on the overview's plane (the canvas, z = -1),
 // or in its direction round you when the frame gives one (direction_disc; the supervisor always does), world-locked like the desktops' slots, and the overview's only pointer: in a desktop too (overview_cursor.py hides
 // the real one). A grey disc inside a black ring, so it reads on bright content without being bright itself. Levels at

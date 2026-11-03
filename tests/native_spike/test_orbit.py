@@ -1,14 +1,14 @@
 """Desktops anywhere around you in the overview (orbit.py): the orbit placement and its mirror of the renderer, the pill
-drag's stretched reach and the re-grab of a pill placed anywhere, and the no-overlap guard. The pointer state machine,
-pill clicks and gates are in test_free_pointer.py and test_glass_pills.py; the renderer side in the ctests view,
-placement_contract, hud, glass and ipc.
+drag's stretched reach and the re-grab of a pill placed anywhere, and the footprints. Bumping (a drag pushing the desktops
+it runs into out of its way) is in test_bump.py; the pointer state machine, pill clicks and gates in
+test_free_pointer.py and test_glass_pills.py; the renderer side in the ctests view, placement_contract, hud, glass and
+ipc.
 
 Offline only. No compositor, renderer binary or glasses.
 """
 import json
 import math
 from pathlib import Path
-import time
 import unittest
 from unittest import mock
 
@@ -49,6 +49,12 @@ def in_view(pointer):
     """True if the dot at canvas point `pointer` is inside the view the overview was laid out in (on its plane)."""
     q = orbit.plane_at(G, orbit.pointer_ray(G, pointer))
     return q is not None and 0 <= q[0] <= W and 0 <= q[1] <= H
+
+
+def follow(drag, pointer, placements):
+    """A pill drag's update: every desktop's placement (orbit.PillDrag.follow), and the dragged one's (x, y)."""
+    out = drag.follow(pointer, placements)
+    return out, (out[drag.index]['x'], out[drag.index]['y'])
 
 
 ANCHOR_REACH = orbit.reach(G, True)
@@ -123,8 +129,7 @@ class FacingTests(unittest.TestCase):
         press = pill_centre(T2)
         drag = orbit.PillDrag(G, 2, (0, 0), press)
         for k in range(1, 60):
-            x, y = drag.follow((press[0] + 25 * k, press[1] - 9 * k), placements)
-            placements[2] = {**placements[2], 'x': x, 'y': y}
+            placements, _ = follow(drag, (press[0] + 25 * k, press[1] - 9 * k), placements)
             self.assertLess(self.facing(T2, placements[2])[0], 1e-6)
 
     def test_the_facing_settings_are_gone(self):
@@ -169,7 +174,7 @@ class DragMappingTests(unittest.TestCase):
     def test_a_drag_turns_the_desktop_the_same_angle_for_every_mouse_pixel(self):
         # Regression (drag-speed-linear): a pill dragged at a steady mouse speed turned the desktop faster and faster past
         # the view's edge. Now equal pointer steps turn the grabbed point equal angles all the way round you, and the
-        # guarded drag (neighbours parked overhead and underfoot, out of the way) does the same.
+        # drag with bumping (neighbours parked overhead and underfoot, out of the way) does the same.
         hw, _ = G['half']
         press = pill_centre(T1)
         grabbed = fp.unproject(G, T1, DEFAULT_PLACEMENT, press)
@@ -182,8 +187,8 @@ class DragMappingTests(unittest.TestCase):
             for k in range(1, int((HI[0] - press[0]) / step) - 1):
                 pointer = (press[0] + sign * step * k, press[1])
                 xy = orbit.drag_target(G, T1, (0, 0), press, pointer)
-                x, y = drag.follow(pointer, placements) if sign == 1 else (None, None)
-                if x is not None: placements[1] = {**placements[1], 'x': x, 'y': y}
+                if sign == 1: placements, (x, y) = follow(drag, pointer, placements)
+                else: x = y = None
                 for got in [xy] + ([(x, y)] if x is not None else []):
                     az = direction(orbit.place_point(G, T1, {**DEFAULT_PLACEMENT, 'x': got[0], 'y': got[1]}, *grabbed))[0]
                     with self.subTest(sign=sign, k=k):
@@ -291,8 +296,7 @@ class RegrabTests(unittest.TestCase):
         drag = orbit.PillDrag(G, 2, (1200, 0), press)
         for k in range(1, 30):
             pointer = (press[0] - 6 * k, press[1] - 8 * k)
-            x, y = drag.follow(pointer, placements)
-            placements[2] = {**placements[2], 'x': x, 'y': y}
+            placements, (x, y) = follow(drag, pointer, placements)
             if y == 0: continue  # held at the slot's height (SNAP, half a degree)
             got = orbit._norm(orbit.place_point(G, T2, placements[2], *pill_centre(T2)))
             self.assertLess(math.degrees(orbit._angle(got, orbit.pointer_ray(G, pointer))), 0.08)  # on the dot
@@ -341,90 +345,6 @@ class FootprintTests(unittest.TestCase):
         self.assertIsNone(f.vertices)
         self.assertAlmostEqual(f.radius, math.pi)
         self.assertGreater(orbit.overlap(f, orbit.footprint(G, T0, DEFAULT_PLACEMENT)), 0)
-
-
-class GuardTests(unittest.TestCase):
-    def test_a_move_into_a_neighbour_stops_before_it_touches(self):
-        x, y = orbit.allowed_move(G, 0, (0, 0), (300, 0), FLAT)
-        self.assertEqual(y, 0); self.assertGreaterEqual(x, 0); self.assertLess(x, 9)  # 40 px gap, ~0.9 degrees
-        f = orbit.footprint(G, T0, {**DEFAULT_PLACEMENT, 'x': x})
-        self.assertEqual(orbit.overlap(f, orbit.footprint(G, T1, DEFAULT_PLACEMENT)), 0)
-
-    def test_it_slides_along_the_neighbour_and_the_corner_comes_first(self):
-        moved = orbit.allowed_move(G, 0, (0, 0), (300, 300), FLAT)
-        self.assertNotEqual(moved, (0, 0))
-        f = orbit.footprint(G, T0, {**DEFAULT_PLACEMENT, 'x': moved[0], 'y': moved[1]})
-        self.assertEqual(orbit.overlap(f, orbit.footprint(G, T1, DEFAULT_PLACEMENT)), 0)
-        if moved != (300, 300):  # an L-shaped slide hands back its corner first...
-            self.assertTrue(moved[0] in (0, 300) or moved[1] in (0, 300))
-            self.assertEqual(orbit.allowed_move(G, 0, moved, (300, 300), FLAT), (300, 300))  # ...and the rest next time
-
-    def test_no_jumping_through_a_neighbour(self):
-        # Straight through XR-2 to the far side in one update: the path is walked, so it stops at XR-2.
-        self.assertLess(orbit.allowed_move(G, 0, (0, 0), (290, 0), FLAT)[0], 9)
-
-    def test_round_behind_you_the_long_way_is_free(self):
-        self.assertEqual(orbit.allowed_move(G, 0, (0, 0), (-1700, 0), FLAT), (-1700, 0))
-        self.assertEqual(orbit.allowed_move(G, 2, (0, 0), (1700, 0), FLAT), (1700, 0))
-
-    def test_an_overlap_left_by_the_panel_never_gets_deeper_and_never_moves_to_another_desktop(self):
-        stuck = at(1, x=60)  # XR-2 pushed into XR-3 from the panel
-        self.assertEqual(orbit.allowed_move(G, 1, (60, 0), (0, 0), stuck), (0, 0))  # can get out
-        self.assertLessEqual(orbit.allowed_move(G, 1, (60, 0), (200, 0), stuck)[0], 60)  # not deeper in
-        x, _ = orbit.allowed_move(G, 1, (60, 0), (-900, 0), stuck)  # out of XR-3, but not into XR-1 instead
-        f = orbit.footprint(G, T1, {**DEFAULT_PLACEMENT, 'x': x})
-        self.assertEqual(orbit.overlap(f, orbit.footprint(G, T0, DEFAULT_PLACEMENT)), 0)
-
-    def test_a_desktop_held_against_a_neighbour_never_flips_round_the_other_way(self):
-        placements = [dict(p) for p in FLAT]
-        press = pill_centre(T0)
-        drag = orbit.PillDrag(G, 0, (0, 0), press)
-        xs = []
-        for k in range(1, 121):  # XR-1 pushed right into XR-2, the pointer carried on to the far edge of its reach
-            x, y = drag.follow((press[0] + k * 20, press[1]), placements)
-            placements[0] = {**placements[0], 'x': x, 'y': y}
-            xs.append(x)
-        self.assertTrue(all(0 <= x < 9 for x in xs), xs[-5:])
-
-    def test_a_panel_key_meanwhile_is_carried_on_from(self):
-        placements = [dict(p) for p in FLAT]
-        press = pill_centre(T2)
-        drag = orbit.PillDrag(G, 2, (0, 0), press)
-        placements[2]['x'] = drag.follow((press[0] + 50, press[1]), placements)[0]
-        placements[2]['x'] = 1795  # a key turned it round behind you meanwhile
-        x, _ = drag.follow((press[0] + 51, press[1]), placements)
-        self.assertTrue(abs(orbit._diff(x, 1795)) <= 1800)
-        validate_placements(placements)
-
-    def test_a_huge_desktop_never_gets_its_neighbours_or_itself_stuck(self):
-        # XR-2 at ten times the size overlaps both neighbours: each may still move as long as that overlap does not grow,
-        # and XR-2 itself can be carried round behind you, clear of them.
-        huge = at(1, distance=10)
-        for i in (0, 2):
-            moved = orbit.allowed_move(G, i, (0, 0), (0, 900 if i else -900), huge)
-            self.assertNotEqual(moved, (0, 0), i)
-            f = orbit.footprint(G, G['tiles'][i], {**DEFAULT_PLACEMENT, 'x': moved[0], 'y': moved[1]})
-            big = orbit.footprint(G, T1, huge[1])
-            self.assertLessEqual(orbit.overlap(f, big), orbit.overlap(orbit.footprint(G, G['tiles'][i], DEFAULT_PLACEMENT), big) + orbit.AREA_EPS)
-        self.assertNotEqual(orbit.allowed_move(G, 1, (0, 0), (1800, 0), huge), (0, 0))
-
-    def test_alone_or_without_geometry_the_target_is_taken_as_asked(self):
-        self.assertEqual(orbit.allowed_move(None, 0, (0, 0), (500, 100), FLAT), (500, 100))
-        g1 = {**G, 'tiles': G['tiles'][:1]}
-        self.assertEqual(orbit.allowed_move(g1, 0, (0, 0), (500, 100), FLAT[:1]), (500, 100))
-
-    def test_a_drag_is_quick_enough_for_the_pointer(self):
-        placements = [dict(p) for p in FLAT]
-        press = pill_centre(T1)
-        drag = orbit.PillDrag(G, 1, (0, 0), press)
-        worst = 0.0
-        for k in range(1, 200):
-            pointer = (press[0] + 9 * math.sin(k / 9) * k, press[1] - 4 * k)
-            t = time.perf_counter()
-            x, y = drag.follow(pointer, placements)
-            worst = max(worst, time.perf_counter() - t)
-            placements[1] = {**placements[1], 'x': x, 'y': y}
-        self.assertLess(worst, 0.05)  # the pointer updates at up to 250 Hz; the loop coalesces motion
 
 
 if __name__ == '__main__':

@@ -164,7 +164,7 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(self.c.status_reply({})['desktops'][1]['scale'], 1.5)
         saved = profiles.load_profile(self.profile, 'luma-ultra')
         self.assertEqual(saved['desktops'], [D169, {**D169, 'scale': 1.5}, D169])
-        self.assertEqual(saved['placements'], [TILTED, FLAT, FLAT])
+        self.assertEqual(saved['placements'], [FLAT, FLAT, FLAT])  # the run's placements are never kept
         self.assertEqual(self.told, [])
         # The next start's desktops (what the controller puts in the consent) keep it.
         self.assertEqual(profiles.load_profile(self.profile, 'luma-ultra')['desktops'][1]['scale'], 1.5)

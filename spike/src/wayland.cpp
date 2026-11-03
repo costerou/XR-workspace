@@ -260,14 +260,21 @@ struct Presentation::Impl : SurfaceRequests {
     double roll_geometry_ms = -1e9;      // when it was sent
     bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
     // Drawn placements ease toward the latest ones (view.hpp ease_toward), so a pill drag or corner resize, whose
-    // updates arrive at the pointer's rate, moves smoothly at the display's rate.
+    // updates arrive at the pointer's rate, moves smoothly at the display's rate. A frame with a glide (a discrete edit
+    // that bumped desktops out of the way) instead takes every desktop from where it was drawn to its new placement along
+    // one smootherstep curve over glide_ms (view.hpp glide_toward); any later frame without one eases on from there.
     std::vector<Placement> eased;
     double eased_ms = -1;
+    PlacementGlide glide;           // a glide under way (glide.ms > 0), view.hpp step_placements
+    std::vector<Placement> targets; // ease_placements' scratch
     void ease_placements(double now_ms) {
         const float dt = eased_ms < 0 ? 1e9f : float(now_ms - eased_ms);
         eased_ms = now_ms;
-        eased.resize(captures.size());
-        for (std::size_t i = 0; i < eased.size(); ++i) eased[i] = ease_toward(eased[i], target_placement(i), dt, kPlacementEaseMs);
+        targets.clear();
+        for (std::size_t i = 0; i < captures.size(); ++i) targets.push_back(target_placement(i));
+        if (eased.size() > targets.size()) eased.resize(targets.size());
+        while (eased.size() < targets.size()) eased.push_back(Placement{});  // eased in from flat, as before
+        step_placements(eased, targets, dt, now_ms, glide);
     }
     bool placements_easing() const {
         for (std::size_t i = 0; i < eased.size(); ++i) if (!same_placement(eased[i], target_placement(i))) return true;
@@ -1076,7 +1083,9 @@ Status Presentation::dispatch(int timeout_ms, int wake_fd, bool* wake_ready) {
     return {};
 }
 void Presentation::set_desktops(const std::vector<std::string>& outputs, const std::vector<std::string>& renew) {
-    if (impl_) impl_->set_desktops(outputs, renew);
+    if (!impl_) return;
+    impl_->glide.ms = 0;  // a glide is per desktop index: eased on from where it got to
+    impl_->set_desktops(outputs, renew);
 }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
@@ -1144,8 +1153,9 @@ void Presentation::set_placement_menu(const PlacementMenuState& state, const std
     if (!impl_) return;
     if (impl_->glass.set(state, double(monotonic_ms()), surface)) impl_->cadence.invalidate();
 }
-void Presentation::set_placements(const std::vector<std::array<std::int32_t, 4>>& placements) {
+void Presentation::set_placements(const std::vector<std::array<std::int32_t, 4>>& placements, std::uint32_t glide_ms) {
     if (!impl_) return;
+    start_glide(impl_->glide, impl_->eased, double(monotonic_ms()), glide_ms);  // (0: a glide under way ends; eased on from where it is)
     impl_->placements.assign(placements.begin(), placements.begin() + std::ptrdiff_t(std::min(placements.size(), impl_->captures.size())));
     ++impl_->placement_updates;
     impl_->cadence.invalidate();
@@ -1177,6 +1187,7 @@ void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, 
                             std::int8_t side, bool active) {
     if (!impl_) return;
     auto& s = *impl_;
+    if (s.rolls != roll) s.glide.ms = 0;  // a glide aims at the placements it began with: eased on from where it got to
     s.rolls = roll;
     s.roll.icons = icons; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
     s.cadence.invalidate();

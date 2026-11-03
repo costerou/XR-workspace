@@ -73,11 +73,12 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     `overview_pointer` frame's az / el), and the hit test and the desktop-mode cursor mapping (project / unproject) read
     the same direction, so what the dot is drawn on is what it hits, anywhere round you.
   * Drags follow the pointer: a pill drag turns the desktop round you (its x / y placement, an orbit: orbit.py) so the
-    point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you), and
-    it never overlaps another desktop. A corner drag changes `distance` so the corner
-    follows the pointer along its diagonal; a slider sets its setting. All are saved like a panel key change (0.5 s
-    debounce, and at once on release). Drags also end, and save, after OVERLAY_IDLE_CLOSE_S without pointer movement,
-    on zoom-in and when a VR video opens.
+    point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you). A
+    corner drag changes `distance` so the corner follows the pointer along its diagonal; a slider sets its setting. A
+    drag never goes through another desktop: it bumps the desktops it runs into out of its way (bump.py; one Pusher for
+    the whole drag), and every desktop goes out in the same `placement` frame. Placements last the session (a run
+    passes ViewControl no store). Drags also end after OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in and
+    when a VR video opens.
   * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is
     up the renderer reports where it lies on the canvas under the current head rotation (`help_geometry`, the card and,
     on a paged card, its previous / next arrows and page indicator; parse_help_geometry). It is the top layer for the
@@ -98,7 +99,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     either way, up to MAX_ROLL, with a ROLL_LEVEL detent at level. The icons are hit-tested before the corners (their hit
     box, roll_hit_rect, leaves the corner its gap and the outside) and hide with the pills. Every hit test and cursor
     mapping uses the rolled surface (orbit.place_point's
-    'roll'); the pill drag and the no-overlap guard ignore the roll (a few degrees at most changes nothing there).
+    'roll'); the pill drag and bumping ignore the roll (a few degrees at most changes nothing there).
   * Off in typing mode (Ctrl+Alt+T: the pills hide too), while zoomed (pills and panels are overview-only) and while a
     VR video plays (resize ops are in video.IGNORED_WHILE_PLAYING). An open panel no longer turns it off: the pointer
     is how a panel is clicked. Leaving the overview removes the binds and shows the cursor again.
@@ -120,7 +121,7 @@ import socket
 import threading
 import time
 
-from . import geometry, orbit, resize, view
+from . import bump, geometry, orbit, resize, view
 from .geometry import PLACEMENT_BOUNDS
 from .overview_cursor import DOT_MODES, OverviewCursor
 
@@ -680,6 +681,7 @@ class OverviewPointer:
         self.entries = self.exits = self.drags = self.moves = self.focus_clicks = 0  # diagnostics
         self.pill_clicks = self.slides = self.outside_closes = self.stale_clicks = self.help_clicks = 0  # diagnostics
         self.actions = 0  # diagnostics: desktop-row button presses
+        self.bumps = 0    # diagnostics: drag updates that pushed another desktop out of the way (bump.py)
         self.window_lifts = self.window_drops = self.window_cancels = 0  # diagnostics: window drags
         self._found = None  # (token, window) from the sender's lookup thread, taken on the loop (_take_found)
         self._token = 0
@@ -1178,21 +1180,22 @@ class OverviewPointer:
             turn = (turn + math.pi) % (2 * math.pi) - math.pi  # counter-clockwise as you see it
             self.rolls[d['index']] = roll_drag(self._tilt(d['index']), d['from'], math.degrees(turn) * 100)
             return b''  # the `roll` frame goes out with the others (_roll_frame)
-        current = c.state.placements[d['index']]
         if d['kind'] == 'corner':
             (ax, ay), (bx, by) = resize_reach(self.geometry, d['start']), resize_reach(self.geometry, self.pointer)
-            updated = {**current, 'distance': resize_distance(d['distance'], d['corner'], bx - ax, by - ay, d['tile'])}
+            if 'bump' not in d: d['bump'] = bump.Pusher(self.geometry, d['index'])  # for the whole drag (bump.py)
+            # Growing pushes the desktops it runs into out of its way; with no room left it stops growing.
+            placements = d['bump'].move(c.state.placements, {'distance': resize_distance(d['distance'], d['corner'], bx - ax, by - ay, d['tile'])})
         else:
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
                 self.moves += 1
-            if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, never overlapping (orbit.py)
+            if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, pushing what it meets (orbit.py)
                 d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'])
-            x, y = d['orbit'].follow(self.pointer, c.state.placements)
-            updated = {**current, 'x': x, 'y': y}
-        if updated == current: return b''
-        c.state.placements = [updated if i == d['index'] else p for i, p in enumerate(c.state.placements)]
+            placements = d['orbit'].follow(self.pointer, c.state.placements)
+        if placements == c.state.placements: return b''
+        if any(p != q for i, (p, q) in enumerate(zip(placements, c.state.placements)) if i != d['index']): self.bumps += 1
+        c.state.placements = placements
         c.save_due = c.clock() + view.MENU_SAVE_DELAY
         return c._placement_frame() + (c._menu_frame() if c.state.menu_open else b'')
 

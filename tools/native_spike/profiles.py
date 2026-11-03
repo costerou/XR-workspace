@@ -5,9 +5,10 @@ presentation-only and can change during a run. Profiles saved before placements 
 saved with the removed yaw / pitch / roll settings keep everything else (geometry.legacy_placement).
 
 A profile holds 1..geometry.MAX_DESKTOPS desktops and one placement each. A run saves its live desktops back (a pill's Add,
-Remove or Ultrawide: desktops.py) and its placements, but every XR start begins fresh (startup_desktops, and
-managed.view_controls): three desktops, all flat, whatever count and placements were saved. Placements missing for a
-desktop are flat; extra ones are dropped.
+Remove, Ultrawide or Scale: desktops.py), but every XR start begins fresh (startup_desktops, and managed.view_controls):
+three desktops, all flat, whatever count and placements were saved. Since monitor-collision-bump (2026-11-03) a run
+never writes placements either: where desktops were moved, resized or pushed lasts that session only (save_desktops
+stores them flat). Placements missing for a desktop are flat; extra ones are dropped.
 """
 import json
 import os
@@ -165,11 +166,13 @@ class PlacementStore:
         save_profile(self.path, self.model, {**profile, 'placements': full})
 
     def save_desktops(self, desktops, placements):
-        """A run's desktops changed (desktops.py): the profile takes them and their placements, so the next session
-        starts with them. Every other profile field is preserved."""
+        """A run's desktops changed (desktops.py): the profile takes them (the first three's sizes and scales are what the
+        next start uses, startup_desktops), with every placement flat: placements last one session, so the run's own
+        (checked, one per desktop) are not kept. Every other profile field is preserved."""
         desktops = validate_desktops(desktops)
+        validate_placements(placements, len(desktops))
         save_profile(self.path, self.model, {**load_profile(self.path, self.model), 'desktops': desktops,
-                                             'placements': validate_placements(placements, len(desktops))})
+                                             'placements': [dict(DEFAULT_PLACEMENT) for _ in desktops]})
 
 
 class LayoutStore:

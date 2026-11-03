@@ -309,7 +309,7 @@ class ManagerTests(unittest.TestCase):
         r.manager.save([TILTED, FLAT, FLAT])
         saved = profiles.load_profile(path, 'beast')
         self.assertEqual(saved['desktops'], [WIDE, D169, D169])
-        self.assertEqual(saved['placements'], [TILTED, FLAT, FLAT])
+        self.assertEqual(saved['placements'], [FLAT, FLAT, FLAT])  # placements last one session: never kept
         r.manager.start(dk.plan(r.manager.specs, [TILTED, FLAT, FLAT], 'remove', 2)); r.manager.take_result()
         r.manager.save([TILTED, FLAT])
         saved = profiles.load_profile(path, 'beast')
@@ -343,8 +343,10 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(store.load(), [TILTED] * 3)
             store.save_desktops([D169, WIDE], [FLAT, TILTED])
             self.assertEqual(profiles.load_profile(path, 'beast')['desktops'], [D169, WIDE])
+            self.assertEqual(store.load(), [FLAT, FLAT])  # a run's placements are not kept (monitor-collision-bump)
+            with self.assertRaises(ValueError): store.save_desktops([D169, WIDE], [FLAT])  # still one per desktop
             store.save([TILTED])  # fewer: the tail stays
-            self.assertEqual(store.load(), [TILTED, TILTED])
+            self.assertEqual(store.load(), [TILTED, FLAT])
 
 
 # --- the supervisor loop ------------------------------------------------------------------------------------------

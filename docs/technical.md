@@ -25,6 +25,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Overview free pointer (the mouse leaves the desktops in the overview: drag a desktop's pill to move it, its corner to resize it, click it to maximize it) | Offline tests only (`tests/native_spike/test_free_pointer.py`, `test_resize.py`, `test_grab_pill.py`; `spike/tests/free_pointer_test.cpp`, `resize_handle_test.cpp`). Not yet tried in the glasses; its new cursor Lua has not been run under `Hyprland --verify-config`. Steps F1–F22 in [placement-menu-test-plan.md](placement-menu-test-plan.md); they replace the earlier corner (R) and bar (P) steps, which assumed the pointer was confined to the desktops. The move steps now use the glass pill under the desktop instead of the old bar above it. |
 | Glass placement pills (a Material Design 3 tonal pill under each desktop in the overview; a click or Ctrl+Alt+L expands it into that desktop's placement panel; replaces the head-locked placement menu card and its Ctrl+Alt+M mouse mode) | Offline tests only. Renderer (ctest): `glass` (geometry, morph, look under the 191/255 cap, panel content, animation), `glass_render` (the GLSL shader against its CPU mirror on a surfaceless EGL context, no display), `glass_contract` (the renderer's pill and panel geometry against `free_pointer.py`), and the updated `hud`, `placement_menu_ipc`, `overlay_residue` and `resize_handle`. Supervisor: `tests/native_spike/test_glass_pills.py`, `test_free_pointer.py`, `test_placement_menu.py`, `test_view_menu_wiring.py`. Not run in an isolated VM and not tried in the glasses: the look, readability on the OLED panels, the expand animation and how clicks and drags feel are unverified. Steps G1–G38 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Desktops anywhere around you, always facing you (3DoF placement: Left/right and Down/up turn a desktop round your eye; every desktop faces the eye, upright, and the yaw, pitch and roll settings are removed; a pill drag keeps the desktop under the dot, and in anchor mode the dot, and so the drag, reaches all the way round you; desktops never overlap as seen from the eye) | Offline tests only: `tests/native_spike/test_orbit.py`, `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py`; ctest `view`, `hud`, `glass`, `ipc`, `placement_menu_ipc`, `placement_contract`. Not run in an isolated VM and not tried in the glasses: how the side desktops look turned toward you, how the drag past the view's edge feels, re-grabbing a pill you cannot see the dot for, the guard's stop and slide, and comfort with desktops behind or above you are unverified. The wire and the profile changed: a placement has four fields (`x`, `y`, `distance`, `curvature`), and Left/right and Down/up are tenths of a degree where they were percent of the desktop's size. A placement saved before 2026-11-02 reads as at most 10°, about where it was, and loses its yaw, pitch and roll. The renderer, the Python supervisor and controller, and the panel QML must be installed together (see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Steps O1–O19 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Bumping (`monitor-collision-bump`, 2026-11-03: a desktop moved or resized in the overview, by its pill, a corner, its open panel's sliders and keys or the panel's **Place** section, pushes every desktop it runs into out of its way, cascading, judged on the footprints as seen from the eye; pushed desktops stay where they were pushed; a discrete edit that bumps glides; placements last one session and are never saved) | Offline tests only: `tests/native_spike/test_bump.py` (collision detection against the footprints' overlap, push resolution, cascades, no room, stability and hysteresis, determinism, timing, the run's keys / sliders / panel / glide), `test_free_pointer.py`, `test_glass_pills.py`, `test_grab_pill.py`, `test_orbit.py`, `test_fresh_start.py` (a run that moved and bumped its desktops writes nothing), `test_desktops.py`, `test_view_menu_wiring.py`; ctest `view` (`glide_toward`, `step_placements`) and `ipc` (the `placement` frame's `glide`). Not run in an isolated VM and not tried in the glasses: how a bump feels while dragging, the quarter-second glide, and pushes near the poles or with big curved desktops are unverified. The `placement` frame gained an optional `glide`, so install the renderer and the Python supervisor together. See [Bumping](#bumping-desktops-out-of-the-way). |
 | Roll-level icons (every desktop in the overview has two small curved arrows (no button behind them, in the theme's M3 primary) above its top corners, counter-clockwise left and clockwise right; a click turns it that way, straight to level when level lies that way (in anchor mode, judged against gravity from the head tracker), else 2°; a drag from either rolls it either way) | Offline tests only: ctest `roll_level` (the roll about the line of sight, the tilt from level, the icon's size, side, arrow and colours, the `roll` frame), `glass_contract` and `placement_contract` (the icon rect and the rolled surface, renderer against supervisor); `tests/native_spike/test_roll_level.py`. Not run in an isolated VM and not tried in the glasses: whether XRLinuxDriver's frame is gravity-level on the Luma Ultra (the tilt assumes its z axis is up), how the icon reads on the OLED panels and how the drag feels are unverified. See [Roll-level icons](#roll-level-icons). |
 | Monitor scale from the glass pill (the open panel's Scale dropdown under its sliders, in Material Design 3: an exposed dropdown and its menu, in the buttons' 18 px font; 100, 125, 150, 175, 200, 250 or 300% (250 and 300 since 2026-11-03), only the steps that divide the desktop's resolution exactly; a pick reshapes that XR desktop's Hyprland output scale live through the broker, like Ultrawide, and the profile keeps it for the next start; `desktops.SCALE`, `ViewControl.scale_box` / `scale_pick`) | Offline tests only: `tests/native_spike/test_scale_dropdown.py` (steps, plan, payload, the pick end to end through the fake broker into the saved profile, pointer hits), ctest `glass` (layout, the box, its indicator and the list in M3 roles), `material` (the drop-down arrows), `glass_contract` (box and list geometry, the steps), `placement_menu_ipc` (the `scale` / `scales` / `picker` fixture cases), the panel's `tst_model.qml` (its desktop editor offers the same steps). Not run in an isolated VM or in the glasses: how the list reads on the OLED panels (seven 20 px items over the sliders), how windows re-lay out after a scale change and how 250% / 300% look are unverified. The panel grew one row (292 px tall). The broker's bound (`spike/ownership/registry.cpp` validDesktop) now takes 2.5 and 3, so the ownership plugin, renderer, supervisor, controller and panel must be installed together. |
 | Live desktops from the glass pill (Ultrawide, Add new, Remove; 1..4 desktops; `tools/native_spike/desktops.py`, the renderer's `desktops` control op, the broker's `reshape` op) | Offline tests only: `tests/native_spike/test_desktops.py` (plans, journaled broker steps with the real journal and the C++ request validator, the supervisor loop, pointer hits, profiles), ctest `ipc`, `glass`, `glass_contract`, `capture`, `ownership`. Not run in an isolated VM or in the glasses: whether Hyprland keeps a capture session through a reshape (the renderer restarts it if not), the new panel row's look, and the guard swap are unverified. The ownership plugin, renderer, supervisor, controller and panel must be installed together. |
@@ -300,7 +301,7 @@ stays off.
 A corner drag (above) changes the desktop's size in space. The desktop scales about its own centre and always keeps its
 shape.
 
-The size has limits and is saved like the other placements:
+The size has limits, and like the other placements it lasts the session only:
 
 - It goes from half to ten times the default size (well past the field of view). A resize is the desktop's **Distance**
   placement seen from the other side (apparent size = 100 / Distance), so the limits are Distance's 200 and 10. Past
@@ -310,8 +311,9 @@ The size has limits and is saved like the other placements:
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - A resize never changes the glass pill's (or its open panel's) size: it moves with the desktop's bottom edge and stays
   the same size on screen (`view.hpp glass_to_desktop`, mirrored by `free_pointer.glass_to_desktop` for hit testing).
-- It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
-  over to the next session.
+- It is not saved: every XR start is three flat desktops ([Bumping](#bumping-desktops-out-of-the-way)). Until
+  2026-11-03 a run wrote it to the glasses model's profile, though no start read it back after 17b6238.
+- Growing pushes the desktops round it out of its way (bumping); with no room left it stops growing.
 - Maximizing a desktop brings it full size where it is (its dragged place round you), then follow brings it in front of
   you; the others stay where they are. The bracket and the pills only show in the overview.
 
@@ -458,18 +460,14 @@ brings a point off its middle only so close. Left/right wraps round behind you; 
 - The drag's reach (anchor mode's or not) is fixed when it starts. Its target is followed unwrapped and only wrapped for the wire,
   so a desktop held against a neighbour does not flip round the other way when the target passes behind you.
 
-**No overlap.** Desktops never overlap as seen from your eye. Each desktop's footprint is the set of directions from
-the eye that it covers: its true placed outline (distance, orbit and curvature included; a curved desktop uses its
-convex hull, so the guard errs early), widened by a 6 canvas-px margin all round (`MARGIN_PX`, the width of the
-highlight frame) and by the 34 px strip under it that holds its pill and the pill's grab padding (`PILL_ZONE_PX`). A
-drag moves along the straight path toward where the pointer wants it and stops before the first step that would make
-two footprints share a direction, so it never jumps through a neighbour, however fast the pointer moves. If that path
-is blocked it slides along the neighbour, sideways first or up and down first, whichever ends closer to the target. The
-corner of that slide is sent first, so the renderer's straight-line easing does not cut through the neighbour. Each
-pair is judged on its own: a desktop that already overlaps another (set from the panel) may move anywhere it overlaps
-that one no more than now and every other one not at all, so it is never stuck. To pass a neighbour, lift it clear of
-the row first, or carry it round behind you. The sliders and keys (in the glass panel and in the settings panel) and
-the corner resize are not guarded.
+**No overlap.** Desktops never go through each other as seen from your eye: a desktop moved or resized bumps the
+ones in its way (`tools/native_spike/bump.py`, [Bumping](#bumping-desktops-out-of-the-way) below). Each desktop's
+footprint is the set of directions from the eye that it covers: its true placed outline (distance, orbit and curvature
+included; a curved desktop uses its convex hull, so it errs early), widened by a 6 canvas-px margin all round
+(`MARGIN_PX`, the width of the highlight frame) and by the 34 px strip under it that holds its pill and the pill's
+grab padding (`PILL_ZONE_PX`). Until 2026-11-03 a drag stopped before the first step that would make two footprints
+share a direction and slid along the neighbour (`orbit.allowed_move`, removed), and the sliders, keys and the corner
+resize were not guarded.
 
 **Keys.** With a pill open, Left / Right change Left/right by 0.2° and Shift+Left / Shift+Right by 15°
 (`view.MENU_STEPS`); it wraps past 180° to the other side (`orbit.wrap`) and never stops. Down/up steps by 0.2° and
@@ -534,8 +532,7 @@ keeps the camera-only `look_turn` instead. In anchor mode the room stays put, an
   off centre however you turned. Head-tracking calibration was not involved: the recentre reference, the driver's
   calibration wait and the follow spring were correct; the regression test is `spike/tests/focus_center_test.cpp`.
 
-The position is saved to the glasses model's profile like a size (half a second after the last change, and on
-release), and the panel's **Place** tab shows it.
+The position lasts the session, like a size, and the panel's **Place** tab shows it.
 
 **Fields, units and installing.** A placement now has exactly four integer fields, in this order: `x`, `y`,
 `distance` (percent, 10 to 200) and `curvature` (degrees, 0 to 120) (`geometry.PLACEMENT_KEYS`). A wire placement
@@ -570,7 +567,61 @@ desktop replaced it; the wire op (`move_handle`) stayed the same and only the 4 
 same day the flat offset's move maths gave way to the orbit and guard above: its 4% snap, its allowance of 10% overlap
 of the smaller desktop's area (judged on approximate overview rectangles) and its reach of one desktop width or height
 are gone, and `resize.allowed_move` became `orbit.allowed_move`. After that every desktop was made to face you, and the
-yaw, pitch and roll settings were removed.
+yaw, pitch and roll settings were removed. On 2026-11-03 bumping (`bump.py`) replaced `orbit.allowed_move`.
+
+### Bumping desktops out of the way
+
+Since 2026-11-03 (`monitor-collision-bump`, after Cody: "Upon resizing and moving windows, instead of it going through
+other windows have it bump them out of the way smoothly if they collide"), every way of moving or resizing one desktop
+in a run pushes the desktops it runs into out of its way: the pill drag (`orbit.PillDrag`), the corner resize
+(`free_pointer.OverviewPointer._apply_drag`), the open panel's sliders and keys, R included (`view.ViewControl._menu_update`), and an
+Apply from the settings panel's **Place** section when it changes one desktop (`ViewControl._on_placement`; a message
+that changes several at once, as an older panel's stale copy might, is applied as given). It is all
+`tools/native_spike/bump.py` (`Pusher`), pure maths on the overview layout the renderer reports; without that layout,
+or with one stale after a desktop change, an edit applies as given. Everything here is covered by offline tests only.
+
+- **Collision.** Two desktops collide when their footprints (above) share a direction: `bump.apart`, a separating great
+  circle through an edge of either polygon (the spherical form of the separating-axis test, exact for two convex
+  polygons in one hemisphere; wider ones fall back to `orbit.overlap`). Touching is allowed. This is the view from your
+  eye, so size, distance and curvature all count (curving keeps the arc's length: at the slot's distance a curved
+  desktop is narrower, close up its edges come round toward you), and a far desktop that would show through a near one
+  collides with it.
+- **Walking.** The edited desktop (the mover) goes from where it is to where it was asked along the straight path,
+  every field together (the apparent size, 100 / Distance, changes evenly), in steps of at most `STEP_TENTHS` (0.4°) of
+  edge travel, or longer ones past `MAX_WALK_STEPS` steps, and strides while its bounding cone is clear of every other
+  desktop's. However far one update takes it, it never jumps through a desktop. The short way round; half a turn is as
+  far either way, so both are tried and the one that pushes least wins (R from directly behind you comes back round the
+  free side).
+- **Pushing.** After each step every desktop the mover covers is moved by the least turn round you or lift (one of
+  ±x, ±y, whole tenths of a degree) that clears it, never toward the pusher: the minimum translation of a physics
+  engine, on the sphere. So a desktop hit from the side goes sideways and one hit from above goes down. A pushed desktop
+  that now covers another pushes that one the same way (cascading), and the train moves with the mover step for step.
+  A pushed desktop stays where it was pushed; moving the mover back does not pull it back.
+- **Stable.** A push is at most `PUSH_REACH` (3) times the step's own travel plus `PUSH_SLACK`, so nothing is flung; a
+  desktop keeps the way it was last pushed while that costs at most `HYSTERESIS` (0.2°) more than the cheapest (no
+  flip-flopping between sideways and down at a corner; a drag keeps one `Pusher` to its end); the same edit always
+  gives the same result; a still pointer moves nothing.
+- **No room.** A push may not take a desktop past straight overhead or underfoot (±90°, the placement bounds and the
+  pointer's reach) or into the mover, and a step may make at most `MAX_PUSHES` (12) pushes. Then the mover stops at its
+  last step that fitted (a resize at the largest whole Distance that fits) and what it pushed stays where it got to;
+  an orbit move then slides along what cannot give way, sideways first or up and down first, whichever ends closer,
+  the slide's corner first (as the old guard did). A full ring round you still turns: the last desktop comes round
+  behind the mover, which has moved on by as much.
+- **Overlaps already there** (a desktop change re-laying out the row, a spacing change, an older panel) are tolerated:
+  that pair may only get less deep, so nothing is ever stuck, and nothing moves on its own to fix it.
+- **Smooth.** The pushed desktops go to the renderer in the same `placement` frame as the mover. While you drag (pill,
+  corner, a held slider) the frames stream at the pointer's rate and the renderer eases every desktop alike
+  (`ease_toward`, 35 ms), so they move with your hand. A discrete edit that pushed something (a key, a slider press,
+  an Apply) adds `"glide": 240` (`view.GLIDE_MS`; `ipc.hpp` takes 1..`kMaxPlacementGlideMs` = 1000): the renderer
+  then takes every desktop from where it is drawn to its new placement along one smootherstep curve over 240 ms
+  (`view.hpp glide_toward`, `step_placements`), starting and landing without a jump in speed, never overshooting, all
+  with the same timing, so they slide out of each other's way together. Any later frame without a glide, a roll change
+  and a desktop change end it, eased on from where it got to. An edit that bumps nothing eases as before.
+- **Session only.** Placements are never saved (Cody, 2026-11-03: "XR starts fresh every time"). Every start was
+  already three flat desktops (17b6238); now a run also never writes them: `managed.view_controls` gives
+  `ViewControl` no placement store, and `PlacementStore.save_desktops` (a pill's Add, Remove, Ultrawide or Scale, which
+  still keeps the sizes and scales for the next start) stores every placement flat.
+- **The roll** (roll-level icons) is ignored by bumping, as by the guard before it.
 
 ### Roll-level icons
 
@@ -601,7 +652,7 @@ arrow that levels it, only when more than 0.5° off and measured, and a drag was
 and level, so a desktop could only ever be turned toward level. The icons are drawn over every desktop, so they are
 hit-tested before any desktop's corners, pill or surface (a nearer neighbour in a tight overview never takes an icon's
 click).
-Hit testing and the cursor mapping use the rolled surface; the pill drag and the no-overlap guard ignore the roll.
+Hit testing and the cursor mapping use the rolled surface; the pill drag and bumping ignore the roll.
 
 ### Help card pages
 
@@ -785,7 +836,9 @@ The placement round you, with every desktop facing you (see
 `tests/native_spike/test_orbit.py` for `tools/native_spike/orbit.py`, and the `placement_contract` ctest, which compares
 `orbit.place_point` with the renderer's `place_point`. `test_free_pointer.py`, `test_glass_pills.py`,
 `test_grab_pill.py`, `test_placement_menu.py`, `test_profiles.py` (older profiles that still carry yaw, pitch and roll)
-and the `view`, `hud`, `glass`, `ipc` and `placement_menu_ipc` ctests were updated for it. All of these are offline.
+and the `view`, `hud`, `glass`, `ipc` and `placement_menu_ipc` ctests were updated for it. Bumping
+([Bumping desktops out of the way](#bumping-desktops-out-of-the-way)) adds `tests/native_spike/test_bump.py`, and the
+`view` (the glide) and `ipc` (the frame's `glide`) ctests. All of these are offline.
 
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 

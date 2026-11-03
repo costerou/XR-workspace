@@ -333,6 +333,36 @@ Placement ease_toward(const Placement& from, const Placement& to, float dt_ms, f
             step(from.roll, to.roll)};
 }
 
+Placement glide_toward(const Placement& from, const Placement& to, float t) {
+    if (!(t < 1)) return to;
+    const float s = smootherstep(t);
+    auto at = [&](float a, float b) { return a + (b - a) * s; };
+    const float turn = std::remainder(to.x - from.x, 2 * float(M_PI));  // the short way round
+    return {from.x + turn * s, at(from.y, to.y), at(from.distance, to.distance), at(from.curvature, to.curvature), at(from.roll, to.roll)};
+}
+
+bool start_glide(PlacementGlide& glide, const std::vector<Placement>& drawn, double now_ms, std::uint32_t ms) {
+    glide.ms = 0;
+    if (!ms || drawn.empty()) return false;
+    glide.from = drawn;
+    glide.start_ms = now_ms;
+    glide.ms = float(ms);
+    return true;
+}
+
+void step_placements(std::vector<Placement>& drawn, const std::vector<Placement>& targets, float dt_ms, double now_ms, PlacementGlide& glide) {
+    const std::size_t had = drawn.size();
+    drawn.resize(targets.size());
+    for (std::size_t i = had; i < drawn.size(); ++i) drawn[i] = targets[i];
+    if (glide.ms > 0) {
+        const float t = float((now_ms - glide.start_ms) / double(glide.ms));
+        for (std::size_t i = 0; i < drawn.size(); ++i) drawn[i] = glide_toward(i < glide.from.size() ? glide.from[i] : targets[i], targets[i], t);
+        if (!(t < 1)) glide.ms = 0;  // landed exactly
+        return;
+    }
+    for (std::size_t i = 0; i < drawn.size(); ++i) drawn[i] = ease_toward(drawn[i], targets[i], dt_ms, kPlacementEaseMs);
+}
+
 bool same_placement(const Placement& a, const Placement& b) {
     return a.x == b.x && a.y == b.y && a.distance == b.distance && a.curvature == b.curvature && a.roll == b.roll;
 }

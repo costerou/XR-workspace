@@ -156,9 +156,23 @@ int main() {
     require(pp.desktops.size() == 3 && pp.desktops[0].distance == 100 && pp.desktops[1].x == -1800 && pp.desktops[1].y == 900 &&
             pp.desktops[1].distance == 200 && pp.desktops[1].curvature == 120 && pp.desktops[2].x == 1800 && pp.desktops[2].y == -900 &&
             pp.desktops[2].distance == 10 && pp.desktops[2].curvature == 0);
+    require(pp.glide_ms == 0);  // no glide: the quick exponential easing
     // Key order does not matter.
     require(std::holds_alternative<xr::ControlMessage>(
         xr::decode_control(placement(R"({"desktops":[{"curvature":3,"distance":75,"y":-1,"x":2}]})"))));
+    // Optional glide (bumping, view.py GLIDE_MS): 1..kMaxPlacementGlideMs whole milliseconds, either side of "desktops".
+    for (const auto& [payload, ms] : {std::pair{R"({"desktops":[)" + flat + R"(],"glide":240})", 240u},
+                                      std::pair{R"({"glide":1,"desktops":[)" + flat + "]}", 1u},
+                                      std::pair{R"({"desktops":[)" + flat + R"(],"glide":1000})", 1000u}}) {
+        auto gd = xr::decode_control(placement(payload));
+        require(std::holds_alternative<xr::ControlMessage>(gd));
+        require(std::get<xr::PlacementPayload>(std::get<xr::ControlMessage>(gd).payload).glide_ms == ms);
+    }
+    for (const std::string& bad : {R"({"desktops":[)" + flat + R"(],"glide":0})", R"({"desktops":[)" + flat + R"(],"glide":1001})",
+                                  R"({"desktops":[)" + flat + R"(],"glide":-5})", R"({"desktops":[)" + flat + R"(],"glide":2.5})",
+                                  R"({"desktops":[)" + flat + R"(],"glide":true})", R"({"desktops":[)" + flat + R"(],"glide":"240"})",
+                                  R"({"desktops":[)" + flat + R"(],"glide":240,"extra":1})", std::string(R"({"glide":240})")})
+        require(std::holds_alternative<xr::Error>(xr::decode_control(placement(bad))));
     auto with = [&](const std::string& key, const std::string& value) {
         auto p = flat; const auto at = p.find("\"" + key + "\":") + key.size() + 3;
         return p.substr(0, at) + value + p.substr(p.find_first_of(",}", at));

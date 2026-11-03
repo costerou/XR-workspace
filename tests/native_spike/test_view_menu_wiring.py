@@ -291,7 +291,7 @@ class OverlayIdleCloseTests(unittest.TestCase):
 
 
 class ManagedMenuWiringTests(unittest.TestCase):
-    def test_run_wires_modal_binds_and_saves_a_pending_change_at_run_end(self):
+    def test_run_wires_modal_binds_and_never_saves_placements(self):
         from unittest import mock
         from tools.native_spike import managed, profiles
         with tempfile.TemporaryDirectory() as tmp:
@@ -304,9 +304,10 @@ class ManagedMenuWiringTests(unittest.TestCase):
                 client.install_menu_binds.assert_called_once()
                 self.assertEqual(client.install_menu_binds.call_args.args, client.install_view_binds.call_args.args)
                 control.on_message({'op': 'menu_desktop_next'}); control.on_message({'op': 'menu_inc_big'})
-                self.assertIsNotNone(control.save_due)
-                self.assertEqual(profiles.PlacementStore(store.path, store.model).load()[1]['x'], 0)  # not yet saved
-            self.assertEqual(profiles.PlacementStore(store.path, store.model).load()[1]['x'], view.MENU_STEPS['x'][1])
+                self.assertEqual(control.state.placements[1]['x'], view.MENU_STEPS['x'][1])  # live in the run
+                self.assertIsNone(control.placements)  # no placement store: positions last this session only
+            # Run end: no placement was written, so the next XR start is fresh (monitor-collision-bump).
+            self.assertEqual(profiles.load_profile(store.path, store.model)['placements'], [DEFAULT_PLACEMENT] * 3)
             client.remove_view_binds.assert_called_once()
             self.assertIsNone(control.menu_binds)
 

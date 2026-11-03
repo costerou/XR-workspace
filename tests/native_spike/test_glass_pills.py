@@ -442,13 +442,15 @@ class PillDragTests(Base):
         self.assertEqual(self.join(), [])
         self.assertFalse(last(out, 'move_handle')['active'])
 
-    def test_the_overlap_guard_and_the_slot_snap_still_apply(self):
+    def test_a_drag_bumps_its_neighbours_and_the_slot_snap_still_applies(self):
         self.grab(0)
-        self.by(T0[2] * 0.6, 0)  # straight into XR-2: stops before it touches (the slots are 40 px, ~0.9 degrees, apart)
-        self.assertGreater(self.state.placements[0]['x'], 0); self.assertLess(self.state.placements[0]['x'], 9)
-        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, self.state.placements[0]), orbit.footprint(G, T1, DEFAULT_PLACEMENT)), 0)
-        self.by(-T0[2] * 0.6 + T0[2] * 0.03, 0)  # back to 3 % from the slot: snaps home
+        self.by(T0[2] * 0.6, 0)  # straight into XR-2 (the slots are 40 px, ~0.9 degrees, apart): it is pushed out of the way
+        moved = [dict(p) for p in self.state.placements]
+        self.assertGreater(moved[0]['x'], 9); self.assertGreater(moved[1]['x'], 0)
+        self.assertEqual(orbit.overlap(orbit.footprint(G, T0, moved[0]), orbit.footprint(G, T1, moved[1])), 0)
+        self.by(-T0[2] * 0.6 + T0[2] * 0.03, 0)  # back to 3 % from the slot: snaps home, XR-2 stays where it was pushed
         self.assertEqual(self.state.placements[0]['x'], 0)
+        self.assertEqual(self.state.placements[1:], moved[1:])
         self.release()
 
     def test_a_lost_release_is_finished_by_the_next_press(self):

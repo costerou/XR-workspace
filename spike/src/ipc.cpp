@@ -336,9 +336,16 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = std::move(help);
         } else if (op == ControlOp::placement) {
             const auto& p = j["payload"];
-            if (p.size() != 1 || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() || p["desktops"].size() > kMaxDesktops)
+            const bool glide = p.contains("glide");  // optional: the frame's desktops glide there together (ipc.hpp)
+            if (p.size() != 1 + std::size_t(glide) || !p.contains("desktops") || !p["desktops"].is_array() || p["desktops"].empty() ||
+                p["desktops"].size() > kMaxDesktops)
                 return invalid();
             PlacementPayload placements;
+            if (glide) {
+                const auto& g = p["glide"];
+                if (!g.is_number_unsigned() || g.get<std::uint64_t>() < 1 || g.get<std::uint64_t>() > kMaxPlacementGlideMs) return invalid();
+                placements.glide_ms = std::uint32_t(g.get<std::uint64_t>());
+            }
             for (const auto& d : p["desktops"]) {
                 WirePlacement w;
                 if (!placement(d, w)) return invalid();
