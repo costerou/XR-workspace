@@ -107,9 +107,14 @@ struct GlCompositor::Impl {
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
+    GLuint offscreen_fb = 0, offscreen_rb = 0;  // create_offscreen: the framebuffer drawn instead of a window
+    bool setup(std::size_t sources, std::string& why);  // shaders, textures, extensions (context current)
+    bool swap() { if (surface == EGL_NO_SURFACE) { glFlush(); return true; } return eglSwapBuffers(display, surface); }
     ~Impl() {
         if (display != EGL_NO_DISPLAY) {
             eglMakeCurrent(display, surface, surface, context);
+            if (offscreen_fb) glDeleteFramebuffers(1, &offscreen_fb);
+            if (offscreen_rb) glDeleteRenderbuffers(1, &offscreen_rb);
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) drop(i);
             hud.reset(); help_hud.reset();
@@ -150,29 +155,58 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     s.surface = eglCreatePlatformWindowSurface(s.display, config, s.window, nullptr);
     if (s.surface == EGL_NO_SURFACE || !eglMakeCurrent(s.display, s.surface, s.surface, s.context)) { why = "egl surface"; return nullptr; }
     eglSwapInterval(s.display, 0);  // pacing is the caller's frame callback, never a blocking swap
+    if (!s.setup(sources, why)) return nullptr;
+    return out;
+}
+
+std::unique_ptr<GlCompositor> GlCompositor::create_offscreen(std::uint32_t width, std::uint32_t height, std::size_t sources, std::string& why) {
+    std::unique_ptr<GlCompositor> out(new GlCompositor());
+    out->impl_ = std::make_unique<Impl>();
+    auto& s = *out->impl_;
+    s.width = width; s.height = height;
+    s.display = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr);
+    if (s.display == EGL_NO_DISPLAY || !eglInitialize(s.display, nullptr, nullptr)) { why = "egl display"; return nullptr; }
+    if (!eglBindAPI(EGL_OPENGL_ES_API)) { why = "gles api"; return nullptr; }
+    const EGLint config_attribs[] = {EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE};
+    EGLConfig config; EGLint count = 0;
+    if (!eglChooseConfig(s.display, config_attribs, &config, 1, &count) || count < 1) { why = "egl config"; return nullptr; }
+    const EGLint context_attribs[] = {EGL_CONTEXT_MAJOR_VERSION, 2, EGL_NONE};
+    s.context = eglCreateContext(s.display, config, EGL_NO_CONTEXT, context_attribs);
+    if (s.context == EGL_NO_CONTEXT || !eglMakeCurrent(s.display, EGL_NO_SURFACE, EGL_NO_SURFACE, s.context)) { why = "egl context"; return nullptr; }
+    glGenFramebuffers(1, &s.offscreen_fb); glBindFramebuffer(GL_FRAMEBUFFER, s.offscreen_fb);
+    glGenRenderbuffers(1, &s.offscreen_rb); glBindRenderbuffer(GL_RENDERBUFFER, s.offscreen_rb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8_OES, GLsizei(width), GLsizei(height));
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, s.offscreen_rb);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { why = "framebuffer"; return nullptr; }
+    if (!s.setup(sources, why)) return nullptr;
+    return out;
+}
+
+bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
+    auto& s = *this;
     s.vendor = escape(reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
     s.renderer = escape(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
     s.version = escape(reinterpret_cast<const char*>(glGetString(GL_VERSION)));
     GLuint vs = compile(GL_VERTEX_SHADER, kVertex), fs = compile(GL_FRAGMENT_SHADER, kFragment);
-    if (!vs || !fs) { why = "shader compile"; return nullptr; }
+    if (!vs || !fs) { why = "shader compile"; return false; }
     s.program = glCreateProgram(); glAttachShader(s.program, vs); glAttachShader(s.program, fs); glLinkProgram(s.program);
     glDeleteShader(vs); glDeleteShader(fs);
     GLint linked = 0; glGetProgramiv(s.program, GL_LINK_STATUS, &linked);
-    if (!linked) { why = "shader link"; return nullptr; }
+    if (!linked) { why = "shader link"; return false; }
     GLuint cvs = compile(GL_VERTEX_SHADER, kColorVertex), cfs = compile(GL_FRAGMENT_SHADER, kColorFragment);
-    if (!cvs || !cfs) { why = "shader compile"; return nullptr; }
+    if (!cvs || !cfs) { why = "shader compile"; return false; }
     s.color_program = glCreateProgram(); glAttachShader(s.color_program, cvs); glAttachShader(s.color_program, cfs); glLinkProgram(s.color_program);
     glDeleteShader(cvs); glDeleteShader(cfs);
     glGetProgramiv(s.color_program, GL_LINK_STATUS, &linked);
-    if (!linked) { why = "shader link"; return nullptr; }
+    if (!linked) { why = "shader link"; return false; }
     s.color_pos = glGetAttribLocation(s.color_program, "pos"); s.color = glGetUniformLocation(s.color_program, "color");
     s.color_view = glGetUniformLocation(s.color_program, "view"); s.color_half_fov = glGetUniformLocation(s.color_program, "half_fov");
     GLuint gvs = compile(GL_VERTEX_SHADER, kGlowVertex), gfs = compile(GL_FRAGMENT_SHADER, kGlowFragment);
-    if (!gvs || !gfs) { why = "shader compile"; return nullptr; }
+    if (!gvs || !gfs) { why = "shader compile"; return false; }
     s.glow_program = glCreateProgram(); glAttachShader(s.glow_program, gvs); glAttachShader(s.glow_program, gfs); glLinkProgram(s.glow_program);
     glDeleteShader(gvs); glDeleteShader(gfs);
     glGetProgramiv(s.glow_program, GL_LINK_STATUS, &linked);
-    if (!linked) { why = "shader link"; return nullptr; }
+    if (!linked) { why = "shader link"; return false; }
     s.glow_pos = glGetAttribLocation(s.glow_program, "pos"); s.glow_px = glGetAttribLocation(s.glow_program, "px");
     s.glow_rect = glGetUniformLocation(s.glow_program, "rect"); s.glow_color = glGetUniformLocation(s.glow_program, "color");
     s.glow_falloff = glGetUniformLocation(s.glow_program, "falloff");
@@ -226,8 +260,8 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
-    if (glGetError() != GL_NO_ERROR) { why = "gl setup"; return nullptr; }
-    return out;
+    if (glGetError() != GL_NO_ERROR) { why = "gl setup"; return false; }
+    return true;
 }
 
 GlCompositor::~GlCompositor() = default;
@@ -309,7 +343,8 @@ void GlCompositor::resize(std::uint32_t width, std::uint32_t height) {
     auto& s = *impl_;
     if (width == s.width && height == s.height) return;
     s.width = width; s.height = height;
-    wl_egl_window_resize(s.window, static_cast<int>(width), static_cast<int>(height), 0, 0);
+    if (s.window) wl_egl_window_resize(s.window, static_cast<int>(width), static_cast<int>(height), 0, 0);
+    else if (s.offscreen_rb) { glBindRenderbuffer(GL_RENDERBUFFER, s.offscreen_rb); glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8_OES, GLsizei(width), GLsizei(height)); }
 }
 
 bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t width, std::uint32_t height, std::uint32_t stride) {
@@ -476,7 +511,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         }
     }
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);  // head-locked, on top
-    const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
+    const bool ok = glGetError() == GL_NO_ERROR && s.swap();
     s.draw_stat.add(now_us() - start);
     return ok;
 }
@@ -492,7 +527,7 @@ bool GlCompositor::draw_scene_and_swap(const std::function<void(std::uint32_t, s
         if (s.video_hud) s.video_hud->draw(*card, card_generation, card_alpha, s.width, s.height);
     }
     if (s.hud && s.popup) s.hud->draw(*s.popup, s.popup_generation, s.popup_alpha, s.width, s.height);
-    const bool ok = glGetError() == GL_NO_ERROR && eglSwapBuffers(s.display, s.surface);
+    const bool ok = glGetError() == GL_NO_ERROR && s.swap();
     s.draw_stat.add(now_us() - start);
     return ok;
 }

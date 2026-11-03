@@ -247,6 +247,15 @@ if(XR_ENABLE_PRESENTATION)
   target_compile_options(glass_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   add_test(NAME glass_render COMMAND glass_render_test)
   set_tests_properties(glass_render PROPERTIES SKIP_RETURN_CODE 77)
+  # GlCompositor frames on surfaceless EGL (create_offscreen): a long-lived compositor draws every scenario frame exactly
+  # like a fresh one (ctest); --bench and --hashes time and fingerprint the draw path. gl.cpp and hud_gl.cpp are compiled
+  # into it a second time with their GL calls counted (tests/gl_call_counts.hpp). Skipped without EGL.
+  add_executable(gl_bench tests/gl_bench.cpp tests/gl_bench_gl.cpp tests/gl_bench_hud_gl.cpp)
+  target_include_directories(gl_bench PRIVATE src tests)
+  target_link_libraries(gl_bench PRIVATE xr_hud xr_view xr_pose PkgConfig::GPU PkgConfig::WAYLAND)
+  target_compile_options(gl_bench PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-subobject-linkage)  # gl.cpp included as a header
+  add_test(NAME gl_frame COMMAND gl_bench)
+  set_tests_properties(gl_frame PROPERTIES SKIP_RETURN_CODE 77)
   foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump)
     target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endforeach()
