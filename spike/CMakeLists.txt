@@ -1,6 +1,31 @@
 cmake_minimum_required(VERSION 3.25)
 project(xr_native_spike VERSION 0.1.0 LANGUAGES C CXX)
 
+# Faster local builds: use ccache and mold (or lld) when installed. Explicit
+# -DCMAKE_<LANG>_COMPILER_LAUNCHER / -DCMAKE_LINKER_TYPE always win. Pick the
+# generator with -G Ninja (CMake cannot choose it from here).
+option(XR_FAST_BUILD_TOOLS "Auto-use ccache and mold/lld when found" ON)
+if(XR_FAST_BUILD_TOOLS)
+  find_program(XR_CCACHE ccache)
+  if(XR_CCACHE)
+    foreach(lang C CXX)
+      if(NOT CMAKE_${lang}_COMPILER_LAUNCHER)
+        set(CMAKE_${lang}_COMPILER_LAUNCHER "${XR_CCACHE}")
+      endif()
+    endforeach()
+  endif()
+  if(NOT CMAKE_LINKER_TYPE)
+    find_program(XR_MOLD mold)
+    find_program(XR_LLD ld.lld)
+    if(XR_MOLD)
+      set(CMAKE_LINKER_TYPE MOLD)
+    elseif(XR_LLD)
+      set(CMAKE_LINKER_TYPE LLD)
+    endif()
+  endif()
+  message(STATUS "Fast build tools: launcher='${CMAKE_CXX_COMPILER_LAUNCHER}' linker='${CMAKE_LINKER_TYPE}'")
+endif()
+
 option(XR_ENABLE_HARDWARE "Enable later opt-in hardware components" OFF)
 option(XR_ENABLE_SDK "Enable later approved SDK worker" OFF)
 option(XR_ENABLE_IPC "Build offline native IPC parser and tests" ON)

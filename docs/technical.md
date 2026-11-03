@@ -49,6 +49,12 @@ cmake -S spike -B build/release -DCMAKE_BUILD_TYPE=Release \
 cmake --build build/release -j
 ctest --test-dir build/release --output-on-failure
 
+# Faster rebuilds: add -G Ninja on first configure (wipe the dir to switch
+# generator). ccache and mold (else lld) are picked up automatically when
+# installed (`pacman -S ninja ccache mold`); -DXR_FAST_BUILD_TOOLS=OFF opts out.
+# One ccache shared by all worktrees: ~/.config/ccache/ccache.conf with
+#   max_size = 20G, base_dir = ~/.t3/worktrees (absolute), hash_dir = false
+
 # Pin the renderer and plugin by hash under ~/.local/share/viture-workspace/bin/
 # and write the user unit. The controller only launches pinned copies.
 python -m tools.xr_controller install --build build/release
