@@ -428,6 +428,18 @@ the overview (`look()` 0 to 1: `look_turn` rotates the camera so the target's dr
 desktop's was, upright), then zoom into the target while the turn eases back to none, so it lands where it was dragged.
 A press while zooming out re-aims the switch; later presses queue. Zooming out mid-switch eases zoom and turn back.
 
+**Centring the focused desktop.** In follow and locked modes the canvas is aimed at the focused desktop: the canvas sits
+at the head (follow: the spring's head) times `aim_rotation` of the focused desktop's overview direction
+(`focus_direction`, slot plus orbit), weighted by `focus_weight` (zoom plus look, at most 1). Zoomed in, the desktop is
+straight ahead wherever it was dragged; in the overview the canvas centre is straight ahead as before. A switch zooms out
+toward the overview's centre, pans to the target during the turn and stays centred on it while zooming in; anchor mode
+keeps the camera-only `look_turn` instead. In anchor mode the room stays put, and a recentre puts the aim straight ahead
+(zoomed in: the focused desktop; overview: the canvas centre). No placement changes.
+- From 2026-11-02 (`zoomed_placements`, keeping a dragged desktop's direction) until 2026-11-03 (focus-centering), follow
+  and locked glued the canvas centre to the head, so a zoomed desktop outside the middle slot, or dragged anywhere, stayed
+  off centre however you turned. Head-tracking calibration was not involved: the recentre reference, the driver's
+  calibration wait and the follow spring were correct; the regression test is `spike/tests/focus_center_test.cpp`.
+
 The position is saved to the glasses model's profile like a size (half a second after the last change, and on
 release), and the panel's **Place** tab shows it.
 
@@ -445,8 +457,9 @@ profile loads, every placement the new version saved (they have four fields).
 
 **Limitations.**
 
-- In follow and locked modes a desktop placed outside the view stays out of sight. Zooming into it (select it with
-  Ctrl+Alt+Left / Right, then Ctrl+Alt+Up) or switching to anchor mode (Ctrl+Alt+V) brings it back.
+- In follow and locked modes a desktop placed outside the view stays out of sight in the overview. Zooming into it
+  (select it with Ctrl+Alt+Left / Right, then Ctrl+Alt+Up) centres it; switching to anchor mode (Ctrl+Alt+V) lets you
+  turn to it.
 - For a desktop far round you, only its pill is in the pointer's reach. Its open panel, its corners and the desktop
   itself (moving the cursor into it, clicking it to focus it) are not. The keyboard works: Ctrl+Alt+Left / Right
   selects it, Ctrl+Alt+L opens its panel, the arrows change it and R resets it to flat.

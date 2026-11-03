@@ -163,6 +163,16 @@ std::vector<Placement> zoomed_placements(const Canvas& c, std::span<const FRect>
     return out;
 }
 
+std::array<float, 2> focus_direction(const Canvas& c, std::span<const FRect> overview, std::span<const Placement> placements,
+                                     std::size_t index) {
+    if (index >= overview.size() || c.view_w <= 0 || c.view_h <= 0) return {0, 0};
+    const Dir s = slot_direction(c, overview[index]);
+    const Placement p = index < placements.size() ? placements[index] : Placement{};
+    return {std::remainder(s.az + p.x, 2 * float(M_PI)), s.el + p.y};
+}
+
+float focus_weight(const ViewAnimator& view) { return clampf(view.zoom() + view.look(), 0, 1); }
+
 std::array<float, 9> look_turn(const Canvas& c, std::span<const FRect> overview, std::span<const Placement> placements,
                                std::size_t from, std::size_t to, float look) {
     std::array<float, 9> m{1, 0, 0, 0, 1, 0, 0, 0, 1};

@@ -208,15 +208,20 @@ std::array<float, 3> canvas_up(Quat reference, Quat anchor) {
 void ModeController::set_mode(ViewMode mode, double now_ms) {
     if (mode == mode_) return;
     from_ = anchor_; started_ms_ = now_ms; transitioning_ = true;
-    if (mode == ViewMode::follow) { follow_ = anchor_; velocity_ = {}; }
+    if (mode == ViewMode::follow) { follow_ = quat_mul(anchor_, quat_conj(aim_)); velocity_ = {}; }  // follow_ * aim = here
     if (mode == ViewMode::anchor) pinned_ = anchor_;  // anchor where the canvas is right now
     mode_ = mode;
 }
-void ModeController::recenter() { anchor_ = from_ = follow_ = pinned_ = Quat{}; transitioning_ = false; velocity_ = {}; }
+void ModeController::recenter() { follow_ = Quat{}; anchor_ = from_ = pinned_ = aim_; transitioning_ = false; velocity_ = {}; }
+Quat aim_rotation(float az, float el) {
+    // GL: the view must apply R^T = El(el)^T . Az(az)^T (place_point's R = Az(az) . El(el)); in the driver frame (x forward,
+    // y left, z up) that is a pitch of el about +y after a yaw of az about +z.
+    return quat_mul(Quat{0, std::sin(el / 2), 0, std::cos(el / 2)}, Quat{0, 0, std::sin(az / 2), std::cos(az / 2)});
+}
 Quat ModeController::target(Quat head) const {
     switch (mode_) {
-    case ViewMode::locked: return head;
-    case ViewMode::follow: return follow_;
+    case ViewMode::locked: return quat_mul(head, aim_);
+    case ViewMode::follow: return quat_mul(follow_, aim_);
     case ViewMode::anchor: break;
     }
     return pinned_;

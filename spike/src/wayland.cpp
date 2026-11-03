@@ -270,10 +270,24 @@ struct Presentation::Impl : SurfaceRequests {
         resolved = zoomed_placements(Canvas{float(width), float(height), half_w, half_h}, overview, tiles, own, view.zoom(), view.position());
         return resolved;
     }
+    // Follow and locked modes centre the view on the focused desktop wherever it was dragged (view.hpp focus_direction /
+    // focus_weight; pose.hpp ModeController::set_aim): the canvas turns, never a placement. 0 in the overview.
+    Quat focus_aim() const {
+        const float w = focus_weight(view);
+        if (!(w > 0.f) || !half_w) return Quat{};
+        const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
+        std::array<Placement, kMaxDesktops> placed{};
+        const std::size_t n = std::min(captures.size(), placed.size());
+        for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
+        const auto d = focus_direction(Canvas{float(width), float(height), half_w, half_h}, overview,
+                                       std::span<const Placement>(placed.data(), n), view.focus());
+        return aim_rotation(w * d[0], w * d[1]);
+    }
     // A desktop switch's view turn (ViewAnimator::look, view.hpp look_turn) applied to this frame's head rotation: the
-    // camera turns, never a placement. Call after resolved_placements (it reads `own`). Identity turn at rest.
+    // camera turns, never a placement. Call after resolved_placements (it reads `own`). Identity turn at rest. Anchor
+    // mode only: follow and locked already turn to the target through the aim (focus_aim).
     Mat3 turned(const Mat3& head) const {
-        if (!(view.look() > 0.f)) return head;
+        if (!(view.look() > 0.f) || modes.mode() != ViewMode::anchor) return head;
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         const Mat3 m = look_turn(Canvas{float(width), float(height), half_w, half_h}, overview, own, view.look_from(), view.look_to(),
                                  view.look());
@@ -1181,6 +1195,8 @@ Status Presentation::draw_test_pattern() {
             s.frames_at_draw[i] = frames;
         }
         s.view.advance(double(monotonic_ms()));
+        if (!s.half_w) s.update_fov();
+        s.ease_placements(double(monotonic_ms()));
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
         Mat3 world = head;  // VR video: world-locked to the recentre reference in every viewing mode
         timespec read_ts{};
@@ -1209,11 +1225,11 @@ Status Presentation::draw_test_pattern() {
                     ++s.predicted_frames;
                 } else ++s.unpredicted_frames;
             }
+            s.modes.set_aim(s.focus_aim());
             head = view_from(relative, s.modes.update(relative, double(now)));
             world = view_from(relative, Quat{});
         }
-        if (!s.half_w) s.update_fov();
-        s.ease_placements(double(monotonic_ms()));
+        if (!s.half_w) s.update_fov();  // the feed just opened: the driver's FOV
         {  // the settled view keeps its layout; only a change (zoom, switch, spacing, size) lays the tiles out again
             const auto sizes = s.capture_sizes();
             const auto key = s.layout_key(sizes, s.view.spacing(), s.view.zoom(), s.view.position());

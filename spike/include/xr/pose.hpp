@@ -79,6 +79,10 @@ Mat3 view_from(Quat head_relative, Quat anchor);  // render rotation for a canva
 // The world's up (driver z, against gravity) as a unit vector in the GL frame of a canvas anchored at `anchor` relative to
 // the recentre `reference` (PoseState::reference): what view.hpp desktop_tilt measures a desktop's roll against.
 std::array<float, 3> canvas_up(Quat reference, Quat anchor);
+// The canvas turn (driver frame, relative to the canvas anchor) that brings canvas direction (az, el) straight ahead:
+// az / el radians round the eye as view.hpp place_point turns a desktop (+az right, +el up). With a canvas anchored at
+// head * aim_rotation(az, el), view_from puts the point in direction (az, el) on the view's centre, upright.
+Quat aim_rotation(float az, float el);
 
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
 //   anchor: fixed in space (3DoF world-locked) where the canvas was when anchor mode was entered;
@@ -87,6 +91,9 @@ std::array<float, 3> canvas_up(Quat reference, Quat anchor);
 //   follow: always following, no dead zone: a critically damped rotational spring pulls the
 //           canvas toward the full head orientation (roll included). From rest it accelerates,
 //           then decelerates smoothly into centre without overshoot (like the Beast's smooth follow)
+// The aim (set_aim, view.hpp focus_direction / focus_weight) is where on the canvas the view centres: locked and follow
+// put the canvas at head * aim (follow: the spring's head * aim), so the focused desktop sits straight ahead wherever it
+// was dragged; anchor ignores it except that a recentre puts the aim straight ahead. Identity = the canvas centre.
 // Mode changes blend smoothly from wherever the canvas currently is; steady states are exact.
 enum class ViewMode : std::uint8_t { anchor = 0, locked = 1, follow = 2 };
 class ModeController {
@@ -96,7 +103,9 @@ public:
     ModeController() = default;
     explicit ModeController(Tuning t) : tuning_(t) {}
     void set_mode(ViewMode mode, double now_ms);
-    void recenter();  // the reference moved to the current head: anchors return to straight ahead
+    void recenter();  // the reference moved to the current head: the aim (anchor: the canvas centre) is straight ahead
+    void set_aim(Quat aim) { aim_ = aim; }  // per frame, before update()
+    Quat aim() const { return aim_; }
     ViewMode mode() const { return mode_; }
     // Advance with the head's relative orientation; returns the canvas anchor for this frame.
     Quat update(Quat head, double now_ms);
@@ -106,7 +115,8 @@ private:
     Quat target(Quat head) const;
     Tuning tuning_{};
     ViewMode mode_ = ViewMode::anchor;
-    Quat anchor_{}, from_{}, follow_{}, pinned_{};  // pinned_: the world-locked anchor pose
+    Quat anchor_{}, from_{}, follow_{}, pinned_{};  // pinned_: the world-locked anchor pose; follow_: the spring's head
+    Quat aim_{};
     double started_ms_ = -1, last_ms_ = -1;
     std::array<float, 3> velocity_{};  // follow angular velocity (rad/s, canvas frame)
     bool transitioning_ = false;
