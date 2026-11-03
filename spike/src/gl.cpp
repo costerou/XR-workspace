@@ -123,7 +123,7 @@ struct GlCompositor::Impl {
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 20> key{}; };
     Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2];
-    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, roll_meshes, band_meshes, head_meshes;  // per desktop
+    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, band_meshes, head_meshes;  // per desktop
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
     // glass: `rect` is glass px under the desktop (view.hpp glass_mesh: fixed size whatever the desktop's distance).
@@ -135,7 +135,7 @@ struct GlCompositor::Impl {
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
         drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m);
-        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &roll_meshes, &band_meshes, &head_meshes}) {
+        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &band_meshes, &head_meshes}) {
             for (auto& m : *v) drop(m);
             v->clear();
         }
@@ -544,7 +544,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     const Canvas canvas{float(s.width), float(s.height), half_w, half_h};
     s.resolved.resize(tiles.size());
     for (std::size_t i = 0; i < tiles.size(); ++i) s.resolved[i] = i < placements.size() ? placements[i] : Placement{};
-    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes, &s.roll_meshes, &s.band_meshes, &s.head_meshes})
+    for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes, &s.band_meshes, &s.head_meshes})
         if (v->size() < tiles.size()) v->resize(tiles.size());
     // A vertex attribute from the mesh buffer bound by build(): `size` floats at `offset` in vertices of `stride` floats.
     auto attrib = [](GLint loc, int size, int stride, int offset) {
@@ -636,11 +636,12 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             const FRect r = glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
             if (g.pills && i < g.roll_icon.size() && g.roll_icon[i] >= 0) {
-                // Roll-level icon: a round glass button above the higher top corner, its arrow in the theme's highlight.
+                // Roll-level icon: a curved arrow above the higher top corner.
                 const auto side = std::uint32_t(g.roll_icon[i]);
                 const float roll_level = int(i) == g.roll_hover ? g.roll_level : kGlassIdle;
+                // Just the arrow, no button behind it, on the desktop's surface (surface px, where the supervisor's hit
+                // box is), in the monitor border's and glow's colour: the live theme accent.
                 const FRect icon = roll_icon(tiles[i], side, glass_on(i).distance);
-                shape(s.roll_meshes[i], i, icon, icon.width / 2, glass_look(accent, roll_level, 0.f), 1.f, icon.width / 2);
                 glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
                 const auto arrow = roll_arrow(icon, side);
                 const auto colour = roll_arrow_color(accent, roll_level);

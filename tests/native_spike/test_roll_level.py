@@ -71,6 +71,25 @@ class PureTests(unittest.TestCase):
             self.assertAlmostEqual(back[0], q[0], delta=0.05); self.assertAlmostEqual(back[1], q[1], delta=0.05)
             self.assertNotAlmostEqual(fp.project(G, T1, FLAT, *q)[1], seen[1], delta=1)  # the roll moved it
 
+    def test_an_icon_wins_over_a_nearer_neighbour_in_a_tight_four_desktop_overview(self):
+        # Regression (2026-11-03, merge widening to four desktops): the icons are drawn over every desktop, but the hit
+        # test went desktop by desktop, nearest first, so a nearer neighbour's corner zone or rolled surface took the
+        # press meant for the icon above the next desktop's corner (the outer desktops' inward icons, and on the right
+        # half the top-left, counter-clockwise ones): those desktops could not be rolled that way.
+        w = (1920 - 5 * 0) / 4
+        tiles = [(i * w, 450.0, w, w * 9 / 16) for i in range(4)]
+        g = {'w': 1920, 'h': 1200, 'half': (0.41421356, 0.25888), 'tiles': tiles}
+        for i, side, roll in ((0, 'cw', 0), (3, 'ccw', 0), (2, 'ccw', 1500), (3, 'ccw', 1500), (0, 'cw', -1500), (1, 'cw', -1500)):
+            placements = [{**FLAT, 'roll': roll}] * 4
+            icons = [None] * 4; icons[i] = side
+            x, y, w_, h = fp.roll_icon_rect(tiles[i], side)
+            for fx, fy in ((0.5, 0.5), (0.1, 0.1), (0.9, 0.9), (0.1, 0.9), (0.9, 0.1)):
+                point = fp.project(g, tiles[i], placements[i], x + w_ * fx, y + h * fy)
+                self.assertEqual(fp.hit(g, placements, point, icons=icons), ('roll', i, side), (i, side, roll, fx, fy))
+            # Hidden, the same point is the neighbour's again.
+            point = fp.project(g, tiles[i], placements[i], x + w_ / 2, y + h / 2)
+            self.assertNotEqual((fp.hit(g, placements, point) or ('',))[0], 'roll')
+
     def test_the_icon_wins_over_the_corner_it_sits_above_and_only_when_shown(self):
         x, y, w, h = fp.roll_icon_rect(T0, 'cw')
         point = fp.project(G, T0, FLAT, x + w - 3, y + h - 1)  # inside the top-right corner's grab zone too
@@ -141,6 +160,41 @@ class PointerTests(Base):
         self.release()
         self.assertEqual(self.p.roll_drags, 1)
         self.assertEqual(self.p.roll_clicks, 0)
+
+    def test_both_directions_on_every_desktop(self):
+        # A desktop turned clockwise shows the counter-clockwise icon above its top-left corner, one turned counter-
+        # clockwise the clockwise icon above its top-right; a click on either levels it at once, and a drag the way its
+        # arrow points rolls it toward level, never past it, never the other way.
+        self.free()
+        for i, tile in enumerate(G['tiles']):
+            for tilt in (300, -300, 2500, -2500):
+                side = 'cw' if tilt > 0 else 'ccw'
+                tilts = [None] * 3; tilts[i] = tilt
+                self.control.set_roll_geometry(tilts)
+                self.p.rolls = [0] * 4
+                self.assertEqual(self.p._icons()[i], side)
+                self.to(*icon_centre(tile, side))
+                self.assertEqual(self.p.hover, ('roll', i, side))
+                r = self.roll(self.press() + self.release())
+                self.assertEqual(r['roll'][i], -tilt, (i, tilt))
+                self.assertEqual(r['icons'], ['none'] * 4)
+                # Drag: back to unlevelled, then turn the dot the arrow's way round the desktop's centre.
+                self.p.rolls = [0] * 4
+                start = icon_centre(tile, side)
+                self.to(*start)
+                self.press()
+                cx, cy = fp.project(G, tile, FLAT, tile[0] + tile[2] / 2, tile[1] + tile[3] / 2)
+                way = -1 if side == 'cw' else 1  # counter-clockwise positive, as you see it
+                radius, a0 = math.hypot(start[0] - cx, start[1] - cy), math.atan2(cy - start[1], start[0] - cx)
+                def turned(deg): return cx + radius * math.cos(a0 + way * math.radians(deg)), cy - radius * math.sin(a0 + way * math.radians(deg))
+                self.to(*turned(1))
+                self.assertAlmostEqual(self.p.rolls[i], way * 100, delta=3)
+                self.assertEqual(math.copysign(1, self.p.rolls[i]), math.copysign(1, -tilt))  # toward level
+                self.to(*turned(40))
+                self.assertEqual(self.p.rolls[i], -tilt)  # stops at level
+                self.to(*turned(-10))
+                self.assertEqual(self.p.rolls[i], 0)  # never the other way past where it started
+                self.release()
 
     def test_hit_testing_uses_the_rolled_desktop(self):
         self.control.set_roll_geometry([3000, None, None])  # 30 degrees off
