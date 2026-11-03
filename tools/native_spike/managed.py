@@ -120,11 +120,12 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
                                    typing_binds=typing_binds if hasattr(client, 'reinstall_view_binds') else None)
         # Overview free pointer (glass pills, corners, panel sliders): cursor reads, its modal left-button binds and cursor
-        # hiding, off the supervisor loop.
-        from .free_pointer import OverviewPointer, PointerSampler
-        pointer = control.overview_pointer = OverviewPointer(control)
+        # hiding, off the supervisor loop. With the input lock (input_lock.py): in the overview the mouse only drives
+        # that pointer; the real cursor is held still and its buttons and wheel never reach a window.
+        from .input_lock import LockedPointer, LockedSampler
+        pointer = control.overview_pointer = LockedPointer(control)
         control.wake = pointer.wake_reader
-        if hasattr(client, 'grab_pointer'): sampler = PointerSampler(client, capture, pointer, bind_args).start()
+        if hasattr(client, 'lock_pointer'): sampler = LockedSampler(client, capture, pointer, bind_args).start()
         # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-3, B). Closed first at run end (below).
         if hasattr(client, 'mutate'):
             from .send import WindowSender

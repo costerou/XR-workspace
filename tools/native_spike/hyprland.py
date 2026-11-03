@@ -304,6 +304,12 @@ class HyprlandClient:
         from .overview_cursor import SHOW_LUA
         self._eval(SHOW_LUA)
 
+    def lock_pointer(self, python, client, control_socket, run_id, session, x, y):
+        """Overview input lock: the free pointer's grab plus the lock's other-button and wheel binds, the cursor held at
+        (x, y); one eval of generated Lua."""
+        from .input_lock import lock_pointer_lua
+        self._eval(lock_pointer_lua(python, client, control_socket, run_id, session, x, y))
+
     def _eval(self, code):
         if len(code) > 4096: raise ValueError('bind code too large')
         reply = self._request('/eval ' + code).decode('utf-8', errors='replace').strip()

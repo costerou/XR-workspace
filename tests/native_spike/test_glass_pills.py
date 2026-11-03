@@ -1167,7 +1167,7 @@ class BindCheckTests(unittest.TestCase):
         flat = [c for _, c, _ in chords]
         self.assertNotIn('CTRL + ALT + M', flat)
         self.assertFalse(any(op.startswith('menu_mouse') for _, _, op in chords))
-        self.assertEqual({w for w, _, _ in chords}, {'run', 'send', 'menu', 'pointer'})
+        self.assertEqual({w for w, _, _ in chords}, {'run', 'send', 'menu', 'pointer', 'lock'})  # lock: test_input_lock.py
         self.assertEqual([(c, op) for w, c, op in chords if w == 'pointer'],
                          [('mouse:272', 'resize_press'), ('mouse:272', 'resize_release')])
         self.assertEqual([(c, op) for w, c, op in chords if w == 'menu'], list(view.MENU_BINDS))
