@@ -9,23 +9,26 @@ Design (3dof-free-placement, 2026-11-02):
     it is dragged and wherever it ends up, it is square to your line of sight and upright along its meridian. There is
     no setting for which way it faces (the yaw / pitch / roll settings were removed, 2026-11-02). place_point draws it
     straight ahead and turns it to its direction, Az(a0 + x) . El(e0 + y), a0 / e0 its slot's own direction; so moving
-    it is the rigid rotation about the eye rotation(a0, x, y) = Az(a0 + x) . El(y) . Az(-a0), which unorbit_pointer and
+    it is the rigid rotation about the eye rotation(a0, x, y) = Az(a0 + x) . El(y) . Az(-a0), which unorbit_ray and
     footprint use. Mirrors spike/src/view.cpp place_point (the `placement_contract` ctest compares them).
     Until 2026-11-02 x / y were a flat offset in percent of the desktop's own size, at most one desktop away; a saved value
     reads as at most 10 degrees now, about where it was (a 16:9 desktop is ~13 degrees wide in the overview).
-  * The pill drag (PillDrag, drag_target): the point grabbed at the press (grab_point: the press's ray, in the desktop's
-    own frame) is kept exactly on the ray through the dot, the dot being drawn at the pointer's canvas point on the
-    overview's plane (solve: the x / y orbit that turns that point onto the ray), so the desktop stays under the dot
-    wherever the dot goes, to the edge of its reach (half a view past each edge, free_pointer.OverviewPointer._clamp;
-    REACH here), within the wire's tenth of a degree and the slot's SNAP. Until 2026-11-02 (drag-cursor-sync) the drag
-    read, in anchor mode, a direction stretched past the view's edge so its far edge was behind you, while the dot
-    stayed on the plane: past the view's edge the desktop ran ahead of the dot, faster the further out. Placing a
-    desktop further round than the dot reaches is the panel's x / y. In anchor mode the pills are still also hit-tested
-    along that stretched direction (pointer_direction, stretched_pointer, used by free_pointer.hit), so a pill already
-    placed anywhere round you lights up and can be grabbed; that drag (`reached`) grabs the point along the stretched
-    direction and brings it under the dot. Desktops, corners and panels are only hit under the dot itself, and what is
-    under the dot wins over a stretched pill. The pointer and its clamp are not changed. The drag's target is kept
-    unwrapped, so a desktop held against a neighbour never flips round the other way when the target passes behind you.
+  * The dot's direction (pointer_direction, pointer_ray; inverse pointer_at). Inside the view it is the pointer's own
+    ray through the overview's plane. In anchor (3DoF) mode the pointer's reach beyond the view (half a view past each
+    edge, free_pointer.OverviewPointer._clamp; REACH here) is stretched smoothly so that its far left / right edge is
+    directly behind you and its top / bottom edge straight up / down, and the renderer draws the dot in that stretched
+    direction (the frame's az / el, spike view.hpp direction_disc), so the dot itself goes anywhere round you. The hit
+    test (free_pointer.hit, unorbit_ray), the desktop-mode cursor mapping (free_pointer.project) and the drag all read
+    that same direction: what the dot is drawn on is what it hits. In follow and locked modes the view turns with your
+    head and there is no stretch. The stretch is the identity inside the view.
+  * The pill drag (PillDrag, drag_target): the point grabbed at the press (grab_point: the dot's ray at the press, in
+    the desktop's own frame) is kept exactly on the dot's ray (solve: the x / y orbit that turns that point onto it),
+    so in anchor mode a desktop goes all the way round you and over you under the dot, within the wire's tenth of a
+    degree and the slot's SNAP (and, with the dot at a pole, as near it as an upright desktop takes a point off its
+    middle). Until 2026-11-02 (drag-cursor-sync) the drag read the stretched direction while the dot stayed on the
+    plane, so past the view's edge the desktop ran ahead of the dot. The drag's reach (anchor or not) is fixed when it
+    starts, and its target is kept unwrapped, so a desktop held against a neighbour never flips round the other way
+    when the target passes behind you.
   * No overlap (allowed_move): what a desktop covers is judged as you see it, as the set of directions from your eye that
     its surface covers, with a MARGIN_PX border and, under it, the strip holding its glass pill and the pill's grab
     padding (PILL_ZONE_PX): a convex spherical polygon from its true placed outline (distance, orbit and curvature
@@ -125,17 +128,6 @@ def place_point(g, tile, p, px, py):
     return (ca * q[0] - sa * q[2], q[1], sa * q[0] + ca * q[2])
 
 
-def unorbit_pointer(g, tile, p, pointer):
-    """Canvas point `pointer` as the un-orbited desktop sees it: the pointer's ray turned back by the desktop's orbit, on
-    the overview's plane (canvas px). None if that ray points away from the plane (it cannot meet the desktop)."""
-    W, H = g['w'], g['h']
-    hw, hh = g['half']
-    ray = ((2 * pointer[0] / W - 1) * hw, (1 - 2 * pointer[1] / H) * hh, -1.0)
-    x, y, z = apply_t(rotation(slot_azimuth(g, tile), p['x'], p['y']), ray)
-    if z > -_BEHIND: return None
-    return ((x / -z / hw + 1) * W / 2, (1 - y / -z / hh) * H / 2)
-
-
 # --- the pill drag ----------------------------------------------------------------------------------------------------
 def _ramp(edge, end, slope, t):
     """From `edge` (at t = 0, rising at `slope` per unit t) to `end` at t = 1: a quadratic, so the join is smooth."""
@@ -157,13 +149,47 @@ def _elevation(u, v, hw, hh, around):
     return math.copysign(_ramp(edge, math.pi / 2, hh * c / (c * c + hh * hh) * (REACH - 1), (abs(v) - 1) / (REACH - 1)), v)
 
 
+def _unramp(edge, end, slope, value):
+    """The t in 0..1 at which _ramp(edge, end, slope, t) reaches `value` (its inverse)."""
+    a = min(max(slope / (end - edge), 0.0), 1.0) if end > edge else 1.0
+    f = min(max((value - edge) / (end - edge), 0.0), 1.0) if end > edge else 0.0
+    return f if a >= 1 else (-a + math.sqrt(a * a + 4 * (1 - a) * f)) / (2 * (1 - a))
+
+
 def pointer_direction(g, pointer, around=True):
-    """(azimuth, elevation) in radians of canvas point `pointer` as anchor mode's pill hit-test reads it
-    (stretched_pointer): the pointer's own direction inside the view; with `around` the reach beyond the view stretches
-    to the far side and the poles. The pill drag itself follows the dot's own ray (solve)."""
+    """(azimuth, elevation) in radians of the dot at canvas point `pointer`: inside the view its own ray; with `around`
+    (anchor mode) the reach beyond the view stretches so its far left / right edge is behind you and its top / bottom
+    edge straight up / down. The renderer draws the dot in this direction (the frame's az / el), so the dot, the hit
+    test and the drag all agree on where it is."""
     u, v = 2 * pointer[0] / g['w'] - 1, 1 - 2 * pointer[1] / g['h']
     hw, hh = g['half']
     return _azimuth(u, hw, around), _elevation(u, v, hw, hh, around)
+
+
+def pointer_ray(g, pointer, around=False):
+    """The unit direction of the dot at canvas point `pointer` (pointer_direction)."""
+    az, el = pointer_direction(g, pointer, around)
+    return (math.cos(el) * math.sin(az), math.sin(el), -math.cos(el) * math.cos(az))
+
+
+def pointer_at(g, d, around=False):
+    """The canvas point whose dot lies in direction `d` (a world vector from the eye): pointer_ray's inverse. Without
+    `around` where `d` meets the overview's plane, None if it points away from it; with `around` always a point
+    within the reach (REACH)."""
+    W, H = g['w'], g['h']
+    hw, hh = g['half']
+    if not around:
+        if d[2] > -_BEHIND: return None
+        return ((d[0] / -d[2] / hw + 1) * W / 2, (1 - d[1] / -d[2] / hh) * H / 2)
+    az, el = math.atan2(d[0], -d[2]), math.atan2(d[1], math.hypot(d[0], d[2]))
+    edge = math.atan(hw)
+    if abs(az) <= edge: u = math.tan(az) / hw
+    else: u = math.copysign(1 + (REACH - 1) * _unramp(edge, math.pi, hw / (1 + hw * hw) * (REACH - 1), abs(az)), az)
+    c = math.hypot(1.0, min(abs(u), 1.0) * hw)
+    edge = math.atan2(hh, c)
+    if abs(el) <= edge: v = math.tan(el) * c / hh
+    else: v = math.copysign(1 + (REACH - 1) * _unramp(edge, math.pi / 2, hh * c / (c * c + hh * hh) * (REACH - 1), abs(el)), el)
+    return ((u + 1) * W / 2, (1 - v) * H / 2)
 
 
 def beyond_view(g, pointer):
@@ -171,32 +197,17 @@ def beyond_view(g, pointer):
     return abs(2 * pointer[0] / g['w'] - 1) > 1 or abs(1 - 2 * pointer[1] / g['h']) > 1
 
 
-def stretched_pointer(g, tile, p, pointer):
-    """Anchor mode: where the stretched direction of canvas point `pointer` (pointer_direction) meets the overview's
-    plane as the un-orbited desktop sees it (canvas px), or None if it points away from it. Inside the view this is the
-    pointer itself (for an un-orbited desktop)."""
-    az, el = pointer_direction(g, pointer, True)
-    d = (math.cos(el) * math.sin(az), math.sin(el), -math.cos(el) * math.cos(az))
+def unorbit_ray(g, tile, p, pointer, around=False):
+    """The dot's ray (pointer_ray) as the un-orbited desktop sees it, on the overview's plane (canvas px): the ray turned
+    back by the desktop's orbit. None if that ray points away from the plane (it cannot meet the desktop)."""
+    d = pointer_ray(g, pointer, around)
     if p['x'] or p['y']: d = apply_t(rotation(slot_azimuth(g, tile), p['x'], p['y']), d)
-    if d[2] > -_BEHIND: return None
-    hw, hh = g['half']
-    return ((d[0] / -d[2] / hw + 1) * g['w'] / 2, (1 - d[1] / -d[2] / hh) * g['h'] / 2)
+    return pointer_at(g, d)
 
 
 def _snap(value):
     """0 within SNAP of the slot; x snaps to the nearest whole turn (it may be unwrapped)."""
     return value - wrap(value) if abs(wrap(value)) <= SNAP else value
-
-
-def _ray(g, pointer):
-    """The unit direction from the eye through canvas point `pointer` (where the dot is drawn, on the overview's plane)."""
-    hw, hh = g['half']
-    return _norm(((2 * pointer[0] / g['w'] - 1) * hw, (1 - 2 * pointer[1] / g['h']) * hh, -1.0))
-
-
-def _stretched_ray(g, pointer):
-    az, el = pointer_direction(g, pointer, True)
-    return (math.cos(el) * math.sin(az), math.sin(el), -math.cos(el) * math.cos(az))
 
 
 def slot_direction(g, tile):
@@ -207,13 +218,12 @@ def slot_direction(g, tile):
     return math.atan2(wx, 1.0), math.atan2(wy, math.sqrt(1 + wx * wx))
 
 
-def grab_point(g, tile, start, press, reached=False):
+def grab_point(g, tile, start, press, around=False):
     """The grabbed point of a pill drag, as a unit direction in the desktop's own frame (the desktop drawn straight
-    ahead, before place_point's Az(a0 + x) . El(e0 + y)): the press's ray turned back by the desktop's placement
-    `start` at the press. `reached`: the pill was grabbed along the stretched direction (free_pointer.hit, anchor mode
-    past the view), not under the dot."""
+    ahead, before place_point's Az(a0 + x) . El(e0 + y)): the dot's ray at the press (pointer_ray) turned back by the
+    desktop's placement `start` at the press."""
     a0, e0 = slot_direction(g, tile)
-    d = _stretched_ray(g, press) if reached else _ray(g, press)
+    d = pointer_ray(g, press, around)
     a, e = a0 + start[0] * TENTH, e0 + start[1] * TENTH
     c, s = math.cos(a), math.sin(a)
     d = (c * d[0] + s * d[2], d[1], -s * d[0] + c * d[2])  # Az(-a)
@@ -226,14 +236,15 @@ def _nearest(angle, near):
     return angle + 2 * math.pi * round((near - angle) / (2 * math.pi))
 
 
-def solve(g, tile, local, pointer, near):
+def solve(g, tile, local, pointer, near, around=False):
     """The (x, y) placement, unrounded tenths, x unwrapped next to near[0], that puts the desktop-frame direction
-    `local` (grab_point) exactly on the ray through canvas point `pointer`: Az(a0 + x) . El(e0 + y) . local = ray.
+    `local` (grab_point) exactly on the dot's ray at canvas point `pointer` (pointer_ray):
+    Az(a0 + x) . El(e0 + y) . local = ray.
     Az keeps a direction's height, so El(e0 + y) alone must lift `local` to the ray's: of its two solutions the one
     next to near[1]; then Az turns it onto the ray. Past where the lift can reach (a point well off the desktop's
     centre line, near a pole) it lifts as far as it goes."""
     a0, e0 = slot_direction(g, tile)
-    d = _ray(g, pointer)
+    d = pointer_ray(g, pointer, around)
     lx, ly, lz = local
     r = math.hypot(ly, lz)
     near_e = e0 + near[1] * TENTH
@@ -248,29 +259,30 @@ def solve(g, tile, local, pointer, near):
     return (a - a0) / TENTH, (e - e0) / TENTH
 
 
-def _target(g, tile, local, near, pointer):
+def _target(g, tile, local, near, pointer, around):
     """The (x, y) a pill drag asks for: x unwrapped, y within the poles, each snapped to the slot within SNAP."""
-    x, y = solve(g, tile, local, pointer, near)
+    x, y = solve(g, tile, local, pointer, near, around)
     y = min(max(y, -Y_LIMIT), Y_LIMIT)
     return (x, y), (_snap(round(x)), 0 if abs(round(y)) <= SNAP else round(y))
 
 
-def drag_target(g, tile, start, press, pointer, reached=False):
+def drag_target(g, tile, start, press, pointer, around=False):
     """New (x, y) placement for a pill drag of the desktop laid out at `tile`: `start` its (x, y) at the press, `press`
-    and `pointer` canvas px. The point grabbed at the press (grab_point) goes exactly under the dot: x wraps round, y
-    stops at the poles, each snaps back to the slot within SNAP. Unguarded: PillDrag adds the no-overlap guard."""
-    _, (x, y) = _target(g, tile, grab_point(g, tile, start, press, reached), start, pointer)
+    and `pointer` canvas px, `around` anchor mode's stretched reach. The point grabbed at the press (grab_point) goes
+    exactly under the dot: x wraps round, y stops at the poles, each snaps back to the slot within SNAP. Unguarded:
+    PillDrag adds the no-overlap guard."""
+    _, (x, y) = _target(g, tile, grab_point(g, tile, start, press, around), start, pointer, around)
     return wrap(x), y
 
 
 class PillDrag:
     """One pill drag from the press to the release: the target the pointer asks for and where the guard lets the desktop
-    go. The grabbed point (grab_point, fixed at the press) is kept under the dot; x is followed unwrapped and only
-    wrapped for the wire. `reached`: grabbed along the stretched direction (free_pointer.hit), not under the dot."""
-    def __init__(self, g, index, start, press, reached=False):
-        self.g, self.index, self.start, self.press = g, index, (start[0], start[1]), press
+    go. The grabbed point (grab_point, fixed at the press) is kept under the dot; `around` (anchor mode's stretched
+    reach) is fixed for the whole drag; x is followed unwrapped and only wrapped for the wire."""
+    def __init__(self, g, index, start, press, around=False):
+        self.g, self.index, self.start, self.press, self.around = g, index, (start[0], start[1]), press, around
         self.tile = g['tiles'][index]
-        self.local = grab_point(g, self.tile, self.start, press, reached)
+        self.local = grab_point(g, self.tile, self.start, press, around)
         self.at = self.near = self.start
 
     def follow(self, pointer, placements):
@@ -278,7 +290,7 @@ class PillDrag:
         p = placements[self.index]
         if wrap(self.at[0]) != p['x'] or self.at[1] != p['y']:  # changed meanwhile (a panel key): carry on from there
             self.at = (self.at[0] + _diff(p['x'], wrap(self.at[0])), p['y'])
-        self.near, target = _target(self.g, self.tile, self.local, self.near, pointer)
+        self.near, target = _target(self.g, self.tile, self.local, self.near, pointer, self.around)
         self.at = allowed_move(self.g, self.index, self.at, target, placements)
         return wrap(self.at[0]), self.at[1]
 

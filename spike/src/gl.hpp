@@ -56,7 +56,8 @@ public:
     void set_glass(const GlassFrame& frame);
     // Overview free pointer (view.hpp canvas_disc): a grey dot of `level` (capped at kFreePointerHeldLevel) in a black ring at
     // canvas (x, y) on the overview's plane, drawn over the desktops and under the cards; visible false: none.
-    void set_free_pointer(bool visible, float x, float y, float level);
+    // `directed`: the dot is drawn in direction (az, el) degrees instead (view.hpp direction_disc), anywhere round you.
+    void set_free_pointer(bool visible, float x, float y, float level, bool directed = false, float az = 0, float el = 0);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow (theme)
     // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
     // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.

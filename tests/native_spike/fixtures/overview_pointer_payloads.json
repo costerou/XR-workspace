@@ -1,5 +1,5 @@
 {
-  "_comment": "Overview free pointer contract, shared by spike/tests/free_pointer_test.cpp (renderer) and tests/native_spike/test_free_pointer.py (supervisor). overview_pointer: x/y canvas px, signed, |v| <= 8192. geometry: overview_geometry_json(tiles, w, h, half) must produce `line` exactly, and parse_overview_geometry must accept it.",
+  "_comment": "Overview free pointer contract, shared by spike/tests/free_pointer_test.cpp (renderer) and tests/native_spike/test_free_pointer.py (supervisor). overview_pointer: x/y canvas px, signed, |v| <= 8192; optional az/el together, the dot's direction in 1/100 degree, |az| <= 18000, |el| <= 9000. geometry: overview_geometry_json(tiles, w, h, half) must produce `line` exactly, and parse_overview_geometry must accept it.",
   "valid": [
     {
       "visible": true,
@@ -24,6 +24,30 @@
       "x": -40,
       "y": -12,
       "held": false
+    },
+    {
+      "visible": true,
+      "x": 2880,
+      "y": 600,
+      "held": true,
+      "az": 18000,
+      "el": 0
+    },
+    {
+      "visible": true,
+      "x": -960,
+      "y": -600,
+      "held": false,
+      "az": -18000,
+      "el": 9000
+    },
+    {
+      "visible": false,
+      "x": 2100,
+      "y": 1500,
+      "held": false,
+      "az": 4512,
+      "el": -1234
     }
   ],
   "invalid": [
@@ -116,6 +140,82 @@
         0,
         false
       ]
+    },
+    {
+      "why": "az without el",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "az": 100
+      }
+    },
+    {
+      "why": "el without az",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "el": 100
+      }
+    },
+    {
+      "why": "az past the limit",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "az": 18001,
+        "el": 0
+      }
+    },
+    {
+      "why": "el past the negative limit",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "az": 0,
+        "el": -9001
+      }
+    },
+    {
+      "why": "huge unsigned az",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "az": 18446744073709551615,
+        "el": 0
+      }
+    },
+    {
+      "why": "fractional el",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "az": 0,
+        "el": 1.5
+      }
+    },
+    {
+      "why": "az and el plus an extra key",
+      "payload": {
+        "visible": true,
+        "x": 2500,
+        "y": 600,
+        "held": false,
+        "az": 0,
+        "el": 0,
+        "desktop": 1
+      }
     }
   ],
   "geometry": {

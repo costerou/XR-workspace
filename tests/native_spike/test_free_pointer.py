@@ -309,7 +309,9 @@ class ModeTests(PointerBase):
         self.assertEqual(last(out, 'overview_pointer')['y'], round(y))
         self.assertEqual(self.p.mode, 'free')
         out = self.move(-10000, -10000)
-        self.assertEqual(last(out, 'overview_pointer'), {'visible': True, 'x': -G['w'] // 2, 'y': -G['h'] // 2, 'held': False})
+        # the far corner of the reach: anchor mode draws it in its direction, behind you and straight up
+        self.assertEqual(last(out, 'overview_pointer'), {'visible': True, 'x': -G['w'] // 2, 'y': -G['h'] // 2, 'held': False,
+                                                         'az': -18000, 'el': 9000})
 
     def test_crossing_onto_the_next_monitor_goes_through_xr_space(self):
         self.at(X1 + 1900, 540)
@@ -434,34 +436,43 @@ class ClickTests(PointerBase):
         self.assertEqual(orbit.overlap(orbit.footprint(G, T0, self.control.state.placements[0]), orbit.footprint(G, T1, FLAT[1])), 0)
         self.op('resize_release')
 
-    def test_in_anchor_mode_the_dragged_desktop_stays_under_the_dot_to_the_edge_of_its_reach(self):
+    def off_dot(self, i, q, dot=None):
+        """Degrees between tile pixel q of desktop i as placed and the dot as the renderer draws it: in its az / el
+        direction when the frame `dot` carries one (past the view in anchor mode), else on the canvas plane."""
+        seen = orbit._norm(fp.place_point(G, G['tiles'][i], self.control.state.placements[i], *q))
+        if dot is None: dot = self.p.sent
+        if 'az' in dot:
+            az, el = math.radians(dot['az'] / 100), math.radians(dot['el'] / 100)
+            ray = (math.cos(el) * math.sin(az), math.sin(el), -math.cos(el) * math.cos(az))
+        else: ray = orbit.pointer_ray(G, (dot['x'], dot['y']))
+        return math.degrees(orbit._angle(seen, ray))
+
+    def test_in_anchor_mode_a_dragged_desktop_goes_all_the_way_round_you_under_the_dot(self):
         # Regression (installed master 80fab06, drag-cursor-sync): the drag read a direction stretched past the view's
-        # edge (to behind you at the far edge of the dot's reach) while the dot is drawn on the overview's plane, so
-        # once the dot left the view the desktop ran ahead of it, faster the further out (~550 px ahead one fifth of a
-        # view past the edge, out of sight by mid-reach). Now the grabbed point stays under the drawn dot all the way.
+        # edge while the dot was drawn on the overview's plane, so once the dot left the view the desktop ran ahead of
+        # it, faster the further out. Now the dot is drawn in that stretched direction (the frame's az / el) and the
+        # grabbed point stays on it: right round behind you, up, and on round the other side.
         self.assertEqual(self.control.state.mode, 'anchor')
         self.on_pill(2); self.op('resize_press')
         x, y, w, h = fp.pill_rect(G['tiles'][2])
-        grabbed, dot = (x + w / 2, y + h / 2), None
-        steps = [(G['w'] / 40, 0)] * 45 + [(0, -G['h'] / 40)] * 75 + [(-G['w'] / 40, 0)] * 110  # right, up, then left
-        worst, beyond = 0.0, 0
+        grabbed = (x + w / 2, y + h / 2)
+        steps = [(G['w'] / 40, 0)] * 45 + [(0, -G['h'] / 40)] * 30 + [(-G['w'] / 40, 0)] * 110  # right, up, then left
+        worst, behind, turns = 0.0, 0, set()
         for dx, dy in steps:
-            out = self.move_canvas(dx, dy)
-            f = [f for f in out if f['op'] == 'overview_pointer']
-            if f: dot = (f[-1]['payload']['x'], f[-1]['payload']['y'])  # where the renderer draws the dot
+            self.move_canvas(dx, dy)
             placed = self.control.state.placements[2]
-            if dot is None or 0 in (placed['x'], placed['y']): continue  # held at the slot on that axis (orbit.SNAP)
-            seen = fp.project(G, G['tiles'][2], placed, *grabbed)
-            self.assertIsNotNone(seen, dot)
-            worst = max(worst, math.hypot(seen[0] - dot[0], seen[1] - dot[1]))
-            beyond += orbit.beyond_view(G, dot)
-        self.assertEqual(self.p.pointer, (-G['w'] / 2, -G['h'] / 2))  # the whole way to the far corner of the reach
-        self.assertGreater(beyond, 90)
-        self.assertLess(worst, 6)  # a tenth of a degree on the wire is up to ~5 px out at the edge of the reach
+            turns.add(placed['x'] // 600)
+            behind += abs(placed['x']) >= 1500
+            if 0 in (placed['x'], placed['y']): continue  # held at the slot on that axis (orbit.SNAP)
+            worst = max(worst, self.off_dot(2, grabbed))
+        self.assertEqual(self.p.pointer[0], -G['w'] / 2)  # the far left of the reach
+        self.assertGreater(behind, 20)  # it went round behind you...
+        self.assertLessEqual({-3, -2, -1, 0, 1, 2}, turns)  # ...through every sixth of the turn
+        self.assertLess(worst, 0.1)  # on the dot to the wire's tenth of a degree
         self.op('resize_release')
         self.assertEqual(self.store.saved[2]['x'], self.control.state.placements[2]['x'])
 
-    def test_a_pill_far_round_you_lights_up_under_the_stretched_pointer_and_comes_under_the_dot(self):
+    def test_a_pill_far_round_you_lights_up_under_the_dot_and_drags_on(self):
         from tests.native_spike.test_orbit import direction, pointer_for
         far = {**DEFAULT_PLACEMENT, 'x': 1200}  # XR-3 turned 120 degrees round to your right: out of the view
         self.control.state.placements = [dict(DEFAULT_PLACEMENT), dict(DEFAULT_PLACEMENT), far]
@@ -475,10 +486,18 @@ class ClickTests(PointerBase):
         self.op('resize_press')
         self.move_canvas(-40, -60)  # (lifted past the slot's half-degree SNAP, so only the wire's rounding is left)
         self.assertLess(self.control.state.placements[2]['x'], 1200)  # back toward the front...
-        seen = fp.project(G, G['tiles'][2], self.control.state.placements[2], x + w / 2, y + h / 2)
-        self.assertLess(math.hypot(seen[0] - self.p.pointer[0], seen[1] - self.p.pointer[1]), 6)  # ...right under the dot
+        self.assertLess(self.off_dot(2, (x + w / 2, y + h / 2)), 0.1)  # ...still right under the dot
         self.op('resize_release')
         self.assertEqual(self.store.saved[2]['x'], self.control.state.placements[2]['x'])
+
+    def test_in_anchor_mode_the_dot_is_drawn_on_the_cursor_of_a_desktop_behind_you(self):
+        # Desktop mode on XR-2 turned 150 degrees round: the dot is drawn in that direction (the frame's az / el), on
+        # the cursor's spot, and a click there still goes to the window (no free mode, nothing grabbed).
+        self.control.state.placements = [dict(DEFAULT_PLACEMENT), {**DEFAULT_PLACEMENT, 'x': 1500, 'y': 200}, dict(DEFAULT_PLACEMENT)]
+        self.at(X2 + 960, 540); self.at(X2 + 480, 270)
+        self.assertEqual((self.p.mode, self.p.desktop), ('desktop', 1))
+        self.assertIn('az', self.p.sent)
+        self.assertLess(self.off_dot(1, (T1[0] + T1[2] / 4, T1[1] + T1[3] / 4)), 0.02)
 
     def test_a_mode_change_mid_drag_does_not_make_the_desktop_jump(self):
         self.on_pill(2); self.op('resize_press')

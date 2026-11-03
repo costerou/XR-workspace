@@ -76,10 +76,17 @@ constexpr const char* kInvalidMoveHandleCode = "invalid_move_handle";
 struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool hover = false, active = false; };
 // Overview free pointer (tools/native_spike/free_pointer.py), display only: {"visible":bool,"x":int,"y":int,"held":bool}, x and
 // y in canvas px, each -kMaxPointerPx..kMaxPointerPx (the pointer can go past the view's edge, beyond the desktops). held =
-// a pill, corner or panel-slider press/drag is in progress. Malformed: rejected with kInvalidOverviewPointerCode and
-// dropped, like move_handle.
+// a pill, corner or panel-slider press/drag is in progress. Optionally also "az":int,"el":int (both or neither): the dot's
+// direction in hundredths of a degree (az -kMaxPointerAz..kMaxPointerAz, positive right; el -kMaxPointerEl..kMaxPointerEl,
+// positive up), sent past the view in anchor mode, where the pointer's reach is stretched round you (orbit.py
+// pointer_direction): the dot is then drawn in that direction (view.hpp direction_disc), anywhere round you.
+// Malformed: rejected with kInvalidOverviewPointerCode and dropped, like move_handle.
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
-struct OverviewPointerPayload { bool visible = false; std::int32_t x = 0, y = 0; bool held = false; };
+constexpr std::int32_t kMaxPointerAz = 18000, kMaxPointerEl = 9000;
+struct OverviewPointerPayload {
+    bool visible = false; std::int32_t x = 0, y = 0; bool held = false;
+    bool directed = false; std::int32_t az = 0, el = 0;  // az / el given (1/100 degree)
+};
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload>;
 struct ControlMessage {

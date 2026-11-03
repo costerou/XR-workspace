@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::overview_pointer) {  // display only; malformed ones were dropped above
                         if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
-                            presentation.set_overview_pointer(p->visible, p->x, p->y, p->held);
+                            presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el);
                     }
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
