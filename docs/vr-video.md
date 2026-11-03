@@ -121,6 +121,17 @@ the session-mode grant and the consent cover 1920×1200@120 only. Turning the 3D
 to SBS (button or driver) and the output to 3840×1200. That needs its own consent scope and a physical test, and is not
 part of this version. The eye split is implemented and unit-tested, so it works as soon as the surface is 3840 wide.
 
+### Output resolution
+
+The glasses output runs at Hyprland scale 1.25, so the renderer's layer surface is 1536×960 logical on a 1920×1200
+panel. The renderer binds `wp_fractional_scale_v1` and `wp_viewporter` and draws each frame into a buffer at the
+preferred scale (`scaled_surface_size`: 1920×1200 at 1.25), with the viewport mapping it back onto the logical size, so
+Hyprland shows it pixel for pixel instead of upscaling a 1536×960 frame by 1.25. Layout (desktop placements, the help
+card, overview geometry sent to the controller, FOV) stays in logical canvas units; only `glViewport`, the EGL window
+and the VR video scene's eye viewports use the buffer size. A compositor without either global gets the old
+logical-size rendering. The capture report shows it under `surface` (`logical`, `buffer`, `scale120`, `viewport`), and
+the `capture_e2e_scaled_*` tests check it against the loopback compositor at scale 150.
+
 ### Decode path
 
 Options considered:

@@ -167,7 +167,7 @@ if(XR_ENABLE_PRESENTATION)
   file(MAKE_DIRECTORY "${GENERATED}")
   set(LAYER_XML "${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-layer-shell-unstable-v1.xml")
   set(XDG_XML "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml")
-  foreach(PROTOCOL wlr-layer-shell-unstable-v1 xdg-shell presentation-time ext-foreign-toplevel-list-v1 ext-image-capture-source-v1 ext-image-copy-capture-v1 linux-dmabuf-v1)
+  foreach(PROTOCOL wlr-layer-shell-unstable-v1 xdg-shell presentation-time ext-foreign-toplevel-list-v1 ext-image-capture-source-v1 ext-image-copy-capture-v1 linux-dmabuf-v1 fractional-scale-v1 viewporter)
     if(PROTOCOL STREQUAL "xdg-shell")
       set(XML "${XDG_XML}")
     elseif(PROTOCOL MATCHES "^ext-(image-capture-source|image-copy-capture|foreign-toplevel-list)-v1$")  # toplevel: interface symbol only, never bound
@@ -180,6 +180,15 @@ if(XR_ENABLE_PRESENTATION)
       set(XML "${WAYLAND_PROTOCOLS_DIR}/stable/linux-dmabuf/linux-dmabuf-v1.xml")
       if(NOT EXISTS "${XML}")
         message(FATAL_ERROR "Zero-copy capture requires local wayland-protocols ${XML}; no auto-fetch")
+      endif()
+    elseif(PROTOCOL STREQUAL "fractional-scale-v1" OR PROTOCOL STREQUAL "viewporter")  # native-resolution rendering
+      if(PROTOCOL STREQUAL "viewporter")
+        set(XML "${WAYLAND_PROTOCOLS_DIR}/stable/viewporter/viewporter.xml")
+      else()
+        set(XML "${WAYLAND_PROTOCOLS_DIR}/staging/fractional-scale/fractional-scale-v1.xml")
+      endif()
+      if(NOT EXISTS "${XML}")
+        message(FATAL_ERROR "Native-resolution rendering requires local wayland-protocols ${XML}; no auto-fetch")
       endif()
     elseif(PROTOCOL STREQUAL "presentation-time")
       set(XML "${WAYLAND_PROTOCOLS_DIR}/stable/presentation-time/presentation-time.xml")
@@ -380,7 +389,8 @@ if(XR_ENABLE_PRESENTATION)
   if(WAYLAND_SERVER_FOUND AND BENCH_GPU_FOUND)
     set(SERVER_HEADERS "")
     set(SERVER_CODE "${GENERATED}/xdg-shell-protocol.c" "${GENERATED}/ext-foreign-toplevel-list-v1-protocol.c")
-    foreach(PROTOCOL wlr-layer-shell-unstable-v1 presentation-time ext-image-capture-source-v1 ext-image-copy-capture-v1 linux-dmabuf-v1)
+    foreach(PROTOCOL wlr-layer-shell-unstable-v1 presentation-time ext-image-capture-source-v1 ext-image-copy-capture-v1 linux-dmabuf-v1
+                     fractional-scale-v1 viewporter)
       add_custom_command(OUTPUT "${GENERATED}/${PROTOCOL}-server-protocol.h"
         COMMAND "${WAYLAND_SCANNER}" server-header "${XR_PROTOCOL_XML_${PROTOCOL}}" "${GENERATED}/${PROTOCOL}-server-protocol.h"
         DEPENDS "${XR_PROTOCOL_XML_${PROTOCOL}}" VERBATIM)
@@ -397,6 +407,13 @@ if(XR_ENABLE_PRESENTATION)
       add_test(NAME capture_e2e_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
         --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endforeach()
+    # The glasses at Hyprland scale 1.25: the renderer draws at the native pixels (wp_fractional_scale_v1 + wp_viewporter)
+    # and the captured desktops land where the logical layout puts them.
+    foreach(MODE cpu gl-shm gl-dmabuf)
+      add_test(NAME capture_e2e_scaled_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 1.5 --warmup 1
+        --fractional-scale 150 --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_scaled_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
     # Constraint churn as a Hyprland layout change or config reload sends it: no desktop goes blank, constraints that come
     # back re-create nothing, and a real size change keeps the last frame up until the new buffers deliver one.

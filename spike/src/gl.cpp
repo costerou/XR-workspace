@@ -104,6 +104,7 @@ struct GlCompositor::Impl {
         if (i.held_image != EGL_NO_IMAGE_KHR && destroy_image) { destroy_image(display, i.held_image); i.held_image = EGL_NO_IMAGE_KHR; }
     }
     std::uint32_t width = 0, height = 0;
+    std::uint32_t px_w = 0, px_h = 0;  // the drawn buffer (glViewport); width x height stays the layout canvas
     std::string vendor, renderer, version;
     Stat upload_stat, draw_stat;
     std::uint64_t uploaded_bytes = 0;
@@ -184,7 +185,7 @@ std::unique_ptr<GlCompositor> GlCompositor::create(wl_display* wl, wl_surface* w
     std::unique_ptr<GlCompositor> out(new GlCompositor());
     out->impl_ = std::make_unique<Impl>();
     auto& s = *out->impl_;
-    s.width = width; s.height = height;
+    s.width = width; s.height = height; s.px_w = width; s.px_h = height;
     s.display = eglGetPlatformDisplay(EGL_PLATFORM_WAYLAND_KHR, wl, nullptr);
     if (s.display == EGL_NO_DISPLAY || !eglInitialize(s.display, nullptr, nullptr)) { why = "egl display"; return nullptr; }
     if (!eglBindAPI(EGL_OPENGL_ES_API)) { why = "gles api"; return nullptr; }
@@ -208,7 +209,7 @@ std::unique_ptr<GlCompositor> GlCompositor::create_offscreen(std::uint32_t width
     std::unique_ptr<GlCompositor> out(new GlCompositor());
     out->impl_ = std::make_unique<Impl>();
     auto& s = *out->impl_;
-    s.width = width; s.height = height;
+    s.width = width; s.height = height; s.px_w = width; s.px_h = height;
     s.display = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr);
     if (s.display == EGL_NO_DISPLAY || !eglInitialize(s.display, nullptr, nullptr)) { why = "egl display"; return nullptr; }
     if (!eglBindAPI(EGL_OPENGL_ES_API)) { why = "gles api"; return nullptr; }
@@ -430,12 +431,14 @@ void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->accent[0] = r / 255.f; impl_->accent[1] = g / 255.f; impl_->accent[2] = b / 255.f;
 }
 
-void GlCompositor::resize(std::uint32_t width, std::uint32_t height) {
+void GlCompositor::resize(std::uint32_t width, std::uint32_t height, std::uint32_t px_width, std::uint32_t px_height) {
     auto& s = *impl_;
-    if (width == s.width && height == s.height) return;
+    if (!px_width || !px_height) { px_width = width; px_height = height; }
     s.width = width; s.height = height;
-    if (s.window) wl_egl_window_resize(s.window, static_cast<int>(width), static_cast<int>(height), 0, 0);
-    else if (s.offscreen_rb) { glBindRenderbuffer(GL_RENDERBUFFER, s.offscreen_rb); glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8_OES, GLsizei(width), GLsizei(height)); }
+    if (px_width == s.px_w && px_height == s.px_h) return;
+    s.px_w = px_width; s.px_h = px_height;
+    if (s.window) wl_egl_window_resize(s.window, static_cast<int>(px_width), static_cast<int>(px_height), 0, 0);
+    else if (s.offscreen_rb) { glBindRenderbuffer(GL_RENDERBUFFER, s.offscreen_rb); glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8_OES, GLsizei(px_width), GLsizei(px_height)); }
 }
 
 bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t width, std::uint32_t height, std::uint32_t stride) {
@@ -578,7 +581,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
                               reinterpret_cast<const void*>(std::uintptr_t(offset) * sizeof(GLfloat)));
         glEnableVertexAttribArray(static_cast<GLuint>(loc));
     };
-    glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
+    glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
     if (s.glass_program && s.panel_program && s.glass.content >= 0 && s.glass.image && s.glass.generation != s.panel_uploaded) {
         // A new panel image is uploaded before anything is drawn (the driver flushes queued work before a large upload
         // from client memory), under exactly the conditions on which the glass loop below draws it.
@@ -762,8 +765,8 @@ bool GlCompositor::draw_scene_and_swap(const std::function<void(std::uint32_t, s
                                        std::uint64_t card_generation, float card_alpha) {
     auto& s = *impl_;
     const auto start = now_us();
-    scene(s.width, s.height);
-    glViewport(0, 0, static_cast<GLsizei>(s.width), static_cast<GLsizei>(s.height));
+    scene(s.px_w, s.px_h);  // the scene's own viewports are buffer pixels (video_mode.cpp eye_viewports)
+    glViewport(0, 0, static_cast<GLsizei>(s.px_w), static_cast<GLsizei>(s.px_h));
     if (card && card_alpha > 0.f) {
         if (!s.video_hud) s.video_hud = GlHud::create();
         if (s.video_hud) s.video_hud->draw(*card, card_generation, card_alpha, s.width, s.height);

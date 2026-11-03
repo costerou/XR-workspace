@@ -27,7 +27,10 @@ public:
     // width x height RGBA8 framebuffer, left bound and current; "swap" is a glFlush. nullptr (with `why`) without one.
     static std::unique_ptr<GlCompositor> create_offscreen(std::uint32_t width, std::uint32_t height, std::size_t sources, std::string& why);
     ~GlCompositor();
-    void resize(std::uint32_t width, std::uint32_t height);
+    // `width` x `height`: the canvas (logical surface) every placement, HUD card and tile is laid out in. The frame is
+    // drawn into a px_width x px_height buffer (the output's native pixels under a fractional scale; 0: the canvas size),
+    // so the layout never changes with the scale, only how many pixels it is drawn with.
+    void resize(std::uint32_t width, std::uint32_t height, std::uint32_t px_width = 0, std::uint32_t px_height = 0);
     // Upload one source frame (32-bit wl_shm XRGB/ARGB, little-endian B,G,R,X bytes).
     bool upload(std::size_t source, const void* pixels, std::uint32_t width, std::uint32_t height, std::uint32_t stride);
     // Draw each uploaded source into its (possibly off-screen) rect, placed in space by `placements[i]`
