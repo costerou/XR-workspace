@@ -1158,10 +1158,26 @@ class WireTests(unittest.TestCase):
     def test_move_handle_drives_the_pills(self):
         frame = json.loads(resize.pill_frame('run', 's', 4, {'visible': True, 'desktop': 1, 'hover': True, 'active': False}))
         self.assertEqual(frame['op'], 'move_handle')
-        for bad in ({'visible': True, 'desktop': 3, 'hover': False, 'active': False},
+        for bad in ({'visible': True, 'desktop': 4, 'hover': False, 'active': False},
+                    {'visible': True, 'desktop': -1, 'hover': False, 'active': False},
                     {'visible': 1, 'desktop': 0, 'hover': False, 'active': False},
                     {'visible': True, 'desktop': 0, 'hover': False}):
             with self.subTest(bad), self.assertRaises(ValueError): resize.pill_frame('run', 's', 4, bad)
+
+    def test_a_fourth_desktop_gets_its_resize_handle_and_pill(self):
+        # 2026-11-03: a run with XR-4 (the pill's Add) ended with 'invalid resize handle' when the pointer reached
+        # that desktop's corner; both frames capped the index at 2. The renderer takes up to kMaxDesktops - 1.
+        from tools.native_spike.geometry import MAX_DESKTOPS
+        last = MAX_DESKTOPS - 1
+        self.assertEqual(last, 3)
+        for corner in resize.CORNERS:
+            frame = json.loads(resize.handle_frame('run', 's', 5, {'visible': True, 'desktop': last, 'corner': corner, 'active': True}))
+            self.assertEqual((frame['op'], frame['payload']['desktop'], frame['payload']['corner']), ('resize_handle', last, corner))
+        frame = json.loads(resize.pill_frame('run', 's', 6, {'visible': True, 'desktop': last, 'hover': True, 'active': True}))
+        self.assertEqual((frame['op'], frame['payload']['desktop']), ('move_handle', last))
+        for bad in (MAX_DESKTOPS, -1, True):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                resize.handle_frame('run', 's', 5, {'visible': True, 'desktop': bad, 'corner': 'br', 'active': False})
 
     def test_the_panel_footer_names_bound_keys(self):
         import re

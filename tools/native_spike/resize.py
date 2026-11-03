@@ -24,6 +24,7 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
 import json
 
 from . import view
+from .geometry import MAX_DESKTOPS
 
 RESIZE_OPS = ('resize_press', 'resize_release')
 CORNERS = ('tl', 'tr', 'bl', 'br')
@@ -78,7 +79,7 @@ def pill_frame(run_id, session, request_id, pill):
     being dragged (brightest)."""
     if (not isinstance(pill, dict) or set(pill) != {'visible', 'desktop', 'hover', 'active'}
             or any(type(pill[k]) is not bool for k in ('visible', 'hover', 'active'))
-            or type(pill['desktop']) is not int or not 0 <= pill['desktop'] <= 2):
+            or type(pill['desktop']) is not int or not 0 <= pill['desktop'] < MAX_DESKTOPS):
         raise ValueError('invalid move handle')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'move_handle',
                         'payload': dict(pill)}, separators=(',', ':')) + '\n').encode()
@@ -90,7 +91,7 @@ PILLS_HIDDEN = {'visible': False, 'desktop': 0, 'hover': False, 'active': False}
 def handle_frame(run_id, session, request_id, handle):
     if (not isinstance(handle, dict) or set(handle) != {'visible', 'desktop', 'corner', 'active'}
             or type(handle['visible']) is not bool or type(handle['active']) is not bool
-            or type(handle['desktop']) is not int or not 0 <= handle['desktop'] <= 2 or handle['corner'] not in CORNERS):
+            or type(handle['desktop']) is not int or not 0 <= handle['desktop'] < MAX_DESKTOPS or handle['corner'] not in CORNERS):
         raise ValueError('invalid resize handle')
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'resize_handle',
                         'payload': dict(handle)}, separators=(',', ':')) + '\n').encode()
