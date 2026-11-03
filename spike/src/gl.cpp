@@ -112,6 +112,8 @@ struct GlCompositor::Impl {
     const HudImage* popup = nullptr; std::uint64_t popup_generation = 0; float popup_alpha = 0;
     std::unique_ptr<GlHud> help_hud;      // keyboard help card (own texture); absent if its shaders failed
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
+    std::unique_ptr<GlHud> binds_hud;     // key bind panel (own texture); absent if its shaders failed
+    const HudImage* binds = nullptr; std::uint64_t binds_generation = 0; float binds_alpha = 0, binds_drop = 0;
     int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
@@ -163,7 +165,7 @@ struct GlCompositor::Impl {
             drop_meshes();
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) { drop(i); drop_held(i); }
-            hud.reset(); help_hud.reset();
+            hud.reset(); help_hud.reset(); binds_hud.reset();
             if (panel_texture) glDeleteTextures(1, &panel_texture);
             if (glass_program) glDeleteProgram(glass_program);
             if (panel_program) glDeleteProgram(panel_program);
@@ -263,6 +265,7 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
     s.swizzle = glGetUniformLocation(s.program, "swizzle");
     s.hud = GlHud::create();  // optional: composition works without pop-ups
     s.help_hud = GlHud::create();
+    s.binds_hud = GlHud::create();
     s.video_hud = GlHud::create();  // now, not on the first video frame (a shader compile there costs that frame)
     // Glass pills: optional too (composition works without them; the run reports no pills then).
     auto link = [](const char* vertex, const char* fragment) -> GLuint {
@@ -368,6 +371,10 @@ void GlCompositor::set_popup(const HudImage* image, std::uint64_t generation, fl
 
 void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
     impl_->help = image; impl_->help_generation = generation; impl_->help_alpha = alpha; impl_->help_drop = drop_px;
+}
+
+void GlCompositor::set_binds(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
+    impl_->binds = image; impl_->binds_generation = generation; impl_->binds_alpha = alpha; impl_->binds_drop = drop_px;
 }
 
 void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level) {
@@ -732,6 +739,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     // The help card, then the free pointer on top of it: the pointer clicks the card's page arrows.
     if (s.help_hud && s.help && s.help_alpha > 0.f) {
         s.help_hud->draw(*s.help, s.help_generation, s.help_alpha, s.width, s.height, true, s.help_drop);
+        s.current = 0;
+    }
+    if (s.binds_hud && s.binds && s.binds_alpha > 0.f) {  // the key bind panel (the supervisor never shows both cards)
+        s.binds_hud->draw(*s.binds, s.binds_generation, s.binds_alpha, s.width, s.height, true, s.binds_drop);
         s.current = 0;
     }
     if (s.free_pointer && s.free_level > 0.f) {

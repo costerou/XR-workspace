@@ -168,6 +168,9 @@ int main(int argc, char** argv) {
                         const auto& h = std::get<xr::HelpPayload>(m->payload);
                         presentation.set_help(h.visible, h.rows, h.sections, h.turn);
                     }
+                    else if (m->op == xr::ControlOp::binds) {  // display only; malformed payloads are dropped above
+                        if (const auto* b = std::get_if<xr::BindPanelState>(&m->payload)) presentation.set_binds(*b);
+                    }
                     else if (m->op == xr::ControlOp::placement_menu) {
                         // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
                         if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {

@@ -691,11 +691,13 @@ class OverviewPointer:
         self.wake_reader.close(); self._wake_writer.close()
 
     def overview(self):
-        """In the overview with nothing else owning the mouse: not zoomed, no VR video, and not in typing mode (view.py,
-        Ctrl+Alt+T: every run bind but the toggle is released, the left button and cursor too, and the pills hide). An
-        open placement panel keeps it on: the pointer clicks its pill and drags its sliders."""
+        """In the overview with nothing else owning the mouse: not zoomed, no VR video, not in typing mode (view.py,
+        Ctrl+Alt+T: every run bind but the toggle is released, the left button and cursor too, and the pills hide), and
+        no key bind panel (keybinds.py: its submap leaves the pointer's button binds inactive, so the cursor is given back).
+        An open placement panel keeps it on: the pointer clicks its pill and drags its sliders."""
         s = self.control.state
-        return not s.zoomed and not getattr(self.control, 'video_active', False) and not getattr(s, 'typing', False)
+        return (not s.zoomed and not getattr(self.control, 'video_active', False) and not getattr(s, 'typing', False)
+                and not getattr(self.control, 'keys_open', False))
 
     def active(self):
         return self.overview() and self._layout_ready() and len(self.outputs) > 0

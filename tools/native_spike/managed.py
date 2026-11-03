@@ -123,8 +123,9 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         def after_reload():
             # Config reloads (Omarchy theme switches) drop runtime binds and reset the session mode.
             reinstall = getattr(client, 'reinstall_view_binds', None)
-            # Typing mode (Ctrl+Alt+T) survives a reload: only its toggle comes back.
-            if reinstall: reinstall(*bind_args, **({'typing': True} if control is not None and control.state.typing else {}))
+            # Typing mode (Ctrl+Alt+T) survives a reload: only its toggle comes back. The keys are the key bind panel's.
+            keys = control.keys.bind_kwargs() if control is not None and control.keys is not None else {}
+            if reinstall: reinstall(*bind_args, **({'typing': True} if control is not None and control.state.typing else {}), **keys)
             # Park first: an asynchronous mode restore followed by parking could
             # read the pre-restore mode and overwrite the requested 120 Hz rule.
             if output is not None and hasattr(client, 'park_presentation'):
@@ -140,7 +141,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
 
         def typing_binds(on):
             # Typing mode: the run's bind table holds only Ctrl+Alt+T; off: the full set again (view.py docstring).
-            client.reinstall_view_binds(*bind_args, typing=on)
+            client.reinstall_view_binds(*bind_args, typing=on, **(control.keys.bind_kwargs() if control.keys is not None else {}))
 
         # Per-glasses placements when the store is a profile (panel runs); the CLI's layout.json store has none.
         from .profiles import PlacementStore, ProfileStore
@@ -183,7 +184,20 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         stream = getattr(client, 'event_stream', None)  # config reloads; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
-        client.install_view_binds(*bind_args)
+        # The key bind panel (Ctrl+Alt+K, keybinds.py): the saved keys, next to the store, and the desktop's own binds read
+        # first, so a bind whose keys Hyprland / Omarchy already hold is never installed (removing it would remove theirs).
+        from . import keybinds
+        keys_path = Path(store.path).with_name('keybinds.json') if getattr(store, 'path', None) else keybinds.config_path()
+        desktop = None
+        if hasattr(client, 'binds_text'):
+            try: desktop = keybinds.DesktopBinds.from_text(client.binds_text(timeout=0.5))
+            except (OSError, ValueError): desktop = None  # unknown: every bind is installed, as before the panel
+        control.keys = keybinds.BindControl(control, keybinds.load(keys_path), keys_path,
+                                            client=client if hasattr(client, 'open_key_panel') else None, bind_args=bind_args,
+                                            desktop=desktop, notify=control.notify)
+        client.install_view_binds(*bind_args, **control.keys.bind_kwargs())
+        control.keys.installed()
+        control.keys.startup_toast()  # a conflict on load: off, and said once
         installed = True
         from .video import VideoControl, notify_send
         video_binds = None
@@ -203,6 +217,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if control is not None:
             control.flush()  # a panel or drag change still inside its save delay
             control.stop_menu_binds()  # no modal panel bind may land after the removal below
+            if control.keys is not None: control.keys.stop()  # nor a key bind panel change (the removal closes it)
         if sampler is not None: sampler.stop()  # removes the free pointer's binds and shows the cursor; none after this
         try:
             if installed: client.remove_view_binds()  # also removes an open panel's modal binds

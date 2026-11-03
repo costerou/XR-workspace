@@ -62,6 +62,8 @@ public:
     // Keyboard help card, head-locked in the middle of the view, under the pop-ups; `drop_px`
     // moves it down (fade-in rise). Same lifetime/upload rules as set_popup.
     void set_help(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
+    // Key bind panel (binds_panel.hpp), head-locked in the middle of the view over the help card; same rules.
+    void set_binds(const HudImage* image, std::uint64_t generation, float alpha, float drop_px);
     // Overview corner-resize handle (view.hpp corner_handle) on desktop `desktop` at `level` (view.hpp kHandleLevelIdle /
     // kHandleLevelActive), in the theme's M3 colours (glass.hpp corner_handle_color); desktop < 0: none.
     void set_corner_handle(int desktop, std::uint32_t corner, float level);

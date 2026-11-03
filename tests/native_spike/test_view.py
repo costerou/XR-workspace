@@ -61,7 +61,8 @@ class ViewStateTests(unittest.TestCase):
         from tools.native_spike import send
         # Bind helper and supervisor agree; the helper also keeps the old menu mouse mode's op names, for cleanup only.
         self.assertEqual(xr_control.OPS, view.USER_OPS + view.MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS
-                         + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP)
+                         + (view.TYPING_OP,) + tuple(view.HELP_PAGE_OPS) + (view.PRIVACY_OP, view.PLAYBACK_MENU_OP,
+                                                                           view.BINDS_PANEL_OP)
                          + xr_control.LEGACY_OPS)
         self.assertIn('prediction', view.USER_OPS)
         for op in view.USER_OPS:
@@ -76,8 +77,8 @@ class BindTests(unittest.TestCase):
         self.assertIn(('CTRL + ALT + H', 'help'), view.BINDS)
         self.assertEqual({op for _, op in view.BINDS}, set(view.HELP_ACTIONS))
         self.assertEqual(set(view.USER_OPS) | {'menu_toggle', 'video_open', 'video_paste', view.TYPING_OP, view.PRIVACY_OP,
-                                               view.PLAYBACK_MENU_OP} | set(view.HELP_PAGE_OPS),
-                         set(view.HELP_ACTIONS))  # video.py, web_video.py
+                                               view.PLAYBACK_MENU_OP, view.BINDS_PANEL_OP} | set(view.HELP_PAGE_OPS),
+                         set(view.HELP_ACTIONS))  # video.py, web_video.py, keybinds.py
         self.assertEqual(view.chord_label('CTRL + ALT + bracketleft'), 'Ctrl+Alt+[')
         self.assertEqual(view.chord_label('CTRL + ALT + V'), 'Ctrl+Alt+V')
         for keys, action in view.help_rows():  # renderer limits: 1..48 printable ASCII, <= 64 rows (ipc.hpp kMaxHelpRows)
@@ -319,7 +320,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
             with self.subTest(op=op): self.assertTrue(covered(view.chord_label(chord)))
         self.assertIn(['Ctrl+Alt+[ / ]', 'Less / more space between desktops'], rows)
         self.assertIn(['Ctrl+Alt+O / U / C', 'VR video: file / web link / hide controls'], rows)
-        self.assertIn(['Ctrl+Alt+H', 'Help; Ctrl+Alt+G/B: window to glasses/back'], shown['payload']['rows'])
+        self.assertIn(['Ctrl+Alt+H / K', 'Help/binds; Ctrl+Alt+G/B: window to XR/back'], shown['payload']['rows'])
         hidden = json.loads(c.on_message({'op': 'help'}))
         self.assertFalse(hidden['payload']['visible'])
         self.assertGreater(hidden['request_id'], shown['request_id'])

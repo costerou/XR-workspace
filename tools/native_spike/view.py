@@ -109,7 +109,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + U', 'video_paste'),  # video_paste: the helper sends the clipboard's web video link (docs/web-video.md)
          ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
          PRIVACY_BIND,  # Ctrl+Alt+D: main display off / on (privacy.py)
-         ('CTRL + ALT + C', 'playback_menu_toggle'))  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
+         ('CTRL + ALT + C', 'playback_menu_toggle'),  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
+         ('CTRL + ALT + K', 'binds_toggle'))  # the key bind panel (BINDS_PANEL_OP, keybinds.py)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -117,6 +118,11 @@ HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
 # Omarchy (it binds Super+Ctrl+Alt+T, a different chord) and in this run's binds; bind_check.py checks the real config.
 TYPING_OP = 'typing_toggle'
 TYPING_BIND = next(b for b in BINDS if b[1] == TYPING_OP)
+# Ctrl+Alt+K: the key bind panel (keybinds.py): every run bind listed with its keys, each one changed live in the glasses,
+# conflicts with each other and with Hyprland / Omarchy binds shown. K for keys; Ctrl+Alt+K is free in Omarchy (its Ctrl
+# + Alt binds are Delete, Tab and Shift+Tab; Super+Ctrl+K and Super+Alt+K are different chords) and in this run's binds,
+# and bind_check.py checks the real config. A run bind like the others: the panel can change it too.
+BINDS_PANEL_OP = 'binds_toggle'
 # Ctrl+Alt+A (anchor-mode cursor switch: animate / jump, `cursor_switch_animate`) was removed with maximize-follow
 # (2026-11-03): a maximized desktop is never anchor, so nothing read it. Its bind, help row, toasts and saved setting are
 # gone; a `cursor_switch_animate` still in a saved layout.json or profile is ignored (load_settings, profiles._view_part).
@@ -142,7 +148,8 @@ HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overvie
                 'menu_toggle': 'Placement pill of the selected desktop', 'video_open': 'Play a 180/360 VR video',
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
-                PLAYBACK_MENU_OP: 'VR video: hide / show playback controls'}
+                PLAYBACK_MENU_OP: 'VR video: hide / show playback controls',
+                BINDS_PANEL_OP: 'Key binds: change keys, see conflicts'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -156,7 +163,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP)
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key')
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -168,7 +175,9 @@ MENU_SAVE_DELAY = 0.5  # seconds after the last panel change (key, slider or pil
 OVERLAY_IDLE_CLOSE_S = 30
 KEY_NAMES = {'CTRL': 'Ctrl', 'ALT': 'Alt', 'SHIFT': 'Shift', 'SUPER': 'Super', 'up': 'Up', 'down': 'Down', 'left': 'Left',
              'right': 'Right', 'bracketleft': '[', 'bracketright': ']', 'space': 'Space', 'Tab': 'Tab', 'Escape': 'Esc',
-             'Page_Up': 'PgUp', 'Page_Down': 'PgDn',
+             'Page_Up': 'PgUp', 'Page_Down': 'PgDn', 'Return': 'Enter', 'BackSpace': 'Backspace', 'Delete': 'Del',
+             'Insert': 'Ins', 'comma': ',', 'period': '.', 'slash': '/', 'semicolon': ';', 'apostrophe': "'", 'minus': '-',
+             'equal': '=', 'grave': '`', 'backslash': '\\',  # keys the bind panel can give a bind (keybinds.BINDABLE)
              **{f'code:{10 + i}': str((i + 1) % 10) for i in range(10)}}  # Omarchy-style digit keycodes: code:10 is 1
 
 
@@ -188,7 +197,7 @@ EXTRA_HELP_ROWS = ()
 HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recenter'),  # moving around the desktops
                  ('mode_next', 'prediction', 'typing_toggle', PRIVACY_OP),              # modes
                  ('menu_toggle', 'video_open'),                                          # placement and VR video
-                 ('help', 'help_prev'))                                                  # this card
+                 ('help', 'help_prev'))                                                  # this card (and the key bind panel)
 
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action); the second may be a
@@ -196,7 +205,10 @@ HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recent
 HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               # docs/web-video.md; Ctrl+Alt+C shares the row, so the card keeps its row count (help_card_test: roomiest text)
               'video_open': (('video_paste', PLAYBACK_MENU_OP), 'VR video: file / web link / hide controls'),
-              'help_prev': ('help_next', 'Help: previous / next page')}
+              'help_prev': ('help_next', 'Help: previous / next page'),
+              # The key bind panel shares the Ctrl+Alt+H row ('Ctrl+Alt+H / K'), so the card keeps its row count and its
+              # roomiest text (help_card_test). _help_action writes this text with the run's send-window keys.
+              'help': (BINDS_PANEL_OP, 'Help/binds; Ctrl+Alt+G/B: window to XR/back')}
 
 
 def _pair_seconds(op):
@@ -205,9 +217,29 @@ def _pair_seconds(op):
     return second if isinstance(second, tuple) else (second,)
 
 
-def _help_sections():
-    """[[row, ...], ...]: the help card's rows grouped by HELP_SECTIONS (empty sections dropped)."""
-    chords = {op: chord for chord, op in BINDS}
+def _short_pair(a, b):
+    """'Ctrl+Alt+G' and 'Ctrl+Alt+B' -> 'Ctrl+Alt+G/B' (the second without the modifiers they share)."""
+    prefix = a[:a.rfind('+') + 1]
+    return f'{a}/{b[len(prefix):]}' if b.startswith(prefix) else f'{a}/{b}'
+
+
+def _help_action(send_binds):
+    """The Ctrl+Alt+H / K row's text (HELP_PAIRS['help']), naming the send-window keys as `send_binds` (the key bind
+    panel's, None: send.SEND_BINDS) have them."""
+    from .send import SEND_BINDS
+    default = HELP_PAIRS['help'][1]
+    if send_binds is None or tuple(send_binds) == SEND_BINDS: return default
+    keys = {o: chord_label(c) for c, o in send_binds}
+    if 'send_glasses' not in keys or 'send_back' not in keys: return default
+    text = f"Help/binds; {_short_pair(keys['send_glasses'], keys['send_back'])}: window to XR/back"
+    return text if len(text) <= 48 else 'Help/binds (window keys: see key binds)'
+
+
+def _help_sections(binds=None, send_binds=None):
+    """[[row, ...], ...]: the help card's rows grouped by HELP_SECTIONS (empty sections dropped). `binds` / `send_binds`:
+    the run's keys when the key bind panel changed them (keybinds.py); None: BINDS / send.SEND_BINDS."""
+    binds = BINDS if binds is None else tuple(binds)
+    chords = {op: chord for chord, op in binds}
     seconds = {s for op in HELP_PAIRS for s in _pair_seconds(op)}
 
     def row(op):
@@ -216,32 +248,34 @@ def _help_sections():
             prefix = a[:a.rfind('+') + 1]  # 'Ctrl+Alt+[' and 'Ctrl+Alt+]' -> 'Ctrl+Alt+[ / ]'
             label = a
             for second in _pair_seconds(op):
+                if second not in chords: continue
                 b = chord_label(chords[second])
                 label += f' / {b[len(prefix):]}' if b.startswith(prefix) else f' / {b}'
-            return [label, HELP_PAIRS[op][1]]
+            return [label, _help_action(send_binds) if op == 'help' else HELP_PAIRS[op][1]]
         return [chord_label(chords[op]), HELP_ACTIONS[op]]
     placed = {op for section in HELP_SECTIONS for op in section}
     sections = [[row(op) for op in section if op in chords] for section in HELP_SECTIONS]
-    rest = [row(op) for _, op in BINDS if op not in placed and op not in seconds]
+    rest = [row(op) for _, op in binds if op not in placed and op not in seconds]
     if rest: sections[-1] += rest
     if EXTRA_HELP_ROWS: sections.append([list(r) for r in EXTRA_HELP_ROWS])
     return [s for s in sections if s]
 
 
-def help_rows():
-    return [row for section in _help_sections() for row in section]
+def help_rows(binds=None, send_binds=None):
+    return [row for section in _help_sections(binds, send_binds) for row in section]
 
 
-def help_sections():
+def help_sections(binds=None, send_binds=None):
     """Row count of each help card section, in order (the `help` frame's `sections`; they add up to help_rows())."""
-    return [len(section) for section in _help_sections()]
+    return [len(section) for section in _help_sections(binds, send_binds)]
 
 
-def help_frame(run_id, session, request_id, visible, turn=0):
+def help_frame(run_id, session, request_id, visible, turn=0, binds=None, send_binds=None):
     """Renderer `help` frame: the card shown or hidden with every row and its sections; `turn` -1 / 1 flips a shown
-    card to the previous / next page (the renderer knows how many pages fit and wraps round)."""
+    card to the previous / next page (the renderer knows how many pages fit and wraps round). `binds` / `send_binds`:
+    the run's keys (help_rows)."""
     if type(turn) is not int or turn not in (-1, 0, 1): raise ValueError('invalid help turn')
-    payload = {'visible': bool(visible), 'rows': help_rows(), 'sections': help_sections()}
+    payload = {'visible': bool(visible), 'rows': help_rows(binds, send_binds), 'sections': help_sections(binds, send_binds)}
     if turn: payload['turn'] = turn
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'help',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
@@ -657,14 +691,27 @@ def restore_mode_lua(mode):
             f'scale = {mode["scale"]:g} }})')
 
 
-def install_binds_lua(python, client, control_socket, run_id, session, typing=False):
-    """The run's Ctrl+Alt binds; in typing mode only the Ctrl+Alt+T toggle (TYPING_BIND), in the same table."""
+def install_binds_lua(python, client, control_socket, run_id, session, typing=False, binds=None):
+    """The run's Ctrl+Alt binds; in typing mode only the Ctrl+Alt+T toggle (TYPING_BIND), in the same table. `binds`:
+    (chord, op) pairs to install instead of BINDS (the key bind panel's keys, keybinds.BindControl.run_binds)."""
     for p in (python, client, control_socket):
         if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
     for t in (run_id, session):
         if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
-    return _binds_lua('xr_workspace_binds', (TYPING_BIND,) if typing else BINDS,
+    binds = BINDS if binds is None else _checked_binds(binds, {op for _, op in BINDS})
+    return _binds_lua('xr_workspace_binds', tuple(b for b in binds if b[1] == TYPING_OP) if typing else binds,
                       f'{python} -I {client} {control_socket} {run_id} {session}')
+
+
+def _checked_binds(binds, ops):
+    """(chord, op) pairs from the key bind panel, re-checked before they go into Lua: known ops, each at most once, and
+    chords keybinds.parse_chord writes back unchanged."""
+    from .keybinds import parse_chord
+    binds = tuple((c, o) for c, o in binds)
+    if len({o for _, o in binds}) != len(binds) or any(o not in ops for _, o in binds): raise ValueError('invalid binds')
+    for chord, _ in binds:
+        if not isinstance(chord, str) or parse_chord(chord) != chord: raise ValueError('invalid binds')
+    return binds
 
 
 def _binds_lua(table, binds, base):
@@ -681,18 +728,23 @@ def _remove_lua(table):
 
 
 def remove_binds_lua():
-    """Run end / reinstall: the view binds, the send-window binds and an open placement panel's modal binds."""
-    return _remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_menu_binds_lua()
+    """Run end / reinstall: the view binds, the send-window binds, an open placement panel's modal binds, and an open key
+    bind panel (keybinds.PANEL_OFF_LUA: its key subscription, and its submap left)."""
+    from .keybinds import PANEL_OFF_LUA
+    return (_remove_lua('xr_workspace_binds') + ' ' + remove_send_binds_lua() + ' ' + remove_menu_binds_lua() + ' ' +
+            PANEL_OFF_LUA)
 
 
-def install_send_binds_lua(python, client, control_socket, run_id, session):
-    """Send-window binds (send.SEND_BINDS); a separate table and eval so the view binds' reinstall stays one eval."""
-    from .send import SEND_BINDS
+def install_send_binds_lua(python, client, control_socket, run_id, session, binds=None):
+    """Send-window binds (send.SEND_BINDS, or `binds`: the key bind panel's); a separate table and eval so the view
+    binds' reinstall stays one eval."""
+    from .send import SEND_BINDS, SEND_OPS as ops
     for p in (python, client, control_socket):
         if not isinstance(p, str) or not SAFE_PATH.match(p): raise ValueError('unsafe path for bind command')
     for t in (run_id, session):
         if not isinstance(t, str) or not SAFE_TOKEN.match(t): raise ValueError('unsafe token for bind command')
-    return remove_send_binds_lua() + ' ' + _binds_lua('xr_workspace_send_binds', SEND_BINDS,
+    binds = SEND_BINDS if binds is None else _checked_binds(binds, set(ops))
+    return remove_send_binds_lua() + ' ' + _binds_lua('xr_workspace_send_binds', binds,
                                                       f'{python} -I {client} {control_socket} {run_id} {session}')
 
 
@@ -767,6 +819,20 @@ class ViewControl:
         # (a compositor call, run off the loop under _menu_lock so it is ordered with the panel's own bind changes).
         self.typing_binds = typing_binds
         self._typing_installed = False  # the bind set last put in place (False: the full set from install_view_binds)
+        self.keys = None  # optional keybinds.BindControl (the key bind panel, Ctrl+Alt+K); set by managed.view_controls
+
+    @property
+    def keys_open(self):
+        """The key bind panel is open: it has the keyboard (keybinds.py), and the overview free pointer lets go of the
+        mouse meanwhile (free_pointer.OverviewPointer.overview)."""
+        return self.keys is not None and self.keys.open
+
+    def _help_binds(self):
+        """help_frame's keys: the key bind panel's (every bind, on or off); none without the panel (the defaults)."""
+        if self.keys is None: return {}
+        km = self.keys.keymap
+        from .keybinds import RUN_OPS, SEND_OPS as KEY_SEND_OPS
+        return {'binds': tuple((km.chord(op), op) for op in RUN_OPS), 'send_binds': tuple((km.chord(op), op) for op in KEY_SEND_OPS)}
 
     def attach_supervisor(self, supervisor):
         self.supervisor = supervisor
@@ -817,6 +883,7 @@ class ViewControl:
         before, was_open = self.state.menu(), self.state.menu_open
         changed = change()
         out = b''
+        if self.state.menu_open and not was_open and self.keys_open: out += self.keys.close()  # their keys would clash
         if changed:
             out += self._placement_frame()
             self.save_due = self.clock() + MENU_SAVE_DELAY
@@ -1065,6 +1132,7 @@ class ViewControl:
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
+        if self.keys is not None: out += self.keys.poll(now)  # the key bind panel: its own idle close, a change's timeout
         return out or None
 
     def _typing_toggle(self):
@@ -1074,6 +1142,7 @@ class ViewControl:
         if not self.state.typing:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves; releases the panel keys
             if self.help_visible: out += self._help_toggle()
+            if self.keys_open: out += self.keys.close()
         self.state.typing = not self.state.typing
         self._sync_typing_binds()
         return out + self._frame()  # the renderer's pop-up shows the new mode
@@ -1094,17 +1163,18 @@ class ViewControl:
             except (OSError, ValueError, TypeError, KeyError): pass  # best effort; Ctrl+Alt+T again retries
 
     def _help_toggle(self):
+        out = self.keys.close() if not self.help_visible and self.keys_open else b''  # one centred card at a time
         self.help_visible = not self.help_visible  # the renderer starts a reopened card on page 1
-        frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible)
+        frame = help_frame(self.run_id, self.session, self.next_id, self.help_visible, **self._help_binds())
         self.next_id += 1
-        return frame
+        return out + frame
 
     def help_turn(self, turn):
         """Ctrl+Alt+PgUp / PgDn, or a free-pointer click on the card's arrows or page indicator: the open help card flips
         to the previous (-1) or next (1) page. Nothing while it is closed. A `help` frame (bytes) or b''."""
         if not self.help_visible or turn not in (-1, 1): return b''
         self.last_input = self.clock()  # turning pages keeps the card up
-        frame = help_frame(self.run_id, self.session, self.next_id, True, turn)
+        frame = help_frame(self.run_id, self.session, self.next_id, True, turn, **self._help_binds())
         self.next_id += 1
         return frame
 
@@ -1144,6 +1214,8 @@ class ViewControl:
             return None
         if isinstance(message, dict) and message.get('op') in HELP_PAGE_OPS:
             return self.help_turn(HELP_PAGE_OPS[message['op']]) or None
+        if isinstance(message, dict) and message.get('op') in (BINDS_PANEL_OP, 'binds_key'):  # keybinds.OPS
+            return self.keys.on_message(message) if self.keys is not None else None
         if not isinstance(message, dict) or message.get('op') not in USER_OPS: return None
         if message['op'] == 'help': return self._help_toggle()
         if message['op'] == 'recenter':
@@ -1208,6 +1280,7 @@ class ViewControl:
             self._typing_installed = typing
         self._typing_bind_work()  # Ctrl+Alt+T pressed during the reload: put the matching set in place
         self._menu_bind_work(force=True)  # after the view binds: re-add an open panel's modal keys
+        if self.keys is not None: self.keys.after_reload()  # an open key bind panel's key subscription
 
     def _focus(self, target):
         try: self.focus(target)

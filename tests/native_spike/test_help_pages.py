@@ -47,7 +47,7 @@ class BindAndRowTests(unittest.TestCase):
         self.assertTrue(all(n >= 1 for n in sections))
         self.assertEqual(len(rows), len({k for k, _ in rows}))
         self.assertEqual(rows[0][0], 'Ctrl+Alt+Up')                        # moving around first
-        self.assertEqual(rows[sum(sections[:-1])][0], 'Ctrl+Alt+H')         # this card's keys last
+        self.assertEqual(rows[sum(sections[:-1])], ['Ctrl+Alt+H / K', 'Help/binds; Ctrl+Alt+G/B: window to XR/back'])  # this card's keys last, with the key bind panel's (keybinds.py)
         self.assertEqual(rows[-1][0], 'Ctrl+Alt+PgUp / PgDn')
 
     def test_ops_outside_every_section_and_extra_rows_still_show(self):

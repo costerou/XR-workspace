@@ -1,7 +1,11 @@
 """Bind helper: send one view operation to a running managed capture run. Stdlib only, run with -I.
 
 usage: python3 -I xr_control.py CONTROL_SOCKET RUN_ID SESSION OP
+       python3 -I xr_control.py CONTROL_SOCKET RUN_ID SESSION binds_key MODS CODE
 Exits quietly with status 1 if no run is listening (binds only exist during a run anyway).
+binds_key comes from the key bind panel's key subscription (keybinds.py), not from a bind: every key pressed while the
+panel is open, as Hyprland's modmask and the xkb keycode. With no run listening it gives the keyboard back
+(LEAVE_KEY_PANEL).
 video_open (Ctrl+Alt+O) first leaves any playing video (video_exit, so the desktops and the picker are visible in the
 glasses), then shows a file picker (zenity) on the focused desktop and sends the chosen path; a cancelled picker sends
 nothing more. The run checks and opens the file itself (video.py).
@@ -28,9 +32,15 @@ OPS = ('zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spacing_down', 'rec
        'menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big', 'menu_reset', 'menu_back', 'menu_ultrawide', 'menu_add',
        'menu_delete', 'resize_press', 'resize_release',
        'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back', 'typing_toggle',
-       'help_prev', 'help_next', 'privacy_display', 'playback_menu_toggle'
+       'help_prev', 'help_next', 'privacy_display', 'playback_menu_toggle', 'binds_toggle'
        ) + LEGACY_OPS  # view.USER_OPS + MENU_OPS + resize.RESIZE_OPS + send.SEND_OPS + view.TYPING_OP + HELP_PAGE_OPS
-                       # + privacy.PRIVACY_OP + view.PLAYBACK_MENU_OP + LEGACY_OPS
+                       # + privacy.PRIVACY_OP + view.PLAYBACK_MENU_OP + view.BINDS_PANEL_OP + LEGACY_OPS
+# The key bind panel's key subscription (keybinds.py): `binds_key MODS CODE`, Hyprland's modmask and the xkb keycode.
+KEY_OP = 'binds_key'
+# Same text as keybinds.PANEL_OFF_LUA (tests compare): a key with no run listening means the run ended with the panel
+# open, or died; the subscription goes and the compositor leaves the panel's submap, so the keyboard works again.
+LEAVE_KEY_PANEL = ('if xr_workspace_keys_off then xr_workspace_keys_off() end '
+                   'if hl.get_current_submap() == "xr_workspace_keys" then hl.dispatch(hl.dsp.submap("reset")) end')
 # VR video ops (video.VIDEO_OPS); duplicated because this helper is stdlib-only under -I (tests compare).
 VIDEO_OPS = ('video_open', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big',
              'video_format', 'video_controls', 'video_exit', 'video_quality', 'video_up', 'video_down')
@@ -223,11 +233,20 @@ def send(path, run_id, session, op, payload):
         s.close()
 
 
+def _key(argv):
+    """`binds_key MODS CODE`'s payload, or None: two small decimal integers (the run checks their range again)."""
+    if len(argv) != 7 or argv[4] != KEY_OP or not all(a.isdigit() and len(a) <= 3 for a in argv[5:]): return None
+    mods, code = int(argv[5]), int(argv[6])
+    return {'mods': mods, 'code': code} if mods <= 255 and 8 <= code <= 255 else None
+
+
 def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
-    if len(argv) != 5: return 2
-    path, run_id, session, op = argv[1:]
-    if op not in OPS + VIDEO_OPS + HELPER_OPS or not _is_token(run_id) or not _is_token(session) or not path.startswith('/'): return 2
-    payload = {}
+    key = _key(argv) if len(argv) == 7 else None
+    if len(argv) != 5 and key is None: return 2
+    path, run_id, session, op = argv[1:5]
+    if op not in OPS + VIDEO_OPS + HELPER_OPS + (KEY_OP,) or not _is_token(run_id) or not _is_token(session) or not path.startswith('/'): return 2
+    if op == KEY_OP and key is None: return 2
+    payload = key or {}
     if op == 'video_open':
         try: send(path, run_id, session, 'video_exit', {})  # a playing video hides the desktop the picker opens on
         except OSError: return 1  # no run listening: do not show a picker for nothing
@@ -247,6 +266,7 @@ def main(argv, picker=pick_video, clipboard=read_clipboard, tell=notify):
         if op.startswith('resize_'): drop_stale_menu_binds(code=REMOVE_RESIZE_BINDS)  # give the left button back
         if op.startswith('send_'): notify_no_session()  # nothing moves
         if op == 'privacy_display': _eval_stale(os.environ, WAKE_ALL_DISPLAYS)  # never leave the main display dark
+        if op in (KEY_OP, 'binds_toggle'): _eval_stale(os.environ, LEAVE_KEY_PANEL)  # give the keyboard back
         return 1
     return 0
 

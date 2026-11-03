@@ -367,6 +367,8 @@ struct Presentation::Impl : SurfaceRequests {
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
     HelpOverlay help;          // keyboard help card (Ctrl+Alt+H)
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
+    BindPanelOverlay binds;    // key bind panel (Ctrl+Alt+K)
+    bool binds_drawn = false;  // last frame showed it: draw once more so it clears
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     struct ResizeHandle { bool visible = false, active = false; std::uint32_t desktop = 0, corner = 0; std::uint64_t shown = 0; } handle;
@@ -774,6 +776,7 @@ struct Presentation::Impl : SurfaceRequests {
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
         s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
         s.help.set_viewport(w, h);  // the help card's text size comes from the output height
+        s.binds.set_viewport(w, h);
         s.apply_scale();
         s.half_w = 0;  // recompute FOV split for the new aspect
     }
@@ -798,7 +801,7 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data); wl_callback_destroy(callback); s.frame = nullptr; s.cadence.frame_done();
         const double now = double(monotonic_ms());
         if (s.view.animating() || s.tracking_requested || s.popup_drawn || s.popups.active(now) || s.help.animating(now) ||
-            (s.help_drawn && !s.help.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
+            (s.help_drawn && !s.help.visible()) || s.binds.animating(now) || (s.binds_drawn && !s.binds.visible()) || (s.glass.animating(now) && s.view.zoom() < 0.01f) ||  // glass: overview only
             (s.glass_drawn && !s.glass.any_expanded(now)) || s.placements_easing() ||
             (s.video && (s.video->active() || s.video->animating(now))))  // a playing video draws every frame
             s.cadence.invalidate();  // animate / follow the head / fade a pop-up or the help card, morph a glass pill every frame
@@ -929,6 +932,9 @@ std::string Presentation::capture_report() const {
            ",\"shown\":" + std::to_string(impl_->help.shown_count()) + ",\"hidden\":" + std::to_string(impl_->help.hidden_count()) +
            ",\"page\":" + std::to_string(impl_->help.page()) + ",\"pages\":" + std::to_string(impl_->help.pages()) +
            ",\"turns\":" + std::to_string(impl_->help.turns()) + "}";
+    out += ",\"binds\":{\"visible\":" + std::string(impl_->binds.visible() ? "true" : "false") +
+           ",\"shown\":" + std::to_string(impl_->binds.shown_count()) + ",\"hidden\":" + std::to_string(impl_->binds.hidden_count()) +
+           ",\"first\":" + std::to_string(impl_->binds.first()) + ",\"slots\":" + std::to_string(impl_->binds.slots()) + "}";
     out += ",\"placement_menu\":{\"open\":" + std::string(impl_->glass.open() ? "true" : "false") +
            ",\"desktop\":" + std::to_string(impl_->glass.content_desktop()) +
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
@@ -1064,6 +1070,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
             s->popups.set_font(std::move(font));
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
+            std::string binds_why; s->binds.set_font(HudFont::load(kHudFontFamily, binds_why));
             std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
         }
     }
@@ -1095,6 +1102,7 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->glass.set_accent(seed);   // an open panel (glass_theme.hpp)
     impl_->popups.set_accent(seed, double(monotonic_ms()));  // the pop-ups and the cards, redrawn if showing
     impl_->help.set_accent(seed);
+    impl_->binds.set_accent(seed);
     if (impl_->video) impl_->video->set_accent(seed);
     if (impl_->accent != std::array<std::uint8_t, 3>{r, g, b}) { impl_->accent = {r, g, b}; ++impl_->accent_updates; }
     impl_->cadence.invalidate();
@@ -1139,6 +1147,9 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
         start += n;
     }
     if (impl_->help.set(visible, help, double(monotonic_ms()), turn)) impl_->cadence.invalidate();
+}
+void Presentation::set_binds(const BindPanelState& state) {
+    if (impl_ && impl_->binds.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
 void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
@@ -1378,7 +1389,7 @@ Status Presentation::draw_test_pattern() {
             if (!s.gl->draw_scene_and_swap([&](std::uint32_t w, std::uint32_t h) { s.video->draw(world, fov, w, h); }, card, card_generation, card_alpha))
                 return Error{"gl", "draw or swap failed"};
             s.video->after_swap();
-            s.help_drawn = s.glass_drawn = false;
+            s.help_drawn = s.glass_drawn = s.binds_drawn = false;
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
             return {};
@@ -1387,6 +1398,9 @@ Status Presentation::draw_test_pattern() {
         const float help = s.help.alpha(help_now);
         s.gl->set_help(help > 0.f ? &s.help.image() : nullptr, s.help.generation(), help, s.help.offset_px(help_now));
         s.help_drawn = help > 0.f;
+        const float binds = s.binds.alpha(help_now);
+        s.gl->set_binds(binds > 0.f ? &s.binds.image() : nullptr, s.binds.generation(), binds, s.binds.offset_px(help_now));
+        s.binds_drawn = binds > 0.f;
         // Corner-resize handle: overview only (any zoom hides it, so it never lands on a zooming desktop). No pixel orbit.
         const bool handle = s.handle.visible && s.view.zoom() < 0.01f && !s.view.switching();
         s.gl->set_corner_handle(handle ? int(s.handle.desktop) : -1, s.handle.corner, s.handle.active ? kHandleLevelActive : kHandleLevelIdle);

@@ -94,6 +94,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Keys | What it does |
 | --- | --- |
 | Ctrl+Alt+H | Show or hide the help card |
+| Ctrl+Alt+K | Show or hide the key bind panel: change any key on this list, and see conflicts (see below) |
 | Ctrl+Alt+PgUp / PgDn | Previous / next page of the help card, when it has more than one |
 | Ctrl+Alt+T | Typing mode on or off: hands every key below back to your apps (see below) |
 | Ctrl+Alt+Up | Maximize the selected desktop: it fills your view and follows your head |
@@ -117,6 +118,18 @@ gives its keys back too. In the overview the mouse stays a normal cursor (no gre
 you leave typing mode. Ctrl+Alt+T is the one key that keeps working. Press it again to go back to normal XR control.
 A small, dim note in the glasses says which mode you're in and fades out after two seconds. Each session starts in XR
 control. The panel's buttons work in both modes.
+
+**Changing keys** (new, not yet tried in the glasses). Press **Ctrl+Alt+K** for the key bind panel: every key on
+this list with what it does. While it is open the keyboard drives the panel only. **Up / Down** pick a key, **Enter**
+changes it: press the new keys (Ctrl, Alt or Super with a letter, digit, F-key, arrow or punctuation; Shift may join
+them) and they work at once, no restart, and are saved for every later session. **Esc** cancels a change. **R** puts
+the picked key back to its default, **Shift+R** twice puts every key back. **Esc** or **Ctrl+Alt+K** closes the panel,
+and it closes by itself after 30 seconds without a key. Keys that another XR key or a Hyprland / Omarchy bind already
+uses are refused: the row turns red and says what has them, and a notification says it too. When a session starts,
+the panel also checks your saved keys against Hyprland's: a key that clashes with a Hyprland bind is left off (red in
+the panel, with a notification), because taking it away again at the end would also take away Hyprland's. If anything
+goes wrong while the panel has the keyboard, **Esc three times** always gives it back. Your keys live in
+`~/.config/viture-workspace/keybinds.json`; the help card shows them as you set them.
 
 **Overview and Maximized** (new, not yet tried in the glasses). The way the desktops move with your head goes with
 what you are looking at, as on the INAIR Pod:

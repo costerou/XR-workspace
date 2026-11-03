@@ -279,5 +279,49 @@ int main() {
         xr::ControlQueue q("run", "session");
         require(std::holds_alternative<xr::Error>(q.push(frame)));  // identity is still checked
     }
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu: PASS\n";
+    {  // The key bind panel (binds_panel.hpp BindPanelState): display only; a malformed payload is dropped, never fatal.
+        auto binds = [](const std::string& payload) {
+            return "{\"schema\":1,\"request_id\":1,\"run_id\":\"run\",\"session\":\"session\",\"op\":\"binds\",\"payload\":" + payload + "}\n";
+        };
+        const std::string row = R"({"action":"Next desktop","keys":"Ctrl+Alt+Right","note":"","state":"normal"})";
+        const std::string open = R"({"visible":true,"title":"Key binds","rows":[)" + row +
+            R"(,{"action":"Overview","keys":"Ctrl+Alt+Delete","note":"Off: Hyprland binds Ctrl+Alt+Delete","state":"conflict"}],)"
+            R"("selected":1,"hint":"Up/Down pick","status":"","alert":true})";
+        const auto shown = xr::decode_control(binds(open));
+        require(std::holds_alternative<xr::ControlMessage>(shown));
+        const auto& m = std::get<xr::ControlMessage>(shown);
+        require(m.op == xr::ControlOp::binds);
+        const auto& p = std::get<xr::BindPanelState>(m.payload);
+        require(p.visible && p.title == "Key binds" && p.rows.size() == 2 && p.selected == 1 && p.alert && p.status.empty());
+        require(p.rows[1].state == xr::BindRowState::conflict && p.rows[1].note == "Off: Hyprland binds Ctrl+Alt+Delete");
+        require(p.rows[0].keys == "Ctrl+Alt+Right" && p.rows[0].state == xr::BindRowState::normal);
+        for (const char* state : {"custom", "capture"}) {
+            auto r = row; r.replace(r.find("normal"), 6, state);
+            const auto ok = xr::decode_control(binds(R"({"visible":true,"title":"K","rows":[)" + r + R"(],"selected":0,"hint":"h","status":"s","alert":false})"));
+            require(std::holds_alternative<xr::ControlMessage>(ok));
+        }
+        const auto hidden = xr::decode_control(binds(R"({"visible":false})"));
+        require(std::holds_alternative<xr::ControlMessage>(hidden) && !std::get<xr::BindPanelState>(std::get<xr::ControlMessage>(hidden).payload).visible);
+        for (const auto& bad : {std::string(R"({"visible":false,"rows":[]})"), std::string(R"({})"), std::string(R"({"visible":1})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":1,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"","rows":[)" + row + R"(],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":0,"hint":"","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":0,"hint":"h","status":"","alert":0})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[)" + row + R"(],"selected":0,"hint":"h","status":"","alert":false,"x":1})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"B","note":"","state":"loud"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"","note":"","state":"normal"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"B","state":"normal"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"\u00e9","keys":"B","note":"","state":"normal"}],"selected":0,"hint":"h","status":"","alert":false})"),
+                                std::string(R"({"visible":true,"title":"K","rows":[{"action":"A","keys":"B","note":")") + std::string(97, 'n') +
+                                    R"(","state":"conflict"}],"selected":0,"hint":"h","status":"","alert":false})"}) {
+            const auto dropped = xr::decode_control(binds(bad));
+            require(std::holds_alternative<xr::Error>(dropped) && xr::ignorable_control_error(std::get<xr::Error>(dropped)));
+        }
+        std::string many = R"({"visible":true,"title":"K","rows":[)";
+        for (std::size_t i = 0; i <= xr::kMaxBindRows; ++i) many += (i ? "," : "") + row;
+        const auto too_many = xr::decode_control(binds(many + R"(],"selected":0,"hint":"h","status":"","alert":false})"));
+        require(std::holds_alternative<xr::Error>(too_many) && xr::ignorable_control_error(std::get<xr::Error>(too_many)));
+    }
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu, binds: PASS\n";
 }

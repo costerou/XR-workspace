@@ -3,6 +3,7 @@
 #include "xr/metrics.hpp"
 #include "xr/video.hpp"
 #include "xr/hud.hpp"
+#include "xr/binds_panel.hpp"
 #include "xr/desktops.hpp"
 #include <array>
 #include <cstdint>
@@ -108,6 +109,9 @@ public:
     // section sizes (empty: one section). `turn` -1 / +1 flips a shown card to the previous / next page (hud.hpp).
     void set_help(bool visible, const std::vector<std::pair<std::string, std::string>>& rows,
                   const std::vector<std::uint32_t>& sections = {}, std::int32_t turn = 0);
+    // Key bind panel (binds_panel.hpp; Ctrl+Alt+K in the supervisor): fades in/out in the middle of the view like the help
+    // card, over it (the supervisor never shows both). Display only.
+    void set_binds(const BindPanelState& state);
     // Placement panel (display only; placements are applied by set_placements): with `open`, desktop `desktop`'s glass
     // pill expands into its placement panel (glass.hpp) and any other collapses; closed, every pill is a pill again.
     // `desktop` 0..count-1, `field` 0..3 in WirePlacement order; `placements` for every desktop in set_placements' units,

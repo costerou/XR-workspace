@@ -358,7 +358,7 @@ class NoSessionTests(unittest.TestCase):
 
 class HelpCardTests(unittest.TestCase):
     def test_help_row_names_the_send_keys(self):
-        row = dict(view.help_rows())['Ctrl+Alt+H']
+        row = dict(view.help_rows())['Ctrl+Alt+H / K']  # the key bind panel (Ctrl+Alt+K) shares the row
         self.assertIn('Ctrl+Alt+G', row); self.assertIn('B', row)
         self.assertLessEqual(len(row), 48)  # ipc.hpp kMaxHelpText
         self.assertIn(row, (ROOT / 'spike/tests/help_card_test.cpp').read_text())  # the fit test uses the real row

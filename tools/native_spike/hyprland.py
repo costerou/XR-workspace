@@ -192,11 +192,12 @@ class HyprlandClient:
         if command.startswith('dispatch hl.dsp.window.move') and int(re.fullmatch(MOVE_PATTERN, command).group(1)) > 2147483647:
             raise ValueError('invalid workspace')
 
-    def install_view_binds(self, python, client, control_socket, run_id, session):
-        """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval."""
+    def install_view_binds(self, python, client, control_socket, run_id, session, binds=None, send_binds=None):
+        """Runtime-only Ctrl+Alt binds for the glasses view; generated Lua only, never free-form eval. `binds` /
+        `send_binds`: the key bind panel's keys (keybinds.py), else view.BINDS / send.SEND_BINDS."""
         from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
-        self._eval(install_binds_lua(python, client, control_socket, run_id, session))
-        try: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))  # replaces any surviving set
+        self._eval(install_binds_lua(python, client, control_socket, run_id, session, binds=binds))
+        try: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session, binds=send_binds))  # replaces any surviving set
         except (OSError, ValueError):
             try: self._eval(remove_binds_lua())  # the run will not start: leave no half-installed binds behind
             except (OSError, ValueError): pass
@@ -214,12 +215,29 @@ class HyprlandClient:
         from .restore import EVAL_LIMIT, lua
         self._eval(lua(snapshot), limit=EVAL_LIMIT)
 
-    def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
-        """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
-        (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
+    def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False, binds=None, send_binds=None):
+        """After a config reload, a typing-mode switch (Ctrl+Alt+T) or a key bind panel change: drop any surviving
+        handles, then bind again (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send
+        and placement-panel binds, and closes an open key bind panel. `binds` / `send_binds`: as install_view_binds."""
         from .view import install_binds_lua, install_send_binds_lua, remove_binds_lua
-        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing))
-        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session))
+        self._eval(remove_binds_lua() + ' ' + install_binds_lua(python, client, control_socket, run_id, session, typing, binds=binds))
+        if not typing: self._eval(install_send_binds_lua(python, client, control_socket, run_id, session, binds=send_binds))
+
+    def binds_text(self, timeout=DEADLINE):
+        """Every bind, as plain `hyprctl binds` prints it (keybinds.parse_binds); read only. The plain form, because
+        Hyprland 0.56's JSON leaves a keycode bind's key empty."""
+        if not 0 < timeout <= DEADLINE: raise ValueError('invalid timeout')
+        return self._request('binds', timeout).decode('utf-8', errors='replace')
+
+    def open_key_panel(self, python, client, control_socket, run_id, session):
+        """The key bind panel opened: its submap and key subscription (keybinds.panel_on_lua); generated Lua only."""
+        from .keybinds import panel_on_lua
+        self._eval(panel_on_lua(python, client, control_socket, run_id, session))
+
+    def close_key_panel(self):
+        """The key bind panel closed: subscription gone, its submap left (keybinds.PANEL_OFF_LUA); fixed Lua only."""
+        from .keybinds import PANEL_OFF_LUA
+        self._eval(PANEL_OFF_LUA)
 
     def set_dpms(self, name, on, keep=None):
         """Privacy mode (Ctrl+Alt+D, privacy.py): the physical output `name` DPMS off (`keep`: the glasses' output,

@@ -596,6 +596,7 @@ class VideoControl:
         out = b''
         if self.view.state.menu_open: out += self.view._on_menu('menu_toggle') or b''  # collapses: saves, releases the keys
         if self.view.help_visible: out += self.view._help_toggle()
+        if getattr(self.view, 'keys_open', False): out += self.view.keys.close()  # the key bind panel's keys go too
         if self.stream is not None and self.stream is not stream: self.stream.stop()
         self.stream, self.origin, self.opening, self.stream_retries = stream, 'web' if stream else 'file', False, 0
         self.title = title
