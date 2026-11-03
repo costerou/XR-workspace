@@ -11,13 +11,17 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
     this feature adds no compositor output mutation and no journal record kind. The aspect ratio is always kept.
   * A pill drag moves the desktop like a title bar through its `x` / `y` placement (the pill sits under the desktop;
     an expanded pill's panel header drags the same way). Since 2026-11-02 that placement is an orbit round your head
-    and a drag carries a desktop round you, exactly under the dot, without ever overlapping another: orbit.py (drag_target,
-    allowed_move) replaced the flat offset, its 10% overlap allowance and its one-desktop reach.
-  * Sizes and positions are saved with the other placements in the glasses model's profile (PlacementStore), 0.5 s
-    after the last change and at once on release.
+    and a drag carries a desktop round you, exactly under the dot: orbit.py (drag_target, PillDrag) replaced the flat
+    offset, its 10% overlap allowance and its one-desktop reach, and it bumps what it runs into (bump.py).
+  * Sizes and positions last the session; a run never saves them (monitor-collision-bump, 2026-11-03).
   * Every free-pointer click (corner and pill drags, pill clicks, panel sliders) uses the same modal left-button binds
     and ops (resize_press / resize_release), so whatever disables one (zoomed in, typing mode, a VR video playing)
     disables them all. An open placement panel does not: the pointer is how it is clicked.
+  * Super + drag is a window's, never a monitor's (Hyprland's own bindm movewindow / resizewindow). The press bind has
+    no modifier and Hyprland matches a bind's modifiers exactly, so with Super (or any modifier) held the press never
+    reaches the run: no monitor move, resize or bump can start. It must stay that way: no ignore_mods on it, and no
+    bind here on a Super chord. The release bind is the other way round (ignore_mods): a monitor drag whose button comes
+    up with Super held must still end, or it would stay on the dot with no button down; with no drag it does nothing.
   * OLED care: the bracket's brightest level is 184/255 and no glass pixel passes 191/255 (the cards' cap); they hide
     after OVERLAY_IDLE_CLOSE_S without pointer movement. Neither drifts or orbits.
 """
@@ -65,7 +69,7 @@ def install_resize_binds_lua(python, client, control_socket, run_id, session):
     base = f'{python} -I {client} {control_socket} {run_id} {session}'
     return (remove_resize_binds_lua() + f' local c = "{base} " {BIND_TABLE} = {{ '
             f'hl.bind("{RESIZE_BUTTON}", hl.dsp.exec_cmd(c .. "resize_press")), '
-            f'hl.bind("{RESIZE_BUTTON}", hl.dsp.exec_cmd(c .. "resize_release"), {{ release = true }}) }}')
+            f'hl.bind("{RESIZE_BUTTON}", hl.dsp.exec_cmd(c .. "resize_release"), {{ release = true, ignore_mods = true }}) }}')
 
 
 def remove_resize_binds_lua():

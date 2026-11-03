@@ -77,7 +77,8 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     corner drag changes `distance` so the corner follows the pointer along its diagonal; a slider sets its setting. A
     drag never goes through another desktop: it bumps the desktops it runs into out of its way (bump.py; one Pusher for
     the whole drag), and every desktop goes out in the same `placement` frame. Only drags started on the move and resize
-    handles do (RESIZE_DRAGS, _resize_to, orbit.PillDrag): content is the apps'. Placements last the session (a run
+    handles do (RESIZE_DRAGS, _resize_to, orbit.PillDrag): content is the apps', and a Super + drag is Hyprland's window
+    move or resize, whose press never reaches the run (resize.py). Placements last the session (a run
     passes ViewControl no store). Drags also end after OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in and
     when a VR video opens.
   * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is

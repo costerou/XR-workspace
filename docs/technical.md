@@ -628,6 +628,14 @@ or with one stale after a desktop change, an edit applies as given. Everything h
   corner or edge `handle`), one on a move handle moves through `orbit.PillDrag`, and the open panel's sliders and keys
   through `ViewControl._bump`; all of them bump. A press on content is the apps' and never starts one
   (`test_bump.py` `HandleContractTests`, for every point round a desktop whatever its zone).
+- **Super + drag is the window's.** Super + left or right drag is Hyprland's own `bindm` (movewindow, resizewindow): a
+  window move or resize, never a monitor's. The free pointer's press bind has no modifier and Hyprland matches a bind's
+  modifiers exactly, so with Super (or any modifier) held the press never reaches the run, and no monitor move, resize
+  or bump can start. The run binds no Super chord and the press no `ignore_mods` (`test_bump.py` `BindRuleTests`). The
+  release bind does have `ignore_mods`: a monitor drag whose button comes up with Super held still ends, instead of
+  staying on the dot with no button down; with no drag held a release does nothing. One limit: a monitor drag whose
+  button went down before Super stays a monitor drag, as Hyprland also needs Super at the press for its own; the run
+  cannot see Super itself (`hyprctl devices` does not report modifiers).
 - **The roll** (roll-level icons) is ignored by bumping, as by the guard before it.
 
 ### Roll-level icons

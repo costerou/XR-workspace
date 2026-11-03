@@ -10,10 +10,11 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 import time
 import unittest
 
-from tools.native_spike import bump, free_pointer as fp, orbit, view
+from tools.native_spike import bind_check, bump, free_pointer as fp, input_lock, orbit, resize, unified_cursor, view
 from test_free_pointer import PointerBase, X1  # the free pointer driven like the sampler would (same directory)
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, validate_placements
 
@@ -453,6 +454,13 @@ class RunTests(unittest.TestCase):
 
 
 # --- the handles of the hit-zone contract, never the content ------------------------------------------------------------
+def free_pointer_binds():
+    """The free pointer's left-button binds as installed: (chord, op, options text), from the generated Lua."""
+    lua = resize.install_resize_binds_lua(*bind_check.DUMMY_ARGS)
+    return [(chord, op, opts) for chord, op, opts in
+            re.findall(r'hl\.bind\("([^"]+)", hl\.dsp\.exec_cmd\(c \.\. "(\w+)"\)(?:, \{ ([^}]*) \})?\)', lua)]
+
+
 class HandleContractTests(PointerBase):
     """Bumping hooks into the shared hit-zone contract's handles (free_pointer.RESIZE_DRAGS / _resize_to for resizes,
     orbit.PillDrag for moves), never the content: a press and drag that starts on a resize handle resizes and bumps,
@@ -539,6 +547,74 @@ class HandleContractTests(PointerBase):
         s = self.control.state.placements
         self.assertLess(s[0]['distance'], 100); self.assertGreater(s[1]['x'], 0)
         CollisionTests.assert_clear(self, G, s)
+
+
+    # --- Super + drag is the window's (Hyprland's bindm movewindow / resizewindow), never a monitor's --------------------
+    def button(self, down, mods=()):
+        """The left button going down or up with modifiers `mods` held: what Hyprland runs of the free pointer's binds.
+        A bind fires when its modifiers match exactly, unless it has ignore_mods (the binds here have none of their own:
+        BindRuleTests)."""
+        for chord, op, opts in free_pointer_binds():
+            if ('release' in opts) != (not down): continue
+            if mods and 'ignore_mods' not in opts: continue
+            self.op(op)
+
+    def test_with_super_held_no_handle_starts_a_monitor_move_resize_or_bump(self):
+        for name, q, glass in self.points(1):
+            with self.subTest(point=name):
+                self.control.state.placements = [dict(p) for p in FLAT]
+                self.p.drag = None
+                self.dot_onto(1, q, glass)
+                self.button(True, {'SUPER'})  # Hyprland's bindm takes it: a window move, nothing reaches the run
+                self.assertIsNone(self.p.drag)
+                for _ in range(3): self.move_canvas(30, -30)
+                self.button(False, {'SUPER'})
+                self.assertIsNone(self.p.drag)
+                self.assertEqual(self.control.state.placements, FLAT)
+        self.assertEqual(self.p.bumps, 0)
+
+    def test_super_let_go_before_the_button_starts_nothing_either(self):
+        x, y, w, h = fp.pill_rect(T0)
+        self.dot_onto(0, (x + w / 2, y + h / 2), glass=True)
+        self.assertEqual(self.p.hover, ('pill', 0))
+        self.button(True, {'SUPER'})
+        self.move_canvas(40, 0)
+        self.button(False)  # the button comes up with no modifier: the release reaches the run, with nothing held
+        self.move_canvas(40, 0)
+        self.assertIsNone(self.p.drag)
+        self.assertEqual(self.control.state.placements, FLAT)
+
+    def test_a_monitor_drag_let_go_with_super_held_ends_and_does_not_stay_on_the_dot(self):
+        x, y, w, h = fp.pill_rect(T0)
+        self.dot_onto(0, (x + w / 2, y + h / 2), glass=True)
+        self.button(True)  # no modifier: the monitor's drag
+        for _ in range(3): self.move_canvas(40, 0)
+        moved = [dict(p) for p in self.control.state.placements]
+        self.assertNotEqual(moved, FLAT)
+        self.button(False, {'SUPER'})  # Super went down meanwhile: the release still arrives (ignore_mods)
+        self.assertIsNone(self.p.drag)
+        for _ in range(3): self.move_canvas(40, 0)
+        self.assertEqual(self.control.state.placements, moved)  # nothing follows the dot any more
+
+
+class BindRuleTests(unittest.TestCase):
+    """Super + drag stays Hyprland's: what makes that true of the binds the run installs."""
+    def test_the_press_matches_modifiers_exactly_and_only_the_release_ignores_them(self):
+        binds = free_pointer_binds()
+        self.assertEqual([(chord, op) for chord, op, _ in binds], [(resize.RESIZE_BUTTON, 'resize_press'), (resize.RESIZE_BUTTON, 'resize_release')])
+        self.assertEqual(binds[0][2], '')  # no option at all on the press: no ignore_mods, no transparent, no non_consuming
+        self.assertEqual(binds[1][2], 'release = true, ignore_mods = true')
+
+    def test_no_bind_of_the_run_takes_a_super_chord_and_only_that_release_ignores_modifiers(self):
+        args = bind_check.DUMMY_ARGS
+        for lua in (view.install_binds_lua(*args), view.install_menu_binds_lua(*args), view.install_send_binds_lua(*args),
+                    resize.install_resize_binds_lua(*args), unified_cursor.click_binds_lua(*args),
+                    input_lock.lock_binds_lua(*args)):
+            self.assertNotIn('SUPER', lua)
+        self.assertEqual(resize.install_resize_binds_lua(*args).count('ignore_mods'), 1)
+        for lua in (view.install_binds_lua(*args), view.install_menu_binds_lua(*args), unified_cursor.click_binds_lua(*args),
+                    input_lock.lock_binds_lua(*args)):
+            self.assertNotIn('ignore_mods', lua)
 
 
 class UnifiedHandleContractTests(HandleContractTests):

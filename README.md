@@ -156,7 +156,8 @@ push (say against the top of the room, or round you, desktops all the way round)
 fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
 desktops glides them there together in a quarter of a second; while you drag they move with your hand. Only the
 handles round a desktop do this (its pill, its resize corners and edges, its pill's sliders and keys); pressing and
-dragging on a desktop's content goes to the app there and never moves, resizes or bumps anything.
+dragging on a desktop's content goes to the app there and never moves, resizes or bumps anything. Super + drag is
+your window manager's as always: it moves or resizes a window, never a desktop, and bumps nothing.
 
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
