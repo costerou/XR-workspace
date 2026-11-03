@@ -144,20 +144,6 @@ You can move, curve and resize each desktop in space, and put it anywhere around
 above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
 it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
 
-**Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
-(dragging its pill or a corner, the sliders and keys of its pill, or the panel's **Place** section), it never goes
-through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
-runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
-doesn't pull it back, and it is saved with your layout like any other move. What counts is how they look from where you sit, curve and size included: a small desktop far
-away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
-you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
-push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
-fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
-desktops glides them there together in a quarter of a second; while you drag they move with your hand. Only the
-handles round a desktop do this (its pill, its resize corners and edges, its pill's sliders and keys); pressing and
-dragging on a desktop's content goes to the app there and never moves, resizes or bumps anything. Super + drag is
-your window manager's as always: it moves or resizes a window, never a desktop, and bumps nothing.
-
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
 
@@ -179,6 +165,20 @@ and curvature are kept. Update the program that draws in the glasses, the backgr
 (see [docs/technical.md](docs/technical.md#build-and-install)): the way they talk about placements changed, so an older
 copy of any one of them can't take the new placements. Going back to an older background helper alone resets the
 placements this version saved to flat.
+
+**Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
+(dragging its pill or a corner, the sliders and keys of its pill, or the panel's **Place** section), it never goes
+through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
+runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
+doesn't pull it back, and it is saved with your layout like any other move. What counts is how they look from where you sit, curve and size included: a small desktop far
+away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
+you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
+push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
+fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
+desktops glides them there together in a quarter of a second; while you drag they move with your hand. Only the
+handles round a desktop do this (its pill, its resize corners and edges, its pill's sliders and keys); pressing and
+dragging on a desktop's content goes to the app there and never moves, resizes or bumps anything. Super + drag is
+your window manager's as always: it moves or resizes a window, never a desktop, and bumps nothing.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the
