@@ -155,12 +155,10 @@ constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx 
 // The turn is a view (camera) rotation only: no placement ever changes, and at rest look() is 0. During phase 1 another
 // switch retargets it; later ones queue and run once this one lands. Zooming out mid-switch zooms out from where the view
 // is and eases any turn back to 0.
-// A cut (set_target's `cut`, the cursor pushed past an edge) zoomed in skips all three: the target is shown at once, fully
-// zoomed in at its placement, the view never turned (any switch or turn in flight is dropped). Spacing still eases.
 class ViewAnimator {
 public:
     explicit ViewAnimator(float duration_ms = 220.f, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
-    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool cut = false);
+    void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms);
     void advance(double now_ms);
     bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active; }
     bool switching() const { return switch_.active; }

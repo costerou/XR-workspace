@@ -686,10 +686,8 @@ class ViewControl:
         self.next_id += 1
         return frame
 
-    def _frame(self, cut=False):
-        """A view frame; `cut` (a cursor switch, switch_desktop): the renderer shows the new selection at once, with no
-        zoom out / turn / zoom in (spike/include/xr/ipc.hpp ViewPayload)."""
-        frame = view_frame(self.run_id, self.session, self.next_id, {**self.state.view(), 'cut': True} if cut else self.state.view())
+    def _frame(self):
+        frame = view_frame(self.run_id, self.session, self.next_id, self.state.view())
         self.next_id += 1
         return frame
 
@@ -864,17 +862,15 @@ class ViewControl:
 
     def switch_desktop(self, desktop):
         """Zoomed in, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
-        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, but with no animation:
-        the frame's `cut` has the renderer show it zoomed in at its placement at once (the keys' zoom out, turn and zoom in,
-        whose turn eases back as it zooms in, looked like going there and coming back). Every desktop stays where it is
-        placed. The sampler gives its monitor focus and brings the cursor in over the matching edge (no focus thread here:
-        that would warp the cursor to the middle). One view frame, or b'' when stale (not zoomed in, typing mode, a VR
-        video, no such desktop, already selected)."""
+        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do, so the renderer zooms
+        out, turns to it and zooms in, every desktop staying where it is placed. The sampler gives its monitor focus and
+        brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
+        One view frame, or b'' when stale (not zoomed in, typing mode, a VR video, no such desktop, already selected)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
         if not self.state.zoomed or self.state.typing or self.video_active: return b''
         self.last_input = self.clock()
         self.state.selected = desktop
-        return self._frame(cut=True)
+        return self._frame()
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing."""

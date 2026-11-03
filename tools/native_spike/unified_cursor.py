@@ -16,8 +16,7 @@ home's edge switches to the desktop placed that way):
   * Zoomed in, the push past an edge (EdgePush; not in typing mode or during a VR video). If a desktop is placed past
     that edge of home round you in 3D (neighbors.py: by direction from the eye, a cone round the push and the nearest;
     not the row order), pushing PUSH_PX past the edge switches to it: the loop selects it (ViewControl.switch_desktop,
-    as Ctrl+Alt+Left / Right but with no animation: the renderer cuts straight to it zoomed in at its placement; every
-    desktop stays where it is placed) and the
+    as Ctrl+Alt+Left / Right: the renderer zooms out, turns and zooms in; every desktop stays where it is placed) and the
     sampler brings the cursor in just inside the opposite edge of the new home, as far along it as it left. Over an
     edge Hyprland lets it cross the overshoot counts; at an edge Hyprland clamps it at (the layout's outer edge, e.g.
     the top of the row) each touch counts NUDGE_PX and puts it that far back in, so a hand still pushing touches
@@ -58,7 +57,7 @@ PUSH_PX = 48              # logical px of push past one edge, each part within P
 PUSH_WINDOW_S = 0.25      # a pause longer than this starts the push over
 NUDGE_PX = 12             # an edge Hyprland clamps the cursor at (nothing beyond it in its layout): the cursor touching it
                           # is put back this far in, and each touch counts this much push (the hand's push is not seen)
-SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (a hand still pushing never switches straight on)
+SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's zoom out, turn, zoom in)
 ENTRY_PX = 24             # the cursor enters the new desktop this far inside the edge it came in over
 PENDING_S = 0.5           # a requested switch the loop has not made by then is dropped
 

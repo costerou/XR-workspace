@@ -220,8 +220,8 @@ In the overview your mouse is no longer stuck inside the desktops:
 - **The mouse stays on its desktop.** It only ever works the selected desktop. In the overview, moving the dot over
   another desktop does nothing until you click it: that click (or Ctrl+Alt+Left / Right) is how you switch there.
 - **Push the mouse past an edge to switch** (new, not yet tried in the glasses): zoomed in, keep pushing the mouse past
-  an edge of the desktop and the view cuts straight to the desktop placed that way round you, with no animation
-  (Ctrl+Alt+Left / Right still zoom out, turn and zoom in). It goes by where the desktops are placed, so pushing up reaches a desktop you put
+  an edge of the desktop and the view switches to the desktop placed that way round you, with the same zoom out, turn
+  and zoom in as Ctrl+Alt+Left / Right. It goes by where the desktops are placed, so pushing up reaches a desktop you put
   above, and a desktop off at an angle is reached from the side it is nearest. The mouse comes in at the matching edge
   of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
   beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)

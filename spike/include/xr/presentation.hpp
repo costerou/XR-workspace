@@ -75,9 +75,9 @@ public:
     std::string capture_report() const;  // bounded JSON; never contains pixel data
     // Animate the glasses view (overview / zoom into `selected`, gap `spacing`); capture mode only.
     // Shows a short pop-up for the viewing mode (first call, and on change), cursor follow, prediction and typing mode
-    // (on change). `cut`: a zoomed-in switch shows the new desktop at once (ViewAnimator::set_target).
+    // (on change).
     void set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode = 0, bool cursor_follow = false,
-                  bool prediction = false, bool typing = false, bool cut = false);
+                  bool prediction = false, bool typing = false);
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);
     void recenter();
