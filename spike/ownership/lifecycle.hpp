@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iterator>
 #include <string>
+#include <vector>
 namespace xr::ownership {
 // Object identity, not an ID/name, proves a newly allocated active workspace.
 template<class W, class Before, class Range, class M>
@@ -33,6 +34,37 @@ bool disconnectRetiring(const M& source, const W& gap, Live live, Destroy destro
     } restore{source,gap,live};
     source->m_activeWorkspace.reset();
     return destroy();
+}
+// The monitor rules a config reload must keep, decided just before it clears them (plugin.cpp hooks
+// CMonitorRuleManager::clear and re-adds these right after, before the config is parsed).
+// Pinned efb5099 reload(): clear every rule -> parse the config -> ensureMonitorStatus(), which modesets
+// each output whose rule (the last one naming it, else the config's first catch-all "") no longer
+// matches the applied one. The config never names XR-n or the glasses' output, so every reload -- and
+// Omarchy's workspace layout toggle is one, since it rewrites a layout file the config requires --
+// took XR-n through the catch-all (preferred mode, the user's scale) and the glasses from their session
+// 1920x1200@120 to the config's mode, each and straight back: a resize of every window on the XR
+// desktops, a capture constraint bounce and two physical modesets of the glasses per switch.
+// Kept, while a run has live XR outputs (`owned`: their rules, never empty then): our rules, and for
+// every other output the named rule in effect (`applied`: compare() is a full match, so the reload
+// would otherwise modeset). Re-added before the parse, so a rule of the same name in the config still
+// replaces it (add() erases by name): the config wins wherever it names an output. Without a run,
+// nothing: a reload is entirely the user's.
+template<class R, class Rules, class Monitors, class Matches, class Applied>
+std::vector<R> keptThroughReload(const std::vector<R>& owned, const Rules& rules, const Monitors& monitors,
+                                 Matches matches, Applied applied) {
+    std::vector<R> kept;
+    if(owned.empty()) return kept;
+    auto named=[&](const auto& name) {
+        return std::any_of(kept.begin(),kept.end(),[&](const R& k){return k.m_name==name;});
+    };
+    for(const auto& rule:owned) if(!named(rule.m_name)) kept.push_back(rule);
+    for(const auto& monitor:monitors) {
+        // The rule ensureMonitorStatus would apply: the last that names this output.
+        auto rule=std::find_if(std::rbegin(rules),std::rend(rules),[&](const R& r){return matches(monitor,r.m_name);});
+        if(rule==std::rend(rules) || rule->m_name.empty() || named(rule->m_name) || !applied(monitor,*rule)) continue;
+        kept.push_back(*rule);
+    }
+    return kept;
 }
 // Explicit pinned CMonitorRule value equality: compare() is modeset policy,
 // not ownership equality. Do not compare struct padding in drmModeModeInfo.

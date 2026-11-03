@@ -4,12 +4,14 @@ No plugin loader or compositor is linked/executed. This is source extraction, no
 an assertion on source spelling: the C++ test asserts Registry lifecycle results.
 """
 import pathlib
+import re
 import sys
 
+# argv: plugin.cpp, output .inc, then the NativeBackend methods to extract (default: configure verified).
 source = pathlib.Path(sys.argv[1]).read_text()
 methods = []
-for name in ("configure", "verified"):
-    start = source.index(f"    bool {name}(")
+for name in sys.argv[3:] or ("configure", "verified"):
+    start = re.search(rf"^    (?! )[^\n(]*\b{name}\(", source, re.M).start()
     opening = source.index("{", start)
     depth = 1
     end = opening + 1
