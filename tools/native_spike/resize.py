@@ -13,7 +13,8 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
     an expanded pill's panel header drags the same way). Since 2026-11-02 that placement is an orbit round your head
     and a drag carries a desktop round you, exactly under the dot: orbit.py (drag_target, PillDrag) replaced the flat
     offset, its 10% overlap allowance and its one-desktop reach, and it bumps what it runs into (bump.py).
-  * Sizes and positions last the session; a run never saves them (monitor-collision-bump, 2026-11-03).
+  * Sizes and positions are saved with the other placements in the glasses model's profile (PlacementStore), 0.5 s
+    after the last change and at once on release.
   * Every free-pointer click (corner and pill drags, pill clicks, panel sliders) uses the same modal left-button binds
     and ops (resize_press / resize_release), so whatever disables one (zoomed in, typing mode, a VR video playing)
     disables them all. An open placement panel does not: the pointer is how it is clicked.

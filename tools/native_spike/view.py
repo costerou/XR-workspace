@@ -28,11 +28,11 @@ file's schema, always "anchor", and is not read; a `cursor_switch_animate` from 
 The renderer shows a short pop-up in the glasses when Ctrl+Alt+V changes the viewing mode or prediction changes (and
 the viewing mode at start), not for the mode change a maximize or un-maximize makes.
 Per-desktop placement (position round you, distance, curvature; geometry.PLACEMENT_BOUNDS) arrives as one absolute
-`placement` message from the controller (panel) and is applied by the renderer. It lasts the session: a run never
-saves it (managed.view_controls passes no placement store; every XR start is flat, monitor-collision-bump). It is not a
-keyboard op and not listed in capabilities (the panel renders those as buttons). Every edit of one desktop (the panel's
-Apply, the pill panel's keys and sliders, the free pointer's drags) bumps the desktops it runs into out of its way
-(bump.py, ViewControl._bump); a discrete one that bumped glides (GLIDE_MS).
+`placement` message from the controller (panel), is applied by the renderer and saved in the glasses model's profile.
+It is not a keyboard op and not listed in capabilities (the panel renders those as buttons).
+Every edit of one desktop (the panel's Apply, the pill panel's keys and sliders, the free pointer's drags) bumps the
+desktops it runs into out of its way (bump.py, ViewControl._bump); a discrete one that bumped glides (GLIDE_MS). Pushed
+desktops are placements like any other and are saved with them.
 Placement pills (Ctrl+Alt+L; Ctrl+Alt+P was already prediction): in the overview the renderer draws a glass pill
 under every desktop (spike/include/xr/glass.hpp). One at a time expands, with a short morph, into that desktop's own
 placement panel: the same four settings the panel edits (left/right, down/up, distance, curvature) as sliders.
@@ -43,9 +43,8 @@ Escape) is installed and it is removed again on close: Up/Down pick the setting,
 Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that desktop back flat, Escape collapses.
 Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu` frame
 (open + desktop = the expanded pill; while the free pointer holds a slider, also `surface`, the press-time placement the
-renderer keeps the panel on). A placement store, if one is given (runs give none), is written 500 ms after the last
-change, or at once when the panel collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not
-panel capabilities either.
+renderer keeps the panel on) and saved to the profile 500 ms after the last change, or at once when the panel
+collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
 pill (expand / collapse its panel), press or drag an open panel's sliders, or click a desktop to focus it; inside a
@@ -164,7 +163,7 @@ IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
-MENU_SAVE_DELAY = 0.5  # seconds after the last panel change before a placement store (if any) is written; runs pass none
+MENU_SAVE_DELAY = 0.5  # seconds after the last panel change (key, slider or pill drag) before the profile is written
 # Bumping (bump.py): a discrete edit (a panel key, a slider press, an Apply from the settings panel) that pushed other
 # desktops out of the way asks the renderer to glide every desktop there together over GLIDE_MS, along one smootherstep
 # curve, instead of its quick exponential easing (drags stream their updates and keep that). spike/include/xr/ipc.hpp
@@ -861,9 +860,9 @@ class ViewControl:
     def _menu_update(self, change, keep=False, glide=True):
         """Apply `change` (() -> True if a placement changed) to the pills' state: the desktop it changed goes there
         pushing the desktops it runs into out of its way (_bump; `keep`: a held slider, one edit), then the live placement
-        frame (if one changed; `glide`: a discrete edit that pushed glides there, GLIDE_MS), then the `placement_menu`
-        frame (if anything it shows changed). The modal keys follow the panel being open (installed / removed off the
-        loop)."""
+        frame (if one changed; saved after MENU_SAVE_DELAY, pushed desktops with it; `glide`: a discrete edit that pushed
+        glides there, GLIDE_MS), then the `placement_menu` frame (if anything it shows changed). A panel collapsing saves
+        at once; the modal keys follow the panel being open (installed / removed off the loop)."""
         before, was_open, placed = self.state.menu(), self.state.menu_open, list(self.state.placements)
         changed = change()
         out = b''
@@ -910,10 +909,11 @@ class ViewControl:
 
     def pill_slide(self, desktop, field, t, surface=None):
         """The free pointer pressed or drags the open panel's `field` slider at fraction `t` of its track: that setting is
-        highlighted and takes the value there, applied live like a key change, bumping what it runs into (the press may
-        jump far: it glides; held and dragged it is one edit, one Pusher). `surface` (the press): the desktop's placement
-        then, which the renderer draws the panel on until pill_release, so the knob stays under the pointer the drag is
-        measured with. Ignored unless `desktop`'s panel is the open one. Frames (bytes)."""
+        highlighted and takes the value there, applied live and saved like a key change (MENU_SAVE_DELAY, at once on
+        release), bumping what it runs into (the press may jump far: it glides; held and dragged it is one edit, one
+        Pusher). `surface` (the press): the desktop's placement then, which the renderer draws the panel on until
+        pill_release, so the knob stays under the pointer the drag is measured with. Ignored unless `desktop`'s panel is
+        the open one. Frames (bytes)."""
         if not self.state.menu_open or self.state.menu_desktop != desktop: return b''
         self.last_input = self.clock()  # a held slider keeps the panel up
 
@@ -1226,9 +1226,8 @@ class ViewControl:
         return out or None
 
     def _on_placement(self, payload):
-        """Absolute placements from the settings panel, applied live. One desktop changed (an Apply edits one): it goes
-        there pushing the desktops it runs into out of its way, gliding (_bump). Invalid: ignored. Not saved to the
-        profile in a run (managed.view_controls passes no store): every XR start is fresh."""
+        """Absolute placements from the panel; applied live and saved to the glasses profile. One desktop changed (an Apply
+        edits one): it goes there pushing the desktops it runs into out of its way, gliding (_bump). Invalid: ignored."""
         placed = list(self.state.placements)
         try:
             if not isinstance(payload, dict) or not self.state.set_placements(payload.get('desktops')): return None

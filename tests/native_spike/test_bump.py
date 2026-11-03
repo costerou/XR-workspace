@@ -1,8 +1,9 @@
 """Bumping in the overview (bump.py, monitor-collision-bump): a desktop moved or resized pushes the desktops it runs into out
 of its way, smoothly, cascading, and they stay where they were pushed. Collision detection on the footprints as seen
 from the eye (orbit, distance and curvature included), push resolution, cascades, no room, stability, how a run uses it
-(the pill drag, the corner resize, the panel's keys and sliders, the settings panel, the glide), and that no placement
-outlives the session. The renderer's glide is in the ctests view (glide_toward) and ipc (the frame's `glide`).
+(the pill drag, the corner resize, the panel's keys and sliders, the settings panel, the glide, the normal save path:
+pushed desktops are saved with the layout like any other move). The renderer's glide is in the ctests view
+(glide_toward) and ipc (the frame's `glide`).
 
 Offline only. No compositor, renderer binary or glasses.
 """
@@ -11,10 +12,12 @@ import math
 from pathlib import Path
 import random
 import re
+import tempfile
 import time
 import unittest
+from unittest import mock
 
-from tools.native_spike import bind_check, bump, free_pointer as fp, input_lock, orbit, resize, unified_cursor, view
+from tools.native_spike import bind_check, bump, free_pointer as fp, input_lock, managed, orbit, profiles, resize, unified_cursor, view
 from test_free_pointer import PointerBase, X1  # the free pointer driven like the sampler would (same directory)
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, validate_placements
 
@@ -357,6 +360,7 @@ class Layout:
     """The overview free pointer as ViewControl sees it: the renderer's overview layout."""
     def __init__(self, g): self.geometry = g
     def summon(self): pass
+    def poll(self, now): return b''
 
 
 class Settings:
@@ -364,9 +368,16 @@ class Settings:
     def save(self, s): pass
 
 
-def run_control(g=G, placements=None):
+class Store:
+    """A placement store (profiles.PlacementStore's save): what the normal save path writes."""
+    def __init__(self): self.saved = []
+    def save(self, placements): self.saved.append([dict(p) for p in placements])
+
+
+def run_control(g=G, placements=None, store=None):
     names = ['XR-1', 'XR-2', 'XR-3', 'XR-4'][:len(g['tiles']) if g is not None else 3]
-    c = view.ViewControl(view.ViewState(names, placements=placements), 'run', 'session', lambda name: None, Settings(), None)
+    c = view.ViewControl(view.ViewState(names, placements=placements), 'run', 'session', lambda name: None, Settings(), None,
+                         placements=store)
     c.overview_pointer = Layout(g)
     return c
 
@@ -441,6 +452,57 @@ class RunTests(unittest.TestCase):
         out = c.on_message({'op': 'menu_inc_big'})
         self.assertEqual(c.state.placements, at(0, x=view.MENU_STEPS['x'][1]))
         self.assertNotIn('glide', placement(out))
+
+    def test_a_key_that_bumps_is_saved_with_the_pushed_desktops_like_any_key(self):
+        store = Store()
+        c = run_control(store=store)
+        c.on_message({'op': 'menu_toggle'})
+        c.on_message({'op': 'menu_inc_big'})  # into XR-2 and XR-3
+        self.assertEqual(store.saved, [])  # debounced, as any panel key
+        self.assertIsNotNone(c.save_due)
+        c.poll(c.save_due)  # MENU_SAVE_DELAY later
+        self.assertEqual(store.saved, [c.state.placements])
+        self.assertNotEqual(store.saved[0][1], DEFAULT_PLACEMENT)  # XR-2 where it was pushed
+        self.assertNotEqual(store.saved[0][2], DEFAULT_PLACEMENT)
+
+    def test_a_panel_collapsing_saves_the_bump_at_once(self):
+        store = Store()
+        c = run_control(store=store)
+        c.on_message({'op': 'menu_toggle'}); c.on_message({'op': 'menu_inc_big'}); c.on_message({'op': 'menu_toggle'})
+        self.assertEqual(store.saved, [c.state.placements])
+        self.assertNotEqual(store.saved[0][1], DEFAULT_PLACEMENT)
+
+    def test_a_slider_that_bumps_is_saved_like_any_slider(self):
+        store = Store()
+        c = run_control(store=store)
+        c.on_message({'op': 'menu_toggle'})
+        c.pill_slide(0, 'distance', (40 - 10) / 190, surface=dict(DEFAULT_PLACEMENT))
+        c.pill_slide(0, 'distance', (30 - 10) / 190)
+        self.assertIsNotNone(c.save_due)
+        c.pill_release(); c.flush()  # the release (free_pointer._end_drag)
+        self.assertEqual(store.saved, [c.state.placements])
+        self.assertEqual(store.saved[0][0]['distance'], 30); self.assertNotEqual(store.saved[0][1], DEFAULT_PLACEMENT)
+
+    def test_a_settings_panel_apply_that_bumps_is_saved_at_once_with_the_pushed_desktops(self):
+        store = Store()
+        c = run_control(store=store)
+        c.on_message({'op': 'placement', 'payload': {'desktops': at(2, x=-80)}})
+        self.assertEqual(store.saved, [c.state.placements])
+        self.assertLess(store.saved[0][1]['x'], 0)
+
+    def test_a_run_saves_bumped_positions_in_the_profile_with_the_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp) / 'run'; runtime.mkdir(mode=0o700)
+            client = mock.Mock(runtime_dir=runtime, event_stream=None)
+            client.query.return_value = []
+            store = profiles.ProfileStore(Path(tmp) / 'profiles.json', 'luma-ultra')
+            with managed.view_controls(client, 'run', 'session', ['XR-1', 'XR-2', 'XR-3'], store=store) as control:
+                control.set_overview_geometry(G)  # the renderer's layout: bumping is on
+                control.on_message({'op': 'menu_toggle'}); control.on_message({'op': 'menu_inc_big'})  # XR-1 into XR-2, XR-3
+                moved = [dict(p) for p in control.state.placements]
+                self.assertGreater(control.bumps, 0)
+                self.assertGreater(moved[1]['x'], 0); self.assertGreater(moved[2]['x'], 0)
+            self.assertEqual(profiles.load_profile(store.path, store.model)['placements'], moved)  # saved by the run's end
 
     def test_glide_frames_are_checked(self):
         frame = json.loads(view.placement_frame('run', 'session', 9, FLAT, glide=view.GLIDE_MS))
@@ -526,6 +588,26 @@ class HandleContractTests(PointerBase):
                     self.assertNotEqual((s[1]['x'], s[1]['y']), (0, 0))
                     CollisionTests.assert_clear(self, G, s)
         self.assertTrue({'pill', 'corner'} <= seen and seen & {'desktop', 'cursor'}, seen)  # every kind was tried
+
+    def test_a_bumped_desktop_is_saved_like_any_move(self):
+        x, y, w, h = fp.pill_rect(T0)
+        self.dot_onto(0, (x + w / 2, y + h / 2), glass=True)
+        self.button(True)
+        for _ in range(3): self.move_canvas(40, 0)
+        s = [dict(p) for p in self.control.state.placements]
+        self.assertGreater(s[1]['x'], 0)  # XR-2 pushed
+        self.assertEqual(self.store.saves, 0); self.assertIsNotNone(self.control.save_due)  # debounced, as any drag
+        self.button(False)
+        self.assertEqual(self.store.saved, s); self.assertEqual(self.store.saves, 1)  # at once on release, with the pushed ones
+
+    def test_a_resize_that_bumps_is_saved_like_any_resize(self):
+        self.dot_onto(0, (T0[0] + T0[2] + 5, T0[1] - 5))
+        self.button(True)
+        for _ in range(4): self.move_canvas(40, -40)
+        self.button(False)
+        s = self.control.state.placements
+        self.assertLess(s[0]['distance'], 100); self.assertGreater(s[1]['x'], 0)
+        self.assertEqual(self.store.saved, s)
 
     def test_a_corner_drag_grows_into_the_neighbour_and_bumps_it(self):
         self.dot_onto(0, (T0[0] + T0[2] + 5, T0[1] - 5))  # XR-1's top-right corner, off the desktop

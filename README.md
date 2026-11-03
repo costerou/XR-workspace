@@ -141,15 +141,14 @@ sent, a small notification tells you why.
 ## Placing desktops
 
 You can move, curve and resize each desktop in space, and put it anywhere around you: beside you, behind you,
-above or below. Where you put them lasts for the session: every XR start begins with three flat desktops in their
-row again, and nothing about where they were is saved. There are three ways to do it: the panel, the glass pill under
-each desktop in the glasses, and the mouse in the overview.
+above or below. Your layout is saved for your glasses model and comes back next session. There are three ways to do
+it: the panel, the glass pill under each desktop in the glasses, and the mouse in the overview.
 
 **Desktops bump each other out of the way** (new, not yet tried in the glasses). However you move or resize a desktop
 (dragging its pill or a corner, the sliders and keys of its pill, or the panel's **Place** section), it never goes
 through another one. Any desktop in its way is pushed aside, just far enough, and slides along with it; if that one
 runs into a third, the third is pushed too. A pushed desktop stays where it was pushed: moving the first one back
-doesn't pull it back. What counts is how they look from where you sit, curve and size included: a small desktop far
+doesn't pull it back, and it is saved with your layout like any other move. What counts is how they look from where you sit, curve and size included: a small desktop far
 away still bumps a big one in front of it if it would show through it, and two desktops that don't cover each other as
 you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
 push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
@@ -173,11 +172,13 @@ now turn a little toward you instead of sitting flat beside the middle one. Over
 straight down or up at you. There is no setting to turn or tilt a desktop any more: the yaw, pitch and roll settings
 are gone from the panel, from the glass pill and from saved layouts.
 
-**Saved layouts.** There are none any more: where the desktops were placed is never written, and a layout an older
-version saved is never read (each start is three flat desktops). Update the program that draws in the glasses, the
-background helper and the panel together (see [docs/technical.md](docs/technical.md#build-and-install)): the way they
-talk about placements changed (four settings since 2 November 2026, and the glide of a bump since 3 November), so an
-older copy of any one of them can't take the new placements.
+**Older saved layouts.** Until 2 November 2026 left/right and down/up were a share of the desktop's own size, and each
+desktop also had yaw, pitch and roll. A layout saved before then still loads. Its left/right and down/up now read as
+at most 10°, so a moved desktop comes back about where it was. Its yaw, pitch and roll are dropped, and its distance
+and curvature are kept. Update the program that draws in the glasses, the background helper and the panel together
+(see [docs/technical.md](docs/technical.md#build-and-install)): the way they talk about placements changed, so an older
+copy of any one of them can't take the new placements. Going back to an older background helper alone resets the
+placements this version saved to flat.
 
 **With the placement pills in the glasses** (new, not yet tried in the glasses). In the overview
 (**Ctrl+Alt+Down**) each desktop has a small pill in your theme's colour just under it. Click a pill with the grey dot (see the

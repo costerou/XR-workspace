@@ -78,9 +78,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     drag never goes through another desktop: it bumps the desktops it runs into out of its way (bump.py; one Pusher for
     the whole drag), and every desktop goes out in the same `placement` frame. Only drags started on the move and resize
     handles do (RESIZE_DRAGS, _resize_to, orbit.PillDrag): content is the apps', and a Super + drag is Hyprland's window
-    move or resize, whose press never reaches the run (resize.py). Placements last the session (a run
-    passes ViewControl no store). Drags also end after OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in and
-    when a VR video opens.
+    move or resize, whose press never reaches the run (resize.py). All are saved like a panel key change (0.5 s
+    debounce, and at once on release), pushed desktops with them. Drags also end, and save, after
+    OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in and when a VR video opens.
   * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is
     up the renderer reports where it lies on the canvas under the current head rotation (`help_geometry`, the card and,
     on a paged card, its previous / next arrows and page indicator; parse_help_geometry). It is the top layer for the

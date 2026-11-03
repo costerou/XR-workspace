@@ -200,7 +200,7 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F17 | With the dot showing, zoom in (Ctrl+Alt+Up) | The cursor is visible and normal again. Zoom out: the free pointer is back. |
 | F18 | With the mouse on DP-1, press Ctrl+Alt+Down | The cursor jumps into the middle of the highlighted desktop. |
 | F19 | Switch the Omarchy theme while the dot shows | Still free afterwards: the cursor stays hidden and the pill can still be dragged. |
-| F20 | Stop the session from the panel while the dot shows (or mid-drag), then left-click on DP-1 | The cursor is visible and the click works. The next session starts with the three desktops flat in their row again: moves and sizes are not kept. |
+| F20 | Stop the session from the panel while the dot shows (or mid-drag), then left-click on DP-1 | The cursor is visible and the click works. Moves and sizes made are back next session. |
 | F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no pills; nothing moves (the video gate ignores the click ops). |
 | F22 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: moving and resizing never change pixels or scale. |
 
@@ -258,7 +258,7 @@ tab: all zero, Distance 100%), use anchor mode (Ctrl+Alt+V) unless a step says o
 | O15 | **Zoom.** Put XR-1 behind you and XR-3 overhead again (O8, O9). Select XR-2 and zoom in (Ctrl+Alt+Up), then zoom out. Then select XR-1 and zoom in | Zoomed into XR-2, it is flat in front of you and XR-1 and XR-3 are back at their row slots beside it. On zoom-out they go back behind you and overhead. Zoomed into XR-1, it comes flat in front of you. |
 | O16 | **Follow and locked.** Back in the overview with XR-1 behind you, switch to follow mode (Ctrl+Alt+V), drag XR-2's pill out past the edge of the view, then do the same in locked mode | XR-1 stays out of sight in both modes. XR-2 only goes as far as the dot: no speed-up past the edge, and no pill lights up except under the dot. Selecting XR-1 (Ctrl+Alt+Left / Right) and zooming in (Ctrl+Alt+Up) shows it. Zoom out, switch back to anchor mode and reset XR-2 (select it, Ctrl+Alt+L, R). |
 | O17 | **Out of reach.** With XR-1 behind you in anchor mode, try to reach its corners and the desktop itself with the mouse. Then select it with Ctrl+Alt+Left / Right and press Ctrl+Alt+L | Its corners and the desktop don't react. Ctrl+Alt+L opens its panel (turn round to see it), the arrows change it, and R puts it back in its slot. |
-| O18 | **Not saved.** Put XR-1 behind you and XR-3 up and to the right. Stop the session and start a new one | All three are back flat in their row: placements last one session (XR starts fresh). |
+| O18 | **Saved.** Put XR-1 behind you and XR-3 up and to the right. Wait 2 s, stop the session and start a new one | Both come back where you left them, facing you. The Place section sums each up in degrees ("moved …° left"). |
 | O19 | **Comfort.** Spend a few minutes looking round at desktops beside, behind and above you | Note any shimmer, seams, flicker, judder or discomfort, and whether the side desktops are easier to read now that they face you. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
@@ -270,9 +270,9 @@ its way, and they stay where they were pushed (`tools/native_spike/bump.py`; see
 [technical.md](technical.md#bumping-desktops-out-of-the-way)). Automated (offline) coverage:
 `tests/native_spike/test_bump.py` (collision detection on the footprints, push resolution, cascades, no room near the
 poles and in a full ring, hysteresis, a jittering pointer, determinism, random edits never leaving a new overlap, timing,
-and the run's keys, slider press and drag, settings panel and glide), `test_free_pointer.py` and `test_glass_pills.py`
-(the pill drag bumps), `test_fresh_start.py` (a run that moved and bumped its desktops writes nothing), and the ctests
-`view` (`glide_toward`, `step_placements`) and `ipc` (`glide`). Not yet tried in an isolated VM or in the glasses.
+the handles, Super + drag, and the run's keys, slider press and drag, settings panel, glide and normal save path), `test_free_pointer.py` and `test_glass_pills.py`
+(the pill drag bumps), and the ctests `view` (`glide_toward`, `step_placements`) and `ipc` (`glide`). Not yet tried in
+an isolated VM or in the glasses.
 
 | # | Do | Expect |
 |---|----|--------|
@@ -287,7 +287,7 @@ and the run's keys, slider press and drag, settings panel and glide), `test_free
 | B9 | In the settings panel's Place section, set a desktop's left/right so it would land on another and Apply | The other desktop is pushed aside in the glasses (and the Place section shows its new values after a moment). |
 | B10 | Lift XR-2 high (Down/up near +80°), lift XR-1 under it and push XR-1 up into XR-2 | XR-2 never goes past straight overhead. XR-1 stops where it still fits; nothing overlaps. Drag on sideways: XR-1 slides along. |
 | B11 | Flick a pill fast across the whole row | Every desktop in the way is pushed ahead; none ends up on the far side of the one you move, none overlaps. |
-| B12 | Stop the session and start again | Three flat desktops in the row: nothing of the moves or pushes is kept. |
+| B12 | Bump a desktop, wait 2 s, stop the session and start again | The layout comes back as you left it, the bumped desktop where it was pushed (saved like any move; a start only restores it with the remembered layout, `remember-layout-reset-bind`). |
 | B13 | In the overview, press and drag on a desktop's content, also near its corners and edges | It goes to the app there; the desktop does not move or resize and nothing is bumped. From the handles round it (pill, a resize corner or edge just outside) the same drag moves or resizes it and bumps its neighbours. |
 | B14 | In the overview, hold Super and drag from a pill, a corner and a window, with the left and the right button | A window moves or resizes as Hyprland does it (or nothing, off a window). No desktop moves or resizes and nothing is bumped. Then start a pill drag, press Super, let go of the button first: the desktop stays where it is and no longer follows the mouse. |
 | B15 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
