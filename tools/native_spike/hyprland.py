@@ -202,6 +202,12 @@ class HyprlandClient:
             except (OSError, ValueError): pass
             raise
 
+    def adopt_windows(self, moves):
+        """Run start: the physical monitor's windows onto the XR desktops (adopt.py). Generated Lua only, from a
+        validated plan of workspace ids, window addresses and XR output names; never free-form eval."""
+        from .adopt import lua
+        for code in lua(moves): self._eval(code)
+
     def reinstall_view_binds(self, python, client, control_socket, run_id, session, typing=False):
         """After a config reload, or a typing-mode switch (Ctrl+Alt+T): drop any surviving handles, then bind again
         (never doubled). `typing`: only the Ctrl+Alt+T toggle; the removal also takes the send and placement-panel binds."""
