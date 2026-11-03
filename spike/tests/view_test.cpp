@@ -99,6 +99,9 @@ int main() {
               v.focus() == 2 && v.selected() == 2 && v.take_landed_turns().empty());
         for (double t = 2000; t <= 3000; t += 10) {
             v.advance(t); CHECK(v.zoom() == 1 && v.look() == 0 && v.turn() == 0 && v.focus() == 2 && !v.switching());
+            // Follow / locked switch with a cut too (overview-anchor-only): their aim stays fully on the desktop, never
+            // easing to the overview's centre on the way (focus_weight 1 throughout).
+            CHECK(focus_weight(v) == 1);
         }
         v.set_target(true, 2, 40, 3000); v.advance(3010); CHECK(!v.animating() && v.focus() == 2);
         // A key switch in flight (mid-turn) is dropped by a cut, unlanded, which lands on its own target.

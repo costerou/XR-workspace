@@ -127,7 +127,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 
 Changes made with an open pill apply immediately and are saved to the glasses profile half a second after the last change, at once when a slider is released, and as soon as the pill closes. The pills, the placement panel and their wiring are covered by offline tests only; nothing about them has been tried in the glasses.
 
-Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming in and back out never moves a desktop, in every viewing mode (anchor, locked and follow) and however far it was dragged: the zoomed desktop keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, keeps its curvature and is drawn on top; every other desktop stays exactly where and as large as it was in the overview. Nothing snaps straight ahead or back to its default place (`zoomed_placements`, since 2026-11-02). Ctrl+Alt+Left / Right in the overview just move the selection. Zoomed in, in every mode, they animate the switch: the view zooms out of the current desktop to the overview, turns to look at the target, then zooms into it where it was dragged (about 0.7 s; `ViewAnimator`, since 2026-11-02). The turn is the camera's only: no placement changes, and once the switch lands the view is not turned. A free-pointer click on a desktop is the main way to pick one. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
+Each desktop also has a placement in the glasses: left/right and down/up (a turn round you, in degrees: see [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), distance (size in space) and horizontal curvature. Every desktop always faces you, upright, so there is no setting for which way it faces (the yaw, pitch and roll settings were removed on 2026-11-02). Set it in the desktop editor before starting, or under **Place** while a session runs; live changes apply when you release a slider. Resolution and scale stay fixed during a run. Zooming in and back out never moves a desktop, in every viewing mode (anchor, locked and follow) and however far it was dragged: the zoomed desktop keeps the direction round you it was dragged to, comes to distance 100 there so it fills the view, keeps its curvature and is drawn on top; every other desktop stays exactly where and as large as it was in the overview. Nothing snaps straight ahead or back to its default place (`zoomed_placements`, since 2026-11-02). Ctrl+Alt+Left / Right in the overview just move the selection. Follow and locked have no overview (`ViewState.overview_allowed`, since 2026-11-03): they are always zoomed in, switching into them zooms in, Ctrl+Alt+Down there moves to the next desktop, and every switch there (keys and a cursor push) is a `cut`, straight onto the desktop. Zoomed in, in anchor mode, they animate the switch: the view zooms out of the current desktop to the overview, turns to look at the target, then zooms into it where it was dragged (about 0.7 s; `ViewAnimator`, since 2026-11-02). The turn is the camera's only: no placement changes, and once the switch lands the view is not turned. A free-pointer click on a desktop is the main way to pick one. Overlapping desktops are drawn farthest first and are not split where they intersect. The CPU fallback renderer, used when GPU composition is unavailable, ignores placements.
 
 Settings, including placements, are saved per glasses model.
 
@@ -364,8 +364,8 @@ still for the whole overview and let no click or wheel reach a window.
   edge), the loop selects that desktop (`ViewControl.switch_desktop`, the Ctrl+Alt+Left / Right path, so the renderer
   zooms out, turns and zooms in and no desktop moves; its view frame carries `"center": true`, so in anchor mode the turn
   starts from the centre of the view and the camera pans straight to the new desktop and leaves it centred, world-locked
-  there, and pushing back pans to and centres the other one; anchor mode only: follow and locked ignore `center` and fit the
-  desktop to the glasses as before) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
+  there, and pushing back pans to and centres the other one; anchor mode only: follow and locked have no overview and get `"cut": true`, straight onto the
+  desktop with no zoom out / turn / zoom in) and the sampler puts the cursor 24 px (`ENTRY_PX`) inside the
   opposite edge of the new home, as far along it as it left, and focuses that monitor (`confine_lua`). Then no push
   counts for 0.8 s. Over an edge Hyprland lets the cursor cross (onto the next XR monitor or the physical one) the
   overshoot counts and the cursor goes back as above; a jump over 400 px is a warp and never counts. At an edge
@@ -516,9 +516,8 @@ profile loads, every placement the new version saved (they have four fields).
 
 **Limitations.**
 
-- In follow and locked modes a desktop placed outside the view stays out of sight in the overview. Zooming into it
-  (select it with Ctrl+Alt+Left / Right, then Ctrl+Alt+Up) centres it; switching to anchor mode (Ctrl+Alt+V) lets you
-  turn to it.
+- Follow and locked modes have no overview (since 2026-11-03): the pills, panels and free pointer are anchor mode only.
+  Ctrl+Alt+Left / Right (or Ctrl+Alt+Down, the next desktop) there centre any desktop, wherever it is placed.
 - For a desktop far round you, only its pill is in the pointer's reach. Its open panel, its corners and the desktop
   itself (moving the cursor into it, clicking it to focus it) are not. The keyboard works: Ctrl+Alt+Left / Right
   selects it, Ctrl+Alt+L opens its panel, the arrows change it and R resets it to flat.
