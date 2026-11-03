@@ -14,6 +14,7 @@ from pathlib import Path
 import tempfile
 
 from . import view
+from .quality import video_quality
 from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, legacy_placement, validate_desktop, validate_desktops,
                        validate_placement, validate_placements)
 from .ipc import token
@@ -73,7 +74,7 @@ def _clean(data):
 
 
 def _view_part(data):
-    out = dict(view.DEFAULT_SETTINGS)
+    out = {**view.DEFAULT_SETTINGS, 'video_quality': video_quality(data)}
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= view.MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in view.MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']  # an old cursor_follow is dropped

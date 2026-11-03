@@ -29,6 +29,7 @@ std::unique_ptr<VideoPlayer> VideoPlayer::open(int fd, const Options&, std::stri
 VideoPlayer::~VideoPlayer() = default;
 void VideoPlayer::toggle_pause() {}
 void VideoPlayer::seek(double) {}
+void VideoPlayer::set_deband(bool) {}
 bool VideoPlayer::update() { return true; }
 void VideoPlayer::report_swap() {}
 unsigned VideoPlayer::texture() const { return 0; }
@@ -54,7 +55,7 @@ std::string ascii(const char* s, std::size_t limit = 120) {
 }
 void* proc_address(void*, const char* name) { return reinterpret_cast<void*>(eglGetProcAddress(name)); }
 // Observed properties (reply_userdata identifies them).
-enum Prop : std::uint64_t { kPause = 1, kTime, kDuration, kEof, kWidth, kHeight, kHwdec, kDrops };
+enum Prop : std::uint64_t { kPause = 1, kTime, kDuration, kEof, kWidth, kHeight, kHwdec, kDrops, kQuality };
 bool has_token(const char* list, const char* token) {
     const std::size_t n = std::strlen(token);
     for (const char* p = list ? list : ""; (p = std::strstr(p, token)); p += n)
@@ -147,6 +148,7 @@ struct VideoPlayer::Impl {
     VideoFramePacer pacer;
     double render_sum_ms = 0, render_max_ms = 0;
     std::int64_t drops = 0;
+    std::uint64_t quality_set = 0, quality_errors = 0;  // quality settings mpv took / refused (set_deband)
     ~Impl() {
         quiesce();
         if (render) mpv_render_context_free(render);  // GL context current (caller's contract)
@@ -202,6 +204,9 @@ struct VideoPlayer::Impl {
             else if (!loaded) fail(last_log.empty() ? "no playable video" : last_log);
             break;
         }
+        case MPV_EVENT_SET_PROPERTY_REPLY:
+            if (e.reply_userdata == kQuality) ++(e.error < 0 ? quality_errors : quality_set);
+            break;
         case MPV_EVENT_LOG_MESSAGE: {
             const auto* m = static_cast<const mpv_event_log_message*>(e.data);
             if (m && m->log_level <= MPV_LOG_LEVEL_ERROR && !interop_noise(m->prefix)) last_log = ascii(m->text);
@@ -420,6 +425,13 @@ void VideoPlayer::seek(double relative_s) {
     mpv_command_async(s.mpv, 0, cmd);
 }
 
+void VideoPlayer::set_deband(bool on) {
+    auto& s = *impl_;
+    if (s.failed || !s.mpv) return;
+    const char* value = on ? "yes" : "no";  // async: the renderer thread never waits on the mpv core
+    mpv_set_property_async(s.mpv, kQuality, "deband", MPV_FORMAT_STRING, &value);
+}
+
 bool VideoPlayer::update() {
     auto& s = *impl_;
     s.events();
@@ -472,7 +484,8 @@ std::string VideoPlayer::report() const {
            "],\"texture\":[" + std::to_string(s.tex_w) + "," + std::to_string(s.tex_h) + "],\"frames\":" + std::to_string(s.frames) +
            ",\"reallocations\":" + std::to_string(s.reallocations) + ",\"gl_errors\":" + std::to_string(s.gl_errors) +
            ",\"reopens\":" + std::to_string(s.reopens) + ",\"discarded\":" + std::to_string(s.discarded) +
-           ",\"drops\":" + std::to_string(s.drops) + ",\"held\":" + std::to_string(t.held) + ",\"early\":" + std::to_string(t.early) +
+           ",\"drops\":" + std::to_string(s.drops) + ",\"quality_set\":" + std::to_string(s.quality_set) +
+           ",\"quality_errors\":" + std::to_string(s.quality_errors) + ",\"held\":" + std::to_string(t.held) + ",\"early\":" + std::to_string(t.early) +
            ",\"late\":" + std::to_string(t.late) + ",\"lead_ms\":[" + num(t.lead_min_ms) + "," + num(t.lead_mean_ms) + "," +
            num(t.lead_max_ms) + "],\"render_ms\":[" + num(s.render_sum_ms / double(s.frames ? s.frames : 1)) + "," + num(s.render_max_ms) +
            "],\"interval_ms\":" + num(double(s.pacer.interval_ns()) / 1e6) + ",\"state\":\"" + video_state_name(state()) + "\",\"error\":\"" + error() + "\"}";

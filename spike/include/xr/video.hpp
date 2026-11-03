@@ -82,6 +82,22 @@ private:
     double lead_sum_ = 0, lead_min_ = 0, lead_max_ = 0;
 };
 
+// Quality settings (docs/vr-video.md#quality-menu; tools/native_spike/quality.py SETTINGS and DEFAULTS mirror these).
+// The defaults are what the renderer does without a `quality` frame; quality.py sends the saved settings after every
+// open. Read them through VideoMode::quality(). Wire: "filter": "linear" | "nearest", "deband": bool.
+enum class VideoFilter : std::uint8_t { linear = 0, nearest = 1 };
+struct VideoQuality {
+    VideoFilter filter = VideoFilter::linear;  // how the projection pass samples the decoded frame
+    bool deband = false;                       // mpv's debanding pass while it converts each frame into the texture
+    bool operator==(const VideoQuality&) const = default;
+};
+// Quality menu rows on the controls card: labels and values from the supervisor (printable ASCII).
+constexpr std::size_t kMaxQualityRows = 8, kMaxQualityText = 24;
+struct VideoMenuRow {
+    std::string label, value;
+    bool operator==(const VideoMenuRow&) const = default;
+};
+
 // Player state. Wire (status JSON "video", tools/native_spike/video.py VIDEO_STATES): off, loading, playing, paused,
 // ended, error.
 enum class VideoState : std::uint8_t { off, loading, playing, paused, ended, error };
@@ -98,10 +114,15 @@ struct VideoCardState {
     VideoState state = VideoState::loading;
     std::uint32_t position_s = 0, duration_s = 0;  // whole seconds: the card re-renders at most once a second
     std::string detail;                            // error text (printable ASCII), empty otherwise
+    // The quality menu (Q): when open the card shows these rows, `menu_selected` highlighted, instead of its usual body.
+    bool menu = false;
+    std::vector<VideoMenuRow> menu_rows;
+    std::uint32_t menu_selected = 0;
     bool operator==(const VideoCardState&) const = default;
 };
 // Key hints on the card's footer (shared with the help text in docs/vr-video.md).
 std::vector<std::string> video_card_hints(bool ascii);
+std::vector<std::string> video_menu_hints(bool ascii);  // the same, while the quality menu is open
 HudImage render_video_card(const VideoCardState& state, std::array<float, 3> accent, const HudFont* font = nullptr);
 
 class VideoControlsOverlay {

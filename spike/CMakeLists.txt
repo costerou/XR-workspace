@@ -359,7 +359,7 @@ if(XR_ENABLE_PRESENTATION)
   add_test(NAME video COMMAND video_test "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/video_payloads.json")
   # Projection pass and controls card on surfaceless EGL, and (with libmpv and ffmpeg) real decoding of generated clips.
   find_program(XR_FFMPEG ffmpeg)
-  add_executable(video_render_test tests/video_render_test.cpp src/video_gl.cpp src/video_player.cpp src/hud_gl.cpp)
+  add_executable(video_render_test tests/video_render_test.cpp src/video_gl.cpp src/video_player.cpp src/video_mode.cpp src/hud_gl.cpp)
   target_include_directories(video_render_test PRIVATE src)
   target_link_libraries(video_render_test PRIVATE xr_hud PkgConfig::GPU)
   target_compile_options(video_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)

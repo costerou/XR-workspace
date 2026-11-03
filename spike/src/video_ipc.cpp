@@ -25,6 +25,13 @@ bool format(const Json& p, VideoFormat& out) {
     out.fov_deg = std::uint32_t(fov);
     return true;
 }
+bool menu_text(const Json& value, std::string& out) {
+    if (!value.is_string()) return false;
+    const auto& s = value.get_ref<const std::string&>();
+    if (s.empty() || s.size() > kMaxQualityText || !std::all_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0x20 && c < 0x7f; })) return false;
+    out = s;
+    return true;
+}
 bool title(const Json& value, std::string& out) {
     if (!value.is_string()) return false;
     const auto& s = value.get_ref<const std::string&>();
@@ -48,6 +55,33 @@ bool decode_video_payload(const Json& p, VideoPayload& out) {
         out.action = VideoAction::controls;
         if (!exact_keys(p, {"action", "visible"}) || !p["visible"].is_boolean()) return false;
         out.visible = p["visible"].get<bool>();
+        return true;
+    }
+    if (action == "quality") {  // tools/native_spike/quality.py renderer_payload
+        out.action = VideoAction::quality;
+        if (!exact_keys(p, {"action", "filter", "deband"}) || !p["filter"].is_string() || !p["deband"].is_boolean()) return false;
+        const auto& filter = p["filter"].get_ref<const std::string&>();
+        if (filter == "linear") out.quality.filter = VideoFilter::linear;
+        else if (filter == "nearest") out.quality.filter = VideoFilter::nearest;
+        else return false;
+        out.quality.deband = p["deband"].get<bool>();
+        return true;
+    }
+    if (action == "menu") {  // quality.py menu_payload
+        out.action = VideoAction::menu;
+        if (!exact_keys(p, {"action", "visible", "selected", "rows"}) || !p["visible"].is_boolean() || !p["rows"].is_array() ||
+            !p["selected"].is_number_unsigned())
+            return false;
+        const auto& rows = p["rows"];
+        if (rows.empty() || rows.size() > kMaxQualityRows || p["selected"].get<std::uint64_t>() >= rows.size()) return false;
+        out.visible = p["visible"].get<bool>();
+        out.selected = std::uint32_t(p["selected"].get<std::uint64_t>());
+        out.rows.clear();
+        for (const auto& r : rows) {
+            VideoMenuRow row;
+            if (!exact_keys(r, {"label", "value"}) || !menu_text(r["label"], row.label) || !menu_text(r["value"], row.value)) return false;
+            out.rows.push_back(std::move(row));
+        }
         return true;
     }
     if (action == "seek") {

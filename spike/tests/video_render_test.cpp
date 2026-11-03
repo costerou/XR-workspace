@@ -9,7 +9,9 @@
 //  5. playback speed and timing (docs/vr-video.md#performance): VA-API decodes with zero copy on the context's own GPU
 //     (never vaapi-copy when a render node is known), no frame goes on screen more than a display interval early,
 //     reopen() plays the next file or stream in the same player with nothing of the previous one shown, and closing a
-//     playing video does not wait for mpv's 200 ms frame timeout.
+//     playing video does not wait for mpv's 200 ms frame timeout;
+//  6. the quality menu's settings (VideoQuality) apply live through VideoMode: the texture filter on the drawn frame's
+//     texture and mpv's deband, while it keeps playing, and they carry over to the next video.
 // Exit 77 (skipped) without EGL/GLES. argv: [ffmpeg path] [scratch dir].
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -30,6 +32,7 @@
 #include "xr/video.hpp"
 #include "hud_gl.hpp"
 #include "video_gl.hpp"
+#include "video_mode.hpp"
 #include "video_player.hpp"
 
 using namespace xr;
@@ -129,7 +132,7 @@ void card_is_dim() {
     auto font = HudFont::load(kHudFontFamily, why);
     VideoControlsOverlay overlay; overlay.set_font(std::move(font));
     overlay.set_visible(true, 0);
-    VideoCardState s{"Concert_VR180_LR.mp4", {VideoProjection::equirect180, VideoStereo::sbs, 180}, VideoState::playing, 61, 3725, ""};
+    VideoCardState s{"Concert_VR180_LR.mp4", {VideoProjection::equirect180, VideoStereo::sbs, 180}, VideoState::playing, 61, 3725, "", false, {}, 0};
     overlay.update(s, 0);
     glViewport(0, 0, W, H); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
     hud->draw(overlay.image(), overlay.generation(), overlay.alpha(1000), W, H);
@@ -405,6 +408,54 @@ void reuse_and_close(const std::string& ffmpeg, const std::string& dir) {
     CHECK(fcntl(fd, F_GETFD) >= 0);  // untouched
     ::close(fd);
 }
+
+// 6. Quality settings through the renderer's VideoMode, as the `quality` frame applies them.
+void quality_live(const std::string& dir) {
+    const std::string quads = dir + "/h264-360-mono.mp4";
+    if (!std::filesystem::exists(quads)) { std::puts("quality: SKIP (no clip)"); return; }
+    VideoMode mode;
+    CHECK(mode.quality() == VideoQuality{});  // the defaults: GL_LINEAR, no deband (what the renderer always did)
+    const auto t = target(64, 64);
+    const Mat3 identity{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    double now = 0;
+    auto frame = [&] {  // as the compositor: prepare (mpv leaves framebuffer 0 bound), bind the output, draw, swap
+        now += 8; CHECK(mode.prepare(now));
+        glBindFramebuffer(GL_FRAMEBUFFER, t.fb); mode.draw(identity, 46.f, 64, 64); mode.after_swap();
+    };
+    auto filter = [] { GLint f = 0; glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, &f); GLint m = 0;
+                       glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &m); return f == m ? f : -1; };
+    auto until_playing = [&] {
+        for (int i = 0; i < 2500; ++i) {
+            frame();
+            if (mode.state() == VideoState::playing) return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        }
+        return false;
+    };
+    mode.open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), {}, "q", nullptr, now, false);
+    CHECK(until_playing());
+    frame();
+    CHECK(filter() == GL_LINEAR);
+    mode.set_quality({VideoFilter::nearest, true});  // live: the next drawn frame
+    frame();
+    CHECK(filter() == GL_NEAREST);
+    for (int i = 0; i < 30; ++i) { frame(); std::this_thread::sleep_for(std::chrono::milliseconds(4)); }
+    CHECK(mode.state() == VideoState::playing);  // deband on did not break playback
+    CHECK(mode.report().find("\"filter\":\"nearest\",\"deband\":true") != std::string::npos);
+    CHECK(mode.report().find("\"quality_errors\":0") != std::string::npos);  // mpv took `deband` (each open sets it too)
+    CHECK(mode.report().find("\"quality_set\":0") == std::string::npos);
+    mode.close();
+    mode.open(::open(quads.c_str(), O_RDONLY | O_CLOEXEC), {}, "q", nullptr, now, false);  // kept for the next video
+    CHECK(until_playing());
+    frame();
+    CHECK(filter() == GL_NEAREST);
+    mode.set_quality({});
+    frame();
+    CHECK(filter() == GL_LINEAR);
+    mode.close();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); glDeleteFramebuffers(1, &t.fb); glDeleteRenderbuffers(1, &t.rb);
+    std::puts("quality: filter and deband applied live");
+}
 #endif
 }  // namespace
 
@@ -416,6 +467,7 @@ int main(int argc, char** argv) {
 #ifdef XR_HAVE_MPV
     decode(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
     reuse_and_close(argc > 1 ? argv[1] : "", argc > 2 ? argv[2] : "video-samples");
+    quality_live(argc > 2 ? argv[2] : "video-samples");
 #else
     (void)argc; (void)argv;
     std::puts("decode: SKIP (built without libmpv)");

@@ -149,7 +149,12 @@ std::string format_clock(double seconds) {
 
 std::vector<std::string> video_card_hints(bool ascii) {
     return {std::string("Space  play / pause"), ascii ? "Left/Right  10 s" : "←/→  10 s", ascii ? "Shift+Left/Right  60 s" : "Shift+←/→  60 s",
-            "Tab  format", "Ctrl+Alt+Space  recenter", "Esc  back to desktops"};
+            "Tab  format", "Q  quality", "Ctrl+Alt+Space  recenter", "Esc  back to desktops"};
+}
+
+std::vector<std::string> video_menu_hints(bool ascii) {
+    return {ascii ? "Up/Down  setting" : "↑/↓  setting", ascii ? "Left/Right  change" : "←/→  change", "Q / Esc  close",
+            "Space  play / pause", "Changes apply now and are saved."};
 }
 
 bool VideoControlsOverlay::set_visible(bool visible, double now_ms) {

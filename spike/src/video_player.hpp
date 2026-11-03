@@ -36,6 +36,7 @@ public:
     VideoPlayer& operator=(const VideoPlayer&) = delete;
     void toggle_pause();
     void seek(double relative_s);
+    void set_deband(bool on);    // mpv's `deband` (async; applies from the next frame mpv renders, kept across reopen)
     // Once per output frame, before drawing: handle mpv events and, if mpv has a frame due on this display frame, render
     // it into texture(). Restores the GL state the compositor relies on afterwards and swallows (counts) GL errors mpv
     // leaves. Always true with libmpv; a playback failure shows as state() == error instead.
