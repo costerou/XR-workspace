@@ -28,18 +28,24 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth:true; Layout.preferredHeight:135; color:Qt.darker(Commons.Color.background,1.2); radius:6
         clip:true  // a desktop resized past the view (up to 10x) stays inside the preview
-        Repeater {
-            model:Model.placedRects(Model.previewRects(root.desktops,parent.width-24,96,10),root.placements)
-            delegate: Rectangle {
-                id:tile
-                required property var modelData
-                required property int index
-                x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
-                z:-modelData.width*modelData.height  // bigger behind: a huge desktop never hides a smaller one's click
-                color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.view.selected===index ? Commons.Color.accent : Commons.Color.muted
-                Label { anchors.centerIn:parent; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11; text:Model.desktopName(root.names,tile.index)+"\n"+root.desktops[tile.index].width+"×"+root.desktops[tile.index].height+" · "+root.desktops[tile.index].scale*100+"%" }
-                // Use only advertised relative operations; the panel waits for each reply.
-                MouseArea { anchors.fill:parent; enabled:!root.busy && Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || []).length>0; onClicked:root.request(Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || []).map(op => ({op:"view_op",operation:op}))) }
+        // The tiles' negative z orders them among themselves; inside this plain Item they still draw above the
+        // preview's fill (directly under the Rectangle a negative z put them beneath it, out of sight).
+        Item {
+            id:tiles
+            anchors.fill:parent
+            Repeater {
+                model:Model.placedRects(Model.previewRects(root.desktops,tiles.width-24,96,10),root.placements)
+                delegate: Rectangle {
+                    id:tile
+                    required property var modelData
+                    required property int index
+                    x:modelData.x+12; y:modelData.y+18; width:modelData.width; height:modelData.height
+                    z:-modelData.width*modelData.height  // bigger behind: a huge desktop never hides a smaller one's click
+                    color:Qt.tint(Commons.Color.background,"#203c7050"); border.width:2; border.color:root.view.selected===index ? Commons.Color.accent : Commons.Color.muted
+                    Label { anchors.centerIn:parent; horizontalAlignment:Text.AlignHCenter; font.pixelSize:11; text:Model.desktopName(root.names,tile.index)+"\n"+root.desktops[tile.index].width+"×"+root.desktops[tile.index].height+" · "+root.desktops[tile.index].scale*100+"%" }
+                    // Use only advertised relative operations; the panel waits for each reply.
+                    MouseArea { anchors.fill:parent; enabled:!root.busy && Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || []).length>0; onClicked:root.request(Model.selectOperations(root.view.selected,tile.index,root.snapshot.capabilities || []).map(op => ({op:"view_op",operation:op}))) }
+                }
             }
         }
     }
