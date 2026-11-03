@@ -177,6 +177,7 @@ int main(int argc, char** argv) {
                             }
                             state.count = menu->count; state.numbers = menu->numbers;
                             state.wide = menu->wide; state.armed = menu->armed; state.busy = menu->busy;
+                            state.scale = menu->scale; state.scales = menu->scales; state.picker = menu->picker;
                             std::optional<std::array<std::int32_t, 4>> surface;
                             if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
                                 surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};

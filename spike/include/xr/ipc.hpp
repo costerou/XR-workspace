@@ -65,6 +65,9 @@ struct PlacementMenuPayload {
     std::uint32_t count = 0;  // placements in use
     std::array<std::uint8_t, kPlacementMenuDesktops> numbers{1, 2, 3, 4};
     bool wide = false, armed = false, busy = false;
+    // The Scale dropdown (optional): "scale" percent (0 if absent), "scales" percents increasing (bit i set for
+    // glass.hpp kScalePercents[i]), "picker" (its list open; open panels only).
+    std::uint16_t scale = 0; std::uint8_t scales = 0; bool picker = false;
 };
 constexpr std::uint32_t kMaxPointerPx = 8192;
 // Overview corner-resize handle (tools/native_spike/resize.py), display only:

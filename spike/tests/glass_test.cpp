@@ -60,9 +60,30 @@ int main() {
     CHECK(kPanelFooterTop + float(kPanelHintPx) <= kPanelH && kGrabberTop + kGrabberH < kPanelHeaderH);
     // Four rows (left / right, down / up, distance, curvature: every desktop faces you, so there is no facing setting).
     static_assert(kPlacementMenuFields == 4);
-    // Then the desktop row (Ultrawide / Add / Remove) between the sliders and the footer, inside the paddings.
-    CHECK(kPanelActionsTop == kPanelRowsTop + 4 * kPanelRowH + 6 && kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
-    CHECK(kPanelFooterTop == 228.f && kPanelH == 258.f);
+    // Then the Scale row (one row: label and dropdown box), then the desktop row (Ultrawide / Add / Remove) between it
+    // and the footer, inside the paddings.
+    CHECK(kPanelScaleTop == kPanelRowsTop + 4 * kPanelRowH && kPanelActionsTop == kPanelScaleTop + kPanelRowH + 6 &&
+          kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
+    CHECK(kPanelFooterTop == 262.f && kPanelH == 292.f);
+    {  // the Scale box sits in its row, right of the label column up to the padding; its list above it, under the header
+        const FRect box = glass_scale_box();
+        CHECK(box.x == kPanelTrackX0 && near(box.x + box.width, kPanelW - kPanelPad) && box.y >= kPanelScaleTop &&
+              box.y + box.height <= kPanelScaleTop + kPanelRowH);
+        for (std::size_t i = 0; i < kScaleSteps; ++i) {
+            const FRect r = glass_scale_item(i);
+            CHECK(r.x == box.x && r.width == box.width && r.height == kScaleItemH && r.y >= kPanelHeaderH);
+            if (i) CHECK(near(r.y, glass_scale_item(i - 1).y + kScaleItemH));
+        }
+        CHECK(near(glass_scale_item(kScaleSteps - 1).y + kScaleItemH + kScaleListGap, box.y));
+        CHECK(glass_scale_item(kScaleSteps).width == 0.f);
+        // 100..200% in quarter steps: the broker's own bounds (spike/ownership/registry.cpp validDesktop).
+        CHECK((kScalePercents == std::array<std::uint16_t, kScaleSteps>{100, 125, 150, 175, 200}));
+        PlacementMenuState st; st.scale = 100; st.scales = 0b10111;  // 1920x1080: 175% does not divide it
+        CHECK(glass_scale_enabled(0, st) && glass_scale_enabled(2, st) && !glass_scale_enabled(3, st) && glass_scale_enabled(4, st));
+        CHECK(!glass_scale_enabled(kScaleSteps, st));
+        st.busy = true; for (std::size_t i = 0; i < kScaleSteps; ++i) CHECK(!glass_scale_enabled(i, st));
+        CHECK(glass_scale_label(125) == "125%" && glass_scale_label(0) == "--");
+    }
     for (std::size_t a = 0; a < kPanelActions; ++a) {
         const FRect r = glass_panel_action(a);
         CHECK(r.x >= kPanelPad && r.x + r.width <= kPanelW - kPanelPad + 1e-3f && r.y == kPanelActionsTop && r.height == kPanelActionH);
@@ -159,6 +180,26 @@ int main() {
                 for (bool armed : {false, true})  // every label fits its button
                     CHECK(f->measure(glass_panel_action_label(a, armed), kPanelActionPx, true) + 8 <= std::uint32_t(kPanelActionW));
             for (std::size_t a = 0; a < kPanelActions; ++a) CHECK(hud_text_width(glass_panel_action_label(a, true), 2) + 8 <= std::uint32_t(kPanelActionW));
+        }
+        {  // the Scale row: the box shows the scale; the open list covers the sliders and shows every step, under the cap
+            const auto row_top = std::uint32_t(kPanelScaleTop), row_bottom = std::uint32_t(kPanelScaleTop + kPanelRowH);
+            PlacementMenuState a = st; a.scale = 100; a.scales = 0b10111;
+            PlacementMenuState b = a; b.scale = 150;
+            const auto ia = render_glass_panel(a, f), ib = render_glass_panel(b, f);
+            CHECK(!changed_columns(ia, ib, row_top, row_bottom).empty());   // "100%" vs "150%"
+            CHECK(changed_columns(ia, ib, 0, row_top).empty() && changed_columns(ia, ib, row_bottom, std::uint32_t(kPanelH)).empty());
+            CHECK(alpha_at(glass_scale_box().x + 4, kScaleBoxY + kScaleBoxH / 2) > 0);
+            PlacementMenuState open = a; open.picker = true;
+            const auto io = render_glass_panel(open, f);
+            CHECK(premultiplied(io) && brightest(io) <= kCardMaxLevel);
+            const auto list_top = std::uint32_t(glass_scale_item(0).y), list_bottom = std::uint32_t(kScaleBoxY);
+            CHECK(!changed_columns(ia, io, list_top, list_bottom).empty());              // the list is drawn over the sliders
+            CHECK(changed_columns(ia, io, std::uint32_t(kPanelActionsTop), std::uint32_t(kPanelH)).empty());  // not below
+            PlacementMenuState moved = open; moved.scale = 200;
+            CHECK(!changed_columns(io, render_glass_panel(moved, f), list_top, list_bottom).empty());  // the band follows
+            PlacementMenuState none = open; none.scales = 0b00001;
+            CHECK(!changed_columns(io, render_glass_panel(none, f), list_top, list_bottom).empty());   // dimmed steps
+            if (f) CHECK(f->measure("200%", kPanelActionPx, true) + 40 <= std::uint32_t(kScaleBoxW));
         }
         for (std::uint32_t field = 0; field < kPlacementMenuFields; ++field) {
             PlacementMenuState lo = st, hi = st;

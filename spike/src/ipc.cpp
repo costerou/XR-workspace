@@ -91,10 +91,11 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
 }
 bool placement_menu(const Json& p, PlacementMenuPayload& out) {
     // "surface" (optional, open panels only): the placement the open panel is drawn on while a slider is held. "names",
-    // "wide", "armed", "busy" (optional): the panel's desktop row.
+    // "wide", "armed", "busy" (optional): the panel's desktop row. "scale", "scales", "picker" (optional): its Scale
+    // dropdown (the list open only on an open panel).
     if (!p.is_object()) return false;
     std::size_t optional = 0;
-    for (const char* key : {"surface", "names", "wide", "armed", "busy"}) optional += p.contains(key);
+    for (const char* key : {"surface", "names", "wide", "armed", "busy", "scale", "scales", "picker"}) optional += p.contains(key);
     if (p.size() != 4 + optional || !p.contains("open") || !p["open"].is_boolean() || !p.contains("placements") ||
         !p["placements"].is_array() || p["placements"].empty() || p["placements"].size() > kPlacementMenuDesktops ||
         !p.contains("desktop") || !p["desktop"].is_number_unsigned() || p["desktop"].get<std::uint64_t>() >= p["placements"].size() ||
@@ -122,11 +123,34 @@ bool placement_menu(const Json& p, PlacementMenuPayload& out) {
             out.numbers[i] = std::uint8_t(n); last = n;
         }
     }
-    for (auto [key, flag] : {std::pair{"wide", &out.wide}, std::pair{"armed", &out.armed}, std::pair{"busy", &out.busy}})
+    for (auto [key, flag] : {std::pair{"wide", &out.wide}, std::pair{"armed", &out.armed}, std::pair{"busy", &out.busy},
+                             std::pair{"picker", &out.picker}})
         if (p.contains(key)) {
             if (!p[key].is_boolean()) return false;
             *flag = p[key].get<bool>();
         }
+    if (out.picker && !out.open) return false;
+    auto step = [](const Json& v) -> int {  // index into kScalePercents, -1 if v is not one of them
+        if (!v.is_number_unsigned()) return -1;
+        const auto n = v.get<std::uint64_t>();
+        const auto* at = std::find(kScalePercents.begin(), kScalePercents.end(), n);
+        return at == kScalePercents.end() ? -1 : int(at - kScalePercents.begin());
+    };
+    if (p.contains("scale")) {
+        const int i = step(p["scale"]);
+        if (i < 0) return false;
+        out.scale = kScalePercents[std::size_t(i)];
+    }
+    if (p.contains("scales")) {  // increasing steps
+        const auto& scales = p["scales"];
+        if (!scales.is_array() || scales.size() > kScaleSteps) return false;
+        int last = -1;
+        for (const auto& v : scales) {
+            const int i = step(v);
+            if (i <= last) return false;
+            out.scales = std::uint8_t(out.scales | (1u << unsigned(i))); last = i;
+        }
+    }
     out.surface.reset();
     if (p.contains("surface")) {
         if (!out.open) return false;

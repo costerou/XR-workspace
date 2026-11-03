@@ -25,6 +25,14 @@ def valid_scales(width: int, height: int) -> list[float]:
     return [s for s in SCALES if exact_scale(width, height, s)]
 
 
+def with_scale(d, scale) -> dict:
+    """`d` at Hyprland output scale `scale` (a pill's Scale dropdown): same pixel size, new scale. ValueError unless the
+    scale is one of SCALES and divides the desktop's resolution exactly (valid_scales)."""
+    d = validate_desktop(d)
+    if type(scale) not in (int, float) or isinstance(scale, bool): raise ValueError('unsupported scale')
+    return validate_desktop({'width': d['width'], 'height': d['height'], 'scale': float(scale)})
+
+
 def validate_desktop(d: object) -> dict:
     if not isinstance(d, dict) or set(d) != {'width', 'height', 'scale'}:
         raise ValueError('desktop must have exactly width, height, scale')

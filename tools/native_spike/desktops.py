@@ -1,4 +1,4 @@
-"""Live desktop changes from a glass pill in the glasses: Ultrawide, Add and Remove.
+"""Live desktop changes from a glass pill in the glasses: Ultrawide, Add, Remove and Scale.
 
 The open placement panel (an expanded glass pill, glass.hpp) has a row of three buttons under its sliders, also on keys
 while it is open (view.MENU_BINDS: U, N, Delete):
@@ -8,6 +8,11 @@ while it is open (view.MENU_BINDS: U, N, Delete):
                 with the lowest free number XR-1..XR-MAX_DESKTOPS
     Remove      that desktop goes; its windows move to the run's physical fallback monitor (exactly what Stop does to
                 them). The first press only arms the button ("Remove?"); a second one within REMOVE_ARM_S removes.
+
+Above that row, the panel's Scale dropdown (SCALE): that desktop's Hyprland output scale becomes the picked step of
+geometry.SCALES (only the ones that divide its resolution exactly can be picked: geometry.valid_scales). Its pixel size
+stays; its logical width changes, so the desktops to its right slide along the row (a reshape like Ultrawide's). The
+profile takes the new scale with the desktops, so the next session starts with it.
 
 Every desktop of a run is a managed output the ownership broker made (spike/ownership/plugin.cpp), side by side in
 Hyprland's layout in name order, starting where the run's first desktop started. A change is a plan (plan(), pure)
@@ -35,9 +40,11 @@ import threading
 import time
 import uuid
 
-from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide, validate_desktop)
+from .geometry import (DEFAULT_PLACEMENT, MAX_DESKTOPS, is_ultrawide, logical_width, toggle_ultrawide, validate_desktop,
+                       with_scale)
 
-ACTIONS = ('ultrawide', 'add', 'remove')
+ACTIONS = ('ultrawide', 'add', 'remove')  # the panel's desktop row (its buttons, free_pointer.PANEL_ACTIONS)
+SCALE = 'scale'  # the panel's Scale dropdown: plan(..., SCALE, index, scale=s)
 REMOVE_ARM_S = 4.0  # the Remove button's second press must come this soon after the first
 REFRESH_MILLIHZ = 120000
 
@@ -82,10 +89,11 @@ def lay_out(desktops, origin):
     return out
 
 
-def plan(specs, placements, action, index, origin=None):
+def plan(specs, placements, action, index, origin=None, scale=None):
     """The broker steps for `action` on desktop `index` of `specs` (the run's live outputs in name order, with ids).
-    `placements`: one per spec. ValueError if the action cannot be done (Add at MAX_DESKTOPS, Remove of the last one)."""
-    if action not in ACTIONS: raise ValueError('unknown desktop action')
+    `placements`: one per spec. `scale`: the new output scale for SCALE (geometry.with_scale). ValueError if the action
+    cannot be done (Add at MAX_DESKTOPS, Remove of the last one, a scale that does not divide the desktop exactly)."""
+    if action not in ACTIONS + (SCALE,): raise ValueError('unknown desktop action')
     if not specs or type(index) is not int or not 0 <= index < len(specs): raise ValueError('no such desktop')
     if len(placements) != len(specs): raise ValueError('one placement per desktop required')
     specs = sorted(specs, key=lambda s: number(s['name']))
@@ -97,6 +105,8 @@ def plan(specs, placements, action, index, origin=None):
     removed = None
     if action == 'ultrawide':
         desktops[target] = toggle_ultrawide(desktops[target])
+    elif action == SCALE:
+        desktops[target] = with_scale(desktops[target], scale)
     elif action == 'add':
         if len(specs) >= MAX_DESKTOPS: raise ValueError(f'at most {MAX_DESKTOPS} desktops')
         free = next(n for n in range(1, MAX_DESKTOPS + 1) if f'XR-{n}' not in desktops)

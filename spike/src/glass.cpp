@@ -14,6 +14,8 @@ float smooth(float e0, float e1, float x) { const float t = clamp01((x - e0) / (
 // text never passes kCardMaxLevel.
 constexpr std::array<float, 3> kText{0.70f, 0.70f, 0.70f}, kMuted{0.56f, 0.56f, 0.56f}, kDim{0.46f, 0.46f, 0.46f};
 constexpr std::array<float, 3> kRule{0.80f, 0.80f, 0.80f};
+constexpr std::array<float, 3> kListBack{0.06f, 0.06f, 0.07f};
+constexpr float kListAlpha = 0.94f;
 constexpr float kBandAlpha = 0.20f, kRuleAlpha = 0.10f, kTrackAlpha = 0.55f, kFillAlpha = 0.9f, kTrackH = 4.f, kBandRadius = 9.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
 constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Curvature"};
@@ -141,6 +143,20 @@ bool glass_panel_action_enabled(std::size_t action, const PlacementMenuState& st
     if (action == 2) return state.count > 1;
     return true;
 }
+
+FRect glass_scale_box() { return {kScaleBoxX, kScaleBoxY, kScaleBoxW, kScaleBoxH}; }
+
+FRect glass_scale_item(std::size_t step) {
+    if (step >= kScaleSteps) return {};
+    const float top = kScaleBoxY - kScaleListGap - float(kScaleSteps) * kScaleItemH;
+    return {kScaleBoxX, top + float(step) * kScaleItemH, kScaleBoxW, kScaleItemH};
+}
+
+bool glass_scale_enabled(std::size_t step, const PlacementMenuState& state) {
+    return !state.busy && step < kScaleSteps && (state.scales >> step & 1u);
+}
+
+std::string glass_scale_label(std::uint16_t percent) { return percent ? std::to_string(unsigned(percent)) + "%" : "--"; }
 
 FRect glass_morph(const FRect& t, float k) {
     k = clamp01(k);
@@ -273,6 +289,24 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
         const auto& value = rows[i].value;
         text(im, font, value, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, value, kPanelTextPx, selected)), cy, selected ? kText : kMuted);
     }
+    // Scale row: the label, then the dropdown box (lit while its list is open) with the scale and a caret.
+    {
+        const float cy = kPanelScaleTop + kPanelRowH / 2;
+        const FRect box = glass_scale_box();
+        const bool usable = state.scale != 0 && !state.busy;
+        text(im, font, "Scale", kPanelTextPx, false, kPanelPad, cy, kMuted);
+        fill_rounded(im, box.x, box.y, box.x + box.width, box.y + box.height, kBandRadius, state.picker ? highlight : kDim,
+                     state.picker ? kBandAlpha * 2 : (usable ? kBandAlpha : kBandAlpha / 2));
+        const auto px = font ? kPanelActionPx : 0u;
+        text(im, font, glass_scale_label(state.scale), px, state.picker, box.x + 12, cy, usable ? (state.picker ? kText : kMuted) : kDim);
+        // The caret: a small triangle, pointing up while the list (above the box) is open.
+        const float cx = box.x + box.width - 16, hw = 5.f, hh = 5.f;
+        for (int y = 0; y < int(hh); ++y) {
+            const float k = state.picker ? float(y + 1) / hh : float(int(hh) - y) / hh;
+            for (int x = int(std::floor(cx - hw * k)); x < int(std::ceil(cx + hw * k)); ++x)
+                over(im, x, int(cy - hh / 2) + y, usable ? kMuted : kDim, 1.f);
+        }
+    }
     // Desktop row: a faint button each; lit (the theme's band) while on (Ultrawide) or armed (Remove); dimmed when it can
     // do nothing now.
     for (std::size_t a = 0; a < kPanelActions; ++a) {
@@ -291,6 +325,20 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     const auto hint_px = font ? kPanelHintPx : 0u;
     const float hint_w = float(font ? font->measure(hint, hint_px, false) : hud_text_width(hint, 2));
     text(im, font, hint, hint_px, false, std::max(kPanelPad, (W - hint_w) / 2), kPanelFooterTop + float(kPanelHintPx) / 2, kDim);
+    // The open Scale list, last: over the slider rows (a dark backing hides them), one item per step, the current one on
+    // the theme's band, steps that cannot be picked dimmed.
+    if (state.picker) {
+        const FRect first = glass_scale_item(0), last = glass_scale_item(kScaleSteps - 1);
+        fill_rounded(im, first.x - 2, first.y - 2, first.x + first.width + 2, last.y + last.height + 2, kBandRadius, kListBack, kListAlpha);
+        for (std::size_t i = 0; i < kScaleSteps; ++i) {
+            const FRect r = glass_scale_item(i);
+            const bool current = kScalePercents[i] == state.scale, enabled = glass_scale_enabled(i, state);
+            if (current) fill_rounded(im, r.x + 2, r.y + 2, r.x + r.width - 2, r.y + r.height - 2, kBandRadius, highlight, kBandAlpha * 2);
+            const auto px = font ? kPanelActionPx : 0u;
+            text(im, font, glass_scale_label(kScalePercents[i]), px, current, r.x + 12, r.y + r.height / 2,
+                 enabled || current ? (current ? kText : kMuted) : kDim);
+        }
+    }
     return im;
 }
 

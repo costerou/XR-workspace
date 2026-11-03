@@ -82,6 +82,8 @@ NEEDS_WIRING = unittest.skipUnless(WIRING, 'needs MENU-WIRING: the control socke
 
 
 MENU_ROW_KEYS = {'names', 'wide', 'armed', 'busy'}  # the open panel's desktop row (desktops.py), all optional
+MENU_SCALE_KEYS = {'scale', 'scales', 'picker'}       # its Scale dropdown, all optional
+SCALE_STEPS = (100, 125, 150, 175, 200)               # geometry.SCALES in percent
 
 
 def check_menu_payload(p):
@@ -89,7 +91,7 @@ def check_menu_payload(p):
     open panel may also carry 'surface' (the placement it is drawn on while the free pointer holds one of its sliders).
     Since desktops can be added and removed in XR: one placement per desktop (1..MAX_DESKTOPS), and the desktop row:
     'names' (each desktop's XR-n number, increasing), 'wide', 'armed', 'busy'."""
-    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS:
+    if not isinstance(p, dict) or not MENU_PAYLOAD_KEYS <= set(p) or set(p) - MENU_PAYLOAD_KEYS - {'surface'} - MENU_ROW_KEYS - MENU_SCALE_KEYS:
         raise ValueError('payload must have exactly open, desktop, field, placements (and the optional surface and row keys)')
     if type(p['open']) is not bool: raise ValueError('open must be a bool')
     g.validate_placements(p['placements'])
@@ -103,8 +105,14 @@ def check_menu_payload(p):
         names = p['names']
         if (not isinstance(names, list) or len(names) != n or any(type(x) is not int or not 1 <= x <= g.MAX_DESKTOPS for x in names)
                 or names != sorted(set(names))): raise ValueError('names must be increasing XR numbers, one per desktop')
-    for key in ('wide', 'armed', 'busy'):
+    for key in ('wide', 'armed', 'busy', 'picker'):
         if key in p and type(p[key]) is not bool: raise ValueError(f'{key} must be a bool')
+    if p.get('picker') and p['open'] is not True: raise ValueError('the Scale list opens only on an open panel')
+    if 'scale' in p and (type(p['scale']) is not int or p['scale'] not in SCALE_STEPS): raise ValueError('scale must be a step')
+    if 'scales' in p:
+        s = p['scales']
+        if not isinstance(s, list) or any(type(v) is not int or v not in SCALE_STEPS for v in s) or s != sorted(set(s)):
+            raise ValueError('scales must be increasing steps')
     return p
 
 
