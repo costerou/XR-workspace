@@ -283,10 +283,8 @@ class RegrabTests(unittest.TestCase):
         self.assertEqual(q[:2], ('desktop', 1))
         self.assertAlmostEqual(q[2][0], T1[0] + 30, places=2); self.assertAlmostEqual(q[2][1], T1[1] + 40, places=2)
         self.assertEqual(fp.hit(G, FLAT, orbit.from_plane(G, pill_centre(T1))), ('pill', 1))
-        for corner in ((T2[0] - 6, T2[1] - 6), (T2[0] + T2[2] + 6, T2[1] + T2[3] + 6)):  # off the desktop: its corner
+        for corner in ((T2[0] + 1, T2[1] + 1), (T2[0] + T2[2] - 1, T2[1] + T2[3] - 1)):
             self.assertEqual(fp.hit(G, FLAT, orbit.from_plane(G, corner))[:2], ('corner', 2))
-        for inside in ((T2[0] + 1, T2[1] + 1), (T2[0] + T2[2] - 1, T2[1] + T2[3] - 1)):  # on it, in its corners: content
-            self.assertEqual(fp.hit(G, FLAT, fp.project(G, T2, DEFAULT_PLACEMENT, *inside))[:2], ('desktop', 2))
         for empty in ((W / 2, H - 1), (5, 5)):
             self.assertIsNone(fp.hit(G, placements, orbit.from_plane(G, empty)))
 

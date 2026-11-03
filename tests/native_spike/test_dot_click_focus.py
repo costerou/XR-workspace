@@ -163,13 +163,11 @@ class LockedClickZoomTests(LockBase):
         self.assertEqual(self.control.state.placements, placements)  # no pill drag
         self.assertFalse(self.control.state.menu_open)  # nor a pill click
 
-    def test_the_inner_half_of_a_corner_is_the_desktop_and_only_off_it_does_a_drag_resize(self):
-        # Content before grab zones (monitor-collision-bump): on the desktop, right in its corner square too, a press is
-        # the desktop's, as anywhere on it; only the corner square's part off the desktop resizes.
+    def test_a_click_on_the_inner_half_of_a_corner_zooms_in_and_a_drag_there_still_resizes(self):
         self.at(X2 + 960, 540)
-        inner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] - 2, T0[1] + 2)  # XR-1's top-right corner square, on it
+        inner = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] - 4, T0[1] + 4)  # XR-1's top-right corner zone, on it
         self.dot_to(inner)
-        self.assertEqual(self.p.hover[:2], ('desktop', 0))
+        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
         self.op('resize_press'); self.op('resize_release'); self.op('resize_press')
         self.op('resize_release')  # the first click zoomed in; the rest are stale (no free pointer while zoomed)
         self.control.join_focus(2)
@@ -180,11 +178,6 @@ class LockedClickZoomTests(LockBase):
         self.assertIsNone(self.p.drag)
         self.back_to_overview((X2 + 960, 540))
         self.dot_to(inner)
-        self.op('resize_press'); self.move_canvas(30, -30); self.op('resize_release')  # dragged from the content: no resize
-        self.assertEqual(self.control.state.placements[0], DEFAULT_PLACEMENT)
-        outer = fp.project(G, T0, self.control.state.placements[0], T0[0] + T0[2] + 4, T0[1] - 4)  # the same corner, off it
-        self.dot_to(outer)
-        self.assertEqual(self.p.hover, ('corner', 0, 'tr'))
         self.op('resize_press'); self.move_canvas(30, -30); self.op('resize_release')  # a resize is not a click
         self.control.join_focus(2)
         self.assertLess(self.control.state.placements[0]['distance'], 100)

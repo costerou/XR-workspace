@@ -123,7 +123,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode anywhere round you, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar, the grabbed point staying under the dot; in anchor mode all the way round you. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
 | Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
 | Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, maximize a desktop, or nothing in empty space |
-| Left-drag a desktop corner | free pointer just outside a corner (on the desktop it is the desktop's content) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
+| Left-drag a desktop corner | free pointer on a corner (inside or outside) | Resize that desktop: outward is bigger, inward is smaller. The open desktop's own corners do not close its panel |
 | Left click a desktop | free pointer on a desktop | Maximize it (as Ctrl+Alt+Up; follow) on the release: selected, focused, out of the overview; the cursor shows at that spot |
 | Left press-hold (`HOLD_S` 0.35 s) or drag (> `WINDOW_DRAG_PX` 12 canvas px) on a desktop, then release on another desktop | free pointer on a desktop, or holding still over the selected desktop | Move the window under the press onto the workspace that desktop shows (`send.WindowSender.drop`, Hyprland move with `follow = false`): no zoom, no selection change. A ghost outline follows the dot and the target desktop is framed (`overview_pointer` frame `drag`). Released anywhere else: nothing moves |
 | Left click a help card arrow or its "2 / 3" | free pointer on the open help card | Previous page (left arrow) or next page (right arrow or the page number). Elsewhere on the card a click does nothing, and it never closes an open pill |
@@ -258,9 +258,8 @@ With the dot:
   desktop's pill into its placement panel, closing any other, or collapses it if it is the open one. A key that changes
   the open panel while the button is down (Escape, Tab, Ctrl+Alt+L) wins: that release is dropped, so it never undoes
   the key. See [Placement pills](#placement-pills) for the panel.
-- **Resize a desktop: drag a corner.** Each corner's grab zone is the part off the desktop of a square centred on the
-  corner (6% of the desktop's shorter side, 10–28 px each way): on the desktop it is the desktop's content, where the
-  apps get the click (since 2026-11-03, monitor-collision-bump). A small dim L-bracket shows inside that corner.
+- **Resize a desktop: drag a corner.** Each corner's grab zone is a square centred on the corner (6% of the desktop's
+  shorter side, 10–28 px each way), so it reaches outside the desktop. A small dim L-bracket shows inside that corner.
   Drag it: the corner follows the dot along its diagonal, outward bigger, inward smaller. A corner wins where it meets
   the pill's zone.
 - **Maximize a desktop: click it.** The desktop is selected, its monitor gets Hyprland's focus and the view zooms into
@@ -269,13 +268,9 @@ With the dot:
 - A click in empty space does nothing, apart from closing an open panel.
 
 Hit testing order: an open panel is drawn on top (the renderer draws its desktop's glass last, over every other pill),
-so it is tested first (the pointer is mapped onto the open desktop's surface, where the panel is drawn), then the roll
-icons (drawn over every desktop). Then every desktop's content, front desktop first: a point on any desktop's surface
-is that desktop's, so no grab zone ever takes it, not a corner square's inner half and not a neighbour's corner or pill
-zone reaching over it in a tight or overlapping layout (since 2026-11-03, monitor-collision-bump: clicks, drags and
-scrolling on content go to the apps, and a move, resize or bump only starts on the borders and handles). Only then,
-front desktop first, each desktop's corners and its pill zone. Everything is hit along the dot's own direction, the one
-the renderer draws the dot in (below).
+so it is tested first (the pointer is mapped onto the open desktop's surface, where the panel is drawn). Then, front
+desktop first, each desktop's corners, its pill zone and the desktop itself. Everything is hit along the dot's own
+direction, the one the renderer draws the dot in (below).
 
 Hit testing uses the same maths the renderer draws with (`spike/src/view.cpp` `place_point`, mirrored in
 `tools/native_spike/orbit.py`), including the orbit round you, distance and curvature, with every desktop facing you,
@@ -626,9 +621,13 @@ or with one stale after a desktop change, an edit applies as given. Everything h
   already three flat desktops (17b6238); now a run also never writes them: `managed.view_controls` gives
   `ViewControl` no placement store, and `PlacementStore.save_desktops` (a pill's Add, Remove, Ultrawide or Scale, which
   still keeps the sizes and scales for the next start) stores every placement flat.
-- **Only from the handles.** A drag that moves or resizes (and so bumps) starts only on a pill, a corner's zone off the
-  desktop or an open panel's slider or header, never on any desktop's content (`free_pointer.hit` tests content before
-  the grab zones; `test_bump.py` `ContentIsNeverAGrabZoneTests`, `PressOnContentTests`).
+- **Only from the handles.** Bumping hooks into the shared hit-zone contract's handles (`free_pointer.hit`, whose zones
+  the overview branches agree on: content to the apps, resize at the edges and corners, moves by the pill and the open
+  panel's header, rotate on the borders). A drag started on a resize handle resizes through
+  `OverviewPointer._resize_to` (`free_pointer.RESIZE_DRAGS`: a corner drag, or the contract's `resize` drag with a
+  corner or edge `handle`), one on a move handle moves through `orbit.PillDrag`, and the open panel's sliders and keys
+  through `ViewControl._bump`; all of them bump. A press on content is the apps' and never starts one
+  (`test_bump.py` `HandleContractTests`, for every point round a desktop whatever its zone).
 - **The roll** (roll-level icons) is ignored by bumping, as by the guard before it.
 
 ### Roll-level icons

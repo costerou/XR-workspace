@@ -26,11 +26,7 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     view.ViewState's menu_open / menu_desktop; Ctrl+Alt+L and the panel's modal keys drive the same state (view.py).
   * Clicks in free mode, tested front to back (hit): the open panel first (it is drawn on top), then each desktop's
     corners (they win over its pill), its pill zone (the pill padded by PILL_PAD_X / PILL_PAD_Y, plus the gap up to the
-    desktop's bottom edge) and the desktop itself. Content comes before every grab zone (monitor-collision-bump,
-    2026-11-03, with anchor-no-click-maximize: the apps get clicks on their content): a point on any desktop's surface
-    is that desktop's, so a corner grabs only the part of its square off the desktop, and no corner or pill zone of a
-    neighbour reaching over a desktop takes it either (hit). Only what is drawn over it, the open panel and the roll
-    icons, keeps its points. So a move, resize or bump never starts on content.
+    desktop's bottom edge) and the desktop itself.
       - pill, or the open panel's header: press and drag moves the desktop (its x / y placement, the pill staying under
         the pointer). The desktop does not move until the pointer is CLICK_PX away from the press, so a click never
         nudges it; a release before that is a click: it expands that pill (any other open panel collapses) or collapses
@@ -80,7 +76,8 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     point grabbed stays exactly under the dot across the dot's whole reach (in anchor mode all the way round you). A
     corner drag changes `distance` so the corner follows the pointer along its diagonal; a slider sets its setting. A
     drag never goes through another desktop: it bumps the desktops it runs into out of its way (bump.py; one Pusher for
-    the whole drag), and every desktop goes out in the same `placement` frame. Placements last the session (a run
+    the whole drag), and every desktop goes out in the same `placement` frame. Only drags started on the move and resize
+    handles do (RESIZE_DRAGS, _resize_to, orbit.PillDrag): content is the apps'. Placements last the session (a run
     passes ViewControl no store). Drags also end after OVERLAY_IDLE_CLOSE_S without pointer movement, on zoom-in and
     when a VR video opens.
   * Help card (Ctrl+Alt+H, view.py): it is drawn over everything in the middle of the view, head-locked, so while it is
@@ -138,8 +135,7 @@ INSET_PX = 2              # a cursor handed back lands at least this far inside 
 RECENTRE_PX = 200         # free mode: the hidden cursor goes back to its parking point once it strays this far
 JUMP_PX = 400             # a cursor step this long is a warp or focus change (keyboard), not a hand movement
 SAMPLE_JUMP_PX = 1500     # a single sample's motion beyond this is dropped (warps the sampler did not make)
-# Grab zones, canvas px: corners are squares centred on the corner; only the part off the desktop grabs (hit: content
-# comes first).
+# Grab zones, canvas px: corners are squares centred on the corner (half inside, half outside the desktop).
 CORNER_SHARE, CORNER_MIN, CORNER_MAX = 0.06, 10.0, 28.0
 # Glass pill (glass.hpp glass_pill: share of the desktop's width clamped to px, height, gap under the desktop) and the
 # padding around it that still grabs it; the zone also covers the gap up to the desktop's bottom edge.
@@ -177,6 +173,12 @@ MIN_SCALE = 0.05          # a corner drag cannot shrink the apparent size past t
 # edge (OverviewPointer._clamp), so a corner following it 1:1 could not take a desktop to the distance bound's ten times.
 RESIZE_OVERSHOOT_GAIN = 8.0
 POINTER_HIDDEN = {'visible': False, 'x': 0, 'y': 0, 'held': False}
+# Bumping hooks into the hit-zone contract's handles, never the content (bump.py): a drag started on a resize handle
+# (RESIZE_DRAGS: a corner, `corner`; the contract's corner and edge handles, `resize` with its `handle`) resizes through
+# _resize_to, one on a move handle (the pill or the open panel's header) moves through orbit.PillDrag, and both bump. A
+# press on content (hit: 'desktop') is the apps' and never starts either; nor do the roll handles, sliders (ViewControl
+# bumps those) or a window drag.
+RESIZE_DRAGS = ('corner', 'resize')
 MAX_POINTER_PX = view.MAX_POINTER_PX  # spike/include/xr/ipc.hpp kMaxPointerPx; the overview pointer may be negative
 EDGE_SNAP_PX = 1e-6  # tile px: unproject's answer this close to a desktop's edge is on it (_onto_edges)
 MAX_POINTER_AZ, MAX_POINTER_EL = 18000, 9000  # ipc.hpp kMaxPointerAz / kMaxPointerEl: the dot's direction, 1/100 degree
@@ -493,26 +495,14 @@ def front_order(g, placements):
     return sorted(range(n), key=depth)
 
 
-def on_content(tile, q):
-    """True if tile pixel `q` (None: missed) is on the desktop's own surface, its content (where the apps get clicks)."""
-    return q is not None and tile[0] <= q[0] < tile[0] + tile[2] and tile[1] <= q[1] < tile[1] + tile[3]
-
-
 def hit(g, placements, pointer, open_=None, icons=None, picker=False):
     """What is under canvas point `pointer`. `open_`: the desktop whose pill is expanded into its panel, or None. That
     panel is drawn on top, so it is tested first (panel_hit: ('pill', i) for its header, ('slider', i, field, panel x),
     ('panel', i)); then the roll-level icons front to back, drawn over every desktop: ('roll', index, 'ccw'|'cw')
-    (`icons`: per desktop None, 'ccw', 'cw' or 'both', roll_icon_sides); then every desktop's content front to back:
-    ('desktop', index, (px, py) tile pixel); only off all content the grab zones, each desktop front to back:
-    ('corner', index, 'tl'|'tr'|'bl'|'br') (the part of its corner square off the desktop), ('pill', index). None if
-    nothing. Tested along the dot's ray (orbit.pointer_ray, where the renderer draws the dot), so anything placed
-    anywhere round you can be reached.
-    Content before grab zones (monitor-collision-bump, 2026-11-03): clicks, drags and scrolling on a desktop's content go
-    to its apps (anchor-no-click-maximize), so the invisible grab zones never take a point on any desktop's content: not
-    a corner square's inner half on its own desktop, nor a corner or pill zone reaching over a neighbour in a tight or
-    overlapping layout. A move or resize, and the bumping it does (bump.py), only ever starts on the borders and handles
-    round a desktop. What is drawn over the content (the open panel, the roll icons) is what the dot is on, and keeps
-    it."""
+    (`icons`: per desktop None, 'ccw', 'cw' or 'both', roll_icon_sides); then each desktop front to back: ('corner', index,
+    'tl'|'tr'|'bl'|'br'), ('pill', index),
+    ('desktop', index, (px, py) tile pixel). None if nothing. Tested along the dot's ray (orbit.pointer_ray, where the
+    renderer draws the dot), so anything placed anywhere round you can be reached."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
@@ -522,29 +512,29 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False):
             x, y, w, h = panel_rect(tile)
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_, picker)
     order = front_order(g, placements)
-    seen = {i: unproject(g, g['tiles'][i], placements[i], pointer) for i in order}  # the dot on each desktop's surface
     # The roll-level icons are drawn over every desktop (with the glass, after all the tiles), so they are tested before
-    # any desktop's surface, corners or pill: a nearer neighbour (tight spacing, four desktops, a rolled neighbour's corner
-    # swinging up) never takes the click meant for the icon above its next desktop's corner.
+    # any desktop's corners, pill or surface: a nearer neighbour (tight spacing, four desktops, a rolled neighbour's
+    # corner swinging up) never takes the click meant for the icon above its next desktop's corner.
     for i in order:
         sides = roll_icon_sides(icons[i] if icons is not None and i < len(icons) else None)
-        q = seen[i]
-        if not sides or q is None: continue
+        if not sides: continue
         tile = g['tiles'][i]
+        q = unproject(g, tile, placements[i], pointer)
+        if q is None: continue
         d = placements[i]['distance'] / 100
         for side in sides:
             x0, y0, x1, y1 = roll_hit_rect(tile, side, d)
             if x0 <= q[0] <= x1 and y0 <= q[1] <= y1: return ('roll', i, side)
     for i in order:
-        if on_content(g['tiles'][i], seen[i]): return ('desktop', i, seen[i])
-    for i in order:
-        tile, q = g['tiles'][i], seen[i]
+        tile = g['tiles'][i]
+        q = unproject(g, tile, placements[i], pointer)
         tx, ty, tw, th = tile
         if q is not None:
             z = corner_zone(tile)
             for corner, (cx, cy) in (('tl', (tx, ty)), ('tr', (tx + tw, ty)), ('bl', (tx, ty + th)), ('br', (tx + tw, ty + th))):
                 if abs(q[0] - cx) <= z and abs(q[1] - cy) <= z: return ('corner', i, corner)
             if on_pill(tile, desktop_to_glass(tile, placements[i], q)): return ('pill', i)
+            if tx <= q[0] < tx + tw and ty <= q[1] < ty + th: return ('desktop', i, q)
     return None
 
 
@@ -1197,12 +1187,11 @@ class OverviewPointer:
             turn = (turn + math.pi) % (2 * math.pi) - math.pi  # counter-clockwise as you see it
             self.rolls[d['index']] = roll_drag(self._tilt(d['index']), d['from'], math.degrees(turn) * 100)
             return b''  # the `roll` frame goes out with the others (_roll_frame)
-        if d['kind'] == 'corner':
+        if d['kind'] in RESIZE_DRAGS:  # a resize handle: the size it asks for, bumping what it grows into
             (ax, ay), (bx, by) = resize_reach(self.geometry, d['start']), resize_reach(self.geometry, self.pointer)
-            if 'bump' not in d: d['bump'] = bump.Pusher(self.geometry, d['index'])  # for the whole drag (bump.py)
-            # Growing pushes the desktops it runs into out of its way; with no room left it stops growing.
-            placements = d['bump'].move(c.state.placements, {'distance': resize_distance(d['distance'], d['corner'], bx - ax, by - ay, d['tile'])})
-        else:
+            handle = d.get('handle', d.get('corner'))
+            placements = self._resize_to(d, resize_distance(d['distance'], handle, bx - ax, by - ay, d['tile']))
+        else:  # a move handle (the pill, or the open panel's header strip): the turn round you, bumping what it meets
             if not d['moved']:
                 if math.hypot(dx, dy) <= CLICK_PX: return b''  # still a click
                 d['moved'] = True
@@ -1215,6 +1204,13 @@ class OverviewPointer:
         c.state.placements = placements
         c.save_due = c.clock() + view.MENU_SAVE_DELAY
         return c._placement_frame() + (c._menu_frame() if c.state.menu_open else b'')
+
+    def _resize_to(self, d, distance):
+        """Every desktop's placement for resize drag `d` (any resize handle of the hit-zone contract: a corner; the edges
+        too where they are handles) asking for `distance`: the desktop takes it, growing pushes the desktops it runs into
+        out of its way and with no room left it stops growing (bump.py; one Pusher for the whole drag)."""
+        if 'bump' not in d: d['bump'] = bump.Pusher(self.geometry, d['index'])
+        return d['bump'].move(self.control.state.placements, {'distance': distance})
 
     def _end_drag(self):
         """Release, idle, zoom-in, typing mode or a video: the drag ends and is saved at once. A held slider's panel goes

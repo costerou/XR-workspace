@@ -154,7 +154,9 @@ away still bumps a big one in front of it if it would show through it, and two d
 you see them never bump. A desktop is never pushed past straight overhead or underfoot; when there is no room left to
 push (say against the top of the room, or round you, desktops all the way round), the one you move stops where it still
 fits, and when you drag at an angle it slides along what can't give way. A key press or a click on a slider that bumps
-desktops glides them there together in a quarter of a second; while you drag they move with your hand.
+desktops glides them there together in a quarter of a second; while you drag they move with your hand. Only the
+handles round a desktop do this (its pill, its resize corners and edges, its pill's sliders and keys); pressing and
+dragging on a desktop's content goes to the app there and never moves, resizes or bumps anything.
 
 **In the panel.** During a session, use the **Place** section. Each desktop has
 four settings: left/right, down/up, distance (how big it looks) and curvature.
@@ -228,8 +230,7 @@ In the overview your mouse is no longer stuck inside the desktops:
   with its pill counts as part of the desktop), and the bumped one stays where it ends up. However fast you move, it
   never jumps through one. To pass a neighbour without moving it, lift it clear of the row first, or carry it round
   behind you. A click that doesn't move opens the pill instead of moving anything.
-- **Resize a desktop:** put the dot just outside a corner of a desktop until a small grey bracket appears (on the
-  desktop itself the click is the app's, even in its corner). Drag outward to make
+- **Resize a desktop:** put the dot on a corner of a desktop until a small grey bracket appears. Drag outward to make
   it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
   field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
   Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
