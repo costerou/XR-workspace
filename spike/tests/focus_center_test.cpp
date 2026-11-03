@@ -306,6 +306,27 @@ int main() {
             if (cancel) break;
         }
     }
+    // Follow and locked (fit to the glasses, centred by the aim) never see `center`: a cursor switch drives everything they
+    // read (zoom, look, focus, position: focus_aim, blended_layout, zoomed_placements) exactly as a key switch does, ms by
+    // ms, also retargeted, queued and zoomed out mid-switch. The centring is anchor mode's camera turn only (wayland.cpp).
+    {
+        ViewAnimator key(220, 300), cursor(220, 300);
+        for (auto* v : {&key, &cursor}) { v->set_target(true, 0, 40, 0); v->advance(400); }
+        const struct { double at; bool zoomed; std::uint32_t to; } steps[] = {
+            {400, true, 2}, {500, true, 1}, {800, true, 0}, {2500, true, 2}, {2900, false, 2}, {3600, true, 2}, {4500, true, 1}};
+        std::size_t next = 0;
+        for (double t = 400; t < 6000; t += 1) {
+            for (; next < std::size(steps) && steps[next].at <= t; ++next) {
+                key.set_target(steps[next].zoomed, steps[next].to, 40, t);
+                cursor.set_target(steps[next].zoomed, steps[next].to, 40, t, true);
+            }
+            key.advance(t); cursor.advance(t);
+            CHECK(key.zoom() == cursor.zoom() && key.look() == cursor.look() && key.focus() == cursor.focus() &&
+                  key.position() == cursor.position() && key.switching() == cursor.switching());
+            const Quat a = aim_for(key.focus(), focus_weight(key)), b = aim_for(cursor.focus(), focus_weight(cursor));
+            CHECK(a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w);  // the follow / locked aim, bit for bit
+        }
+    }
     // A key switch (not centred) is unchanged: the target comes where the desktop it left was seen.
     {
         ViewAnimator v(220, 300);
