@@ -84,7 +84,9 @@ public:
         // Pinned efb5099 reload(): clear rules -> parse config -> ensureMonitorStatus() (applies
         // rules, then emits stateReloaded) -> config.reloaded. So this is the first point where a
         // dropped rule can be seen; re-applying here happens inside the same synchronous reload,
-        // before any frame. Anything else that does not verify is latched as before.
+        // before any frame. Anything else that does not verify is latched as before. With the clear()
+        // hook (hookedClear) our rule never leaves, so this finds it present and only verifies; it
+        // restores only if the hook is missing.
         reloadListener=Config::monitorRuleMgr()->m_events.stateReloaded.listen([this] {
             if(reapplying) return;
             for(auto& [weak,spec]:configured) if(auto o=weak.lock(); o && o->live) {
@@ -103,6 +105,15 @@ public:
                 catch(...) { reapplying=false; o->ruleLost=true; }
             }
         });
+    }
+    // What a config reload keeps (lifecycle.hpp keptThroughReload): read just before the reload clears the rules.
+    std::vector<Config::CMonitorRule> keptThroughReload() {
+        std::vector<Config::CMonitorRule> owned;
+        for(auto& [weak,spec]:configured) if(auto o=weak.lock(); o && o->live && o->rule && !o->ruleLost) owned.push_back(*o->rule);
+        return xr::ownership::keptThroughReload(owned,Config::monitorRuleMgr()->all(),State::monitorState()->allMonitors(),
+            // As ensureMonitorStatus: outputs with a backend output, never the unsafe fallback.
+            [](const PHLMONITOR& m,const std::string& name) { return m && m->m_output && !m->m_isUnsafeFallback && m->matchesStaticSelector(name); },
+            [](const PHLMONITOR& m,const Config::CMonitorRule& rule) { return rule.compare(m->m_activeMonitorRule)==Config::COMPARISON_FULL_MATCH; });
     }
     Handle wrap(SP<Aquamarine::IOutput> output,bool legacyDrmEligible=false) {
         auto o=std::make_shared<NativeObject>(); o->output=output; o->legacyDrmEligible=legacyDrmEligible;
@@ -379,6 +390,27 @@ struct Broker {
 std::unique_ptr<Broker> broker;
 SP<SHyprCtlCommand> command;
 HANDLE pluginHandle;
+// Config reloads keep the run's monitor rules (keptThroughReload): the pinned reload() calls clear()
+// (a real call, not inlined) after the syntax check and before parsing; the rules go back right after it.
+CFunctionHook* clearHook=nullptr;
+void hookedClear(Config::CMonitorRuleManager* rules) {
+    std::vector<Config::CMonitorRule> kept;
+    if(broker && rules==Config::monitorRuleMgr().get()) {
+        try { kept=broker->backend.keptThroughReload(); } catch(...) { kept.clear(); }
+    }
+    reinterpret_cast<void(*)(Config::CMonitorRuleManager*)>(clearHook->m_original)(rules);
+    for(auto& rule:kept) rules->add(std::move(rule));
+}
+void hookClear(HANDLE handle) {
+    static constexpr auto symbol="_ZN6Config19CMonitorRuleManager5clearEv";  // Config::CMonitorRuleManager::clear()
+    for(const auto& match:HyprlandAPI::findFunctionsByName(handle,symbol))
+        if(match.signature==symbol) {
+            clearHook=HyprlandAPI::createFunctionHook(handle,match.address,reinterpret_cast<const void*>(&hookedClear));
+            break;
+        }
+    // Without the hook a reload still recovers (the stateReloaded listener), only not seamlessly.
+    if(clearHook && !clearHook->hook()) { HyprlandAPI::removeFunctionHook(handle,clearHook); clearHook=nullptr; }
+}
 }
 APICALL EXPORT std::string PLUGIN_API_VERSION() { return HYPRLAND_API_VERSION; }
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
@@ -389,13 +421,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         broker=std::make_unique<Broker>();
         command=HyprlandAPI::registerHyprCtlCommand(handle,{"xrspike ",false,[](eHyprCtlOutputFormat,std::string request){return broker->handle(std::move(request));}});
         if(!command) throw std::runtime_error("broker command registration failed");
+        hookClear(handle);
     } catch(...) {
+        if(clearHook) { HyprlandAPI::removeFunctionHook(handle,clearHook); clearHook=nullptr; }
         command.reset(); broker.reset();
         throw;
     }
     return {"xr-ownership","Explicit opt-in output lifecycle broker","Hermes Agent","1"};
 }
 APICALL EXPORT void PLUGIN_EXIT() {
+    // Unhooked first: the reload that follows an unload is the user's own again.
+    if(clearHook) { HyprlandAPI::removeFunctionHook(pluginHandle,clearHook); clearHook=nullptr; }
     if(command) HyprlandAPI::unregisterHyprCtlCommand(pluginHandle,command);
     command.reset(); broker.reset(); // Detach listeners; never delete unresolved outputs on unload.
 }
