@@ -166,6 +166,14 @@ public:
     float position() const { return float(shown_); }  // the desktop the zoom is on (the one being left in phase 1)
     std::uint32_t focus() const { return shown_; }
     float look() const;      // [0,1]: how far the view is turned from look_from() toward look_to()
+    // Anchor mode's camera turn toward look_to(), [0,1]. Unlike look() it does not ease back in phase 3: it holds 1 while
+    // zooming into the target, so the view stays on it. Once the switch lands the turn is handed over to the room
+    // (take_landed_turn -> ModeController::turn_anchor) and turn() drops to 0 in the same frame. Cancelled mid-turn
+    // (zooming out in phase 2) it eases back to 0 like look(); cancelled in phase 3 the turn lands at once.
+    float turn() const;
+    // The turn of the switch(es) that landed since the last call, as {from, to} (look_from / look_to); consecutive landed
+    // turns merge (first from, last to: aim turns telescope). nullopt if none.
+    std::optional<std::array<std::uint32_t, 2>> take_landed_turn();
     std::uint32_t look_from() const { return look_from_; }
     std::uint32_t look_to() const { return look_to_; }
     float spacing() const;
@@ -176,14 +184,16 @@ private:
     float duration_, turn_;
     double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
     float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
-    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0;
+    float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0, from_turn_ = 0;
+    void land_turn(std::uint32_t from, std::uint32_t to);
+    std::optional<std::array<std::uint32_t, 2>> landed_;
     std::uint32_t to_selected_ = 0, shown_ = 0, look_from_ = 0, look_to_ = 0;
     struct Switch {
         bool active = false, queued = false;
         double start_ms = 0;
         float zoom = 1, out_ms = 0;  // the zoom it started from; phase 1's length
         std::uint32_t from = 0, to = 0, next = 0;
-        float zoom_now = 1, look_now = 0;
+        float zoom_now = 1, look_now = 0, turn_now = 0;
     } switch_;
 };
 // Where desktop `index` is round you: the direction {azimuth, elevation} (radians; +az right, +el up, place_point's) of
@@ -195,7 +205,8 @@ std::array<float, 2> focus_direction(const Canvas& canvas, std::span<const FRect
 // How far follow and locked modes centre the view on ViewAnimator::focus() (0 = the overview's own centre straight ahead,
 // 1 = the focused desktop straight ahead): zoom() + look(), at most 1. Continuous through zooms and every phase of a
 // switch: zooming out of the current desktop it eases to the overview's centre, the turn pans to the target (look 0 -> 1)
-// and zooming in keeps the target centred (zoom + look = 1). In anchor mode the room stays put and look_turn turns instead.
+// and zooming in keeps the target centred (zoom + look = 1). In anchor mode the room stays put and look_turn turns instead
+// (by ViewAnimator::turn), the landed turn then moving the anchor (ModeController::turn_anchor) so the view stays on the target.
 float focus_weight(const ViewAnimator& view);
 // The view turn of a desktop switch at `look` (ViewAnimator::look): a rotation applied to world points before the head's
 // view (draw with view * look_turn), turning desktop `from`'s overview direction (slot in `overview` plus its orbit) toward

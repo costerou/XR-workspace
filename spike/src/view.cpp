@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 namespace xr {
 namespace {
@@ -345,7 +346,7 @@ void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom
     switch_ = {};
     switch_.active = true; switch_.start_ms = now_ms; switch_.zoom = clampf(zoom, 0, 1); switch_.out_ms = duration_ * switch_.zoom;
     switch_.from = from; switch_.to = to; switch_.zoom_now = switch_.zoom;
-    shown_ = from; look_from_ = from; look_to_ = to; look_t_ = 1.f; from_look_ = 0;
+    shown_ = from; look_from_ = from; look_to_ = to; look_t_ = 1.f; from_look_ = from_turn_ = 0;
     from_zoom_ = to_zoom_ = 1.f; t_ = 1.f;  // the zoom tween waits at 1 for the switch to land
 }
 
@@ -359,8 +360,14 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
     const float z = zoom();
     auto tween_zoom = [&](float to) {
         const float look_now = look();
+        float turn_now = turn();
+        if (switch_.active && now_ms - switch_.start_ms >= switch_.out_ms + turn_) {  // phase 3: the target is ahead
+            land_turn(switch_.from, switch_.to);
+            turn_now = 0;
+        }
         switch_.active = switch_.queued = false;
         if (look_now > 0) { from_look_ = look_now; look_start_ms_ = now_ms; look_t_ = 0.f; }  // ease any turn back
+        from_turn_ = turn_now;  // >0 only mid-turn (phase 2), where it equals look_now
         from_zoom_ = z; to_zoom_ = to; start_ms_ = now_ms; t_ = 0.f;
     };
     if (switch_.active) {
@@ -393,19 +400,28 @@ void ViewAnimator::advance(double now_ms) {
     while (switch_.active) {
         auto& w = switch_;
         const double e = now_ms - w.start_ms, out = w.out_ms, turn = out + turn_, in = turn + duration_;
-        if (e < out) { w.zoom_now = w.zoom * (1 - smoothstep(float(e / out))); w.look_now = 0; shown_ = w.from; return; }
+        if (e < out) { w.zoom_now = w.zoom * (1 - smoothstep(float(e / out))); w.look_now = w.turn_now = 0; shown_ = w.from; return; }
         shown_ = w.to;
-        if (e < turn) { w.zoom_now = 0; w.look_now = turn_ > 0 ? smootherstep(float((e - out) / turn_)) : 1.f; return; }
-        if (e < in) { const float s = smoothstep(float((e - turn) / duration_)); w.zoom_now = s; w.look_now = 1 - s; return; }
-        // Landed: zoomed into the target, the view untouched. A queued switch starts where this one ended.
+        if (e < turn) { w.zoom_now = 0; w.look_now = w.turn_now = turn_ > 0 ? smootherstep(float((e - out) / turn_)) : 1.f; return; }
+        if (e < in) { const float s = smoothstep(float((e - turn) / duration_)); w.zoom_now = s; w.look_now = 1 - s; w.turn_now = 1; return; }
+        // Landed: zoomed into the target, the view untouched (anchor: the turn is the room's now). A queued switch starts
+        // where this one ended.
+        land_turn(w.from, w.to);
         const bool again = w.queued && w.next != w.to;
         const std::uint32_t from = w.to, next = w.next;
-        w.active = false; w.zoom_now = 1; w.look_now = 0;
+        w.active = false; w.zoom_now = 1; w.look_now = w.turn_now = 0;
         if (!again) { shown_ = from; break; }
         start_switch(from, next, 1.f, w.start_ms + in);
     }
 }
 float ViewAnimator::zoom() const { return switch_.active ? switch_.zoom_now : lerp(from_zoom_, to_zoom_, smoothstep(t_)); }
 float ViewAnimator::look() const { return switch_.active ? switch_.look_now : from_look_ * (1 - smoothstep(look_t_)); }
+float ViewAnimator::turn() const { return switch_.active ? switch_.turn_now : from_turn_ * (1 - smoothstep(look_t_)); }
+void ViewAnimator::land_turn(std::uint32_t from, std::uint32_t to) {
+    if (from == to) return;
+    if (landed_) (*landed_)[1] = to; else landed_ = std::array<std::uint32_t, 2>{from, to};
+    if ((*landed_)[0] == (*landed_)[1]) landed_.reset();  // there and back again
+}
+std::optional<std::array<std::uint32_t, 2>> ViewAnimator::take_landed_turn() { return std::exchange(landed_, std::nullopt); }
 float ViewAnimator::spacing() const { return lerp(from_spacing_, to_spacing_, smoothstep(spacing_t_)); }
 }

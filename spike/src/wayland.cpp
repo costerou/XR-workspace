@@ -285,14 +285,30 @@ struct Presentation::Impl : SurfaceRequests {
                                        std::span<const Placement>(placed.data(), n), view.focus());
         return aim_rotation(w * d[0], w * d[1]);
     }
-    // A desktop switch's view turn (ViewAnimator::look, view.hpp look_turn) applied to this frame's head rotation: the
+    // A landed desktop switch's turn (ViewAnimator::take_landed_turn) becomes the room's: anchor mode turns the pinned
+    // canvas by exactly the camera turn the switch ended on, so the view stays on the target instead of easing back to the
+    // desktop it left. Follow and locked need nothing (their aim already ends on the target). Call once per frame after
+    // view.advance, before modes.update.
+    void land_turns() {
+        const auto landed = view.take_landed_turn();
+        if (!landed || modes.mode() != ViewMode::anchor || !half_w) return;
+        const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
+        std::array<Placement, kMaxDesktops> placed{};
+        const std::size_t n = std::min(captures.size(), placed.size());
+        for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
+        const Canvas c{float(width), float(height), half_w, half_h};
+        const std::span<const Placement> ps(placed.data(), n);
+        const auto a = focus_direction(c, overview, ps, (*landed)[0]), b = focus_direction(c, overview, ps, (*landed)[1]);
+        modes.turn_anchor(quat_mul(quat_conj(aim_rotation(a[0], a[1])), aim_rotation(b[0], b[1])));
+    }
+    // A desktop switch's view turn (ViewAnimator::turn, view.hpp look_turn) applied to this frame's head rotation: the
     // camera turns, never a placement. Call after resolved_placements (it reads `own`). Identity turn at rest. Anchor
     // mode only: follow and locked already turn to the target through the aim (focus_aim).
     Mat3 turned(const Mat3& head) const {
-        if (!(view.look() > 0.f) || modes.mode() != ViewMode::anchor) return head;
+        if (!(view.turn() > 0.f) || modes.mode() != ViewMode::anchor) return head;
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         const Mat3 m = look_turn(Canvas{float(width), float(height), half_w, half_h}, overview, own, view.look_from(), view.look_to(),
-                                 view.look());
+                                 view.turn());
         Mat3 out{};
         for (int r = 0; r < 3; ++r)
             for (int c = 0; c < 3; ++c) out[r * 3 + c] = head[r * 3] * m[c] + head[r * 3 + 1] * m[3 + c] + head[r * 3 + 2] * m[6 + c];
@@ -1201,7 +1217,11 @@ Status Presentation::draw_test_pattern() {
         s.view.advance(double(monotonic_ms()));
         if (!s.half_w) s.update_fov();
         s.ease_placements(double(monotonic_ms()));
+        s.land_turns();
         Mat3 head{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        // Untracked, anchor mode's room is still turned by landed switches (ModeController::turn_anchor; identity otherwise).
+        if (!s.tracking_requested && s.modes.mode() == ViewMode::anchor)
+            head = view_from(Quat{}, s.modes.update(Quat{}, double(monotonic_ms())));
         Mat3 world = head;  // VR video: world-locked to the recentre reference in every viewing mode
         timespec read_ts{};
         clock_gettime(CLOCK_MONOTONIC, &read_ts);  // the wp_presentation clock domain (checked in LatencyTracker)
