@@ -69,14 +69,14 @@ def main():
         env={k:v for k,v in os.environ.items() if not k.startswith(('WAYLAND_','HYPRLAND_','DBUS_')) and k not in ('DISPLAY','XAUTHORITY')}
         env.update(HOME=str(private/'home'),XDG_CONFIG_HOME=str(private/'config'),XDG_RUNTIME_DIR=str(private/'runtime'),
                    DRI_PRIME='pci-0000_12_00_0!',XR_BENCH_RENDER_NODE='/dev/dri/renderD129',XR_DEPTH_TEST_NODE='/dev/dri/renderD129',
-                   CONTROL_WIRE_CHECK=str(build/'control_wire_check'),PYTHONPATH=str(ROOT)+':'+str(ROOT/'tests/native_spike'))
+                   CONTROL_WIRE_CHECK=str(build/'control_wire_check'),XR_RESTORE_GEOMETRY_BINARY=str(build/'restore_app_bound_test'),PYTHONPATH=str(ROOT)+':'+str(ROOT/'tests/native_spike'))
         commands=[]
         if not args.skip_build:
             commands += [('configure',['cmake','-S','spike','-B',str(build),'-DCMAKE_BUILD_TYPE=Release','-DXR_ENABLE_OWNERSHIP_PLUGIN=ON']),
                          ('build',['cmake','--build',str(build),'--clean-first','-j','4'])]
-        commands += [('ctest',['ctest','--test-dir',str(build),'--output-on-failure','-j','2'])]
+        commands += [('ctest',['ctest','--test-dir',str(build),'--output-on-failure','--output-junit',str(out/'ctest.xml'),'-j','2'])]
         for directory in sorted((ROOT/'tests').iterdir()):
-            if directory.is_dir() and any(directory.rglob('test_*.py')):commands.append(('python-'+directory.name,[str(python),'-m','pytest',str(directory),'-q']))
+            if directory.is_dir() and any(directory.rglob('test_*.py')):commands.append(('python-'+directory.name,[str(python),'-m','pytest',str(directory),'-q','--junitxml',str(out/('python-'+directory.name+'.xml'))]))
         commands.append(('qml',[str(python),'-m','unittest','discover','-s','omarchy-plugin/cody.viture-workspace/tests']))
         passed=True
         for name,command in commands:
