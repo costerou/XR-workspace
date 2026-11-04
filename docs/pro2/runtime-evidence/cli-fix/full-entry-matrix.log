@@ -1,0 +1,9 @@
+test_partial_output_failure_rolls_back (test_cli.FullCliTests.test_partial_output_failure_rolls_back) ... ok
+test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli) ... ok
+test_renderer_failure_rolls_back (test_cli.FullCliTests.test_renderer_failure_rolls_back) ... ok
+test_sdk_open_failure_before_plugin (test_cli.FullCliTests.test_sdk_open_failure_before_plugin) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 11.764s
+
+OK
