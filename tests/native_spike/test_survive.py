@@ -127,7 +127,7 @@ class ReviveTrackingTests(unittest.TestCase):
     class T:
         def __init__(self, running, fails=False): self.running, self.fails, self.started = running, fails, 0
         def status(self, runtime): return {'running': self.running, 'calibrated': False}
-        def ensure_ready(self, runtime):
+        def restart_same(self, runtime):
             self.started += 1
             if self.fails: raise ValueError('did not calibrate')
 

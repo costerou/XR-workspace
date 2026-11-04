@@ -295,6 +295,15 @@ def ensure_ready(runtime, timeout=120.0, luma=None, binary=None):
     return start(runtime, timeout=timeout, luma=luma, binary=binary)
 
 
+def restart_same(runtime):
+    """The driver that was running when it died, by the record it left, so a run never changes driver by itself: a 3DoF test
+    that came back on the standard driver would give a false result. No record means someone stopped it, so nothing starts."""
+    data = _read_state(runtime)
+    if data is None: raise ValueError('no tracking driver on record')
+    binary = data.get('binary')
+    return ensure_ready(runtime, luma=binary) if _kind(data) == LUMA else ensure_ready(runtime, binary=binary)
+
+
 def ensure_ready_luma(runtime, luma):
     """The Luma driver, or the standard XRLinuxDriver if it fails: the status, with `fallback` saying why when it did.
 

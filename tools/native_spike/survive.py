@@ -99,7 +99,7 @@ def revive_tracking(runtime, tracking):
     """The driver reconnects by itself, so a live one is left alone, even mid-calibration; only a dead one is started. False:
     no head tracking for now, which is a still picture and not a reason to lose the session."""
     try:
-        if not tracking.status(runtime)['running']: tracking.ensure_ready(runtime)
+        if not tracking.status(runtime)['running']: tracking.restart_same(runtime)
         return True
     except (OSError, ValueError):
         return False

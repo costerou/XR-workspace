@@ -113,6 +113,61 @@ class QuietDriverEnvTests(unittest.TestCase):
             self.assertEqual((env['XR_QUIET_DOF'], env['XR_QUIET_RECONNECT_HOLD_MS']), ('3', '20000'))
 
 
+class RestartSameTests(unittest.TestCase):
+    """A drop mid-run brings back the driver the run had, never the default one."""
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        self.runtime = Path(tmp.name); self.state = self.runtime / 'state.json'
+        for patcher in (patch.object(tracking, '_state', lambda rt: self.state), patch.object(tracking, 'ensure_ready', return_value='ready')):
+            self.ready = patcher.start(); self.addCleanup(patcher.stop)
+
+    def record(self, **fields): self.state.write_text(json.dumps({'pid': 1, 'start_tick': '7', **fields}))
+
+    def test_the_luma_driver_comes_back_as_the_luma_driver(self):
+        self.record(driver=tracking.LUMA, binary='/pin/xr-luma-driver')
+        self.assertEqual(tracking.restart_same(self.runtime), 'ready')
+        self.ready.assert_called_once_with(self.runtime, luma='/pin/xr-luma-driver')
+
+    def test_the_3dof_test_comes_back_as_the_3dof_test(self):
+        self.record(driver=tracking.XRDRIVER, binary='/3dof/xrDriver')
+        tracking.restart_same(self.runtime)
+        self.ready.assert_called_once_with(self.runtime, binary='/3dof/xrDriver')
+
+    def test_a_state_file_from_before_the_choice_is_the_standard_driver(self):
+        self.record()
+        tracking.restart_same(self.runtime)
+        self.ready.assert_called_once_with(self.runtime, binary=None)
+
+    def test_a_driver_someone_stopped_stays_stopped(self):
+        with self.assertRaises(ValueError): tracking.restart_same(self.runtime)
+        self.ready.assert_not_called()
+
+
+class QuietDriverScopeTests(unittest.TestCase):
+    """Only the standard driver gets the quiet driver: a preload into the others changes what they are."""
+    def env(self, **how):
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        runtime = Path(tmp.name); seen = {}
+        class Stop(Exception): pass
+        def popen(argv, **options): seen.update(options); raise Stop
+        with patch.object(tracking, '_check_config'), patch.object(tracking, '_check_usb_access'), patch.object(tracking, '_other_drivers', lambda: []), \
+             patch.object(tracking, '_ours', lambda data: False), patch.object(tracking, 'DRIVER_LOG', runtime / 'none.log'), \
+             patch.object(tracking, '_open_luma_log', lambda: (0, os.open(os.devnull, os.O_WRONLY))), patch.object(tracking, 'LUMA_FLAGS', runtime / 'none'), \
+             patch.object(tracking, '_driver_env', lambda: {'LD_PRELOAD': 'quiet'}), patch.object(tracking.subprocess, 'Popen', popen):
+            with self.assertRaises(Stop): tracking.start(runtime, **how)
+        return seen['env']
+
+    def test_the_standard_driver_gets_it(self):
+        self.assertEqual(self.env(), {'LD_PRELOAD': 'quiet'})
+        self.assertEqual(self.env(binary=tracking.DRIVER), {'LD_PRELOAD': 'quiet'})
+
+    def test_the_3dof_test_does_not(self):
+        self.assertIsNone(self.env(binary='/3dof/xrDriver'))
+
+    def test_the_luma_driver_does_not(self):
+        self.assertIsNone(self.env(luma='/pin/xr-luma-driver'))
+
+
 class DiedDuringStartTests(unittest.TestCase):
     """2026-11-04: a driver that crashed at once was reported as a network leak, and the incident report believed it."""
     def start(self, child_exits):
