@@ -17,7 +17,7 @@ int main() {
     std::string out = "{\"constants\":{";
     const std::pair<const char*, float> constants[] = {
         {"pill_share", kGlassPillShare}, {"pill_min_w", kGlassPillMinW}, {"pill_max_w", kGlassPillMaxW}, {"pill_h", kGlassPillH},
-        {"pill_gap", kGlassPillGap}, {"panel_w", kPanelW}, {"panel_h", kPanelH}, {"header_h", kPanelHeaderH},
+        {"pill_gap", kGlassPillGap}, {"border", kBorderPx}, {"panel_w", kPanelW}, {"panel_h", kPanelH}, {"header_h", kPanelHeaderH},
         {"rows_top", kPanelRowsTop}, {"row_h", kPanelRowH}, {"knob_lo", kPanelKnobLo}, {"knob_hi", kPanelKnobHi},
         {"bar_w", kLevelBarW}, {"bar_h", kLevelBarH}, {"bar_gap", kLevelBarGap}, {"bar_pad", kLevelBarPad},
         {"bar_share", kLevelBarShare}, {"bar_min_w", kLevelBarMinW}, {"edge_clear", kLevelEdgeClear},

@@ -345,7 +345,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   The handles are outside the desktop, so a window's corner, like its close
   button, stays the window's. Pushing the mouse against a desktop's edge from inside lands on that handle. Drag outward
   to make it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
-  field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
+  field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size and stays just below the desktop's border.
   Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
 - **Level or roll a desktop** (new 3 November 2026, not yet tried in the glasses): every desktop in the overview has a
   level bar, a capsule above its top edge in your theme's colour, like the pill below it. It has three parts, and only

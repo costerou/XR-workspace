@@ -51,7 +51,7 @@ X_LIMIT, Y_LIMIT = 1800, 900
 SNAP = 5                     # a drag within this many tenths of a degree of the slot (0) snaps to it, per axis
 REACH = 2.0                  # reach() outside anchor mode: half a view past each edge (normalized canvas, 1 = edge)
 PILL_ZONE_PX = 34.0          # free_pointer.PILL_GAP + PILL_THICKNESS + PILL_PAD_Y: the pill and its grab zone under a desktop
-MARGIN_PX = 6.0              # spike/src/gl.cpp kBorderPx: the highlight frame round a desktop (canvas px)
+MARGIN_PX = 6.0              # spike/include/xr/view.hpp kBorderPx: the highlight frame round a desktop (tile px)
 AREA_EPS = 1e-9              # steradians: "overlaps no more than now" tolerance
 _BEHIND = 1e-6
 

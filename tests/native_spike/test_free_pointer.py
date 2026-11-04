@@ -273,8 +273,9 @@ class HugeResizeMathTests(unittest.TestCase):
 
     def test_pills_and_panels_keep_their_size_whatever_the_desktop_size(self):
         # A resize (distance 10 .. 200: ten times to half the size) moves the glass with the desktop's bottom edge but
-        # never scales it: on the centred desktop its canvas size is exactly the laid-out one, the gap under the bottom
-        # edge stays PILL_GAP, and the pill's grab zone (and the open panel's sliders) are hit at that same size.
+        # never scales it: on the centred desktop its canvas size is exactly the laid-out one, the gap under the selected
+        # desktop's border stays PILL_GAP - BORDER_PX, and the pill's grab zone (and the open panel's sliders) are hit at
+        # that same size.
         x, y, w, h = fp.pill_rect(T1)
         px, py, pw, ph = fp.panel_rect(T1)
         def flat(p, gx, gy): return fp._flat(G, T1, p, *fp.glass_to_desktop(T1, p, gx, gy))  # on the overview's plane
@@ -287,9 +288,9 @@ class HugeResizeMathTests(unittest.TestCase):
                 placements = [dict(DEFAULT_PLACEMENT), p, dict(DEFAULT_PLACEMENT)]
                 for got, want in ((size(p, (x, y, w, h)), (w, h)), (size(p, (px, py, pw, ph)), (pw, ph))):
                     self.assertAlmostEqual(got[0], want[0], delta=1e-3); self.assertAlmostEqual(got[1], want[1], delta=1e-3)
-                bottom = fp._flat(G, T1, p, T1[0] + T1[2] / 2, T1[1] + T1[3])[1]
+                border = fp._flat(G, T1, p, T1[0] + T1[2] / 2, T1[1] + T1[3] + fp.BORDER_PX)[1]
                 top = flat(p, x + w / 2, y)[1]
-                self.assertAlmostEqual(top - bottom, fp.PILL_GAP, delta=1e-3)
+                self.assertAlmostEqual(top - border, fp.PILL_GAP - fp.BORDER_PX, delta=1e-3)
                 cx, cy = fp.project_glass(G, T1, p, x + w / 2, y + h / 2)
                 self.assertEqual(fp.hit(G, placements, (cx, cy)), ('pill', 1))
                 self.assertEqual(fp.hit(G, placements, (cx + w / 2 + fp.PILL_PAD_X - 1, cy)), ('pill', 1))  # its pad, unscaled

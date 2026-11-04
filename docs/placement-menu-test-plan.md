@@ -10,7 +10,7 @@ that sat above each desktop. The menu card's script (steps 1–36), its integrat
 its tests `placement_menu_style` and `menu_geometry_contract` went with the card. They are in git history before
 `feature/glass-pills`.
 
-Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
+Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G42), the free
 pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20) or the window memory script
 (W1–W19) has run in an isolated VM or been tried in the glasses.
 
@@ -18,8 +18,12 @@ pointer script (F1–F22), the round-you script (O1–O19), the level bar script
 
 Renderer (ctest, offline):
 
+- `spike/tests/pill_border_render_test.cpp` (`pill_border_render`): the real compositor's pixels, the border alone and the
+  glass alone on a black desktop, in 277 scenes (sizes from half to ten times, flat, curved, rolled, on its side, turned
+  round you, along the morph, open, the last moment of a zoom): no glass pixel on the border, and the same gap to it.
 - `spike/tests/glass_test.cpp` (`glass`): the pill's geometry (centred 10 px under the desktop, 24% of its width within
-  64–160 px, never wider than the desktop, 14 px tall); the panel (480×220, four rows) sharing the pill's top and
+  64–160 px, never wider than the desktop, 14 px tall), 4 px as seen under the selected desktop's border at every size
+  and clear of the corner caps; the panel (480×220, four rows) sharing the pill's top and
   centre; the morph between them; the panel layout (rows under the 42 px header, sliders between the label and value
   columns, footer inside); every look state (idle, hover, drag, pill to panel) at or under 191/255 and premultiplied,
   with any accent; the panel content (readable but under the cap, the selected row's band, a knob at a field's bounds
@@ -168,6 +172,10 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the level bars and corner caps, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
+| G39 | **Under the border.** Select XR-2, then drag one of its corners outward until it is about twice its size. Watch the pill under it the whole way | The pill never touches the coloured border. It stays a small, even gap below the border and the same size all the way, while the border itself gets thicker. Shrink it back: the same. |
+| G40 | Open XR-2's pill and set Distance to about 50. While you hold the slider the panel stays where it is under the dot, and the desktop grows past it. Let go, and press Esc | When you let go the panel goes back under the border, clear of it. Closed, the pill is back just below the border. It opens and closes without touching the border. |
+| G41 | Make XR-2 ultrawide, then curve it with the Curvature slider, then roll it with its level bar. Look at the pill after each | The pill stays below the border, following its curve and tilt, with the same small gap. |
+| G42 | With a big desktop, select another one, so the big one has no border. Then press the pill, and press beside it just under the desktop | The pill does not move when the selection changes, so it sits a little further under the unselected desktop's edge. The pill drags the desktop from anywhere between it and the desktop's bottom edge. Beside the pill, the bottom edge resizes. Over the desktop itself the click goes to its windows. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 

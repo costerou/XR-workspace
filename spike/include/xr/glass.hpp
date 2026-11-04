@@ -27,8 +27,11 @@
 namespace xr {
 constexpr double kGlassExpandMs = 260, kGlassCollapseMs = 200;  // the pill <-> panel morph
 // --- Geometry: canvas px on the desktop's surface, relative to its overview tile ----------------------------------------
-// Collapsed pill: a share of the desktop's width (clamped), centred, kGlassPillGap below its bottom edge.
+// Collapsed pill: a share of the desktop's width (clamped), centred, kGlassPillGap below its bottom edge as laid out, which
+// is kGlassPillGap - kBorderPx below the selected desktop's border. That gap to the border is the one a resize keeps
+// (view.hpp glass_to_desktop).
 constexpr float kGlassPillShare = 0.24f, kGlassPillMinW = 64.f, kGlassPillMaxW = 160.f, kGlassPillH = 14.f, kGlassPillGap = 10.f;
+static_assert(kGlassPillGap > kBorderPx, "the pill hangs clear of the selected desktop's border");
 FRect glass_pill(const FRect& tile);
 // Expanded panel: kPanelW x kPanelH, centred under the desktop, its top where the pill's top is.
 constexpr float kPanelW = 480.f, kPanelH = 394.f, kPanelRadius = 18.f;
@@ -166,7 +169,7 @@ constexpr float kLevelBarShare = 0.25f, kLevelBarMinW = 120.f;
 // the corners' resize zones round each corner; then the bar; then empty space.
 constexpr float kLevelEdgeClear = 6.f;
 static_assert(kLevelBarGap - kLevelBarPad >= kLevelEdgeClear, "the bar's hit region stays out of the band along the edge");
-static_assert(kLevelBarGap >= 6.f, "the bar stays clear of the selected desktop's 6 px border (gl.cpp kBorderPx)");
+static_assert(kLevelBarGap >= kBorderPx, "the bar stays clear of the selected desktop's border");
 // The bar's segments, left to right: what `side` is on the wire (ipc.hpp RollPayload) and GlassFrame::bar_hover_segment.
 enum class LevelSegment : std::int8_t { none = -1, ccw = 0, level = 1, cw = 2 };
 inline constexpr std::size_t kLevelSegments = 3;

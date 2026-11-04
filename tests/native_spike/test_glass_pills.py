@@ -162,6 +162,98 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(fp.panel_hit(250, fp.PANEL_H - 1, 0), ('panel', 0))
 
 
+# --- under the border -----------------------------------------------------------------------------------------------
+class BelowTheBorderTests(unittest.TestCase):
+    """Cody in the glasses, 2026-11-03: "the bottom pill overlays over the border when monitors get resized larger". The
+    selected desktop's border is tile px, so it grows with the desktop, and the glass keeps its apparent size, gap included:
+    the two met at distance 60, and from distance 25 the whole pill lay on the border. The glass now hangs from the border's
+    outer edge, every desktop's alike so that selecting one never moves its pill. What is drawn and what is pressed must
+    stay the same thing: glass_to_desktop mirrors the renderer's (the placement_contract ctest compares them)."""
+    SIZES = (10, 15, 25, 40, 59, 60, 61, 80, 100, 125, 150, 200)
+    SURFACES = ({}, {'curvature': 60}, {'curvature': 120}, {'roll': 1500}, {'roll': -4250}, {'roll': 9000}, {'x': 300, 'y': -100},
+                {'x': -250, 'y': 150, 'curvature': 60, 'roll': -2500})
+
+    def cases(self):
+        for size in self.SIZES:
+            for surface in self.SURFACES:
+                p = {**DEFAULT_PLACEMENT, **surface, 'distance': size}
+                yield p, [dict(DEFAULT_PLACEMENT), p, dict(DEFAULT_PLACEMENT)]
+
+    def test_the_glass_hangs_a_fixed_gap_under_the_border_at_every_size(self):
+        edge = T1[1] + T1[3] + fp.BORDER_PX  # surface px: the border's outer edge
+        x, y, w, _ = fp.pill_rect(T1)
+        px, py, pw, _ = fp.panel_rect(T1)
+        for p, _ in self.cases():
+            want = (fp.PILL_GAP - fp.BORDER_PX) * p['distance'] / 100
+            for gx, gy in ((x, y), (x + w, y), (px, py), (px + pw, py)):  # the morph runs between them, its top theirs
+                with self.subTest(p=p, glass=(gx, gy)):
+                    self.assertAlmostEqual(fp.glass_to_desktop(T1, p, gx, gy)[1] - edge, want, delta=1e-9)
+
+    def test_a_default_size_desktop_keeps_its_glass_exactly_where_it_was(self):
+        self.assertEqual(fp.glass_to_desktop(T1, DEFAULT_PLACEMENT, 700.0, 800.0), (700.0, 800.0))
+
+    def test_the_pill_you_press_is_the_pill_you_see(self):
+        x, y, w, h = fp.pill_rect(T1)
+        for p, placements in self.cases():
+            for gx, gy in ((x + 1, y + 1), (x + w - 1, y + 1), (x + 1, y + h - 1), (x + w - 1, y + h - 1), (x + w / 2, y + h / 2)):
+                with self.subTest(p=p, glass=(gx, gy)):
+                    self.assertEqual(fp.hit(G, placements, fp.project_glass(G, T1, p, gx, gy)), ('pill', 1))
+            with self.subTest(p=p, past='its grab zone'):  # the padding is glass px too, so the same size at every distance
+                self.assertNotEqual(fp.hit(G, placements, fp.project_glass(G, T1, p, x + w / 2, y + h + fp.PILL_PAD_Y + 2)), ('pill', 1))
+                self.assertNotEqual(fp.hit(G, placements, fp.project_glass(G, T1, p, x + w + fp.PILL_PAD_X + 2, y + h / 2)), ('pill', 1))
+
+    def test_an_open_panel_is_pressed_where_it_is_drawn(self):
+        px, py, pw, ph = fp.panel_rect(T1)
+        for p, placements in self.cases():
+            if p['curvature'] > 60: continue  # it would wrap round the desktop's arc
+            with self.subTest(p=p):
+                self.assertEqual(fp.hit(G, placements, fp.project_glass(G, T1, p, px + pw / 2, py + 1), 1), ('pill', 1))  # its top, on the border's far side
+                self.assertEqual(fp.hit(G, placements, fp.project_glass(G, T1, p, px + pw / 2, py + ph - 8), 1), ('panel', 1))
+
+    def test_the_pill_zone_stops_at_the_desktops_bottom_edge(self):
+        # The zone runs up over the gap and the border to the bottom edge, and not one pixel into the content: at any size,
+        # however the glass is scaled. Surface px here, the rectangle a desktop's content is.
+        cx, bottom = T1[0] + T1[2] / 2, T1[1] + T1[3]
+        for p, placements in self.cases():
+            with self.subTest(p=p):
+                self.assertEqual(fp.hit(G, placements, fp.project(G, T1, p, cx, bottom + 0.25)), ('pill', 1))
+                self.assertEqual(fp.hit(G, placements, fp.project(G, T1, p, cx, bottom + fp.BORDER_PX - 0.25)), ('pill', 1))
+                self.assertEqual(fp.hit(G, placements, fp.project(G, T1, p, cx, bottom - fp.ENTER_PX - 0.25))[:2], ('desktop', 1))
+                self.assertEqual(fp.hit(G, placements, fp.project(G, T1, p, cx, bottom - 3))[:2], ('desktop', 1))
+
+    def test_resize_handles_keep_the_rest_of_the_bottom_edge(self):
+        # The pill wins over the edge it hangs from where it is, as it always has, and only there. Beside it the bottom edge
+        # still resizes, and the corners, which are nowhere near a pill on a real desktop, stay the corners'.
+        x, y, w, h = fp.pill_rect(T1)
+        bottom = T1[1] + T1[3]
+        for p, placements in self.cases():
+            right = fp.glass_to_desktop(T1, p, x + w + fp.PILL_PAD_X, y)[0]
+            left = fp.glass_to_desktop(T1, p, x - fp.PILL_PAD_X, y)[0]
+            for qx in (left - 1, right + 1):
+                with self.subTest(p=p, x=qx):
+                    self.assertEqual(fp.hit(G, placements, fp.project(G, T1, p, qx, bottom + 3)), ('edge', 1, 'b'))
+            for corner, qx in (('bl', T1[0] + 1), ('br', T1[0] + T1[2] - 1)):
+                point = fp.project(G, T1, p, qx, bottom + 3)
+                if fp.unproject(G, T1, p, point) is None: continue  # far past the view on a tight arc: nothing can press it
+                with self.subTest(p=p, corner=corner):
+                    self.assertEqual(fp.hit(G, placements, point), ('corner', 1, corner))
+            z = fp.corner_zone(T1)
+            with self.subTest(p=p):
+                self.assertGreater(left, T1[0] + z)  # the pill and its padding, clear of both corners' squares
+                self.assertLess(right, T1[0] + T1[2] - z)
+
+    def test_a_desktops_footprint_still_holds_its_pill_zone(self):
+        # Bumping keeps desktops apart by footprint (orbit._outline): the zone must stay inside it at every size. Flat at
+        # its slot a surface point's height is its world height, so the outline's bottom edge can be read off directly.
+        x, y, w, h = fp.pill_rect(T1)
+        for size in self.SIZES:
+            p = {**DEFAULT_PLACEMENT, 'distance': size}
+            with self.subTest(size=size):
+                outline = orbit._outline(G, T1, p)
+                zone = fp.place_point(G, T1, p, *fp.glass_to_desktop(T1, p, x + w / 2, y + h + fp.PILL_PAD_Y))
+                self.assertLessEqual(min(q[1] for q in outline), zone[1])
+
+
 # --- hit testing ----------------------------------------------------------------------------------------------------
 class HitTests(unittest.TestCase):
     def test_the_pill_zone_is_under_the_desktop_and_nothing_is_above_it(self):
