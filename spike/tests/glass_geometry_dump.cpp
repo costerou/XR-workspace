@@ -1,9 +1,7 @@
-// Prints the glass pill and roll bracket geometry constants and a few laid-out pills / panels / brackets as one JSON line,
-// for glass_contract_test.py, which checks that tools/native_spike/free_pointer.py (the supervisor's hit testing) mirrors
-// them. Brackets: their arm and scale, and probes round both top corners (the distance to the centre line and whether
-// the point is in the hit region).
+// Prints the glass pill and level bar geometry constants and a few laid-out pills / panels / bars as one JSON line, for
+// glass_contract_test.py, which checks that tools/native_spike/free_pointer.py (the supervisor's hit testing) mirrors them.
+// Bars: their scale and rect, and probes all round and across them (the segment at each point).
 #include "xr/glass.hpp"
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -21,9 +19,8 @@ int main() {
         {"pill_share", kGlassPillShare}, {"pill_min_w", kGlassPillMinW}, {"pill_max_w", kGlassPillMaxW}, {"pill_h", kGlassPillH},
         {"pill_gap", kGlassPillGap}, {"panel_w", kPanelW}, {"panel_h", kPanelH}, {"header_h", kPanelHeaderH},
         {"rows_top", kPanelRowsTop}, {"row_h", kPanelRowH}, {"knob_lo", kPanelKnobLo}, {"knob_hi", kPanelKnobHi},
-        {"roll_gap", kRollGap}, {"roll_stroke", kRollStroke}, {"roll_head_len", kRollHeadLen}, {"roll_head_half", kRollHeadHalf},
-        {"roll_pad", kRollPad}, {"roll_arm_share", kRollArmShare}, {"roll_arm_min", kRollArmMin}, {"roll_arm_max_share", kRollArmMaxShare},
-        {"roll_edge_clear", kRollEdgeClear},
+        {"bar_w", kLevelBarW}, {"bar_h", kLevelBarH}, {"bar_gap", kLevelBarGap}, {"bar_pad", kLevelBarPad},
+        {"bar_share", kLevelBarShare}, {"bar_min_w", kLevelBarMinW}, {"edge_clear", kLevelEdgeClear},
         {"actions_top", kPanelActionsTop}, {"action_h", kPanelActionH}, {"action_w", kPanelActionW}, {"action_gap", kPanelActionGap},
         {"actions", float(kPanelActions)}, {"max_desktops", float(kMaxDesktops)},
         {"scale_top", kPanelScaleTop}, {"scale_item_h", kScaleItemH}, {"scale_list_gap", kScaleListGap},
@@ -34,6 +31,10 @@ int main() {
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
+    }
+    {
+        char b[96]; std::snprintf(b, sizeof b, "},\"cap\":{\"gap\":%.4f,\"leg\":%.4f,\"stroke\":%.4f", double(kCapGap), double(kCapLeg), double(kCapStroke));
+        out += b;
     }
     out += "},\"actions\":[";
     for (std::size_t a = 0; a < kPanelActions; ++a) out += std::string(a ? "," : "") + rect(glass_panel_action(a));
@@ -60,23 +61,19 @@ int main() {
     const FRect tiles[] = {{100, 300, 459, 258}, {0, 0, 4000, 2000}, {10, 20, 120, 60}, {5, 5, 40, 30}, {-200.5f, 410.25f, 812, 457}};
     first = true;
     for (const auto& t : tiles) {
-        char b[96]; std::snprintf(b, sizeof b, "{\"arm\":%.4f,\"scale\":%.4f,\"probes\":[", double(roll_arm(t)), double(roll_scale(t)));
+        char b[96]; std::snprintf(b, sizeof b, "{\"scale\":%.4f,\"rect\":", double(level_bar_scale(t)));
         out += std::string(first ? "" : ",") + "{\"tile\":" + rect(t) + ",\"pill\":" + rect(glass_pill(t)) + ",\"panel\":" + rect(glass_panel(t)) +
-               ",\"roll\":" + b;
-        // A grid round each top corner, out to past the arms and the hit region, and into the desktop.
+               ",\"bar\":" + b + rect(level_bar_rect(t)) + ",\"probes\":[";
+        // A grid over the bar and its padding, out past them on every side, and down onto the desktop.
         bool first_probe = true;
-        const float arm = roll_arm(t), step = std::max(1.f, arm / 9.f);
-        for (std::uint32_t side = 0; side < 2; ++side) {
-            const float corner = side ? t.x + t.width : t.x, out_dir = side ? 1.f : -1.f;
-            for (float u = -arm - 3 * step; u <= 3 * step + 1e-3f; u += step / 2)      // along the top, past the corner
-                for (float v = -3 * step; v <= arm + 3 * step + 1e-3f; v += step / 2) {  // down the side
-                    const float px = corner + out_dir * u + 0.137f, py = t.y + v - 0.291f;  // off the grid's exact edges
-                    const float d = roll_distance(t, side, px, py);
-                    char p[160]; std::snprintf(p, sizeof p, "%s[%u,%.4f,%.4f,%.4f,%d]", first_probe ? "" : ",", side, double(px), double(py),
-                                               std::isinf(d) ? -1.0 : double(d), on_roll_bracket(t, side, px, py) ? 1 : 0);
-                    out += p; first_probe = false;
-                }
-        }
+        const FRect r = level_bar_rect(t);
+        const float s = level_bar_scale(t), step_x = r.width / 23.f, step_y = r.height / 7.f;
+        for (float u = -3 * step_x; u <= r.width + 3 * step_x + 1e-3f; u += step_x / 2)
+            for (float v = -3 * step_y; v <= r.height + (kLevelBarGap + 8) * s + 1e-3f; v += step_y / 2) {
+                const float px = r.x + u + 0.137f * s, py = r.y + v - 0.291f * s;  // off the grid's exact edges
+                char p[120]; std::snprintf(p, sizeof p, "%s[%.4f,%.4f,%d]", first_probe ? "" : ",", double(px), double(py), int(level_bar_segment(t, px, py)));
+                out += p; first_probe = false;
+            }
         out += "]}}";
         first = false;
     }

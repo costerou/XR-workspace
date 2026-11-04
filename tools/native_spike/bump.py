@@ -38,7 +38,7 @@ Design:
     so they move out of the way together and never cross on screen.
   * Saved like any move. A pushed desktop is a placement like any other: it is in the placements the run's normal save
     path writes (ViewControl.flush, the debounce, at once on release), so it comes back with the layout.
-  * The levelling roll (free_pointer.py's roll icons) is ignored here, as it was by the guard: a few degrees of roll
+  * The levelling roll (free_pointer.py's level bar) is ignored here, as it was by the guard: a few degrees of roll
     change nothing that matters.
 """
 import math

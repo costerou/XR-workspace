@@ -238,17 +238,6 @@ std::vector<std::size_t> draw_order(const Canvas& c, std::span<const FRect> tile
     return order;
 }
 
-CornerHandle corner_handle(const FRect& t, std::uint32_t corner) {
-    if (t.width <= 0 || t.height <= 0 || corner > 3) return {};
-    const float arm = clampf(kHandleArmShare * std::min(t.width, t.height), kHandleMinArmPx, kHandleMaxArmPx);
-    const bool right = corner == 1 || corner == 3, bottom = corner >= 2;
-    const float x0 = right ? t.x + t.width - kHandleInsetPx - arm : t.x + kHandleInsetPx;          // horizontal arm's left
-    const float y0 = bottom ? t.y + t.height - kHandleInsetPx - arm : t.y + kHandleInsetPx;        // vertical arm's top
-    const float hy = bottom ? t.y + t.height - kHandleInsetPx - kHandleThicknessPx : t.y + kHandleInsetPx;
-    const float vx = right ? t.x + t.width - kHandleInsetPx - kHandleThicknessPx : t.x + kHandleInsetPx;
-    return {{x0, hy, arm, kHandleThicknessPx}, {vx, y0, kHandleThicknessPx, arm}};
-}
-
 std::vector<Vec3> canvas_disc(const Canvas& c, float x, float y, float radius, int segments) {
     if (c.view_w <= 0 || c.view_h <= 0 || !(radius > 0) || segments < 3) return {};
     auto at = [&](float px, float py) { return Vec3{(2 * px / c.view_w - 1) * c.half_w, (1 - 2 * py / c.view_h) * c.half_h, -1.f}; };
@@ -335,7 +324,7 @@ std::array<FRect, 4> drop_frame(const FRect& t) {
 }
 
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h) {
-    // One slot per desktop, as many as the run has (1..kMaxDesktops): the supervisor's dot, pills and roll icons need it.
+    // One slot per desktop, as many as the run has (1..kMaxDesktops): the supervisor's dot, pills and level bars need it.
     if (tiles.empty() || tiles.size() > kMaxDesktops || !width || !height || width > 8192 || height > 8192 || !(half_w > 0) || !(half_h > 0) ||
         !std::isfinite(half_w) || !std::isfinite(half_h)) return {};
     char buf[96];

@@ -254,7 +254,7 @@ class UltrawideTests(DesktopChangeBase):
 class StartWithFourTests(unittest.TestCase):
     """Regression (dot-missing-overview, 2026-11-03, installed master 37393b1): a run that starts with four desktops (a
     profile saved with four, or xr-start-adopt-windows adding one before the renderer starts) never showed the dot, the
-    pills or the roll icons in the overview, whatever the mouse did. The renderer's overview_geometry_json still capped
+    pills or the level bars in the overview, whatever the mouse did. The renderer's overview_geometry_json still capped
     its line at three tiles (the old fixed three-desktop design), so with four it reported no layout at all and the
     pointer never went active. The same cap hid the layout after a pill's Add to a fourth desktop."""
     NAMES = ['XR-1', 'XR-2', 'XR-3', 'XR-4']

@@ -1,7 +1,8 @@
 // Overview corner-resize handle and grab pills: the renderer side of tools/native_spike/resize.py. Display only; offline.
 //  * the `resize_handle` control frame decodes strictly, and a malformed payload is the ignorable kind (dropped);
-//  * corner_handle() puts an L-bracket inside the requested corner, at a fixed spot (no pixel orbit);
-//  * its grey levels stay at or under the cards' 191/255 cap (micro-OLED image retention).
+//  * corner_cap_rect() puts a cap's box round the requested corner, at a fixed spot (no pixel orbit), outside the desktop
+//    but for what the desktop's content covers. Their pixels and colours: roll_level_test, glass_theme_test.
+#include "xr/glass.hpp"
 #include "xr/ipc.hpp"
 #include "xr/view.hpp"
 #include <cmath>
@@ -14,9 +15,6 @@ using namespace xr;
 namespace {
 std::string frame(const std::string& payload, std::uint64_t id = 7) {
     return R"({"schema":1,"request_id":)" + std::to_string(id) + R"(,"run_id":"run","session":"session","op":"resize_handle","payload":)" + payload + "}\n";
-}
-bool inside(const FRect& r, const FRect& t) {
-    return r.x >= t.x - 1e-3f && r.y >= t.y - 1e-3f && r.x + r.width <= t.x + t.width + 1e-3f && r.y + r.height <= t.y + t.height + 1e-3f;
 }
 }
 
@@ -59,35 +57,24 @@ int main() {
         CHECK(q.pop().has_value());
     }
 
-    // Geometry: each corner gets an L inside the tile, hugging that corner.
+    // Geometry: each corner gets its box, reaching kCapOuter past that corner on both axes; the same input always gives the
+    // same pixels (no orbit or drift); it scales with the desktop like the level bar.
     const FRect tile{100, 200, 600, 340};
     for (std::uint32_t c = 0; c < 4; ++c) {
-        const auto h = corner_handle(tile, c);
-        CHECK(inside(h.horizontal, tile) && inside(h.vertical, tile));
-        CHECK(std::fabs(h.horizontal.height - kHandleThicknessPx) < 1e-4f && std::fabs(h.vertical.width - kHandleThicknessPx) < 1e-4f);
-        CHECK(std::fabs(h.horizontal.width - h.vertical.height) < 1e-4f);  // equal arms
+        const auto box = corner_cap_rect(tile, c);
         const bool right = c == 1 || c == 3, bottom = c >= 2;
-        const float edge_x = right ? tile.x + tile.width - kHandleInsetPx : tile.x + kHandleInsetPx;
-        const float edge_y = bottom ? tile.y + tile.height - kHandleInsetPx : tile.y + kHandleInsetPx;
-        CHECK(std::fabs((right ? h.horizontal.x + h.horizontal.width : h.horizontal.x) - edge_x) < 1e-3f);
-        CHECK(std::fabs((bottom ? h.vertical.y + h.vertical.height : h.vertical.y) - edge_y) < 1e-3f);
-        CHECK(std::fabs((bottom ? h.horizontal.y + h.horizontal.height : h.horizontal.y) - edge_y) < 1e-3f);
-        CHECK(std::fabs((right ? h.vertical.x + h.vertical.width : h.vertical.x) - edge_x) < 1e-3f);
+        const float cx = right ? tile.x + tile.width : tile.x, cy = bottom ? tile.y + tile.height : tile.y;
+        CHECK(box.x < cx && cx < box.x + box.width && box.y < cy && cy < box.y + box.height);
+        CHECK(std::fabs((right ? box.x + box.width - cx : cx - box.x) - kCapOuter) < 1e-3f);
+        CHECK(std::fabs((bottom ? box.y + box.height - cy : cy - box.y) - kCapOuter) < 1e-3f);
+        const auto again = corner_cap_rect(tile, c);
+        CHECK(box.x == again.x && box.y == again.y && box.width == again.width && box.height == again.height);
     }
-    // Arm length follows the tile, clamped; the same input always gives the same pixels (no orbit or drift).
-    CHECK(std::fabs(corner_handle(tile, 3).horizontal.width - 34.f) < 1e-3f);  // 10% of 340
-    CHECK(std::fabs(corner_handle({0, 0, 4000, 3000}, 0).horizontal.width - kHandleMaxArmPx) < 1e-3f);
-    CHECK(std::fabs(corner_handle({0, 0, 60, 40}, 0).horizontal.width - kHandleMinArmPx) < 1e-3f);
-    const auto once = corner_handle(tile, 1), again = corner_handle(tile, 1);
-    CHECK(once.horizontal.x == again.horizontal.x && once.horizontal.y == again.horizontal.y && once.vertical.x == again.vertical.x &&
-          once.vertical.y == again.vertical.y);
+    CHECK(std::fabs(corner_cap_rect({0, 0, 240, 135}, 0).width - (kCapOuter + kCapInner) * level_bar_scale({0, 0, 240, 135})) < 1e-3f);
+    CHECK(level_bar_scale({0, 0, 240, 135}) < 1.f);
     // Degenerate input draws nothing.
-    const auto none = corner_handle({0, 0, 0, 10}, 0), wrong = corner_handle(tile, 4);
-    CHECK(none.horizontal.width == 0 && none.vertical.height == 0 && wrong.horizontal.width == 0);
+    CHECK(corner_cap_rect({0, 0, 0, 10}, 0).width == 0 && corner_cap_rect(tile, 4).width == 0);
 
-    // OLED: both levels are dim greys at or under the cards' cap, and dragging is the brighter one.
-    CHECK(kHandleLevelIdle > 0.f && kHandleLevelIdle < kHandleLevelActive);
-    CHECK(std::lround(kHandleLevelActive * 255.f) <= 191 && std::lround(kHandleLevelIdle * 255.f) <= 191);
     // Grab pills (move_handle): strict decode, malformed payloads dropped, never fatal.
     auto pill = [](const std::string& payload) {
         return R"({"schema":1,"request_id":8,"run_id":"run","session":"session","op":"move_handle","payload":)" + payload + "}\n";
@@ -124,5 +111,5 @@ int main() {
         while (!same_placement(c, to) && frames < 1000) { c = ease_toward(c, to, 1000.f / 120, kPlacementEaseMs); ++frames; }
         CHECK(same_placement(c, to) && frames < 120);  // settles in well under a second
     }
-    std::cout << "resize handle and grab pills: decode, ignorable drop, geometry, OLED levels, placement easing: PASS\n";
+    std::cout << "resize handle and grab pills: decode, ignorable drop, geometry, placement easing: PASS\n";
 }

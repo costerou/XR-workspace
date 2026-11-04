@@ -545,7 +545,7 @@ class PointerTests(unittest.TestCase):
                 mock.patch.object(fp.OverviewPointer, '_handle', return_value=b''), \
                 mock.patch.object(fp.OverviewPointer, '_pills', return_value=b''), \
                 mock.patch.object(fp.OverviewPointer, '_pointer_frame', return_value=b''), \
-                mock.patch.object(fp.OverviewPointer, '_roll_frame', return_value=b''):  # both roll icons always show now
+                mock.patch.object(fp.OverviewPointer, '_roll_frame', return_value=b''):  # the level bars always show
             pointer.on_op('resize_press')
         control.desktop_action.assert_called_once_with(1, 'add')
         control.pill_close.assert_not_called()  # a press on its own panel never collapses it

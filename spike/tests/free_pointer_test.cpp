@@ -98,7 +98,7 @@ int main(int argc, char** argv) try {
     CHECK(overview_geometry_json(bad, 1920, 1200, 0.36f, 0.225f).empty());
     // Every desktop count the run allows (1..kMaxDesktops) gets its line, never just three: with four desktops (a
     // profile saved with four, adoption adding one at start, or a pill's Add) the supervisor otherwise never hears the
-    // layout and the dot, the pills and the roll icons never show (dot-missing-overview, installed 37393b1).
+    // layout and the dot, the pills and the level bars never show (dot-missing-overview, installed 37393b1).
     for (std::size_t n = 1; n <= kMaxDesktops; ++n) {
         const std::vector<Size> many(n, Size{1920, 1200});
         const auto row = overview_layout(many, 1920, 1200, 20);

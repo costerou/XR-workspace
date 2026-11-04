@@ -102,13 +102,6 @@ std::vector<std::size_t> zoom_draw_order(std::vector<std::size_t> order, float z
 // are not split). `placements` shorter than `tiles` leaves the rest at the default.
 std::vector<std::size_t> draw_order(const Canvas& canvas, std::span<const FRect> tiles, std::span<const Placement> placements);
 
-// Overview corner-resize handle (tools/native_spike/resize.py): an L-shaped bracket inside corner `corner` (0 tl, 1 tr,
-// 2 bl, 3 br) of `tile`, as two canvas rects (horizontal arm, vertical arm) drawn on the desktop's own surface. No pixel
-// orbit or drift. Empty tile: two empty rects. Levels are grey on 0..1; both stay at or under the cards' cap of 191/255
-// (micro-OLED retention), and the supervisor hides the handle after 30 s without pointer movement.
-struct CornerHandle { FRect horizontal, vertical; };
-CornerHandle corner_handle(const FRect& tile, std::uint32_t corner);
-constexpr float kHandleLevelIdle = 140.f / 255.f, kHandleLevelActive = 184.f / 255.f;
 // A glide (a `placement` frame's glide, ipc.hpp: a discrete edit that bumped desktops out of the way, bump.py): `t` of the
 // way (0..1, clamped) from `from` to `to` along smootherstep, so it starts and lands with no jump in speed, never overshoots
 // and is exactly `to` at t >= 1. Every desktop of the frame takes the same t, so they move out of each other's way
@@ -175,7 +168,7 @@ std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float a
 // The dot's look (free_pointer.py POINTER_LOOKS, the `overview_pointer` frame's `look`): it stays one cursor and shows what
 // a press would do there. plain over content, empty space and controls; two small arrowheads either side of the disc along
 // the resize direction on a desktop's edge or corner (ew: left / right edges, ns: top / bottom, nwse: top-left / bottom-right
-// corners, nesw: top-right / bottom-left); four on a pill (move); two chasing round the disc on a rotate bracket (rotate).
+// corners, nesw: top-right / bottom-left); four on a pill (move); two chasing round the disc on a level bar (rotate).
 enum class PointerLook : std::uint8_t { plain, resize_ew, resize_ns, resize_nwse, resize_nesw, move, rotate };
 constexpr float kPointerMarkGapPx = 2.5f, kPointerMarkLenPx = 5.f, kPointerMarkHalfPx = 3.5f;  // past the ring, canvas px
 // Triangles (three vertices per mark, GL_TRIANGLES) of look `look`'s marks round the dot at canvas (x, y), turned to
@@ -198,7 +191,6 @@ std::vector<Vec3> direction_outline(const Canvas& canvas, float x, float y, floa
 // half-FOV tangents to 5 (tools/native_spike/free_pointer.py parse_overview_geometry), one tile per desktop (1..kMaxDesktops).
 // Empty if anything is unusable.
 std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t width, std::uint32_t height, float half_w, float half_h);
-constexpr float kHandleInsetPx = 3.f, kHandleThicknessPx = 3.f, kHandleMinArmPx = 8.f, kHandleMaxArmPx = 36.f, kHandleArmShare = 0.1f;
 
 // How long the view's own changes take: zoom, spacing (ViewAnimator) and a desktop's shape (SizeEase), all with smoothstep.
 constexpr float kViewEaseMs = 220.f;

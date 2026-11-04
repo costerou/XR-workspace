@@ -127,18 +127,18 @@ struct OverviewPointerPayload {
     bool drag = false; std::int32_t ghost_w = 0, ghost_h = 0, target = -1;  // a window drag in progress
     PointerLook look = PointerLook::plain;
 };
-// Roll brackets (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
+// Level bars (tools/native_spike/free_pointer.py roll_frame), display and levelling roll; the supervisor owns both:
 // {"roll":[r,...],"icons":[i,...],"hover":-1..kMaxDesktops-1,"side":s,"active":bool}. roll: each desktop's levelling roll
-// (view.hpp Placement::roll) in hundredths of a degree, counter-clockwise as you see it, -kMaxRoll..kMaxRoll. icons: "none",
-// "ccw" (the arrow bracket round the top-left corner), "cw" (round the top-right; glass.hpp roll_bracket) or "both". hover:
-// the desktop whose bracket is under the pointer or held (-1: none), side: which of them ("ccw" / "cw"; "none" exactly when hover is
-// -1); active: it is being dragged. Exactly kMaxDesktops entries each, in managed-output order
+// (view.hpp Placement::roll) in hundredths of a degree, counter-clockwise as you see it, -kMaxRoll..kMaxRoll. icons: "none"
+// or "bar" (its level bar and corner caps show; glass.hpp level_bar_rect). hover: the desktop whose bar is under the pointer
+// or held (-1: none), side: which segment ("ccw" / "level" / "cw"; "none" exactly when hover is -1); active: it is being
+// dragged. Exactly kMaxDesktops entries each, in managed-output order
 // (desktops beyond this run's outputs are ignored). Malformed: rejected with kInvalidRollCode and dropped, like move_handle.
 constexpr const char* kInvalidRollCode = "invalid_roll";
 constexpr std::int32_t kMaxRoll = 9000;
 struct RollPayload {
-    std::array<std::int32_t, kMaxDesktops> roll{}; std::array<std::int8_t, kMaxDesktops> icons{-1, -1, -1, -1};  // icon: -1 none, 0 ccw, 1 cw, 2 both
-    std::int32_t hover = -1; std::int8_t side = -1; bool active = false;  // side: -1 none, 0 ccw, 1 cw
+    std::array<std::int32_t, kMaxDesktops> roll{}; std::array<bool, kMaxDesktops> bars{};
+    std::int32_t hover = -1; std::int8_t side = -1; bool active = false;  // side: -1 none, 0 ccw, 1 level, 2 cw (glass.hpp LevelSegment)
 };
 // The run's managed desktops changed (a glass pill's Add / Remove / Ultrawide, tools/native_spike/desktops.py):
 // {"outputs":["XR-1","XR-3",...], "renew":[...]}. `outputs` is the whole set to capture from now on, 1..kMaxDesktops

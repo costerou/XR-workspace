@@ -48,7 +48,7 @@ scrolling and typing, and a click never maximizes):
   * Overview, off the desktops (free mode). The cursor reaching home's edge pixel turns the dot free: the cursor is
     hidden and parked just inside home where it left (input_lock.park_point; leash input_lock.LEASH_PX), and its motion
     moves the dot through space from just past that edge, on its resize handle (free_pointer._exit). Over edges, corners,
-    pills, rotate brackets, panels and the help card (the XR handles, all outside the desktops' content, and the dot's look
+    pills, level bars, panels and the help card (the XR handles, all outside the desktops' content, and the dot's look
     shows which: free_pointer.hit, zone_of, look_for) it is only the dot: the free grab is the input lock's
     (input_lock.lock_pointer_lua), so no button or wheel reaches a window there. Moving onto any desktop's content hands
     the real cursor to that desktop, under the dot (free_pointer.OverviewPointer._enter: the dot's hit point through

@@ -54,7 +54,7 @@ renderer keeps the panel on) and saved to the profile 500 ms after the last chan
 collapses. Maximizing collapses it first. Menu ops are not in USER_OPS, so they are not panel capabilities either.
 Overview free pointer (free_pointer.py): in the overview the mouse can leave a desktop and move freely in the glasses'
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
-pill (expand / collapse its panel), press or drag an open panel's sliders, roll a desktop with its arrows, or move onto
+pill (expand / collapse its panel), press or drag an open panel's sliders, roll or level a desktop with its level bar, or move onto
 any desktop (no click maximizes: only Ctrl+Alt+Up does); inside a desktop the real cursor works on windows as usual (a
 click there goes to the window, and the unified cursor's non-consuming bind also brings an open panel to that desktop
 and takes its keys off the keyboard: ViewControl.desktop_press).
@@ -209,7 +209,7 @@ MODE_OVERVIEW_TOAST = ('The overview always stays fixed in the room (anchor). Ma
 # The settings panel's Place tab while a desktop is maximized: the change waits for the overview (ViewState.hold_placements).
 PLACE_HELD_TOAST = 'Placement change kept: it applies when you go back to the overview.'
 # Ctrl+Alt+H help card: what each bind does (every op in BINDS needs an entry; tests enforce it).
-HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: use any desktop; pills, corners',
+HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overview: any desktop; pills, bar, corners',
                 'prev': 'Previous desktop', 'next': 'Next desktop', 'spacing_down': 'Less space between desktops',
                 'spacing_up': 'More space between desktops', 'recenter': 'Recenter the view',
                 RESET_OP: 'Reset to 3 flat desktops (press twice)',
@@ -1034,7 +1034,7 @@ class ViewControl:
         self.reset = None
         self.reset_armed_at = None  # the first Ctrl+Alt+R press: a second one within RESET_ARM_S resets
         self.resets = 0  # diagnostics
-        self._rolls_seen = None  # (names, rolls) poll last saw: a roll arrow's change is saved like a placement change
+        self._rolls_seen = None  # (names, rolls) poll last saw: a level bar's change is saved like a placement change
         # optional (typing: bool) -> None: swap the run's bind table between the full set and the Ctrl+Alt+T toggle alone
         # (a compositor call, run off the loop under _menu_lock so it is ordered with the panel's own bind changes).
         self.typing_binds = typing_binds
@@ -1591,7 +1591,7 @@ class ViewControl:
         else: self._tell(RESET_TOASTS['done'] + RESET_TOASTS['moved'].format(source=moved[0], target=moved[1]))
         return out + (self._menu_frame() if s.menu_open else b'')
 
-    # --- the levelling rolls (the overview pointer's roll arrows own them, free_pointer.py) --------------------------
+    # --- the levelling rolls (the overview pointer's level bars own them, free_pointer.py) --------------------------
     def _rolls(self):
         """Each desktop's levelling roll in state.names order, or None without an overview pointer."""
         p = self.overview_pointer
@@ -1607,7 +1607,7 @@ class ViewControl:
             if name in index and index[name] < len(p.rolls): p.rolls[index[name]] = roll
 
     def _watch_rolls(self, now):
-        """poll(): a roll arrow click or drag changed a levelling roll: saved MENU_SAVE_DELAY after the last change, like
+        """poll(): a level bar click or drag changed a levelling roll: saved MENU_SAVE_DELAY after the last change, like
         a placement (flush: at once when a drag ends). A desktop change only takes the new names in (it saved them)."""
         rolls = self._rolls()
         if rolls is None: return
@@ -1714,7 +1714,7 @@ class ViewControl:
         out = self._reset_tick(now) if self.reset is not None else b''  # Ctrl+Alt+R easing every desktop flat (its rolls
         # go out with the pointer's `roll` frame just below)
         out += self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
-        if self.reset is None: self._watch_rolls(now)  # a roll arrow's change is saved like a placement
+        if self.reset is None: self._watch_rolls(now)  # a level bar's change is saved like a placement
         if self.save_due is not None and now >= self.save_due: self.flush()
         if self.environment_save_due is not None and now >= self.environment_save_due: self._save_environment()
         if self.desktops is not None:  # a desktop change done; Remove disarms after a while

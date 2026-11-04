@@ -134,19 +134,19 @@ public:
     // The tiles ease to the layout the next set_desktops leads to, instead of jumping (view.hpp TileEase): call it first.
     void ease_tiles();
     // Overview corner-resize handle (display only; the supervisor owns hover/drag and applies sizes with set_placements):
-    // a dim bracket in corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop`, brighter while `active` (dragging).
-    // Drawn only in the overview (hidden while zoomed or zooming), never orbiting or drifting. GPU composition only.
+    // the corner cap on corner `corner` (0 tl, 1 tr, 2 bl, 3 br) of desktop `desktop` lights up while `visible`, brightest
+    // while `active` (dragging). The caps themselves show with the level bars (set_roll). Drawn only in the overview (hidden
+    // while zoomed or zooming), never orbiting or drifting. GPU composition only.
     void set_resize_handle(bool visible, std::uint32_t desktop, std::uint32_t corner, bool active);
     // Overview glass pills (display only; the supervisor owns hover/drag/click and moves desktops with set_placements): a
     // frosted capsule under every desktop, brighter over `desktop` when `hover`, brightest when `active` (dragging).
     // Overview only, never moving on its own. GPU composition only.
     void set_move_handle(bool visible, std::uint32_t desktop, bool hover, bool active);
-    // Roll brackets and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about
-    // its line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement; a
-    // maximized desktop's fades out with the zoom); `icons` per desktop -1 none, 0 the bracket round the top-left corner (counter-clockwise), 1 round the top-right
-    // (clockwise), 2 both, drawn with the pills (overview only); `hover` / `side` the desktop and bracket that is brighter,
-    // brightest when `active`.
-    void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<std::int8_t, kMaxDesktops>& icons, std::int32_t hover,
+    // Level bars and levelling roll (ipc.hpp RollPayload; the supervisor owns both): `roll` each desktop's turn about its
+    // line of sight, hundredths of a degree counter-clockwise (view.hpp Placement::roll, eased like a placement; a maximized desktop's fades out with the zoom);
+    // `bars` the desktops whose level bar and corner caps show, drawn with the pills (overview only); `hover` / `side` the
+    // desktop and segment that is lit (glass.hpp LevelSegment; -1: none), brightest when `active`.
+    void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<bool, kMaxDesktops>& bars, std::int32_t hover,
                   std::int8_t side, bool active);
     // How far each desktop is from level as you see it, without its levelling roll (view.hpp desktop_tilt against the
     // world's up from the pose feed): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a

@@ -144,6 +144,7 @@ Image read() {
 
 struct Frame {
     bool desktops = true, pills = false, pointer = false;
+    bool bars = false;              // every desktop's level bar and corner caps (drawn with the pills: overview only)
     float zoom = 0;                 // 0 overview, 1 maximized (desktop 1)
     int highlight = 1;
     Mat3 view = kIdentity;          // the desktops' rotation (anchor: the head; locked / follow: identity here)
@@ -156,6 +157,7 @@ Image draw(GlCompositor& gl, const Frame& f) {
     const std::vector<Size> sizes(3, Size{float(kDesktopW), float(kDesktopH)});
     const auto tiles = f.desktops ? blended_layout(sizes, float(kCanvasW), float(kCanvasH), 40.f, f.zoom, 1.f) : std::vector<FRect>{};
     GlassFrame glass; glass.pills = f.pills && f.zoom < 0.01f;
+    if (f.bars) glass.bars.fill(true);
     static std::uint64_t generation = 0;
     if (f.panel) { glass.expand[1] = 1; glass.top = 1; glass.content = 1; glass.image = f.panel; glass.generation = ++generation; glass.content_alpha = 1; }
     gl.set_glass(glass);
@@ -558,6 +560,30 @@ int main(int argc, char** argv) {
         Frame edge1 = ahead_smoke; edge1.seconds = float(kEnvironmentLoopS) - 1.f / 120.f;
         CHECK(mean_change(a, draw(*gl, looped)) < 0.6);
         CHECK(mean_change(draw(*gl, edge0), draw(*gl, edge1)) < 0.6);  // the clock's wrap is one more frame
+    }
+
+    // Level bars and corner caps over the background (blended, premultiplied, after it and before the desktops): the marks
+    // they leave over black they leave over every scene, and a maximized frame has none.
+    {
+        auto changed = [](const Image& a, const Image& b) {  // pixels apart by more than rounding
+            std::size_t n = 0;
+            for (std::size_t i = 0; i + 2 < a.rgb.size(); i += 3)
+                n += std::abs(a.rgb[i] - b.rgb[i]) + std::abs(a.rgb[i + 1] - b.rgb[i + 1]) + std::abs(a.rgb[i + 2] - b.rgb[i + 2]) > 6;
+            return n;
+        };
+        Frame black; black.pills = true; black.environment = false;
+        Frame black_bars = black; black_bars.bars = true;
+        const std::size_t shown = changed(draw(*gl, black_bars), draw(*gl, black));
+        CHECK(shown > 500);
+        for (const Background scene : {Background::grid, Background::smoke}) {
+            Frame bare = black; bare.environment = true; bare.scene = scene;
+            Frame barred = bare; barred.bars = true;
+            const std::size_t over = changed(draw(*gl, barred), draw(*gl, bare));
+            CHECK(over * 10 > shown * 8 && over * 10 < shown * 12);
+            Frame bare_zoomed = bare, barred_zoomed = barred;
+            bare_zoomed.zoom = barred_zoomed.zoom = 1;
+            CHECK(changed(draw(*gl, barred_zoomed), draw(*gl, bare_zoomed)) == 0);
+        }
     }
 
     // 6. Behind a 180 degree video: the picture exactly as without it, the rest exactly the background, looking past its edge.

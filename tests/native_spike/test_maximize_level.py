@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 from unittest import mock
 
-from tools.native_spike import profiles, view
+from tools.native_spike import free_pointer as fp, profiles, view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT
 
 from test_desktops import Run, SupervisorStandIn
@@ -58,7 +58,7 @@ class RollsStayTests(Base):
         self.key('zoom_out'); self.tick()
         self.assertIsNone(self.control.save_due)
 
-    def test_the_brackets_hide_and_take_no_press_while_maximized(self):
+    def test_the_level_bars_hide_and_take_no_press_while_maximized(self):
         self.key('zoom_in'); self.tick()
         self.assertEqual(self.p.roll_sent['icons'], ['none'] * 4)
         self.press(); self.release()
@@ -92,7 +92,7 @@ class RollsStayTests(Base):
         self.key('menu_reset')
         self.assertEqual((self.p.rolls, self.p.roll_levels), (ROLLS, 0))
 
-    def test_a_bracket_click_cut_off_by_a_maximize_turns_nothing(self):
+    def test_a_turn_click_cut_off_by_a_maximize_turns_nothing(self):
         # Pressed in the overview, released once maximized, before the supervisor's next tick ended the drag: that click
         # would change the desktop behind the level one, unseen.
         self.to(*grip(T0, 'cw', roll=ROLLS[0]))
@@ -104,7 +104,48 @@ class RollsStayTests(Base):
         self.assertIsNone(self.p.drag)
         self.assertEqual((self.p.rolls, self.p.roll_clicks), (ROLLS, 0))
 
-    def test_a_bracket_drag_ends_where_it_was_as_the_desktop_maximizes(self):
+    def test_a_level_click_cut_off_by_a_maximize_levels_nothing(self):
+        # The bar's middle segment: unseen behind the level desktop it would lose the overview's roll, for good.
+        self.to(*grip(T0, 'level', roll=ROLLS[0]))
+        self.assertEqual(self.p.hover, ('roll', 0, 'level'))
+        self.press()
+        self.assertEqual(self.p.drag['kind'], 'roll')
+        self.key('zoom_in')
+        self.release()
+        self.assertIsNone(self.p.drag)
+        self.assertEqual((self.p.rolls, self.p.roll_levels), (ROLLS, 0))
+        self.key('zoom_out')
+        self.assertEqual(self.p.rolls, ROLLS)
+
+    def test_a_level_click_before_a_maximize_stays_through_it(self):
+        # In the overview it was seen and meant: the maximize neither brings the old roll back nor loses this one.
+        self.to(*grip(T0, 'level', roll=ROLLS[0]))
+        self.press(); self.release()
+        self.assertEqual(self.p.roll_levels, 1)
+        levelled = list(self.p.rolls)
+        self.assertEqual(levelled, [0, *ROLLS[1:]])
+        self.key('zoom_in'); self.tick()
+        self.assertEqual(self.p.rolls, levelled)
+        self.assertEqual(self.p.roll_sent['roll'], levelled)
+        self.key('zoom_out'); self.tick()
+        self.assertEqual(self.p.rolls, levelled)
+
+    def test_the_level_settle_changes_nothing_while_maximized(self):
+        # A level click re-levels on the tilts of the next LEVEL_SETTLE_S. The renderer measures in anchor mode only, so a
+        # maximize inside that time reports none: the click's level stands, and no tilt can write over the overview's roll.
+        self.p.set_roll_geometry([500, 0, 0, 0])
+        self.to(*grip(T0, 'level', roll=ROLLS[0]))
+        self.press(); self.release()
+        levelled = list(self.p.rolls)
+        self.assertEqual(levelled, [fp.level_roll(500), *ROLLS[1:]])
+        self.key('zoom_in')
+        self.p.set_roll_geometry([None] * 4)
+        self.tick()
+        self.assertEqual(self.p.rolls, levelled)
+        self.key('zoom_out'); self.tick()
+        self.assertEqual(self.p.rolls, levelled)
+
+    def test_a_bar_drag_ends_where_it_was_as_the_desktop_maximizes(self):
         # Turned in the overview, so it is that overview orientation that comes back.
         self.to(*grip(T0, 'cw', roll=ROLLS[0]))
         self.press()

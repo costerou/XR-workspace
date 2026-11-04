@@ -27,8 +27,8 @@ Design (decided for the zoom-out resize feature, 2026-11-01, still in force):
     of it takes them too (a dead run's: the next Super press cleans up like a click). pcall'd: a refused bind is left
     out, never breaking the left button. The release bind ignores modifiers as well: however a monitor drag's button
     comes up, the drag ends and never stays on the dot; with no drag it does nothing.
-  * OLED care: the bracket's brightest level is 184/255 and no glass pixel passes 191/255 (the cards' cap); they hide
-    after OVERLAY_IDLE_CLOSE_S without pointer movement. Neither drifts or orbits.
+  * OLED care: no pixel of the corner caps, the level bars or the glass passes 191/255 (the cards' cap); they hide after
+    OVERLAY_IDLE_CLOSE_S without pointer movement. None of them drifts or orbits.
 """
 import json
 
@@ -103,6 +103,8 @@ PILLS_HIDDEN = {'visible': False, 'desktop': 0, 'hover': False, 'active': False}
 
 
 def handle_frame(run_id, session, request_id, handle):
+    """Renderer `resize_handle` frame: visible = corner `corner` of `desktop` is under the dot or held, so its cap lights up
+    (the caps themselves show with the level bars: free_pointer.roll_frame); active = it is being dragged."""
     if (not isinstance(handle, dict) or set(handle) != {'visible', 'desktop', 'corner', 'active'}
             or type(handle['visible']) is not bool or type(handle['active']) is not bool
             or type(handle['desktop']) is not int or not 0 <= handle['desktop'] < MAX_DESKTOPS or handle['corner'] not in CORNERS):

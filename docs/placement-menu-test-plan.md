@@ -11,7 +11,7 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
-pointer script (F1–F22), the round-you script (O1–O19), the roll bracket script (B1–B16) or the window memory script
+pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20) or the window memory script
 (W1–W19) has run in an isolated VM or been tried in the glasses.
 
 ## Placement pills: automated coverage
@@ -104,7 +104,7 @@ tried in the glasses.
 
 | # | Do | Expect |
 |---|----|--------|
-| M1 | In a session, add a fourth desktop, make XR-2 ultrawide, set XR-3's scale to 125%, move XR-1 up and to the left, curve XR-4, roll XR-2 a few degrees with its roll arrow. Wait 2 s, stop the session and start a new one | Four desktops come back with the same sizes and scales, XR-1 up and left, XR-4 curved, XR-2 rolled. The panel's **Startup options** preview shows four desktops before you start. |
+| M1 | In a session, add a fourth desktop, make XR-2 ultrawide, set XR-3's scale to 125%, move XR-1 up and to the left, curve XR-4, roll XR-2 a few degrees with its level bar. Wait 2 s, stop the session and start a new one | Four desktops come back with the same sizes and scales, XR-1 up and left, XR-4 curved, XR-2 rolled. The panel's **Startup options** preview shows four desktops before you start. |
 | M2 | Maximize a desktop, press Ctrl+Alt+V (locked), stop and start again, then maximize | The layout comes back; the maximized desktop follows your head again (follow / locked is not remembered). |
 | M3 | Open a pill, press **Ctrl+Alt+R** once and wait 4 s | A notification says "Press Ctrl+Alt+R again to reset all monitors". Nothing else happens: the pill stays open and nothing moves. |
 | M3a | With the same layout (XR-4 holding a window on two workspaces, XR-3 holding one window), press **Ctrl+Alt+R** twice within 3 s | The pill closes. Every desktop glides back into the flat row in about half a second, level, the gaps going back to the default, while XR-4 drops down out of the view. Then the row settles along the same smooth curve as XR-2 and XR-3 go back to 1920×1080 at 100%, with no jump. XR-4's windows are on XR-3, each workspace still its own (not on DP-1). A notification says the monitors were reset and where XR-4's windows went. |
@@ -132,7 +132,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 |---|----|--------|
 | G1 | Look under each desktop | A small flat pill sits centred just under each of XR-1, XR-2 and XR-3 (Material Design 3): a solid tonal capsule in the theme's border colour, as light or dark as that colour, fully rounded ends and a soft shadow under it over a desktop. Hovering it with the dot tints it slightly; dragging it tints it a little more and deepens its shadow. Nothing on it is white or glaring. |
 | G2 | **OLED.** Compare the pills under a dark desktop and under a bright one (a white web page) | The pills read as solid glass shapes in both cases, not as holes, and are never brighter than the help card's grey text. They don't flicker, drift or shimmer. |
-| G3 | Push the mouse down past XR-1's bottom edge so the grey dot shows, and move the dot onto XR-1's pill | That pill gets brighter; the others don't. No corner bracket. |
+| G3 | Push the mouse down past XR-1's bottom edge so the grey dot shows, and move the dot onto XR-1's pill | That pill gets brighter; the others don't. No corner cap lights up. |
 | G4 | Click the pill without moving the mouse | It grows smoothly (about a quarter of a second) into XR-1's placement panel under XR-1: "XR-1" and "Placement" at the top with a small grabber, four rows (Left/right, Down/up, Distance, Curvature) with a slider and value each, the selected row on a faint band, and the key hints at the bottom. There is no Yaw, Pitch or Roll row. The text fades in at the end. XR-1 does not move. |
 | G5 | **Readability.** Read every row and the footer | The text is sharp and readable in the help card's dimmed colours. Nothing clips at the panel's edges or at the bottom of the view. Nothing in the panel is brighter than the help card's text. |
 | G6 | Click the panel's top strip | It shrinks back into the pill smoothly, a little faster than it opened. |
@@ -165,7 +165,7 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G33 | Change XR-1 and close its pill at once (Escape). Stop the session and start a new one | XR-1 comes back where you left it (saved on close). |
 | G34 | With a pill open, move a slider in the settings panel's **Place** tab | The desktop and the open panel's value both update. The next arrow press continues from the Place tab's value. |
 | G35 | With a pill open, press Ctrl+Alt+H, then Ctrl+Alt+P | The help card shows in front as usual and the panel stays open behind it. Its Ctrl+Alt+L row names the placement pill. Ctrl+Alt+P toggles prediction (its pop-up shows) and opens nothing. |
-| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the roll brackets, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
+| G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the level bars and corner caps, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
 
@@ -193,7 +193,7 @@ Automated coverage (offline only):
   run, a smoke test of bumping, and the help card row.
 - `spike/tests/free_pointer_test.cpp`: `overview_pointer` decoding (malformed payloads dropped, never fatal), the
   `overview_geometry` line, the dot's shape and its levels at or under 191/255.
-  `spike/tests/resize_handle_test.cpp` still covers the bracket; the pills are in `glass_test.cpp` (above).
+  `spike/tests/resize_handle_test.cpp` covers the corner caps' boxes; the pills are in `glass_test.cpp` (above).
 - Not done: the new cursor Lua has not been loaded under `Hyprland --verify-config`, and nothing has run in the glasses.
 
 The steps below need your usual go-ahead for a live run, the same setup as above, and the renderer built from this
@@ -207,16 +207,16 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F3 | Push the mouse up past XR-1's top edge | The cursor disappears and a small grey dot with a dark ring carries on above XR-1 with no jump. It is dim, never white. |
 | F4 | Move the dot around above, beside and between the desktops, and past the outer edges | It goes everywhere smoothly, as fast as the cursor did on the desktop, with no lag you can see. |
 | F5 | Hold the dot still for 10 s | It stays on the same pixels (no drift or orbit). |
-| F6 | Bring the dot round XR-1's side (or push the mouse down past XR-1's bottom edge) onto the pill under XR-1 | That pill gets brighter. No corner bracket. |
+| F6 | Bring the dot round XR-1's side (or push the mouse down past XR-1's bottom edge) onto the pill under XR-1 | That pill gets brighter. No corner cap lights up. |
 | F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot, facing you all the way. It is not stopped one desktop height down or width left of its slot: it goes as far as the dot goes (in anchor mode on round you, see O8). |
 | F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values in degrees. The dot stays where it is. |
 | F9 | Drag XR-1's pill right toward XR-2 at the same height | XR-1 keeps following the dot and bumps XR-2 out of the way (and XR-3 after it), with a small gap kept between them (XR-1's pill strip counts as part of XR-1). Drag back: XR-2 and XR-3 stay where they were pushed. Lift it above the row first and it passes over without bumping. Dropped within half a degree of its slot it snaps in. See B1–B16. |
-| F10 | Move the dot just outside XR-1's bottom-right corner | A small grey L-bracket appears inside that corner, and the dot shows two diagonal arrows. |
+| F10 | Move the dot just outside XR-1's bottom-right corner | That corner's cap lights up and grows along both edges, and the dot shows two diagonal arrows. |
 | F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). Growing bumps XR-2 out of the way; shrinking leaves it there. |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
 | F13 | Highlight XR-1 (Ctrl+Alt+Left), then on XR-2 push the mouse just past its top edge so the dot shows on the edge, and click without moving | XR-2 is highlighted and the cursor appears there. That click does not reach the window; the next one does. |
 | F14 | Click with the dot in empty space | Nothing happens. No window gets the click. |
-| F15 | Leave the mouse still for 30 s with the dot showing | The dot, pills and bracket fade off. A click then does nothing but bring them back. |
+| F15 | Leave the mouse still for 30 s with the dot showing | The dot, pills, level bars and corner caps fade off. A click then does nothing but bring them back. |
 | F16 | With the dot showing, open the selected desktop's pill with Ctrl+Alt+L, then close it with Escape | The dot stays and keeps working while the pill is open (the free pointer drives the panel). After closing, the overview works as before. |
 | F17 | With the dot showing, zoom in (Ctrl+Alt+Up) | The cursor is visible and normal again. Zoom out: the free pointer is back. |
 | F18 | With the mouse on DP-1, press Ctrl+Alt+Down | The cursor jumps into the middle of the highlighted desktop. |
@@ -225,19 +225,19 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F21 | If VR video is merged: play a video, move the mouse past a desktop's edge where it was | No dot, no pills; nothing moves (the video gate ignores the click ops). |
 | F22 | Check the desktops' resolution and scale in the panel and with `hyprctl monitors` | Unchanged: moving and resizing never change pixels or scale. |
 | F23 | (Full interaction, 2026-11-03.) Move the dot from XR-1 onto XR-2 and XR-3 in turn; on each, click, right-click, scroll, drag inside a window, select text and type | XR-2 / XR-3 is highlighted as soon as the dot is on it, the cursor is right under the dot, and every click, menu, scroll, drag and key reaches the window under the dot there. Nothing is maximized. |
-| F24 | Repeat F23 on a desktop moved round you and curved (Place tab), rolled (a roll arrow), resized (a corner handle) and set to 150 % (pill's Scale), and click a window's close button right in the desktop's corner | The click lands where the dot is drawn every time, corners included (the close button works; no resize starts). |
+| F24 | Repeat F23 on a desktop moved round you and curved (Place tab), rolled (its level bar), resized (a corner cap) and set to 150 % (pill's Scale), and click a window's close button right in the desktop's corner | The click lands where the dot is drawn every time, corners included (the close button works; no resize starts). |
 | F25 | Move the dot onto XR-3 and type without clicking | The letters reach XR-3 (the window under the dot, or XR-3's focused window). |
 | F26 | Press and hold on a window for a second, then drag slowly (e.g. select text) | The app gets the long press and the drag; no window outline lifts off. |
-| F27 | Click a pill, a roll arrow, and just outside a corner (then drag there) | Each does its XR action only; no window reacts, and the highlight does not move. |
+| F27 | Click a pill, a part of a level bar, and a corner cap (then drag there) | Each does its XR action only; no window reacts, and the highlight does not move. |
 | F28 | (One cursor, 2026-11-03.) Sweep the dot slowly from a window out across a desktop's edge, over the space, and back in | No jump and no change of speed at the edge. It is the same dot all the way: plain over the window, two arrows on the edge, plain again further out. Back over the edge it shows the arrows, then the window takes it. |
-| F29 | Push the dot against each of a desktop's four edges and corners from inside | The dot shows two arrows the way that edge or corner resizes: left-right, up-down, or diagonal. A corner also shows the bracket. |
+| F29 | Push the dot against each of a desktop's four edges and corners from inside | The dot shows two arrows the way that edge or corner resizes: left-right, up-down, or diagonal. A corner also lights its cap. |
 | F30 | On each edge and corner, press and drag out, then in | The desktop grows and shrinks about its centre, keeping its shape, the edge or corner following the dot. The arrows stay until you let go, even past the handle. Place tab: Distance changes. |
-| F31 | Hover a pill, then a rotate arrow, then a window | Four arrows, then two arrows chasing round the dot, then the plain dot. |
+| F31 | Hover a pill, then a part of a level bar, then a window | Four arrows, then two arrows chasing round the dot, then the plain dot. |
 | F32 | Hold a button down on a window | The dot brightens a little, as on a handle. |
 | F33 | (Super drags, 2026-11-03.) Hold Super and left-drag a tiled window around its desktop | Hyprland's move, as on a monitor; the dot shows four arrows. |
 | F34 | Carry on past the edge, across the gap and onto another desktop, then let go | The dot crosses the gap smoothly; the window waits at the edge with at most a tiny shake, then appears under the dot on the new desktop, which is highlighted. No zoom, turn or switch animation. The window tiles there. `hyprctl clients` shows it on that desktop's workspace. |
 | F35 | The same with a floating window, held by its far end, and let go just inside the new desktop | The window lands on that desktop at once, whole, with the dot still over it, not a monitor's width away. `hyprctl clients` shows it on that desktop's workspace, and it has the focus. |
-| F36 | During a drag, pass the dot over a pill, a roll arrow and a corner | Nothing lights up or moves; no panel opens. Then let go between desktops: the window stays at the edge, and the dot is free. |
+| F36 | During a drag, pass the dot over a pill, a level bar and a corner | Nothing lights up or moves; no panel opens. Then let go between desktops: the window stays at the edge, and the dot is free. |
 | F37 | Let go of Super before the mouse button mid-drag | The drag ends on the button as usual, and the dot goes on as a normal cursor. |
 | F38 | Hold Super and right-drag a window's corner to the desktop's edge and past it | The window resizes as usual; the mouse stays on that desktop. |
 | F39 | With the dot on a pill or in empty space, Super + click and drag | No desktop moves and no window drags. A tiled window under the parked cursor may flicker once. |
@@ -441,54 +441,63 @@ focus; say so if the typing lands anywhere but the desktop you are looking at.
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
-## Roll brackets: automated coverage and glasses test script
+## Level bar and corner caps: automated coverage and glasses test script
 
-On 2026-11-03 (`rotate-bracket-arrows`) the two small roll arrows above each desktop's top corners became arrow brackets
-hugging the corners from just outside the border: counter-clockwise round the top-left, clockwise round the top-right,
-each an arm along the top edge, a bend round the corner and an arm down the side ending in an arrowhead that points down.
-They are tile px on the desktop, so they move, scale and roll with it. Clicks and drags work as the arrows did (2° a
-click, straight to level when level lies that way, a drag either way up to 90°). See
-[Roll brackets](technical.md#roll-brackets).
+On 2026-11-03 (`handle-mockups`, Cody's pick of ten mockups) the arrow brackets round each desktop's top corners became a
+level bar, and the dim L-bracket inside a hovered corner became a corner cap. The bar is one segmented capsule above the
+top edge, the pill's counterpart: turn left, level, turn right. The caps are small rounded Ls round all four corners, shown
+with the bar. Both are tile px on the desktop, so they move, scale and roll with it. The turn segments click and drag as
+the brackets did (2° a click, straight to level when level lies that way, a drag either way up to 90°). The middle segment
+levels the desktop and moves nothing else. See [Level bar and corner caps](technical.md#level-bar-and-corner-caps).
 
 Automated (offline):
-- ctest `roll_level`: the arm (a share of the shorter side, clamped), the shape (outside the desktop, clear of the 6 px
-  border, inside the hit region, mirror images, turning the right way, the head pointing down the side), the hit
-  region's edges, and the tip keeping its share of the desktop through resize, move, curvature and roll.
-- ctest `glass_contract`: the constants (the 6 px edge band too), the arms and 9610 probes of the distance and hit
-  region round both corners of five layouts, renderer against `free_pointer.py`.
-- `tests/native_spike/test_roll_level.py` also covers R: flat and level (against a measured tilt, or no roll),
-  re-levelled by the tilts of the next half second, a bracket press taking over; the footer and help card text.
-- ctest `gl_frame`: the brackets in the frame cache check (curved, rolled and orbited desktops), drawn at a desktop's
-  live corners, not its held panel's press-time ones, while a held Distance slider resizes it, and hidden under another
-  desktop's content.
-- `tests/native_spike/test_roll_level.py`: hits through resize, move and roll (and not where the bracket was), the corner
-  winning on the bend; on dense grids round every bracket (a resized desktop over its neighbours, rolled desktops, no
-  spacing) showing the brackets never changes a press on any desktop's content, corner or pill; every bracket reachable
-  with no spacing and with 20 px; a real corner-drag resize and pill move then clicks; `test_window_drag.py`: a bracket
-  press lifts no window.
-- Not done: nothing here has run in an isolated VM or in the glasses.
 
-The steps need your usual go-ahead for a live run, the renderer and the Python supervisor installed from this branch
-(the wire did not change), and the overview (Ctrl+Alt+Down). Use anchor mode unless a step says otherwise.
+- ctest `roll_level`: the roll about the line of sight, the tilt from level, gravity after a tipped recentre; the bar's size,
+  place, thirds and hit region; bar and caps keeping their share of the desktop through resize, move, curvature and roll;
+  every atlas pixel premultiplied and under the cap, a clear gutter round each cell, only the hot segment changed against
+  idle, the same L in every corner; the `roll` frame, including the brackets' old values refused.
+- ctest `glass_theme`: the bar's and caps' roles in every Omarchy theme. `material`: the turn and level icons, the cap's
+  shape. `resize_handle`: the caps' boxes, the `resize_handle` frame.
+- ctest `glass_contract`: constants, rects and a grid of segment probes, renderer against supervisor; the idle caps inside
+  the corners' resize zones, so what you see there is what you can press.
+- ctest `gl_frame`: bars and caps in the frame cache check (curved, rolled and orbited desktops, a segment and a cap lit),
+  drawn at a desktop's live top edge and corners while a held Distance slider resizes it, and covered by another desktop's
+  content.
+- `tests/native_spike/test_roll_level.py`: hits through resize, move and roll; on dense grids over every bar (a resized
+  desktop over its neighbours, rolled desktops, no spacing, a desktop as narrow as the bar) showing the bars never changes a
+  press on any desktop's content, corner or pill; every segment reachable with no spacing and with 20 px; the zone order;
+  the middle segment levelling with R's roll and moving nothing, a press dragged off it, Super on any segment; only the
+  segment or cap under the dot lit; the corner cap as the corner's resize zone; a real corner-drag resize and pill move
+  then clicks; R levelling, re-levelled by the tilts of the next half second, a segment press taking over; the footer and
+  help card text. `test_pointer_zones.py`, `test_full_interaction.py`, `test_super_drag.py`, `test_window_drag.py`: the bar
+  in the zone contract, a press on it lifting no window.
+- Not done: nothing has run in an isolated VM or in the glasses. How the bar and the thin caps read on the OLED panels,
+  and how the click and drag feel, are unknown.
 
-| # | Do | Expect |
-|---|----|--------|
-| B1 | Look at the top corners of every desktop | Each has two brackets in the theme colour wrapped round its top corners just outside its edge, a small gap from the selected desktop's border, each arrowhead pointing down the side. Every desktop has them, level or not. Nothing glares. |
-| B2 | Put the dot on the left bracket's side arm, below the corner, then on its top arm | Only that bracket brightens. No resize handle shows. |
-| B3 | Put the dot on the bend round the top-right corner | The corner's grey resize handle shows inside the corner; the bracket does not brighten. Drag: the desktop resizes. |
-| B4 | On a level desktop (or in follow mode), click the left bracket's arm three times, then the right one's three times | Each left click turns it 2° counter-clockwise, each right click 2° clockwise: back where it started. |
-| B5 | Recentre (Ctrl+Alt+Space) with your head tipped to one side, so desktops look rolled. Click the bracket on the higher corner's side | That desktop goes straight to level. The other bracket turns it 2° away. |
-| B6 | Hold a bracket and drag the dot round the desktop's centre, one way then the other | The desktop rolls with the dot both ways, past level, and rests at level as you pass it. |
-| B7 | Drag XR-2's bottom-right corner outward slowly, then back inward | The brackets stay on XR-2's top corners the whole time, growing with it and shrinking back (a little thicker when bigger, like its border). Then click a bracket: it rolls. |
-| B8 | Open XR-2's pill and drag the Distance slider | The brackets follow the desktop live as it grows and shrinks, while the panel stays put until you let go. |
-| B9 | Drag XR-2's pill around, also out past the edge of the view | The brackets travel with XR-2, on its corners, all the way. |
-| B10 | Make XR-2 big enough to reach over XR-1 and XR-3. Click and scroll on XR-2's picture where their inner brackets were | XR-2 covers their inner brackets: no bracket floats on XR-2's picture, and the clicks and scrolling go to XR-2's apps. Their outer brackets still work. Reset XR-2 (Ctrl+Alt+L, R). |
-| B11 | Lower the spacing (Ctrl+Alt+[) to the minimum | The side arms facing a neighbour are hidden under its picture (a click there goes to that desktop), but each bracket still lights up and works on its top arm. Put the spacing back (Ctrl+Alt+]). |
-| B12 | Roll XR-1 about 30° with a bracket, then hover and click its brackets | They are on its turned corners, and work there. |
-| B13 | Switch the Omarchy theme | The brackets recolour with the border and the pills. |
-| B14 | Leave the mouse alone for 30 s | The brackets hide with the pills, and come back on the next mouse move. |
-| B15 | Roll XR-2 about 20° with a bracket and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
-| B16 | Move the dot slowly outward from XR-2's left edge, beside its bracket's side arm | Right at the edge (the first few pixels) the bracket does not light up; from just past the border it does. |
+Glasses script (in the overview, unless a step says otherwise):
+
+| Step | Do | Expect |
+| --- | --- | --- |
+| H1 | Look at every desktop | Each has one capsule above its top edge, the colour of the pill below it, with a left-turn arrow, a level mark and a right-turn arrow; and a small thin cap round each of its four corners, just outside the border. Every desktop has them, level or not. Nothing glares. |
+| H2 | Move the dot slowly along XR-2's bar, left to right, then off it | One part at a time lights up, and the dot shows two arrows chasing round it. The other parts and the other desktops' bars stay as they were, and nothing stays lit once the dot has left. |
+| H3 | Put the dot on XR-2's bottom-right cap, then on its top-left one | Only the cap under the dot lights up, growing along both edges, and the dot shows two diagonal arrows; no part of a bar lights. Drag: the desktop resizes. |
+| H4 | On a level desktop (or in follow mode), click the bar's left part three times, then its right part three times | Each left click turns it 2° counter-clockwise, each right click 2° clockwise: back where it started. |
+| H5 | Recentre (Ctrl+Alt+Space) with your head tipped to one side, so desktops look rolled. Click the bar's part on the higher corner's side | That desktop goes straight to level. The other part turns it 2° away. |
+| H6 | Hold the bar's left part and drag the dot sideways along the top, one way then the other, then round the desktop. Repeat with the right part | The desktop rolls with the dot both ways, past level, and rests at level as you pass it. A drag of a hair (under about a degree) counts as a click. |
+| H7 | Roll XR-2 about 15°, drag its pill aside, make it bigger and curve it. Click the bar's middle part | It goes straight to level (upright to gravity in anchor mode; in follow mode or without tracking its roll just comes off). It stays where you put it, the same size and curve. |
+| H8 | Roll XR-2 a little. Press the bar's middle part, drag off it, and let go | The part's light goes out as you leave it, and letting go changes nothing. |
+| H9 | Press any part of a bar, then press Super before letting go; try it on all three parts | Nothing more happens when you let go: no step, no levelling. |
+| H10 | Drag XR-2's bottom-right cap outward slowly, then back inward | The bar stays centred above XR-2's top edge and the caps on its corners the whole time, growing with it and shrinking back. Then click a turn part: it rolls. |
+| H11 | Open XR-2's pill and drag the Distance slider | The bar and caps follow the desktop live as it grows and shrinks, while the panel stays put until you let go. |
+| H12 | Drag XR-2's pill around, also out past the edge of the view | The bar and caps travel with XR-2 all the way. |
+| H13 | Make XR-2 big enough to reach over XR-1 and XR-3. Click and scroll on XR-2's picture where their inner caps were | XR-2 covers them: nothing floats on XR-2's picture, and the clicks and scrolling go to XR-2's apps. Their outer caps and their bars, in the open, still work. Reset XR-2 (Ctrl+Alt+L, R). |
+| H14 | Lower the spacing (Ctrl+Alt+[) to the minimum | The caps facing a neighbour are hidden under its picture, and a click there goes to that desktop. Every bar stands clear above its desktop, and all three parts light up and work. Put the spacing back (Ctrl+Alt+]). |
+| H15 | Roll XR-1 about 30° with its bar, then hover and click every part | The bar and caps are on its turned edges and corners, and work there. |
+| H16 | Add a fourth desktop from a pill | The bars get a little smaller with the desktops, all three parts still easy to hit and their icons still readable. Remove it again. |
+| H17 | Switch the Omarchy theme | The bars and caps recolour with the border and the pills. |
+| H18 | Leave the mouse alone for 30 s | The bars and caps hide with the pills, and come back on the next mouse move. |
+| H19 | Roll XR-2 about 20° with its bar and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
+| H20 | Move the dot slowly up from XR-2's top edge, under the middle of its bar | Right at the edge (the first few pixels) the dot shows the edge's up-down arrows and the bar does not light up; from about 8 px out it does. |
 
 ## Maximized desktops sit level: automated coverage and glasses test script
 
@@ -496,7 +505,7 @@ A maximized desktop's roll fades out with the zoom and comes back with it; only 
 and the overview** in [technical.md](technical.md#moving-desktops-in-the-overview-the-pill-under-the-desktop)). Automated
 coverage: ctest `roll_level`, `focus_center`; `tests/native_spike/test_maximize_level.py`, `test_directional_switch.py`,
 `test_layout_reset.py`. Passing them is not a glasses pass. Nothing below has run in an isolated VM or been tried in the
-glasses. Start with XR-1 rolled about 20° with a bracket and XR-2 about 10° the other way.
+glasses. Start with XR-1 rolled about 20° with its level bar and XR-2 about 10° the other way.
 
 | # | Step | Expected |
 | --- | --- | --- |
@@ -504,10 +513,12 @@ glasses. Start with XR-1 rolled about 20° with a bracket and XR-2 about 10° th
 | L2 | Tip your head to one side and hold it | Follow brings XR-1 back level with the glasses, tipped with your head. |
 | L3 | Press Ctrl+Alt+V for locked, then Ctrl+Alt+V again | It stays level with the glasses in both. |
 | L4 | Ctrl+Alt+Right, to the next desktop | XR-2 is level at once. |
-| L5 | Ctrl+Alt+Down | Back in the overview XR-1 and XR-2 have exactly the rolls they had, easing back as the desktop shrinks. The brackets and pills are back and work. |
-| L6 | Roll XR-1 about 70° with a bracket, maximize it and push the cursor past its right edge | It switches to XR-2, on your right as you see it. A desktop tilted 70° would point well away from XR-2, so if the roll were still counted nothing would happen. Go back to the overview and roll XR-1 back to about 20°. |
+| L5 | Ctrl+Alt+Down | Back in the overview XR-1 and XR-2 have exactly the rolls they had, easing back as the desktop shrinks. The level bars, corner caps and pills are back and work. |
+| L6 | Roll XR-1 about 70° with its level bar, maximize it and push the cursor past its right edge | It switches to XR-2, on your right as you see it. A desktop tilted 70° would point well away from XR-2, so if the roll were still counted nothing would happen. Go back to the overview and roll XR-1 back to about 20°. |
 | L7 | Maximize XR-1, then Stop, then start again | The new run starts in the overview with XR-1 and XR-2 at the rolls they had, not level. |
 | L8 | Maximize XR-1. In the settings panel's Place tab move XR-1 and XR-3 and press Apply, then Ctrl+Alt+Down | While maximized nothing moves, a notification says the change is kept, and the panel keeps showing your values. On Ctrl+Alt+Down both desktops glide to their new places, and they are there after a restart. |
+| L9 | With XR-1 rolled about 20°, hold the mouse button down on the middle of its level bar, press Ctrl+Alt+Up, let go, then Ctrl+Alt+Down | XR-1 maximizes level, and back in the overview it still has its 20° roll: the press was cut off by the maximize, so nothing levelled it behind your back. |
+| L10 | With XR-1 rolled about 20°, click the middle of its level bar and at once press Ctrl+Alt+Up, then Ctrl+Alt+Down | It maximizes level, and back in the overview it stays level: the click counted, and the maximize did not undo it. |
 
 ## Resolution dropdown (the pill's Resolution box): automated coverage and glasses test script
 

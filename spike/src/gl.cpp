@@ -121,7 +121,6 @@ struct GlCompositor::Impl {
     const HudImage* help = nullptr; std::uint64_t help_generation = 0; float help_alpha = 0, help_drop = 0;
     std::unique_ptr<GlHud> binds_hud;     // key bind panel (own texture); absent if its shaders failed
     const HudImage* binds = nullptr; std::uint64_t binds_generation = 0; float binds_alpha = 0, binds_drop = 0;
-    int handle_desktop = -1; std::uint32_t handle_corner = 0; float handle_level = 0;  // corner resize
     GlassFrame glass;                                                                  // glass pills and the open panel
     bool free_pointer = false; float free_x = 0, free_y = 0, free_level = 0;           // overview free pointer
     bool free_directed = false; float free_az = 0, free_el = 0;                        // ...drawn in this direction (degrees)
@@ -133,25 +132,27 @@ struct GlCompositor::Impl {
     // the inputs it was built from change. Head rotation is a uniform, so a still layout re-uses every buffer as it is.
     // Interleaved per vertex: world xyz, then (u, v) on the tile, canvas (px, py), or (u, v) on the rect (panel content).
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
-    struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 20> key{}; };
-    Mesh glow_mesh, border_mesh, handle_mesh[2], disc_mesh[2], mark_mesh[2], ghost_mesh, drop_mesh[4];
-    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, band_meshes, head_meshes;  // per desktop (band / head: and side)
+    struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 21> key{}; };
+    Mesh glow_mesh, border_mesh, disc_mesh[2], mark_mesh[2], ghost_mesh, drop_mesh[4];
+    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, bar_meshes, cap_meshes;  // per desktop (caps: and corner)
+    // The level bars' and corner caps' pixels (glass.hpp render_handle_atlas): one image per theme colour.
+    GLuint handle_texture = 0; std::array<float, 3> handle_accent{-1, -1, -1};
+    void upload_handles(const std::array<float, 3>& accent);  // renders and uploads it; a no-op for the same colour
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
     // glass: `rect` is glass px under the desktop (view.hpp glass_mesh: fixed size whatever the desktop's distance).
-    GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr, bool glass = false);
+    // box: with Attr::rect_uv, the part of the image the rect shows (a handle atlas cell, glass.hpp AtlasBox).
+    GLsizei build(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& rect, Attr attr, bool glass = false,
+                  const AtlasBox* box = nullptr);
     GLsizei build_disc(Mesh& m, const Canvas& canvas, float x, float y, float radius, bool directed, float az, float el);
     GLsizei build_ghost(Mesh& m, const Canvas& canvas, float x, float y, float w, float h, bool directed, float az, float el);
     GLsizei build_marks(Mesh& m, const Canvas& canvas, float x, float y, PointerLook look, float grow, bool directed, float az, float el);
     static std::pair<float, float> dot_direction(const Canvas& c, float x, float y, bool directed, float az, float el);
-    // World xyz of canvas points on a desktop's surface (place_point), e.g. a roll bracket; `shape` keys the points.
-    GLsizei build_points(Mesh& m, const Canvas& canvas, const FRect& tile, const Placement& on, const FRect& shape, float tag,
-                         std::span<const std::array<float, 2>> points);
     void drop_meshes() {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
-        drop(glow_mesh); drop(border_mesh); for (auto& m : handle_mesh) drop(m); for (auto& m : disc_mesh) drop(m); for (auto& m : mark_mesh) drop(m);
+        drop(glow_mesh); drop(border_mesh); for (auto& m : disc_mesh) drop(m); for (auto& m : mark_mesh) drop(m);
         drop(ghost_mesh); for (auto& m : drop_mesh) drop(m);
-        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &band_meshes, &head_meshes}) {
+        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &bar_meshes, &cap_meshes}) {
             for (auto& m : *v) drop(m);
             v->clear();
         }
@@ -177,6 +178,7 @@ struct GlCompositor::Impl {
             for (auto& i : imported) { drop(i); drop_held(i); }
             hud.reset(); help_hud.reset(); binds_hud.reset(); environment.reset();
             if (panel_texture) glDeleteTextures(1, &panel_texture);
+            if (handle_texture) glDeleteTextures(1, &handle_texture);
             if (glass_program) glDeleteProgram(glass_program);
             if (panel_program) glDeleteProgram(panel_program);
             video_hud.reset();
@@ -307,6 +309,9 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
         glGenTextures(1, &s.panel_texture); glBindTexture(GL_TEXTURE_2D, s.panel_texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glGenTextures(1, &s.handle_texture); glBindTexture(GL_TEXTURE_2D, s.handle_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
     s.textures.resize(sources);
     s.imported.resize(sources);
@@ -390,10 +395,6 @@ void GlCompositor::set_help(const HudImage* image, std::uint64_t generation, flo
 
 void GlCompositor::set_binds(const HudImage* image, std::uint64_t generation, float alpha, float drop_px) {
     impl_->binds = image; impl_->binds_generation = generation; impl_->binds_alpha = alpha; impl_->binds_drop = drop_px;
-}
-
-void GlCompositor::set_corner_handle(int desktop, std::uint32_t corner, float level) {
-    impl_->handle_desktop = desktop; impl_->handle_corner = corner; impl_->handle_level = std::min(level, kHandleLevelActive);
 }
 
 void GlCompositor::set_glass(const GlassFrame& frame) { impl_->glass = frame; }
@@ -500,10 +501,10 @@ bool GlCompositor::upload(std::size_t source, const void* pixels, std::uint32_t 
 static_assert(sizeof(Canvas) == 4 * sizeof(float) && sizeof(FRect) == 4 * sizeof(float) && sizeof(Placement) == 5 * sizeof(float),
               "a mesh key holds every field of tile_mesh's inputs: extend it with them");
 GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& rect, Attr attr,
-                                  bool glass) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
+                                  bool glass, const AtlasBox* box) {
+    const std::array<float, 21> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
                                     on.distance, on.curvature, rect.x, rect.y, rect.width, rect.height,
-                                    float(int(attr)), on.roll, glass ? 1.f : 0.f};
+                                    float(int(attr)), on.roll, glass ? 1.f : 0.f, box ? box->u0 : -1.f, box ? box->v0 : -1.f};  // a cell, by its corner
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
     if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;  // bitwise: same inputs, same mesh
@@ -512,7 +513,10 @@ GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, c
     for (const auto& v : vertices) {
         float a = v.u, b = v.v;
         if (attr == Attr::canvas_px) { a = v.px; b = v.py; }
-        else if (attr == Attr::rect_uv) { a = (v.px - rect.x) / rect.width; b = (v.py - rect.y) / rect.height; }
+        else if (attr == Attr::rect_uv) {
+            a = (v.px - rect.x) / rect.width; b = (v.py - rect.y) / rect.height;
+            if (box) { a = box->u0 + a * (box->u1 - box->u0); b = box->v0 + b * (box->v1 - box->v0); }
+        }
         scratch.insert(scratch.end(), {v.world.x, v.world.y, v.world.z, a, b});
     }
     glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
@@ -521,7 +525,7 @@ GLsizei GlCompositor::Impl::build(Mesh& m, const Canvas& c, const FRect& tile, c
 }
 
 GLsizei GlCompositor::Impl::build_disc(Mesh& m, const Canvas& c, float x, float y, float radius, bool directed, float az, float el) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, radius, float(int(Attr::disc)), directed ? 1.f : 0.f,
+    const std::array<float, 21> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, radius, float(int(Attr::disc)), directed ? 1.f : 0.f,
                                     az, el};
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
@@ -546,7 +550,7 @@ std::pair<float, float> GlCompositor::Impl::dot_direction(const Canvas& c, float
 }
 
 GLsizei GlCompositor::Impl::build_marks(Mesh& m, const Canvas& c, float x, float y, PointerLook look, float grow, bool directed, float az, float el) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, float(int(look)), grow, 13.f, directed ? 1.f : 0.f, az, el};
+    const std::array<float, 21> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, float(int(look)), grow, 13.f, directed ? 1.f : 0.f, az, el};
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
     if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
@@ -560,7 +564,7 @@ GLsizei GlCompositor::Impl::build_marks(Mesh& m, const Canvas& c, float x, float
 }
 
 GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float y, float w, float h, bool directed, float az, float el) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, w, h, 11.f, directed ? 1.f : 0.f, az, el};
+    const std::array<float, 21> key{c.view_w, c.view_h, c.half_w, c.half_h, x, y, w, h, 11.f, directed ? 1.f : 0.f, az, el};
     if (!m.buffer) glGenBuffers(1, &m.buffer);
     glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
     if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
@@ -573,21 +577,13 @@ GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float
     return m.count;
 }
 
-GLsizei GlCompositor::Impl::build_points(Mesh& m, const Canvas& c, const FRect& tile, const Placement& on, const FRect& shape,
-                                          float tag, std::span<const std::array<float, 2>> points) {
-    const std::array<float, 20> key{c.view_w, c.view_h, c.half_w, c.half_h, tile.x, tile.y, tile.width, tile.height, on.x, on.y,
-                                    on.distance, on.curvature, on.roll, shape.x, shape.y, shape.width, shape.height, tag, 7.f};
-    if (!m.buffer) glGenBuffers(1, &m.buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m.buffer);
-    if (m.built && std::memcmp(m.key.data(), key.data(), sizeof key) == 0) return m.count;
-    scratch.clear();
-    for (const auto& p : points) {
-        const Vec3 w = place_point(c, tile, on, p[0], p[1]);
-        scratch.insert(scratch.end(), {w.x, w.y, w.z});
-    }
-    glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(scratch.size() * sizeof(GLfloat)), scratch.data(), GL_DYNAMIC_DRAW);
-    m.key = key; m.count = GLsizei(points.size()); m.built = true;
-    return m.count;
+void GlCompositor::Impl::upload_handles(const std::array<float, 3>& colour) {
+    if (colour == handle_accent) return;
+    handle_accent = colour;
+    const HudImage atlas = render_handle_atlas(colour);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, handle_texture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(atlas.width), GLsizei(atlas.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, atlas.rgba.data());
 }
 
 void GlCompositor::Impl::upload_panel(const HudImage& im, std::uint64_t generation) {
@@ -630,8 +626,8 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     for (std::size_t i = 0; i < tiles.size(); ++i) s.resolved[i] = i < placements.size() ? placements[i] : Placement{};
     for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes})
         if (v->size() < tiles.size()) v->resize(tiles.size());
-    for (auto* v : {&s.band_meshes, &s.head_meshes})  // per desktop and side (roll icons): 2 * desktop + side
-        if (v->size() < 2 * tiles.size()) v->resize(2 * tiles.size());
+    if (s.bar_meshes.size() < tiles.size()) s.bar_meshes.resize(tiles.size());
+    if (s.cap_meshes.size() < 4 * tiles.size()) s.cap_meshes.resize(4 * tiles.size());  // 4 * desktop + corner
     // A vertex attribute from the mesh buffer bound by build(): `size` floats at `offset` in vertices of `stride` floats.
     auto attrib = [](GLint loc, int size, int stride, int offset) {
         glVertexAttribPointer(static_cast<GLuint>(loc), size, GL_FLOAT, GL_FALSE, stride * GLsizei(sizeof(GLfloat)),
@@ -649,6 +645,9 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             !(g.content_alpha <= 0.f) && im.width && im.height && im.rgba.size() == std::size_t(im.width) * im.height * 4)
             s.upload_panel(im, g.generation);
     }
+    const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
+    const bool handles = s.glass.pills && s.panel_program && s.handle_texture;
+    if (handles) s.upload_handles(accent);  // (the same reason: only on a theme change)
     // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as without it.
     const bool environment = draw_environment(half_w, half_h);
     if (!environment) { glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
@@ -685,33 +684,35 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     auto order = highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
                                 : draw_order(canvas, tiles, s.resolved);
     const auto& g = s.glass;
-    const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
-    if (g.pills) {
-        // Roll brackets: an arrow bracket round each top corner (counter-clockwise left, clockwise right), shown with the
-        // pills (overview only). Drawn before every desktop (over the border and glow, back to front), so any desktop's
-        // content covers them and the glass goes over them: a bracket shows only where nothing else is, which is where the
-        // supervisor lets it take a press (free_pointer.hit: never on a desktop's content, a corner or a pill). Tile px on
-        // the desktop's own live surface (s.resolved), never a held panel's press-time one (GlassFrame::surface): a resize,
-        // by a corner or by the Distance slider, carries them with the desktop. Opaque, in the theme's M3 primary
-        // (roll_arrow_color), following the live accent; the hovered or dragged one lifted.
+    if (handles) {
+        // Level bars and corner caps: drawn before every desktop (over the border and glow, back to front), so any desktop's
+        // content covers them and the glass goes over them: they show only where nothing else is, which is where the
+        // supervisor lets them take a press (free_pointer.hit: never on a desktop's content, a corner's zone or a pill).
+        // Tile px on the desktop's own live surface (s.resolved), never a held panel's press-time one (GlassFrame::surface):
+        // a resize, by a corner or by the Distance slider, moves and scales them with the desktop. In the theme's M3 colours
+        // (the atlas, following the live accent), blended for their anti-aliased edges; only what the dot is on or holds
+        // lights up.
         if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
+        glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov);
+        glUniform1f(s.panel_loc.alpha, 1.f);
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, s.handle_texture);  // sampler `tex` = unit 0 (link-time value)
+        auto image = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, const AtlasBox& box) {
+            const GLsizei n = s.build(mesh, canvas, tiles[i], s.resolved[i], r, Impl::Attr::rect_uv, false, &box);
+            attrib(s.panel_loc.pos, 3, 5, 0); attrib(s.panel_loc.uv, 2, 5, 3);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+        };
         for (const std::size_t i : order) {
-            if (i >= s.textures.size() || i >= g.roll_icon.size()) continue;
-            for (std::uint32_t side = 0; side < 2; ++side) {
-                if (!roll_icon_shows(g.roll_icon[i], side)) continue;
-                const float level = int(i) == g.roll_hover && int(side) == g.roll_hover_side ? g.roll_level : kGlassIdle;
-                const auto colour = roll_arrow_color(accent, level);
-                glUniform4f(s.color, colour[0], colour[1], colour[2], 1.f);
-                const auto bracket = roll_bracket(tiles[i], side);
-                GLsizei n = s.build_points(s.band_meshes[2 * i + side], canvas, tiles[i], s.resolved[i], tiles[i], float(side), bracket.band);
-                attrib(s.color_pos, 3, 3, 0);
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
-                n = s.build_points(s.head_meshes[2 * i + side], canvas, tiles[i], s.resolved[i], tiles[i], float(side) + 2, bracket.head);
-                attrib(s.color_pos, 3, 3, 0);
-                glDrawArrays(GL_TRIANGLES, 0, n);
+            if (i >= s.textures.size() || i >= g.bars.size() || !g.bars[i]) continue;
+            for (std::uint32_t corner = 0; corner < 4; ++corner) {
+                const bool hot = int(i) == g.cap_hover && corner == g.cap_corner;
+                image(s.cap_meshes[4 * i + corner], i, corner_cap_rect(tiles[i], corner), corner_cap_box(corner, hot, hot && g.cap_active));
             }
+            const bool hot = int(i) == g.bar_hover;
+            image(s.bar_meshes[i], i, level_bar_rect(tiles[i]), level_bar_box(hot ? g.bar_segment : LevelSegment::none, hot && g.bar_active));
         }
+        glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
+        glDisable(GL_BLEND);
     }
     program(s.program, s.tile_projection, s.view, s.half_fov); glActiveTexture(GL_TEXTURE0);  // sampler `tex` = unit 0 (its link-time value)
     float swizzle = -1;  // the value set this frame (-1: none yet)
@@ -774,21 +775,6 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         }
         glDisableVertexAttribArray(static_cast<GLuint>(s.glass_loc.px));
         glDisable(GL_BLEND);
-    }
-    if (s.handle_desktop >= 0 && std::size_t(s.handle_desktop) < tiles.size() && s.handle_level > 0.f) {
-        // Corner-resize handle: an opaque bracket on the desktop's own surface, over its pixels (no blending needed), in the
-        // theme's M3 on-surface-variant, turning primary while held (glass.hpp corner_handle_color).
-        const auto h = std::size_t(s.handle_desktop);
-        const auto arms = corner_handle(tiles[h], s.handle_corner);
-        if (s.uv >= 0) glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
-        program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
-        const auto handle = corner_handle_color({s.accent[0], s.accent[1], s.accent[2]}, s.handle_level);
-        glUniform4f(s.color, handle[0], handle[1], handle[2], 1.f);
-        for (int k = 0; k < 2; ++k) {
-            const GLsizei n = s.build(s.handle_mesh[k], canvas, tiles[h], s.resolved[h], k ? arms.vertical : arms.horizontal, Impl::Attr::tile_uv);
-            attrib(s.color_pos, 3, 5, 0);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
-        }
     }
     if (s.free_pointer && s.drop_target >= 0 && std::size_t(s.drop_target) < tiles.size()) {
         // Window drag: the desktop the window would land on, framed in the accent on its own surface, over its pixels.
