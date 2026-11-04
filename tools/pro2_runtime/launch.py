@@ -78,6 +78,10 @@ class RuntimeSession:
                 self.log=open(self.directory/'sdk.private.log','xb');os.chmod(self.directory/'sdk.private.log',0o600)
                 self.child=subprocess.Popen(self.command(exe,sdk,write),pass_fds=(sdk,exe,write),stdin=subprocess.DEVNULL,stdout=self.log,stderr=self.log,start_new_session=True)
                 self.started=time.monotonic()
+                metadata=self.directory/'process.json'
+                fd=os.open(metadata,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
+                with os.fdopen(fd,'w') as stream:
+                    json.dump(dict(pid=self.child.pid,process_group=self.child.pid,started_monotonic=self.started,exclusive_topology_not_atomic=True),stream)
         except BaseException:
             self.close();raise
         try:

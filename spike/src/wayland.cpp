@@ -1083,7 +1083,7 @@ std::string Presentation::capture_report() const {
            ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +
            ",\"reanchors\":" + std::to_string(impl_->pose.reanchors()) + ",\"hints\":" + std::to_string(impl_->tracking_hints) +
            ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
-           (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
+           (impl_->supervised_projection > 0 ? "pro2-supervised-approximate" : impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
     out += ",\"surface\":{\"logical\":[" + std::to_string(impl_->width) + "," + std::to_string(impl_->height) + "],\"buffer\":[" +
            std::to_string(impl_->px_w) + "," + std::to_string(impl_->px_h) + "],\"scale120\":" + std::to_string(impl_->scale120) +
@@ -1232,6 +1232,7 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
 void Presentation::enable_tracking(std::string prefix, float supervised_projection) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
     impl_->supervised_projection = supervised_projection;
+    if(supervised_projection > 0) impl_->half_w = 0;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {

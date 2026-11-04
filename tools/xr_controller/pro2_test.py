@@ -3,6 +3,7 @@ import argparse
 from dataclasses import dataclass
 import json
 import os
+import signal
 from pathlib import Path
 import time
 from tools.native_spike.ipc import read_private_json,token
@@ -101,7 +102,12 @@ def main():
     parser.add_argument('--bundle',required=True,type=Path);parser.add_argument('--consent',required=True,type=Path)
     parser.add_argument('--state-dir',required=True,type=Path);parser.add_argument('--recover',action='store_true')
     args=parser.parse_args();args.state_dir.mkdir(mode=0o700,parents=False,exist_ok=True)
-    result=execute(read_private_json(args.consent),args.bundle,args.state_dir,recover=args.recover)
+    def stop(*_):raise KeyboardInterrupt('supervised test interrupted')
+    signal.signal(signal.SIGTERM,stop)
+    data=read_private_json(args.consent)
+    validate(data)
+    print(f"PRO2 SUPERVISED TEST: approximate diagonal {data['projection']} degrees; uncalibrated, no optical correction.",flush=True)
+    result=execute(data,args.bundle,args.state_dir,recover=args.recover)
     from .runner import _write_result
     _write_result(args.state_dir,'pro2-test-result.json',result)
     print(json.dumps(result));return 0 if result.get('complete') else 2

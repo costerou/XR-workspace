@@ -16,6 +16,7 @@
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <ifaddrs.h>
 namespace fs=std::filesystem;
 using Clock=std::chrono::steady_clock;
@@ -68,6 +69,8 @@ int main(int argc,char** argv){
    else throw std::runtime_error("unknown-argument");
   }
   if(!approved||sdk_fd<3||status_fd<3||!std::isfinite(projection)||projection<44.5||projection>50||!std::isfinite(seconds)||seconds<=0||seconds>300||prefix.empty()||prefix[0]!='/'||prefix=="/tmp/shader_runtime_")throw std::runtime_error("explicit-supervised-scope-required");
+  struct stat sdk_stat{},status_stat{};
+  if(sdk_fd==status_fd||fstat(sdk_fd,&sdk_stat)||!S_ISREG(sdk_stat.st_mode)||fstat(status_fd,&status_stat)||(!S_ISFIFO(status_stat.st_mode)&&!S_ISREG(status_stat.st_mode)))throw std::runtime_error("invalid-descriptor-type");
  }catch(...){return 2;}
  std::signal(SIGINT,signal_stop);std::signal(SIGTERM,signal_stop);std::signal(SIGPIPE,SIG_IGN);
  Api sdk;std::unique_ptr<luma::Publisher> publisher;bool created=false,open_attempt=false;int cleanup_errors=0;std::size_t samples=0;std::string error;bool ready=false;
@@ -112,7 +115,7 @@ int main(int argc,char** argv){
    if(!ready){ready=true;dprintf(status_fd,"{\"event\":\"ready\",\"projection_diagonal_approx\":%.3f}\n",projection);}
   }
   if(!ready&&!stopped)throw std::runtime_error("no-ready");
- }catch(const std::exception& e){error=e.what();}
+ }catch(const fs::filesystem_error&){error="identity-filesystem";}catch(const std::exception& e){error=e.what();}
  accepting=false;if(publisher)publisher->pause();
  if(created){
   if(open_attempt){try{if(sdk.get<int(*)(void*,std::uint8_t)>("close_imu")(sdk.handle,1))++cleanup_errors;}catch(...){++cleanup_errors;}}

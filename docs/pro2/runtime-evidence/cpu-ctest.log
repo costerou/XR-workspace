@@ -1,0 +1,123 @@
+Test project /home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build-pro2
+      Start 15: control_wire
+      Start 48: luma_transport
+ 1/59 Test #48: luma_transport ...................   Passed   14.53 sec
+      Start 41: edge_pan_motion
+ 2/59 Test #15: control_wire .....................   Passed   25.10 sec
+      Start 22: luma_predict
+ 3/59 Test #41: edge_pan_motion ..................   Passed   12.68 sec
+      Start 30: help_card
+ 4/59 Test #22: luma_predict .....................   Passed    5.01 sec
+      Start 51: fusion
+ 5/59 Test #30: help_card ........................   Passed    5.05 sec
+      Start 33: glass_theme
+ 6/59 Test #51: fusion ...........................   Passed    3.40 sec
+      Start 21: tracking_bench_smoke
+ 7/59 Test #33: glass_theme ......................   Passed    2.48 sec
+      Start 59: luma_rt_bench_smoke
+ 8/59 Test #21: tracking_bench_smoke .............   Passed    1.43 sec
+      Start 50: luma_protocol
+ 9/59 Test #59: luma_rt_bench_smoke ..............   Passed    1.40 sec
+      Start  4: ownership_pair_boundary
+10/59 Test #50: luma_protocol ....................   Passed    1.27 sec
+      Start 31: binds_panel
+11/59 Test #31: binds_panel ......................   Passed    1.10 sec
+      Start 19: stabilization
+12/59 Test  #4: ownership_pair_boundary ..........   Passed    1.24 sec
+      Start 40: placement_contract
+13/59 Test #40: placement_contract ...............   Passed    0.82 sec
+      Start 32: glass
+14/59 Test #19: stabilization ....................   Passed    1.00 sec
+      Start 28: stereo
+15/59 Test #32: glass ............................   Passed    0.74 sec
+      Start 36: roll_level
+16/59 Test #28: stereo ...........................   Passed    0.76 sec
+      Start 58: luma_rt
+17/59 Test #36: roll_level .......................   Passed    0.44 sec
+      Start 27: hud
+18/59 Test #58: luma_rt ..........................   Passed    0.46 sec
+      Start 38: level_frame
+19/59 Test #27: hud ..............................   Passed    0.40 sec
+      Start 35: depth_contract
+20/59 Test #38: level_frame ......................   Passed    0.33 sec
+      Start 11: quiet_driver
+21/59 Test #35: depth_contract ...................   Passed    0.30 sec
+      Start 45: presentation
+22/59 Test #11: quiet_driver .....................   Passed    0.30 sec
+      Start 29: hud_font
+23/59 Test #45: presentation .....................   Passed    0.29 sec
+      Start 47: video
+24/59 Test #29: hud_font .........................   Passed    0.29 sec
+      Start 52: luma_daemon
+25/59 Test #47: video ............................   Passed    0.25 sec
+      Start 17: pose
+26/59 Test #52: luma_daemon ......................   Passed    0.19 sec
+      Start 42: level_contract
+27/59 Test #42: level_contract ...................   Passed    0.09 sec
+      Start 39: glass_contract
+28/59 Test #17: pose .............................   Passed    0.12 sec
+      Start 37: immersive
+29/59 Test #39: glass_contract ...................   Passed    0.10 sec
+      Start 43: capture
+30/59 Test #37: immersive ........................   Passed    0.10 sec
+      Start  3: ownership_pair_wire
+31/59 Test  #3: ownership_pair_wire ..............   Passed    0.05 sec
+      Start 16: metrics
+32/59 Test #43: capture ..........................   Passed    0.09 sec
+      Start 13: ipc
+33/59 Test #16: metrics ..........................   Passed    0.05 sec
+      Start 24: focus_center
+34/59 Test #13: ipc ..............................   Passed    0.05 sec
+      Start 49: luma_publish
+35/59 Test #24: focus_center .....................   Passed    0.04 sec
+      Start 56: luma_features
+36/59 Test #49: luma_publish .....................   Passed    0.04 sec
+      Start 46: native_help
+37/59 Test #46: native_help ......................   Passed    0.03 sec
+      Start  1: ownership
+38/59 Test  #1: ownership ........................   Passed    0.02 sec
+      Start 14: placement_menu_ipc
+39/59 Test #56: luma_features ....................   Passed    0.06 sec
+      Start 34: material
+40/59 Test #14: placement_menu_ipc ...............   Passed    0.02 sec
+      Start  2: ownership_pair
+41/59 Test #34: material .........................   Passed    0.02 sec
+      Start 53: luma_real_capture
+42/59 Test #53: luma_real_capture ................   Passed    0.01 sec
+      Start 57: luma_contract
+43/59 Test  #2: ownership_pair ...................   Passed    0.02 sec
+      Start  7: ownership_native_default
+44/59 Test #57: luma_contract ....................   Passed    0.02 sec
+      Start 54: luma_replay_report_smoke
+45/59 Test  #7: ownership_native_default .........   Passed    0.01 sec
+      Start  9: ownership_native_vrr
+46/59 Test #54: luma_replay_report_smoke .........   Passed    0.01 sec
+      Start 55: luma_display
+47/59 Test  #9: ownership_native_vrr .............   Passed    0.01 sec
+      Start  8: ownership_native_retirement
+48/59 Test #55: luma_display .....................   Passed    0.01 sec
+      Start 10: ownership_native_eotf
+49/59 Test  #8: ownership_native_retirement ......   Passed    0.01 sec
+      Start 26: free_pointer
+50/59 Test #10: ownership_native_eotf ............   Passed    0.01 sec
+      Start 23: view
+51/59 Test #26: free_pointer .....................   Passed    0.01 sec
+      Start 20: predict
+52/59 Test #23: view .............................   Passed    0.01 sec
+      Start 44: environment
+53/59 Test #20: predict ..........................   Passed    0.00 sec
+      Start 25: resize_handle
+54/59 Test #44: environment ......................   Passed    0.00 sec
+      Start 18: continuity
+55/59 Test #25: resize_handle ....................   Passed    0.00 sec
+      Start  5: ownership_offset
+56/59 Test #18: continuity .......................   Passed    0.00 sec
+      Start 12: layout
+57/59 Test  #5: ownership_offset .................   Passed    0.00 sec
+      Start  6: ownership_reload
+58/59 Test #12: layout ...........................   Passed    0.00 sec
+59/59 Test  #6: ownership_reload .................   Passed    0.00 sec
+
+100% tests passed out of 59
+
+Total Test time (real) =  41.15 sec
