@@ -1,6 +1,6 @@
-# Revised-design acceptance checklist
+# Selected B1 + C1 · audit reconciliation
 
-Status: revised owner exports collected and reviewed. Browser results are in browser-check.json; exact source snapshots are hashed in reconciliation.json. All listed design-fidelity corrections are present in active revised controls or explicitly documented native/gesture/external routes. Catalog presence is not an implementation claim.
+Status: Cody selected B1 compact gear capsule + C1 category tabs. Revised owner exports collected and reviewed. No further design variants or production work belong to this branch. Browser results are in browser-check.json; exact source snapshots are hashed in reconciliation.json. All listed design-fidelity corrections are present in active revised controls or explicitly documented native/gesture/external routes. Catalog presence is not an implementation claim.
 
 | Audit design finding | Required revised evidence |
 |---|---|

@@ -1,9 +1,9 @@
-# Implementation after Cody chooses
+# Selected B1 + C1 · implementation handoff
 
-Status: proposed plan only. No production changes authorized by this design exercise.
+Status: Cody selected B1 compact gear capsule + C1 category tabs. Build and acceptance started separately; this document is a preview-stage handoff reference. This branch must not implement or duplicate that build.
 
-## Decision gate
-Record B/C/F choice, monitor anchoring/maximum-panel bounds, scope labels, shortcut entry, and recovery wording. Validate readable angular size on hardware in a separately authorized session. Browser pixels cannot establish XR comfort.
+## Recorded decision
+B1 + C1 is selected. F variants remain reference-only. Carry monitor anchoring/maximum-panel bounds, scope labels, shortcut entry, and recovery wording into the separate build. Validate readable angular size on hardware in a separately authorized session. Browser pixels cannot establish XR comfort.
 
 ## Parallel ownership and contracts
 1. **Native rendering owner** — spike/include/xr/glass.hpp, spike/src/glass.cpp, HUD/menu rendering. Own panel layout and states only; publish geometry constants and a CPU/offline preview. Preserve Connected Tail 3D and placement pill. Options below monitor beside pill, with a separate non-overlapping hit zone. No menu drag-to-move; placement header remains the drag surface.

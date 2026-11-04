@@ -18,6 +18,7 @@
   ],
   "overflow": false,
   "links": [
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/index.html#sources",
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/button-demo.html",
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/compact-demo.html",
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-demo.html",
@@ -85,6 +86,12 @@
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/AUDIT-RECHECK.md",
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/IMPLEMENTATION-PLAN.md"
   ],
+  "initialSelection": {
+    "button": 1,
+    "compact": 1,
+    "archiveClosed": true,
+    "label": "SELECTED · B1 + C1B1 compact gear capsule + C1 category tabsThe visual choice is settled. The gear stays below the monitor beside its existing placement pill. C1 organizes settings through category tabs with explicit Workspace / All monitors and Selected monitor scope.Production build and acceptance are running separately. This gallery remains preview-only. F1–F3 remain historical full-menu references; no full-menu variant is selected here.Show selected B1 + C1Try selected C1 category tabsOpen corrected source prototypes"
+  },
   "combinations": [
     true,
     true,
@@ -189,5 +196,5 @@
   "realEscapeDismiss": true,
   "mobileOverflow": false,
   "consoleExceptions": [],
-  "date": "2026-11-04T17:38:29.365Z"
+  "date": "2026-11-04T17:41:30.184Z"
 }

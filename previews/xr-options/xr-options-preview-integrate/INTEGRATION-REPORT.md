@@ -2,8 +2,11 @@
 
 Revised comparison gallery integrated and verified for visual selection. Planning/mockups only. Open index.html directly; no server or network dependency. Assets are local snapshots in ignored assets/, with embedded worker HTML for click-through. Rebuild with `python build.py`, then `node check.mjs`, then `python contact.py` from this directory. Build reads the shared preview root and worker-owned worktree exports. Restore sibling exports to that root when reproducing elsewhere. Own source only is committed; sibling originals remain on their own branches.
 
-## Choice
-Pairing A **B3 + C2 + F1**, combination 22 (audit preference): labelled Options, grouped drill-in, anchored complete inspector. This follows the audit's lower-risk scope/navigation advice and full worker's unobscured-desktop recommendation. Alternative **B1 + C3 + F3**, combination 9: quieter entry and frequent quick controls, conditional on immutable Workspace scope and corrected field semantics. C2 reduces simultaneous choices but adds navigation. C3 puts frequent edits closer but needs immutable global scope on quick controls. Present both; Cody chooses before production implementation.
+## Selected design
+
+**Cody selected B1 compact gear capsule + C1 category tabs.** The gallery opens on B1+C1 and marks this choice prominently. Earlier alternatives are retained only inside the comparison archive; F1–F3 are historical references, not an additional selected variant. No new variants were added.
+
+Build and acceptance work started separately. This branch remains preview/docs only and must not start or duplicate that implementation.
 
 ## Six-thread collection
 | Owner | Files/reports read | Delivery |
@@ -26,8 +29,8 @@ Supersedes the earlier draft review. Read revised button-NOTES.md, compact-ratio
 
 Independent browser checks: 348 compact row/variant visits, full 348 route/disposition checks (312 browser category visits plus 36 external disposition checks), seven compact fidelity checks and eight full fidelity checks pass. Verified actual source presets, signed parameter persistence, global quick-row labels, selected 3D excluding global preset/plane, Remove physical-fallback copy, read-only diagnostics, video filter/deband, and Workspace per-run follow/locked disabled in overview. Split Connected Tail above monitor is reconstructed and explicitly illustrative. Existing drag/Options targets remain separate. No named Save/Restore or speculative capture-backend setting remains in active revised controls. Scope gates and lifecycle exceptions are inspectable. The audit's design-fidelity issues are corrected for this visual comparison; its native architecture gates remain open by design.
 
-## Choice tradeoffs and future boundaries
+## Selected direction and implementation boundary
 
-Audit prefers B3+C2: labelled discovery, bounded group list and Back; it takes more navigation. Initial C3 direction puts frequent controls closer and now labels their immutable Workspace scope; it uses more simultaneous controls. Both remain selectable; no choice is forced. F1 keeps the desktop clear; F3 gives detail space at the cost of narrower category labels. Cody chooses before build.
+B1+C1 supersedes the earlier B3/C2 recommendation and C3 exploration. Preserve the corrected category scopes, exact presets/units, confirmation text and keyboard/gesture route contracts in this chosen visual family. The historical audit recommendation is evidence, not a competing current choice.
 
-Native input/focus/scroll and layered Escape, transformed anchors/hit testing, SBS desired/applied/R1/failure flow, XR-safe file picker, child bind editor, asynchronous backend readback, busy/video gates, persistence and emergency recovery are planned contracts, not implemented by these DOM prototypes. Retain external emergency Stop/Recover with state/consent guards and truthful failure. Generic controller geometry/video settings are not the live native authority. No production code, controller, live XR, services, installation, merge or master change performed. See IMPLEMENTATION-PLAN.md for ownership after Cody chooses.
+Native input/focus/scroll and layered Escape, transformed anchors/hit testing, SBS desired/applied/R1/failure flow, XR-safe file picker, child bind editor, asynchronous backend readback, busy/video gates, persistence and emergency recovery are planned contracts, not implemented by these DOM prototypes. Retain external emergency Stop/Recover with state/consent guards and truthful failure. Generic controller geometry/video settings are not the live native authority. No production code, controller, live XR, services, installation, merge or master change performed. See IMPLEMENTATION-PLAN.md for the recorded handoff boundary.
