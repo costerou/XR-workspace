@@ -1,0 +1,6 @@
+{"complete": true, "holds": [], "journal": "/tmp/tmpidatamdh/xr-workspace-spike/run/journal.json", "reasons": [], "remaining": [], "renderer_returncode": 0}
+{"complete": true, "journal": "/tmp/tmpie2wyhhm/xr-workspace-spike/run/journal.json", "reasons": [], "remaining": []}
+----------------------------------------------------------------------
+Ran 83 tests in 2.319s
+
+OK

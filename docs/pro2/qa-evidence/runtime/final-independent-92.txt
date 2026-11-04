@@ -1,0 +1,33 @@
+test_actual_controller_route_uses_real_wrapper_and_only_fake_client (test_controller_route.ControllerRouteQA.test_actual_controller_route_uses_real_wrapper_and_only_fake_client) ... ok
+test_actual_wrapper_native_sdk_health_and_teardown (test_controller_route.ControllerRouteQA.test_actual_wrapper_native_sdk_health_and_teardown) ... ok
+test_artifact_rejection_closes_already_pinned_sdk_fd (test_controller_route.ControllerRouteQA.test_artifact_rejection_closes_already_pinned_sdk_fd) ... ok
+test_consent_and_projection_default_deny_before_client (test_controller_route.ControllerRouteQA.test_consent_and_projection_default_deny_before_client) ... ok
+test_no_sbs_scope_reassert_close_and_video_close_never_use_buttons (test_controller_route.ControllerRouteQA.test_no_sbs_scope_reassert_close_and_video_close_never_use_buttons) ... ok
+test_popen_failure_closes_all_acquired_resources (test_controller_route.ControllerRouteQA.test_popen_failure_closes_all_acquired_resources) ... ok
+test_pro2_recovery_never_enters_legacy_sbs_restore (test_controller_route.ControllerRouteQA.test_pro2_recovery_never_enters_legacy_sbs_restore) ... ok
+test_renderer_arguments_scope_private_prefix_and_leave_legacy_unchanged (test_controller_route.ControllerRouteQA.test_renderer_arguments_scope_private_prefix_and_leave_legacy_unchanged) ... ok
+test_scope_stale_wrong_nonce_and_future_receipt_fail_closed (test_controller_route.ControllerRouteQA.test_scope_stale_wrong_nonce_and_future_receipt_fail_closed) ... ok
+test_sdk_stdout_cannot_forge_status_readiness (test_controller_route.ControllerRouteQA.test_sdk_stdout_cannot_forge_status_readiness) ... ok
+test_successful_explicit_recovery_unloads_retained_bundle_plugin (test_controller_route.ControllerRouteQA.test_successful_explicit_recovery_unloads_retained_bundle_plugin) ... ok
+test_terminal_event_in_same_batch_cannot_return_ready_session (test_controller_route.ControllerRouteQA.test_terminal_event_in_same_batch_cannot_return_ready_session) ... ok
+test_callback_during_close_and_signal_shutdown (test_native_runtime.NativeRuntimeQA.test_callback_during_close_and_signal_shutdown) ... ok
+test_happy_path_real_native_reader_and_cleanup (test_native_runtime.NativeRuntimeQA.test_happy_path_real_native_reader_and_cleanup) ... ok
+test_identity_hash_and_multiple_fail_before_sdk (test_native_runtime.NativeRuntimeQA.test_identity_hash_and_multiple_fail_before_sdk) ... ok
+test_missing_cleanup_abi_rejected_before_create (test_native_runtime.NativeRuntimeQA.test_missing_cleanup_abi_rejected_before_create) ... ok
+test_production_binary_rejects_fixture_options_before_sdk (test_native_runtime.NativeRuntimeQA.test_production_binary_rejects_fixture_options_before_sdk) ... ok
+test_projection_denied_without_bounded_explicit_value (test_native_runtime.NativeRuntimeQA.test_projection_denied_without_bounded_explicit_value) ... ok
+test_sdk_errors_and_cleanup_continue (test_native_runtime.NativeRuntimeQA.test_sdk_errors_and_cleanup_continue) ... ok
+test_startup_timeout_is_bounded_and_cleans_up (test_native_runtime.NativeRuntimeQA.test_startup_timeout_is_bounded_and_cleans_up) ... ok
+test_terminal_stream_faults (test_native_runtime.NativeRuntimeQA.test_terminal_stream_faults) ... ok
+test_topology_change_terminal (test_native_runtime.NativeRuntimeQA.test_topology_change_terminal) ... ok
+test_two_samples_cannot_claim_readiness (test_native_runtime.NativeRuntimeQA.test_two_samples_cannot_claim_readiness) ... ok
+test_bad_identity_never_invokes_loader (test_replay_boundary.CandidateBoundaryQA.test_bad_identity_never_invokes_loader) ... ok
+test_hash_failure_precedes_any_dlopen (test_replay_boundary.CandidateBoundaryQA.test_hash_failure_precedes_any_dlopen) ... ok
+test_faults_disable_and_cannot_resume (test_replay_boundary.ReplayBoundaryQA.test_faults_disable_and_cannot_resume) ... ok
+test_h1_signs_without_optical_offset (test_replay_boundary.ReplayBoundaryQA.test_h1_signs_without_optical_offset) ... ok
+test_sign_continuity_and_close (test_replay_boundary.ReplayBoundaryQA.test_sign_continuity_and_close) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 13.021s
+
+OK

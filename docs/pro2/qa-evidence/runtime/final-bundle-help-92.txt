@@ -1,0 +1,12 @@
+usage: -c [-h] --bundle BUNDLE --consent CONSENT --state-dir STATE_DIR
+          [--recover]
+
+Explicit bounded Pro2 supervised-test controller. Normal panel starts stay
+blocked.
+
+options:
+  -h, --help            show this help message and exit
+  --bundle BUNDLE
+  --consent CONSENT
+  --state-dir STATE_DIR
+  --recover

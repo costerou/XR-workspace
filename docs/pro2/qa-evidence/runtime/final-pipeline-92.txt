@@ -1,0 +1,11 @@
+test_health_fails_closed (test_controller.ControllerTests.test_health_fails_closed) ... ok
+test_normal_or_incomplete_consent_rejected_before_client (test_controller.ControllerTests.test_normal_or_incomplete_consent_rejected_before_client) ... ok
+test_recovery_does_not_start_sdk_and_unloads_only_after_complete (test_controller.ControllerTests.test_recovery_does_not_start_sdk_and_unloads_only_after_complete) ... ok
+test_test_route_scope_and_teardown (test_controller.ControllerTests.test_test_route_scope_and_teardown) ... ok
+test_actual_wrapper_sdk_and_native_reader (test_pipeline.PipelineTests.test_actual_wrapper_sdk_and_native_reader) ... ok
+test_projection_requires_explicit_test_scope (test_runtime.ContractTests.test_projection_requires_explicit_test_scope) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.929s
+
+OK
