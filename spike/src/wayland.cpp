@@ -1,3 +1,4 @@
+#include "options_evidence.hpp"
 #include "maximize_geometry.hpp"
 #include "owner_readback.hpp"
 #include "xr/options_geometry.hpp"
@@ -474,6 +475,7 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     BindPanelOverlay binds;    // key bind panel (Ctrl+Alt+K)
     bool binds_drawn = false;  // last frame showed it: draw once more so it clears
+    OptionsEvidence options_evidence;bool options_in_frame=false;
     OptionsMenuState options; std::optional<Placement> options_surface; HudImage options_image; std::uint64_t options_generation=1000000;
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
@@ -1078,6 +1080,7 @@ std::string Presentation::capture_report() const {
            ",\"shown\":" + std::to_string(impl_->glass.opened()) + ",\"hidden\":" + std::to_string(impl_->glass.closed()) +
            ",\"renders\":" + std::to_string(impl_->glass.renders()) +
            ",\"view_shift_mrad\":" + std::to_string(int(std::lround(impl_->panel_shift.value(double(monotonic_ms())) * 1000.f))) + "}";
+    out += ",\"options_menu\":"+impl_->options_evidence.report(impl_->options).dump();
     out += ",\"resize_handle\":{\"shown\":" + std::to_string(impl_->handle.shown) + "}";
     out += ",\"move_handle\":{\"shown\":" + std::to_string(impl_->pills.shown) + "}";
     out += ",\"overview_pointer\":{\"shown\":" + std::to_string(impl_->free_pointer.shown) + "}";
@@ -1309,7 +1312,7 @@ void Presentation::set_binds(const BindPanelState& state) {
 void Presentation::set_options_menu(const OptionsMenuState& state) {
  if(!impl_)return;
  if(!state.open || state.monitor!=impl_->options.monitor)impl_->options_surface.reset();
- impl_->options=state;
+ impl_->options=state;impl_->options_evidence.accepted();
  if(state.open && std::none_of(impl_->captures.begin(),impl_->captures.end(),[&](const auto& c){return c->name==state.monitor;}))impl_->options.open=false;
  impl_->options_image=render_options_panel(state);++impl_->options_generation;impl_->cadence.invalidate();
 }
@@ -1648,6 +1651,7 @@ Status Presentation::draw_test_pattern() {
             s.video->after_swap();
             s.help_drawn = s.glass_drawn = s.binds_drawn = false;
             s.panel_shift.set(0.f, video_now);  // a video closes the panel
+            s.options_in_frame=false;
             s.cadence.committed();
             if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
             return {};
@@ -1662,6 +1666,7 @@ Status Presentation::draw_test_pattern() {
         {  // Glass pills and the open placement panel: overview only (a zoom hides them, and holds an expanding pill's
            // morph until the overview is reached: GlassPills::frame), never moving on their own.
             const bool overview = s.view.zoom() < 0.01f && !s.view.switching();  // not while a switch turns through it
+            s.options_in_frame=false;
             GlassFrame glass = s.glass.frame(overview, help_now);
             glass.maximized=s.view.zoom()>=.99f && !s.view.switching();
             glass.pills = s.pills.visible && overview;
@@ -1679,7 +1684,7 @@ Status Presentation::draw_test_pattern() {
                   if(s.free_pointer.held && !s.options_surface)s.options_surface=s.target_placement(i);
                   if(!s.free_pointer.held)s.options_surface.reset();
                   glass.surface=s.options_surface;glass.surface_desktop=int(i);
-                  glass.options=true;glass.top=glass.content=int(i);glass.expand.fill(0);glass.expand[i]=1;
+                  s.options_in_frame=true;glass.options=true;glass.top=glass.content=int(i);glass.expand.fill(0);glass.expand[i]=1;
                   glass.image=&s.options_image;glass.generation=s.options_generation;glass.content_alpha=1;
                 }
             }
@@ -1715,6 +1720,7 @@ Status Presentation::draw_test_pattern() {
         const auto pan_layers = s.view.pan_layers();
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))
             return Error{"gl", "draw or swap failed"};  // swap attaches and commits
+        if(s.options_in_frame)s.options_evidence.drawn(s.options);
         s.cadence.committed();
         if (wl_display_flush(s.display) < 0 && errno != EAGAIN) return Error{"flush", "connection failed"};
         return {};
