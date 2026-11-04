@@ -21,6 +21,7 @@ Tests never open a real display or device. Checks stay active in Release builds.
 | `XR_ENABLE_PRESENTATION` | ON | Renderer. Needs wayland-client, wayland-protocols, EGL/GLES, gbm, libdrm, freetype2, fontconfig. |
 | `XR_ENABLE_IPC` | ON | Native IPC (local nlohmann_json). |
 | `XR_ENABLE_OWNERSHIP_PLUGIN` | OFF | Hyprland plugin. Needs hyprland and aquamarine dev headers. |
+| `XR_ENABLE_LUMA_DRIVER` | ON | Our own Luma Ultra head-tracking driver in `driver/`. Needs libc only. Tests never open a device. |
 | `XR_ENABLE_HARDWARE`, `XR_ENABLE_SDK` | OFF | Not implemented; fail closed if enabled. |
 
 Dependencies are listed in [dependencies.md](dependencies.md); the vendored
