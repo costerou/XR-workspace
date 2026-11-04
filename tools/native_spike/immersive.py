@@ -216,7 +216,7 @@ def make_sbs(client=None, output=None, consent=None, tell=lambda text: None):
 def restore_2d(sbs=None):
     """Recovery: glasses left in side-by-side by a crash, before anything else is put back: says how to bring them back. Never raises."""
     try: (sbs if sbs is not None else make_sbs()).leave()
-    except (SbsError, OSError, ValueError): pass
+    except Exception: pass  # whatever an adapter does: recovery goes on
 
 
 def find_engine(renderer):
@@ -404,6 +404,11 @@ class ImmersiveRun:
         parked = getattr(self.sbs, 'parked', None)
         return parked is not None and parked()
 
+    def _left_by_hand(self):
+        check = getattr(self.sbs, 'left_by_hand', None)
+        try: return check is not None and check()
+        except Exception: return False
+
     def _settle(self):
         try: self.sbs.settle()
         except Exception as exc: self._emit('leave', str(exc) or type(exc).__name__)
@@ -453,6 +458,7 @@ class ImmersiveRun:
                 if current: self._down()
                 return
             if current and not self.engine.alive(): self._fail('died', 'it quit')
+            elif current and self._left_by_hand(): self._fail('sbs', 'R1 took them back to 2D')
             elif target == current and not reassert:
                 if not current and self._parked(): self._settle()
                 continue

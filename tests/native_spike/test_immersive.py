@@ -900,3 +900,235 @@ class WholeRunTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LookTests(unittest.TestCase):
+    """What 3D looks like: the numbers come from docs/3d-comfort.md, through tools/stereo_eval/presets.json."""
+    def test_the_presets_are_the_comfort_study_s(self):
+        study = json.loads((Path(__file__).parents[2] / 'tools/stereo_eval/presets.json').read_text())
+        self.assertEqual(set(immersive.PRESETS), {k for k in study if k not in ('_comment', 'naive')})
+        for name, p in immersive.PRESETS.items():
+            s = study[name]
+            self.assertEqual((p['near'], p['far'], p['convergence'], p['range_ms']), (s['near_arcmin'], s['far_arcmin'], s['anchor_pct'], s['range_ms']), name)
+            self.assertEqual(p['text'], 0 if s['text_pin'] else 100, name)  # pinned text has no parallax left
+
+    def test_the_default_is_desktop_at_standard_strength(self):
+        self.assertEqual(immersive.wire_params(None), {'strength': 100, 'convergence': 92, 'near': 4, 'far': 14, 'text': 0, 'range_ms': 3000})
+        self.assertFalse(immersive.DEFAULTS['global'])
+
+    def test_every_preset_stays_inside_the_renderer_s_wire_limits(self):
+        for name in immersive.PRESETS:
+            p = immersive.wire_params(immersive.with_preset(None, name))
+            self.assertTrue(p['near'] <= 90 and p['far'] <= 60 and 0 <= p['text'] <= 100 and p['range_ms'] <= 10000, name)
+
+    def test_a_preset_brings_its_plane(self):
+        video = immersive.with_preset(ALL, 'video')
+        self.assertEqual((video['preset'], video['convergence'], video['global']), ('video', 70, True))
+        self.assertRaises(ValueError, immersive.with_preset, ALL, 'cinema')
+
+    def test_toggling_keeps_the_look(self):
+        look = {**OFF, 'preset': 'games', 'strength': 150, 'convergence': 60}
+        for changed in (immersive.toggled_all(look, NAMES), immersive.toggled_every(look, NAMES), immersive.toggled_desktop(look, 'XR-2')):
+            self.assertEqual((changed['preset'], changed['strength'], changed['convergence']), ('games', 150, 60))
+
+    def test_bad_values_fall_back_one_at_a_time(self):
+        got = immersive.clean({'global': True, 'preset': 'cinema', 'strength': 900, 'convergence': -1})
+        self.assertEqual(got, ALL)
+        self.assertEqual(immersive.clean({'strength': True})['strength'], 100)  # a bool is not a number here
+        self.assertEqual(immersive.clean({'convergence': 50.5})['convergence'], 92)
+        self.assertEqual(immersive.clean({'preset': 'video'})['convergence'], 70)  # no plane saved: the preset's
+
+    def test_a_profile_from_before_the_look_gets_the_defaults(self):
+        self.assertEqual(immersive.immersive({'immersive': {'global': True, 'desktops': {'XR-1': False}}}), full(True, {'XR-1': False}))
+
+    def control(self, setting=None):
+        store = mock.Mock(); store.load.return_value = view.DEFAULT_SETTINGS
+        return view.ViewControl(view.ViewState(NAMES, immersive=setting), 'run1', 's1', lambda name: None, store, mock.Mock())
+
+    def test_the_look_goes_on_the_wire_only_while_something_is_3d(self):
+        c = self.control({**OFF, 'strength': 150})
+        self.assertEqual(c._immersive_sync(), b'')  # a saved strength alone sends nothing: a 2D run's frames stay what they were
+        payload = json.loads(c.set_immersive({**ALL, 'strength': 150, 'preset': 'video', 'convergence': 70}).decode())['payload']
+        self.assertEqual(payload['params'], {'strength': 150, 'convergence': 70, 'near': 14, 'far': 36, 'text': 100, 'range_ms': 1000})
+
+    def test_changing_the_look_goes_at_once(self):
+        c = self.control(ALL)
+        c.initial_frame()
+        frame = c.set_immersive({**ALL, 'strength': 50})
+        self.assertEqual(json.loads(frame.decode())['payload']['params']['strength'], 50)
+
+    def test_a_new_renderer_is_told_3d_is_on(self):
+        c = self.control(ALL)
+        self.assertTrue(immersive_frames(c.initial_frame()))
+        self.assertFalse(immersive_frames(c.initial_frame()))
+        c.renderer_restarted()
+        self.assertTrue(immersive_frames(c.initial_frame()))
+
+    def test_a_new_renderer_with_nothing_on_gets_no_frame(self):
+        c = self.control()
+        c.initial_frame()
+        c.renderer_restarted()
+        self.assertFalse(immersive_frames(c.initial_frame()))
+
+
+class OffIsUnchangedTests(unittest.TestCase):
+    """Default off, and off means a run as it was before this feature."""
+    def test_a_run_with_nothing_on_starts_nothing(self):
+        run = ImmersiveRun(mock.Mock(), mock.Mock())
+        run.request([])
+        self.assertIsNone(run._thread)
+        run.engine.start.assert_not_called()
+        run.sbs.enter.assert_not_called()
+
+    def test_no_engine_means_no_memory_and_no_depth_argument(self):
+        calls = []
+        class Stop(Exception): pass
+        def popen(argv, **kw):
+            calls.append((argv, kw)); raise Stop
+        import socket
+        from tools.native_spike import supervisor
+        a, b = socket.socketpair()
+        client = mock.Mock(); client._peer = (os.getpid(), os.getuid(), os.getgid())
+        with mock.patch('struct.unpack', lambda fmt, data: client._peer), self.assertRaises(Stop):
+            supervisor._launch(client, 'r1', 's1', 'DP-2', b, None, popen=popen, capture=None)
+        a.close()
+        self.assertNotIn('--depth-fd', calls[0][0])
+        self.assertEqual(len(calls[0][1]['pass_fds']), 3)
+
+    def test_with_the_engine_the_memory_is_inherited(self):
+        calls = []
+        class Stop(Exception): pass
+        def popen(argv, **kw):
+            calls.append((argv, kw)); raise Stop
+        import socket
+        from tools.native_spike import supervisor
+        a, b = socket.socketpair()
+        client = mock.Mock(); client._peer = (os.getpid(), os.getuid(), os.getgid())
+        memory = immersive.DepthMemory()
+        self.addCleanup(memory.close)
+        with mock.patch('struct.unpack', lambda fmt, data: client._peer), self.assertRaises(Stop):
+            supervisor._launch(client, 'r1', 's1', 'DP-2', b, None, popen=popen, capture=None, depth_fd=memory.fd)
+        a.close()
+        argv = calls[0][0]
+        self.assertEqual(argv[argv.index('--depth-fd') + 1], str(memory.fd))
+        self.assertIn(memory.fd, calls[0][1]['pass_fds'])
+
+    def test_a_2d_consent_is_what_older_code_reads(self):
+        from tools.native_spike import panel_consent
+        self.assertNotIn('sbs_mode', panel_consent.PANEL_KEYS)
+
+
+class MemoryTests(unittest.TestCase):
+    def test_the_size_is_the_renderer_s(self):
+        from tools.depth_engine import shm as S
+        self.assertEqual(immersive.DepthMemory.size(), S.shm_bytes(4, 420, 266, 420, 266))
+        header = (Path(__file__).parents[2] / 'spike/include/xr/depth.hpp').read_text()
+        self.assertIn('kDepthLinkShm{4, kDepthLongBalanced, kDepthMinTall, kDepthLongBalanced, kDepthMinTall}', header)
+        self.assertEqual((immersive.DepthMemory.IN_W, immersive.DepthMemory.IN_H), (420, 266))
+
+    def test_it_has_no_name_and_goes_with_its_last_descriptor(self):
+        m = immersive.DepthMemory()
+        self.addCleanup(m.close)
+        self.assertEqual(os.fstat(m.fd).st_size, m.size())
+        self.assertEqual(os.fstat(m.fd).st_nlink, 0)
+        self.assertTrue(os.readlink(f'/proc/self/fd/{m.fd}').startswith('/memfd:'))
+        self.assertFalse(os.get_inheritable(m.fd))  # only ever passed on purpose
+
+    def test_the_heartbeat(self):
+        import struct
+        m = immersive.DepthMemory()
+        self.addCleanup(m.close)
+        self.assertIsNone(m.heartbeat_age())  # no engine yet
+        os.pwrite(m.fd, struct.pack('<Q', 5_000_000_000), m.HEARTBEAT_AT)
+        self.assertEqual(m.heartbeat_age(7_000_000_000), 2.0)
+
+    def test_a_hung_engine_counts_as_dead(self):
+        import struct
+        m = immersive.DepthMemory()
+        self.addCleanup(m.close)
+        engine = ProcessEngine('/bin/true', memory=m)
+        engine.child = mock.Mock(); engine.child.poll.return_value = None
+        self.assertTrue(engine.alive())  # still loading: no heartbeat yet
+        os.pwrite(m.fd, struct.pack('<Q', time.monotonic_ns()), m.HEARTBEAT_AT)
+        self.assertTrue(engine.alive())
+        os.pwrite(m.fd, struct.pack('<Q', time.monotonic_ns() - int(1e9 * (immersive.HEARTBEAT_LIMIT_S + 1))), m.HEARTBEAT_AT)
+        self.assertFalse(engine.alive())
+
+
+class RealEngineTests(unittest.TestCase):
+    """The real tools.depth_engine in its own process, over a real memfd, with the fake model: the contract, and the crash."""
+    def setUp(self):
+        self.memory = immersive.DepthMemory()
+        self.addCleanup(self.memory.close)
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.binary = Path(directory.name) / immersive.ENGINE_NAME
+        root = Path(__file__).parents[2]
+        self.binary.write_text(f"#!/bin/sh\nexec {sys.executable} -c \"import sys,runpy; sys.path.insert(0,'{root}'); sys.argv[0]='xr-depth-engine'; "
+                               f"runpy.run_module('tools.depth_engine',run_name='__main__')\" serve --supervised --backend fake --wait 5 \"$@\"\n")
+        self.binary.chmod(0o700)
+        from tools.depth_engine import shm as S
+        path = f'/proc/{os.getpid()}/fd/{self.memory.fd}'
+        self.S = S
+        self.shm = None
+        self.path = path
+
+    def layout(self):
+        """What the renderer does on its first 3D frame."""
+        import numpy as np
+        S = self.S
+        fd = self.memory.fd
+        size = self.memory.size()
+        import mmap, struct
+        view_ = mmap.mmap(fd, 4096)
+        struct.pack_into('<IIIIIIII', view_, 0, 0, S.VERSION, 4, S.SLOTS, 420, 266, 420, 266)
+        struct.pack_into('<QQ', view_, 32, S.channel_stride(420, 266, 420, 266), size)
+        struct.pack_into('<I', view_, 0, S.MAGIC)
+        view_.close()
+        self.shm = S.DepthShm.open(self.path)
+        self.addCleanup(self.shm.close)
+        return np
+
+    def test_up_serving_and_gone_at_end_of_input(self):
+        engine = ProcessEngine(self.binary, memory=self.memory)
+        worker = threading.Thread(target=lambda: time.sleep(0.2) or self.layout())  # the engine starts first, as in a run
+        worker.start()
+        self.assertTrue(engine.start(['XR-1'], lambda: False))
+        worker.join()
+        self.addCleanup(engine.stop)
+        self.assertTrue(engine.alive())
+        self.assertIsNotNone(self.memory.heartbeat_age())
+        import numpy as np
+        S = self.S
+        self.shm.set_control(0, S.ENABLED)
+        px = np.full((266, 420, 4), 200, np.uint8); px[:133, :, :3] = 40
+        self.assertTrue(self.shm.publish(S.INPUT, 0, px, S.FMT_RGBA8, 1, time.monotonic_ns()))
+        deadline = time.monotonic() + 5
+        out = None
+        while out is None and time.monotonic() < deadline:
+            out = self.shm.fetch(S.OUTPUT, 0)
+            time.sleep(0.01)
+        self.assertIsNotNone(out)
+        self.assertEqual((out.w, out.h, out.format), (420, 266, S.FMT_R16F))
+        engine.set_desktops(['XR-1', 'XR-2'])  # says so, and stays up
+        self.assertTrue(engine.alive())
+        child = engine.child
+        child.stdin.close()
+        self.assertEqual(child.wait(5), 0)  # end of input: gone, by itself
+        engine.child = None
+
+    def test_killed_outright(self):
+        engine = ProcessEngine(self.binary, memory=self.memory)
+        worker = threading.Thread(target=self.layout)
+        worker.start()
+        self.assertTrue(engine.start(['XR-1'], lambda: False))
+        worker.join()
+        self.addCleanup(engine.stop)
+        os.killpg(engine.child.pid, signal.SIGKILL)
+        engine.child.wait(5)
+        self.assertFalse(engine.alive())  # what the worker sees; the renderer sees the heartbeat stop (depth_link_render_test.cpp)
+
+    def test_memory_never_laid_out_is_a_failure_to_start_not_a_hang(self):
+        self.binary.write_text(self.binary.read_text().replace('--wait 5', '--wait 0.1'))
+        with self.assertRaisesRegex(EngineError, 'quit'):
+            ProcessEngine(self.binary, memory=self.memory, ready_timeout=8).start(['XR-1'], lambda: False)

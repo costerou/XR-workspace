@@ -58,6 +58,41 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(load_installed(self.data), entry)
         for key in entry: verify_pinned(entry[key])
 
+    def test_the_depth_engine_launcher_needs_its_environment(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d) / 'bin'; target.mkdir()
+            self.assertIsNone(install_module._write_engine(target, home=Path(d) / 'nobody'))
+            self.assertFalse((target / install_module.ENGINE).exists())  # no environment: 3D says it is not installed
+
+    def test_the_depth_engine_launcher(self):
+        with tempfile.TemporaryDirectory() as d:
+            home, target = Path(d) / 'home', Path(d) / 'bin'
+            target.mkdir(); python = home.joinpath(*install_module.ENGINE_PYTHON); python.parent.mkdir(parents=True); python.touch()
+            dest = install_module._write_engine(target, home=home, repo='/some/checkout')
+            self.assertEqual(dest, target / 'xr-depth-engine')
+            self.assertEqual(dest.stat().st_mode & 0o777, 0o500)
+            text = dest.read_text()
+            self.assertIn(f'exec nice -n 5 {python} -I -c', text)  # below the renderer, and nothing from the working directory
+            self.assertIn("sys.path.insert(0,'/some/checkout')", text)
+            self.assertTrue(text.rstrip().endswith('serve --supervised "$@"'))
+            from tools.native_spike import immersive
+            self.assertEqual(install_module.ENGINE, immersive.ENGINE_NAME)
+            self.assertEqual(immersive.find_engine(target / 'xr-native-spike'), dest)  # where a run looks
+
+    def test_the_depth_engine_launcher_refuses_a_path_it_cannot_quote(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = Path(d); python = home.joinpath(*install_module.ENGINE_PYTHON); python.parent.mkdir(parents=True); python.touch()
+            self.assertRaises(ValueError, install_module._write_engine, home, home=home, repo="/a'; rm -rf x")
+
+    def test_a_setup_gone_since_takes_the_launcher_away(self):
+        with tempfile.TemporaryDirectory() as d:
+            home, target = Path(d) / 'home', Path(d) / 'bin'
+            target.mkdir(); python = home.joinpath(*install_module.ENGINE_PYTHON); python.parent.mkdir(parents=True); python.touch()
+            install_module._write_engine(target, home=home, repo='/x')
+            python.unlink()
+            install_module._write_engine(target, home=home, repo='/x')
+            self.assertFalse((target / install_module.ENGINE).exists())
+
     def test_luma_driver_is_pinned_when_built(self):
         for where in (self.build, self.build / 'driver'):  # beside the renderer, or in its own CMake folder
             with self.subTest(where):

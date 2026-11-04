@@ -35,9 +35,26 @@ TestCase {
         verify(!one.highlighted && two.highlighted && !all.highlighted);
         compare(findChild(editor, "immersiveState").text, "3D on");
         one.clicked();
-        compare(sent[0], {op:"set_settings", settings:{immersive:{global:false, desktops:{"XR-1":true, "XR-2":true}}}});
+        compare(sent[0].settings.immersive.desktops, {"XR-1":true, "XR-2":true});
         all.clicked();
-        compare(sent[1], {op:"set_settings", settings:{immersive:{global:false, desktops:{}}}});
+        compare(sent[1].settings.immersive.global, false); compare(sent[1].settings.immersive.desktops, {});
+    }
+    function test_the_look_controls() {
+        const look = {global:true, desktops:{}, preset:"desktop", strength:100, convergence:92};
+        const snapshot = {model:"luma-ultra", output:"DP-2", names:["XR-1"], capabilities:[], view:{}, status:{},
+                          immersive:{setting:look, names:["XR-1"], stereo:false, failed:false, phase:"glasses", installed:true}};
+        const editor = createTemporaryObject(running, testCase, {width:900, snapshot:snapshot, settings:{}});
+        const sent = [];
+        editor.request.connect(m => sent.push(m));
+        compare(findChild(editor, "immersiveState").text, "Hold R1 on the glasses");
+        verify(findChild(editor, "immersivePreset_desktop").highlighted && !findChild(editor, "immersivePreset_video").highlighted);
+        verify(findChild(editor, "immersiveStrength_100").highlighted);
+        compare(findChild(editor, "immersivePlane").value, 92);
+        findChild(editor, "immersivePreset_video").clicked();
+        compare(sent[0].settings.immersive, {global:true, desktops:{}, preset:"video", strength:100, convergence:70});
+        findChild(editor, "immersiveStrength_150").clicked();
+        compare(sent[1].settings.immersive.strength, 150);
+        compare(sent[1].settings.immersive.preset, "desktop");  // the panel sends what the run last said, not its own guess
     }
     function test_no_status_yet_reads_the_saved_setting() {
         const editor = createTemporaryObject(running, testCase, {width:900, snapshot:{names:["XR-1"], capabilities:[], status:{}},
@@ -45,7 +62,7 @@ TestCase {
         const sent = [];
         editor.request.connect(m => sent.push(m));
         findChild(editor, "immersive_XR-1").clicked();
-        compare(sent[0].settings.immersive, {global:true, desktops:{"XR-1":false}});
+        compare(sent[0].settings.immersive.global, true); compare(sent[0].settings.immersive.desktops, {"XR-1":false});
     }
 }
 '''
@@ -65,7 +82,7 @@ class RunningEditorTests(unittest.TestCase):
             done = subprocess.run([RUNNER, '-input', tmp, '-import', str(Path(tmp) / 'imports')], capture_output=True, text=True, timeout=60,
                                   env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'})
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn('Totals: 4 passed', done.stdout)  # initTestCase, the two tests, cleanupTestCase
+        self.assertIn('Totals: 5 passed', done.stdout)  # initTestCase, the three tests, cleanupTestCase
 
 
 if __name__ == '__main__':

@@ -135,6 +135,11 @@ class ButtonSbs:
     def parked(self):
         return self.left_at is not None
 
+    def left_by_hand(self):
+        """3D is up, but R1 was held: the glasses are back in 2D on their own. False while the output is away: that is a hold."""
+        monitor = self._monitor()
+        return monitor is not None and best_wide(monitor) is None and not is_wide(monitor)
+
     def settle(self):
         """Glasses still wide after leave(): True once they have gone back, with the run's session mode on again."""
         monitor = self._monitor()

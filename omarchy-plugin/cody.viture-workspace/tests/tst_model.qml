@@ -189,6 +189,20 @@ TestCase {
         compare(Model.immersiveAll(one, names), off);
         compare(Model.immersiveAll({global:true, desktops:{"XR-1":false}}, names), off);
         compare(Model.immersiveLabel(undefined), "");
+        // The look travels with the setting, whichever button changes it.
+        const look = {global:false, desktops:{}, preset:"video", strength:150, convergence:70};
+        compare(Model.immersiveAll(look, names), {global:true, desktops:{}, preset:"video", strength:150, convergence:70});
+        compare(Model.immersiveDesktop(look, "XR-1"), {global:false, desktops:{"XR-1":true}, preset:"video", strength:150, convergence:70});
+        compare(Model.immersivePreset(look, "desktop"), {global:false, desktops:{}, preset:"desktop", strength:150, convergence:92});
+        compare(Model.immersivePreset(look, "cinema"), look);
+        compare(Model.immersiveStrength(look, 50).strength, 50);
+        compare(Model.immersiveConvergence(look, 33.4).convergence, 33);
+        compare(Model.IMMERSIVE_STRENGTHS.map(s => s.label), ["Soft", "Standard", "Enhanced"]);
+        // What the panel says while 3D comes up.
+        compare(Model.immersiveLabel({names:["XR-1"], phase:"engine", installed:true}), "Loading the depth model…");
+        compare(Model.immersiveLabel({names:["XR-1"], phase:"glasses", installed:true}), "Hold R1 on the glasses");
+        compare(Model.immersiveLabel({names:["XR-1"], phase:"off", installed:false}), "Depth engine not installed");
+        compare(Model.immersiveLabel({names:["XR-1"], stereo:true, phase:"on", installed:true}), "3D on");
         compare(Model.immersiveLabel({names:[], stereo:false, failed:false}), "Off");
         compare(Model.immersiveLabel({names:["XR-1"], stereo:false, failed:false}), "Starting…");
         compare(Model.immersiveLabel({names:["XR-1"], stereo:true, failed:false}), "3D on");

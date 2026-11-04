@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.depth_engine import sample, shm as S  # noqa: E402
 from tools.depth_engine.backends import BackendUnavailable, FakeBackend, make_backend, resize_rgba  # noqa: E402
-from tools.depth_engine.engine import Engine  # noqa: E402
+from tools.depth_engine.engine import BOX_HOLD, Engine, picture_box  # noqa: E402
 from tools.depth_engine.scheduler import Scheduler  # noqa: E402
 
 
@@ -205,6 +205,61 @@ class Serving(Base):
         e = self.engine()
         e.step()
         self.assertEqual(self.shm.engine_ns(), self.clock.t)
+
+
+class BlackBars(Base):
+    """The model reads black bars as the nearest thing on screen (docs/3d-comfort.md), so they never reach it."""
+    def picture(self, top=0, side=0):
+        px = np.zeros((42, 56, 4), np.uint8)
+        px[top:42 - top, side:56 - side, :3] = 120
+        px[..., 3] = 255
+        return px
+
+    def test_finding_them(self):
+        self.assertEqual(picture_box(self.picture(top=6)), (0, 6, 56, 36))
+        self.assertEqual(picture_box(self.picture(side=8)), (8, 0, 48, 42))
+        self.assertIsNone(picture_box(self.picture()))
+        self.assertIsNone(picture_box(np.zeros((42, 56, 4), np.uint8)))  # all black: nothing to crop to
+
+    def test_a_dark_edge_is_not_a_bar(self):
+        px = np.full((266, 420, 4), 120, np.uint8)
+        px[:3, :, :3] = px[-3:, :, :3] = 0  # 2% of the height: a dark top of the picture, not a letterbox
+        self.assertIsNone(picture_box(px))
+
+    def test_the_model_sees_only_the_picture_and_the_bars_are_mid_distance(self):
+        seen = []
+        class Recording(FakeBackend):
+            def infer(inner, frames):
+                seen.extend(f.copy() for f in frames)
+                return [np.linspace(0, 1, f.shape[0], dtype=np.float32)[:, None].repeat(f.shape[1], 1) for f in frames]
+        e = self.engine(Recording())
+        self.shm.set_control(0, S.ENABLED)
+        self.shm.publish(S.INPUT, 0, self.picture(top=6), S.FMT_RGBA8, 1, 1)
+        e.step()
+        self.assertEqual(seen[0].shape[:2], (30, 56))
+        self.assertTrue((seen[0][..., :3] == 120).all())
+        out = self.shm.fetch(S.OUTPUT, 0)
+        self.assertEqual((out.w, out.h), (56, 42))
+        px = np.asarray(out.pixels, np.float32)
+        self.assertAlmostEqual(float(px[0, 0]), float(px[41, 0]), places=3)  # both bars the same depth
+        self.assertLess(float(px[7, 0]), float(px[34, 0]))  # the picture keeps its depth
+
+    def test_a_dark_scene_does_not_make_the_crop_flicker(self):
+        e = self.engine()
+        self.assertEqual(e._stable_box(0, (0, 6, 56, 36)), (0, 6, 56, 36))
+        for _ in range(BOX_HOLD - 1):
+            self.assertEqual(e._stable_box(0, (0, 10, 56, 32)), (0, 6, 56, 36))
+        self.assertEqual(e._stable_box(0, (0, 10, 56, 32)), (0, 10, 56, 32))
+
+    def test_a_fixed_size_model_keeps_its_size(self):
+        class Fixed(FakeBackend):
+            size = (42, 28)
+        e = self.engine(Fixed())
+        self.shm.set_control(0, S.ENABLED)
+        self.shm.publish(S.INPUT, 0, self.picture(top=6), S.FMT_RGBA8, 1, 1)
+        e.step()
+        out = self.shm.fetch(S.OUTPUT, 0)
+        self.assertEqual((out.w, out.h), (42, 28))
 
 
 class PacedServing(Base):
