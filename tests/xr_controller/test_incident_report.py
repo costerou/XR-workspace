@@ -47,8 +47,8 @@ class SoftwareFaultReportTests(unittest.TestCase):
         self.assertIn('software fault', guess['text'])
         self.assertIn('not the cause', guess['text'])
 
-    def test_it_comes_before_a_usb_drop_that_happened_to_be_near(self):
-        self.assertIn('control channel', guess_cause(episode('usb-drop', 'control-closed', ended='ended'), evidence())['text'])
+    def test_a_later_control_close_does_not_explain_an_earlier_usb_drop(self):
+        self.assertIn('undetermined', guess_cause(episode('usb-drop', 'control-closed', ended='ended'), evidence())['text'])
 
     def test_a_real_crash_still_comes_first(self):
         core = dict(exe='xr-native-spike', signal='SIGSEGV', frames=[])
@@ -209,14 +209,14 @@ class SummaryTests(unittest.TestCase):
 class GuessTests(unittest.TestCase):
     def test_a_usb_drop_seen_by_the_kernel(self):
         guess = guess_cause(episode('usb-drop', 'renderer-exit', ended='ended'), evidence())
-        self.assertEqual(guess['confidence'], 'high')
-        self.assertIn('USB', guess['text'])
-        self.assertIn('cable', guess['text'])
+        self.assertEqual(guess['confidence'], 'low')
+        self.assertIn('USB disconnect confirmed', guess['text'])
+        self.assertIn('undetermined', guess['text'])
 
     def test_a_usb_drop_only_the_driver_saw_is_less_sure(self):
         e = Episode(RUN, 1000.0)
         e.add(Signal(1000.0, 'usb-drop', 'driver-log', 'x'))
-        self.assertEqual(guess_cause(e, evidence())['confidence'], 'medium')
+        self.assertEqual(guess_cause(e, evidence())['confidence'], 'low')
 
     def test_a_core_dump_names_where_it_crashed(self):
         core = dict(exe='xr-native-spike', signal='SIGSEGV', frames=['#0  0x1 _ZN2xr12Presentation17draw_test_patternEv (xr-native-spike + 0x8912)'])

@@ -22,7 +22,7 @@ import time
 
 from tools.native_spike.ipc import private_dir, read_private_json
 from tools.native_spike.tracking import CRASHED as TRACKING_CRASHED, SCOPES, USB_DENIED
-from .incident_detect import faults_of, is_exit_report, signal_name
+from .incident_detect import Episode, Signal, faults_of, is_exit_report, signal_name
 
 MAX_BUNDLE = 256 * 1024
 MAX_SUMMARY = 4096
@@ -180,14 +180,13 @@ def guess_cause(episode, ev):
         return guess('The system ran out of memory and killed the session.', 'high')
     if 'hyprland-crash' in kinds:
         return guess('Hyprland went away with no crash record, so a logout or a restart is likely.', 'medium')
+    if usb:
+        return guess('USB disconnect confirmed; underlying cause undetermined.' if any(s.source in ('kernel', 'usb') for s in usb)
+                     else 'The driver lost communication; USB disconnect unconfirmed and underlying cause undetermined.', 'low')
     if 'control-closed' in kinds:
         return guess('The renderer and the supervisor lost the control channel between them, which ends a session. That is a software fault in '
                      'XR Workspace: what tracking or the driver log says after that moment follows from it and is not the cause. '
                      'The run log has the renderer\'s last words.', 'high')
-    if usb:
-        seen_by_kernel = any(s.source == 'kernel' for s in usb)
-        return guess("The glasses' USB hub dropped off the bus. On 2026-11-03 this came before most ended sessions, and it points at the cable, "
-                     'the port or the glasses themselves rather than this software.', 'high' if seen_by_kernel else 'medium')
     if 'video-lost' in kinds:
         return guess('The display link to the glasses dropped with no USB trouble: check the cable and the display output.', 'medium')
     if result.get('stop_reason') == 'heartbeat-timeout':
@@ -240,6 +239,15 @@ def pin_of(consent, key):
     return pin if isinstance(pin, dict) else {}
 
 
+def observations(episode):
+    usb = [s.at for s in episode.signals if s.kind == 'usb-drop' and s.source in ('kernel', 'usb')]
+    video = [s.at for s in episode.signals if s.kind == 'video-lost']
+    order = 'undetermined'
+    if usb and video:
+        order = 'usb-first' if min(usb) < min(video) else 'video-first' if min(video) < min(usb) else 'same-timestamp'
+    return dict(usb_disconnect='confirmed' if usb else 'unconfirmed', link_order=order)
+
+
 def build_bundle(episode, ev, now, scrub):
     """The report for a closed Episode. `ev` is what incident_monitor gathered. Every string is scrubbed, then it is fitted."""
     consent, result = ev.get('consent') or {}, ev.get('result') or {}
@@ -256,7 +264,7 @@ def build_bundle(episode, ev, now, scrub):
         schema=1, id=time.strftime('%Y%m%dT%H%M%SZ', time.gmtime(now)) + f'-{kind}', kind=kind, summary=summary_line(kind, episode.ended),
         created_at=_iso(now), first_signal_at=_iso(episode.first), session=episode.ended or 'kept-running',
         session_kept_alive=not episode.ended, run_id=episode.run_id,
-        cause=guess_cause(episode, dict(ev, logs=logs, cores=cores)), timeline=timeline,
+        cause=guess_cause(episode, dict(ev, logs=logs, cores=cores)), observations=observations(episode), timeline=timeline,
         versions=dict(source_sha=source.get('sha'), source_dirty=source.get('dirty'), bin=Path(renderer['path']).parent.name if renderer.get('path') else None,
                       renderer_sha256=renderer.get('sha256'), plugin_sha256=plugin.get('sha256')),
         glasses=dict(model=consent.get('model'), output=consent.get('output'), recovery_output=consent.get('recovery_output'),
@@ -270,6 +278,31 @@ def build_bundle(episode, ev, now, scrub):
     # The id too: a long kind makes it look like a token, and it is the file's name.
     clean = scrub.keeping(bundle['id'], episode.run_id, source.get('sha'), renderer.get('sha256'), plugin.get('sha256'))
     return fit(clean.tree(bundle))
+
+
+def amend_bundle(previous, episode, ev, now, scrub):
+    """Correlate by exact run identity, without claiming the earlier incident caused the later end."""
+    merged = Episode(episode.run_id, episode.first)
+    for entry in previous['timeline']:
+        merged.add(Signal(datetime.datetime.fromisoformat(entry['at']).timestamp(), entry['kind'], entry['source'], entry['detail']))
+        merged.repeats[-1] = entry.get('repeats', 0)
+    for signal, repeats in zip(episode.signals, episode.repeats):
+        merged.add(signal)
+        merged.repeats[-1] += repeats
+    merged.ended, merged.ended_at = episode.ended, episode.ended_at
+    fresh = build_bundle(merged, ev, now, scrub)
+    out = dict(previous)
+    for key in ('timeline', 'cause', 'observations', 'first_signal_at'):
+        out[key] = fresh[key]
+    if episode.ended:
+        for key in ('session', 'session_kept_alive', 'renderer', 'unit', 'recovery', 'faults', 'metrics'):
+            out[key] = fresh[key]
+        out['summary'] = summary_line(previous['kind'], episode.ended)
+        out['session_outcome_at'] = _iso(episode.ended_at)
+    out['updated_at'] = _iso(now)
+    for name, lines in fresh['logs'].items():
+        out['logs'][name] = list(dict.fromkeys(out['logs'][name] + lines))[-200:]
+    return fit(out)
 
 
 def markdown(bundle):
@@ -327,6 +360,21 @@ class Reports:
                 if not self._taken(fd, stem + '.json') and not self._taken(fd, stem + '.md'): break
             self._put(fd, stem + '.md', summary.encode())
             self._put(fd, stem + '.json', serialize(dict(bundle, id=stem)))
+            os.fsync(fd)
+        finally: os.close(fd)
+        return self.directory / (stem + '.json')
+
+    def read(self, stem):
+        if not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+', stem): raise ValueError('invalid incident id')
+        return read_private_json(self.directory / (stem + '.json'), limit=MAX_BUNDLE)
+
+    def update(self, bundle):
+        stem = bundle['id']
+        self.read(stem)  # validate the name and refuse missing, unsafe or oversized files
+        fd = private_dir(self.directory)
+        try:
+            self._put(fd, stem + '.md', markdown(bundle).encode())
+            self._put(fd, stem + '.json', serialize(bundle))
             os.fsync(fd)
         finally: os.close(fd)
         return self.directory / (stem + '.json')

@@ -1,0 +1,85 @@
+FFFFFFFF
+======================================================================
+FAIL: test_driver_silence_does_not_confirm_bus_disconnect (tests.xr_controller.test_incident_evidence.EvidenceTests.test_driver_silence_does_not_confirm_bus_disconnect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 22, in test_driver_silence_does_not_confirm_bus_disconnect
+    self.assertIn('observations', b)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+AssertionError: 'observations' not found in {'schema': 1, 'id': '19700101T001650Z-usb-drop', 'kind': 'usb-drop', 'summary': "the glasses' USB connection dropped but the session kept running", 'created_at': '1970-01-01T00:16:50Z', 'first_signal_at': '1970-01-01T00:16:40Z', 'session': 'kept-running', 'session_kept_alive': True, 'run_id': '2298c7a18df736b9b6c4bde5b5877031', 'cause': {'text': "The glasses' USB hub dropped off the bus. On 2026-11-03 this came before most ended sessions, and it points at the cable, the port or the glasses themselves rather than this software.", 'confidence': 'medium'}, 'timeline': [{'at': '1970-01-01T00:16:40Z', 'source': 'driver-log', 'kind': 'usb-drop', 'detail': 'driver lost samples'}], 'versions': {'source_sha': '13c8d5e000000000000000000000000000000000', 'source_dirty': False, 'bin': 'f0de154899b9', 'renderer_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'plugin_sha256': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}, 'glasses': {'model': 'luma-ultra', 'output': 'DP-2', 'recovery_output': 'DP-1', 'tracking': True, 'tracking_driver': None}, 'display': {'mode': '1920x1200@120', 'expected_mode': '1920x1200@120', 'drm': 'connected'}, 'renderer': {'returncode': 1, 'signal': None, 'stop_reason': None, 'complete': True, 'phase': 'done', 'error': None}, 'recovery': {'remaining': [], 'reasons': []}, 'faults': [], 'unit': {'code': 'exited', 'status': '2/INVALIDARGUMENT'}, 'metrics': {'last': {'presented_hz': 119.9, 'missed': 0}, 'exit_report': {}}, 'core_dumps': [], 'logs': {'run': [], 'controller': [], 'driver': [], 'kernel': []}, 'suppressed_since_last': {}, 'truncated': False, 'privacy': '<line removed: window or clipboard text>'}
+
+======================================================================
+FAIL: test_usb_and_video_order_is_timestamp_order_not_kind_priority (tests.xr_controller.test_incident_evidence.EvidenceTests.test_usb_and_video_order_is_timestamp_order_not_kind_priority) (order='video-first')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 34, in test_usb_and_video_order_is_timestamp_order_not_kind_priority
+    self.assertIn('observations', b)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+AssertionError: 'observations' not found in {'schema': 1, 'id': '19700101T001650Z-usb-drop', 'kind': 'usb-drop', 'summary': "the glasses' USB connection dropped but the session kept running", 'created_at': '1970-01-01T00:16:50Z', 'first_signal_at': '1970-01-01T00:16:40Z', 'session': 'kept-running', 'session_kept_alive': True, 'run_id': '2298c7a18df736b9b6c4bde5b5877031', 'cause': {'text': "The glasses' USB hub dropped off the bus. On 2026-11-03 this came before most ended sessions, and it points at the cable, the port or the glasses themselves rather than this software.", 'confidence': 'high'}, 'timeline': [{'at': '1970-01-01T00:16:40Z', 'source': 'renderer', 'kind': 'video-lost', 'detail': 'video-lost happened'}, {'at': '1970-01-01T00:16:41Z', 'source': 'kernel', 'kind': 'usb-drop', 'detail': 'usb-drop happened'}], 'versions': {'source_sha': '13c8d5e000000000000000000000000000000000', 'source_dirty': False, 'bin': 'f0de154899b9', 'renderer_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'plugin_sha256': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}, 'glasses': {'model': 'luma-ultra', 'output': 'DP-2', 'recovery_output': 'DP-1', 'tracking': True, 'tracking_driver': None}, 'display': {'mode': '1920x1200@120', 'expected_mode': '1920x1200@120', 'drm': 'connected'}, 'renderer': {'returncode': 1, 'signal': None, 'stop_reason': None, 'complete': True, 'phase': 'done', 'error': None}, 'recovery': {'remaining': [], 'reasons': []}, 'faults': [], 'unit': {'code': 'exited', 'status': '2/INVALIDARGUMENT'}, 'metrics': {'last': {'presented_hz': 119.9, 'missed': 0}, 'exit_report': {}}, 'core_dumps': [], 'logs': {'run': [], 'controller': [], 'driver': [], 'kernel': []}, 'suppressed_since_last': {}, 'truncated': False, 'privacy': '<line removed: window or clipboard text>'}
+
+======================================================================
+FAIL: test_usb_and_video_order_is_timestamp_order_not_kind_priority (tests.xr_controller.test_incident_evidence.EvidenceTests.test_usb_and_video_order_is_timestamp_order_not_kind_priority) (order='usb-first')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 34, in test_usb_and_video_order_is_timestamp_order_not_kind_priority
+    self.assertIn('observations', b)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+AssertionError: 'observations' not found in {'schema': 1, 'id': '19700101T001650Z-usb-drop', 'kind': 'usb-drop', 'summary': "the glasses' USB connection dropped but the session kept running", 'created_at': '1970-01-01T00:16:50Z', 'first_signal_at': '1970-01-01T00:16:40Z', 'session': 'kept-running', 'session_kept_alive': True, 'run_id': '2298c7a18df736b9b6c4bde5b5877031', 'cause': {'text': "The glasses' USB hub dropped off the bus. On 2026-11-03 this came before most ended sessions, and it points at the cable, the port or the glasses themselves rather than this software.", 'confidence': 'high'}, 'timeline': [{'at': '1970-01-01T00:16:40Z', 'source': 'kernel', 'kind': 'usb-drop', 'detail': 'usb-drop happened'}, {'at': '1970-01-01T00:16:41Z', 'source': 'renderer', 'kind': 'video-lost', 'detail': 'video-lost happened'}], 'versions': {'source_sha': '13c8d5e000000000000000000000000000000000', 'source_dirty': False, 'bin': 'f0de154899b9', 'renderer_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'plugin_sha256': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'}, 'glasses': {'model': 'luma-ultra', 'output': 'DP-2', 'recovery_output': 'DP-1', 'tracking': True, 'tracking_driver': None}, 'display': {'mode': '1920x1200@120', 'expected_mode': '1920x1200@120', 'drm': 'connected'}, 'renderer': {'returncode': 1, 'signal': None, 'stop_reason': None, 'complete': True, 'phase': 'done', 'error': None}, 'recovery': {'remaining': [], 'reasons': []}, 'faults': [], 'unit': {'code': 'exited', 'status': '2/INVALIDARGUMENT'}, 'metrics': {'last': {'presented_hz': 119.9, 'missed': 0}, 'exit_report': {}}, 'core_dumps': [], 'logs': {'run': [], 'controller': [], 'driver': [], 'kernel': []}, 'suppressed_since_last': {}, 'truncated': False, 'privacy': '<line removed: window or clipboard text>'}
+
+======================================================================
+FAIL: test_usb_disconnect_is_not_a_hardware_root_cause (tests.xr_controller.test_incident_evidence.EvidenceTests.test_usb_disconnect_is_not_a_hardware_root_cause)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 13, in test_usb_disconnect_is_not_a_hardware_root_cause
+    self.assertEqual(b['cause']['confidence'], 'low')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'high' != 'low'
+- high
++ low
+
+
+======================================================================
+FAIL: test_all_reports_in_run_get_terminal_outcome (tests.xr_controller.test_incident_evidence.LifecycleTests.test_all_reports_in_run_get_terminal_outcome)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 88, in test_all_reports_in_run_get_terminal_outcome
+    self.assertEqual(len(self.reports()), 2)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 3 != 2
+
+======================================================================
+FAIL: test_clean_end_without_stop_evidence_is_not_called_user_stop (tests.xr_controller.test_incident_evidence.LifecycleTests.test_clean_end_without_stop_evidence_is_not_called_user_stop)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 98, in test_clean_end_without_stop_evidence_is_not_called_user_stop
+    self.assertEqual(self.only()['session'], 'ended')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'kept-running' != 'ended'
+- kept-running
++ ended
+
+
+======================================================================
+FAIL: test_nov4_clusters_then_timeout_amend_existing_report (tests.xr_controller.test_incident_evidence.LifecycleTests.test_nov4_clusters_then_timeout_amend_existing_report)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 51, in test_nov4_clusters_then_timeout_amend_existing_report
+    b = self.only()
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_monitor.py", line 119, in only
+    self.assertEqual(len(reports), 1, [p.name for p in reports])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 1 : ['20261103T235439Z-usb-drop.json', '20261103T235449Z-tracking-lost.json']
+
+======================================================================
+FAIL: test_suppressed_cluster_keeps_timestamp_and_updates_on_stop_after_restart (tests.xr_controller.test_incident_evidence.LifecycleTests.test_suppressed_cluster_keeps_timestamp_and_updates_on_stop_after_restart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/t3-3603d49f/tests/xr_controller/test_incident_evidence.py", line 68, in test_suppressed_cluster_keeps_timestamp_and_updates_on_stop_after_restart
+    self.assertEqual(len([t for t in b['timeline'] if t['source'] == 'kernel']), 2)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.012s
+
+FAILED (failures=8)
