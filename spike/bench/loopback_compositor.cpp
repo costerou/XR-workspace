@@ -143,7 +143,10 @@ struct Gpu {
     PFNEGLCREATEIMAGEKHRPROC create_image = nullptr; PFNEGLDESTROYIMAGEKHRPROC destroy_image = nullptr;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target = nullptr; PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_mods = nullptr;
     bool init(std::string& why) {
-        for (const char* node : {"/dev/dri/renderD128", "/dev/dri/renderD129"}) {
+        const char* explicit_node = std::getenv("XR_CAPTURE_TEST_NODE");
+        // An explicit offline-test device never falls back to another GPU.
+        for (const char* node : {explicit_node ? explicit_node : "/dev/dri/renderD128",
+                                 explicit_node ? explicit_node : "/dev/dri/renderD129"}) {
             struct stat st{};
             if (stat(node, &st) != 0 || !S_ISCHR(st.st_mode)) continue;
             fd = ::open(node, O_RDWR | O_CLOEXEC);
