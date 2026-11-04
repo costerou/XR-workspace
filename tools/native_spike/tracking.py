@@ -1,9 +1,9 @@
 """Network-blocked XRLinuxDriver lifecycle for head tracking (user grants 2026-10-31).
 
-The driver runs in an unprivileged user+network namespace (only `lo`), so its licence/hardware-id
-requests cannot leave the machine; it then starts without a licence after ~30 s of retries and
-publishes 3DoF orientation over SysV IPC. It must not drive the mouse (output_mode=external_only).
-Lifetime is independent of managed runs (startup is slow); stop signals only the exact process.
+The driver runs in unprivileged user, network and mount namespaces (only `lo`, which stays down), so
+its licence requests cannot leave the machine; it starts without a licence and publishes 3DoF
+orientation over SysV IPC. It must not drive the mouse (output_mode=external_only). Lifetime is
+independent of managed runs (startup is slow); stop signals only the exact process.
 """
 import json
 import os
@@ -18,6 +18,18 @@ DRIVER = '/usr/bin/xrDriver'
 DRIVER_LOG = Path.home() / '.local/state/xr_driver/driver.log'
 DRIVER_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'xr_driver/config.ini'
 READY = 'Device calibration complete'
+# Without a MAC to hash into a hardware id the driver retries for 30 s, then carries on. A made-up MAC
+# on `lo` ends that wait, and `lo` stays down, so there are still no routes. The driver only looks at
+# interfaces with an IPv4 address. It must not be 127.0.0.1: an address on a down interface swallows
+# traffic instead of refusing it, and name lookups, with no resolver left, try 127.0.0.1 and would
+# sit out their timeouts. This one is from a range kept for documentation.
+FAKE_MAC = '02:00:00:00:00:01'
+FAKE_ADDRESS = '192.0.2.1/32'
+# With an id the driver tries to fetch a licence at every start and connect, and curl's name lookup
+# would reach the real DNS through systemd-resolved's socket, which is a file: a network namespace
+# does not cover it. So the MAC is only set once that directory is hidden. If any step fails the
+# driver gets no id, never tries the licence server, and just starts 30 s later.
+RESOLVED_DIR = '/run/systemd/resolve'
 
 
 def _start_tick(pid):
@@ -54,6 +66,27 @@ def _other_drivers(exclude=None):
     return found
 
 
+def _driver_argv():
+    """Set the namespaces up as their root, then become ourselves in a child user namespace.
+
+    The driver ends up with no capabilities, and its network belongs to the parent namespace, so it
+    cannot change any of this. Each step execs in place: the recorded pid and tick are the driver's.
+    """
+    setup = (f'mount -t tmpfs tmpfs {RESOLVED_DIR} && ip link set lo address {FAKE_MAC} && ip address add {FAKE_ADDRESS} dev lo\n'
+             f'exec unshare --user --map-user={os.getuid()} --map-group={os.getgid()} -- "$0"')
+    return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, DRIVER]
+
+
+def _interfaces(pid):
+    return [line.split(':')[0].strip() for line in Path(f'/proc/{pid}/net/dev').read_text().splitlines()[2:]]
+
+
+def _network_isolated(pid):
+    """The process has its own network namespace and `lo` is all that is in it, so nothing can leave."""
+    try: return os.readlink(f'/proc/{pid}/ns/net') != os.readlink('/proc/self/ns/net') and _interfaces(pid) == ['lo']
+    except OSError: return False
+
+
 def _check_config():
     try: lines = dict(l.split('=', 1) for l in DRIVER_CONFIG.read_text().splitlines() if '=' in l and not l.startswith('#'))
     except OSError: raise ValueError('XRLinuxDriver config missing')
@@ -65,15 +98,13 @@ def status(runtime):
     data = _read_state(runtime)
     if not _ours(data): return {'running': False}
     pid = data['pid']
-    try: isolated = os.readlink(f'/proc/{pid}/ns/net') != os.readlink('/proc/self/ns/net')
-    except OSError: isolated = False
-    log = DRIVER_LOG.read_text(errors='replace') if DRIVER_LOG.exists() else ''
-    current = log[data.get('log_offset', 0):]
+    log = DRIVER_LOG.read_bytes() if DRIVER_LOG.exists() else b''
+    current = log[data.get('log_offset', 0):].decode(errors='replace')
     # Readiness belongs to the latest connection, not any earlier calibration.
     invalidated = max(current.rfind(marker) for marker in (
         'Retrying driver connection', 'Waiting on device calibration', 'Failed to send USB command'))
     calibrated = current.rfind(READY) > invalidated
-    return {'running': True, 'pid': pid, 'network_isolated': isolated, 'calibrated': calibrated}
+    return {'running': True, 'pid': pid, 'network_isolated': _network_isolated(pid), 'calibrated': calibrated}
 
 
 def ensure_ready(runtime, timeout=120.0):
@@ -95,8 +126,7 @@ def start(runtime, timeout=120.0):
     _check_config()
     if _other_drivers(): raise ValueError('another XRLinuxDriver is running; refusing to compete for the glasses')
     offset = DRIVER_LOG.stat().st_size if DRIVER_LOG.exists() else 0
-    child = subprocess.Popen(['unshare', '--user', '--map-current-user', '--net', '--', DRIVER],
-                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    child = subprocess.Popen(_driver_argv(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True, close_fds=True)
     deadline = time.monotonic() + 2
     tick = None

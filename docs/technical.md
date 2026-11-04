@@ -48,7 +48,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 - `omarchy-plugin/cody.viture-workspace/` is the Quickshell panel and bar widget. It is a thin client of the controller socket.
 - `tools/xr_probe/` is the original read-only host diagnostic (see below).
 
-Head tracking comes from XRLinuxDriver (`/usr/bin/xrDriver`), run in an unprivileged network namespace in `external_only` mode so it cannot reach the network or move the mouse.
+Head tracking comes from XRLinuxDriver (`/usr/bin/xrDriver`), run in unprivileged namespaces in `external_only` mode so it cannot reach the network or move the mouse ([how it is kept offline](#how-the-tracking-driver-is-kept-offline)).
 
 ## Build and install
 
@@ -573,6 +573,47 @@ for calibration. It refuses to compete with an XRLinuxDriver it did not start. F
 ```sh
 python -m tools.native_spike tracking start   # also: status, stop
 ```
+
+### How the tracking driver is kept offline
+
+The driver starts inside its own unprivileged user, network and mount namespaces (`tracking._driver_argv`). The network
+namespace holds `lo` and nothing else, and `lo` stays down with no routes, so nothing the driver sends can leave.
+`status` reports `network_isolated` only while the driver has its own namespace with `lo` as its only interface, and
+`start` stops a driver that fails that check. The driver runs as you with no capabilities, and the namespace belongs to
+its parent, so it cannot change any of this.
+
+Three things here are easy to get wrong:
+
+- **The 30 s wait.** The driver hashes a MAC into a hardware id and retries for 30 s if it finds none (`src/system.c`),
+  which cost every start 30 s. `lo` now carries a made-up MAC (`02:00:00:00:00:01`) and an IPv4 address, because the
+  driver only looks at interfaces that have one. The id is the same on every machine and says nothing about this one.
+- **A network namespace does not stop name lookups.** With an id, the driver tries its licence server at every start
+  and connect. No route reaches it, but the lookup would: glibc asks systemd-resolved through
+  `/run/systemd/resolve/io.systemd.Resolve`, which is a file, and resolved sends the query out from the host. So a tmpfs
+  in the mount namespace covers that directory, and the MAC is only set once that has worked. If any step fails, the
+  driver has no id, never tries, and starts 30 s later, as it always did.
+- **The address is not 127.0.0.1.** With resolved hidden, lookups fall back to a nameserver at 127.0.0.1. An address on
+  a down interface swallows traffic instead of refusing it, so each of the three attempts would use up curl's 15 s. With
+  192.0.2.1 from the documentation range, 127.0.0.1 has no route and the attempt fails at once.
+
+Every licence attempt leaves two lines in `driver.log`, "Could not resolve hostname" and "Error opening file". They are
+expected. The second prints a few garbage bytes, because the driver logs a string it has just freed, which is why
+`status` slices the log as bytes. Calibration stays: the Luma Ultra's 11 to 12 s is a fixed wait compiled into the driver
+(`viture_calibration_wait_s`, 10 s, compared in whole seconds), with no config key.
+
+Status: tested offline (`tests/native_spike/test_tracking.py`, which runs the real namespaces with a probe in the
+driver's place) and with the real driver in a sandbox with no USB devices and a fake resolved socket. There the wait
+before "Starting up XR driver" went from 30.0 s to 1 ms, and resolved saw nothing; without the tmpfs it saw four lookups
+of the licence server. Not yet tried on the glasses. The 19:39 start on 2026-11-03 took 43.5 s from the run starting to
+calibration, so expect about 13.5 s.
+
+| Step | Do this | Pass when |
+| --- | --- | --- |
+| T1 | Start XR with *Head tracking* ticked, glasses still | The tracking step ends in about 15 s, not about 45 s |
+| T2 | Look around, then press Ctrl+Alt+Space | Tracking follows your head and recentring works, as before |
+| T3 | Run `python -m tools.native_spike tracking status` | `network_isolated` and `calibrated` are both true |
+| T4 | Read the end of `~/.local/state/xr_driver/driver.log` | "Using hardware id c27c02f2…" and "Could not resolve hostname"; no "Failed to get hardwareId" |
+| T5 | Stop XR, then start it again | The same again, and the desktop comes back as usual |
 
 ### CLI recovery
 
