@@ -494,6 +494,11 @@ if(XR_ENABLE_PRESENTATION)
     add_test(NAME capture_e2e_maximize_4_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 1.5 --warmup 1
       --outputs 4 --maximize 4 --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_maximize_4_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    # The dot and the Serif Beam (`overview_pointer`'s look): every flip lands in the first draw after it, read back from the
+    # pixels, so nothing between the control socket and the frame holds a change back.
+    add_test(NAME capture_e2e_pointer_look_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 2.5 --warmup 1
+      --outputs 1 --capture-hz 30 --pointer-look --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_pointer_look_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     # Constraint churn as a Hyprland layout change or config reload sends it: no desktop goes blank, constraints that come
     # back re-create nothing, and a real size change keeps the last frame up until the new buffers deliver one.
     foreach(MODE gl-shm gl-dmabuf)  # the background through the real renderer: its frame, the fade, the desktops still shown

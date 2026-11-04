@@ -17,6 +17,13 @@ std::string cursorShapeName(const std::string& name) {
     for(unsigned char c:name) if(!word(c) && c!='_' && c!='.' && c!='-') return {};
     return name;
 }
+bool CursorNotice::announce(const std::string& shape,std::uint64_t nowMs) {
+    if(shape==last) return false;
+    if(nowMs<windowMs || nowMs-windowMs>=1000) { windowMs=nowMs; sent=0; }
+    if(sent>=kPerSecond) return false;
+    ++sent; last=shape;
+    return true;
+}
 Json parse_request(const std::string& wire) {
     if(wire.size()>8192 || !wire.starts_with("xrspike ")) throw std::runtime_error("request bounds/prefix");
     std::map<int,std::set<std::string>> keys;

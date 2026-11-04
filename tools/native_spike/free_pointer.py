@@ -191,8 +191,11 @@ POINTER_LOOKS = ('resize_ew', 'resize_ns', 'resize_nwse', 'resize_nesw', 'move',
 # The Serif Beam: the names of a text cursor, as an app asks by name (wp_cursor_shape: text, vertical-text) or as a cursor
 # theme calls it (xterm, ibeam). Asked for by picture (wl_pointer.set_cursor), a cursor has no name: the plain dot.
 TEXT_SHAPES = frozenset({'text', 'vertical-text', 'xterm', 'ibeam'})
-TEXT_HOLD_S = 0.1         # the beam stays this long after the app stops asking for it, so the gaps between lines do not flicker
-SHAPE_S = 1 / 30          # desktop mode: how often the sampler asks what cursor the app wants (ownership.cursor_reader)
+TEXT_BOUNCE_S = 0.06      # text, something else, text again this fast is a gap between lines, and the beam rides out the next one
+TEXT_SWEEP_S = 0.4        # how long after a gap leaving text still waits TEXT_BOUNCE_S; otherwise it is at once (TextHold)
+SHAPE_S = 1 / 120         # desktop mode: how often the sampler asks what cursor the app wants, with no push (ownership.cursor_reader)
+SHAPE_CHECK_S = 0.25      # the same while the plugin pushes each change (OverviewPointer.push_shape): only a check on the pushes
+SHAPE_SETTLE_S = 1 / 30   # the app's time to answer the pointer's arrival, before a read means anything
 SHAPE_RETRY_S = 1.0       # after a failed read
 RESIZE_LOOKS = {'l': 'resize_ew', 'r': 'resize_ew', 't': 'resize_ns', 'b': 'resize_ns',
                 'tl': 'resize_nwse', 'br': 'resize_nwse', 'tr': 'resize_nesw', 'bl': 'resize_nesw'}
@@ -555,20 +558,25 @@ def is_text_shape(name):
 
 
 class TextHold:
-    """Whether the beam is on: at once when the app asks for it, and TEXT_HOLD_S after the app stops, counted from the first
-    step without it. Asking again inside that time ends the wait, so a gap between lines changes nothing on screen."""
+    """Whether the beam is on: at once when the app asks for it, and at once when it stops, with one exception. Text that comes
+    back within TEXT_BOUNCE_S of going is the gap between two lines, so for TEXT_SWEEP_S after that every leave waits
+    TEXT_BOUNCE_S first: the sweep down a page holds the beam, and only the first gap of a sweep can show the dot."""
     def __init__(self):
-        self.on, self.until = False, None
+        self.on, self.until = False, None  # until: the end of a leave's wait
+        self.left, self.sweep = None, 0.0  # left: when the beam last went; sweep: leaves wait until then
 
     def step(self, text, now):
-        if text: self.on, self.until = True, None
+        if text:
+            if self.until is not None or (self.left is not None and now - self.left <= TEXT_BOUNCE_S):
+                self.sweep = now + TEXT_SWEEP_S
+            self.on, self.until, self.left = True, None, None
         elif self.on:
-            if self.until is None: self.until = now + TEXT_HOLD_S
-            elif now >= self.until: self.on, self.until = False, None
+            if self.until is None and now < self.sweep: self.until = now + TEXT_BOUNCE_S
+            elif self.until is None or now >= self.until: self.on, self.until, self.left = False, None, now
         return self.on
 
     def clear(self):
-        self.on, self.until = False, None
+        self.on, self.until, self.left, self.sweep = False, None, None, 0.0
 
 
 def look_for(h):
@@ -928,7 +936,12 @@ class OverviewPointer:
         self.control, self.clock = control, clock
         self._lock = threading.Lock()
         self._abs, self._motion, self._applied, self._outputs, self._fresh = None, [0.0, 0.0], 0, [], False
-        self._shape_text = False   # the sampler's last read: the app under the pointer asks for a text cursor (feed_shape)
+        self._shape_text = False   # the newest word: the app under the pointer asks for a text cursor (feed_shape, push_shape)
+        self._shape_serial = 0     # counts pushes: a read that a push overtook says nothing (shape_serial, feed_shape)
+        self._push_text = False    # what the last push said, whatever the gate did with it
+        self.shape_wired = False   # the sampler has a broker read: a run without one takes no push
+        self.shape_pushed = False  # pushes arrive and the reads agree with them, so the sampler only checks (SHAPE_CHECK_S)
+        self.shape_gated = False   # the beam's gate shut on a word: when it opens the sampler reads at SHAPE_S (_step_text)
         self.text_hold = TextHold()  # the Serif Beam is on (_step_text, _look)
         self.geometry = None       # parse_overview_geometry, from the renderer
         self.layout_stale = False  # the desktops changed since it came (_layout_ready)
@@ -1075,14 +1088,33 @@ class OverviewPointer:
         if changed: self._poke()
         return changed
 
-    def feed_shape(self, name):
-        """Sampler thread: the cursor the app under the pointer asked for, by name, None for none or a failed read. Wakes the
-        loop on a change, and at every read while the hold runs, so the dot comes back on time without a cursor motion."""
+    def shape_serial(self):
+        """Sampler thread, before a read: hand it back to feed_shape."""
+        with self._lock: return self._shape_serial
+
+    def feed_shape(self, name, serial=None):
+        """Sampler thread: the cursor the app under the pointer asked for, by name, None for none or a failed read. A read from
+        before the newest push (`serial`: shape_serial at its start) is older than that push and counts for nothing. One that
+        disagrees with the last push means a push went missing, so the sampler reads at SHAPE_S until the next one arrives.
+        Wakes the loop on a change, and at every read while a leave waits."""
         text = is_text_shape(name)
         with self._lock:
+            if serial is not None and serial != self._shape_serial: return
+            if text != self._push_text: self.shape_pushed = False
             changed = text != self._shape_text
             self._shape_text = text
         if changed or self.text_hold.until is not None: self._poke()
+
+    def push_shape(self, name):
+        """Loop thread: the plugin says the cursor changed (ViewControl.on_events; None for none). The poll that follows in this
+        same pass of the loop sends the frame. Before the sampler has applied the pointer's last warp the name may be the
+        place it left, so that one only counts as proof that pushes arrive: the read after the warp gets the truth."""
+        text = is_text_shape(name)
+        with self._lock:
+            if not self.shape_wired: return
+            self._shape_serial += 1
+            self._push_text, self.shape_pushed = text, True
+            if self._applied >= self._sync: self._shape_text = text
 
     def _poke(self):
         try: self._wake_writer.send(b'.')
@@ -1659,13 +1691,16 @@ class OverviewPointer:
         return self.mode == 'desktop' and self.drag is None and self._handles_on() and zone_of(self._hit()) == 'content'
 
     def _step_text(self, now):
-        """This tick's beam (TextHold). Off at once when the gate shuts: a handle wins with no hold, and a read from before
-        counts for nothing, so back in the overview the dot waits for a fresh one."""
+        """This tick's beam (TextHold). Off at once when the gate shuts: a handle wins with no wait, and a word from before
+        counts for nothing, so back in the overview the dot waits for a fresh read (shape_gated: no push comes for a cursor
+        that did not change)."""
         with self._lock: text = self._shape_text
-        if not text and not self.text_hold.on: return
+        if not text and not self.text_hold.on and not self.shape_gated: return
         if self._text_allowed():
+            self.shape_gated = False
             self.text_hold.step(text, now)
             return
+        self.shape_gated = True
         self.text_hold.clear()
         with self._lock: self._shape_text = False
 
@@ -1709,7 +1744,10 @@ class PointerSampler:
     def __init__(self, client, names, pointer, bind_args, period=SAMPLE_S, cursor_shape=None):
         self.client, self.names, self.pointer, self.bind_args, self.period = client, list(names), pointer, bind_args, period
         self.cursor_shape = cursor_shape  # () -> the requested cursor's name or None (ownership.cursor_reader); None: no reads
-        self._shape_due = 0.0     # the next read, monotonic
+        pointer.shape_wired = cursor_shape is not None
+        self._shape_due = 0.0     # no read before this, monotonic: the app's time to answer, or the wait after a failure
+        self._shape_read = 0.0    # when the last read was
+        self._shape_open = False  # the beam's gate was shut: the next read waits no SHAPE_CHECK_S, and it is the first after it
         self.shape_errors = 0
         self.names_changed = False
         self._stop = threading.Event()
@@ -1768,21 +1806,26 @@ class PointerSampler:
             self._stop.wait(self.period)
 
     def _read_shape(self):
-        """The dot on a desktop's content: what cursor the app under it wants, every SHAPE_S (OverviewPointer.feed_shape).
-        Not until the sampler has applied the pointer's last warp and the app has had SHAPE_S to answer it. A failed read is
-        the plain dot, and the next one waits SHAPE_RETRY_S."""
+        """The dot on a desktop's content: what cursor the app under it wants, every SHAPE_S (OverviewPointer.feed_shape), or
+        every SHAPE_CHECK_S while the plugin pushes each change (push_shape) and the reads agree. Not until the sampler has
+        applied the pointer's last warp and the app has had SHAPE_SETTLE_S to answer it. A failed read is the plain dot, and
+        the next one waits SHAPE_RETRY_S."""
         read, p, now = self.cursor_shape, self.pointer, time.monotonic()
         if read is None: return
         if p.mode != 'desktop' or not p._handles_on() or self.applied is None or self.applied < p._sync:
-            self._shape_due = now + SHAPE_S
+            self._shape_due, self._shape_read = now + SHAPE_SETTLE_S, 0.0  # the read once it is over is due at once
             return
-        if now < self._shape_due: return
-        self._shape_due = now + SHAPE_S
+        gated = p.shape_gated
+        self._shape_open = self._shape_open or gated  # a cursor that did not change sends no push, however long the gate shut
+        every = SHAPE_CHECK_S if p.shape_pushed and not self._shape_open else SHAPE_S
+        if now < self._shape_due or now - self._shape_read < every: return
+        self._shape_read, self._shape_open = now, gated
+        serial = p.shape_serial()
         try: name = read()
         except (OSError, ValueError, TypeError, KeyError):
             self.shape_errors += 1
             self._shape_due, name = now + SHAPE_RETRY_S, None
-        p.feed_shape(name)
+        p.feed_shape(name, serial)
 
     def _sample(self):
         try:
