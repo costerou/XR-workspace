@@ -284,6 +284,10 @@ class OptionsMenu:
                     self._owner_requests.clear();self._owner_active=None
                 self._owner_result=None
 
+    def drain_completions(self):
+        """Supervisor-loop barrier after consuming owner events; no invented status."""
+        self._drain_owner()
+
     def refuse(self, request_id, op, detail):
         if request_id not in self.pending_ids: return False
         if self._owner_active is not None:

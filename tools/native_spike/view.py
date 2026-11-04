@@ -2062,6 +2062,10 @@ class ViewControl:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
         if self.keys is not None: out += self.keys.poll(now)  # the key bind panel: its own idle close, a change's timeout
+        # Workers enqueue completion before publishing terminal owner events.
+        # A result can arrive after options.tick's first drain but before the
+        # event reads above; apply that real result before this poll's snapshot.
+        self.options.drain_completions()
         return (out + self._options_frame()) or None
 
     def _typing_toggle(self):
