@@ -3,6 +3,7 @@ runs only when asked for, and never during a glasses session:
 
     XR_DEPTH_GPU_TESTS=1 python3 -m unittest discover -s tests/depth_engine -p 'test_real_model.py' -v
 """
+import io
 import json
 import os
 import subprocess
@@ -11,6 +12,8 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = Path(os.environ.get("XR_DEPTH_CACHE", Path.home() / ".cache/viture-depth")) / "venv/bin/python"
@@ -35,6 +38,7 @@ CHECK = textwrap.dedent("""
     for value in (0, 255):
         px = np.full((h, w, 4), value, np.uint8)
         blank[str(value)] = float(np.ptp(b.infer([px])[0]))
+    np.save(sys.argv[4], s)
     print(json.dumps({
         "near_block": at(s, .75, .75), "far_block": at(s, .23, .41), "road_near": at(s, .3, .9), "road_far": at(s, .5, .46), "sky": at(s, .5, .1),
         "windows": [at(t, .25, .3), at(t, .75, .25), at(t, .75, .7)], "wall": at(t, .25, .85), "blank": blank, "shape": list(s.shape)}))
@@ -43,13 +47,17 @@ CHECK = textwrap.dedent("""
 
 @unittest.skipUnless(os.environ.get("XR_DEPTH_GPU_TESTS") == "1" and PYTHON.exists(), "GPU test: set XR_DEPTH_GPU_TESTS=1 after setup.sh")
 class RealModel(unittest.TestCase):
+    maps: dict = {}
+
     def run_model(self, name, w, h):
         with tempfile.TemporaryDirectory() as d:
             script = Path(d) / "check.py"
             script.write_text(CHECK)
             env = dict(os.environ, PYTHONPATH=str(ROOT))
-            r = subprocess.run([PYTHON, script, name, str(w), str(h)], capture_output=True, text=True, env=env, cwd=d, timeout=120)
-        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+            saved = Path(d) / "map.npy"
+            r = subprocess.run([PYTHON, script, name, str(w), str(h), saved], capture_output=True, text=True, env=env, cwd=d, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr[-800:])
+            self.maps[name] = saved.read_bytes()
         return json.loads(r.stdout.strip().splitlines()[-1])
 
     def assert_sees(self, m):
@@ -74,6 +82,10 @@ class RealModel(unittest.TestCase):
 
     def test_ncnn_fallback_sees_the_same(self):
         self.assert_sees(self.run_model("ncnn", 420, 266))
+        self.run_model("rocm", 420, 266)
+        a = np.load(io.BytesIO(self.maps["rocm"]))
+        b = np.load(io.BytesIO(self.maps["ncnn"]))
+        self.assertLess(float(np.abs(a - b).mean()), 0.03)  # The same weights must draw the same map.
 
 
 if __name__ == "__main__":

@@ -102,7 +102,8 @@ class NcnnBackend:
     def infer(self, frames: list[np.ndarray]) -> list[np.ndarray]:
         out = []
         for f in frames:
-            x = ((f[..., :3].astype(np.float32) / 255.0 - MEAN) / STD).transpose(2, 0, 1)
+            # A contiguous copy: ncnn.Mat reads the buffer straight through and would scramble transpose()'s strided view.
+            x = np.ascontiguousarray(((f[..., :3].astype(np.float32) / 255.0 - MEAN) / STD).transpose(2, 0, 1))
             ex = self.net.create_extractor()
             ex.input("in0", self.ncnn.Mat(x).clone())
             _, y = ex.extract("out0")

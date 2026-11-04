@@ -228,6 +228,34 @@ class PacedServing(Base):
         self.assertLessEqual(done, 61)
 
 
+    def test_four_desktops_hold_the_rates_they_were_promised(self):
+        # A batch every 16.7 ms for the focused desktop: the others fall due just after one leaves and must not miss it.
+        clock = self.clock
+
+        class Slow(FakeBackend):
+            def infer(self, frames):
+                clock.t += 9_000_000
+                return super().infer(frames)
+        for ch in range(4):
+            self.shm.set_control(ch, S.ENABLED | (S.FOCUSED if ch == 0 else 0))
+        e = Engine(self.shm, Slow(), Scheduler(focused_hz=60, other_hz=30), clock)
+        start, seq = clock.t, 0
+        seen, counts = [0] * 4, [0] * 4
+        while clock.t - start < 2_000_000_000:
+            seq += 1
+            for ch in range(4):
+                self.shm.publish(S.INPUT, ch, frame(seq % 200), S.FMT_RGBA8, seq, clock.t)
+            e.step()
+            for ch in range(4):
+                f = self.shm.fetch(S.OUTPUT, ch, seen[ch])
+                if f:
+                    seen[ch] = f.source_seq
+                    counts[ch] += 1
+            clock.t += 1_000_000
+        self.assertGreaterEqual(counts[0] / 2, 57)
+        self.assertGreaterEqual(min(counts[1:]) / 2, 29)
+
+
 class Pacing(unittest.TestCase):
     def test_most_overdue_first_within_the_batch(self):
         s = Scheduler(focused_hz=60, other_hz=30, batch=2)
@@ -246,6 +274,14 @@ class Pacing(unittest.TestCase):
         s.ran([0, 1], 1.0)
         self.assertEqual(s.pick(1.0 + 1 / 50, [0, 1], {0}), [0])
         self.assertEqual(sorted(s.pick(1.0 + 1 / 25, [0, 1], {0})), [0, 1])
+
+    def test_a_nearly_due_desktop_joins_a_batch_that_is_leaving(self):
+        s = Scheduler(focused_hz=60, other_hz=30)
+        s.ran([0], 1.0)
+        s.ran([1], 0.99)
+        self.assertEqual(s.pick(1.018, [0, 1], {0}), [0])           # 5.3 ms early: it waits.
+        self.assertEqual(sorted(s.pick(1.02, [0, 1], {0})), [0, 1])  # 3.3 ms early: it comes along.
+        self.assertEqual(s.pick(1.02, [1], set()), [])              # But no batch leaves just for it.
 
     def test_every_desktop_gets_a_turn_under_load(self):
         s = Scheduler(focused_hz=1e6, other_hz=1e6, batch=1)
