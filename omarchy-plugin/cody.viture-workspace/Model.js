@@ -99,9 +99,11 @@ function desktopEdit(width, height, scale) {
     return {width:width, height:height, scale:scale};
 }
 
-// The consent's `tracking` (tools/native_spike/tracking.py SCOPES). The Luma scope covers the handover too: the click agrees to it.
-function trackingLine(tracking) {
+// The consent's `tracking` (tools/native_spike/tracking.py SCOPES) and `tracking_driver`. The Luma scope covers the handover
+// too: the click agrees to it. The 3DoF test never hands over.
+function trackingLine(tracking, driver) {
     if (tracking === "luma") return "Head tracking via the XR Luma driver, network blocked. If it does not calibrate, XRLinuxDriver takes over, also network blocked.";
+    if (tracking && driver === "3dof") return "Head tracking via the 3DoF test build of XRLinuxDriver, network blocked.";
     return tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).";
 }
 
@@ -123,7 +125,7 @@ function scopeLines(scope, action, rules) {
     (scope.desktops || []).forEach((d,i) => required("XR-" + (i+1) + ": " + d.width + " × " + d.height + " · " + d.scale*100 + "%"));
     required("In the glasses, a desktop's glass pill can make it ultrawide, add one (up to " + MAX_DESKTOPS + ") or remove it; its windows then return to " + scope.recovery_output + ".");
     required("Load the pinned ownership plugin for this session.");
-    lines.push({text:trackingLine(scope.tracking), optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
+    lines.push({text:trackingLine(scope.tracking, scope.tracking_driver), optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
     if (scope.mode_switch) {
         const m = scope.mode_switch;
         lines.push({text:"Switch " + scope.output + " to " + m.width + "×" + m.height + "@" + m.refresh_hz + " for this session only.", optional:true, key:"mode_switch"});
@@ -251,3 +253,11 @@ function placedRects(rects, placements) {
         return {x: cx - w / 2, y: cy - h / 2, width: w, height: h};
     });
 }
+
+// The panel's Head tracking driver choices: what the controller can start, plus the saved one if it has gone missing, so
+// the box shows what is wrong. index is -1 for a saved value that is no choice at all.
+function trackingDriverChoices(drivers, saved) {
+    return (drivers || []).filter(d => d.available || d.key === saved)
+        .map(d => ({label:d.label + (d.available ? "" : " (missing)"), key:d.key}));
+}
+function trackingDriverIndex(choices, saved) { return choices.findIndex(c => c.key === saved); }

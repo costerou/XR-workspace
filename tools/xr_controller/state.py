@@ -17,6 +17,7 @@ from tools.native_spike import environment, tracking
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
+from .install import verify_tracking_driver
 
 
 def _monitor_facts(monitor):
@@ -51,6 +52,7 @@ class Controller:
             desktops=self.live.get('desktops') if self.state=='running' else None,
             names=self.live.get('names') if self.state=='running' else None,
             video=self.live.get('video') if self.state=='running' else None,
+            tracking_drivers=o.get('tracking_drivers') or [],
             incident=self.monitor.latest if self.monitor is not None else None))
 
     def _state(self, state):
@@ -93,7 +95,7 @@ class Controller:
         self.observed=self.probe()
         o=self.observed
         self.error=None
-        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals')):
+        if self.pending and any(old.get(k)!=o.get(k) for k in ('model','output','instance','monitors','installed','plugins','journals','tracking_drivers')):
             self.pending=None; self.state='idle'
         journals=o.get('journals',[])
         if len(journals)>1:
@@ -168,6 +170,16 @@ class Controller:
         log('start: the XR Luma driver is chosen but not installed; offering XRLinuxDriver')
         return 'xrlinuxdriver'
 
+    def _tracking_driver(self,profile):
+        """What the start's scope adds for the 3DoF test: nothing for the others. Only a choice the probe offers can start,
+        and a missing or changed test build stops the start here rather than running the standard driver in its place."""
+        if not profile['tracking'] or profile['tracking_driver']!=tracking.DOF3: return {}
+        choice=next((d for d in self.observed.get('tracking_drivers') or [] if d['key']==tracking.DOF3),None)
+        if choice is None or not choice['available']:
+            raise ValueError('the 3DoF test driver is not available. Choose Standard in Startup options.')
+        verify_tracking_driver(choice)
+        return dict(tracking_driver=tracking.DOF3)
+
     def _consent(self,j):
         path=Path('/proc/self/fd')/str(self.consent_fd)/(j['run_id']+'.json')
         from tools.native_spike.ipc import read_private_json
@@ -240,7 +252,7 @@ class Controller:
             installed=dict(o['installed']); luma=installed.pop(LUMA_PIN,None)
             scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
                 tracking=self._tracking_scope(p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
-                desktops=self._startup_desktops(o['model'],p),**installed)
+                desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(p),**installed)
             if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
@@ -266,7 +278,9 @@ class Controller:
                 for k,v in optional.items():
                     if not v: scope[k]=False
                     elif scope[k] is False: raise ValueError('cannot expand confirmed scope')
-                if scope['tracking'] is False: scope.pop(LUMA_PIN,None)
+                if scope['tracking'] is False:
+                    scope.pop(LUMA_PIN,None)
+                    scope.pop('tracking_driver',None)
                 consent=build_consent(scope)
                 name=write_consent(self.consent_fd,consent)
                 self.run=dict(run_id=scope['run_id'])

@@ -103,6 +103,25 @@ TestCase {
         verify(Model.largeLayoutWarning([{width:1920,height:1080}, {width:5120,height:1440}, {width:1920,height:1080}]))
         verify(!Model.largeLayoutWarning(Array(3).fill({width:1920,height:1080})))
     }
+    function test_scopeLinesNameTheTrackingDriver() {
+        const scope = {model:"luma-ultra", output:"DP-2", recovery_output:"DP-1", desktops:[], tracking:"xrlinuxdriver", mode_switch:false};
+        const line = s => Model.scopeLines(s, "start").filter(l => l.key === "tracking")[0];
+        compare(line(scope).text, "Head tracking via XRLinuxDriver, network blocked.");
+        const test = Object.assign({tracking_driver:"3dof"}, scope);
+        compare(line(test).text, "Head tracking via the 3DoF test build of XRLinuxDriver, network blocked.");
+        verify(line(test).optional);
+    }
+    function test_trackingDriverChoices() {
+        const drivers = [{key:"xrdriver", label:"Standard", available:true}, {key:"3dof", label:"3DoF test", available:true}, {key:"luma", label:"New driver", available:true}];
+        compare(Model.trackingDriverChoices(drivers, "xrdriver").map(c => c.label), ["Standard", "3DoF test", "New driver"]);
+        const gone = [drivers[0], Object.assign({}, drivers[1], {available:false}), drivers[2]];
+        compare(Model.trackingDriverChoices(gone, "xrdriver").map(c => c.label), ["Standard", "New driver"]);
+        const saved = Model.trackingDriverChoices(gone, "3dof");
+        compare(saved.map(c => c.label), ["Standard", "3DoF test (missing)", "New driver"]);
+        compare(Model.trackingDriverIndex(saved, "3dof"), 1);
+        compare(Model.trackingDriverIndex(saved, "other"), -1);
+        compare(Model.trackingDriverChoices(undefined, "xrdriver"), []);  // an older controller
+    }
     function test_scopeLines() {
         const scope = {model:"luma-ultra", output:"DP-2", recovery_output:"DP-1",
             desktops:[{width:3840,height:1080,scale:1.25}], tracking:"xrlinuxdriver",

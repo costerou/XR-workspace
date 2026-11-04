@@ -23,6 +23,7 @@ ColumnLayout {
     // monitor for windows to return to. A snapshot without the field (an older controller) is left to the controller.
     readonly property bool fallbackRequired: snapshot.fallback === "choose"
     readonly property bool noFallback: snapshot.fallback === null
+    readonly property var trackingDriverChoices: Model.trackingDriverChoices(snapshot.tracking_drivers, settings.tracking_driver)
     signal request(var message)
     spacing: 14
 
@@ -166,19 +167,23 @@ ColumnLayout {
             CheckBox { objectName: "trackingOption"; text: "Head tracking"; checked: !!root.settings.tracking; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{tracking:checked}}) }
             CheckBox { objectName: "modeSwitchOption"; visible: root.snapshot.model==="luma-ultra"; text: "120 Hz mode switch"; checked: !!root.settings.mode_switch; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{mode_switch:checked}}) }
         }
-        // Offered once a build with the XR Luma driver is installed (the controller's luma_available); XRLinuxDriver stays the default.
+        // Standard, the 3DoF test (docs/tracking-3dof-ab.md) and the new driver: whichever are installed, and a saved one
+        // that has gone missing. Only the new driver falls back to Standard, which the start box says.
         RowLayout {
             objectName: "trackingDriverOption"
-            visible: !!root.settings.tracking && (!!root.snapshot.luma_available || root.settings.tracking_driver === "luma")
+            visible: !!root.settings.tracking && root.trackingDriverChoices.length > 1
+            Layout.fillWidth: true
             spacing: 10
             Label { text: "Tracking driver" }
             ComboBox {
                 objectName: "trackingDriverCombo"
-                textRole: "text"; valueRole: "value"
-                model: [{text:"XRLinuxDriver", value:"xrdriver"}, {text:"XR Luma (test)", value:"luma"}]
-                currentIndex: root.settings.tracking_driver === "luma" ? 1 : 0
+                Layout.fillWidth: true
+                textRole: "label"
+                valueRole: "key"
+                model: root.trackingDriverChoices
+                currentIndex: Model.trackingDriverIndex(root.trackingDriverChoices, root.settings.tracking_driver)
                 enabled: !root.busy
-                onActivated: root.request({op:"set_settings", settings:{tracking_driver:currentValue}})
+                onActivated: root.request({op:"set_settings",settings:{tracking_driver:currentValue}})
             }
         }
         Label { objectName: "lumaMissing"; visible: !!root.settings.tracking && root.settings.tracking_driver === "luma" && root.snapshot.luma_available === false; text: "The XR Luma driver is not installed: starts use XRLinuxDriver."; color: "#e7c78a"; Layout.fillWidth: true; wrapMode: Text.WordWrap }

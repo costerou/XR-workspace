@@ -16,8 +16,8 @@ from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import TOKEN, private_dir, read_private_json
 from tools.native_spike.managed import run_managed
 from tools.native_spike.panel_consent import LUMA_PIN, load_panel_consent
-from tools.native_spike.profiles import ProfileStore, profiles_path
-from tools.xr_controller.install import load_installed, verify_pinned
+from tools.native_spike.profiles import ProfileStore, log, profiles_path
+from tools.xr_controller.install import load_installed, tracking_driver_path, verify_pinned
 
 from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME as PLUGIN_NAME, ownership_plugin_count
 
@@ -94,7 +94,9 @@ def execute(consent_path, data_home, progress=None):
                     watch = tracking.LumaWatch(runtime, installed[LUMA_PIN]['path'], _toast)
                     watch.start()
             else:
-                tracking.ensure_ready(runtime)
+                binary = tracking_driver_path(consent.get('tracking_driver', tracking.XRDRIVER), data_home)
+                log(f'head tracking driver: {binary}')
+                tracking.ensure_ready(runtime, binary=binary)
         result['phase'] = 'plugin'
         if progress: progress(result['run_id'], 'plugin')
         # Other plugins (e.g. Omarchy's hyprbars) may stay loaded; only a broker of ours already present blocks.

@@ -19,7 +19,7 @@ from tools.xr_probe.hardware import probe_usb, probe_drm
 from .detect import identify
 from .incident_monitor import HostSources, IncidentMonitor
 from .incident_report import Reports, hook_path
-from .install import install, load_installed
+from .install import install, load_installed, tracking_drivers
 from .state import Controller
 from .server import serve
 
@@ -99,7 +99,8 @@ class Host:
         self.runtime,self.state_dir,self.data_home=Path(runtime),Path(state_dir),Path(data_home)
     def probe(self):
         instance=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','')
-        result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[])
+        result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[],
+                    tracking_drivers=tracking_drivers(self.data_home))
         root=self.runtime/'xr-workspace-spike'
         if root.exists():
             for path in sorted(root.glob('*/journal.json')):
@@ -129,6 +130,7 @@ class Host:
             monitors=client.query('monitors')
             result.update(identify(probe_usb(),probe_drm(),monitors),monitors=monitors,plugins=client.plugins_loaded())
             result['installed']=load_installed(self.data_home)
+            result['tracking_drivers']=tracking_drivers(self.data_home,result['installed'])
         except (OSError,ValueError) as exc: result['reason']=str(exc)
         try: result['config_rules']=monitor_rules.leftovers()  # what Recover would take out; the box says so before the click
         except (OSError,ValueError): result['config_rules']=[]

@@ -8,9 +8,16 @@ import shutil
 import stat
 import tempfile
 
+from tools.native_spike.tracking import DOF3, DRIVER as STANDARD_DRIVER, LUMA, XRDRIVER
+
 RENDERER, PLUGIN = 'xr-native-spike', 'libxr-ownership.so'
 LUMA_DRIVER, LUMA_KEY = 'xr-luma-driver', 'luma_driver'
 _HEX = re.compile(r'[0-9a-f]{64}')
+# The 3DoF test driver (docs/tracking-3dof-ab.md), built by tools/xrdriver_3dof/build.sh. Pinned here, not in installed.json:
+# `install` rewrites that file and an older controller refuses any extra key, so a rollback stays clean. A rebuild changes
+# the hash, so it needs a new value here; until then the option refuses to start rather than run something else.
+DRIVER_3DOF_VERSION = '2.11.9-958908-pr147-pr148-3dof'
+DRIVER_3DOF_SHA256 = '623c3dd03d204a125b1cdc32307a985bd2597d408c27edf1770df052fc44dcb8'
 
 
 def _root(data_home): return Path(data_home) / 'viture-workspace'
@@ -106,6 +113,32 @@ def verify_pinned(entry):
     except (OSError, ValueError, KeyError, TypeError):
         ok = False
     if not ok: raise ValueError('pinned binary changed')
+
+
+def tracking_drivers(data_home, installed=None):
+    """The panel's Head tracking driver choices. Read every controller tick, so `available` is only a stat, no hash.
+    `installed` is the probe's installed.json, whose pin says where the new driver is."""
+    path = _root(data_home) / 'xrdriver-3dof' / DRIVER_3DOF_VERSION / 'xrDriver'
+    luma = (installed or {}).get(LUMA_KEY) or {}
+    return [dict(key=XRDRIVER, label='Standard', path=STANDARD_DRIVER, sha256=None, available=True),
+            dict(key=DOF3, label='3DoF test', path=str(path), sha256=DRIVER_3DOF_SHA256, available=path.is_file()),
+            dict(key=LUMA, label='New driver', path=luma.get('path', ''), sha256=luma.get('sha256'), available=bool(luma))]
+
+
+def verify_tracking_driver(choice):
+    """Refuses a test build that is missing or changed. The standard driver belongs to pacman and is not pinned."""
+    if choice['sha256'] is not None: verify_pinned(choice)
+
+
+def tracking_driver_path(key, data_home):
+    """The binary a run's consent names ('xrdriver' or '3dof'), its pin checked now. Never falls back to the other one:
+    a 3DoF session that quietly ran the standard driver would make the test's result wrong. The Luma driver is not here:
+    its pin travels in the consent, and it does fall back."""
+    for choice in tracking_drivers(data_home):
+        if choice['key'] == key and key != LUMA:
+            verify_tracking_driver(choice)
+            return choice['path']
+    raise ValueError('unknown tracking driver')
 
 
 def verify_recovery_pin(entry, data_home):

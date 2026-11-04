@@ -59,7 +59,7 @@ class FeedScopeTests(unittest.TestCase):
     def test_both_drivers_feed_the_renderer_and_every_scope_is_known(self):
         # managed.run_managed turns the feed on for these; the panel consent accepts exactly these.
         self.assertEqual(tracking.SCOPES, ('xrlinuxdriver', 'luma'))
-        self.assertEqual(tracking.DRIVERS, ('xrdriver', 'luma'))
+        self.assertEqual(tracking.DRIVERS, ('xrdriver', '3dof', 'luma'))
 
 
 class RecenterTests(unittest.TestCase):
@@ -91,8 +91,10 @@ class DriverLifecycleTests(unittest.TestCase):
             while True: time.sleep(0.1)
             '''))
         self.driver.chmod(0o700)
+        self.usb = Path(self.tmp.name) / 'usb'; self.nodes = Path(self.tmp.name) / 'nodes'; self.usb.mkdir()
         self.patches = [patch.object(tracking, 'DRIVER', str(self.driver)), patch.object(tracking, 'DRIVER_LOG', self.log),
-                        patch.object(tracking, 'DRIVER_CONFIG', self.config)]
+                        patch.object(tracking, 'DRIVER_CONFIG', self.config), patch.object(tracking, 'USB_SYSFS', self.usb),
+                        patch.object(tracking, 'USB_NODES', self.nodes)]
         for p in self.patches: p.start(); self.addCleanup(p.stop)
 
     def test_cancel_during_calibration_stops_owned_driver(self):
@@ -100,7 +102,7 @@ class DriverLifecycleTests(unittest.TestCase):
             patch.object(tracking, '_ours', return_value=False),
             patch.object(tracking, '_other_drivers', return_value=[]),
             patch.object(tracking, '_start_tick', return_value='1'),
-            patch.object(tracking.subprocess, 'Popen', return_value=type('Child', (), {'pid':123})()),
+            patch.object(tracking.subprocess, 'Popen', return_value=type('Child', (), {'pid':123, 'poll':lambda self: None})()),
             patch.object(tracking, 'status', side_effect=KeyboardInterrupt),
             patch.object(tracking, 'stop') as stop,
         ):
@@ -129,6 +131,8 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertTrue(tracking.status(self.runtime)['calibrated'])
 
     def test_another_process_can_see_and_stop_the_nested_driver(self):
+        real_driver_may_be_running = patch.object(tracking, '_other_drivers', return_value=[])
+        real_driver_may_be_running.start(); self.addCleanup(real_driver_may_be_running.stop)
         # The controller and the CLI are not the driver's parent, and it sits two user namespaces down.
         status = tracking.start(self.runtime, timeout=10)
         self.addCleanup(lambda: tracking.stop(self.runtime))
@@ -146,7 +150,7 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertFalse(tracking.status(self.runtime)['running'])
 
     def test_ensure_ready_reuses_only_calibrated_isolated_driver(self):
-        healthy = dict(running=True, network_isolated=True, calibrated=True, driver='xrdriver', binary=None)
+        healthy = dict(running=True, network_isolated=True, calibrated=True, driver='xrdriver', binary=tracking.DRIVER)
         for state in (healthy, dict(healthy, calibrated=False), dict(healthy, network_isolated=False), dict(running=False)):
             with self.subTest(state=state), patch.object(tracking, 'status', return_value=state), \
                     patch.object(tracking, 'start', return_value=healthy) as start, patch.object(tracking, 'stop') as stop:
@@ -154,10 +158,12 @@ class DriverLifecycleTests(unittest.TestCase):
                 if state == healthy:
                     start.assert_not_called(); stop.assert_not_called()
                 else:
-                    start.assert_called_once_with(self.runtime, timeout=120.0, luma=None)
+                    start.assert_called_once_with(self.runtime, timeout=120.0, luma=None, binary=None)
                     self.assertEqual(stop.call_count, int(state['running']))
 
     def test_start_status_stop_network_blocked(self):
+        real_driver_may_be_running = patch.object(tracking, '_other_drivers', return_value=[])
+        real_driver_may_be_running.start(); self.addCleanup(real_driver_may_be_running.stop)
         status = tracking.start(self.runtime, timeout=10)
         self.addCleanup(lambda: tracking.stop(self.runtime))
         self.assertTrue(status['running'] and status['calibrated'] and status['network_isolated'], status)
@@ -168,6 +174,97 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertFalse(tracking.status(self.runtime)['running'])
         self.assertFalse(Path(f"/proc/{status['pid']}").exists() and Path(f"/proc/{status['pid']}/exe").exists()
                          and os.readlink(f"/proc/{status['pid']}/exe") == sys.executable)
+
+    def test_start_launches_the_chosen_binary_under_the_same_isolation(self):
+        other = self.driver.with_name('other-xrDriver')
+        other.write_bytes(self.driver.read_bytes()); other.chmod(0o700)
+        with patch.object(tracking, '_other_drivers', return_value=[]):
+            status = tracking.start(self.runtime, timeout=5, binary=str(other))
+        self.addCleanup(tracking.stop, self.runtime)
+        self.assertEqual(status['binary'], str(other))
+        self.assertTrue(status['network_isolated']); self.assertTrue(status['calibrated'])
+        self.assertIn(str(other), Path(f"/proc/{status['pid']}/cmdline").read_bytes().decode())
+        self.assertEqual(tracking._read_state(self.runtime)['binary'], str(other))
+
+    def test_argv_only_changes_the_binary(self):
+        self.assertEqual(tracking._driver_argv('/test/xrDriver'), tracking._driver_argv()[:-1] + ['/test/xrDriver'])
+        self.assertEqual(tracking._driver_argv()[-1], str(self.driver))
+
+    def test_ensure_ready_never_reuses_the_other_binary(self):
+        # The driver outlives a run, so this is the second arm of the A/B starting on the first arm's driver.
+        calibrated = {'running': True, 'pid': 1, 'network_isolated': True, 'calibrated': True, 'driver': 'xrdriver'}
+        for running, asked, reused in ((tracking.DRIVER, '/test/xrDriver', False), ('/test/xrDriver', tracking.DRIVER, False),
+                                       ('/test/xrDriver', None, False), ('/test/xrDriver', '/test/xrDriver', True),
+                                       (tracking.DRIVER, None, True)):
+            with self.subTest(running=running, asked=asked), \
+                    patch.object(tracking, 'status', return_value={**calibrated, 'binary': running}), \
+                    patch.object(tracking, 'stop') as stop, patch.object(tracking, 'start', return_value='started') as start:
+                result = tracking.ensure_ready(self.runtime, binary=asked)
+                self.assertEqual(stop.called, not reused)
+                self.assertEqual(result, {**calibrated, 'binary': running} if reused else 'started')
+                if not reused: self.assertEqual(start.call_args.kwargs['binary'], asked)
+
+    def test_uncalibrated_driver_restarts_as_the_binary_asked_for(self):
+        with patch.object(tracking, 'status', return_value={'running': True, 'network_isolated': True, 'calibrated': False, 'driver': 'xrdriver', 'binary': '/test/xrDriver'}), \
+                patch.object(tracking, 'stop') as stop, patch.object(tracking, 'start') as start:
+            tracking.ensure_ready(self.runtime, binary='/test/xrDriver')
+        stop.assert_called_once()
+        self.assertEqual(start.call_args.kwargs['binary'], '/test/xrDriver')
+
+    def test_state_file_from_before_the_choice_is_the_standard_driver(self):
+        state = {'pid': os.getpid(), 'start_tick': tracking._start_tick(os.getpid())}
+        tracking._state(self.runtime).write_text(json.dumps(state))
+        self.assertEqual(tracking.status(self.runtime)['binary'], tracking.DRIVER)
+
+    def test_other_driver_check_covers_every_copy(self):
+        fake = {'/proc/10/cmdline': b'/usr/bin/xrDriver\0', '/proc/11/cmdline': b'xrDriver\0',
+                '/proc/12/cmdline': b'/home/x/.local/share/viture-workspace/xrdriver-3dof/v/xrDriver\0',
+                '/proc/13/cmdline': b'/usr/bin/vim\0xrDriver\0', '/proc/14/cmdline': b'',
+                '/proc/15/cmdline': b'/usr/bin/xrDriver-helper\0'}
+        class Entry:
+            def __init__(self, name): self.name = name
+            def __truediv__(self, leaf): return type('F', (), {'read_bytes': lambda _: fake[f'/proc/{self.name}/{leaf}']})()
+        with patch.object(tracking, 'Path', return_value=type('Proc', (), {'glob': lambda _, __: [Entry(n) for n in range(10, 16)]})()):
+            self.assertEqual(tracking._other_drivers(), [10, 11, 12])
+            self.assertEqual(tracking._other_drivers(exclude=12), [10, 11])
+
+    def glasses(self, name='5-2.1', vendor='35ca', product='1104', mode=0o600, node=True):
+        device = self.usb / name; device.mkdir()
+        for leaf, value in (('idVendor', vendor), ('idProduct', product), ('busnum', '5'), ('devnum', '4')):
+            (device / leaf).write_text(value + '\n')
+        if node:
+            path = self.nodes / '005' / '004'; path.parent.mkdir(parents=True, exist_ok=True); path.touch(); path.chmod(mode)
+
+    def test_node_we_may_not_open_stops_the_start_before_the_driver_runs(self):
+        self.glasses(mode=0o000)
+        with patch.object(tracking, '_other_drivers', return_value=[]), patch.object(tracking.subprocess, 'Popen') as popen, \
+                self.assertRaisesRegex(ValueError, 'unplug them'):
+            tracking.start(self.runtime, timeout=5)
+        popen.assert_not_called()
+
+    def test_openable_node_passes(self):
+        self.glasses(); tracking._check_usb_access()
+
+    def test_no_glasses_passes_because_the_driver_waits_for_them(self):
+        tracking._check_usb_access()
+
+    def test_only_the_luma_ultra_control_device_is_checked(self):
+        self.glasses(name='5-2.3', product='1102', mode=0o000)
+        self.glasses(name='1-1', vendor='1a86', product='1104', mode=0o000)
+        self.glasses(name='5-2', vendor='', product='', mode=0o000)
+        tracking._check_usb_access()
+
+    def test_a_device_leaving_during_the_scan_is_no_failure(self):
+        device = self.usb / '5-2.1'; device.mkdir(); (device / 'idVendor').write_text('35ca\n')
+        tracking._check_usb_access()
+
+    def test_driver_that_crashes_at_start_is_not_called_unisolated(self):
+        # 2026-11-04: the driver segfaulted and every start was reported as "not network-isolated".
+        self.driver.write_text('#!/bin/sh\nexit 139\n')
+        with patch.object(tracking, '_other_drivers', return_value=[]), \
+                self.assertRaisesRegex(ValueError, 'exited during startup \\(status 139\\)'):
+            tracking.start(self.runtime, timeout=5)
+        self.assertFalse(tracking.status(self.runtime)['running'])
 
     def test_refuses_config_that_could_drive_the_mouse(self):
         self.config.write_text('disabled=false\noutput_mode=mouse\n')
@@ -193,7 +290,7 @@ class DriverLifecycleTests(unittest.TestCase):
         with patch.object(tracking, 'start') as start:
             ready = tracking.ensure_ready(self.runtime)
         start.assert_not_called()
-        self.assertEqual(ready, {'running': True, 'pid': child.pid, 'network_isolated': True, 'calibrated': True, 'driver': 'xrdriver', 'binary': None})
+        self.assertEqual(ready, {'running': True, 'pid': child.pid, 'network_isolated': True, 'calibrated': True, 'driver': 'xrdriver', 'binary': tracking.DRIVER})
 
 
 class NetworkIsolationCheckTests(unittest.TestCase):

@@ -19,6 +19,9 @@ RESET_OP) puts a live run back to the default and saves it (PlacementStore.reset
 included, as a one-step backup in the profile's `previous_setup` (each real reset overwrites it; a reset of a layout that
 already is the default leaves it). Nothing reads the backup back yet: it is there for a future restore, or by hand.
 
+`tracking_driver` is the head tracking driver a start launches (the panel's Startup option): tracking.DRIVERS. The
+controller's start decides what becomes of a choice that is not installed: see Controller._tracking_scope.
+
 Where the windows were is not part of the setup: window_memory.py keeps that in its own file beside this one, which nothing
 here touches, so a reset or a discarded setup leaves it alone.
 

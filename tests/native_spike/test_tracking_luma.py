@@ -85,11 +85,13 @@ class LumaLifecycle(unittest.TestCase):
         self.config = root / 'config.ini'; self.config.write_text('disabled=false\noutput_mode=external_only\n')
         self.luma = root / 'xr-luma-driver'
         self.xrdriver = root / 'xrDriver'
+        self.flags = root / 'luma-driver-flags'
         fake_driver(self.luma, CALIBRATES)
         fake_driver(self.xrdriver, XRDRIVER.format(log=str(self.xr_log)))
         for p in (patch.object(tracking, 'LUMA_LOG', self.log), patch.object(tracking, 'DRIVER', str(self.xrdriver)),
                   patch.object(tracking, 'DRIVER_LOG', self.xr_log), patch.object(tracking, 'DRIVER_CONFIG', self.config),
-                  patch.object(tracking, '_other_drivers', return_value=[])):
+                  patch.object(tracking, 'LUMA_FLAGS', self.flags), patch.object(tracking, '_other_drivers', return_value=[]),
+                  patch.object(tracking, '_check_usb_access')):
             p.start(); self.addCleanup(p.stop)
         self.addCleanup(self.nothing_left_running, root)
         self.addCleanup(lambda: tracking.stop(self.runtime))
@@ -195,7 +197,7 @@ class LumaLifecycle(unittest.TestCase):
     def test_ensure_ready_swaps_our_driver_for_the_one_asked_for(self):
         luma = tracking.ensure_ready(self.runtime, timeout=10, luma=str(self.luma))
         xr = tracking.ensure_ready(self.runtime, timeout=10)
-        self.assertEqual((xr['driver'], xr['binary']), ('xrdriver', None))
+        self.assertEqual((xr['driver'], xr['binary']), ('xrdriver', tracking.DRIVER))
         self.assertFalse(Path(f"/proc/{luma['pid']}/stat").exists() and tracking._start_tick(luma['pid']))
         back = tracking.ensure_ready(self.runtime, timeout=10, luma=str(self.luma))
         self.assertEqual(back['driver'], 'luma')
@@ -313,6 +315,65 @@ class LumaLifecycle(unittest.TestCase):
         self.assertTrue(ready['calibrated'] and ready['network_isolated'])
         self.assertEqual(self.state()['driver'], 'xrdriver')
 
+    def test_saved_flags_reach_the_driver(self):
+        fake_driver(self.luma, """\
+            import signal, sys, time
+            signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+            print('luma: args', *sys.argv[1:], file=sys.stderr, flush=True)
+            print('luma: calibrated', file=sys.stderr, flush=True)
+            while True: time.sleep(0.1)
+            """)
+        self.flags.write_text('--start prepared\n--read-events\n')
+        tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        self.assertIn('luma: args --start prepared --read-events', self.log.read_text())
+
+    def test_no_flags_file_runs_the_default(self):
+        self.assertEqual(tracking._luma_argv('/x')[-1], '/x')
+
+    def test_a_bad_flags_file_falls_back_and_says_why(self):
+        self.flags.write_text('--replay /tmp/x\n')
+        ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
+        self.assertEqual(ready['driver'], 'xrdriver')
+        self.assertIn('unknown flag: --replay', ready['fallback'])
+
+    def test_a_new_driver_that_never_calibrates_hands_over_to_the_standard_binary(self):
+        fake_driver(self.luma, NEVER_CALIBRATES)
+        with patch.object(tracking, 'LUMA_TIMEOUT', 0.5):
+            ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
+        self.assertEqual((ready['driver'], ready['binary']), ('xrdriver', str(self.xrdriver)))
+        self.assertIn('did not calibrate', ready['fallback'])
+
+    def test_the_3dof_build_runs_as_asked_and_is_replaced_when_not_wanted(self):
+        build = self.tmp_build()
+        first = tracking.ensure_ready(self.runtime, timeout=10, binary=build)
+        self.assertEqual((first['driver'], first['binary']), ('xrdriver', build))
+        self.assertEqual(tracking.ensure_ready(self.runtime, timeout=10, binary=build)['pid'], first['pid'])  # the same one: reused
+        standard = tracking.ensure_ready(self.runtime, timeout=10)
+        self.assertEqual(standard['binary'], str(self.xrdriver))
+        self.assertNotEqual(standard['pid'], first['pid'])  # a test arm must not run on the other's driver
+        back = tracking.ensure_ready(self.runtime, timeout=10, binary=build)
+        self.assertEqual(back['binary'], build)
+
+    def tmp_build(self):
+        build = Path(self.tmp.name) / 'build3dof' / 'xrDriver'
+        build.parent.mkdir()
+        fake_driver(build, XRDRIVER.format(log=str(self.xr_log)))
+        return str(build)
+
+    def test_a_failed_3dof_start_is_never_handed_to_the_standard_driver(self):
+        build = Path(self.tmp.name) / 'build3dof' / 'xrDriver'
+        build.parent.mkdir()
+        fake_driver(build, EXITS)
+        with self.assertRaises(ValueError):
+            tracking.ensure_ready(self.runtime, timeout=10, binary=str(build))
+        self.assertFalse(tracking.status(self.runtime)['running'])
+
+    def test_no_usb_permission_refuses_both_and_says_what_to_do(self):
+        tracking._check_usb_access.side_effect = ValueError('no permission to open the glasses: unplug them')
+        with self.assertRaisesRegex(ValueError, 'XR Luma driver failed .*no permission.* so did XRLinuxDriver'):
+            tracking.ensure_ready_luma(self.runtime, str(self.luma))
+        self.assertFalse(self.log.exists() and 'calibrated' in self.log.read_text())
+
     def test_no_fallback_when_luma_calibrates(self):
         ready = tracking.ensure_ready_luma(self.runtime, str(self.luma))
         self.assertEqual(ready['driver'], 'luma')
@@ -333,7 +394,31 @@ class LumaLifecycle(unittest.TestCase):
     def test_state_from_before_luma_reads_as_xrlinuxdriver(self):
         self.pretend(log_offset=0)
         self.assertEqual(tracking.status(self.runtime)['driver'], 'xrdriver')
-        self.assertIsNone(tracking.status(self.runtime)['binary'])
+        self.assertEqual(tracking.status(self.runtime)['binary'], tracking.DRIVER)
+
+
+class LumaFlags(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / 'flags'
+        patcher = patch.object(tracking, 'LUMA_FLAGS', self.path); patcher.start(); self.addCleanup(patcher.stop)
+
+    def test_none(self):
+        self.assertEqual(tracking._luma_flags(), [])
+
+    def test_every_allowed_form(self):
+        self.path.write_text('--start full --read-events\n  --drain-camera\n')
+        self.assertEqual(tracking._luma_flags(), ['--start', 'full', '--read-events', '--drain-camera'])
+
+    def test_empty_file(self):
+        self.path.write_text('\n')
+        self.assertEqual(tracking._luma_flags(), [])
+
+    def test_anything_else_is_refused(self):
+        for text in ('--start', '--start guess', '--start listen', '--replay x', '--ipc-prefix /tmp/x', '--state-dir /x', 'x'):
+            with self.subTest(text):
+                self.path.write_text(text)
+                with self.assertRaises(ValueError): tracking._luma_flags()
 
 
 class OtherDrivers(unittest.TestCase):
@@ -347,7 +432,7 @@ class OtherDrivers(unittest.TestCase):
         return process.pid
 
     def test_finds_both_drivers_by_any_path(self):
-        for name in ('/usr/bin/xrDriver', 'xrDriver', '/home/x/bin/abc/xr-luma-driver', 'xr-luma-driver'):
+        for name in ('/usr/bin/xrDriver', 'xrDriver', '/home/x/xrdriver-3dof/v/xrDriver', '/home/x/bin/abc/xr-luma-driver', 'xr-luma-driver'):
             with self.subTest(name): self.assertIn(self.named(name), tracking._other_drivers())
 
     def test_ignores_a_name_that_only_looks_alike(self):

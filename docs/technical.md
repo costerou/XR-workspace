@@ -42,6 +42,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Text cursor in the overview (Cody's pick of the mockups on branch `text-cursor-mockups`, 2026-11-03: the Serif Beam, option 1; the dot's look `text` where the app under it asks for a text cursor, on a desktop's content only; see [Over text](#the-unified-overview-cursor)) | Offline tests only: ctest `free_pointer` (the shape against the mockup's own triangles, `serif_beam_shape.json`, and a CPU mirror of the fill rule: 14 x 28 px with its ring, centred on the click point, a stem of 2 px), `gl_frame` (the GL frame against that mirror, pixel for pixel, at both grey levels, under the 191/255 cap), `ownership`, `ownership_pair_boundary` (the production broker and `cursorShape` bodies), `ownership_pair_wire`, and `tests/native_spike/test_text_cursor.py` (the names, the hold, handles first, overview only, the sampler, the reply's strict checks, and contract tests through the real C++ validators). A one-off comparison also found the real renderer's frames identical to the mockup tool's in all 108 pairs tried (three desktops, both greys, fractional head positions, tilted heads); that tool is not on this branch, so that comparison is not a ctest. The read costs about 40 µs in Hyprland (parse, name and reply, measured offline; 0.12% of a core at 30 a second). Not run in an isolated VM or in the glasses, and the plugin with `cursor_shape` has never been loaded: it compiles against the installed headers and every new symbol it needs is exported by the installed Hyprland and hyprutils, which is not a load test. Which app asks for what comes from toolkit source (FEASIBILITY.md on that branch), not from watching apps. Whether a 2 px stem crawls with the head moving, and how the beam reads over text at a third of a desktop's size, can only be judged in the glasses. The ownership plugin, renderer and supervisor must be installed together: an older renderer drops every frame with this look, and an older plugin leaves the plain dot with one refused read a second. It is a new plugin binary, so its earlier acceptance has to be repeated. |
 | Incident reports (`incident-reports`, 2026-11-03: the controller watches every run and writes one private report per incident to `~/.local/state/viture-workspace/incidents/`, with a desktop notification, a line in the panel and an optional `on-incident` hook; see [Incident reports](#incident-reports)) | Offline tests only: `tests/xr_controller/test_incident_detect.py`, `test_incident_report.py`, `test_incident_monitor.py`, `test_incident_wiring.py`, `tests/native_spike/test_supervisor.py` (`StopReasonTests`, the status fields), `test_runner.py`, the panel's `tst_model.qml`, ctest `capture_e2e_*` (the real renderer's new status fields, a resize never looking like a stuck capture), `capture_e2e_tracked`. Also replayed by hand, read-only, over the journals of the 48 runs of 2026-11-01 to 2026-11-03: every normal end stayed silent and all the USB-ended runs came out as `usb-drop`. That replay fed the classifier real logs; it was not the monitor running live. Not installed, not run in a live controller, in an isolated VM or in the glasses: no notification has reached a real desktop from it, and no live USB drop, crash or stall has gone through it. The status fields changed, so install the renderer and the Python supervisor together. |
 | Recovery past a monitor rule (`recover-incomplete-fix`, after run `4468c283` on 2026-11-03: Omarchy's scale control, used with XR-1 focused, left a rule naming XR-1 and the broker could then never remove that output; see [When a recovery cannot finish](#when-a-recovery-cannot-finish)) | Offline tests only: `tests/native_spike/test_leftover_rule.py` (the run's own journal shape through the real journal, broker client and `recover_managed` against a compositor double that blocks as the loaded plugin did, stop to finish), `tests/xr_controller/test_recovery_report.py` (`recover-run`, the panel's reason and confirm box, the incident report), ctest `ownership` (the step a refusal names) and `ownership_offset` (the plugin's real `cleanup`). Not run against a live Hyprland or in the glasses, so what the broker does on the real output is unobserved; the reload's effect on the rule comes from reading the pinned source. The plugin, Python controller and panel must be installed together. Steps R1 to R7 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Head tracking driver choice (`xrdriver-3dof-ab`, 2026-11-03: Standard or the 3DoF test build; see [Choosing the tracking driver](#choosing-the-tracking-driver) and [tracking-3dof-ab.md](tracking-3dof-ab.md)) | Offline tests only: `tests/native_spike/test_tracking.py`, `test_profiles.py`, `test_panel_consent.py`, `tests/xr_controller/test_install.py`, `test_state.py`, `test_runner.py`, the panel's `tst_model.qml` and `tst_launcher.qml`. The namespaces were run with a fake driver script. The 3DoF build itself has only been inspected, never run: `xrDriver` reads no command line, so any run starts it against the glasses. |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -581,8 +582,12 @@ python -m tools.native_spike tracking start --driver luma   # the installed, pin
 
 ### Choosing the driver
 
-The profile's `tracking_driver` is `xrdriver` (the default) or `luma`, set under *Startup options* once
-`installed.json` has a `luma_driver` pin. `tools.xr_controller.install` pins `xr-luma-driver` by hash like the renderer,
+The profile's `tracking_driver` is `xrdriver` (the default, shown as Standard), `3dof` (3DoF test) or `luma` (New driver), set
+in the *Tracking driver* box under *Startup options*. The box lists what is installed: Standard always, the 3DoF test when its
+build is on disk, and the new driver once `installed.json` has a `luma_driver` pin, plus a saved choice that has gone missing,
+marked so. **Only the new driver falls back.** A 3DoF test that quietly ran the standard driver would give a wrong result.
+
+`tools.xr_controller.install` pins `xr-luma-driver` by hash like the renderer,
 from the build folder or its `driver/` folder, and a build without it installs as before. A pin outside the install
 directory is refused, and the binary joins the folder's hash, so a new driver gets a new folder and a running session
 keeps its pin. Luma chosen but not installed starts XRLinuxDriver, which is what the confirm box then says.
@@ -609,6 +614,30 @@ it has no licence to fetch and no name lookups, so it needs neither the made-up 
 **A network namespace owned by a user namespace receives no kernel uevents** (`uevent_net_init` in `lib/kobject_uevent.c`
 only lists namespaces owned by the initial user namespace), so hotplug monitoring through libudev or netlink hears
 nothing in there. The driver must notice a replugged device by polling.
+
+### The 3DoF test driver
+
+The test in [tracking-3dof-ab.md](tracking-3dof-ab.md) needs the build from `tools/xrdriver_3dof/build.sh`. It is pinned by sha256
+in `tools/xr_controller/install.py`, checked at Start and again by the runner just before launch, so a rebuild needs a new hash
+there. A missing or changed build refuses to start, and never runs the standard driver in its place. A run's consent says
+`tracking_driver: "3dof"` only for the test build; `tracking` stays `"xrlinuxdriver"`. It gets the same namespaces and readiness
+checks as the standard driver. `ensure_ready` restarts a driver that is not the one asked for, because a driver outlives its run.
+
+### Flags for the new driver
+
+`~/.config/viture-workspace/luma-driver-flags`, if it exists, holds flags for `xr-luma-driver`: `--start stream|prepared|full`,
+`--read-events` and `--drain-camera`, nothing else. They are what stage G of `spike/driver/docs/live-test-plan.md` finds the
+glasses need. A file with anything else fails the start with a reason, and the fallback's notification shows it. The file changes
+what the driver reads and how it starts the stream; none of these flags can send a frame `Transport` would not pass.
+
+### Checks at start, for every driver
+
+A start refuses when the glasses' USB node (`35ca:1104`) cannot be opened, and says to replug them. After a boot with the
+glasses attached the system udev rule, which only fires on `add`, leaves that node to root, and the SDK segfaults on the failed open.
+The check uses sysfs and `access(2)` and never opens the device. For the new driver that refusal is a failed start like any other,
+so the standard driver is tried, is refused the same way, and the message says both. The check for another driver matches any
+process whose program is called `xrDriver` or `xr-luma-driver`. A driver that exits during startup reports that, with its status.
+It used to read as "not network-isolated", because a zombie has no namespace to inspect.
 
 ### How the tracking driver is kept offline
 

@@ -1,12 +1,15 @@
 import contextlib
 import copy
+import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
 from tools.native_spike.profiles import DEFAULT_PROFILE
+from tools.native_spike.view import DEFAULT_SETTINGS
 from tools.native_spike.geometry import DEFAULT_DESKTOP
 from tools.native_spike.panel_consent import load_panel_consent, build_consent
 from tools.xr_controller.state import Controller
@@ -30,10 +33,78 @@ class StateTests(unittest.TestCase):
         self.observation=dict(model='beast',output='DP-2',reason=None,instance='instance',monitors=[dict(name='DP-2'),dict(name='DP-1')],journals=[] ,installed={k:dict(path='/p/'+k,sha256='a'*64) for k in ('plugin','renderer')},plugins=[])
         self.now=0; self.calls=[]; self.units=Units()
         self.c=Controller(lambda:self.now,lambda:copy.deepcopy(self.observation),lambda *a:self.calls.append(a),self.units,Store(),self.fd,self.path)
+    def choose_driver(self,available=True,data=b'driver',pin=None):
+        # The 3DoF test build in a temp folder, offered by the probe as Host.probe offers it. Nothing is executed.
+        binary=self.path/'xrDriver'
+        if available: binary.write_bytes(data)
+        self.observation['tracking_drivers']=[dict(key='xrdriver',label='Standard',path='/usr/bin/xrDriver',sha256=None,available=True),
+            dict(key='3dof',label='3DoF test',path=str(binary),sha256=pin or hashlib.sha256(b'driver').hexdigest(),available=available),
+            dict(key='luma',label='New driver',path='',sha256=None,available=False)]
+        self.c.tick()
+        self.assertTrue(self.c.request(dict(op='set_settings',settings=dict(tracking_driver='3dof')))['ok'])
+        return str(binary)
     def begin(self):
         reply=self.c.request(dict(op='begin_start')); self.assertTrue(reply['ok'],reply); return reply
     def confirm(self):
         r=self.begin(); return self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))
+    def test_standard_driver_adds_nothing_to_the_scope(self):
+        scope=self.begin()['scope']
+        self.assertEqual(scope['tracking'],'xrlinuxdriver')
+        self.assertNotIn('tracking_driver',scope)
+
+    def test_3dof_choice_is_in_the_scope_and_the_written_consent(self):
+        self.choose_driver()
+        reply=self.begin()
+        self.assertEqual((reply['scope']['tracking'],reply['scope']['tracking_driver']),('xrlinuxdriver','3dof'))
+        self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=reply['scope_id']))['ok'])
+        self.assertEqual(json.loads((self.path/(reply['scope']['run_id']+'.json')).read_text())['tracking_driver'],'3dof')
+
+    def test_unticking_head_tracking_drops_the_driver_from_the_consent(self):
+        self.choose_driver()
+        reply=self.begin()
+        self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=reply['scope_id'],optional=dict(tracking=False)))['ok'])
+        consent=json.loads((self.path/(reply['scope']['run_id']+'.json')).read_text())
+        self.assertIs(consent['tracking'],False); self.assertNotIn('tracking_driver',consent)
+
+    def test_head_tracking_off_never_checks_the_driver(self):
+        self.choose_driver(available=False)
+        self.assertTrue(self.c.request(dict(op='set_settings',settings=dict(tracking=False)))['ok'])
+        self.assertIs(self.begin()['scope']['tracking'],False)
+
+    def test_missing_or_changed_build_refuses_the_start_rather_than_run_the_standard_driver(self):
+        for label,kwargs,why in (('missing',dict(available=False),'not available'),('changed',dict(data=b'other'),'pinned binary changed')):
+            with self.subTest(label):
+                self.choose_driver(**kwargs)
+                reply=self.c.request(dict(op='begin_start'))
+                self.assertFalse(reply['ok']); self.assertIn(why,reply['error']); self.assertIsNone(reply['pending'])
+                self.assertEqual(self.c.state,'idle')
+
+    def test_a_probe_that_does_not_offer_the_3dof_build_refuses_it(self):
+        self.choose_driver()
+        del self.observation['tracking_drivers'][1]
+        self.c.tick()
+        reply=self.c.request(dict(op='begin_start'))
+        self.assertFalse(reply['ok']); self.assertIn('not available',reply['error'])
+
+    def test_a_path_cannot_be_saved_as_the_driver(self):
+        for bad in ('/usr/bin/sh','/tmp/evil/xrDriver','standard'):
+            self.assertFalse(self.c.request(dict(op='set_settings',settings=dict(tracking_driver=bad)))['ok'])
+
+    def test_snapshot_offers_the_choices_and_settings_hold_the_saved_one(self):
+        self.choose_driver()
+        reply=self.c.request(dict(op='get_settings'))
+        self.assertEqual([d['key'] for d in reply['tracking_drivers']],['xrdriver','3dof','luma'])
+        self.assertEqual(reply['settings']['tracking_driver'],'3dof')
+
+    def test_the_build_going_away_drops_the_open_scope(self):
+        self.choose_driver(); self.begin()
+        self.observation['tracking_drivers'][1]['available']=False
+        self.c.tick()
+        self.assertIsNone(self.c.snapshot()['pending'])
+
+    def test_the_driver_cannot_change_during_a_run(self):
+        self.assertIn('tracking_driver',DEFAULT_PROFILE)
+        self.assertNotIn('tracking_driver',DEFAULT_SETTINGS)  # only view settings pass set_settings while running
     def test_snapshot_exposes_fallback_choices_and_pending_scope(self):
         self.observation['monitors'] += [dict(name='DP-3'), dict(name='XR-1'), dict(name='DP-4',disabled=True)]
         self.c.tick()
@@ -74,6 +145,15 @@ class StateTests(unittest.TestCase):
         r=self.begin(); self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=r['scope_id'],optional={'tracking':False}))['ok'])
         consent=load_panel_consent(self.path/(r['scope']['run_id']+'.json'),'instance','DP-2')
         self.assertIs(consent['tracking'],False); self.assertNotIn('luma_driver',consent)
+
+    def test_luma_never_carries_the_3dof_key_and_3dof_never_carries_the_luma_pin(self):
+        self.with_luma(); self.choose_luma()
+        self.assertNotIn('tracking_driver',self.begin()['scope'])
+        self.c.request(dict(op='cancel'))
+        self.choose_driver()
+        scope=self.begin()['scope']
+        self.assertEqual((scope['tracking'],scope['tracking_driver']),('xrlinuxdriver','3dof'))
+        self.assertNotIn('luma_driver',scope)
 
     def test_chosen_luma_not_installed_offers_xrlinuxdriver(self):
         self.assertFalse(self.c.snapshot()['luma_available'])

@@ -35,6 +35,36 @@ TestCase {
     }
     function cleanup() { requestSpy.target = null; }
 
+    readonly property var drivers: [{key:"xrdriver", label:"Standard", path:"/usr/bin/xrDriver", available:true},
+                                    {key:"3dof", label:"3DoF test", path:"/t/xrDriver", available:true},
+                                    {key:"luma", label:"New driver", path:"/t/xr-luma-driver", available:true}]
+    function openOptions(launcher) { launcher.showOptions = true; verify(waitForRendering(launcher)); }
+    function test_trackingDriverOptionSavesThePathAndShowsTheSavedOne() {
+        const launcher = make(idle({tracking_drivers:drivers}), settings({tracking_driver:"3dof"}));
+        openOptions(launcher);
+        verify(findChild(launcher, "trackingDriverOption").visible);
+        const combo = findChild(launcher, "trackingDriverCombo");
+        compare(combo.count, 3);
+        compare(combo.currentText, "3DoF test");
+        combo.currentIndex = 0;
+        combo.activated(0);
+        compare(requestSpy.count, 1);
+        compare(requestSpy.signalArguments[0][0].op, "set_settings");
+        compare(requestSpy.signalArguments[0][0].settings.tracking_driver, "xrdriver");
+    }
+    function test_trackingDriverOptionHiddenWithNothingToChoose() {
+        const missing = [drivers[0], Object.assign({}, drivers[1], {available:false}), Object.assign({}, drivers[2], {available:false})];
+        for (const snapshot of [idle(), idle({tracking_drivers:missing})]) {
+            const launcher = make(snapshot, settings({tracking_driver:"xrdriver"}));
+            openOptions(launcher);
+            verify(!findChild(launcher, "trackingDriverOption").visible);
+        }
+    }
+    function test_trackingDriverOptionHiddenWithHeadTrackingOff() {
+        const launcher = make(idle({tracking_drivers:drivers}), settings({tracking:false, tracking_driver:"xrdriver"}));
+        openOptions(launcher);
+        verify(!findChild(launcher, "trackingDriverOption").visible);
+    }
     function test_oneBigStartButton() {
         const launcher = make();
         const start = findChild(launcher, "startButton");
@@ -125,19 +155,19 @@ TestCase {
     }
 
     function test_trackingDriverIsOfferedOnceInstalled() {
-        // No Luma driver installed: nothing to pick.
-        let launcher = make(idle({luma_available:false}), settings({tracking_driver:"xrdriver"}));
+        // Only the standard driver installed: nothing to pick.
+        let launcher = make(idle({luma_available:false, tracking_drivers:[drivers[0]]}), settings({tracking_driver:"xrdriver"}));
         launcher.showOptions = true;
         waitForItemPolished(launcher);
         verify(!findChild(launcher, "trackingDriverOption").visible);
         verify(!findChild(launcher, "lumaMissing").visible);
         // Installed: a pick, showing what is saved, and it saves through the controller.
-        launcher = make(idle({luma_available:true}), settings({tracking_driver:"xrdriver"}));
+        launcher = make(idle({luma_available:true, tracking_drivers:[drivers[0], drivers[2]]}), settings({tracking_driver:"xrdriver"}));
         launcher.showOptions = true;
         waitForItemPolished(launcher);
         verify(findChild(launcher, "trackingDriverOption").visible);
         const combo = findChild(launcher, "trackingDriverCombo");
-        compare(combo.currentText, "XRLinuxDriver");
+        compare(combo.currentText, "Standard");
         combo.currentIndex = 1;
         combo.activated(1);
         compare(requestSpy.count, 1);
@@ -148,10 +178,10 @@ TestCase {
         waitForItemPolished(launcher);
         verify(!findChild(launcher, "trackingDriverOption").visible);
         // Chosen, then a build without it was installed: the choice still shows and says what a start will do.
-        launcher = make(idle({luma_available:false}), settings({tracking_driver:"luma"}));
+        launcher = make(idle({luma_available:false, tracking_drivers:[drivers[0], Object.assign({}, drivers[2], {available:false})]}), settings({tracking_driver:"luma"}));
         launcher.showOptions = true;
         waitForItemPolished(launcher);
-        compare(findChild(launcher, "trackingDriverCombo").currentText, "XR Luma (test)");
+        compare(findChild(launcher, "trackingDriverCombo").currentText, "New driver (missing)");
         verify(findChild(launcher, "lumaMissing").visible);
     }
 

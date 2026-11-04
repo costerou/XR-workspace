@@ -5,12 +5,17 @@ so its licence requests cannot leave the machine; it starts without a licence an
 orientation over SysV IPC. It must not drive the mouse (output_mode=external_only). Lifetime is
 independent of managed runs (startup is slow); stop signals only the exact process.
 
-Our own xr-luma-driver (spike/driver) is the other choice, the profile's `tracking_driver`. It takes
-the same place: same network-blocked namespaces, same SysV feed, same state file, so stop, status and
-the renderer do not care which one runs. It has no licence to fetch, so it needs no fake MAC and no
-config file. Its stderr goes to LUMA_LOG, where status() looks for 'luma: calibrated'. It always runs
-from the pinned copy (`luma`, a path from installed.json) and ensure_ready_luma hands over to
-XRLinuxDriver if it fails to calibrate.
+The profile's `tracking_driver` picks from three, and each treats failure differently, on purpose:
+
+  xrdriver  XRLinuxDriver, /usr/bin/xrDriver, the standard.
+  3dof      the 3DoF test build of it (docs/tracking-3dof-ab.md), `binary`, pinned by install.tracking_driver_path. It gets
+            the same namespaces and readiness checks. It never falls back: a test run that quietly used the standard
+            driver would give a wrong result. A driver outlives its run, so ensure_ready replaces one that is not the
+            binary asked for, for the same reason.
+  luma      our own xr-luma-driver (spike/driver), `luma`, a path from installed.json. Same network block, same SysV feed,
+            same state file, so stop, status and the renderer do not care which one runs. It has no licence to fetch, so
+            it needs no fake MAC and no config file. Its stderr goes to LUMA_LOG, where status() looks for 'luma: calibrated'.
+            ensure_ready_luma hands over to the standard driver if it fails to calibrate.
 """
 import json
 import os
@@ -23,8 +28,8 @@ import time
 
 from .ipc import private_dir
 
-XRDRIVER, LUMA = 'xrdriver', 'luma'  # the profile's tracking_driver
-DRIVERS = (XRDRIVER, LUMA)
+XRDRIVER, DOF3, LUMA = 'xrdriver', '3dof', 'luma'  # the profile's tracking_driver
+DRIVERS = (XRDRIVER, DOF3, LUMA)
 SCOPES = ('xrlinuxdriver', 'luma')  # a consent's `tracking`: what the click agreed to run. Both feed the renderer the same way
 DRIVER = '/usr/bin/xrDriver'
 DRIVER_LOG = Path.home() / '.local/state/xr_driver/driver.log'
@@ -35,6 +40,11 @@ LOST = ('Retrying driver connection', 'Waiting on device calibration', 'Failed t
 LUMA_BINARY = 'xr-luma-driver'
 LUMA_LOG = Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state') / 'viture-workspace/luma-driver.log'
 LUMA_LOG_MAX = 1 << 20  # bytes; a start moves a bigger log aside, keeping one
+# Flags for the Luma driver, for what the live plan's stage G finds the glasses need. Not a general command line: only these
+# pass, and each sends nothing beyond frames Transport already allows. A file with anything else fails the start, so the
+# fallback's notification says why rather than the driver running with half its flags.
+LUMA_FLAGS = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/luma-driver-flags'
+LUMA_FLAG_CHOICES = {'--start': ('stream', 'prepared', 'full'), '--read-events': None, '--drain-camera': None}
 LUMA_READY = 'luma: calibrated'
 LUMA_LOST = ('luma: disconnected', 'luma: calibrating')
 # A fallback's two waits add up to the 120 seconds the panel promises. Luma has no licence wait: it either calibrates in
@@ -58,6 +68,12 @@ FAKE_ADDRESS = '192.0.2.1/32'
 # does not cover it. So the MAC is only set once that directory is hidden. If any step fails the
 # driver gets no id, never tries the licence server, and just starts 30 s later.
 RESOLVED_DIR = '/run/systemd/resolve'
+# The Luma Ultra's control device. The system's udev rule grants it only on ACTION=="add", which a boot with the glasses
+# already plugged in does not give, so the node stays root's. The SDK then fails to open it and segfaults in
+# carina_a1088_read_custom_data instead of reporting that. A replug fixes it.
+GLASSES_USB = ('35ca', '1104')
+USB_SYSFS = Path('/sys/bus/usb/devices')
+USB_NODES = Path('/dev/bus/usb')
 
 
 def _start_tick(pid):
@@ -115,16 +131,17 @@ def log_path(runtime):
 
 
 def _other_drivers(exclude=None):
+    """Any head tracking driver, wherever it was started from: /usr/bin, the 3DoF test build, the pinned Luma driver, a bare name."""
     found = []
     for d in Path('/proc').glob('[0-9]*'):
         try: argv = (d / 'cmdline').read_bytes().split(b'\0')
         except OSError: continue
-        if int(d.name) != exclude and argv and (argv[0] in (DRIVER.encode(), b'xrDriver') or os.path.basename(argv[0]) == LUMA_BINARY.encode()):
+        if int(d.name) != exclude and argv and os.path.basename(argv[0]) in (b'xrDriver', LUMA_BINARY.encode()):
             found.append(int(d.name))
     return found
 
 
-def _driver_argv():
+def _driver_argv(binary=None):
     """Set the namespaces up as their root, then become ourselves in a child user namespace.
 
     The driver ends up with no capabilities, and its network belongs to the parent namespace, so it
@@ -132,12 +149,41 @@ def _driver_argv():
     """
     setup = (f'mount -t tmpfs tmpfs {RESOLVED_DIR} && ip link set lo address {FAKE_MAC} && ip address add {FAKE_ADDRESS} dev lo\n'
              f'exec unshare --user --map-user={os.getuid()} --map-group={os.getgid()} -- "$0"')
-    return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, DRIVER]
+    return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, binary or DRIVER]
+
+
+def _luma_flags():
+    """The saved flags as argv, [] with no file. ValueError on anything but LUMA_FLAG_CHOICES."""
+    try: words = LUMA_FLAGS.read_text().split()
+    except FileNotFoundError: return []
+    out, at = [], 0
+    while at < len(words):
+        flag = words[at]
+        if flag not in LUMA_FLAG_CHOICES: raise ValueError(f'{LUMA_FLAGS} has an unknown flag: {flag}')
+        choices = LUMA_FLAG_CHOICES[flag]
+        if choices is None: out.append(flag); at += 1; continue
+        if at + 1 >= len(words) or words[at + 1] not in choices: raise ValueError(f'{LUMA_FLAGS}: {flag} needs one of {", ".join(choices)}')
+        out += [flag, words[at + 1]]; at += 2
+    return out
 
 
 def _luma_argv(binary):
     """Own user and network namespaces, as ourselves. unshare execs in place: the recorded pid and tick are the driver's."""
-    return ['unshare', '--user', '--map-current-user', '--net', '--', binary]
+    return ['unshare', '--user', '--map-current-user', '--net', '--', binary, *_luma_flags()]
+
+
+def _check_usb_access():
+    """Refuse before the driver crashes on a node we may not open. Sysfs and access(2) only: this never opens the
+    device, so it sends nothing to the glasses. No glasses at all is fine: the driver waits for them."""
+    for device in USB_SYSFS.glob('*'):
+        try:
+            if (device / 'idVendor').read_text().strip() != GLASSES_USB[0] or (device / 'idProduct').read_text().strip() != GLASSES_USB[1]: continue
+            node = USB_NODES / f"{int((device / 'busnum').read_text()):03d}" / f"{int((device / 'devnum').read_text()):03d}"
+        except (OSError, ValueError):
+            continue
+        if not os.access(node, os.R_OK | os.W_OK):
+            raise ValueError(f'no permission to open the glasses ({node}), which happens after booting with them plugged in: '
+                             'unplug them, plug them back in, and start again')
 
 
 def _open_luma_log():
@@ -177,18 +223,19 @@ def status(runtime):
     current = log[data.get('log_offset', 0):].decode(errors='replace')
     calibrated = current.rfind(ready) > max(current.rfind(marker) for marker in lost)
     return {'running': True, 'pid': pid, 'network_isolated': _network_isolated(pid), 'calibrated': calibrated,
-            'driver': driver, 'binary': data.get('binary')}
+            'driver': driver, 'binary': data.get('binary') or DRIVER}  # no binary: a state file from before the choice existed
 
 
-def ensure_ready(runtime, timeout=120.0, luma=None):
+def ensure_ready(runtime, timeout=120.0, luma=None, binary=None):
     """Reuse a calibrated isolated driver of the kind asked for, or restart ours: disconnected, or the
-    other kind, or (`luma`, the pinned binary) an older install's.
+    other kind, or another binary of the same kind, such as an older install's or the 3DoF test build.
 
     Only the PID/start-tick recorded by this app can be stopped. A separate
     driver is never killed; start() refuses to compete with it.
     """
     now = status(runtime)
-    wanted = lambda: now['network_isolated'] and now['driver'] == (LUMA if luma else XRDRIVER) and now['binary'] == luma
+    target = luma or binary or DRIVER
+    wanted = lambda: now['network_isolated'] and now['driver'] == (LUMA if luma else XRDRIVER) and now['binary'] == target
     if luma and now['running'] and wanted():  # the right driver, perhaps mid-reconnect: leave it be if it comes back
         deadline = time.monotonic() + LUMA_SETTLE
         while now['running'] and not now['calibrated'] and time.monotonic() < deadline:
@@ -197,11 +244,11 @@ def ensure_ready(runtime, timeout=120.0, luma=None):
         return now
     if now['running']:
         stop(runtime)
-    return start(runtime, timeout=timeout, luma=luma)
+    return start(runtime, timeout=timeout, luma=luma, binary=binary)
 
 
 def ensure_ready_luma(runtime, luma):
-    """The Luma driver, or XRLinuxDriver if it fails: the status, with `fallback` saying why when it did.
+    """The Luma driver, or the standard XRLinuxDriver if it fails: the status, with `fallback` saying why when it did.
 
     Only a failure hands over. A cancel (KeyboardInterrupt, the panel's Stop) goes straight through.
     """
@@ -212,15 +259,18 @@ def ensure_ready_luma(runtime, luma):
         raise ValueError(f'the XR Luma driver failed ({reason}) and so did XRLinuxDriver: {exc}') from None
 
 
-def start(runtime, timeout=120.0, luma=None):
-    """Start XRLinuxDriver, or with `luma` (the pinned binary's path) the Luma driver, and wait for it to calibrate."""
+def start(runtime, timeout=120.0, luma=None, binary=None):
+    """Start XRLinuxDriver (`binary`, default the standard one), or with `luma` (the pinned binary's path) the Luma driver,
+    and wait for it to calibrate."""
     if _ours(_read_state(runtime)): raise ValueError('tracking already running')
     if luma is None: _check_config()
     if _other_drivers(): raise ValueError('another head tracking driver is running; refusing to compete for the glasses')
+    _check_usb_access()
     if luma is None:
-        offset, output, argv = DRIVER_LOG.stat().st_size if DRIVER_LOG.exists() else 0, subprocess.DEVNULL, _driver_argv()
+        offset, output, argv = DRIVER_LOG.stat().st_size if DRIVER_LOG.exists() else 0, subprocess.DEVNULL, _driver_argv(binary)
     else:
-        offset, output = _open_luma_log(); argv = _luma_argv(luma)
+        argv = _luma_argv(luma)  # first: a bad flags file should open no log
+        offset, output = _open_luma_log()
     try:
         child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=output, stderr=output, start_new_session=True, close_fds=True)
     finally:
@@ -231,10 +281,14 @@ def start(runtime, timeout=120.0, luma=None):
         tick = _start_tick(child.pid); time.sleep(0.02)
     path = _state(runtime)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'w') as f: json.dump({'pid': child.pid, 'start_tick': tick, 'log_offset': offset, 'driver': LUMA if luma else XRDRIVER, 'binary': luma}, f)
+    with os.fdopen(fd, 'w') as f: json.dump({'pid': child.pid, 'start_tick': tick, 'log_offset': offset, 'driver': LUMA if luma else XRDRIVER, 'binary': luma or binary or DRIVER}, f)
     try:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            # First: a crashed driver is a zombie until reaped, so what follows would say only "exited", or, with no namespace
+            # left to read, "not network-isolated". This says how it ended.
+            if child.poll() is not None:
+                raise ValueError(f'tracking driver exited during startup (status {child.returncode}); see {LUMA_LOG if luma else DRIVER_LOG}')
             now = status(runtime)
             if not now['running']:
                 raise ValueError('tracking driver exited during startup')

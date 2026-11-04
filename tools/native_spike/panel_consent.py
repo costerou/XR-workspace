@@ -7,13 +7,16 @@ from .geometry import validate_desktops
 from .ipc import read_private_json, token
 from .profiles import MODELS
 from .supervisor import CAPTURE_ALLOW, CAPTURE_SCOPE
-from .tracking import LUMA, SCOPES
+from .tracking import DOF3, LUMA, SCOPES
 
 PANEL_GATE = 'P2-panel'
 PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
               'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
 FIXED_KEYS = {'schema', 'gate', 'allow', 'capture', 'input', 'sdk'}
 LUMA_PIN = 'luma_driver'  # the pinned binary a consent with tracking 'luma' runs; present then and only then
+# Present only for the 3DoF test driver, so a standard run's consent stays what older code reads (a rollback, a recovery).
+# It is its own key: `tracking` stays "xrlinuxdriver", which the pose feed and the incident monitor test for.
+DRIVER_KEY = 'tracking_driver'
 LUMA_MODE = {'width': 1920, 'height': 1200, 'refresh_hz': 120}
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')
 
@@ -27,7 +30,8 @@ def _artifact(value):
 
 
 def _keys(data):
-    return PANEL_KEYS | {LUMA_PIN} if data.get('tracking') == LUMA else PANEL_KEYS
+    keys = PANEL_KEYS | {LUMA_PIN} if data.get('tracking') == LUMA else PANEL_KEYS
+    return keys | {DRIVER_KEY} if DRIVER_KEY in data else keys
 
 
 def _validate(data, instance=None, output=None):
@@ -45,6 +49,8 @@ def _validate(data, instance=None, output=None):
     tracking = data['tracking']
     if tracking is not False and (not isinstance(tracking, str) or tracking not in SCOPES):
         raise ValueError('tracking scope must be false, "xrlinuxdriver" or "luma"')
+    if DRIVER_KEY in data and (data[DRIVER_KEY] != DOF3 or tracking != 'xrlinuxdriver'):
+        raise ValueError('tracking driver must be "3dof", on XRLinuxDriver tracking')
     mode = data['mode_switch']
     if mode is not False:
         if data['model'] != 'luma-ultra': raise ValueError('mode switch is Luma Ultra only')

@@ -45,6 +45,7 @@ def bind_controller(controller,consent):
             if scope[key]!=consent[key]: raise ValueError('VM controller pair changed')
         scope.update(run_id=consent['run_id'],tracking=consent.get('tracking',False),mode_switch=False)
         scope.pop(LUMA_PIN,None)  # a VM has no glasses: its consent names the whole tracking scope
+        scope.pop('tracking_driver',None)
         return scope
     controller.scope_transform=scope
 
