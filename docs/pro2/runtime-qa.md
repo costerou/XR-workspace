@@ -320,3 +320,36 @@ No extra hardware axis session, forced unplug or mandatory long soak is required
 by this QA work. Normal Pro2 production guard stays closed; HOLD L1 and SBS
 disabled, independent per-model settings, and no guessed optical correction remain
 in effect. Existing runtime hotplug/opaque SDK limits above remain truthful.
+
+## Parent first-attempt path blocker: RQ6 (reopened acceptance scope)
+
+Parent reports first XR attempt rejected before plugin load. This is parent-supplied
+incident evidence, not hardware validation or an instruction to retry. No private
+SDK logs inspected. Baseline for independent reproduction:
+`614667ed6cd9adba5fa06b149e485a3656e89574`.
+
+BundleClient._plugin_command incorrectly applies the normal installed plugin
+regex requiring `/viture-workspace/bin/<12hex>/libxr-ownership.so` to the dedicated
+review bundle layout. Hyphens are accepted by that regex; the layout is the issue.
+Exact parent root:
+`/home/cody/.hermes/profiles/coderbotxr/cache/scratch/pro2-release-review-z3nsa4vu/pro2-runtime-release/runtime`.
+
+Independent reproduction uses actual BundleClient.__new__, actual plugin_load/
+unload dispatch and a request spy. Exact parent location uses inert mocked pinned
+FD (no parent file opened/changed); realistic QA-owned temporary release layout
+uses real inert-file hash checking. Both reject before request. Unsafe-space
+bundle also reaches injected client before path preflight.
+
+```
+python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -p test_bundle_plugin_path.py -v
+# baseline:6 tests, 3 pass / 2 errors / 1 failure, 0.006s
+```
+
+Additional owned cases assert wrong suffix/verb/traversal/newline, changed hash,
+symlink plugin, symlink root/bin are denied before request; normal PLUGIN_PATH
+pattern and installed-layout acceptance remain unchanged. Lead owns dedicated
+canonical ASCII bundle/path/hash preflight fix; QA changes tests/report only.
+No SDK, compositor client, plugin or controller is actually started or contacted.
+No hardware/retry/install, no private logs read. RQ6 remains open until committed
+fix is independently retested. Historical92f01a7 acceptance did not cover this
+real BundleClient path dispatch; injected compositor clients bypassed that check.
