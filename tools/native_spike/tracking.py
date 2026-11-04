@@ -35,6 +35,12 @@ FAKE_ADDRESS = '192.0.2.1/32'
 # does not cover it. So the MAC is only set once that directory is hidden. If any step fails the
 # driver gets no id, never tries the licence server, and just starts 30 s later.
 RESOLVED_DIR = '/run/systemd/resolve'
+# The Luma Ultra's control device. The system's udev rule grants it only on ACTION=="add", which a boot with the glasses
+# already plugged in does not give, so the node stays root's. The SDK then fails to open it and segfaults in
+# carina_a1088_read_custom_data instead of reporting that. A replug fixes it.
+GLASSES_USB = ('35ca', '1104')
+USB_SYSFS = Path('/sys/bus/usb/devices')
+USB_NODES = Path('/dev/bus/usb')
 
 
 def _start_tick(pid):
@@ -88,6 +94,20 @@ def _driver_argv(binary=None):
     return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, binary or DRIVER]
 
 
+def _check_usb_access():
+    """Refuse before the driver crashes on a node we may not open. Sysfs and access(2) only: this never opens the
+    device, so it sends nothing to the glasses. No glasses at all is fine: the driver waits for them."""
+    for device in USB_SYSFS.glob('*'):
+        try:
+            if (device / 'idVendor').read_text().strip() != GLASSES_USB[0] or (device / 'idProduct').read_text().strip() != GLASSES_USB[1]: continue
+            node = USB_NODES / f"{int((device / 'busnum').read_text()):03d}" / f"{int((device / 'devnum').read_text()):03d}"
+        except (OSError, ValueError):
+            continue
+        if not os.access(node, os.R_OK | os.W_OK):
+            raise ValueError(f'no permission to open the glasses ({node}), which happens after booting with them plugged in: '
+                             'unplug them, plug them back in, and start again')
+
+
 def _interfaces(pid):
     return [line.split(':')[0].strip() for line in Path(f'/proc/{pid}/net/dev').read_text().splitlines()[2:]]
 
@@ -139,6 +159,7 @@ def start(runtime, timeout=120.0, binary=None):
     if _ours(_read_state(runtime)): raise ValueError('tracking already running')
     _check_config()
     if _other_drivers(): raise ValueError('another XRLinuxDriver is running; refusing to compete for the glasses')
+    _check_usb_access()
     offset = DRIVER_LOG.stat().st_size if DRIVER_LOG.exists() else 0
     child = subprocess.Popen(_driver_argv(binary), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True, close_fds=True)
@@ -155,10 +176,13 @@ def start(runtime, timeout=120.0, binary=None):
             now = status(runtime)
             if not now['running']:
                 raise ValueError('tracking driver exited during startup')
+            # Before the isolation check: a crashed driver is a zombie until reaped, with the same tick but no namespace
+            # to read, which would otherwise be reported as "not network-isolated".
+            if child.poll() is not None:
+                raise ValueError(f'tracking driver exited during startup (status {child.returncode}); see {DRIVER_LOG}')
             if not now['network_isolated']:
                 raise ValueError('tracking driver is not network-isolated; stopped')
             if now['calibrated']: return now
-            if child.poll() is not None: break
             time.sleep(0.2)
         raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)')
     except BaseException:

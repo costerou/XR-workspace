@@ -84,8 +84,10 @@ class DriverLifecycleTests(unittest.TestCase):
             while True: time.sleep(0.1)
             '''))
         self.driver.chmod(0o700)
+        self.usb = Path(self.tmp.name) / 'usb'; self.nodes = Path(self.tmp.name) / 'nodes'; self.usb.mkdir()
         self.patches = [patch.object(tracking, 'DRIVER', str(self.driver)), patch.object(tracking, 'DRIVER_LOG', self.log),
-                        patch.object(tracking, 'DRIVER_CONFIG', self.config)]
+                        patch.object(tracking, 'DRIVER_CONFIG', self.config), patch.object(tracking, 'USB_SYSFS', self.usb),
+                        patch.object(tracking, 'USB_NODES', self.nodes)]
         for p in self.patches: p.start(); self.addCleanup(p.stop)
 
     def test_cancel_during_calibration_stops_owned_driver(self):
@@ -122,6 +124,8 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertTrue(tracking.status(self.runtime)['calibrated'])
 
     def test_another_process_can_see_and_stop_the_nested_driver(self):
+        real_driver_may_be_running = patch.object(tracking, '_other_drivers', return_value=[])
+        real_driver_may_be_running.start(); self.addCleanup(real_driver_may_be_running.stop)
         # The controller and the CLI are not the driver's parent, and it sits two user namespaces down.
         status = tracking.start(self.runtime, timeout=10)
         self.addCleanup(lambda: tracking.stop(self.runtime))
@@ -151,6 +155,8 @@ class DriverLifecycleTests(unittest.TestCase):
                     self.assertEqual(stop.call_count, int(state['running']))
 
     def test_start_status_stop_network_blocked(self):
+        real_driver_may_be_running = patch.object(tracking, '_other_drivers', return_value=[])
+        real_driver_may_be_running.start(); self.addCleanup(real_driver_may_be_running.stop)
         status = tracking.start(self.runtime, timeout=10)
         self.addCleanup(lambda: tracking.stop(self.runtime))
         self.assertTrue(status['running'] and status['calibrated'] and status['network_isolated'], status)
@@ -214,6 +220,44 @@ class DriverLifecycleTests(unittest.TestCase):
         with patch.object(tracking, 'Path', return_value=type('Proc', (), {'glob': lambda _, __: [Entry(n) for n in range(10, 16)]})()):
             self.assertEqual(tracking._other_drivers(), [10, 11, 12])
             self.assertEqual(tracking._other_drivers(exclude=12), [10, 11])
+
+    def glasses(self, name='5-2.1', vendor='35ca', product='1104', mode=0o600, node=True):
+        device = self.usb / name; device.mkdir()
+        for leaf, value in (('idVendor', vendor), ('idProduct', product), ('busnum', '5'), ('devnum', '4')):
+            (device / leaf).write_text(value + '\n')
+        if node:
+            path = self.nodes / '005' / '004'; path.parent.mkdir(parents=True, exist_ok=True); path.touch(); path.chmod(mode)
+
+    def test_node_we_may_not_open_stops_the_start_before_the_driver_runs(self):
+        self.glasses(mode=0o000)
+        with patch.object(tracking, '_other_drivers', return_value=[]), patch.object(tracking.subprocess, 'Popen') as popen, \
+                self.assertRaisesRegex(ValueError, 'unplug them'):
+            tracking.start(self.runtime, timeout=5)
+        popen.assert_not_called()
+
+    def test_openable_node_passes(self):
+        self.glasses(); tracking._check_usb_access()
+
+    def test_no_glasses_passes_because_the_driver_waits_for_them(self):
+        tracking._check_usb_access()
+
+    def test_only_the_luma_ultra_control_device_is_checked(self):
+        self.glasses(name='5-2.3', product='1102', mode=0o000)
+        self.glasses(name='1-1', vendor='1a86', product='1104', mode=0o000)
+        self.glasses(name='5-2', vendor='', product='', mode=0o000)
+        tracking._check_usb_access()
+
+    def test_a_device_leaving_during_the_scan_is_no_failure(self):
+        device = self.usb / '5-2.1'; device.mkdir(); (device / 'idVendor').write_text('35ca\n')
+        tracking._check_usb_access()
+
+    def test_driver_that_crashes_at_start_is_not_called_unisolated(self):
+        # 2026-11-04: the driver segfaulted and every start was reported as "not network-isolated".
+        self.driver.write_text('#!/bin/sh\nexit 139\n')
+        with patch.object(tracking, '_other_drivers', return_value=[]), \
+                self.assertRaisesRegex(ValueError, 'exited during startup \\(status 139\\)'):
+            tracking.start(self.runtime, timeout=5)
+        self.assertFalse(tracking.status(self.runtime)['running'])
 
     def test_refuses_config_that_could_drive_the_mouse(self):
         self.config.write_text('disabled=false\noutput_mode=mouse\n')

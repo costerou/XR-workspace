@@ -590,6 +590,11 @@ runs the standard driver in its place. A run's consent says `tracking_driver: "3
 `"xrlinuxdriver"`. Both binaries get the same namespaces and readiness checks. `ensure_ready` restarts a driver that is not the one
 asked for, because a driver outlives its run. The check for another driver matches any process whose program is called `xrDriver`.
 
+A start also refuses when the glasses' USB node (`35ca:1104`) cannot be opened, and says to replug them. After a boot with the
+glasses attached the system udev rule, which only fires on `add`, leaves that node to root, and the SDK segfaults on the failed open.
+The check uses sysfs and `access(2)` and never opens the device. A driver that exits during startup now reports that, with its
+status. It used to read as "not network-isolated", because a zombie has no namespace to inspect.
+
 ### How the tracking driver is kept offline
 
 The driver starts inside its own unprivileged user, network and mount namespaces (`tracking._driver_argv`). The network

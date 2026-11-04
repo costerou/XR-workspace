@@ -35,6 +35,24 @@ stripped, so the file hashes differ), `config.ini`, `driver.log`, the namespaces
 **Do not check the build by running it.** `xrDriver` reads no command line: `xrDriver --help` starts the driver against the
 glasses. That is why it has only been inspected with `readelf`, `ldd`, `nm`, `objdump` and `strings`.
 
+## After a reboot: replug first
+
+From the 23:31 reboot on 11-03 until 00:22 on 11-04, every driver start crashed: `Cannot open device`,
+`jcx start failed[35ca,1104]`, `Failed to send USB command - MsgID: 0x100B`, then a segfault in `carina_a1088_read_custom_data` in
+`libcarina_vio.so`. Examples: incidents `20261104T051931Z` and `20261104T052212Z`.
+
+That was the boot ACL bug, and it is **not evidence for or against the cameras**. The USB node was `root:root 0660` with no ACL, so
+Cody's user could not open it, in any tracking mode. The system rule grants access only on `ACTION=="add"`, and a boot with the
+glasses plugged in does not give the session that event. The crash is the SDK not checking that failed open.
+
+The hub came back at 00:22:43, the node then had `user:cody:rw-`, and the same standard 6DoF driver calibrated at 00:23:02. So
+permissions, not load, caused those crashes, and they say nothing about what causes the drops. Whether the 3DoF build would crash
+the same way on a failed open is unknown.
+
+A start now refuses with "unplug them, plug them back in" instead of crashing (`tracking._check_usb_access`). The lasting fix is
+PR #147, which grants access on every event but `remove`. It lives in the system's udev rule, needs sudo, and this build does not
+install it.
+
 ## Before the first arm
 
 Merged and installed by the orchestrator, with Cody's OK. The renderer does not change, but the controller and panel do, so restart
@@ -46,6 +64,13 @@ Check the port first, because the checks below assume the glasses' hub is `5-2`.
 
 ```sh
 grep -l 35ca /sys/bus/usb/devices/*/idVendor
+```
+
+Check the node can be opened. This looks at permissions only and touches nothing on the glasses:
+
+```sh
+d=$(dirname $(grep -l 35ca /sys/bus/usb/devices/*/idVendor | head -1)); n=$(printf '/dev/bus/usb/%03d/%03d' $(cat $d/busnum) $(cat $d/devnum))
+test -r $n -a -w $n && echo ok || echo 'replug the glasses'
 ```
 
 Write the start time of each arm down. `<start>` below is that time, as `"2026-11-04 10:00:00"`.
@@ -110,7 +135,10 @@ grep -nE 'get_display_mode|Failed to send USB command|Retrying driver connection
 **How the session ended.** A drop usually ends it with exit status 2 and "closed, removed or disconnected" in the unit's journal.
 An incident report lands in `~/.local/state/viture-workspace/incidents/`.
 
-**Faults that void an arm:** `xrDriver` crashing or a core dump (`coredumpctl list xrDriver`), or a run that never calibrates.
+**Faults that void an arm:** `xrDriver` crashing (`grep -a 'Segmentation fault' ~/.local/state/xr_driver/driver.log`; the driver catches
+the signal itself, so `coredumpctl` shows nothing), or a run that never calibrates. A crash in `libcarina_vio.so` after `Cannot open
+device` is a permissions failure, not a result. Reconnects after a drop may hit the same crash path; note it, because it is about
+surviving a drop, not causing one.
 
 ## Reading the result
 
