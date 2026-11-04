@@ -1,0 +1,318 @@
+{
+  "capture_span_s": 29.98819421,
+  "holds": {
+    "center": {
+      "cue_offset_s": 0.00277063,
+      "settled_bounds_s": [
+        2.00277063,
+        5.002291925
+      ],
+      "samples": 181,
+      "actual_sample_span_s": 2.992106741,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 0.0,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 0.0,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 0.0,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 0.0,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "left": {
+      "cue_offset_s": 5.002291925,
+      "settled_bounds_s": [
+        7.002291925,
+        10.001051105
+      ],
+      "samples": 180,
+      "actual_sample_span_s": 2.977104724,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 19.136465630677034,
+            "axis_xyz": [
+              0.07106389582391752,
+              0.9462580785423369,
+              0.31550843333212497
+            ],
+            "off_expected_axis_fraction": 0.9489227726724172
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 19.136465630677034,
+            "axis_xyz": [
+              -0.31550843333212497,
+              -0.07106389582391752,
+              0.9462580785423369
+            ],
+            "off_expected_axis_fraction": 0.32341250562302715
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 19.13646563067703,
+            "axis_xyz": [
+              0.04747529412392342,
+              0.9983117818326321,
+              -0.033461660180005244
+            ],
+            "off_expected_axis_fraction": 0.9994400018500349
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 19.13646563067703,
+            "axis_xyz": [
+              0.033461660180005244,
+              -0.04747529412392342,
+              0.9983117818326321
+            ],
+            "off_expected_axis_fraction": 0.05808258133171312
+          }
+        }
+      }
+    },
+    "right": {
+      "cue_offset_s": 10.001051105,
+      "settled_bounds_s": [
+        12.001051105,
+        15.001051105
+      ],
+      "samples": 180,
+      "actual_sample_span_s": 2.972110726,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 23.19734217371693,
+            "axis_xyz": [
+              0.2188976537447326,
+              -0.9398132841991613,
+              -0.26236388476281847
+            ],
+            "off_expected_axis_fraction": 0.9649690108869624
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 23.19734217371693,
+            "axis_xyz": [
+              0.26236388476281847,
+              -0.2188976537447326,
+              -0.9398132841991613
+            ],
+            "off_expected_axis_fraction": 0.3416884411899039
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 23.19734217371693,
+            "axis_xyz": [
+              0.24207555377672935,
+              -0.966991867907951,
+              0.07953712129302686
+            ],
+            "off_expected_axis_fraction": 0.9968319047544668
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 23.19734217371693,
+            "axis_xyz": [
+              -0.07953712129302686,
+              -0.24207555377672935,
+              -0.966991867907951
+            ],
+            "off_expected_axis_fraction": 0.2548072357683192
+          }
+        }
+      }
+    },
+    "up": {
+      "cue_offset_s": 15.019599078,
+      "settled_bounds_s": [
+        17.019599078,
+        20.018250313
+      ],
+      "samples": 181,
+      "actual_sample_span_s": 2.992098146,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 33.19996248462079,
+            "axis_xyz": [
+              0.9906716908415283,
+              -0.12927352051031588,
+              -0.04310403531058719
+            ],
+            "off_expected_axis_fraction": 0.9916089737869807
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 33.19996248462079,
+            "axis_xyz": [
+              0.04310403531058719,
+              -0.9906716908415283,
+              -0.12927352051031588
+            ],
+            "off_expected_axis_fraction": 0.13627032312718515
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 33.19996248462079,
+            "axis_xyz": [
+              0.9936051211593714,
+              -0.11290897498405883,
+              -0.0006531262666676164
+            ],
+            "off_expected_axis_fraction": 0.9936053358190309
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 33.19996248462079,
+            "axis_xyz": [
+              0.0006531262666676164,
+              -0.9936051211593714,
+              -0.11290897498405883
+            ],
+            "off_expected_axis_fraction": 0.1129108639851404
+          }
+        }
+      }
+    },
+    "down": {
+      "cue_offset_s": 20.018250313,
+      "settled_bounds_s": [
+        22.018250313,
+        25.016618664
+      ],
+      "samples": 181,
+      "actual_sample_span_s": 2.992113857,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 25.700539759195465,
+            "axis_xyz": [
+              -0.9999516769372239,
+              0.005429715260937163,
+              -0.008195241461919498
+            ],
+            "off_expected_axis_fraction": 0.9999852589874438
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 25.700539759195465,
+            "axis_xyz": [
+              0.008195241461919498,
+              0.9999516769372239,
+              0.005429715260937163
+            ],
+            "off_expected_axis_fraction": 0.009830757368272134
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 25.70053975919547,
+            "axis_xyz": [
+              -0.9997652519298837,
+              -0.021225454383946536,
+              -0.004349841350093275
+            ],
+            "off_expected_axis_fraction": 0.9997747146663567
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 25.70053975919547,
+            "axis_xyz": [
+              0.004349841350093275,
+              0.9997652519298837,
+              -0.021225454383946536
+            ],
+            "off_expected_axis_fraction": 0.021666587954176027
+          }
+        }
+      }
+    },
+    "return": {
+      "cue_offset_s": 25.016618664,
+      "settled_bounds_s": [
+        27.016618664,
+        29.98819421
+      ],
+      "samples": 179,
+      "actual_sample_span_s": 2.957118778,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 2.100728548254659,
+            "axis_xyz": [
+              -0.01578412756278078,
+              0.7829437536909782,
+              -0.6218922252877604
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 2.100728548254659,
+            "axis_xyz": [
+              0.6218922252877604,
+              0.01578412756278078,
+              0.7829437536909782
+            ]
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 2.100728548254659,
+            "axis_xyz": [
+              -0.03239936381674063,
+              0.5173289503222215,
+              -0.855173104337817
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 2.100728548254659,
+            "axis_xyz": [
+              0.855173104337817,
+              0.03239936381674063,
+              0.5173289503222215
+            ]
+          }
+        }
+      }
+    }
+  },
+  "pair_metrics": {
+    "body": {
+      "left_right_axis_dot": -0.9565282106774929,
+      "up_down_axis_dot": -0.9909724889810178,
+      "left_up_axis_dot": -0.06552480994196425
+    },
+    "reference": {
+      "left_right_axis_dot": -0.956528210677493,
+      "up_down_axis_dot": -0.9909724889810178,
+      "left_up_axis_dot": -0.06552480994196426
+    }
+  },
+  "selected_production_mapping": null,
+  "optical_tilt": "unvalidated",
+  "roll": "unvalidated"
+}
