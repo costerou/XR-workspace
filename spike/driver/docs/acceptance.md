@@ -253,7 +253,7 @@ The list and flags are in `spike/driver/docs/features.md`. Most features there a
 | X3 | No polling, ever | With every flag on, each command appears at most once per connection or once per explicit request | usbmon report | Bench |
 | X4 | No guessed ids | A feature whose id is unknown sends nothing and says so. Brightness, dimming, firmware and wear query stay disabled until a capture shows the id. Endpoints 0x04/0x85 also carry firmware flashing. | Tests, code review | Offline |
 | X5 | Commands earn their place | Each command-sending feature passes a 30-minute soak with only that flag added, after Z2 passes. Any drop keeps it off. | `tools/luma_soak` | Session |
-| X6 | The configuration Cody runs | The exact set of flags he will use passes Z1 and Z2 together | `tools/luma_soak` | Session |
+| X6 | The configuration Cody runs | The exact set of flags in daily use passes Z1 and Z2 together | `tools/luma_soak` | Session |
 | X7 | Features cost no latency | L1 and L7 still hold with the zero-traffic features on | `spike/driver/bench` | Offline |
 | X8 | Wrong guesses are safe | Auto-pause and the OLED saver never trigger while worn across one hour of normal use, before either can default on | Real use | Session |
 | X9 | Other devices count | Opening anything but the glasses' own interface, such as the microphone's HID at `35ca:1102`, counts as a new command path and needs X5 | Code review, usbmon | Bench |
