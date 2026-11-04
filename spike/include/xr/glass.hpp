@@ -224,7 +224,8 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font = 
 // Where a state is in that image (0..1 of it). A bar: `segment` hot (none: idle), `active` while it is dragged. A cap:
 // corner `corner`, `hot` under the dot or held, `active` while it is dragged.
 struct AtlasBox { float u0 = 0, v0 = 0, u1 = 0, v1 = 0; };
-AtlasBox options_icon_box(bool restore);
+AtlasBox options_icon_box(bool restore,bool hot=false);
+AtlasBox options_hint_box(bool restore);
 AtlasBox options_gear_box();
 AtlasBox level_bar_box(LevelSegment segment, bool active);
 AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active);

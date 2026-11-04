@@ -1668,7 +1668,7 @@ Status Presentation::draw_test_pattern() {
             }
             s.panel_shift.set(shift, help_now);
         }
-        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
+        const bool free_pointer = s.free_pointer.visible && !s.view.switching();  // overview only; world-locked on the canvas
         if (const auto dot = s.pan_dot(tiles, s.resolved_placements(tiles)))  // the hand's: the real cursor is hidden and held
             // (degrees, as the frames below)
             s.gl->set_free_pointer(true, float(s.width) / 2, float(s.height) / 2, kFreePointerLevel, true, (*dot)[0] * float(180 / M_PI), (*dot)[1] * float(180 / M_PI), PointerLook::plain);
