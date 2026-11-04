@@ -160,6 +160,7 @@ class OptionsMenu:
         self._owner_requests={}
         self._owner_results=deque(maxlen=64)
         self._owner_result=None
+        self._editor_error=False
         self._owner_epoch=0
         self.pending_ids=set()
         self.pending_since=0
@@ -247,6 +248,7 @@ class OptionsMenu:
             if request is not None and (request['namespace']!=self.control.session or not self._owner_target_exists(request)):
                 self._owner_requests.clear();self._owner_active=None;self._owner_result=None
         if self._owner_result is not None:
+            self._editor_error=False
             success,detail=self._owner_result
             if not success or not self.pending_ids:
                 self.data.update(status='applied' if success else 'error',message=detail)
@@ -415,6 +417,9 @@ class OptionsMenu:
             self.pending_since=self.clock()
             editor=getattr(self.control,'options_editor',None)
             is_editor=row['id'].startswith('editor.') or (editor is not None and editor.kind is not None)
+            if is_editor and self._editor_error and self._owner_active is None:
+                self.data.update(status='idle',message='')
+                self._editor_error=False
             if not is_editor or self._owner_active is not None:
                 self.pending=(row['id'],str(value).lower() if type(value) is bool else str(value))
                 self.data.update(status='pending',message='Waiting for owner readback')
@@ -425,4 +430,5 @@ class OptionsMenu:
             self.refresh()
             return True
         except Exception as exc:
+            self._editor_error=row['id'].startswith('editor.')
             self.data.update(status='error',message=str(exc).encode('utf-8')[:256].decode('utf-8','ignore')); return False

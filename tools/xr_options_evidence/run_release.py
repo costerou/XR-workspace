@@ -60,6 +60,7 @@ def main():
     parser.add_argument('--build',type=Path,default=ROOT/'build/integration-release')
     parser.add_argument('--python',type=Path,default=ROOT/'build/test-venv/bin/python')
     parser.add_argument('--skip-build',action='store_true')
+    parser.add_argument('--suite',action='append',choices=('configure','build','ctest','python','qml'))
     args=parser.parse_args();out=args.output.absolute();out.mkdir(parents=True,exist_ok=False)
     build=args.build.absolute();python=args.python.absolute()
     manifest=dict(head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),commands=[],gpu='/dev/dri/renderD129',live_session_access=False)
@@ -80,6 +81,7 @@ def main():
         commands.append(('qml',[str(python),'-m','unittest','discover','-s','omarchy-plugin/cody.viture-workspace/tests']))
         passed=True
         for name,command in commands:
+            if args.suite and name.split('-')[0] not in args.suite: continue
             good=execute(name,command,env,out,manifest)
             passed &= good
             if name in ('configure','build') and not good:break

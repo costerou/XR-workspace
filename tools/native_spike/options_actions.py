@@ -155,6 +155,9 @@ def options_apply(control, row_id, value, monitor, scope):
     matches = [r for r in rows if r['id']==row_id]
     if not matches: raise ValueError('row unavailable in scope')
     if not matches[0]['enabled']: raise ValueError('owner unavailable or action disabled')
+    if row_id in ('help_prev','help_next'):
+        out=control._help_toggle() if not control.help_visible else b''
+        return (out or b'') + (control.on_message({'op':row_id}) or b'')
     if row_id == 'privacy_display':
         control.privacy.request(done=owner_callback(control,row_id,monitor,scope))
         return None
