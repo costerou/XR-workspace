@@ -180,3 +180,44 @@ def test_c1_output_transaction_actual_broker_readback_or_rollback(id,refuse):
         d.teardown()
     finally:
         run.manager.close();cleanup.doCleanups()
+
+
+@pytest.mark.parametrize('id',['placement_flat','menu_reset'])
+def test_c1_flat_reset_changes_only_target_via_native_placement_owner(id,tmp_path):
+    from tools.native_spike.geometry import DEFAULT_PLACEMENT
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3'],placements=[dict(DEFAULT_PLACEMENT),dict(DEFAULT_PLACEMENT,x=250)]),
+                       'run','session',lambda n:None,profiles.LayoutStore(tmp_path/'layout.json'),None)
+    d=MenuDriver(c);d.enter('XR-3','monitor','placement');d.focus(id);d.key('Return')
+    assert c.state.placements==[DEFAULT_PLACEMENT,DEFAULT_PLACEMENT]
+    d.native();d.teardown()
+
+
+@pytest.mark.parametrize('id',['roll_ccw','roll_cw','roll_level'])
+def test_c1_roll_keys_use_actual_pointer_owner_and_target(id):
+    from tools.native_spike.free_pointer import OverviewPointer
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    p=c.overview_pointer=OverviewPointer(c)
+    try:
+        c.set_roll_geometry([300,-600]);before=list(p.rolls)
+        d=MenuDriver(c);d.enter('XR-3','monitor','placement');d.focus(id);d.key('Return')
+        assert p.rolls[0]==before[0] and p.rolls[1]!=before[1]
+        d.native();d.teardown()
+    finally:p.close()
+
+
+@pytest.mark.parametrize('id',['help_prev','help_next'])
+def test_advertised_help_page_row_opens_native_help_and_reaches_a_page(id):
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    d=MenuDriver(c);d.enter('XR-3','workspace','help');d.focus(id);d.key('Return')
+    assert c.help_visible, f'{id} advertised while no help child exists, but key activation is inert'
+    d.native();d.teardown()
+
+
+def test_c1_background_toggle_and_recenter_are_not_inert():
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    d=MenuDriver(c);d.enter('XR-3','workspace','environment');d.focus('environment_toggle');d.key('Return')
+    assert c.state.environment['background']!='none'
+    d.enter('XR-3','workspace','view');d.focus('recenter');d.key('Return')
+    frames=[json.loads(line) for line in d.wire.splitlines()]
+    assert any(frame['op']=='recenter' for frame in frames)
+    d.native();d.teardown()
