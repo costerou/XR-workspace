@@ -293,7 +293,7 @@ python3 -m tools.luma_probe.feed record --feed "$RUN/feed_pose_orientation" --se
 python3 -m tools.luma_probe.feed attitude "$RUN/axes.csv"; kill -TERM "$PID"; wait "$PID"
 ```
 
-Cody moves them slowly, about 5 s each, with notifications to cue him: nose up, back; nose down, back;
+Cody moves them slowly, about 5 s each, with notifications as cues: nose up, back; nose down, back;
 turn left, back; right ear down, back. Pass: nose down raises `pitch`, turning left raises `yaw`,
 right ear down raises `roll`. Each returns to where it started.
 

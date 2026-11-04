@@ -34,7 +34,7 @@ and record the rate that holds; if a feature's command coincides with a drop, it
 more than the feed carries, the feed does not grow.
 
 Z, S, R and F block replacing XRLinuxDriver. C, L, D and P are held to their targets too, but a miss there is reported to
-Cody with the number, and he decides. X decides which features may be turned on.
+Cody with the number, and Cody decides. X decides which features may be turned on.
 
 ## State at assembly
 

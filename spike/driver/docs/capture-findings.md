@@ -170,8 +170,8 @@ Against that reference, online Fusion drifts about **0.5°/min**, with a worst m
   median, with a gain that starts fast and settles.
 
 **This is the driver's biggest known weakness against the old one.** XRLinuxDriver runs in 6DoF with the cameras on, so its
-heading probably has a visual reference. Ours has none. Expect a slow turn of about 10 to 30° in 20 minutes. Whether Cody
-minds is for him to judge. The fix, if needed, is a recentre or a camera-based reference, and the latter brings back the
+heading probably has a visual reference. Ours has none. Expect a slow turn of about 10 to 30° in 20 minutes. Whether that is
+acceptable is Cody's call. The fix, if needed, is a recentre or a camera-based reference, and the latter brings back the
 camera traffic.
 
 The sim's drift figures improved too (worn desk work 3.0 to about 1.4°/min). All this was tuned on one 20-minute recording, so
