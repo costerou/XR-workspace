@@ -1,0 +1,41 @@
+test_connector_and_edid_cannot_prove_identity (test_acceptance.IdentityAcceptance.test_connector_and_edid_cannot_prove_identity) ... ok
+test_duplicate_identity_cannot_select_one_device (test_acceptance.IdentityAcceptance.test_duplicate_identity_cannot_select_one_device) ... ok
+test_exact_identity_has_independent_key (test_acceptance.IdentityAcceptance.test_exact_identity_has_independent_key) ... FAIL
+test_legacy_exact_models_preserved (test_acceptance.IdentityAcceptance.test_legacy_exact_models_preserved) ... ok
+test_product_pid_and_vendor_must_all_match (test_acceptance.IdentityAcceptance.test_product_pid_and_vendor_must_all_match) ... ok
+test_pro2_save_does_not_modify_other_models (test_acceptance.ProfileAcceptance.test_pro2_save_does_not_modify_other_models) ... ERROR
+test_unknown_pro2_provider_cannot_launch_even_with_saved_legacy_choice (test_acceptance.ProviderBoundaryAcceptance.test_unknown_pro2_provider_cannot_launch_even_with_saved_legacy_choice) ... xr-workspace: start: restoring the saved monitor setup (3 desktops: 1920x1080@1, 1920x1080@1, 1920x1080@1)
+xr-workspace: start: restoring the saved monitor setup (3 desktops: 1920x1080@1, 1920x1080@1, 1920x1080@1)
+xr-workspace: start: restoring the saved monitor setup (3 desktops: 1920x1080@1, 1920x1080@1, 1920x1080@1)
+ok
+
+======================================================================
+ERROR: test_pro2_save_does_not_modify_other_models (test_acceptance.ProfileAcceptance.test_pro2_save_does_not_modify_other_models)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2/test_acceptance.py", line 55, in test_pro2_save_does_not_modify_other_models
+    pro2 = load_profile(path, 'pro2')
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/native_spike/profiles.py", line 201, in load_profile
+    _model(model)
+    ~~~~~~^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tools/native_spike/profiles.py", line 144, in _model
+    if model not in MODELS: raise ValueError('unknown model')
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: unknown model
+
+======================================================================
+FAIL: test_exact_identity_has_independent_key (test_acceptance.IdentityAcceptance.test_exact_identity_has_independent_key)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2/test_acceptance.py", line 21, in test_exact_identity_has_independent_key
+    self.assertEqual(identify([usb()], [], [])['model'], 'pro2')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'unknown' != 'pro2'
+- unknown
++ pro2
+
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.014s
+
+FAILED (failures=1, errors=1)
