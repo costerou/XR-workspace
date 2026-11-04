@@ -116,7 +116,13 @@ int main(int argc, char** argv) {
     if (!features) return fail(2, "feature " + why);
     if (!replay) {
         parts.on_link = [host = features.get()](bool up, std::uint64_t now) { host->link(up, now); };
-        parts.on_tick = [host = features.get(), d = decoder.get()](std::uint64_t now) { host->tick(now, d->temperature_c()); };
+        parts.on_tick = [host = features.get(), d = decoder.get(), store = bias.get(), next_save = std::uint64_t(0)](std::uint64_t now) mutable {
+            host->tick(now, d->temperature_c());
+            if (store && now >= next_save) {  // a small file, and the read queue rides out far longer than it takes
+                if (next_save) store->save();
+                next_save = now + 300'000'000'000ull;
+            }
+        };
     }
     {
         Daemon daemon(std::move(parts), options->config);

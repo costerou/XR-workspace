@@ -67,6 +67,12 @@ Where two pieces disagreed, the safer one won.
 | Feature flags that send commands | Refused at the command line | No ids are known (X4) |
 | Display control | In the library, not on the command line | Same reason: `UnmappedWire` refuses everything |
 
+The panel offers Standard, 3DoF test and New driver from one setting, `tracking_driver`. Standard stays the default until Cody
+accepts (F8). Each fails differently, on purpose. The new driver falls back to Standard if it does not calibrate within 30 s,
+and says why (F9). The 3DoF test never does, because a test that quietly ran the standard driver would give a false result.
+**Fallback covers the start only.** If the stream stalls after `luma: calibrated`, the session stays on the new driver with the
+feed marked stale while the daemon retries, and Cody has to choose Standard and restart.
+
 Two pieces are merged but deliberately not wired in:
 
 - **`luma::Predictor`.** Scored on the real session 25 ms ahead, head moving: no prediction 1.35 degrees rms, the renderer's
@@ -81,7 +87,7 @@ Two pieces are merged but deliberately not wired in:
 | Group | State |
 |---|---|
 | Z zero drops | Untested. Session level only |
-| C calibration | Replay: 2.60 s from a moving start (C2), tilt 0.30 degrees (C4). C1, C3, C5, C6 need the glasses. The saved bias is wired |
+| C calibration | Replay: 2.60 s from a moving start (C2), tilt 0.30 degrees (C4). C1, C3, C5, C6 need the glasses. The saved bias is wired, written every 5 minutes because the driver outlives its runs |
 | L latency, rate | Replay: 0.12 µs CPU per packet, 10 to 70 µs worst; no allocation in the hot path; 1 kHz. USB and scheduling not yet measured. L3 needs the shadow run, K1 |
 | D drift | Replay: about 0.5 degrees/min against an offline reference, tilt held. **Heading is the known weakness**: see `capture-findings.md` |
 | P resources | Offline only |

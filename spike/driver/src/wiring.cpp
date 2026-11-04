@@ -62,15 +62,22 @@ private:
 class FusionEstimator final : public Estimator {
 public:
     explicit FusionEstimator(FusionConfig config, BiasStore* store = nullptr) : fusion_(config), store_(store) {}
-    ~FusionEstimator() override {
+    ~FusionEstimator() override { note_bias(); }
+    PoseOut update(const ImuSample& sample) override {
+        const PoseOut pose = fusion_.update(sample);
+        if (++samples_ % kNoteEvery == 0) note_bias();  // the driver outlives its XR runs, so waiting for the end means never
+        return pose;
+    }
+private:
+    static constexpr std::uint64_t kNoteEvery = 60'000;  // a minute at 1 kHz
+    void note_bias() {
         if (!store_) return;
         const FusionStatus s = fusion_.status();
-        if (s.quality == FusionQuality::Good || s.quality == FusionQuality::Recovering) store_->remember(s.gyro_bias_rad_s);
+        if (s.quality == FusionQuality::Good) store_->remember(s.gyro_bias_rad_s);
     }
-    PoseOut update(const ImuSample& sample) override { return fusion_.update(sample); }
-private:
     Fusion fusion_;
     BiasStore* store_;
+    std::uint64_t samples_ = 0;
 };
 
 class RealDecoder final : public Decoder {

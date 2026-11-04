@@ -6,6 +6,8 @@ so far comes from tests with fakes, or from reading sysfs.
 Written 2026-11-03 for the orchestrator to run with Cody. The orchestrator runs the commands. Cody
 does everything physical, and everything with `sudo`.
 
+`install-and-live-test.md` has the install, rollback and first session. This file has the stages they point to.
+
 ## Rules for the whole plan
 
 - **Ask Cody before each stage.** A yes to one stage does not cover the next.
@@ -577,7 +579,7 @@ camera on the lenses, tapping the glasses. Do it in stage X if Cody wants it.
 Needs Cody's acceptance, because it means the installed app uses our driver. Do it only after every
 stage above passes, as a separate request. The orchestrator handles merge and install.
 
-**X1.** Cody sets `tracking_driver: luma` and starts XR from the panel, working normally.
+**X1.** Cody chooses New driver under Startup options and starts XR from the panel, working normally.
 
 **X2.** Watch for drops with XR running: first 30 min, then on to 3 h in total on the same build,
 across sessions if needed. Same cable, port and display mode as the old driver's numbers, and no
@@ -593,7 +595,7 @@ that the problem is fixed, even at the lower rate.
 
 **X3.** Pass: head tracking feels at least as good to Cody, with no drift Cody notices.
 
-**X4. Going back.** Set `tracking_driver: xrdriver`. Nothing else changes. Pass: the next XR start
+**X4. Going back.** Choose Standard in the same box. Nothing else changes. Pass: the next XR start
 uses `xrDriver`, seen with `pgrep -x xrDriver`.
 
 ## Stage E: features, one at a time

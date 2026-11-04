@@ -734,6 +734,26 @@ void test_bias_store(const std::filesystem::path& dir) {
     CHECK(!wild.bias());
 }
 
+void test_a_long_running_driver_hands_over_its_bias() {
+    // The driver outlives its XR runs, so the bias must reach the store with the estimator still alive.
+    wiring::BiasStore store("/nonexistent/bias");
+    const auto estimator = wiring::estimator_with(store);
+    for (std::uint32_t i = 1; i <= 70'000; ++i) estimator->update(ImuSample{i * kMs, {0.01f, -0.02f, 0.005f}, {0, 0, 9.8f}, std::nullopt, i});
+    CHECK(store.bias());
+    if (store.bias()) CHECK(std::fabs((*store.bias())[1] + 0.02f) < 1e-3f);
+}
+
+void test_a_poor_bias_is_not_kept() {
+    // Moving from the first sample: Coarse at best, and that guess must not be saved as the truth for the next run.
+    wiring::BiasStore store("/nonexistent/bias");
+    { const auto estimator = wiring::estimator_with(store);
+      for (std::uint32_t i = 1; i <= 3'000; ++i) {
+          const float swing = 1.5f * std::sin(float(i) * 0.01f);
+          estimator->update(ImuSample{i * kMs, {swing, swing, swing}, {swing, swing, 9.8f}, std::nullopt, i});
+      } }
+    CHECK(!store.bias());
+}
+
 void test_transport_link_routes_and_filters() {
     struct Routed {
         struct Read { Io status = Io::Timeout; std::size_t bytes = 0; std::uint8_t endpoint = 0; };
@@ -1034,6 +1054,8 @@ int main(int argc, char** argv) {
     RUN(test_real_capture_format, dir);
     RUN(test_bias_store, dir);
     RUN(test_feature_host_refuses_anything_that_sends);
+    RUN(test_a_long_running_driver_hands_over_its_bias);
+    RUN(test_a_poor_bias_is_not_kept);
     RUN(test_stats_line);
     RUN(test_every_line_is_parseable);
     RUN(test_replay_clean);

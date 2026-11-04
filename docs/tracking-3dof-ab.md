@@ -78,7 +78,7 @@ Write the start time of each arm down. `<start>` below is that time, as `"2026-1
 ## Running an arm
 
 1. Stop any XR session. The option is locked while one runs.
-2. Panel, Startup options, Head tracking driver: choose the arm. The box only shows when head tracking is ticked.
+2. Panel, Startup options, Tracking driver: choose the arm. The box only shows when head tracking is ticked.
 3. Start. The confirm box says "Head tracking via the 3DoF test build of XRLinuxDriver" for arm B and "Head tracking via
    XRLinuxDriver" for arm A. Keep the glasses still until it calibrates.
 4. Use the desktop normally for 20 to 30 minutes, with real head movement: looking between desktops, turning, leaning. Keep both
@@ -161,7 +161,7 @@ B. Tracking must also still be usable. If yaw drift makes it unusable, the build
 ## Switching back
 
 1. Stop the session.
-2. Panel, Startup options, Head tracking driver: Standard. The next start stops the test driver and starts `/usr/bin/xrDriver`.
+2. Panel, Startup options, Tracking driver: Standard. The next start stops the test driver and starts `/usr/bin/xrDriver`.
 3. To check: `readlink /proc/$(pgrep -x xrDriver)/exe` during that session.
 
 If the panel will not start (for example, the build folder went away and the box says "(missing)"), the same choice fixes it: only

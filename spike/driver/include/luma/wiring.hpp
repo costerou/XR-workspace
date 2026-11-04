@@ -11,8 +11,9 @@
 namespace luma::wiring {
 extern const char* const kStandIn;  // empty: nothing is a stand-in, as acceptance F10 asks
 
-// The gyro bias kept between runs (acceptance C5, C6). The file is read once at start and written once at exit, off the hot
-// path. Estimators note their bias here when they are done. A missing or unreadable file means a normal cold start.
+// The gyro bias kept between runs (acceptance C5, C6). The file is read at start, and written every few minutes and at exit, off
+// the sample path: the driver outlives its XR runs, and a crash should not lose what it learned. Estimators note their bias
+// here once a minute, when it is good. A missing or unreadable file means a normal cold start.
 class BiasStore {
 public:
     explicit BiasStore(std::string path) : path_(std::move(path)) {}
