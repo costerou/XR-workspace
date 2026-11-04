@@ -195,7 +195,7 @@ if(XR_ENABLE_IPC)
   endif()
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
-    add_test(NAME control_wire COMMAND "${Python3_EXECUTABLE}" -m unittest test_control_wire
+    add_test(NAME control_wire COMMAND "${Python3_EXECUTABLE}" -m unittest test_control_wire test_control_panel_fuzz
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/..")
     set_tests_properties(control_wire PROPERTIES TIMEOUT 120
       ENVIRONMENT "CONTROL_WIRE_CHECK=$<TARGET_FILE:control_wire_check>;PYTHONPATH=.:tests/native_spike")

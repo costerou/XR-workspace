@@ -82,8 +82,9 @@ class Client:
 
 
 class Session:
-    """A run with everything real but the compositor and the renderer process, keys arriving as the binds send them."""
-    def __init__(self, test):
+    """A run with everything real but the compositor and the renderer process, keys arriving as the binds send them.
+    `events`: Hyprland's event socket too, so a config reload can start its worker threads (reload)."""
+    def __init__(self, test, events=False):
         self.test = test
         tmp = tempfile.TemporaryDirectory(); test.addCleanup(tmp.cleanup)
         self.dir = Path(tmp.name)
@@ -95,6 +96,11 @@ class Session:
         self.control.keys = kb.BindControl(self.control, kb.KeyMap(), self.dir / 'keybinds.json', client=FakeClient(), bind_args=ARGS)
         self.control.keys.installed()
         self.video = video.VideoControl(self.control, threads=False, probe=lambda fd: info())
+        self.hyprland = None
+        if events:
+            self.hyprland, self.control.events = socket.socketpair()
+            self.control.events.setblocking(False)
+            test.addCleanup(self.hyprland.close); test.addCleanup(self.control.events.close)
         self.renderer = None
         self.report = {}
         self.result = {}
@@ -118,6 +124,9 @@ class Session:
     def close(self):
         if self.renderer is not None: self.renderer.rc = 0
         self.thread.join(5)
+        if self.renderer is not None:
+            self.renderer.thread.join(5)
+            self.renderer.control.close(); self.renderer.status.close()
         self.control.keys.stop()
         self.control.join_focus(2)
         self.pointer.close()
@@ -143,6 +152,14 @@ class Session:
     def tilts(self, tilts):
         self.renderer.status.send(json.dumps({'roll_geometry': {'tilt': tilts}}).encode() + b'\n')
         self.settle()
+
+    def reload(self):
+        self.hyprland.send(b'configreloaded>>\n')
+        self.settle()
+
+    def outputs(self):
+        return resize.outputs_from_monitors([{'name': n, 'x': 2560 + 1920 * i, 'y': 0, 'width': 1920, 'height': 1080, 'scale': 1.0}
+                                             for i, n in enumerate(NAMES)], NAMES)
 
     def keys(self, *ops):
         """Each as its bind sends it, one at a time."""
@@ -312,15 +329,15 @@ ROOM_KEYS = ('menu_reset', 'menu_reset', 'menu_inc', 'menu_dec_big', 'menu_field
 SEEDS = 8
 
 
-class WalkTests(unittest.TestCase):
-    """Random, reproducible: the seed and step of a failure are in its message."""
-    STEPS = 2500
-
-    def rig(self):
+class Rig:
+    """The whole control stack but the Supervisor's loop, on a fake clock: real ViewControl, pointer, key bind panel, VR video and
+    DesktopManager. `test` owns the cleanups."""
+    def __init__(self, test, desktops=None):
+        self.addCleanup = test.addCleanup
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         self.dir = Path(tmp.name)
         self.clock = Clock()
-        run = DesktopRun(self)
+        self.run = run = DesktopRun(test, desktops)
         store = profiles.PlacementStore(self.dir / 'profiles.json', MODEL)
         settings = profiles.ProfileStore(self.dir / 'profiles.json', MODEL)
         state = view.ViewState(run.manager.names())
@@ -432,28 +449,33 @@ class WalkTests(unittest.TestCase):
         return resize.outputs_from_monitors([{'name': n, 'x': 2560 + 1920 * i, 'y': 0, 'width': 1920, 'height': 1080, 'scale': 1.0}
                                              for i, n in enumerate(names)], names)
 
-    def walk(self, seed, seen=None):
-        self.rig()
-        rng = random.Random(seed)
-        wire, last = bytearray(), 0
-        for n in range(self.STEPS):
-            out, what = self.step(rng)
-            data = bytes(out) if out else b''
-            self.assertEqual(problems(data, last), [], f'seed {seed} step {n}: {what}')
-            self.assertTrue(self.v.controls or not self.v.menu, f'seed {seed} step {n}: {what}: the quality menu is on the card')
-            if data: last = ids(data)[-1]
-            wire += data
-            close = getattr(out, 'close_fds', None)
-            if close is not None: close()
-            if seen is not None: seen.update({f"frame {f['op']}" for f in map(json.loads, data.splitlines())} | self.where())
-        return wire
-
     def where(self):
         s = self.c.state
         names = {'overview panel': s.menu_open, 'maximized': s.zoomed, 'typing': s.typing, 'video': self.c.video_active,
                  'key panel': self.c.keys.open, 'four desktops': len(s.names) == 4, 'one desktop': len(s.names) == 1,
                  'list open': s.background_picker or s.scale_picker or s.resolution_picker, 'held slider': s.menu_surface is not None}
         return {name for name, on in names.items() if on}
+
+
+class WalkTests(unittest.TestCase):
+    """Random, reproducible: the seed and step of a failure are in its message."""
+    STEPS = 2500
+
+    def walk(self, seed, seen=None):
+        rig = Rig(self)
+        rng = random.Random(seed)
+        wire, last = bytearray(), 0
+        for n in range(self.STEPS):
+            out, what = rig.step(rng)
+            data = bytes(out) if out else b''
+            self.assertEqual(problems(data, last), [], f'seed {seed} step {n}: {what}')
+            self.assertTrue(rig.v.controls or not rig.v.menu, f'seed {seed} step {n}: {what}: the quality menu is on the card')
+            if data: last = ids(data)[-1]
+            wire += data
+            close = getattr(out, 'close_fds', None)
+            if close is not None: close()
+            if seen is not None: seen.update({f"frame {f['op']}" for f in map(json.loads, data.splitlines())} | rig.where())
+        return wire
 
     def test_every_op_in_any_order(self):
         for seed in range(SEEDS):
