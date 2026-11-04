@@ -85,7 +85,7 @@ class EndToEnd(Base):
             ring_bytes = 16 << 20
             closed = False
 
-            def __init__(self, bus):
+            def __init__(self, bus, fetch_bytes):
                 self.bus = bus
 
             def read_batch(self, _):
@@ -123,6 +123,27 @@ class EndToEnd(Base):
         self.assertTrue(list((out / 'drops').rglob('*.lcap')))
 
 
+class Marks(Base):
+    def test_mark_leaves_a_line_for_the_recorder(self):
+        code, _ = run('mark', 'pressed', 'brightness', 'up', '--out', self.dir)
+        self.assertEqual(code, 0)
+        self.assertEqual((self.dir / 'marks.txt').read_text(), 'pressed brightness up\n')
+
+
+class Compare(Base):
+    def test_prints_both_and_the_audit(self):
+        quiet = synth.Builder(v1=True)
+        quiet.devices(synth.T0)
+        quiet.command(synth.T0, 0x100b)
+        quiet.stream(synth.T0 + synth.MS, synth.T0 + 12 * synth.S)
+        after = quiet.write(self.dir / 'after.lcap')
+        code, out = run('compare', self.path, after)
+        self.assertEqual(code, 0)
+        self.assertIn('Commands per second once running', out)
+        self.assertIn('Wire rules', out)
+        self.assertIn('Sends nothing the baseline did not', out)
+
+
 class Report(Base):
     def test_text(self):
         code, out = run('report', self.path)
@@ -134,6 +155,11 @@ class Report(Base):
         code, out = run('report', self.path, '--json', '--framing', 'offset=14,magic=abcd')
         self.assertEqual(code, 0)
         self.assertIn('"source": "given"', out)
+
+    def test_audit_exit_status_follows_the_rules(self):
+        noisy = synth.session(14).write(self.dir / 'noisy.lcap')
+        self.assertEqual(run('report', noisy)[0], 0)
+        self.assertEqual(run('report', noisy, '--audit')[0], 1)
 
     def test_a_bad_file_is_a_message_not_a_traceback(self):
         bad = self.dir / 'bad.lcap'

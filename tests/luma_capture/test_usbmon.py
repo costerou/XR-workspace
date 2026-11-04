@@ -105,6 +105,13 @@ class Source(unittest.TestCase):
         kernel.lost = 9
         self.assertEqual(self.source(kernel).stats(), (1, 9))
 
+    def test_only_the_fetch_size_is_copied(self):
+        kernel = Kernel([(header(len_cap=100, len_urb=100), bytes(100))])
+        source = UsbmonSource(5, path=self.path, ioctl=kernel, fetch_bytes=10)
+        self.addCleanup(source.close)
+        event = source.read_batch(0)[0]
+        self.assertEqual((len(event.data), event.len_cap), (10, 100))
+
     def test_opened_read_only(self):
         self.path.chmod(0o400)
         self.source(Kernel())
@@ -133,6 +140,10 @@ class Sysfs(unittest.TestCase):
         self.assertTrue(devices[0]['hub'])
         glasses = usbmon.find_glasses(self.root)
         self.assertEqual((glasses['bus'], glasses['dev'], glasses['path']), (5, 101, '5-2.1'))
+
+    def test_the_companion_is_recognised(self):
+        self.assertTrue(usbmon.is_companion({'vid': 0x35ca, 'pid': 0x1102}))
+        self.assertFalse(usbmon.is_companion({'vid': 0x35ca, 'pid': 0x1104}))
 
     def test_no_glasses(self):
         self.device('usb5', busnum=5, devnum=1, idVendor='1d6b', idProduct='0002', bDeviceClass='09')

@@ -29,10 +29,9 @@ MON_IOCT_RING_SIZE = _ioc(0, 4, 0)
 MON_IOCX_GETX = _ioc(1, 10, GET_ARGS.size)
 
 RING_BYTES = 16 << 20    # BUFF_MAX is 64 MiB today, older kernels stop at 1.2 MiB; see set_ring
-FETCH_BYTES = 1 << 20
 BATCH = 4096
 
-VITURE_VID, LUMA_ULTRA_PID = 0x35ca, 0x1104
+VITURE_VID, LUMA_ULTRA_PID, COMPANION_PID = 0x35ca, 0x1104, 0x1102
 SYSFS = '/sys/bus/usb/devices'
 
 
@@ -65,15 +64,17 @@ def parse_event(header, data=b''):
 class UsbmonSource:
     """Reads one bus's tap. The file is opened read-only and non-blocking."""
 
-    def __init__(self, bus, *, path=None, ioctl=fcntl.ioctl):
+    def __init__(self, bus, *, path=None, ioctl=fcntl.ioctl, fetch_bytes=1 << 16):
+        """fetch_bytes is the most data copied per event, so a camera frame costs us only its first part."""
         self.path = path or f'/dev/usbmon{bus}'
+        self._fetch_bytes = fetch_bytes
         self._ioctl = ioctl
         self._fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
         self._poll = select.poll()
         self._poll.register(self._fd, select.POLLIN)
         self._header = ctypes.create_string_buffer(MON_HEADER.size)
-        self._data = ctypes.create_string_buffer(FETCH_BYTES)
-        self._args = GET_ARGS.pack(ctypes.addressof(self._header), ctypes.addressof(self._data), FETCH_BYTES)
+        self._data = ctypes.create_string_buffer(fetch_bytes)
+        self._args = GET_ARGS.pack(ctypes.addressof(self._header), ctypes.addressof(self._data), fetch_bytes)
         self.ring_bytes = self.set_ring(RING_BYTES)
 
     def set_ring(self, size):
@@ -101,7 +102,7 @@ class UsbmonSource:
             except BlockingIOError:
                 break
             event = parse_event(self._header.raw)
-            event.data = ctypes.string_at(self._data, min(event.len_cap, FETCH_BYTES))
+            event.data = ctypes.string_at(self._data, min(event.len_cap, self._fetch_bytes))
             events.append(event)
         return events
 
@@ -141,6 +142,11 @@ def scan_devices(root=SYSFS):
 
 def is_glasses(device):
     return device['vid'] == VITURE_VID and device['pid'] == LUMA_ULTRA_PID
+
+
+def is_companion(device):
+    """The microphone-and-keys device behind the same hub. Its HID reports may be the buttons."""
+    return device['vid'] == VITURE_VID and device['pid'] == COMPANION_PID
 
 
 def find_glasses(root=SYSFS):

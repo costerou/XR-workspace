@@ -3,10 +3,12 @@
 Everything standard (control requests, hub port status, URB status codes) is decoded for certain: it comes
 from the USB spec and the kernel's include/uapi/linux/usb/ch11.h.
 
-The glasses' own framing is not public. XRLinuxDriver's sources stop at the closed SDK, and the only hard
-fact is its log line "Failed to send USB command - MsgID: 0x0007". So no MsgID offset is written down here.
-infer_framing() works one out from a capture and says how sure it is, and a confirmed layout goes in with
-Framing.parse(), for instance from the protocol threads' findings.
+The glasses' two command envelopes are decoded by decode_frame, from spike/driver/docs/protocol.md on branch
+drv-protocol-research, which takes them from go-viture/luma (BSD-3-Clause): the V1 frame on 0x06/0x87 and the
+FA 55 frame on 0x04/0x85. The V1 CRC lets a capture prove that layout on the wire. If it does not fit,
+infer_framing() looks for a MsgID from behaviour instead, and a layout can be given with Framing.parse().
+
+The IMU stream's layout is not public at all: see streams.py.
 """
 from collections import Counter
 from dataclasses import dataclass
@@ -16,6 +18,11 @@ import struct
 from .capfile import F_POLICY_DROPPED, F_SETUP, XFER_CTRL, XFER_INT, XFER_ISO
 
 GET_DISPLAY_MODE = 0x0007    # named by the SDK's own error line in driver.log
+
+V1_REQUEST, V1_REPLY, MCU_MAGIC = b'\xff\xfe', b'\xff\xfd', b'\xfa\x55'
+V1_HEADER = 18               # sync 2, CRC 2, pklen 2, counter 8, MsgID 2, reserved 2
+MESSAGES = {0x0001: 'firmware version', 0x0007: 'get_display_mode', 0x000b: 'DP version', 0x0010: 'board serial',
+            0x0011: 'package serial', 0x0063: 'OSD version', 0x100b: 'enable status reports'}
 
 STATUS_NAMES = {0: 'ok', -2: 'cancelled(ENOENT)', -19: 'ENODEV', -32: 'stall(EPIPE)', -62: 'ETIME', -71: 'EPROTO',
                 -75: 'EOVERFLOW', -84: 'EILSEQ', -104: 'cancelled(ECONNRESET)', -108: 'ESHUTDOWN', -110: 'ETIMEDOUT',
@@ -179,9 +186,46 @@ def infer_framing(samples, target=GET_DISPLAY_MODE):
     return Inference(None, tuple(found[:5]), len(commands))
 
 
+def crc16_xmodem(data):
+    """Poly 0x1021, init 0, no reflection, no final xor."""
+    crc = 0
+    for byte in data:
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = (crc << 1 ^ 0x1021) & 0xffff if crc & 0x8000 else crc << 1 & 0xffff
+    return crc
+
+
+@dataclass(frozen=True, slots=True)
+class Frame:
+    """One command-channel frame. crc_ok is None for FA 55 frames, which carry no checksum."""
+    key: str              # what to count it as: 'MsgID 0x0007', 'MCU 0x80'
+    name: str             # for people: 'MsgID 0x0007 (get_display_mode)'
+    msgid: int | None
+    is_reply: bool
+    crc_ok: bool | None
+    status: int | None = None
+
+
+def decode_frame(data):
+    """The frame in a transfer's payload, or None if it is not a documented envelope."""
+    if data[:2] in (V1_REQUEST, V1_REPLY) and len(data) >= 16:
+        crc, length = struct.unpack_from('<HH', data, 2)
+        msgid = struct.unpack_from('<H', data, 14)[0]
+        end = 6 + length
+        ok = end <= len(data) and crc16_xmodem(data[4:end]) == crc
+        reply = data[:2] == V1_REPLY
+        known = f' ({MESSAGES[msgid]})' if msgid in MESSAGES else ''
+        status = data[18] if reply and len(data) > 18 else None
+        return Frame(f'MsgID {msgid:#06x}', f'MsgID {msgid:#06x}{known}', msgid, reply, ok, status)
+    if data[:2] == MCU_MAGIC and len(data) >= 5:
+        return Frame(f'MCU {data[2]:#04x}', f'MCU {data[2]:#04x}', None, False, None)
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class Label:
-    kind: str     # hub, control, command, reply, stream, read, device, note
+    kind: str     # hub, control, command, sent, reply, stream, read, device, companion
     text: str
     msgid: int | None = None
 
@@ -201,11 +245,16 @@ class Labeler:
         msgid = self.framing.msgid(record.data) if self.framing else None
         if msgid is not None:
             return f'MsgID {msgid:#06x}', msgid
+        frame = decode_frame(record.data)
+        if frame:
+            return frame.key, frame.msgid
         return f'ep{record.ep:02x} len={record.urb_len} {record.data[:2].hex() or "-"}', None
 
     def label(self, record):
         if record.xfer == XFER_CTRL:
             return self._control(record)
+        if record.companion:
+            return Label('companion', f'companion ep{record.ep:02x} len={record.urb_len}')
         if not record.glasses:
             return self._device(record)
         if record.is_in:
@@ -214,10 +263,26 @@ class Labeler:
             if record.ep in self.stream_eps:
                 return Label('stream', f'stream ep{record.ep:02x} len={record.urb_len}')
             msgid = self.framing.msgid(record.data) if self.framing else None
-            name = f'reply MsgID {msgid:#06x}' if msgid is not None else 'data'
-            return Label('reply', f'{name} ep{record.ep:02x} len={record.urb_len}', msgid)
+            if msgid is not None:
+                return Label('reply', f'reply MsgID {msgid:#06x} ep{record.ep:02x} len={record.urb_len}', msgid)
+            frame = decode_frame(record.data)
+            if frame:
+                text = f'{"reply" if frame.is_reply else "frame"} {frame.name} ep{record.ep:02x}'
+                text += '' if frame.status in (None, 0) else f' status={frame.status}'
+                return Label('reply', text + ('' if frame.crc_ok is not False else ' BAD CRC'), frame.msgid)
+            return Label('reply', f'data ep{record.ep:02x} len={record.urb_len}')
+        if record.event != 'S':
+            return Label('sent', f'sent ep{record.ep:02x}')
         key, msgid = self.command_key(record)
+        frame = decode_frame(record.data) if record.xfer != XFER_CTRL else None
+        if frame:
+            return Label('command', 'command ' + frame.name + ('' if frame.crc_ok is not False else ' BAD CRC'), msgid)
         return Label('command', ('command ' if msgid is not None else 'OUT ') + key, msgid)
+
+    def incoming_key(self, record):
+        """What this non-stream data from the glasses is, for counting."""
+        frame = decode_frame(record.data)
+        return frame.key if frame else f'ep{record.ep:02x} len={record.urb_len} {record.data[:2].hex() or "-"}'
 
     def _device(self, record):
         kind = {XFER_ISO: 'iso', XFER_INT: 'interrupt'}.get(record.xfer, 'bulk')
@@ -268,7 +333,7 @@ def drop_signal(record, port=None):
     if record.is_note:
         note = record.note
         if note.get('type') == 'glasses_gone':
-            return 'gone from sysfs'
+            return 'gone from sysfs' + (f": {note['why']}" if note.get('why') else '')
         if note.get('type') == 'kernel' and kernel_disconnect(note.get('text', ''), port):
             return 'kernel: ' + note['text']
         return None

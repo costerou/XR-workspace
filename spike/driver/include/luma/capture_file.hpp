@@ -3,6 +3,7 @@
 // in step is tests/luma_capture/test_cpp_reader.py.
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstddef>
@@ -13,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace luma::capture {
@@ -31,6 +33,7 @@ enum Flag : std::uint8_t {
   kKernelTruncated = 0x04,
   kPolicyDropped = 0x08,
   kCapped = 0x10,
+  kCompanion = 0x20,
 };
 
 struct Record {
@@ -139,5 +142,41 @@ class Reader {
   bool truncated_ = false;
   std::vector<std::uint8_t> head_, data_;
 };
+
+// What a replay plays back, in time order. The numbers match luma::CaptureKind in daemon.hpp.
+enum class ReplayKind : std::uint8_t { from_device = 0, to_device = 1, device_gone = 2, device_back = 3 };
+struct ReplayEvent {
+  std::uint64_t t_ns = 0;
+  ReplayKind kind = ReplayKind::from_device;
+  std::vector<std::uint8_t> payload;
+};
+
+// Turns one capture file into events. A failed transfer is deliberately not device_gone: the kernel also fails
+// transfers on a mere SET_CONFIGURATION. Only the recorder's sysfs notes say the device left and came back.
+// Give an endpoint to keep only that one's from_device data. A file cut off mid-record yields what precedes the cut.
+inline std::optional<std::vector<ReplayEvent>> load_replay(const std::string& path, std::string* error = nullptr,
+                                                           std::optional<std::uint8_t> endpoint = std::nullopt) {
+  auto reader = Reader::open(path, error);
+  if (!reader) return std::nullopt;
+  std::vector<ReplayEvent> events;
+  Record record;
+  while (reader->next(record)) {
+    if (record.kind == kNote) {
+      const std::string_view text(reinterpret_cast<const char*>(record.data.data()), record.data.size());
+      if (text.find("\"type\":\"glasses_gone\"") != text.npos) {
+        events.push_back({record.t_ns, ReplayKind::device_gone, {}});
+      } else if (text.find("\"type\":\"glasses_back\"") != text.npos) {
+        events.push_back({record.t_ns, ReplayKind::device_back, {}});
+      }
+    } else if (record.replayable() && (!endpoint || record.ep == *endpoint)) {
+      events.push_back({record.t_ns, ReplayKind::from_device, {record.data.begin(), record.data.end()}});
+    } else if (record.host_write()) {
+      events.push_back({record.t_ns, ReplayKind::to_device, {record.data.begin(), record.data.end()}});
+    }
+  }
+  std::stable_sort(events.begin(), events.end(),
+                   [](const ReplayEvent& a, const ReplayEvent& b) { return a.t_ns < b.t_ns; });
+  return events;
+}
 
 }  // namespace luma::capture

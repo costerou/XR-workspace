@@ -55,7 +55,8 @@ Flags:
 | 0x02 | glasses | this event belongs to the glasses (35ca:1104) |
 | 0x04 | kernel truncated | usbmon delivered fewer bytes than the transfer held |
 | 0x08 | policy dropped | the recorder refused to keep this payload |
-| 0x10 | capped | the recorder kept only the first `--max-payload` bytes |
+| 0x10 | capped | the recorder kept only the first part of this payload |
+| 0x20 | companion | this event belongs to the glasses' companion device (35ca:1102) |
 
 Data follows direction, as it does on the wire: host-to-device bytes are on the `S`, device-to-host bytes on the `C`.
 USB times come from the kernel's wall clock in microseconds. USB records are in the order the kernel saw them, but
@@ -67,9 +68,15 @@ disagree or that runs past the end of the file, and tell the user. Do not try to
 
 ## What is kept
 
-Payloads are kept for the glasses, for hubs and for control transfers. The same bus carries the camera and two
-microphones, and for those the recorder stores a header with no data, with flag 0x08 set. Isochronous data, which
-is how audio and video travel, is never kept for any device.
+Payloads are kept for the glasses, for the companion device, for hubs and for control transfers. The companion
+holds the microphone but also HID reports that may be the buttons. The same bus carries a pass-through camera and a
+USB headset, and for those the recorder stores a header with no data, with flag 0x08 set. Isochronous data, which is
+how audio and video travel, is never kept for any device.
+
+A transfer up to `--max-payload` (64 KiB) is kept whole, because the 16 KiB start-up read may hold factory calibration.
+Once one endpoint has moved more than 1 MiB in a second it is treated as a camera, and each further transfer that
+second is cut to its first 4 KiB, with flag 0x10 set. A 6DoF session's side cameras would hit this, if they use this
+device. Those records keep their true URB length, so rates stay right.
 
 ## Notes
 
@@ -83,31 +90,38 @@ The data of a note is one UTF-8 JSON object with a `type`. Readers ignore types 
 | `stop` | `reason` | the recorder ended |
 | `kernel` | `text` | a kernel log line about USB, stamped with the journal's own time |
 | `driver_log` | `text` | a line added to `driver.log`, stamped on arrival, which is within about 50 ms |
-| `glasses_gone` | | the glasses left sysfs |
+| `glasses_gone` | `why` (optional) | the glasses left sysfs, or came back with a new device number between two looks |
+| `glasses_back` | `dev` | the glasses are listed again, at this device number |
+| `mark` | `text` | something a person noted with `tools.luma_capture mark`, stamped on arrival |
 | `usbmon_stats` | `dropped`, `since_last` | the kernel lost this many events because the recorder fell behind. Treat the capture as having a hole |
 | `kernel_log_unavailable` | `why` | the kernel log could not be followed |
 
 ## Replay
 
-`--replay FILE` stands in for `luma::Transport`, so everything above it runs on recorded data with no device.
+`--replay FILE` stands in for the glasses, so everything above the transport runs on recorded data. Use a single
+file: `python3 -m tools.luma_capture merge FOLDER -o FILE` joins a run's segments.
 
-1. Use a single file. `python3 -m tools.luma_capture merge FOLDER -o FILE` joins a run's segments.
-2. `Transport::read` returns, in order, the data of each record that passes `Record::replayable()`: kind USB, event
-   `C`, endpoint bit 7 set, flag 0x02 set, status 0, transfer bulk or interrupt, none of flags 0x04, 0x08, 0x10.
-   Partial records are skipped because they would feed a parser bytes that never existed as sent.
-3. Filter by endpoint. Which endpoint carries the IMU has not been established (see below), so take it as an option
-   until a real capture settles it.
-4. Pacing: either wait for the difference in `time` between records, or run flat out for tests. Do not compare
-   against the wall clock: the capture's times are from when it was recorded.
-5. `Transport::write` must not fail or send anything. `Record::host_write()` selects what the real driver sent, so a
-   test can compare it with what the new driver would have sent.
-6. A disconnect in the data appears as a `kernel` or `glasses_gone` note, or a `C` with status -19 or -108 on a
-   glasses endpoint. That status alone is not proof: the kernel also flushes endpoints with -108 on
-   `SET_CONFIGURATION`. A reconnect appears as the same endpoints at a new device address. Replay these as transport
-   disconnect and reconnect events.
+`luma::capture::load_replay` in `capture_file.hpp` turns a file into events in time order. Its kinds have the same
+numbers as `luma::CaptureKind` in `daemon.hpp`:
 
-One read is one URB, not one USB packet. If the glasses batch samples, a single record holds several, which is how
-`Transport::read` will see them too.
+| Kind | From | Replay does |
+|---|---|---|
+| `from_device` | `Record::replayable()`: kind USB, event `C`, endpoint bit 7, flag 0x02, status 0, bulk or interrupt, none of flags 0x04, 0x08, 0x10 | Returns it from a read |
+| `to_device` | `Record::host_write()`: what the recorded driver sent | Nothing is sent. A test can compare it with what the new driver sends |
+| `device_gone` | a `glasses_gone` note | Reports a disconnect |
+| `device_back` | a `glasses_back` note | Reports a reconnect |
+
+- Partial records are left out, because they would feed a parser bytes that never existed as sent.
+- A failed transfer is not `device_gone`. Status -19 or -108 alone proves nothing: the kernel also flushes endpoints
+  with -108 on `SET_CONFIGURATION`.
+- By default every endpoint's data is played, and the parser rejects what is not IMU data. Pass an endpoint to keep one.
+- Pace by the difference in `time`, or run flat out for tests. Never compare with the wall clock.
+
+The bridge from `load_capture` in the daemon is one loop over `load_replay`. It was tried on a copy of `drv-daemon` with
+a synthetic session taken through the recorder and `merge`: 4999 samples, no bad packets, one disconnect, one reconnect.
+
+One read is one URB, not one USB packet. If the glasses batch samples, a single record holds several, which is how a
+real read will see them too.
 
 ## Known limits
 
@@ -116,8 +130,7 @@ One read is one URB, not one USB packet. If the glasses batch samples, a single 
 - On xHCI, address assignment happens inside the controller, so `SET_ADDRESS` never appears.
 - For a moment after a reconnect, until sysfs lists the device, its events can lack the glasses flag. Their payloads
   are kept, but they are not replayable.
-- The MsgID field's position in a command is not publicly documented for this device. See
-  `tools/luma_capture/protocol.py`.
-- The endpoint roles are unknown. `/sys/bus/usb/devices/5-2.1` shows one vendor-specific interface with bulk OUT 0x04
-  and 0x06, interrupt IN 0x81 (1024 bytes, every 1 ms at high speed) and 0x83 (512 bytes, every 1 ms), and bulk IN
-  0x82, 0x85, 0x87. 0x81 looks like a 1 kHz stream on paper, but that is unconfirmed.
+- The IMU stream's endpoint and layout are not public. `tools/luma_capture/streams.py` looks for them in a capture.
+- `spike/driver/docs/protocol.md` on branch `drv-protocol-research` gives the command endpoints: 0x06/0x87 for `FF FE`
+  frames, 0x04/0x85 for `FA 55` frames. Interrupt IN 0x81 (1024 bytes, every 500 us at high speed), interrupt IN 0x83
+  (512 bytes, every 1 ms) and bulk IN 0x82 have no known role yet.

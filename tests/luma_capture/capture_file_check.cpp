@@ -4,7 +4,23 @@
 
 #include "luma/capture_file.hpp"
 
+static int events(const char* path, std::optional<std::uint8_t> endpoint) {
+  std::string error;
+  auto loaded = luma::capture::load_replay(path, &error, endpoint);
+  if (!loaded) {
+    std::printf("error %s\n", error.c_str());
+    return 1;
+  }
+  for (const auto& event : *loaded) {
+    std::printf("%llu %d %zu\n", static_cast<unsigned long long>(event.t_ns), static_cast<int>(event.kind),
+                event.payload.size());
+  }
+  return 0;
+}
+
 int main(int argc, char** argv) {
+  if (argc == 3) return events(argv[1], static_cast<std::uint8_t>(std::stoi(argv[2], nullptr, 0)));
+  if (argc == 4) return events(argv[1], std::nullopt);
   if (argc != 2) return 2;
   std::string error;
   auto reader = luma::capture::Reader::open(argv[1], &error);

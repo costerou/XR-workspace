@@ -7,8 +7,9 @@ import signal
 import sys
 
 from . import capfile, pcap
+from .audit import audit, compare, passed, render_audit, render_compare
 from .protocol import Framing, Labeler, status_name
-from .recorder import Recorder, describe, start_followers
+from .recorder import Recorder, add_mark, describe, start_followers
 from .report import analyze, clock, render
 from .usbmon import UsbmonSource, find_glasses, grant_commands, revoke_commands, scan_devices
 
@@ -55,7 +56,7 @@ def command_record(args):
     problem = access_problem(bus)
     if problem:
         sys.exit(f'{problem}. Run: python3 -m tools.luma_capture check')
-    source = UsbmonSource(bus)
+    source = UsbmonSource(bus, fetch_bytes=args.max_payload)
     recorder = Recorder(source, args.out, bus, scan=scan_devices, segment_s=args.segment,
                         keep_segments=args.keep_segments,
                         keep_start=args.keep_start, post_roll_s=args.post_roll,
@@ -82,7 +83,20 @@ def command_record(args):
 def command_report(args):
     framing = Framing.parse(args.framing) if args.framing else None
     result = analyze(args.paths, framing=framing, window_s=args.window, rows=args.rows)
-    print(json.dumps(result, indent=1) if args.json else render(result), end='\n' if args.json else '')
+    baseline = analyze(args.baseline, framing=framing) if args.baseline else None
+    rules = audit(result, baseline)
+    if args.json:
+        print(json.dumps({**result, 'wire_rules': rules}, indent=1))
+    else:
+        print(render(result) + render_audit(rules), end='')
+    return 0 if passed(rules) or not args.audit else 1
+
+
+def command_compare(args):
+    framing = Framing.parse(args.framing) if args.framing else None
+    before, after = analyze([args.before], framing=framing), analyze([args.after], framing=framing)
+    print(render_compare(compare(before, after)), end='')
+    print(render_audit(audit(after, before)), end='')
     return 0
 
 
@@ -96,6 +110,11 @@ def command_show(args):
         else:
             print(clock(record.t_ns), record.event, f'dev{record.dev}', labeler.label(record).text,
                   status_name(record.status), record.data[:32].hex(' '))
+    return 0
+
+
+def command_mark(args):
+    add_mark(args.out, ' '.join(args.text))
     return 0
 
 
@@ -124,7 +143,7 @@ def parser():
     record.add_argument('--keep-start', type=int, default=2, help='first files kept for good')
     record.add_argument('--post-roll', type=float, default=30, help='seconds kept after a drop')
     record.add_argument('--stop-after-drops', type=int, default=10)
-    record.add_argument('--max-payload', type=int, default=4096, help='bytes kept per transfer')
+    record.add_argument('--max-payload', type=int, default=1 << 16, help='most bytes kept per transfer')
     record.add_argument('--max-gib', type=int, default=4, help='stop if the folder grows past this')
     record.add_argument('--duration', type=float, help='stop after this many seconds')
     record.set_defaults(run=command_record)
@@ -134,12 +153,23 @@ def parser():
     report.add_argument('--window', type=float, default=5, help='seconds shown before a disconnect')
     report.add_argument('--rows', type=int, default=200)
     report.add_argument('--json', action='store_true')
+    report.add_argument('--audit', action='store_true', help='exit 1 if a wire rule fails')
+    report.add_argument('--baseline', nargs='+', help="a capture of VITURE's own software, for the audit")
     report.set_defaults(run=command_report)
+    versus = commands.add_parser('compare', help='two captures side by side')
+    versus.add_argument('before')
+    versus.add_argument('after')
+    versus.add_argument('--framing')
+    versus.set_defaults(run=command_compare)
     show = commands.add_parser('show', help='print records')
     show.add_argument('paths', nargs='+')
     show.add_argument('--limit', type=int, default=200)
     show.add_argument('--framing')
     show.set_defaults(run=command_show)
+    mark = commands.add_parser('mark', help='note what you just did, for a running recorder')
+    mark.add_argument('text', nargs='+')
+    mark.add_argument('--out', type=Path, default=DEFAULT_OUT)
+    mark.set_defaults(run=command_mark)
     merge = commands.add_parser('merge', help='join segments into one file, for --replay')
     merge.add_argument('paths', nargs='+')
     merge.add_argument('--output', '-o', required=True)

@@ -5,8 +5,8 @@ import unittest
 from tools.luma_capture import protocol
 from tools.luma_capture.capfile import (F_GLASSES, F_POLICY_DROPPED, F_SETUP, Record, XFER_BULK, XFER_CTRL, XFER_INT,
                                         note_record)
-from tools.luma_capture.protocol import (Framing, Labeler, describe_control, drop_signal, infer_framing,
-                                         kernel_disconnect, port_of, status_name)
+from tools.luma_capture.protocol import (Framing, Labeler, crc16_xmodem, decode_frame, describe_control, drop_signal,
+                                         infer_framing, kernel_disconnect, port_of, status_name)
 
 import synth
 
@@ -62,6 +62,60 @@ class Status(unittest.TestCase):
         self.assertEqual(status_name(-71), 'EPROTO')
         self.assertEqual(status_name(-108), 'ESHUTDOWN')
         self.assertEqual(status_name(-5), 'errno -5')
+
+
+def padded(hex_text, ascii_tail=b''):
+    return (bytes.fromhex(hex_text) + ascii_tail).ljust(512, b'\0')
+
+
+class DocumentedFrames(unittest.TestCase):
+    """The first two requests and the reply are vendor bytes, quoted in protocol.md from VITURE's web updater."""
+
+    def test_crc_known_value(self):
+        self.assertEqual(crc16_xmodem(b'123456789'), 0x31c3)     # the published check value for CRC-16/XMODEM
+
+    def test_vendor_requests_pass(self):
+        for text, msgid, name in (('fffe7a600c0000000000000000000100', 0x0001, 'firmware version'),
+                                  ('fffe690d0c0000000000000000001000', 0x0010, 'board serial')):
+            frame = decode_frame(padded(text))
+            self.assertTrue(frame.crc_ok, text)
+            self.assertEqual((frame.msgid, frame.is_reply, frame.key), (msgid, False, f'MsgID {msgid:#06x}'))
+            self.assertIn(name, frame.name)
+
+    def test_vendor_reply_passes_and_shows_its_status(self):
+        frame = decode_frame(padded('fffdaf0f210000000000763e42000100000000', b'12.0.01.101_20260605'))
+        self.assertTrue(frame.crc_ok)
+        self.assertTrue(frame.is_reply)
+        self.assertEqual((frame.msgid, frame.status), (1, 0))
+
+    def test_a_flipped_bit_fails(self):
+        raw = bytearray(padded('fffe7a600c0000000000000000000100'))
+        raw[14] ^= 0x10
+        self.assertFalse(decode_frame(bytes(raw)).crc_ok)
+
+    def test_a_length_past_the_end_fails_rather_than_crashes(self):
+        raw = bytearray(padded('fffe7a60ff7f00000000000000000100'))
+        self.assertFalse(decode_frame(bytes(raw)).crc_ok)
+
+    def test_mcu_frames_have_no_checksum_to_judge(self):
+        frame = decode_frame(bytes.fromhex('fa55800000'))
+        self.assertEqual((frame.key, frame.crc_ok, frame.msgid), ('MCU 0x80', None, None))
+
+    def test_anything_else_is_not_a_frame(self):
+        for data in (b'', b'\xff\xfe', bytes(64), b'\xfa\x55\x80', synth.imu_packet(1, rng=random.Random(1))):
+            self.assertIsNone(decode_frame(data))
+
+    def test_labels_read_like_the_doc(self):
+        labeler = Labeler()
+        out = Record(1, event='S', ep=6, flags=F_GLASSES, data=synth.v1_frame(7), urb_len=512)
+        self.assertEqual(labeler.label(out).text, 'command MsgID 0x0007 (get_display_mode)')
+        self.assertEqual(labeler.command_key(out), ('MsgID 0x0007', 7))
+        back = Record(2, event='C', ep=0x87, flags=F_GLASSES, data=synth.v1_frame(7, reply=True, payload=b'\x05'))
+        self.assertEqual(labeler.label(back).text, 'reply MsgID 0x0007 (get_display_mode) ep87 status=5')
+
+    def test_a_bad_crc_is_said(self):
+        out = Record(1, event='S', ep=6, flags=F_GLASSES, data=synth.v1_frame(7, bad_crc=True))
+        self.assertIn('BAD CRC', Labeler().label(out).text)
 
 
 class Framings(unittest.TestCase):

@@ -5,8 +5,13 @@ Layout under the output folder:
     start/         the first --keep-start segments, so the driver's start-up commands survive
     drops/<time>/  everything rolling held at a drop, plus what followed for --post-roll seconds
 
-Keeps payloads only for the glasses and for control and hub traffic. The bus also carries the camera and
-microphones; those are stored as bare headers, and isochronous audio or video never has its data kept.
+Keeps payloads only for the glasses, their companion's HID reports, and control and hub traffic. The bus also
+carries the camera, a headset and microphones; those are stored as bare headers, and isochronous audio or video
+never has its data kept.
+
+A transfer up to --max-payload is kept whole, since the start-up read that may hold factory calibration is
+16 KiB. An endpoint moving more than THROTTLE_BYTES a second is a camera, not a protocol, so past that it is
+cut to HEAD_BYTES per transfer. That bounds what a 6DoF session writes without losing anything rare.
 """
 import json
 import os
@@ -18,13 +23,17 @@ import threading
 import time
 
 from . import capfile
-from .capfile import F_CAPPED, F_GLASSES, F_KERNEL_TRUNCATED, F_POLICY_DROPPED, F_SETUP, XFER_CTRL, XFER_ISO, Record
+from .capfile import (F_CAPPED, F_COMPANION, F_GLASSES, F_KERNEL_TRUNCATED, F_POLICY_DROPPED, F_SETUP, XFER_CTRL,
+                      XFER_ISO, Record)
 from .protocol import confirms_drop, drop_signal, port_of
-from .usbmon import is_glasses, scan_devices
+from .usbmon import is_companion, is_glasses, scan_devices
 
 SCAN_S = 0.25
+HEAD_BYTES = 4096
+THROTTLE_BYTES = 1 << 20
 UNKNOWN_SCAN_S = 0.05
 FLUSH_S = 0.25
+MARKS = 'marks.txt'
 JOURNAL = ('journalctl', '-k', '-f', '-n', '0', '-o', 'short-unix', '--no-pager')
 KERNEL_FILTER = re.compile(r'\busb\b|xhci|\bhub\b', re.IGNORECASE)
 KERNEL_LINE = re.compile(r'^(\d+)\.(\d+)\s+\S+\s+\S+:\s(.*)$')
@@ -36,7 +45,7 @@ def stamp(t_ns):
 
 
 def keep_payload(xfer, device_class):
-    """Device classes: glasses, hub, other, or unknown for a device sysfs has not listed yet."""
+    """Device classes: glasses, companion, hub, other, or unknown for a device sysfs has not listed yet."""
     if xfer == XFER_ISO:
         return False
     return xfer == XFER_CTRL or device_class != 'other'
@@ -44,7 +53,7 @@ def keep_payload(xfer, device_class):
 
 class Recorder:
     def __init__(self, source, out_dir, bus, *, scan=scan_devices, clock=time.time_ns, segment_s=30,
-                 keep_segments=10, keep_start=2, post_roll_s=30, stop_after_drops=10, max_payload=4096,
+                 keep_segments=10, keep_start=2, post_roll_s=30, stop_after_drops=10, max_payload=1 << 16,
                  max_total_bytes=4 << 30, duration_s=None, log=print):
         self.source = source
         self.out_dir = Path(out_dir)
@@ -69,7 +78,7 @@ class Recorder:
         self._classes = {}
         self._map = None
         self._port = None
-        self._glasses_present = False
+        self._seen_glasses = False
         self._last_scan = 0
         self._last_flush = 0
         self._lost = 0
@@ -77,6 +86,8 @@ class Recorder:
         self._end_ns = None if duration_s is None else int(duration_s * 1e9)
         self._drop_at = None
         self._save_at = None
+        self._ep_second = {}
+        self._glasses_dev = None
 
     def start(self):
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -104,22 +115,34 @@ class Recorder:
     def on_event(self, event):
         with self._lock:
             device_class = self._class_of(event.devnum)
-            flags = F_GLASSES if device_class == 'glasses' else 0
+            flags = {'glasses': F_GLASSES, 'companion': F_COMPANION}.get(device_class, 0)
             flags |= F_SETUP if event.has_setup else 0
             data = event.data if event.has_data else b''
             if data and not keep_payload(event.xfer_type, device_class):
                 data = b''
                 flags |= F_POLICY_DROPPED
-            elif data and len(data) > self._max_payload:
-                data = data[:self._max_payload]
-                flags |= F_CAPPED
-            if event.has_data and len(event.data) < event.len_urb:
+            elif data:
+                kept = min(self._max_payload, self._budget(event, len(data)))
+                if kept < len(data):
+                    data = data[:kept]
+                if len(data) < event.len_cap:
+                    flags |= F_CAPPED
+            if event.has_data and event.len_cap < event.len_urb:
                 flags |= F_KERNEL_TRUNCATED
             record = Record(event.ts_ns, capfile.KIND_USB, event.type, event.xfer_type, event.epnum, event.id,
                             event.busnum, event.devnum, flags, event.status, event.len_urb,
                             event.setup if event.has_setup else bytes(8), data)
             self._writer.write(record)
             self._check_drop(record)
+
+    def _budget(self, event, size):
+        """How much of this payload to keep, given how much its endpoint has already moved this second."""
+        second = event.ts_ns // 10**9
+        key = (event.devnum, event.epnum)
+        began, moved = self._ep_second.get(key, (second, 0))
+        moved = 0 if began != second else moved
+        self._ep_second[key] = (second, moved + size)
+        return size if moved + size <= THROTTLE_BYTES else HEAD_BYTES
 
     def tick(self):
         """The periodic work: device map, kernel loss counter, flush, rotation, saving a drop."""
@@ -177,7 +200,8 @@ class Recorder:
             return
         self._last_scan = now
         devices = [d for d in self._scan() if d['bus'] == self.bus]
-        classes = {d['dev']: 'glasses' if is_glasses(d) else 'hub' if d['hub'] else 'other' for d in devices}
+        classes = {d['dev']: ('glasses' if is_glasses(d) else 'companion' if is_companion(d)
+                              else 'hub' if d['hub'] else 'other') for d in devices}
         glasses = next((d for d in devices if is_glasses(d)), None)
         changed = devices != self._map
         self._map, self._classes = devices, classes
@@ -185,9 +209,14 @@ class Recorder:
             self._port = port_of(glasses['path'])
         if changed and self._writer:
             self.note('device_map', devices=devices, port=self._port)
-        if self._glasses_present and not glasses:
-            self.note('glasses_gone')
-        self._glasses_present = glasses is not None
+        dev = glasses['dev'] if glasses else None
+        if self._glasses_dev is not None and dev != self._glasses_dev:
+            # A new address with no gap seen means it went and came back between two scans.
+            self.note('glasses_gone', **({'why': 'new device number'} if dev else {}))
+        if dev is not None and dev != self._glasses_dev and self._begin_ns is not None and self._seen_glasses:
+            self.note('glasses_back', dev=dev)
+        self._seen_glasses = self._seen_glasses or dev is not None
+        self._glasses_dev = dev
 
     def _check_drop(self, record):
         reason = drop_signal(record, self._port)
@@ -301,9 +330,18 @@ def follow_kernel(emit, stop, *, command=JOURNAL, on_error=None):
     process.wait()
 
 
+def add_mark(out_dir, text):
+    """Leaves a note for a running recorder: 'pressed brightness up'. It stamps it as it reads it."""
+    with open(Path(out_dir) / MARKS, 'a') as file:
+        file.write(text.replace('\n', ' ') + '\n')
+
+
 def start_followers(recorder, driver_log, *, kernel_command=JOURNAL):
-    """Runs both log followers on daemon threads. Set the returned event to stop them."""
+    """Runs the log followers on daemon threads. Set the returned event to stop them."""
     stop = threading.Event()
+    (recorder.out_dir / MARKS).touch()
+    threading.Thread(target=follow_file, daemon=True,
+                     args=(recorder.out_dir / MARKS, lambda text: recorder.note('mark', text=text), stop)).start()
     threading.Thread(target=follow_file, daemon=True,
                      args=(driver_log, lambda text: recorder.note('driver_log', text=text), stop)).start()
     threading.Thread(target=follow_kernel, daemon=True, args=(

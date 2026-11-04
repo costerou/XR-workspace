@@ -19,7 +19,8 @@ F_SETUP = 0x01           # setup holds a control request
 F_GLASSES = 0x02         # this event belongs to the glasses (35ca:1104)
 F_KERNEL_TRUNCATED = 0x04  # usbmon delivered fewer bytes than the transfer carried
 F_POLICY_DROPPED = 0x08  # the recorder refused to keep this payload (another device, or audio/video)
-F_CAPPED = 0x10          # the recorder kept only the first --max-payload bytes
+F_CAPPED = 0x10          # the recorder kept only the first part of this payload
+F_COMPANION = 0x20       # this event belongs to the glasses' companion, 35ca:1102 (buttons, microphone)
 PARTIAL = F_KERNEL_TRUNCATED | F_POLICY_DROPPED | F_CAPPED
 
 
@@ -59,6 +60,10 @@ class Record:
     @property
     def glasses(self):
         return bool(self.flags & F_GLASSES)
+
+    @property
+    def companion(self):
+        return bool(self.flags & F_COMPANION)
 
     @property
     def replayable(self):

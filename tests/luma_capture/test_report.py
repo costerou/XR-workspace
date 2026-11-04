@@ -1,8 +1,11 @@
 import json
+import random
 import tempfile
 from pathlib import Path
 import unittest
 
+from tools.luma_capture import capfile
+from tools.luma_capture.capfile import F_GLASSES
 from tools.luma_capture.protocol import Framing
 from tools.luma_capture.report import analyze, render
 
@@ -265,6 +268,220 @@ class Sets(Base):
         self.assertEqual(parts['msgid_0x0007']['total'], whole.polled)
         self.assertEqual(len(parts['drops']), 1)
         self.assertEqual(len(parts['drops'][0]['in_flight']), 1)
+
+
+class DocumentedFraming(Base):
+    def session(self, seconds=6):
+        build = synth.Builder(v1=True)
+        build.devices(T0)
+        for index, msgid in enumerate((0x0001, 0x100b, 0x0007)):
+            build.command(T0 + index * 10 * MS, msgid)
+        for second in range(1, seconds):
+            build.command(T0 + second * S, 0x0007)
+        build.stream(T0 + 50 * MS, T0 + seconds * S)
+        return build
+
+    def test_the_frames_prove_themselves_and_no_guessing_happens(self):
+        build = self.session()
+        result = analyze([self.capture(build)])
+        self.assertEqual(result['framing']['source'], 'documented')
+        self.assertEqual(result['framing']['candidates'], [])
+        self.assertEqual(result['msgid_0x0007']['total'], 6)
+        self.assertEqual(result['framing']['frames_with_good_crc'], 2 * (3 + 5))
+        text = render(result)
+        self.assertIn('proven here', text)
+        self.assertIn('MsgID 0x100b', text)
+
+    def test_a_bad_crc_is_a_warning(self):
+        build = self.session()
+        build.usb(T0 + S, 'S', 0x06, synth.v1_frame(7, bad_crc=True), status=-115)
+        result = analyze([self.capture(build)])
+        self.assertEqual(result['framing']['frames_with_bad_crc'], 1)
+        self.assertIn('failed their CRC', render(result))
+
+    def test_sensor_bytes_that_look_like_a_frame_are_not_bad_frames(self):
+        build = self.session()
+        build.stream(T0 + 2 * S, T0 + 3 * S, ep=0x83, make=lambda i: b'\xff\xfe' + bytes(60))
+        result = analyze([self.capture(build)])
+        self.assertTrue(result['endpoints']['ep83']['stream'])
+        self.assertEqual(result['framing']['frames_with_bad_crc'], 0)
+
+    def test_replies_are_counted_on_their_own(self):
+        result = analyze([self.capture(self.session())])
+        self.assertEqual(result['incoming']['MsgID 0x0007']['total'], 6)
+
+    def test_unprompted_events_show_up_as_incoming(self):
+        build = self.session()
+        for index in range(3):
+            build.usb(T0 + S + index * MS, 'C', 0x87, synth.v1_frame(0x1234, reply=True))
+        self.assertEqual(analyze([self.capture(build)])['incoming']['MsgID 0x1234']['total'], 3)
+
+
+class StreamHealth(Base):
+    def imu(self, *, jitter=None, seconds=4, samples=1, period=MS):
+        rng = random.Random(9)
+        build = synth.Builder(v1=True)
+        build.command(T0, 0x100b)
+        build.stream(T0 + 50 * MS, T0 + seconds * S, jitter=jitter, period=period,
+                     make=lambda i: synth.imu_packet(i, rng=rng, samples=samples, period_us=period // 1000 // samples))
+        return analyze([self.capture(build)])['streams']['ep81']
+
+    def test_rate_and_even_spacing(self):
+        stream = self.imu()
+        self.assertAlmostEqual(stream['hz'], 1000, delta=1)
+        self.assertEqual((stream['p50_us'], stream['max_us'], stream['gaps'], stream['outages']), (1000, 1000, 0, 0))
+
+    def test_a_stall_is_seen(self):
+        stream = self.imu(jitter=lambda i: 20 * MS if i == 500 else 0)
+        self.assertEqual(stream['gaps'], 1)
+        self.assertEqual(stream['max_us'], 21000)
+        self.assertEqual(stream['p99_us'], 1000)
+
+    def test_an_outage_is_not_counted_as_jitter(self):
+        stream = self.imu(jitter=lambda i: 2 * S if i == 500 else 0)
+        self.assertEqual((stream['outages'], stream['max_us']), (1, 1000))
+
+    def test_the_device_clock_is_found_and_read_in_microseconds(self):
+        found = self.imu()['profile']
+        clock = found['clocks'][0]
+        self.assertEqual((clock['offset'], clock['width'], clock['endian'], clock['step']), (2, 4, 'little', 1000))
+        self.assertEqual(clock['unit'], 'us')
+        self.assertLess(abs(clock['drift_ppm']), 3000)
+
+    def test_gravity_finds_the_accelerometer(self):
+        found = self.imu()['profile']['gravity']
+        real = next(item for item in found if item['offset'] == 18)
+        self.assertEqual((real['format'], real['unit']), ('float32 little', 'g'))
+        self.assertAlmostEqual(real['length'], 1.0, places=2)
+        self.assertEqual(found[0]['format'], 'float32 little')    # floats rank above chance integers
+
+    def test_several_samples_in_one_transfer_are_counted(self):
+        found = self.imu(samples=4, period=4 * MS)['profile']
+        self.assertEqual((found['samples_per_transfer'], found['sample_spacing_bytes']), (4, 30))
+        self.assertEqual(found['magic'], 'c53a')
+
+    def test_the_report_says_all_this(self):
+        rng = random.Random(9)
+        build = synth.Builder(v1=True)
+        build.command(T0, 0x100b)
+        build.stream(T0 + 50 * MS, T0 + 3 * S, make=lambda i: synth.imu_packet(i, rng=rng))
+        text = render(analyze([self.capture(build)]))
+        self.assertIn('Stream ep81', text)
+        self.assertIn('possible clock: offset 2', text)
+        self.assertIn('possible accelerometer: offset 18, float32 little', text)
+        self.assertNotIn('OUT ep06', text)     # a completed send is not a second command
+
+    def test_random_noise_claims_nothing(self):
+        found = analyze([self.capture(synth.session(3))])['streams']['ep81']['profile']
+        self.assertEqual(found['gravity'], [])
+        self.assertEqual(found['clocks'], [])
+
+
+class StillPoses(Base):
+    def posed(self, axes, *, g=1.0):
+        rng = random.Random(9)
+        build = synth.Builder(v1=True)
+        build.command(T0, 0x100b)
+        for pose, axis in enumerate(axes):
+            start = T0 + 50 * MS + pose * 4 * S
+            build.note(start, type='mark', text=f'still pose {pose}')
+            build.stream(start, start + 3 * S, make=lambda i, a=axis: synth.imu_packet(i, rng=rng, g=g, axis=a))
+        return build
+
+    def test_a_pose_on_each_axis_leaves_only_the_real_accelerometer(self):
+        pinned = analyze([self.capture(self.posed((1, 0, 2)))])['streams']['ep81']['accelerometer']
+        self.assertEqual([(item['offset'], item['format'], item['unit']) for item in pinned],
+                         [(18, 'float32 little', 'g')])
+
+    def test_two_poses_may_leave_a_neighbouring_window_and_the_real_one_stays(self):
+        pinned = analyze([self.capture(self.posed((1, 0)))])['streams']['ep81']['accelerometer']
+        self.assertEqual([item['offset'] for item in pinned], [14, 18])
+
+    def test_metres_per_second_are_told_from_g(self):
+        pinned = analyze([self.capture(self.posed((1, 0, 2), g=9.80665))])['streams']['ep81']['accelerometer']
+        self.assertEqual([(item['offset'], item['unit']) for item in pinned], [(18, 'm/s2')])
+
+    def test_the_report_names_it(self):
+        self.assertIn('ACCELEROMETER, by still poses: offset 18',
+                      render(analyze([self.capture(self.posed((1, 0, 2)))])))
+
+    def test_one_pose_claims_nothing(self):
+        self.assertIsNone(analyze([self.capture(self.posed((1,)))])['streams']['ep81']['accelerometer'])
+
+    def test_random_noise_is_not_pinned(self):
+        build = synth.session(9)
+        build.note(T0 + S, type='mark', text='still one')
+        build.note(T0 + 5 * S, type='mark', text='still two')
+        self.assertEqual(analyze([self.capture(build)])['streams']['ep81']['accelerometer'], [])
+
+
+class Connections(Base):
+    def test_shows_what_was_sent_before_the_stream_started(self):
+        build = synth.Builder(v1=True)
+        build.devices(T0)
+        build.command(T0, 0x100b)
+        build.command(T0 + 300 * MS, 0x0007)
+        build.stream(T0 + 1500 * MS, T0 + 4 * S)
+        build.command(T0 + 3 * S, 0x0007)       # long after the stream: not part of start-up
+        connection = analyze([self.capture(build)])['connections'][0]
+        self.assertEqual(connection['stream_after_s'], 1.5)
+        self.assertEqual(connection['commands'], 2)
+        text = [row['text'] for row in connection['rows']]
+        self.assertEqual(text[0], 'command MsgID 0x100b (enable status reports)')
+        self.assertTrue(any('reply MsgID 0x0007' in line for line in text))
+
+    def test_a_stream_that_never_came_is_said(self):
+        build = synth.Builder(v1=True)
+        build.command(T0, 0x100b)
+        result = analyze([self.capture(build)])
+        self.assertIsNone(result['connections'][0]['stream_after_s'])
+        self.assertIn('the stream never started', render(result))
+
+    def test_a_failure_during_start_up_shows(self):
+        build = synth.Builder(v1=True)
+        build.command(T0, 0x100b)
+        read = build.usb(T0 + 100 * MS, 'S', 0x82, status=-115, length=16384)
+        build.usb(T0 + 300 * MS, 'C', 0x82, urb_id=read, status=-2)
+        rows = analyze([self.capture(build)])['connections'][0]['rows']
+        self.assertTrue(any(row['text'].startswith('FAILED') and 'cancelled' in row['status'] for row in rows))
+
+    def test_each_reconnection_gets_its_own_sequence(self):
+        build = synth.Builder(v1=True)
+        build.command(T0, 0x100b)
+        build.usb(T0 + S, 'S', 0x06, synth.v1_frame(0x100b), status=-115, dev=9, flags=F_GLASSES)
+        self.assertEqual([c['dev'] for c in analyze([self.capture(build)])['connections']], [synth.GLASSES_DEV, 9])
+
+
+class Reconnect(Base):
+    def test_how_long_a_reconnect_took_and_the_gap_to_the_second_drop(self):
+        build = synth.Builder(v1=True)
+        build.devices(T0)
+        build.command(T0, 0x100b)
+        build.stream(T0 + 10 * MS, T0 + S)
+        build.note(T0 + S, type='kernel', text='usb 5-2: USB disconnect, device number 3')
+        build.usb(T0 + 3 * S, 'S', 0x06, synth.v1_frame(0x100b), status=-115, dev=9, flags=F_GLASSES)
+        build.stream(T0 + 3500 * MS, T0 + 6 * S, dev=9)
+        build.note(T0 + 6 * S, type='kernel', text='usb 5-2: USB disconnect, device number 9')
+        result = analyze([self.capture(build)])
+        first, second = result['drops']
+        self.assertEqual(first['first_command_after_s'], 2.0)
+        self.assertEqual(first['first_stream_after_s'], 2.5)
+        self.assertEqual(second['since_previous_s'], 5.0)
+        self.assertIsNone(second['first_stream_after_s'])
+        self.assertIn('Back: first command +2.0 s, stream +2.5 s', render(result))
+
+
+class Marks(Base):
+    def test_what_followed_a_mark_is_listed(self):
+        build = synth.session(4)
+        build.note(T0 + 2 * S, type='mark', text='pressed brightness up')
+        build.usb(T0 + 2100 * MS, 'C', 0x84, b'\x01\x02', dev=6, flags=capfile.F_COMPANION)
+        result = analyze([self.capture(build)])
+        self.assertEqual(result['marks'][0]['text'], 'pressed brightness up')
+        rows = [row['text'] for row in result['marks'][0]['rows']]
+        self.assertIn('companion ep84 len=2', rows)
+        self.assertIn('Mark at', render(result))
+        self.assertIn('companion ep84', result['endpoints'])
 
 
 if __name__ == '__main__':

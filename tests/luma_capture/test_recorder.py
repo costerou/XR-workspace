@@ -6,8 +6,8 @@ from pathlib import Path
 import unittest
 
 from tools.luma_capture import capfile, recorder as recorder_module
-from tools.luma_capture.capfile import (F_CAPPED, F_GLASSES, F_KERNEL_TRUNCATED, F_POLICY_DROPPED, XFER_BULK, XFER_CTRL,
-                                        XFER_INT, XFER_ISO)
+from tools.luma_capture.capfile import (F_CAPPED, F_COMPANION, F_GLASSES, F_KERNEL_TRUNCATED, F_POLICY_DROPPED,
+                                        XFER_BULK, XFER_CTRL, XFER_INT, XFER_ISO)
 from tools.luma_capture.recorder import Recorder, follow_file, follow_kernel, keep_payload
 from tools.luma_capture.usbmon import Event
 
@@ -15,7 +15,9 @@ S = 10**9
 T0 = 1_762_000_000 * S
 ROOT = {'bus': 5, 'dev': 1, 'path': 'usb5', 'vid': 0x1d6b, 'pid': 2, 'hub': True, 'product': ''}
 HUB = {'bus': 5, 'dev': 3, 'path': '5-2', 'vid': 0x1a86, 'pid': 0x8091, 'hub': True, 'product': ''}
-CAMERA = {'bus': 5, 'dev': 5, 'path': '5-2.2', 'vid': 0x35ca, 'pid': 0x2222, 'hub': False, 'product': 'camera'}
+CAMERA = {'bus': 5, 'dev': 5, 'path': '5-2.2', 'vid': 0x0c45, 'pid': 0x636b, 'hub': False, 'product': 'camera'}
+HEADSET = {'bus': 5, 'dev': 2, 'path': '5-1', 'vid': 0x1532, 'pid': 0x0527, 'hub': False, 'product': 'headset'}
+COMPANION = {'bus': 5, 'dev': 6, 'path': '5-2.3', 'vid': 0x35ca, 'pid': 0x1102, 'hub': False, 'product': 'mic'}
 
 
 def glasses(dev=4):
@@ -33,7 +35,7 @@ class Rig:
         case.addCleanup(folder.cleanup)
         self.dir = Path(folder.name) / 'capture'
         self.now = T0
-        self.devices = [ROOT, HUB, glasses(), CAMERA]
+        self.devices = [ROOT, HUB, glasses(), CAMERA, HEADSET, COMPANION]
         self.scans = 0
         self.log = []
         defaults = dict(segment_s=10, keep_segments=3, keep_start=1, post_roll_s=5)
@@ -101,6 +103,62 @@ class Records(unittest.TestCase):
         self.assertTrue(record.flags & F_POLICY_DROPPED)
         self.assertFalse(record.flags & F_GLASSES)
 
+    def test_a_16_kib_start_up_read_is_kept_whole(self):
+        rig = Rig(self)
+        rig.recorder.on_event(event(ep=0x82, data=bytes(16384)))
+        record = rig.usb()[0]
+        self.assertEqual(len(record.data), 16384)
+        self.assertTrue(record.replayable)
+
+    def test_a_camera_rate_endpoint_is_cut_down_but_keeps_its_headers(self):
+        rig = Rig(self)
+        for index in range(100):
+            rig.recorder.on_event(event(ep=0x82, data=bytes(1 << 15), t=T0 + index))
+        records = rig.usb()
+        self.assertEqual(len(records[0].data), 1 << 15)
+        self.assertEqual(len(records[-1].data), recorder_module.HEAD_BYTES)
+        self.assertEqual(records[-1].urb_len, 1 << 15)
+        self.assertTrue(records[-1].flags & F_CAPPED)
+        self.assertLess(sum(len(r.data) for r in records), 2 << 20)
+
+    def test_the_budget_is_per_second_and_per_endpoint(self):
+        rig = Rig(self)
+        for index in range(100):
+            rig.recorder.on_event(event(ep=0x82, data=bytes(1 << 15), t=T0))
+        rig.recorder.on_event(event(ep=0x81, data=bytes(1 << 15), t=T0))
+        rig.recorder.on_event(event(ep=0x82, data=bytes(1 << 15), t=T0 + S))
+        records = rig.usb()
+        self.assertEqual(len(records[-2].data), 1 << 15)
+        self.assertEqual(len(records[-1].data), 1 << 15)
+
+    def test_data_the_fetch_buffer_left_behind_counts_as_capped(self):
+        rig = Rig(self)
+        big = event(data=bytes(100))
+        big.data = big.data[:40]
+        rig.recorder.on_event(big)
+        record = rig.usb()[0]
+        self.assertEqual(len(record.data), 40)
+        self.assertTrue(record.flags & F_CAPPED)
+        self.assertFalse(record.flags & F_KERNEL_TRUNCATED)
+
+    def test_the_companion_reports_are_kept_for_the_buttons(self):
+        rig = Rig(self)
+        rig.recorder.on_event(event(dev=6, xfer=XFER_INT, data=b'\x01\x02'))
+        record = rig.usb()[0]
+        self.assertEqual(record.data, b'\x01\x02')
+        self.assertTrue(record.flags & F_COMPANION)
+        self.assertFalse(record.replayable)
+
+    def test_the_companion_microphone_is_not(self):
+        rig = Rig(self)
+        rig.recorder.on_event(event(dev=6, xfer=XFER_ISO, data=b'sound'))
+        self.assertEqual(rig.usb()[0].data, b'')
+
+    def test_the_headset_on_the_same_bus_is_not_kept(self):
+        rig = Rig(self)
+        rig.recorder.on_event(event(dev=2, xfer=XFER_INT, data=b'buttons'))
+        self.assertEqual(rig.usb()[0].data, b'')
+
     def test_big_transfers_are_capped_and_never_replayed(self):
         rig = Rig(self, max_payload=8)
         rig.recorder.on_event(event(data=bytes(100)))
@@ -141,6 +199,33 @@ class Reconnect(unittest.TestCase):
         rig.now += S
         rig.recorder.on_event(event(dev=9))
         self.assertTrue(rig.usb()[0].flags & F_GLASSES)
+
+    def test_going_and_coming_back_are_both_written_down(self):
+        rig = Rig(self, stop_after_drops=None)
+        rig.advance(1)
+        rig.devices = [ROOT]
+        rig.advance(1)
+        rig.devices = [ROOT, HUB, glasses(dev=9)]
+        rig.advance(1)
+        self.assertEqual(len(rig.notes('glasses_gone')), 1)
+        self.assertEqual(rig.notes('glasses_back'), [{'type': 'glasses_back', 'dev': 9}])
+
+    def test_a_new_number_between_two_scans_is_still_a_drop(self):
+        rig = Rig(self, stop_after_drops=None)
+        rig.advance(1)
+        rig.devices = [ROOT, HUB, glasses(dev=9)]
+        rig.advance(1)
+        self.assertEqual(rig.notes('glasses_gone')[-1]['why'], 'new device number')
+        self.assertEqual(len(rig.notes('glasses_back')), 1)
+
+    def test_glasses_plugged_in_after_the_start_are_not_a_return(self):
+        rig = Rig(self)
+        rig.recorder._glasses_dev = None
+        rig.recorder._seen_glasses = False
+        rig.devices = [ROOT, HUB, glasses(dev=9)]
+        rig.advance(1)
+        self.assertEqual(rig.notes('glasses_back'), [])
+        self.assertEqual(rig.notes('glasses_gone'), [])
 
     def test_a_device_not_yet_listed_is_kept_rather_than_lost(self):
         rig = Rig(self)
@@ -341,6 +426,15 @@ class Followers(unittest.TestCase):
         problems = []
         follow_kernel(lambda *_: None, threading.Event(), command=('/nonexistent/x',), on_error=problems.append)
         self.assertEqual(len(problems), 1)
+
+    def test_a_mark_reaches_the_capture(self):
+        rig = Rig(self)
+        stop = recorder_module.start_followers(rig.recorder, self.path, kernel_command=('/nonexistent/x',))
+        self.addCleanup(stop.set)
+        time.sleep(0.1)     # the follower starts at the end of the file as it stands
+        recorder_module.add_mark(rig.dir, 'pressed\nbrightness up')
+        self.wait_for(lambda: bool(rig.notes('mark')))
+        self.assertEqual(rig.notes('mark')[0]['text'], 'pressed brightness up')
 
     def test_a_follower_line_reaches_the_capture_as_a_note(self):
         rig = Rig(self)
