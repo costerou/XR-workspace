@@ -62,3 +62,7 @@ Finite next implementation decision: stationary + directional evidence yields ob
 ## Offline verification / review limits
 
 `python -m unittest discover -s tests/pro2_diagnostic -v` compiles a synthetic shared library using cc and tests ABI/callback layout, exact mismatch before loader, library hash mismatch, callback validation, cleanup on failure, stop event and unsupported family/rate. No installed SDK load/device access. Static symbols/dependencies checked with nm/readelf only. Test logs alongside. Review checked lifecycle/order, shared callbacks retained through destroy, queue bound and truthful units, and absence of app/publisher changes. Independent hardware behavior remains untested. Candidate is source artifact under tools/pro2_diagnostic, not a replacement driver binary or install instruction.
+
+## G2 parent hardware result and next gate
+
+Parent-authorized stationary logging completed; sanitized independent offline analysis is in [G2 evidence](hil-evidence/20261104-153104-stationary/README.md). This establishes a finite raw pose session, not frame/mapping/optical/XR support. The separately consented next experiment is specified in [G3 direction plan](directional-g3-plan.md). Integrator has not executed a live session or removed activation guards.

@@ -1,0 +1,10 @@
+{
+  "upstream_hypothesis_only": {
+    "file": "src/imu.c",
+    "line": 60,
+    "sha256": "2f4a2640efda2e1b26f75f878723e31e7dbadc073397eee31acc177cf7b76fd2",
+    "mapping_wxyz": "w,-z,-x,y"
+  },
+  "analyzer_sha256": "be04abf0097f7490c3db88c5e0554e8321a5555949cc227a1fd470461f2fcfac",
+  "no_raw_capture_or_private_sdk_logs_exported": true
+}

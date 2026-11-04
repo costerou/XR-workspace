@@ -24,7 +24,14 @@ def compare(records):
         b=r['q_median_unit_for_comparison']; aw,ax,ay,az=a; bw,bx,by,bz=b
         r['relative_wxyz']=[aw*bw-ax*bx-ay*by-az*bz,aw*bx+ax*bw+ay*bz-az*by,
                             aw*by-ax*bz+ay*bw+az*bx,aw*bz+ax*by-ay*bx+az*bw]
-    return dict(frame='unverified SDK frame; no upstream conversion/pitch applied',segments=result)
+    hypotheses={}
+    for name,r in result.items():
+        w,x,y,z=r['relative_wxyz']
+        hypotheses[name]={'documented_NWU_identity_wxyz':[w,x,y,z],
+                          'upstream_EUS_to_NWU_only_wxyz':[w,-z,-x,y]}
+    return dict(frame='unverified SDK frame; no upstream conversion/pitch applied',segments=result,
+                analysis_only_hypotheses=hypotheses,selected_mapping=None,
+                optical_tilt='not measurable from relative quaternion comparison')
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('log');args=p.parse_args()

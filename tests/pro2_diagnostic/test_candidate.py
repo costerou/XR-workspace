@@ -109,3 +109,21 @@ class FinalBoundaryTests(unittest.TestCase):
              patch('tools.pro2_diagnostic.candidate.SDK') as sdk:
             with self.assertRaises(SystemExit): main()
             scan.assert_not_called();sdk.assert_not_called()
+
+
+class HypothesisTests(unittest.TestCase):
+    def test_directional_hypotheses_remain_unselected(self):
+        import math
+        from tools.pro2_diagnostic.analyze import compare
+        rows=[]
+        for i in range(301):
+            t=i/10; q=[1,0,0,0]; a=.1
+            if 5<=t<10:q=[math.cos(a),0,0,math.sin(a)]
+            elif 10<=t<15:q=[math.cos(a),0,0,-math.sin(a)]
+            elif 15<=t<20:q=[math.cos(a),0,math.sin(a),0]
+            elif 20<=t<25:q=[math.cos(a),0,-math.sin(a),0]
+            rows.append(dict(kind='pose',host_monotonic_ns=i*100000000,sdk_values=[0,0,0]+q,issues=[]))
+        result=compare(rows); h=result['analysis_only_hypotheses']['left']
+        self.assertIsNone(result['selected_mapping'])
+        self.assertAlmostEqual(h['documented_NWU_identity_wxyz'][3],math.sin(.1))
+        self.assertAlmostEqual(h['upstream_EUS_to_NWU_only_wxyz'][1],-math.sin(.1))
