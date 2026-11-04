@@ -1217,6 +1217,8 @@ class ViewControl:
     def renderer_restarted(self):
         """A new renderer in the same run (survive.py). It starts knowing what initial_frame says; what was only ever sent as
         a change goes again, and what it would not be showing is shut."""
+        pointer = getattr(self, 'overview_pointer', None)
+        if pointer is not None and hasattr(pointer, 'set_maximize_geometry'): pointer.set_maximize_geometry(None)
         if hasattr(self, 'options'):
             self.options.close('renderer restart')
             self._options_sent = None
@@ -1937,6 +1939,10 @@ class ViewControl:
         happens)."""
         if self.state.mode == 'anchor': return {'center': True}
         return {'pan': True} if panned else {'cut': True}
+
+    def set_maximize_geometry(self, geometry):
+        """Renderer status: settled UI mesh used only for region-gated Restore input."""
+        if self.overview_pointer is not None: self.overview_pointer.set_maximize_geometry(geometry)
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing.
