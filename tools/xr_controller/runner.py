@@ -11,7 +11,7 @@ import secrets
 import subprocess
 import sys
 
-from tools.native_spike import monitor_rules
+from tools.native_spike import faults as run_faults, monitor_rules
 from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import TOKEN, private_dir, read_private_json
 from tools.native_spike.managed import run_managed
@@ -60,6 +60,7 @@ def execute(consent_path, data_home, progress=None):
     result = {'run_id': None, 'phase': 'verify', 'complete': False,
               'renderer_returncode': None, 'remaining': None, 'error': None}
     errors, client, plugin, attempted = [], None, None, False
+    faults = run_faults.Faults()
     managed_started, run = False, None
     runtime, consent, watch = None, None, None
     try:
@@ -114,13 +115,14 @@ def execute(consent_path, data_home, progress=None):
         verify_pinned(installed['renderer'])
         managed_started = True
         run = run_managed(client, consent, runtime, desktops=consent['desktops'],
-                          store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'])
+                          store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'], faults=faults)
         result.update(complete=run['complete'], renderer_returncode=run['renderer_returncode'], remaining=run['remaining'])
         if run.get('stop_reason'): result['stop_reason'] = run['stop_reason']
         if run.get('holds'): result['usb_holds'] = run['holds']  # survive.py: drops this run outlived, or waited out
         if run.get('reasons'): result['recovery'] = run['reasons']  # `remaining` lists the same recovery's steps
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)
+        if isinstance(exc, Exception): faults.record(run_faults.RUN, exc, fatal=True)  # (the rest is Stop: nothing went wrong)
     finally:
         if watch is not None: watch.finish()
         # A saved broker epoch is required for explicit recovery. A return/exception
@@ -141,8 +143,10 @@ def execute(consent_path, data_home, progress=None):
                 if PLUGIN_NAME in client.plugins_loaded(): raise ValueError('plugin still loaded after unload')
             except Exception as exc:
                 errors.append('unload: ' + (str(exc) or type(exc).__name__))
+                faults.record(run_faults.RUN, exc, fatal=True)
     if not errors: result['phase'] = 'done'
     result['error'] = '; '.join(errors) or None
+    if faults.report(): result['faults'] = faults.report()
     return result
 
 

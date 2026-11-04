@@ -57,7 +57,7 @@ class RunnerTests(unittest.TestCase):
         self.log, self.clients = [], []
         self.client = FakeClient(self.log)
         self.run_result = {'journal': 'j', 'renderer_returncode': 0, 'complete': True, 'remaining': []}
-        self.run_error = None
+        self.run_error = self.run_fault = None
 
     def consent(self, **changes):
         scope = {'run_id': 'run1', 'instance': INSTANCE, 'output': 'DP-2', 'recovery_output': 'DP-1', 'model': 'luma-ultra',
@@ -69,25 +69,63 @@ class RunnerTests(unittest.TestCase):
     def write(self, data):
         self.consent_path.write_text(json.dumps(data)); self.consent_path.chmod(0o600)
 
-    def fake_run(self, client, consent, runtime, *, desktops=None, store=None, renderer=None):
+    def fake_run(self, client, consent, runtime, *, desktops=None, store=None, renderer=None, faults=None):
         self.log.append('run')
-        self.run_args = dict(client=client, consent=consent, runtime=runtime, desktops=desktops, store=store, renderer=renderer)
+        self.run_args = dict(client=client, consent=consent, runtime=runtime, desktops=desktops, store=store, renderer=renderer, faults=faults)
+        if self.run_fault is not None: faults.record('key menu_reset', self.run_fault)  # a handler's, the run carrying on
         if self.run_error: raise self.run_error
         return self.run_result
 
     def main(self):
         def factory(instance, runtime):
             self.clients.append((instance, runtime)); return self.client
+        self.stderr = io.StringIO()
         with mock.patch.object(runner, 'HyprlandClient', factory), mock.patch.object(runner, 'run_managed', self.fake_run), \
-                contextlib.redirect_stderr(io.StringIO()):
+                contextlib.redirect_stderr(self.stderr):
             return runner.main(['--consent', str(self.consent_path), '--state-dir', str(self.state)])
 
     def result(self, name='run1'):
         path = self.state / f'{name}.result.json'
         self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
         data = json.loads(path.read_text())
-        self.assertEqual(set(data) - {'stop_reason', 'recovery'}, RESULT_KEYS)  # only when the supervisor ended the renderer, or recovery fell short
+        self.assertEqual(set(data) - {'stop_reason', 'recovery', 'faults'}, RESULT_KEYS)  # only when the supervisor ended the renderer, or recovery fell short
         return data
+
+    def test_an_exception_in_the_run_goes_to_the_journal_and_the_result_with_its_traceback(self):
+        self.consent()
+        def boom():
+            raise ValueError('the supervisor fell over')
+        try: boom()
+        except ValueError as exc: self.run_error = exc
+        self.assertEqual(self.main(), 2)
+        self.assertIn('Traceback (most recent call last)', self.stderr.getvalue())
+        self.assertIn('the supervisor fell over', self.stderr.getvalue())
+        result = self.result()
+        self.assertEqual(result['error'], 'the supervisor fell over')
+        self.assertEqual(result['faults'][0]['where'], 'the run')
+        self.assertEqual(result['faults'][0]['traceback'][-1], 'ValueError: the supervisor fell over')
+        self.assertTrue(any(' boom' in line for line in result['faults'][0]['traceback']))
+
+    def test_a_fault_the_run_carried_on_from_reaches_the_result(self):
+        self.consent()
+        try: {}['placements']
+        except KeyError as exc: self.run_fault = exc
+        self.assertEqual(self.main(), 0)
+        result = self.result()
+        self.assertEqual(result['phase'], 'done')
+        self.assertIsNone(result['error'])
+        self.assertEqual((result['faults'][0]['where'], result['faults'][0]['count']), ('key menu_reset', 1))
+
+    def test_stop_is_no_fault(self):
+        self.consent()
+        self.run_error = KeyboardInterrupt()
+        self.main()
+        self.assertNotIn('faults', self.result())
+
+    def test_a_clean_run_has_no_faults_in_its_result(self):
+        self.consent()
+        self.assertEqual(self.main(), 0)
+        self.assertNotIn('faults', self.result())
 
     def test_tracking_is_ready_before_plugin_or_renderer(self):
         self.consent(tracking='xrlinuxdriver')

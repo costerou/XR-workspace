@@ -102,7 +102,7 @@ def _restore_output(client, consent, output):
     return restore
 
 
-def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None):
+def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None, faults=None):
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
@@ -122,7 +122,8 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
-                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output))
+                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output),
+                          faults=faults)
 
 
 # The broker's verdicts on an output itself (ownership.OwnershipBrokerClient.verify): it was not made live, or did not
@@ -378,7 +379,7 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         tell('The glasses are back. XR picks up where it was.')
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None, faults=None):
     session = journal.session
     holds = survive.Holds()
     holds.revive = (lambda: survive.revive_tracking(client.runtime_dir, tracking)) if pose_feed else (lambda: True)
@@ -433,7 +434,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                     return _launch(client, journal.run_id, session, output, wayland, None,
                                    guard=manager.guard() if manager is not None else guard,
                                    capture=[s['name'] for s in live] if capture else capture,
-                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report)
+                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report, faults=faults)
             returncode = keep_renderer(launch, client, output, report, control, restore_output, holds)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
