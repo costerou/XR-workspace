@@ -238,7 +238,13 @@ int main(int argc, char** argv) {
     };
     // Further supervisor frames (view, stop) on the same private socket, replay-protected. A bad one is dropped (ipc.hpp).
     std::uint64_t refusals = 0;
-    xr::ControlStream stream(args["--run-id"], args["--session"], control_errors_fatal, [&](xr::ControlMessage& m) { apply(&m); },
+    xr::ControlStream stream(args["--run-id"], args["--session"], control_errors_fatal, [&](xr::ControlMessage& m) {
+        apply(&m);
+        if (status_fd >= 0) {
+            const std::string receipt="{\"control_applied\":"+std::to_string(m.request_id)+"}\n";
+            (void)send(status_fd,receipt.data(),receipt.size(),MSG_NOSIGNAL|MSG_DONTWAIT);
+        }
+    },
                              [&](const xr::ControlRefusal& r) {
         if (++refusals <= 20 || refusals % 1000 == 0)  // bounded: a supervisor that keeps doing this must not fill the journal
             std::cerr << "control: refused frame " << r.request_id << " (" << (r.op.empty() ? "unreadable" : r.op) << "): " << r.error.code

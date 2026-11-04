@@ -1,5 +1,6 @@
 """Supervisor-owned options state. Native code only displays validated snapshots."""
 import copy
+import json
 import math
 import re
 import time
@@ -70,6 +71,9 @@ class OptionsMenu:
         self.control,self.clock=control,clock
         self._rows,self._apply=rows,apply
         self.output=b''
+        self.pending_ids=set()
+        self.pending_since=0
+        self.action_has_receipt=False
         self.focused=False
         self.confirmation=None
         self.child=self.capture=self.pending=None
@@ -80,6 +84,8 @@ class OptionsMenu:
         return self.data['open'] and self.focused and not self.control.keys_open
     def _bump(self): self.data['revision']=(self.data['revision']+1) % 2**32
     def snapshot(self): return validate_snapshot(self.data)
+    def acknowledge(self, request_id):
+        self.pending_ids.discard(request_id)
     def open(self, monitor):
         if monitor not in self.control.state.names: return False
         self.close('reopen')
@@ -130,8 +136,11 @@ class OptionsMenu:
                 if row is not None and row['kind']=='range':
                     try: equal=float(actual)==float(expected)
                     except (ValueError,TypeError): pass
-                if equal:
+                if row is not None and row['kind']=='action' and not self.action_has_receipt: equal=False
+                if equal and not self.pending_ids:
                     self.data.update(status='applied',message=''); self.pending=None
+                elif self.clock()-self.pending_since > 10:
+                    self.data.update(status='error',message='Owner readback timed out'); self.pending=None
             if self.data['focus']>=len(rows): self.data['focus']=-1
         except Exception as exc:
             self.data.update(status='error',message=str(exc).encode('utf-8')[:256].decode('utf-8','ignore'))
@@ -184,6 +193,14 @@ class OptionsMenu:
             result=callback(self.control,row['id'],value,fields['monitor'],fields['scope'])
             if result is False: raise ValueError('Owner rejected change')
             if isinstance(result,bytes): self.output += result
+            self.pending_ids=set()
+            if isinstance(result,bytes):
+                for line in result.splitlines():
+                    frame=json.loads(line)
+                    if frame.get('op') not in ('options_menu','placement_menu','move_handle','overview_pointer','help','binds'):
+                        self.pending_ids.add(frame['request_id'])
+            self.action_has_receipt=bool(self.pending_ids)
+            self.pending_since=self.clock()
             editor=getattr(self.control,'options_editor',None)
             if row['id'].startswith('editor.') or (editor is not None and editor.kind is not None):
                 self.data.update(status='idle',message='')

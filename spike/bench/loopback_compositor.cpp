@@ -1140,7 +1140,7 @@ int main(int argc, char** argv) {
             }
             try {
                 auto j = nlohmann::json::parse(line);
-                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry")) {
+                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry") && !j.contains("maximize_geometry") && !j.contains("control_applied")) {
                     if (j.contains("tracking") && j["tracking"].is_boolean()) {
                         const bool on = j["tracking"].get<bool>();
                         if (on && status_lost) status_resumed = true;

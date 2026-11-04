@@ -10,3 +10,18 @@ class TextRuntimeTests(unittest.TestCase):
             t.hypr_modifiers(1)
             self.assertEqual(t.key(38),('text','A'))
         finally: t.close()
+
+    def test_runtime_uses_main_keyboard_and_releases_on_close(self):
+        from types import SimpleNamespace
+        from tools.native_spike.options_editors import NativeEditors
+        from tools.native_spike.options_text import RuntimeText
+        c=SimpleNamespace(keys=None)
+        c.options_editor=NativeEditors(c);c.options_editor.open('url')
+        class Client:
+            def _request(self,request):
+                assert request=='j/devices'
+                return json.dumps({'keyboards':[dict(main=True,rules='evdev',model='pc105',layout='us',variant='',options='')]})
+        translate=RuntimeText(c,Client())
+        self.assertEqual(translate(1,38),'A')
+        c.options_editor.close()
+        self.assertIsNone(c.options_editor.text_input)

@@ -140,7 +140,13 @@ class Supervisor:
             if not self._status_discard:
                 try:
                     value = strict_json(self._status_buffer)
-                    if isinstance(value, dict) and set(value) == {'overview_geometry'}:
+                    if isinstance(value, dict) and set(value) == {'control_applied'}:
+                        rid=value['control_applied']
+                        if type(rid) is not int or not 0 < rid < 2**64: raise ValueError('invalid receipt')
+                        target=getattr(self.control,'view',self.control)
+                        menu=getattr(target,'options',None)
+                        if menu is not None: menu.acknowledge(rid)
+                    elif isinstance(value, dict) and set(value) == {'overview_geometry'}:
                         # The overview's canvas and desktop slots, sent when they change (free pointer hit testing).
                         from .free_pointer import parse_overview_geometry
                         geometry = parse_overview_geometry(value['overview_geometry'])
