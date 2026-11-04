@@ -168,6 +168,17 @@ bool allowed_mcu_frame(std::span<const std::uint8_t> frame) noexcept {
     });
 }
 
+namespace {
+// SUBMITURB is on the allowlist, but a control URB on endpoint 0 could carry a set-configuration or a
+// clear-halt, so the URB's type is part of the check. Iso has no use here either.
+bool allowed_call(unsigned long request, const void* argument) {
+    if (!is_allowed_ioctl(request)) return false;
+    if (request != USBDEVFS_SUBMITURB) return true;
+    const auto type = static_cast<const usbdevfs_urb*>(argument)->type;
+    return type == USBDEVFS_URB_TYPE_BULK || type == USBDEVFS_URB_TYPE_INTERRUPT;
+}
+}  // namespace
+
 bool is_allowed_ioctl(unsigned long request) {
     switch (request) {
     case USBDEVFS_CLAIMINTERFACE:
@@ -186,7 +197,7 @@ int Sys::close(int fd) { return ::close(fd); }
 ssize_t Sys::read(int fd, void* buffer, std::size_t size) { return ::read(fd, buffer, size); }
 ssize_t Sys::write(int fd, const void* buffer, std::size_t size) { return ::write(fd, buffer, size); }
 int Sys::ioctl(int fd, unsigned long request, void* argument) {
-    if (!is_allowed_ioctl(request)) {  // Second lock: holds even if a caller skips Impl::guarded_ioctl.
+    if (!allowed_call(request, argument)) {  // Second lock: holds even if a caller skips Impl::guarded_ioctl.
         errno = EPERM;
         return -1;
     }
@@ -222,8 +233,9 @@ struct Transport::Impl {
     Clock::time_point next_scan{};
     std::optional<Clock::time_point> first_seen;  // When the device came back, for arrival_settle.
     int open_attempts = 0;                        // Failures in a row on a device that is there.
-    int failed_sessions = 0;                      // Links in a row that ended with no packet, with the device still there.
-    bool session_had_packet = false;
+    int failed_sessions = 0;                      // Links in a row that ended early, with the device still there.
+    Clock::time_point session_start{};
+    bool seen_absent = false;                     // open() found no device, so whatever turns up has only just arrived.
     std::optional<Clock::time_point> down_since;
     std::string last_error;
     std::deque<TransportEvent> events;
@@ -234,6 +246,7 @@ struct Transport::Impl {
     Clock::time_point last_packet{};
     Urb* out_urb = nullptr;
     std::vector<Urb*> extra_out_urbs;
+    std::vector<Urb*> to_resubmit;  // Sized at open, so the hot path does not touch the heap.
 
     // Received packets, preallocated so the hot path does not touch the heap.
     std::vector<std::uint8_t> ring;
@@ -245,7 +258,12 @@ struct Transport::Impl {
         config.queue_frames = std::max<std::size_t>(config.queue_frames, 1);
         config.packet_size = std::max<std::size_t>(config.packet_size, 1);
         config.urbs_per_endpoint = std::max(config.urbs_per_endpoint, 2);
-        config.rescan_interval = std::max(config.rescan_interval, milliseconds{1});
+        // Added to now and doubled below. A year is as good as for ever, and cannot overflow.
+        const milliseconds year{std::chrono::hours{24 * 365}};
+        config.rescan_interval = std::clamp(config.rescan_interval, milliseconds{1}, year);
+        config.arrival_settle = std::clamp(config.arrival_settle, milliseconds{0}, year);
+        config.open_retry_max = std::clamp(config.open_retry_max, milliseconds{0}, year);
+        config.healthy_session = std::clamp(config.healthy_session, milliseconds{0}, year);
         ring.resize(config.queue_frames * config.packet_size);
         slots.resize(config.queue_frames);
         wake_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -255,7 +273,7 @@ struct Transport::Impl {
     }
 
     int guarded_ioctl(unsigned long request, void* argument) {
-        if (!is_allowed_ioctl(request)) {
+        if (!allowed_call(request, argument)) {
             errno = EPERM;
             return -1;
         }
@@ -372,6 +390,8 @@ struct Transport::Impl {
         if (config.out_endpoint != 0) out_urb = add_out(config.out_endpoint);
         extra_out_urbs.clear();
         for (std::uint8_t endpoint : config.extra_out_endpoints) extra_out_urbs.push_back(add_out(endpoint));
+        to_resubmit.clear();
+        to_resubmit.reserve(urbs.size());
         return true;
     }
 
@@ -382,9 +402,11 @@ struct Transport::Impl {
     }
 
     // Reopening cannot clear a halt, so a link that keeps dying with the device still present must not
-    // cycle: each such session doubles the hold. The device leaving and returning clears it.
+    // cycle: each session cut short doubles the hold. The device leaving and returning clears it, and so
+    // does a session that lasts. Holding also covers a device that turned up after open() found nothing:
+    // having only just enumerated is the same risk as coming back.
     bool settling() {
-        if (!down_since) return false;
+        if (!down_since && !seen_absent) return false;
         auto hold = config.arrival_settle * (1 << std::min(failed_sessions, 4));
         if (failed_sessions > 0) hold = std::max(hold, config.open_retry_max);
         if (hold <= milliseconds{0}) return false;
@@ -399,10 +421,15 @@ struct Transport::Impl {
             first_seen.reset();
             open_attempts = 0;
             failed_sessions = 0;
+            seen_absent = true;
             stats.last_open_errno = 0;
             return fail_open("device not found");
         }
-        if (settling()) return false;  // last_error() keeps saying why the link went down.
+        if (settling()) {
+            // A device that never left keeps its reason for going down: that is the useful part.
+            if (last_error == "device not found") last_error = "device is back, settling";
+            return false;
+        }
         if (found->backend == Backend::Usbfs && !check_endpoints(*found)) return retry_later();
         fd = sys->open(found->node.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
         if (fd < 0) {
@@ -422,9 +449,10 @@ struct Transport::Impl {
         first_seen.reset();
         open_attempts = 0;
         stats.last_open_errno = 0;
-        session_had_packet = false;
+        seen_absent = false;
         auto now = Clock::now();
         last_packet = now;
+        session_start = now;
         last_urb_status = 0;
         TransportEvent event;
         event.kind = TransportEvent::Kind::Connected;
@@ -483,7 +511,7 @@ struct Transport::Impl {
         ++stats.disconnects;
         down_since = now;
         first_seen.reset();
-        if (!session_had_packet) ++failed_sessions;
+        failed_sessions = last_packet - session_start >= config.healthy_session ? 0 : failed_sessions + 1;
         next_scan = now + config.rescan_interval;
         pending = IoStatus::Disconnected;
         last_error = std::move(reason);
@@ -491,11 +519,7 @@ struct Transport::Impl {
 
     // ------------------------------------------------------------- packets
 
-    void note_packet() {
-        last_packet = Clock::now();
-        session_had_packet = true;
-        failed_sessions = 0;
-    }
+    void note_packet() { last_packet = Clock::now(); }
 
     void enqueue(const Urb& u) {
         std::size_t index = (head + count) % slots.size();
@@ -530,10 +554,12 @@ struct Transport::Impl {
         if (!lost) lost = std::move(why);  // The first cause is the one worth keeping.
     }
 
-    // Any failed read ends the link (protocol.md: close everything after a failed transfer). The host
-    // has already used its own retries by now, every other queued read tends to fail with it, and
-    // nothing here may clear a halt or resynchronise a data toggle. Closing is also what actually gets
-    // the host to stop polling. The queue is therefore always either full or gone.
+    // protocol.md: "After any failed transfer, close everything and wait for re-enumeration." The closing
+    // half is done here: the host has used its own retries by now, every other queued read tends to fail
+    // with it, nothing here may clear a halt or resynchronise a data toggle, and closing is what stops the
+    // polling. No read is ever parked, so the queue is refilled at each reap or closed.
+    // The waiting half is relaxed: with the device still present we reopen after the hold, because a
+    // transient error may never lead to a re-enumeration and resets are banned. See docs/transport.md.
     void handle_in(Urb& u) {
         const int status = u.urb->status;
         if (status != 0) {
@@ -543,7 +569,7 @@ struct Transport::Impl {
             return;
         }
         if (u.urb->actual_length > 0 && !u.drain) enqueue(u);
-        if (!lost && !submit(u, u.length)) mark_lost(std::string("URB resubmit failed: ") + std::strerror(errno));
+        to_resubmit.push_back(&u);
     }
 
     void reap_all() {
@@ -558,6 +584,10 @@ struct Transport::Impl {
             u.busy = false;
             if (!u.out) handle_in(u);
         }
+        // After the whole batch, so a batch with a failure in it adds nothing to a link about to close.
+        for (Urb* u : to_resubmit)
+            if (!lost && !submit(*u, u->length)) mark_lost(std::string("URB resubmit failed: ") + std::strerror(errno));
+        to_resubmit.clear();
     }
 
     // Everything reaped so far stays readable: read() hands it out before it reports the disconnect.
@@ -614,6 +644,10 @@ struct Transport::Impl {
         const auto deadline = deadline_after(timeout);
         for (;;) {
             if (!opened) return {IoStatus::Closed};
+            if (pending == IoStatus::Connected) {  // Before any packet of the link it announces.
+                pending.reset();
+                return {IoStatus::Connected};
+            }
             if (count > 0) {
                 // A backed-up device is when the ring holds packets, and its queue must not run dry
                 // while the caller works through them, so handing one over refills it too.
@@ -710,7 +744,10 @@ struct Transport::Impl {
         }
         if (!data.empty()) std::memcpy(out_urb->buffer.data(), data.data(), data.size());
         if (!submit(*out_urb, static_cast<int>(data.size()))) {
-            lose_link(std::string("URB submit: ") + std::strerror(errno));
+            const int error = errno;
+            reap_all();  // Finished reads can still be waiting, and read() is to hand them over.
+            mark_lost(std::string("URB submit: ") + std::strerror(error));
+            finish_reap();
             return IoStatus::Disconnected;
         }
         const auto deadline = deadline_after(timeout);
@@ -798,10 +835,8 @@ void Transport::close() {
     i.current.reset();
     i.pending.reset();
     i.lost.reset();
-    i.down_since.reset();
-    i.first_seen.reset();
+    i.first_seen.reset();  // The hold starts over at the next look. down_since and the penalty stay, on purpose.
     i.open_attempts = 0;
-    i.failed_sessions = 0;
     i.reset_queue();
 }
 

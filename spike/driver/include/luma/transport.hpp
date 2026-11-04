@@ -102,13 +102,17 @@ struct TransportConfig {
     // After losing the link, wait this long from first seeing the device before touching it: no open,
     // no claim, and no queued reads, which start the host polling. It restarts if the device vanishes
     // meanwhile. 2 s is protocol.md's starting value: 12 of 20 reconnects right after a drop were
-    // followed by another drop, against 0 of 160 fresh starts (usb-drop-fix). A soak should tune it. A
-    // first open never waits. If links keep dying with no packet while the device stays, the hold
-    // doubles per link, up to 16 times this and at least open_retry_max.
+    // followed by another drop, against 0 of 160 fresh starts (usb-drop-fix). A soak should tune it. It
+    // also holds a device that turns up after open() found nothing; one already there at open() is not
+    // held. The hold outlives close(). Each link cut short with the device still there doubles it,
+    // up to 16 times this and at least open_retry_max.
     std::chrono::milliseconds arrival_settle{2000};
     // A device that is there but will not open (busy, no permission) is retried at a doubling
     // interval up to this, not at the rescan rate. Looking for an absent device stays at rescan_interval.
     std::chrono::milliseconds open_retry_max{1000};
+    // A link that lasted this long from opening to its last packet counts as having worked, which ends
+    // the doubling above. A few packets say little: a halted OUT can sit beside a flowing IN.
+    std::chrono::milliseconds healthy_session{2000};
 
     // Sysfs rescan period while disconnected. One scan takes about 0.3 ms on this machine, so 25 ms is
     // about 1% of a core, only while the glasses are gone.
@@ -141,7 +145,8 @@ enum class IoStatus {
     Connected,     // read only: the link just came up (first time or again). Reset any parser.
     Disconnected,  // read: the link just went down, reported once. write: there is no link now.
     Closed,        // close() was called, or open() never was.
-    Error,         // write only: not sent, wrong for the configuration (detail in last_error()). Link stands.
+    Error,         // write only: refused as wrong for the configuration, or a hidraw write the kernel rejected
+                   // (detail in last_error()). The link stands.
 };
 
 struct TransportRead {
@@ -215,19 +220,26 @@ public:
     TransportRead read(std::span<std::uint8_t> buffer, std::chrono::milliseconds timeout);
 
     // Sends one packet, once: no retries and nothing is queued for later. Packets arriving meanwhile
-    // are kept for read(). Usbfs waits up to timeout, then cancels the transfer and returns Timeout, and
-    // the link stays up. A transfer that fails ends the link and returns Disconnected, and read()
-    // reports it too. Hidraw sends the bytes as they are, so the first byte is the report id (0 on the
-    // VITURE HID interfaces, then 64 bytes), and the kernel may block for up to 5 s (usbhid's output
-    // timeout) whatever timeout says.
-    // Ok means the device acknowledged the packet. After a failed transfer, the host's data toggle can
-    // be out of step until the next one (nothing here may send CLEAR_HALT), and a device in that state
-    // acknowledges a packet and drops it. Anything that must arrive needs a reply or a sequence check.
+    // are kept for read().
+    // Usbfs waits up to timeout, then cancels the transfer and returns Timeout with the link up; with
+    // timeout 0 that is at once. A transfer that fails ends the link and returns Disconnected, and
+    // read() reports it too. More than one packet is refused.
+    // Hidraw sends the bytes as they are, so the first byte is the report id (0 on the VITURE HID
+    // interfaces, then 64 bytes). A rejected write returns Error with the link kept, because it can mean
+    // the device refused one report. The kernel may block for up to 5 s (usbhid's output timeout)
+    // whatever timeout says.
+    // Ok means the device acknowledged the packet. After a failed transfer the host's data toggle on that
+    // endpoint can be out of step until the next packet, and nothing here clears the device's short of
+    // re-enumeration. The receiver then acknowledges one packet and drops it: a device on OUT, so Ok
+    // proves nothing, and the host on IN, so read() misses one frame with no sign of it. Anything
+    // that must arrive needs a reply or a sequence check above this class.
     IoStatus write(std::span<const std::uint8_t> data, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000});
     // The same, to out_endpoint or one of extra_out_endpoints. Any other endpoint is Error.
     IoStatus write_to(std::uint8_t endpoint, std::span<const std::uint8_t> data, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000});
 
-    // Cancels transfers, releases the interface and closes. No reset. open() may be called again.
+    // Cancels transfers, releases the interface and closes. No reset. open() may be called again, and
+    // does not skip a hold: after a lost link the next open waits out what is left of it from the start.
+    // A caller that loops close() and open() faster than the hold never connects, which is the safe way round.
     void close();
 
     // Wakes a blocked read() with Interrupted. Safe from another thread or a signal handler.

@@ -221,20 +221,23 @@ TransportConfig usb_config(const FakeTree& tree) {
 }
 
 const std::vector<std::pair<std::string, std::string>> kEndpoints = {
-    {"81", "Interrupt"}, {"82", "Bulk"}, {"87", "Bulk"}, {"04", "Bulk"}, {"06", "Bulk"}, {"85", "Bulk"}};
+    {"81", "Interrupt"}, {"83", "Interrupt"}, {"82", "Bulk"}, {"87", "Bulk"}, {"04", "Bulk"}, {"06", "Bulk"}, {"85", "Bulk"}};
 
 // A stand-in for usbfs. What it copies from the kernel, and where:
 //  - A transfer ends on a short packet or a full buffer; a packet larger than the URB is babble.
+//  - SUBMIT only queues. An OUT transfer finishes later, so a poll that does not wait sees it unfinished.
 //  - Status, length and data reach user memory only at reap (processcompl).
-//  - A disconnect has stages: connected() goes false first, so POLLHUP shows and reap gives ENODEV
-//    with URBs still pending, and DISCARD gives ENODEV. URBs then flush, often with -EPROTO first, and
-//    sysfs and the node go last (usb_disconnect). A hang-up wakes poll with nothing in flight (usbdev_remove).
+//  - A disconnect has stages. connected() goes false first, so POLLHUP shows and reap gives ENODEV with
+//    URBs still pending, and DISCARD gives ENODEV, but nothing wakes a sleeping poll yet: only a URB
+//    finishing (async_completed) or the end of removal (usbdev_remove) does. A dying device normally
+//    shows -EPROTO first, then the rest flush with -ESHUTDOWN. Unlike the kernel, this fake removes the
+//    ep_ and interface entries together with the device, last.
 //  - A failed bulk URB leaves the others queued (cancel_bulk_urbs does nothing without CONTINUATION).
-//  - One fault fails every queued URB: xHCI's soft retries are shared, so after the first they run out.
+//  - A lasting fault fails every queued URB: xHCI's soft retries are shared, so after the first they run out.
 //  - A stall outlives a reopen: nothing on the close or claim path sends CLEAR_FEATURE(HALT).
 //  - Another program's reset flushes URBs with -ESHUTDOWN and drops our claim, with no hang-up and the
 //    same device number (usb_reset_device forces an unbind; usbfs has no pre_reset).
-//  - DISCARD on a URB that already completed gives EINVAL.
+//  - DISCARD on a URB that already completed gives EINVAL. An interrupt URB on a bulk endpoint gives EINVAL.
 class FakeUsbfs : public luma::Sys {
 public:
     explicit FakeUsbfs(FakeTree& tree) : tree_(tree) {}
@@ -243,17 +246,16 @@ public:
     }
 
     // Test controls -----------------------------------------------------
-    void arrive(int devnum) {
+    void arrive(int devnum, int interface_number = 0) {
         std::lock_guard lock(m_);
         devnum_ = devnum;
         gone_ = false;
         stalled_.clear();  // Re-enumeration is what clears a halt.
-        tree_.add_usb("5-2.1", "35ca", "1104", devnum, kEndpoints);
+        tree_.add_usb("5-2.1", "35ca", "1104", devnum, kEndpoints, interface_number);
     }
     void begin_disconnect() {
         std::lock_guard lock(m_);
         gone_ = true;
-        signal();
     }
     void flush(int status) {
         std::lock_guard lock(m_);
@@ -263,6 +265,7 @@ public:
     void remove_nodes() {
         std::lock_guard lock(m_);
         tree_.remove_usb("5-2.1", devnum_);
+        signal();  // usbdev_remove() wakes poll, with or without URBs.
     }
     void yank(int status = -ESHUTDOWN) {
         begin_disconnect();
@@ -305,9 +308,14 @@ public:
         inflight_.clear();
         claimed_now_ = false;
     }
+    void fail_submits(int count, int error) { std::lock_guard lock(m_); submit_failures_ = count; submit_errno_ = error; }
     void set_busy(bool busy) { std::lock_guard lock(m_); busy_ = busy; }
     void fail_opens(int count, int error) { std::lock_guard lock(m_); open_failures_ = count; open_errno_ = error; }
-    void hold_out_urbs(bool hold) { std::lock_guard lock(m_); hold_out_ = hold; }
+    void hold_out_urbs(bool hold) {
+        std::lock_guard lock(m_);
+        hold_out_ = hold;
+        if (!hold) finish_out_urbs();
+    }
     void out_status(int status) { std::lock_guard lock(m_); out_status_ = status; }
     void finish_held_urb_on_discard() { std::lock_guard lock(m_); finish_on_discard_ = true; }
     void stop_recording() { std::lock_guard lock(m_); recording_ = false; }
@@ -360,6 +368,7 @@ public:
         {
             std::lock_guard lock(m_);
             event = event_;
+            if (timeout_ms != 0 && !hold_out_) finish_out_urbs();
             for (nfds_t i = 0; i < count; ++i)
                 if (real[i].fd == event && gone_) timeout_ms = 0;  // A hang-up never blocks.
         }
@@ -405,22 +414,22 @@ public:
         }
         if (request == USBDEVFS_SUBMITURB) {
             if (gone_) return fail(ENODEV);
+            if (submit_failures_ > 0) {
+                --submit_failures_;
+                return fail(submit_errno_);
+            }
             if (!claimed_now_) ++auto_claims_;  // checkintf() would claim it behind our back, with a warning.
             auto* urb = static_cast<usbdevfs_urb*>(argument);
+            const bool interrupt_endpoint = urb->endpoint == 0x81 || urb->endpoint == 0x83;
+            if (urb->type == USBDEVFS_URB_TYPE_INTERRUPT && !interrupt_endpoint) return fail(EINVAL);
             if (recording_) {
                 submitted_.push_back(urb->endpoint);
                 seen_.push_back({urb->endpoint, urb->type, urb->buffer_length, urb->flags});
             }
             if (stalled_.count(urb->endpoint)) {
                 finish(urb, -EPIPE, 0);
-            } else if (urb->endpoint & 0x80) {
-                inflight_.push_back(urb);
-            } else if (hold_out_) {
-                inflight_.push_back(urb);
             } else {
-                auto* data = static_cast<std::uint8_t*>(urb->buffer);
-                sent_.emplace_back(data, data + urb->buffer_length);
-                finish(urb, out_status_, out_status_ == 0 ? urb->buffer_length : 0);
+                inflight_.push_back(urb);
             }
             return 0;
         }
@@ -465,6 +474,19 @@ private:
         errno = error;
         return -1;
     }
+    void finish_out_urbs() {
+        for (auto it = inflight_.begin(); it != inflight_.end();) {
+            usbdevfs_urb* urb = *it;
+            if (urb->endpoint & 0x80) {
+                ++it;
+                continue;
+            }
+            auto* data = static_cast<std::uint8_t*>(urb->buffer);
+            sent_.emplace_back(data, data + urb->buffer_length);
+            finish(urb, out_status_, out_status_ == 0 ? urb->buffer_length : 0);
+            it = inflight_.erase(it);
+        }
+    }
     void fail_queued(std::uint8_t endpoint, int status) {
         for (auto it = inflight_.begin(); it != inflight_.end();) {
             if ((*it)->endpoint != endpoint) {
@@ -499,6 +521,8 @@ private:
     bool recording_ = true;
     bool claimed_now_ = false;
     int out_status_ = 0;
+    int submit_failures_ = 0;
+    int submit_errno_ = 0;
     int open_failures_ = 0;
     int open_errno_ = 0;
     int open_flags_ = 0;
@@ -565,7 +589,7 @@ void test_finds_usb_device_and_endpoints() {
     CHECK(found->backend == Backend::Usbfs);
     CHECK(found->sys_name == "5-2.1");
     CHECK(found->node == tree.dev() / "bus/usb/005/101");
-    CHECK(found->endpoints.size() == 6);
+    CHECK(found->endpoints.size() == 7);
     auto type = [&](std::uint8_t address) {
         for (const auto& e : found->endpoints)
             if (e.address == address) return e.bulk ? 1 : 0;
@@ -1146,7 +1170,7 @@ void test_usbfs_disconnect_mid_read_then_reconnect() {
 
     fake->deliver(0x81, {1});
     CHECK(t->read(buffer, 200ms).status == IoStatus::Ok);
-    fake->deliver(0x81, {2});  // Arrives just before the drop: must still reach the reader.
+    fake->deliver(0x81, {2});
     std::thread yank([&] {
         std::this_thread::sleep_for(30ms);
         fake->yank();
@@ -1454,23 +1478,32 @@ void test_interrupt_endpoints_get_interrupt_urbs() {
     t->open();
     for (const auto& urb : fake->seen())
         CHECK(urb.type == (urb.endpoint == 0x81 ? USBDEVFS_URB_TYPE_INTERRUPT : USBDEVFS_URB_TYPE_BULK));
+
+    FakeTree other;
+    auto events = usb_config(other);
+    events.in_endpoints = {0x83};  // Not the IMU's own address: the type has to come from sysfs.
+    Transport* raw2;
+    auto fake2 = connected_usb(other, raw2, events);
+    std::unique_ptr<Transport> t2(raw2);
+    CHECK(t2->open());
+    CHECK(fake2->inflight() == 2);
 }
 
 void test_usbfs_claims_only_the_needed_interface_every_time() {
     FakeTree tree;
     auto config = usb_config(tree);
-    config.interface_number = 0;
-    Transport* raw;
-    auto fake = connected_usb(tree, raw, config);
-    std::unique_ptr<Transport> t(raw);
-    t->open();
+    config.interface_number = 2;  // Not the default, so a hard-coded 0 cannot pass.
+    auto fake = std::make_shared<FakeUsbfs>(tree);
+    fake->arrive(101, 2);
+    Transport t(config, fake);
+    t.open();
     Buffer buffer;
-    t->read(buffer, 100ms);
+    t.read(buffer, 100ms);
     fake->yank();
-    read_until(*t, buffer, IoStatus::Disconnected, 500ms);
-    fake->arrive(102);
-    read_until(*t, buffer, IoStatus::Connected, 500ms);
-    CHECK(fake->claimed_list() == (std::vector<int>{0, 0}));
+    read_until(t, buffer, IoStatus::Disconnected, 500ms);
+    fake->arrive(102, 2);
+    read_until(t, buffer, IoStatus::Connected, 500ms);
+    CHECK(fake->claimed_list() == (std::vector<int>{2, 2}));
 }
 
 // The queue is what keeps the glasses from backing up: every read must leave it full.
@@ -1500,18 +1533,22 @@ void test_usbfs_reads_stay_queued_through_a_burst() {
 // Only teardown cancels our reads, and it reaps its own, so this should not happen on a real kernel.
 // If it ever does, the queue is short and carrying on would leave a link that reads nothing.
 void test_usbfs_a_read_cancelled_by_the_kernel_is_a_lost_link() {
-    for (int status : {-ENOENT, -ECONNRESET}) {
-        FakeTree tree;
-        Transport* raw;
-        auto fake = connected_usb(tree, raw, usb_config(tree));
-        std::unique_ptr<Transport> t(raw);
-        t->open();
-        Buffer buffer;
-        t->read(buffer, 100ms);
-        CHECK(fake->deliver(0x81, {}, status));
-        CHECK(read_until(*t, buffer, IoStatus::Disconnected, 300ms).status == IoStatus::Disconnected);
-        CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
-        CHECK(fake->inflight() == 4);  // A full queue again, not a link that looks open and reads nothing.
+    for (std::uint8_t endpoint : {std::uint8_t{0x81}, luma::kLumaUltraDataIn}) {
+        for (int status : {-ENOENT, -ECONNRESET}) {
+            FakeTree tree;
+            auto config = usb_config(tree);
+            config.in_endpoints = {endpoint};
+            Transport* raw;
+            auto fake = connected_usb(tree, raw, config);
+            std::unique_ptr<Transport> t(raw);
+            t->open();
+            Buffer buffer;
+            t->read(buffer, 100ms);
+            CHECK(fake->deliver(endpoint, {}, status));
+            CHECK(read_until(*t, buffer, IoStatus::Disconnected, 300ms).status == IoStatus::Disconnected);
+            CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+            CHECK(fake->inflight() == 2);  // A full queue again, not a link that looks open and reads nothing.
+        }
     }
 }
 
@@ -1530,8 +1567,6 @@ void test_arrival_settle_holds_the_reopen_back() {
     CHECK(ms_since(start) < 100);
     Buffer buffer;
     t->read(buffer, 100ms);
-    CHECK(fake->deliver(0x81, {1}));  // A good session: only the plain settle applies.
-    CHECK(t->read(buffer, 100ms).status == IoStatus::Ok);
     fake->yank();
     read_until(*t, buffer, IoStatus::Disconnected, 500ms);
     int opens = fake->opens();
@@ -1583,13 +1618,17 @@ void test_failed_opens_back_off_but_finding_the_device_stays_fast() {
 // the device, say why in a way a program can read, and recover once access appears.
 void test_no_permission_never_touches_the_device_and_says_why() {
     FakeTree tree;
+    auto config = usb_config(tree);
+    config.open_retry_max = 1000ms;
     Transport* raw;
-    auto fake = connected_usb(tree, raw, usb_config(tree));
+    auto fake = connected_usb(tree, raw, config);
     std::unique_ptr<Transport> t(raw);
     fake->fail_opens(1000000, EACCES);
     CHECK(!t->open());
     Buffer buffer;
     CHECK(t->read(buffer, 80ms).status == IoStatus::Timeout);
+    CHECK(t->stats().open_failures >= 2);
+    CHECK(t->stats().open_failures <= 4);  // Backing off: at the rescan rate it would be 9.
     CHECK(!t->connected());
     CHECK(t->stats().last_open_errno == EACCES);
     CHECK(t->last_error().find("Permission denied") != std::string::npos);
@@ -1612,6 +1651,25 @@ void test_busy_interface_reports_its_errno() {
     fake->set_busy(true);
     CHECK(!t->open());
     CHECK(t->stats().last_open_errno == EBUSY);
+    Buffer buffer;
+    fake->yank();  // Gone is a different answer from busy.
+    t->read(buffer, 50ms);
+    CHECK(t->stats().last_open_errno == 0);
+}
+
+void test_retries_stop_growing_at_open_retry_max() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.open_retry_max = 40ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    fake->set_busy(true);
+    t->open();
+    Buffer buffer;
+    auto start = Clock::now();
+    while (ms_since(start) < 400) t->read(buffer, 20ms);
+    CHECK(fake->opens() >= 8);  // Left to double it would have got to about 6.
 }
 
 // A slow sysfs scan could leave next_scan in the past. A negative poll timeout waits for ever, and
@@ -1707,10 +1765,13 @@ void test_usbfs_a_failed_read_closes_everything_once() {
     CHECK(fake->deliver(luma::kLumaUltraDataIn, {1}));
     CHECK(t->read(buffer, 100ms).status == IoStatus::Ok);
 
-    fake->fail_all(luma::kLumaUltraDataIn, -EPROTO);
+    // One URB fails. The other 7 are still queued, and closing is what stops the host polling them.
+    CHECK(fake->deliver(luma::kLumaUltraDataIn, {}, -EPROTO));
+    CHECK(fake->inflight() == 7);
     CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
     CHECK(!t->connected());
-    CHECK(fake->inflight() == 0);  // Nothing is left polling a sick link.
+    CHECK(fake->inflight() == 0);
+    CHECK(fake->requests().count(USBDEVFS_DISCARDURB) == 7);
     CHECK(!fake->descriptor_open());
     CHECK(fake->claims() == 1);
     CHECK(t->read(buffer, 30ms).status == IoStatus::Timeout);  // Reported once, and held off.
@@ -1742,7 +1803,7 @@ void test_a_stall_cannot_become_a_reopen_storm() {
     int connects = 0;
     while (ms_since(start) < 500) connects += t->read(buffer, 20ms).status == IoStatus::Connected;
     CHECK(connects >= 2);  // It does keep trying, in case something else cleared it.
-    CHECK(connects <= 5);  // Holds of 40, 80, 160, 320 ms, not one every 20 ms.
+    CHECK(connects <= 5);  // Holds of 40, 80, 160, 160 ms, not one every 20 ms.
     CHECK(t->last_error().find("halted") != std::string::npos);
 
     fake->yank();  // The glasses leave and come back: that clears the halt, and the penalty with it.
@@ -1765,12 +1826,15 @@ void test_a_foreign_reset_is_noticed_and_the_interface_reclaimed() {
     t->open();
     Buffer buffer;
     t->read(buffer, 100ms);
+    CHECK(fake->deliver(0x81, {5}));  // A good read just ahead of the failures, in the same reap.
     fake->foreign_reset();
+    auto r = t->read(buffer, 300ms);
+    CHECK(r.status == IoStatus::Ok && buffer[0] == 5);
     CHECK(read_until(*t, buffer, IoStatus::Disconnected, 300ms).status == IoStatus::Disconnected);
     CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
     CHECK(fake->claims() == 2);
     CHECK(fake->inflight() == 4);
-    CHECK(fake->auto_claims() == 0);  // Never submitted on a claim the kernel had dropped.
+    CHECK(fake->auto_claims() == 0);  // The failed batch resubmits nothing onto the claim the kernel dropped.
 }
 
 // The kernel's real order: hung up first, URBs still pending, node still there for a while.
@@ -1785,14 +1849,15 @@ void test_a_disconnect_in_real_order() {
     std::thread stages([&] {
         std::this_thread::sleep_for(20ms);
         fake->begin_disconnect();
+        std::this_thread::sleep_for(20ms);
+        fake->flush(-ESHUTDOWN);
     });
     auto start = Clock::now();
     auto r = t->read(buffer, 5000ms);
     stages.join();
-    CHECK(r.status == IoStatus::Disconnected);  // On the hang-up alone, nothing has completed yet.
+    CHECK(r.status == IoStatus::Disconnected);
     CHECK(ms_since(start) < 500);
     CHECK(t->read(buffer, 40ms).status == IoStatus::Timeout);  // The dying node is still there and will not open.
-    fake->flush(-ESHUTDOWN);
     fake->remove_nodes();
     fake->arrive(102);
     CHECK(read_until(*t, buffer, IoStatus::Connected, 1000ms).status == IoStatus::Connected);
@@ -1800,11 +1865,103 @@ void test_a_disconnect_in_real_order() {
     CHECK(fake->inflight() == 4);
 }
 
-void test_default_settle_holds_a_reconnect_after_a_drop() {
+// Removal wakes a sleeping poll even with nothing in flight to complete.
+void test_a_disconnect_with_nothing_queued_still_wakes_read() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    std::thread stages([&] {
+        std::this_thread::sleep_for(20ms);
+        fake->begin_disconnect();
+        fake->remove_nodes();  // No flush: usb_kill_urb already emptied the queue.
+    });
+    auto start = Clock::now();
+    CHECK(t->read(buffer, 5000ms).status == IoStatus::Disconnected);
+    CHECK(ms_since(start) < 500);
+    stages.join();
+}
+
+// Whatever arrived goes to the reader before the news that the link ended.
+void test_packets_in_the_same_reap_as_the_end_still_arrive() {
+    {
+        FakeTree tree;
+        Transport* raw;
+        auto fake = connected_usb(tree, raw, usb_config(tree));
+        std::unique_ptr<Transport> t(raw);
+        t->open();
+        Buffer buffer;
+        t->read(buffer, 100ms);
+        CHECK(fake->deliver(0x81, {7}));
+        fake->begin_disconnect();
+        auto r = t->read(buffer, 100ms);
+        CHECK(r.status == IoStatus::Ok && buffer[0] == 7);
+        CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+    }
+    {
+        FakeTree tree;
+        Transport* raw;
+        auto fake = connected_usb(tree, raw, usb_config(tree));
+        std::unique_ptr<Transport> t(raw);
+        t->open();
+        Buffer buffer;
+        t->read(buffer, 100ms);
+        CHECK(fake->deliver(0x81, {}, -EPROTO));  // The failure comes first, the good packet behind it.
+        CHECK(fake->deliver(0x81, {9}));
+        auto r = t->read(buffer, 100ms);
+        CHECK(r.status == IoStatus::Ok && buffer[0] == 9);
+        CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+    }
+}
+
+void test_a_failure_while_the_ring_holds_packets_closes_at_once() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.urbs_per_endpoint = 4;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    for (std::uint8_t i = 0; i < 3; ++i) CHECK(fake->deliver(0x81, {i}));
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Ok);  // Two left in the ring.
+    CHECK(fake->deliver(0x81, {}, -EPROTO));
+    auto r = t->read(buffer, 100ms);
+    CHECK(r.status == IoStatus::Ok && buffer[0] == 1);
+    CHECK(!t->connected());  // Noticed while draining, not after.
+    r = t->read(buffer, 100ms);
+    CHECK(r.status == IoStatus::Ok && buffer[0] == 2);
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+}
+
+void test_a_failed_resubmit_ends_the_link() {
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, usb_config(tree));
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->fail_submits(1, ENOMEM);
+    CHECK(fake->deliver(0x81, {1}));
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Ok);
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);  // A short queue is not a working link.
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+    CHECK(fake->inflight() == 4);
+}
+
+void test_default_settle_holds_a_reconnect_for_two_seconds() {
     FakeTree tree;
     TransportConfig config;
     config.sysfs_root = tree.sysfs();
     config.dev_root = tree.dev();
+    CHECK(config.rescan_interval == 25ms);
     Transport* raw;
     auto fake = connected_usb(tree, raw, config);
     std::unique_ptr<Transport> t(raw);
@@ -1813,11 +1970,213 @@ void test_default_settle_holds_a_reconnect_after_a_drop() {
     t->read(buffer, 100ms);
     fake->yank();
     read_until(*t, buffer, IoStatus::Disconnected, 500ms);
+    t->read(buffer, 60ms);  // A scan sees it gone.
     int opens = fake->opens();
-    t->read(buffer, 60ms);
     fake->arrive(102);
-    t->read(buffer, 200ms);
+    auto start = Clock::now();
+    while (ms_since(start) < 1900) CHECK(t->read(buffer, 50ms).status == IoStatus::Timeout);
     CHECK(fake->opens() == opens);  // Back, and left alone.
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 400ms).status == IoStatus::Connected);
+}
+
+// The driver may start while the glasses are away. A device that has only just enumerated is the same
+// risk as one coming back.
+void test_a_device_that_turns_up_after_the_start_settles_too() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.arrival_settle = 80ms;
+    auto fake = std::make_shared<FakeUsbfs>(tree);
+    Transport t(config, fake);
+    CHECK(!t.open());
+    Buffer buffer;
+    CHECK(t.read(buffer, 30ms).status == IoStatus::Timeout);
+    fake->arrive(101);
+    auto start = Clock::now();
+    CHECK(t.read(buffer, 40ms).status == IoStatus::Timeout);
+    CHECK(fake->opens() == 0);
+    CHECK(read_until(t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+    CHECK(ms_since(start) >= 70);
+    auto e = t.next_event();
+    CHECK(e && e->downtime_ms == 0);  // Nothing was lost.
+}
+
+// A caller that closes after a failure must not get a free pass past the settle or the penalty.
+void test_close_and_open_cannot_skip_the_settle() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.arrival_settle = 100ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->fail_all(0x81, -EPROTO);
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+    t->close();
+    int opens = fake->opens();
+    CHECK(!t->open());
+    CHECK(fake->opens() == opens);
+    CHECK(t->read(buffer, 40ms).status == IoStatus::Timeout);
+    CHECK(fake->opens() == opens);
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 1000ms).status == IoStatus::Connected);
+
+    fake->stall(0x81);  // A caller that closes and opens as fast as it can gets nothing.
+    auto start = Clock::now();
+    int claims = fake->claims();
+    while (ms_since(start) < 300) {
+        t->read(buffer, 5ms);
+        t->close();
+        t->open();
+    }
+    CHECK(fake->claims() - claims <= 1);
+}
+
+// One packet says little: a link that dies within healthy_session is still a dying link, and the
+// halt the limit exists for can leave packets flowing on another endpoint.
+void test_a_short_session_with_packets_still_doubles_the_hold() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.arrival_settle = 20ms;
+    config.open_retry_max = 20ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    auto start = Clock::now();
+    int connects = 0;
+    while (ms_since(start) < 500) {
+        auto r = t->read(buffer, 5ms);
+        if (r.status != IoStatus::Connected) continue;
+        ++connects;
+        CHECK(fake->deliver(0x81, {1}));
+        CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
+        fake->fail_all(0x81, -EPROTO);
+    }
+    CHECK(connects >= 3);
+    CHECK(connects <= 6);  // 40, 80, 160, 320 ms apart; at a flat 20 ms it would be about 20.
+}
+
+// Run a session long enough, then fail once: the penalty is gone without the device having left.
+void test_a_long_session_clears_the_penalty() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.arrival_settle = 40ms;
+    config.open_retry_max = 20ms;
+    config.healthy_session = 60ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->fail_all(0x81, -EPROTO);  // No packet: a failed session.
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+    auto start = Clock::now();
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+    CHECK(ms_since(start) >= 70);  // Doubled.
+    CHECK(fake->deliver(0x81, {1}));
+    CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
+    std::this_thread::sleep_for(70ms);
+    CHECK(fake->deliver(0x81, {2}));
+    CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
+    fake->fail_all(0x81, -EPROTO);
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+    start = Clock::now();
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+    long plain = ms_since(start);
+    CHECK(plain >= 30 && plain < 70);  // The plain settle, not double it.
+}
+
+void test_the_hold_stops_doubling_at_sixteen_times() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.arrival_settle = 10ms;
+    config.open_retry_max = 1ms;
+    config.rescan_interval = 2ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->stall(0x81);
+    std::vector<long> connects;
+    auto start = Clock::now();
+    while (ms_since(start) < 1300)
+        if (t->read(buffer, 5ms).status == IoStatus::Connected) connects.push_back(ms_since(start));
+    CHECK(connects.size() >= 6);
+    if (connects.size() < 6) return;
+    for (std::size_t i = connects.size() - 2; i + 1 < connects.size(); ++i) {
+        long gap = connects[i + 1] - connects[i];
+        CHECK(gap >= 140 && gap < 260);  // 160 ms, again and again. 320 would be no cap, 80 too low a one.
+    }
+}
+
+// With no settle at all the penalty still has a floor, or a stall would run at the rescan rate.
+void test_a_failed_session_waits_at_least_open_retry_max() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.arrival_settle = 0ms;
+    config.open_retry_max = 80ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->stall(0x81);
+    CHECK(read_until(*t, buffer, IoStatus::Disconnected, 300ms).status == IoStatus::Disconnected);
+    auto start = Clock::now();
+    CHECK(read_until(*t, buffer, IoStatus::Connected, 500ms).status == IoStatus::Connected);
+    CHECK(ms_since(start) >= 70);
+}
+
+// Absurd settings must mean a long wait, not a wrapped one.
+void test_huge_holds_stay_holds() {
+    for (bool settle : {true, false}) {
+        FakeTree tree;
+        auto config = usb_config(tree);
+        config.in_endpoints = {0x81};
+        (settle ? config.arrival_settle : config.open_retry_max) = std::chrono::milliseconds::max();
+        Transport* raw;
+        auto fake = connected_usb(tree, raw, config);
+        std::unique_ptr<Transport> t(raw);
+        t->open();
+        Buffer buffer;
+        t->read(buffer, 100ms);
+        fake->fail_all(0x81, -EPROTO);
+        CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+        int opens = fake->opens();
+        CHECK(t->read(buffer, 100ms).status == IoStatus::Timeout);
+        CHECK(fake->opens() == opens);
+    }
+}
+
+void test_last_error_during_the_hold_says_something_true() {
+    FakeTree tree;
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81};
+    config.arrival_settle = 200ms;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    fake->yank();
+    read_until(*t, buffer, IoStatus::Disconnected, 300ms);
+    t->read(buffer, 30ms);
+    CHECK(t->last_error().find("not found") != std::string::npos);
+    fake->arrive(102);
+    t->read(buffer, 30ms);
+    CHECK(t->last_error().find("settling") != std::string::npos);  // Not "not found": it is there.
 }
 
 void test_a_failed_write_closes_the_link() {
@@ -1851,13 +2210,70 @@ void test_a_write_finishing_as_it_times_out_reports_the_truth() {
     CHECK(t->connected());
 }
 
-void test_a_write_with_no_timeout_still_gets_one_look() {
+// A transfer needs time to happen, so no time means it is cancelled, with one discard.
+void test_a_write_with_no_timeout_is_cancelled_at_once() {
     FakeTree tree;
     Transport* raw;
     auto fake = connected_usb(tree, raw, usb_config(tree));
     std::unique_ptr<Transport> t(raw);
     t->open();
-    CHECK(t->write(std::vector<std::uint8_t>{1}, 0ms) == IoStatus::Ok);
+    CHECK(t->write(std::vector<std::uint8_t>{1}, 0ms) == IoStatus::Timeout);
+    CHECK(fake->requests().count(USBDEVFS_DISCARDURB) == 1);
+    CHECK(fake->sent().empty());
+    CHECK(t->connected());
+}
+
+void test_a_write_with_a_huge_timeout_waits() {
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, usb_config(tree));
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    fake->hold_out_urbs(true);
+    std::thread device([&] {
+        std::this_thread::sleep_for(30ms);
+        fake->hold_out_urbs(false);
+    });
+    CHECK(t->write(std::vector<std::uint8_t>{1}, std::chrono::milliseconds::max()) == IoStatus::Ok);
+    device.join();
+}
+
+// A submit can fail while finished reads are still waiting to be reaped.
+void test_a_write_that_cannot_submit_keeps_what_arrived() {
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, usb_config(tree));
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    Buffer buffer;
+    t->read(buffer, 100ms);
+    for (std::uint8_t i = 0; i < 2; ++i) CHECK(fake->deliver(0x81, {i}));
+    fake->begin_disconnect();
+    CHECK(t->write(std::vector<std::uint8_t>{1}) == IoStatus::Disconnected);
+    for (std::uint8_t i = 0; i < 2; ++i) {
+        auto r = t->read(buffer, 100ms);
+        CHECK(r.status == IoStatus::Ok && buffer[0] == i);
+    }
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Disconnected);
+}
+
+// "The link came up, reset the parser" has to arrive before the first packet of that link.
+void test_connected_comes_before_any_packet() {
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, usb_config(tree));
+    std::unique_ptr<Transport> t(raw);
+    t->open();
+    fake->hold_out_urbs(true);
+    std::thread device([&] {
+        std::this_thread::sleep_for(5ms);
+        fake->deliver(0x81, {1});
+    });
+    t->write(std::vector<std::uint8_t>{1}, 30ms);  // A reply lands before the first read().
+    device.join();
+    Buffer buffer;
+    CHECK(t->read(buffer, 50ms).status == IoStatus::Connected);
+    CHECK(t->read(buffer, 50ms).status == IoStatus::Ok);
 }
 
 // A packet larger than the URB is babble on a real host, not a shorter read, so refuse it up front.
@@ -1876,8 +2292,10 @@ void test_a_packet_size_below_the_endpoints_is_refused() {
 
 void test_open_while_down_leaves_reconnecting_to_read() {
     FakeTree tree;
+    auto config = usb_config(tree);
+    config.healthy_session = 0ms;  // So no hold can be what stops open().
     Transport* raw;
-    auto fake = connected_usb(tree, raw, usb_config(tree));
+    auto fake = connected_usb(tree, raw, config);
     std::unique_ptr<Transport> t(raw);
     t->open();
     Buffer buffer;
@@ -1967,6 +2385,16 @@ void test_default_sys_refuses_forbidden_ioctl_itself() {
     errno = 0;
     CHECK(sys.ioctl(fd, USBDEVFS_RESET, nullptr) == -1);
     CHECK(errno == EPERM);
+    // SUBMITURB is allowed, but a control URB could carry a set-configuration or clear-halt. /dev/null
+    // answers ENOTTY to anything that gets through.
+    for (auto [type, expected] : {std::pair{USBDEVFS_URB_TYPE_CONTROL, EPERM}, std::pair{USBDEVFS_URB_TYPE_ISO, EPERM},
+                                  std::pair{USBDEVFS_URB_TYPE_BULK, ENOTTY}, std::pair{USBDEVFS_URB_TYPE_INTERRUPT, ENOTTY}}) {
+        auto urb = std::make_unique<usbdevfs_urb>();
+        urb->type = static_cast<unsigned char>(type);
+        errno = 0;
+        CHECK(sys.ioctl(fd, USBDEVFS_SUBMITURB, urb.get()) == -1);
+        CHECK(errno == expected);
+    }
     ::close(fd);
 }
 
@@ -2052,6 +2480,7 @@ int main() {
         T(test_failed_opens_back_off_but_finding_the_device_stays_fast),
         T(test_no_permission_never_touches_the_device_and_says_why),
         T(test_busy_interface_reports_its_errno),
+        T(test_retries_stop_growing_at_open_retry_max),
         T(test_a_slow_scan_never_makes_poll_wait_for_ever),
         T(test_huge_timeouts_mean_a_long_wait),
         T(test_usbfs_reads_refill_while_the_ring_drains),
@@ -2059,10 +2488,25 @@ int main() {
         T(test_a_stall_cannot_become_a_reopen_storm),
         T(test_a_foreign_reset_is_noticed_and_the_interface_reclaimed),
         T(test_a_disconnect_in_real_order),
-        T(test_default_settle_holds_a_reconnect_after_a_drop),
+        T(test_a_disconnect_with_nothing_queued_still_wakes_read),
+        T(test_packets_in_the_same_reap_as_the_end_still_arrive),
+        T(test_a_failure_while_the_ring_holds_packets_closes_at_once),
+        T(test_a_failed_resubmit_ends_the_link),
+        T(test_default_settle_holds_a_reconnect_for_two_seconds),
+        T(test_a_device_that_turns_up_after_the_start_settles_too),
+        T(test_close_and_open_cannot_skip_the_settle),
+        T(test_a_short_session_with_packets_still_doubles_the_hold),
+        T(test_a_long_session_clears_the_penalty),
+        T(test_the_hold_stops_doubling_at_sixteen_times),
+        T(test_a_failed_session_waits_at_least_open_retry_max),
+        T(test_huge_holds_stay_holds),
+        T(test_last_error_during_the_hold_says_something_true),
         T(test_a_failed_write_closes_the_link),
         T(test_a_write_finishing_as_it_times_out_reports_the_truth),
-        T(test_a_write_with_no_timeout_still_gets_one_look),
+        T(test_a_write_with_no_timeout_is_cancelled_at_once),
+        T(test_a_write_with_a_huge_timeout_waits),
+        T(test_a_write_that_cannot_submit_keeps_what_arrived),
+        T(test_connected_comes_before_any_packet),
         T(test_a_packet_size_below_the_endpoints_is_refused),
         T(test_open_while_down_leaves_reconnecting_to_read),
         T(test_at_least_two_reads_stay_queued),
