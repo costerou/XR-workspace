@@ -1866,9 +1866,10 @@ A toggle that makes any desktop stereo 3D from an AI depth map. `tools/native_sp
 what is there and what is missing. **It cannot turn on yet: a real run always falls back to 2D with a toast**, because the
 glasses' 3D mode switch and the depth engine program do not exist in this repo. Nothing is sent to the glasses.
 
-- **Toggle.** Ctrl+Alt+I for every desktop (help card: it shares the background's row, so the card stays at 14), the 3D button right of
-  each desktop's level bar for that desktop (`free_pointer.immersive_button_rect`, `glass.hpp`, compared by `glass_contract`; two
-  rings in a capsule, a placeholder until a look is picked from `3d-button-mockups`), and the running panel's 3D row. There is no
+- **Toggle.** Ctrl+Alt+I for every desktop (help card: it shares the background's row, so the card stays at 14), the 3D button joined to
+  each desktop's level bar (Connected Tail, Cody's pick, option 02 of `3d-button-mockups`; `free_pointer.immersive_part`,
+  `glass.hpp`, compared by `glass_contract`), and the running panel's 3D row. The button's 3D segment is that desktop. Its tail,
+  lit when every desktop is 3D, lights all of them from any state and turns them all off once lit. There is no
   row in the glass placement panel.
 - **Saved** as `immersive` `{global, desktops}` with the view settings, per glasses model, off by default.
 - **Power.** The engine process exists only while a desktop is 3D. It stops for a VR video and comes back after.

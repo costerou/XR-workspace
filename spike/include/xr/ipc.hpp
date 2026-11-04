@@ -162,13 +162,14 @@ constexpr const char* kInvalidBindsCode = "invalid_binds";
 // kBrightnessMin..kBrightnessMax. Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
 constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
 struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightness = 100; };  // background: index into kBackgrounds
-// Immersive 3D (tools/native_spike/immersive.py): {"desktops":[bool,...],"stereo":bool,"hover":-1..kMaxDesktops-1} (exactly
-// those keys, kMaxDesktops entries, in managed-output order). desktops: the desktops that are 3D, their buttons lit
-// (glass.hpp immersive_button_rect). stereo: the glasses are in side-by-side and depth is flowing, so those desktops are
-// drawn in 3D now; false, however many are lit, means draw flat. hover: the button under the dot, -1 none. Malformed:
-// rejected with kInvalidImmersiveCode and dropped, like roll.
+// Immersive 3D (tools/native_spike/immersive.py): {"desktops":[bool,...],"global":bool,"stereo":bool,"hover":-1..kMaxDesktops-1,
+// "tail":bool} (exactly those keys, kMaxDesktops entries, in managed-output order). desktops: the desktops that are 3D, their
+// buttons' 3D segments lit (glass.hpp immersive_main_rect). global: every desktop is, every tail lit. stereo: the glasses are
+// in side-by-side and depth is flowing, so those desktops are drawn in 3D now; false, however many are lit, means draw flat.
+// hover: the button under the dot, -1 none; tail: it is on that button's tail (false with hover -1). Malformed: rejected with
+// kInvalidImmersiveCode and dropped, like roll.
 constexpr const char* kInvalidImmersiveCode = "invalid_immersive";
-struct ImmersivePayload { std::array<bool, kMaxDesktops> desktops{}; bool stereo = false; std::int32_t hover = -1; };
+struct ImmersivePayload { std::array<bool, kMaxDesktops> desktops{}; bool global = false, stereo = false; std::int32_t hover = -1; bool tail = false; };
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
                                     EnvironmentPayload, BindPanelState, ImmersivePayload>;

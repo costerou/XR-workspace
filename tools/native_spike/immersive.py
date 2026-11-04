@@ -11,9 +11,10 @@ exceptions are kept (clean), so the toggle for all (toggled_all) simply clears t
 accessor, as environment.environment is.
 
 Where it is set: Ctrl+Alt+I (TOGGLE_BIND, a run bind in view.BINDS, so the help card, bind_check and the key bind panel see
-it) for every desktop; the 3D button next to each desktop's level bar in the overview for that desktop (free_pointer.py,
-glass.hpp immersive_button_rect: a press on it is view.ViewControl.immersive_click; its look is a placeholder until Cody
-picks one from 3d-button-mockups); the panel, which sends the whole setting (SET_OP, absolute, like `placement`).
+it) for every desktop; the 3D button joined to each desktop's level bar in the overview (Connected Tail, Cody's pick of
+3d-button-mockups, option 02; free_pointer.py, glass.hpp immersive_main_rect), whose 3D segment is that desktop
+(view.ViewControl.immersive_click) and whose tail is every desktop (immersive_tail_click, toggled_every); the panel, which sends
+the whole setting (SET_OP, absolute, like `placement`).
 
 Three facts shape what happens next:
 
@@ -132,19 +133,26 @@ def toggled_all(setting, names):
     return {'global': not on_names(setting, names), 'desktops': {}}
 
 
+def toggled_every(setting, names):
+    """The tail, which is lit when every desktop is 3D: lit, all flat; unlit, however many are on, all 3D."""
+    return {'global': len(on_names(setting, names)) != len(names), 'desktops': {}}
+
+
 def toggled_desktop(setting, name):
     """The 3D button: this desktop the other way, the rest as they are."""
     setting = clean(setting)
     return clean({**setting, 'desktops': {**setting['desktops'], name: not desktop_on(setting, name)}})
 
 
-def renderer_frame(run_id, session, request_id, flags, stereo, hover=-1):
+def renderer_frame(run_id, session, request_id, flags, stereo, hover=-1, tail=False, every=False):
     """Renderer `immersive` frame (ipc.hpp ImmersivePayload): `flags`, one bool per desktop in managed-output order (their
-    buttons light; padded to MAX_DESKTOPS); `stereo`: the glasses are in SBS with depth flowing, so draw those desktops in
-    3D; `hover`: the desktop whose button is under the dot, -1 none."""
+    3D segments light; padded to MAX_DESKTOPS); `every`: all the run's desktops are 3D, so the tails light; `stereo`: the
+    glasses are in SBS with depth flowing, so draw those desktops in 3D; `hover`: the desktop whose button is under the dot,
+    -1 none; `tail`: the dot is on that button's tail."""
     desktops = (list(flags) + [False] * MAX_DESKTOPS)[:MAX_DESKTOPS]
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'immersive',
-                        'payload': {'desktops': desktops, 'stereo': bool(stereo), 'hover': hover}}, separators=(',', ':')) + '\n').encode()
+                        'payload': {'desktops': desktops, 'global': bool(every), 'stereo': bool(stereo), 'hover': hover,
+                                    'tail': bool(tail)}}, separators=(',', ':')) + '\n').encode()
 
 
 class EngineError(Exception):

@@ -1,28 +1,294 @@
 {
-  "comment": "The renderer's `immersive` payload (spike/include/xr/ipc.hpp ImmersivePayload). The renderer's decoder (spike/tests/immersive_test.cpp) and the supervisor's frame builder (tools/native_spike/immersive.py, tests/native_spike/test_immersive.py) both run over this file. Each valid entry gives the arguments the supervisor builds it from: `flags`, one per desktop in the run, and `stereo`, `hover`.",
-  "valid": [
-    {"flags": [false, false, false], "stereo": false, "hover": -1,
-     "payload": {"desktops": [false, false, false, false], "stereo": false, "hover": -1}},
-    {"flags": [true, false, true], "stereo": false, "hover": -1,
-     "payload": {"desktops": [true, false, true, false], "stereo": false, "hover": -1}},
-    {"flags": [true, true, true, true], "stereo": true, "hover": 3,
-     "payload": {"desktops": [true, true, true, true], "stereo": true, "hover": 3}},
-    {"flags": [false], "stereo": false, "hover": 0,
-     "payload": {"desktops": [false, false, false, false], "stereo": false, "hover": 0}}
-  ],
-  "invalid": [
-    {},
-    {"desktops": [false, false, false, false], "stereo": false},
-    {"desktops": [false, false, false, false], "hover": -1},
-    {"stereo": false, "hover": -1},
-    {"desktops": [false, false, false], "stereo": false, "hover": -1},
-    {"desktops": [false, false, false, false, false], "stereo": false, "hover": -1},
-    {"desktops": [0, 0, 0, 0], "stereo": false, "hover": -1},
-    {"desktops": [false, false, false, false], "stereo": 1, "hover": -1},
-    {"desktops": [false, false, false, false], "stereo": false, "hover": 4},
-    {"desktops": [false, false, false, false], "stereo": false, "hover": -2},
-    {"desktops": [false, false, false, false], "stereo": false, "hover": "none"},
-    {"desktops": [false, false, false, false], "stereo": false, "hover": 18446744073709551615},
-    {"desktops": [false, false, false, false], "stereo": false, "hover": -1, "extra": 1}
-  ]
+ "comment": "The renderer's `immersive` payload (spike/include/xr/ipc.hpp ImmersivePayload). The renderer's decoder (spike/tests/immersive_test.cpp) and the supervisor's frame builder (tools/native_spike/immersive.py, tests/native_spike/test_immersive.py) both run over this file. Each valid entry gives the arguments the supervisor builds it from: `flags`, one per desktop in the run, and `stereo`, `hover`, `tail`, `every`.",
+ "valid": [
+  {
+   "flags": [
+    false,
+    false,
+    false
+   ],
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "every": false,
+   "payload": {
+    "desktops": [
+     false,
+     false,
+     false,
+     false
+    ],
+    "global": false,
+    "stereo": false,
+    "hover": -1,
+    "tail": false
+   }
+  },
+  {
+   "flags": [
+    true,
+    false,
+    true
+   ],
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "every": false,
+   "payload": {
+    "desktops": [
+     true,
+     false,
+     true,
+     false
+    ],
+    "global": false,
+    "stereo": false,
+    "hover": -1,
+    "tail": false
+   }
+  },
+  {
+   "flags": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "stereo": true,
+   "hover": 3,
+   "tail": true,
+   "every": true,
+   "payload": {
+    "desktops": [
+     true,
+     true,
+     true,
+     true
+    ],
+    "global": true,
+    "stereo": true,
+    "hover": 3,
+    "tail": true
+   }
+  },
+  {
+   "flags": [
+    false
+   ],
+   "stereo": false,
+   "hover": 0,
+   "tail": false,
+   "every": false,
+   "payload": {
+    "desktops": [
+     false,
+     false,
+     false,
+     false
+    ],
+    "global": false,
+    "stereo": false,
+    "hover": 0,
+    "tail": false
+   }
+  }
+ ],
+ "invalid": [
+  {},
+  {
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": 1,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": 1,
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": 0
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": 4,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -2,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": "none",
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": 18446744073709551615,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": true
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "extra": 1
+  }
+ ]
 }

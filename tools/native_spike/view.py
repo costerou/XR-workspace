@@ -115,7 +115,7 @@ desktop's panel; Ctrl+Alt+E goes between None and the last background used. Save
 turns it with the head pose whatever the viewing mode.
 
 Immersive 3D (immersive.py): any desktop made stereo by an AI depth map. Ctrl+Alt+I for every desktop, the 3D button next to a
-desktop's level bar for that desktop, and the panel. Saved with the view settings, off by default. ViewControl only says what it
+desktop's level bar for that desktop, its tail for every desktop, and the panel. Saved with the view settings, off by default. ViewControl only says what it
 wants (_immersive_sync, every poll, so a desktop change or a VR video is noticed too) and collects what happened
 (_immersive_tick); immersive.ImmersiveRun brings the engine and the glasses' 3D mode up and down off the loop, and a failure
 holds the run in 2D (immersive_failed) with a toast until the next press.
@@ -1066,8 +1066,8 @@ class ViewControl:
         # fell back to, held until the next press; the desktop whose button is under the dot; the last frame's content.
         self.immersive_run = None  # optional immersive.ImmersiveRun; set by managed.view_controls
         self.immersive_stereo = self.immersive_failed = False
-        self.immersive_hover = -1
-        self._immersive_sent = ([False] * MAX_DESKTOPS, False, -1)  # the renderer starts with nothing on
+        self.immersive_hover, self.immersive_on_tail = -1, False
+        self._immersive_sent = ([False] * MAX_DESKTOPS, False, -1, False, False)  # the renderer starts with nothing on
         self.immersive_failures = 0  # diagnostics
 
     @property
@@ -1140,8 +1140,9 @@ class ViewControl:
         if not wanted: self.immersive_stereo = False
         if self.immersive_run is not None: self.immersive_run.request(wanted)
         flags = [False if self.immersive_failed else _immersive.desktop_on(s.immersive, n) for n in s.names]
+        every = bool(flags) and all(flags)  # lights the tails
         flags += [False] * (MAX_DESKTOPS - len(flags))  # the wire's length, so a desktop added with nothing on sends nothing
-        sent = (flags, self.immersive_stereo, self.immersive_hover)
+        sent = (flags, self.immersive_stereo, self.immersive_hover, self.immersive_on_tail, every)
         if sent == self._immersive_sent: return b''
         self._immersive_sent = sent
         frame = _immersive.renderer_frame(self.run_id, self.session, self.next_id, *sent)
@@ -1186,10 +1187,19 @@ class ViewControl:
         retry = self.immersive_failed and _immersive.desktop_on(s.immersive, s.names[desktop])
         return self.set_immersive(s.immersive if retry else _immersive.toggled_desktop(s.immersive, s.names[desktop]))
 
-    def immersive_pointer(self, desktop):
-        """The free pointer: the desktop whose 3D button the dot is on (-1: none) lights. Frames (bytes)."""
-        if desktop == self.immersive_hover: return b''
-        self.immersive_hover = desktop
+    def immersive_tail_click(self, desktop):
+        """A free-pointer press on a 3D button's tail: every desktop, on or off, whichever desktop's tail it is; after a
+        failure with all of them on in the setting, they try again. Frames (bytes), b'' when stale (immersive_click)."""
+        s = self.state
+        if type(desktop) is not int or not 0 <= desktop < len(s.names) or s.zoomed or s.typing or self.video_active: return b''
+        self.last_input = self.clock()
+        retry = self.immersive_failed and len(_immersive.on_names(s.immersive, s.names)) == len(s.names)
+        return self.set_immersive(s.immersive if retry else _immersive.toggled_every(s.immersive, s.names))
+
+    def immersive_pointer(self, desktop, tail=False):
+        """The free pointer: the desktop whose 3D button the dot is on (-1: none), and whether on its tail, lights. Frames (bytes)."""
+        if (desktop, tail) == (self.immersive_hover, self.immersive_on_tail): return b''
+        self.immersive_hover, self.immersive_on_tail = desktop, tail
         return self._immersive_sync()
 
     def _immersive_status(self):

@@ -167,32 +167,47 @@ FRect corner_cap_rect(const FRect& t, std::uint32_t corner) {
     return {right ? t.x + t.width - kCapInner * s : t.x - kCapOuter * s, bottom ? t.y + t.height - kCapInner * s : t.y - kCapOuter * s, size, size};
 }
 
-FRect immersive_button_rect(const FRect& t) {
+namespace {
+// Both controls' rects, or both empty on a desktop too narrow for them.
+bool immersive_rects(const FRect& t, FRect& main, FRect& tail) {
     const float s = level_bar_scale(t);
-    if (!(s > 0)) return {};
+    if (!(s > 0)) return false;
     const FRect bar = level_bar_rect(t);
-    const float x = bar.x + bar.width + kImmersiveButtonGap * s, w = kImmersiveButtonW * s;
-    if (x + w > t.x + t.width - kImmersiveButtonClear * s) return {};
-    return {x, bar.y, w, bar.height};
+    main = {bar.x + bar.width + kImmersiveGap * s, bar.y, kImmersiveMainW * s, bar.height};
+    tail = {main.x + main.width + kImmersiveGap * s, bar.y, kImmersiveTailW * s, bar.height};
+    return tail.x + tail.width <= t.x + t.width - kImmersiveClear * s;
+}
 }
 
-bool on_immersive_button(const FRect& t, float px, float py) {
-    const FRect r = immersive_button_rect(t);
-    if (!(r.width > 0)) return false;
-    const float pad = kLevelBarPad * level_bar_scale(t);
-    return px >= r.x - pad && px <= r.x + r.width + pad && py >= r.y - pad && py <= r.y + r.height + pad;
+FRect immersive_main_rect(const FRect& t) {
+    FRect main, tail;
+    return immersive_rects(t, main, tail) ? main : FRect{};
+}
+
+FRect immersive_tail_rect(const FRect& t) {
+    FRect main, tail;
+    return immersive_rects(t, main, tail) ? tail : FRect{};
+}
+
+ImmersivePart immersive_part(const FRect& t, float px, float py) {
+    FRect main, tail;
+    if (!immersive_rects(t, main, tail)) return ImmersivePart::none;
+    const float s = level_bar_scale(t), pad = kLevelBarPad * s, half = kImmersiveGap * s / 2;
+    if (py < main.y - pad || py > main.y + main.height + pad || px < main.x - half || px > tail.x + tail.width + pad) return ImmersivePart::none;
+    return px < tail.x - half ? ImmersivePart::main : ImmersivePart::tail;
 }
 
 namespace {
 // The atlas: seven bar cells down the left (idle, then one hot segment each hovered and dragged), and to their right the
-// caps, a column per state and a row per corner, and right of those the 3D button's four states. Atlas px, kHandleAtlasGutter
-// between cells and round the edge.
+// caps, a column per state and a row per corner, and right of those the 3D button: a column for its segment and one for its
+// tail, four states each. Atlas px, kHandleAtlasGutter between cells and round the edge.
 constexpr std::uint32_t kAtlasGap = kHandleAtlasGutter;
 constexpr std::uint32_t kAtlasBarW = std::uint32_t(kLevelBarW) * kHandleAtlasScale, kAtlasBarH = std::uint32_t(kLevelBarH) * kHandleAtlasScale;
 constexpr std::uint32_t kAtlasCap = std::uint32_t(kCapOuter + kCapInner) * kHandleAtlasScale;
 constexpr std::uint32_t kBarCells = 1 + 2 * kLevelSegments, kCapStates = 3, kCapCorners = 4;
-constexpr std::uint32_t kAtlasButtonW = std::uint32_t(kImmersiveButtonW) * kHandleAtlasScale, kAtlasButtonX = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap);
-constexpr std::uint32_t kAtlasW = kAtlasButtonX + kAtlasButtonW + kAtlasGap;
+constexpr std::uint32_t kAtlasMainW = std::uint32_t(kImmersiveMainW) * kHandleAtlasScale, kAtlasTailW = std::uint32_t(kImmersiveTailW) * kHandleAtlasScale;
+constexpr std::uint32_t kAtlasMainX = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap), kAtlasTailX = kAtlasMainX + kAtlasMainW + kAtlasGap;
+constexpr std::uint32_t kAtlasW = kAtlasTailX + kAtlasTailW + kAtlasGap;
 constexpr std::uint32_t kAtlasH = kAtlasGap + std::max(kBarCells * (kAtlasBarH + kAtlasGap), kCapCorners * (kAtlasCap + kAtlasGap));
 struct AtlasCell { std::uint32_t x = 0, y = 0, w = 0, h = 0; };
 AtlasCell bar_cell(std::uint32_t row) { return {kAtlasGap, kAtlasGap + row * (kAtlasBarH + kAtlasGap), kAtlasBarW, kAtlasBarH}; }
@@ -202,7 +217,9 @@ std::uint32_t bar_row(LevelSegment segment, bool active) {
 AtlasCell cap_cell(std::uint32_t corner, std::uint32_t state) {
     return {kAtlasGap + kAtlasBarW + kAtlasGap + state * (kAtlasCap + kAtlasGap), kAtlasGap + corner * (kAtlasCap + kAtlasGap), kAtlasCap, kAtlasCap};
 }
-AtlasCell button_cell(bool on, bool hot) { return {kAtlasButtonX, kAtlasGap + (std::uint32_t(on) * 2 + std::uint32_t(hot)) * (kAtlasBarH + kAtlasGap), kAtlasButtonW, kAtlasBarH}; }
+std::uint32_t button_row(bool lit, bool hot) { return kAtlasGap + (std::uint32_t(lit) * 2 + std::uint32_t(hot)) * (kAtlasBarH + kAtlasGap); }
+AtlasCell main_cell(bool lit, bool hot) { return {kAtlasMainX, button_row(lit, hot), kAtlasMainW, kAtlasBarH}; }
+AtlasCell tail_cell(bool lit, bool hot) { return {kAtlasTailX, button_row(lit, hot), kAtlasTailW, kAtlasBarH}; }
 AtlasBox box_of(const AtlasCell& c) {
     const float w = float(kAtlasW), h = float(kAtlasH);
     return {float(c.x) / w, float(c.y) / h, float(c.x + c.w) / w, float(c.y + c.h) / h};
@@ -221,11 +238,52 @@ void draw_bar(HudImage& im, const AtlasCell& c, const MaterialScheme& m, LevelSe
         md_icon(im, kIcons[seg].first, x + (float(seg) + 0.5f) * third, y + h / 2, kIcons[seg].second * k,
                 seg == int(hot) ? m.on_primary : m.on_primary_container);
 }
-void draw_button(HudImage& im, const AtlasCell& c, const MaterialScheme& m, bool on, bool hot) {  // a placeholder look
+// A 3D button control's container and ink: glass.hpp immersive_main_box.
+std::pair<MdRgb, MdRgb> button_roles(const MaterialScheme& m, bool lit, bool hot) {
+    if (lit) return {hot ? m.primary_bright : m.primary, m.on_primary};
+    return hot ? std::pair{m.primary_container, m.on_primary_container} : std::pair{m.secondary_container, m.on_secondary_container};
+}
+void draw_button_main(HudImage& im, const AtlasCell& c, const MaterialScheme& m, const HudFont* font, bool lit, bool hot) {
     const float k = kHandleAtlasScale, x = float(c.x), y = float(c.y), w = float(c.w), h = float(c.h);
-    md_fill_rounded(im, x, y, x + w, y + h, h / 2, on ? (hot ? m.primary_bright : m.primary) : m.primary_container, 1.f);
-    if (hot && !on) md_fill_rounded(im, x + 2 * k, y + 2 * k, x + w - 2 * k, y + h - 2 * k, (h - 4 * k) / 2, m.primary, 0.5f);
-    md_icon(im, MdIcon::stereo, x + w / 2, y + h / 2, 20.f * k, on ? m.on_primary : m.on_primary_container);
+    const auto [fill, ink] = button_roles(m, lit, hot);
+    md_fill_rounded(im, x, y, x + w, y + h, kImmersiveInnerR * k, fill, 1.f);
+    if (!font) {  // the pixel font: drawn centred on its 5 x 7 cells
+        constexpr std::uint32_t z = 5;
+        const int px_w = int((2 * kGlyphW + 1) * z), left = int(std::lround(x + w / 2)) - px_w / 2, top = int(std::lround(y + h / 2)) - int(kGlyphH * z) / 2;
+        for (int n = 0; n < 2; ++n) {
+            const auto& g = hud_glyph("3D"[n]);
+            for (std::uint32_t row = 0; row < kGlyphH * z; ++row)
+                for (std::uint32_t col = 0; col < kGlyphW * z; ++col)
+                    if (g[row / z] >> (kGlyphW - 1 - col / z) & 1) md_over(im, left + n * int((kGlyphW + 1) * z) + int(col), top + int(row), ink, 1.f);
+        }
+        return;
+    }
+    // Centred on its ink, not its advance, as the design is: where the glyphs really land, measured by drawing them.
+    constexpr const char* label = "3D";
+    const auto px = std::uint32_t(std::lround(kImmersiveTextPx * k));
+    int x0 = 1 << 20, x1 = -(1 << 20), y0 = x0, y1 = x1;
+    font->draw(label, px, true, 0, 0, [&](int gx, int gy, float coverage) {
+        if (coverage > 0) { x0 = std::min(x0, gx); x1 = std::max(x1, gx); y0 = std::min(y0, gy); y1 = std::max(y1, gy); }
+    });
+    const int left = int(std::lround(x + w / 2 - float(x0 + x1 + 1) / 2)), baseline = int(std::lround(y + h / 2 - float(y0 + y1 + 1) / 2));
+    font->draw(label, px, true, left, baseline, [&](int gx, int gy, float coverage) { md_over(im, gx, gy, ink, coverage); });
+}
+void draw_button_tail(HudImage& im, const AtlasCell& c, const MaterialScheme& m, bool lit, bool hot) {
+    const float k = kHandleAtlasScale, x = float(c.x), y = float(c.y), w = float(c.w), h = float(c.h);
+    const auto [fill, ink] = button_roles(m, lit, hot);
+    // One shape: the small inner corners on its left half, the capsule's end on its right. Both are flat where they meet.
+    const float cx = x + w / 2, cy0 = y + h / 2;
+    for (std::uint32_t py = c.y; py < c.y + c.h; ++py)
+        for (std::uint32_t px = c.x; px < c.x + c.w; ++px) {
+            const float fx = float(px) + 0.5f, fy = float(py) + 0.5f;
+            const float d = md_rounded_distance(fx, fy, cx, cy0, w / 2, h / 2, fx < cx ? kImmersiveInnerR * k : h / 2);
+            const float cover = std::clamp(0.5f - d, 0.f, 1.f);
+            if (cover > 0) md_over(im, int(px), int(py), fill, cover);
+        }
+    const float tw = kImmersiveTickW * k, th = kImmersiveTickH * k, gap = kImmersiveTickGap * k, cy = y + h / 2;
+    const float left = x + w / 2 - 1 * k - 1.5f * tw - gap;  // a tick left of centre, for the round end's weight
+    for (int i = 0; i < 3; ++i)
+        md_fill_rounded(im, left + float(i) * (tw + gap), cy - th / 2, left + float(i) * (tw + gap) + tw, cy + th / 2, kImmersiveTickR * k, ink, 1.f);
 }
 void draw_cap(HudImage& im, const AtlasCell& c, std::uint32_t corner, float leg, float stroke, MdRgb colour) {
     const float k = kHandleAtlasScale, in = kCapInner * k;
@@ -241,7 +299,7 @@ void draw_cap(HudImage& im, const AtlasCell& c, std::uint32_t corner, float leg,
 }
 }
 
-HudImage render_handle_atlas(std::array<float, 3> accent) {
+HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
     const auto& m = glass_theme_scheme(accent);
     HudImage im{kAtlasW, kAtlasH, std::vector<std::uint8_t>(std::size_t(kAtlasW) * kAtlasH * 4, 0)};
     draw_bar(im, bar_cell(bar_row(LevelSegment::none, false)), m, LevelSegment::none, false);
@@ -252,13 +310,17 @@ HudImage render_handle_atlas(std::array<float, 3> accent) {
         draw_cap(im, cap_cell(corner, 1), corner, kCapLegHot, kCapStrokeHot, m.primary_bright);
         draw_cap(im, cap_cell(corner, 2), corner, kCapLegHot, kCapStrokeHot, m.primary_bright);
     }
-    for (const bool on : {false, true})
-        for (const bool hot : {false, true}) draw_button(im, button_cell(on, hot), m, on, hot);
+    for (const bool lit : {false, true})
+        for (const bool hot : {false, true}) {
+            draw_button_main(im, main_cell(lit, hot), m, font, lit, hot);
+            draw_button_tail(im, tail_cell(lit, hot), m, lit, hot);
+        }
     return im;
 }
 
 AtlasBox level_bar_box(LevelSegment segment, bool active) { return box_of(bar_cell(bar_row(segment, active))); }
-AtlasBox immersive_button_box(bool on, bool hot) { return box_of(button_cell(on, hot)); }
+AtlasBox immersive_main_box(bool lit, bool hot) { return box_of(main_cell(lit, hot)); }
+AtlasBox immersive_tail_box(bool lit, bool hot) { return box_of(tail_cell(lit, hot)); }
 AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active) { return box_of(cap_cell(std::min(corner, kCapCorners - 1), active ? 2 : hot ? 1 : 0)); }
 
 FRect glass_panel_action(std::size_t action) {

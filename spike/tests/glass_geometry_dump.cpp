@@ -28,7 +28,7 @@ int main() {
         {"background_top", kPanelBackgroundTop}, {"brightness_top", kPanelBrightnessTop}, {"background_item_h", kBackgroundItemH},
         {"background_list_gap", kBackgroundListGap}, {"brightness_min", float(kBrightnessMin)}, {"brightness_max", float(kBrightnessMax)},
         {"brightness_default", float(kBrightnessDefault)},
-        {"button_w", kImmersiveButtonW}, {"button_gap", kImmersiveButtonGap}, {"button_clear", kImmersiveButtonClear}};
+        {"immersive_gap", kImmersiveGap}, {"immersive_main_w", kImmersiveMainW}, {"immersive_tail_w", kImmersiveTailW}, {"immersive_clear", kImmersiveClear}};
     bool first = true;
     for (const auto& [name, value] : constants) {
         char b[96]; std::snprintf(b, sizeof b, "%s\"%s\":%.4f", first ? "" : ",", name, double(value)); out += b; first = false;
@@ -75,13 +75,13 @@ int main() {
                 char p[120]; std::snprintf(p, sizeof p, "%s[%.4f,%.4f,%d]", first_probe ? "" : ",", double(px), double(py), int(level_bar_segment(t, px, py)));
                 out += p; first_probe = false;
             }
-        out += "]},\"button\":{\"rect\":" + rect(immersive_button_rect(t)) + ",\"probes\":[";
+        out += "]},\"button\":{\"main\":" + rect(immersive_main_rect(t)) + ",\"tail\":" + rect(immersive_tail_rect(t)) + ",\"probes\":[";
         // Round the bar and past where the button sits, whether this desktop has one or not.
         first_probe = true;
         for (float u = -0.1f; u <= 1.1f; u += 0.0073f)
             for (float v = -60 * s; v <= 12 * s; v += 2.13f * s) {
                 const float px = t.x + u * t.width, py = t.y + v;
-                char p[120]; std::snprintf(p, sizeof p, "%s[%.4f,%.4f,%d]", first_probe ? "" : ",", double(px), double(py), int(on_immersive_button(t, px, py)));
+                char p[120]; std::snprintf(p, sizeof p, "%s[%.4f,%.4f,%d]", first_probe ? "" : ",", double(px), double(py), int(immersive_part(t, px, py)));
                 out += p; first_probe = false;
             }
         out += "]}}";

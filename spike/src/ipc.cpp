@@ -48,9 +48,11 @@ bool placement(const Json& value, WirePlacement& out) {
 }
 // An `immersive` frame's payload (ipc.hpp ImmersivePayload).
 bool immersive(const Json& p, ImmersivePayload& out) {
-    if (!p.is_object() || p.size() != 3 || !p.contains("desktops") || !p.contains("stereo") || !p.contains("hover")) return false;
+    if (!p.is_object() || p.size() != 5) return false;
+    for (const char* key : {"desktops", "global", "stereo", "hover", "tail"}) if (!p.contains(key)) return false;
     const auto& d = p["desktops"];
-    if (!d.is_array() || d.size() != kMaxDesktops || !p["stereo"].is_boolean() || !p["hover"].is_number_integer()) return false;
+    if (!d.is_array() || d.size() != kMaxDesktops || !p["global"].is_boolean() || !p["stereo"].is_boolean() || !p["tail"].is_boolean() ||
+        !p["hover"].is_number_integer()) return false;
     for (std::size_t i = 0; i < kMaxDesktops; ++i) {
         if (!d[i].is_boolean()) return false;
         out.desktops[i] = d[i].get<bool>();
@@ -59,8 +61,8 @@ bool immersive(const Json& p, ImmersivePayload& out) {
     const auto hover = p["hover"].get<std::int64_t>();
     if (hover < -1 || hover >= std::int64_t(kMaxDesktops)) return false;
     out.hover = std::int32_t(hover);
-    out.stereo = p["stereo"].get<bool>();
-    return true;
+    out.global = p["global"].get<bool>(); out.stereo = p["stereo"].get<bool>(); out.tail = p["tail"].get<bool>();
+    return !(out.tail && out.hover < 0);
 }
 // The background's fields, on an `environment` frame and on a placement_menu frame.
 bool background_name(const Json& v, std::uint8_t& out) {

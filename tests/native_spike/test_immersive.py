@@ -120,6 +120,13 @@ class SettingTests(unittest.TestCase):
         self.assertEqual(immersive.toggled_all(ALL, NAMES), OFF)
         self.assertEqual(immersive.toggled_all(immersive.toggled_desktop(ALL, 'XR-1'), NAMES), OFF)
 
+    def test_the_tail_lights_everything_unless_everything_is_lit(self):
+        one = immersive.toggled_desktop(OFF, 'XR-2')
+        self.assertEqual(immersive.toggled_every(OFF, NAMES), ALL)
+        self.assertEqual(immersive.toggled_every(one, NAMES), ALL)
+        self.assertEqual(immersive.toggled_every(immersive.toggled_desktop(ALL, 'XR-1'), NAMES), ALL)
+        self.assertEqual(immersive.toggled_every(ALL, NAMES), OFF)
+
     def test_it_applies_only_to_the_desktops_that_exist(self):
         only_gone = immersive.toggled_desktop(OFF, 'XR-4')
         self.assertEqual(immersive.on_names(only_gone, NAMES), [])
@@ -189,7 +196,7 @@ class FrameTests(unittest.TestCase):
     def test_the_fixture_is_what_the_supervisor_sends(self):
         data = json.loads(FIXTURE.read_text())
         for case in data['valid']:
-            line = immersive.renderer_frame('r', 's', 9, case['flags'], case['stereo'], case['hover'])
+            line = immersive.renderer_frame('r', 's', 9, case['flags'], case['stereo'], case['hover'], case['tail'], case['every'])
             self.assertEqual(json.loads(line)['payload'], case['payload'])
             self.assertTrue(line.endswith(b'\n'))
 
@@ -208,7 +215,7 @@ class FrameTests(unittest.TestCase):
 
     def test_a_saved_one_is_in_the_runs_first_frames(self):
         control = view.ViewControl(view.ViewState(NAMES, immersive=ALL), 'r', 's', None, Store(), None)
-        self.assertEqual(immersive_frames(control.initial_frame()), [{'desktops': [True, True, True, False], 'stereo': False, 'hover': -1}])
+        self.assertEqual(immersive_frames(control.initial_frame()), [{'desktops': [True, True, True, False], 'global': True, 'stereo': False, 'hover': -1, 'tail': False}])
 
     def test_the_panel_op_decodes(self):
         frame = {'schema': 1, 'request_id': 1, 'run_id': 'run-1', 'session': 'session-1', 'op': immersive.SET_OP}
@@ -223,22 +230,37 @@ FLAT = {'x': 0, 'y': 0, 'distance': 100, 'curvature': 0}
 
 
 class ButtonTests(unittest.TestCase):
-    def centre(self, tile):
-        x, y, w, h = fp.immersive_button_rect(tile)
+    """Connected Tail, Cody's pick (option 02 of 3d-button-mockups, a832d9a): the sizes are the mockup's own."""
+    def centre(self, tile, rect=None):
+        x, y, w, h = (rect or fp.immersive_main_rect)(tile)
         return x + w / 2, y + h / 2
 
-    def test_right_of_the_level_bar_on_its_line(self):
+    def test_joined_to_the_level_bar_on_its_line(self):
         for tile in G['tiles']:
-            x, y, w, h = fp.immersive_button_rect(tile)
+            k = fp.level_bar_scale(tile)
             bx, by, bw, bh = fp.level_bar_rect(tile)
-            self.assertGreater(x, bx + bw)
-            self.assertEqual((y, h), (by, bh))
-            self.assertLess(y + h, tile[1])
+            self.assertEqual(fp.immersive_main_rect(tile), (bx + bw + 2 * k, by, 40 * k, bh))
+            mx = fp.immersive_main_rect(tile)
+            self.assertEqual(fp.immersive_tail_rect(tile), (mx[0] + mx[2] + 2 * k, by, 28 * k, bh))
+            self.assertLess(by + bh, tile[1])
 
-    def test_the_press_finds_the_button_of_that_desktop(self):
+    def test_each_press_finds_its_control_on_that_desktop(self):
         for i, tile in enumerate(G['tiles']):
-            point = fp.project(G, tile, FLAT, *self.centre(tile))
-            self.assertEqual(fp.hit(G, [FLAT] * 3, point, icons=['bar'] * 3), ('immersive', i))
+            for rect, part in ((fp.immersive_main_rect, 'main'), (fp.immersive_tail_rect, 'tail')):
+                point = fp.project(G, tile, FLAT, *self.centre(tile, rect))
+                self.assertEqual(fp.hit(G, [FLAT] * 3, point, icons=['bar'] * 3), ('immersive', i, part))
+
+    def test_the_gaps_split_down_their_middles_and_the_bar_gives_way(self):
+        tile = G['tiles'][1]
+        k = fp.level_bar_scale(tile)
+        bx, by, bw, bh = fp.level_bar_rect(tile)
+        mx, _, mw, _ = fp.immersive_main_rect(tile)
+        tx = fp.immersive_tail_rect(tile)[0]
+        cy = by + bh / 2
+        for x, want in ((bx + bw + 0.9 * k, ('roll', 1, 'cw')), (bx + bw + 1.1 * k, ('immersive', 1, 'main')), (mx + mw + 0.9 * k, ('immersive', 1, 'main')),
+                        (mx + mw + 1.1 * k, ('immersive', 1, 'tail')), (tx + 1, ('immersive', 1, 'tail'))):
+            point = fp.project(G, tile, FLAT, x, cy)
+            self.assertEqual(fp.hit(G, [FLAT] * 3, point, icons=['bar'] * 3), want, x)
 
     def test_it_shows_only_with_the_bars(self):
         point = fp.project(G, G['tiles'][0], FLAT, *self.centre(G['tiles'][0]))
@@ -246,8 +268,8 @@ class ButtonTests(unittest.TestCase):
         self.assertNotEqual((fp.hit(G, [FLAT] * 3, point, icons=['none'] * 3) or ('x',))[0], 'immersive')
 
     def test_it_is_a_control_with_the_plain_dot(self):
-        self.assertEqual(fp.zone_of(('immersive', 1)), 'control')
-        self.assertIsNone(fp.look_for(('immersive', 1)))
+        self.assertEqual(fp.zone_of(('immersive', 1, 'tail')), 'control')
+        self.assertIsNone(fp.look_for(('immersive', 1, 'main')))
 
     def test_the_segments_of_the_bar_keep_their_presses(self):
         tile = G['tiles'][1]
@@ -258,14 +280,15 @@ class ButtonTests(unittest.TestCase):
 
     def test_never_on_content_a_corner_or_a_narrow_desktop(self):
         for tile in G['tiles']:
-            x, y, w, h = fp.immersive_button_rect(tile)
-            self.assertFalse(fp.on_immersive_button(tile, (x + w / 2, tile[1] + 4)))
-            self.assertLessEqual(x + w, tile[0] + tile[2] - fp.IMMERSIVE_BTN_CLEAR)
+            x, y, w, h = fp.immersive_tail_rect(tile)
+            self.assertIsNone(fp.immersive_part(tile, (x + w / 2, tile[1] + 4)))
+            self.assertLessEqual(x + w, tile[0] + tile[2] - fp.IMMERSIVE_CLEAR)
         narrow = (900.0, 500.0, 120.0, 68.0)
-        self.assertEqual(fp.immersive_button_rect(narrow), (0.0, 0.0, 0.0, 0.0))
-        self.assertFalse(fp.on_immersive_button(narrow, (950.0, 480.0)))
-        self.assertEqual(fp.immersive_button_rect((0, 0, 0, 0)), (0.0, 0.0, 0.0, 0.0))
-        self.assertFalse(fp.on_immersive_button(G['tiles'][0], None))
+        self.assertEqual(fp.immersive_main_rect(narrow), (0.0, 0.0, 0.0, 0.0))
+        self.assertEqual(fp.immersive_tail_rect(narrow), (0.0, 0.0, 0.0, 0.0))
+        self.assertIsNone(fp.immersive_part(narrow, (950.0, 480.0)))
+        self.assertEqual(fp.immersive_main_rect((0, 0, 0, 0)), (0.0, 0.0, 0.0, 0.0))
+        self.assertIsNone(fp.immersive_part(G['tiles'][0], None))
 
     def test_a_press_turns_that_desktop_on_and_off(self):
         control = view.ViewControl(view.ViewState(NAMES), 'r', 's', None, Store(), None)
@@ -282,11 +305,57 @@ class ButtonTests(unittest.TestCase):
         pointer.on_op('resize_press')
         self.assertEqual(control.state.immersive, OFF)
 
-    def test_the_button_under_the_dot_lights(self):
+    def test_a_press_on_the_tail_is_every_desktop(self):
         control = view.ViewControl(view.ViewState(NAMES), 'r', 's', None, Store(), None)
-        self.assertEqual(immersive_frames(control.immersive_pointer(2)), [{'desktops': [False] * 4, 'stereo': False, 'hover': 2}])
+        pointer = fp.OverviewPointer(control)
+        self.addCleanup(pointer.close)
+        control.overview_pointer = pointer
+        pointer.geometry, pointer.mode, pointer.outputs = G, 'free', [{'index': i} for i in range(3)]
+        pointer.pointer = fp.project(G, G['tiles'][2], FLAT, *self.centre(G['tiles'][2], fp.immersive_tail_rect))
+        out = pointer.on_op('resize_press')
+        self.assertEqual(immersive_frames(out)[0]['global'], True)
+        self.assertEqual(control.state.immersive, ALL)
+        pointer.on_op('resize_release')
+        pointer.on_op('resize_press')
+        self.assertEqual(control.state.immersive, OFF)
+
+    def test_the_tail_is_lit_only_with_every_desktop_on_and_says_what_a_click_does(self):
+        control = view.ViewControl(view.ViewState(NAMES), 'r', 's', None, Store(), None)
+        out = control.immersive_click(1)
+        self.assertFalse(immersive_frames(out)[0]['global'])
+        out = control.immersive_tail_click(0)  # one on, the tail unlit: a press lights everything, as it looks like it will
+        self.assertTrue(immersive_frames(out)[0]['global'])
+        self.assertEqual(control.state.immersive, ALL)
+        out = control.immersive_click(0)  # one off: no longer every desktop
+        self.assertFalse(immersive_frames(out)[0]['global'])
+        control.immersive_click(0)
+        self.assertTrue(immersive_frames(control.immersive_tail_click(1))[0]['global'] is False)
+        self.assertEqual(control.state.immersive, OFF)
+
+    def test_the_control_under_the_dot_lights(self):
+        control = view.ViewControl(view.ViewState(NAMES), 'r', 's', None, Store(), None)
+        self.assertEqual(immersive_frames(control.immersive_pointer(2)), [{'desktops': [False] * 4, 'global': False, 'stereo': False, 'hover': 2, 'tail': False}])
         self.assertEqual(control.immersive_pointer(2), b'')
-        self.assertEqual(immersive_frames(control.immersive_pointer(-1))[0]['hover'], -1)
+        self.assertTrue(immersive_frames(control.immersive_pointer(2, True))[0]['tail'])
+        last = immersive_frames(control.immersive_pointer(-1))[0]
+        self.assertEqual((last['hover'], last['tail']), (-1, False))
+
+    def test_the_mockups_hover_frames_reach_the_pointer(self):
+        control = mock.Mock()
+        control.state = view.ViewState(NAMES)
+        control.immersive_pointer.return_value = b''
+        pointer = fp.OverviewPointer(control)
+        self.addCleanup(pointer.close)
+        pointer.overview = lambda: True
+        pointer.mode, pointer.hover = 'free', ('immersive', 1, 'tail')
+        pointer._immersive_hover(False)
+        control.immersive_pointer.assert_called_with(1, True)
+        pointer.hover = ('immersive', 1, 'main')
+        pointer._immersive_hover(False)
+        control.immersive_pointer.assert_called_with(1, False)
+        pointer.hover = None
+        pointer._immersive_hover(False)
+        control.immersive_pointer.assert_called_with(-1)
 
     def test_a_stale_click_does_nothing(self):
         for setup in (lambda c: setattr(c.state, 'zoomed', True), lambda c: setattr(c.state, 'typing', True),
@@ -294,10 +363,12 @@ class ButtonTests(unittest.TestCase):
             control = view.ViewControl(view.ViewState(NAMES), 'r', 's', None, Store(), None)
             setup(control)
             self.assertEqual(control.immersive_click(0), b'')
+            self.assertEqual(control.immersive_tail_click(0), b'')
             self.assertEqual(control.state.immersive, OFF)
         control = view.ViewControl(view.ViewState(NAMES), 'r', 's', None, Store(), None)
         for bad in (-1, 3, 'XR-1', None, True):
             self.assertEqual(control.immersive_click(bad), b'')
+            self.assertEqual(control.immersive_tail_click(bad), b'')
 
 
 class RunTests(unittest.TestCase):
@@ -462,14 +533,14 @@ class ViewTests(unittest.TestCase):
     def test_the_key_brings_everything_up_and_lights_the_buttons_at_once(self):
         c = self.control()
         out = c.on_message({'op': immersive.TOGGLE_OP})
-        self.assertEqual(immersive_frames(out), [{'desktops': [True, True, True, False], 'stereo': False, 'hover': -1}])
+        self.assertEqual(immersive_frames(out), [{'desktops': [True, True, True, False], 'global': True, 'stereo': False, 'hover': -1, 'tail': False}])
         self.assertEqual(self.store.saved[-1]['immersive'], ALL)
         got = []
         def stereo():
             got.extend(immersive_frames(c.poll()))
             return got
         wait_for(stereo, 'the stereo frame')
-        self.assertEqual(got, [{'desktops': [True, True, True, False], 'stereo': True, 'hover': -1}])
+        self.assertEqual(got, [{'desktops': [True, True, True, False], 'global': True, 'stereo': True, 'hover': -1, 'tail': False}])
         self.assertEqual(self.log[0], ('start', NAMES))
         self.assertFalse(c._immersive_status()['failed'])
 
@@ -477,7 +548,7 @@ class ViewTests(unittest.TestCase):
         c = self.control()
         c.on_message({'op': immersive.TOGGLE_OP}); self.until_stereo(c); self.log.clear()
         out = c.on_message({'op': immersive.TOGGLE_OP})
-        self.assertEqual(immersive_frames(out), [{'desktops': [False] * 4, 'stereo': False, 'hover': -1}])
+        self.assertEqual(immersive_frames(out), [{'desktops': [False] * 4, 'global': False, 'stereo': False, 'hover': -1, 'tail': False}])
         wait_for(lambda: self.log == [('leave',), ('stop',)], 'the worker to go down')
 
     def test_two_desktops_keep_one_engine_and_the_last_one_stops_it(self):
@@ -501,7 +572,7 @@ class ViewTests(unittest.TestCase):
             out += c.poll() or b''
             return c.immersive_failed
         wait_for(failed, 'the failure')
-        self.assertEqual(immersive_frames(out), [{'desktops': [False] * 4, 'stereo': False, 'hover': -1}])
+        self.assertEqual(immersive_frames(out), [{'desktops': [False] * 4, 'global': False, 'stereo': False, 'hover': -1, 'tail': False}])
         self.assertEqual(self.toasted(), '3D is off: the depth engine could not start (it is not installed). Back to 2D.')
         self.assertEqual(c.state.immersive, ALL)
         self.assertEqual(c._immersive_status(), {'setting': ALL, 'names': [], 'stereo': False, 'failed': True})
@@ -560,7 +631,7 @@ class ViewTests(unittest.TestCase):
             out += c.poll() or b''
             return c.immersive_failed
         wait_for(down, 'the fall back')
-        self.assertEqual(immersive_frames(out)[-1], {'desktops': [False] * 4, 'stereo': False, 'hover': -1})
+        self.assertEqual(immersive_frames(out)[-1], {'desktops': [False] * 4, 'global': False, 'stereo': False, 'hover': -1, 'tail': False})
         self.assertEqual(self.toasted(), '3D is off: the depth engine stopped (it quit). Back to 2D.')
         self.assertEqual(self.log, [('leave',), ('stop',)])
 
@@ -569,7 +640,7 @@ class ViewTests(unittest.TestCase):
         c.on_message({'op': immersive.TOGGLE_OP}); self.until_stereo(c); self.log.clear()
         c.video_active = True
         out = c.poll()
-        self.assertEqual(immersive_frames(out), [{'desktops': [True, True, True, False], 'stereo': False, 'hover': -1}])
+        self.assertEqual(immersive_frames(out), [{'desktops': [True, True, True, False], 'global': True, 'stereo': False, 'hover': -1, 'tail': False}])
         wait_for(lambda: ('stop',) in self.log)
         c.video_active = False
         self.until_stereo(c)

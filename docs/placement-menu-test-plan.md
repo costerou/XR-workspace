@@ -717,12 +717,13 @@ Steps I1-I4 work today. I5-I12 wait for the engine, the SBS command and the ster
 
 | Step | Do | Expect |
 | --- | --- | --- |
-| I1 | Open the overview | A small capsule with two rings right of every level bar, unlit |
-| I2 | Move the dot onto one | It lights; the dot stays plain; the bar's own segments still work |
-| I3 | Click it, or press Ctrl+Alt+I, or use the panel's 3D row | Toast: the depth engine could not start. Back to 2D; the picture never changes |
+| I1 | Open the overview | Joined to every level bar, 2 px apart: a dark 3D segment and a dark tail with three small desktops |
+| I2 | Move the dot onto each | Each lights in turn; the dot stays plain; the bar's own segments still work right up to the gap |
+| I3 | Click the 3D, the tail, press Ctrl+Alt+I, or use the panel's 3D row | Toast: the depth engine could not start. Back to 2D; the picture never changes |
 | I4 | Ctrl+Alt+T, then Ctrl+Alt+I | Nothing: typing mode has that key off |
 | I5 | Press Ctrl+Alt+I | Buttons light at once; after the engine loads the glasses switch and every desktop is 3D |
-| I6 | Click one desktop's button | Only that desktop goes flat, the rest stay 3D |
+| I6 | Click one desktop's 3D segment | Only that desktop goes flat, its segment and every tail go dark, the rest stay 3D |
+| I6a | Click any tail | Every desktop 3D, every segment and tail lit; click again: all flat |
 | I7 | Turn the last 3D desktop off | Glasses back in 2D; `xr-depth-engine` gone from `ps`; GPU load back down |
 | I8 | Kill `xr-depth-engine` while 3D is on | Flat, 2D mode, a toast; the next press retries |
 | I9 | Open a VR video in 3D, close it | 3D stands down for the video and comes back |
