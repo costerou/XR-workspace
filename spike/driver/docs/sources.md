@@ -75,6 +75,12 @@ at 7a5a14a: lists Luma Ultra PIDs `0x1101` and `0x1104`.
 the SDK at 120 Hz, not yet proven on hardware. It shows 3DOF needs no cameras, VIO or OpenCV at the API
 level, which is relevant to the suspects in `protocol.md`.
 
+## Sibling threads
+
+Read 2026-11-03 for cross-checks: `spike/driver/docs/upstream-findings.md` on `drv-upstream-issues`,
+`6dof-feasibility.md` on `drv-6dof-research`, `features.md` on `drv-features` and `display-control.md`
+on `drv-display-control`. The wear sensor conflict and the reconnect limit come from the first.
+
 ## Local observations
 
 None of these touched the device. All were read-only.

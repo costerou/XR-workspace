@@ -34,6 +34,8 @@ or run `libglasses.so` or `libcarina_vio.so`.
    display" that the sources show, and it is the first thing to rule out.
 6. **Endpoints 0x04/0x85 also carry firmware flashing.** Nothing may send an unknown opcode
    there. See [Never send](#never-send).
+7. **Cody's bar is zero drops first, then latency, rate, drift, calibration, reconnect and
+   features.** [Against the bar](#against-the-bar) says what the protocol allows for each.
 
 ## Device
 
@@ -431,10 +433,83 @@ These rules bind every thread that writes to the device.
   state. That pipe carries flashing, so an unknown byte there could damage the glasses.
 - No `MT_FW_*`. No bytes copied from a firmware updater.
 - No fuzzing, no id sweeps and no "try `0x15`" on any pipe.
-- No `set_display_mode`, film, brightness or display size. Tracking needs none of them.
+- The tracking path sends no `set_display_mode`, film, brightness or display size. A feature may
+  send one only behind a flag, off by default, with an id and payload seen on the wire for this
+  device. None is known today.
 - No USB reset (`USBDEVFS_RESET`), which the contract already bans.
 - Older-model frames are never sent to this device.
 - Writes come from one thread, one at a time, with the drain described above where it applies.
+
+## Against the bar
+
+Cody's bar is the most high-performance driver with zero drops and the most features. This section
+turns that into protocol rules. Other threads own the code. Nothing here can promise zero drops,
+because the cause of the drops is unproven and only a soak test can show the result.
+
+### Zero drops: rules for anything that touches the device
+
+These are **I**: each one removes something the sources tie to the drops, or a behaviour nobody can
+vouch for. Relax a rule only with a soak result.
+
+| Rule | Why |
+|---|---|
+| 3DOF only by default: no side cameras, no VIO setup commands | Suspects 1, 2 and 4 above |
+| Send the smallest proven start sequence once, and one stop on a clean exit | Every startup error in the log comes from the SDK's own setup traffic |
+| No periodic command in steady state, unless a test proves a keep-alive is needed | Suspects 7 and 9; `0x0007` is not needed |
+| Keep reads always queued on the stream endpoint, with at least two URBs, and never stall that thread | Suspect 8; it also gives the lowest latency |
+| Read only the endpoints in use. Leave `0x81`, `0x82` or `0x83` idle unless the capture shows a need | Reads on a camera endpoint could keep sensors busy |
+| One writer, no write retries. A timed-out command is logged, not repeated | Suspect 6 |
+| After any failed transfer, close everything and wait for re-enumeration | Suspect 5 |
+| Back off on reconnect: wait for the device to settle, then open once. Start with a 2 s settle and let the soak tune it | Drops come in pairs 2 to 23 s apart, so reinitialising at once may provoke the second. The contract's 1 s target may not be reachable; `upstream-findings.md` on `drv-upstream-issues` argues the same |
+| No `SET_CONFIGURATION`, `SET_INTERFACE`, clear-halt or reset. Claim the interface and nothing else | Each one disturbs device state, and none is needed |
+
+Order of proof, cheapest first: run the 3DOF against 6DOF test with today's driver. If 3DOF stops the
+drops, the design above is right. If drops continue in 3DOF, cameras are cleared and the protocol
+rules alone may not reach zero, so look at power and hub next.
+
+### Performance goals
+
+| Goal | What the protocol gives | What the capture must show | Tag |
+|---|---|---|---|
+| Lowest latency | If the stream is interrupt `0x83`, one report per 1 ms poll, so about 1 ms on the wire before the host sees it | Which endpoint, and how many samples fit one transfer. Batching adds latency | **I** |
+| Highest rate | 1000 Hz is the SDK's ceiling for this product. `0x81` could carry more bytes per poll, at 500 µs | The real sample spacing. Nothing has measured it on the wire | **C** for the SDK figure, **U** on the wire |
+| No drift | Pitch and roll can stay anchored to gravity. Yaw from gyro alone drifts | Whether a magnetometer is on the wire. The SDK's callback has none, and the header lists Luma and Luma Pro with one but does not list the Ultra | **U** |
+| Instant calibration | A long wait is XRLinuxDriver's setting (10 s), not a device need | Whether factory bias or axis tables arrive at startup. The 16 KiB read is a candidate, and it could replace much of the calibration | **U** |
+| Accurate timing | The SDK reports sample time in seconds, so there is a clock to find | A device timestamp in each frame, and its unit and drift against `CLOCK_MONOTONIC` | **U** |
+| VSync for prediction | The SDK has a Carina VSync callback, so the host receives VSync timing somehow | Where it arrives. This could cut prediction error more than any filter | **C** that it exists, **U** on the wire |
+| Reconnect | Device number changes and session state presumably goes | Time from drop to first good sample, under the rules above | **U** |
+
+Do not fix the wire format's sample rate in code. Measure it from timestamps, and fall back to host
+arrival time only with a logged warning.
+
+### Features the hardware may allow
+
+"Known" means the bytes are proven on a Luma Ultra. Anything else waits for a capture. An
+`xrDriver` session will not show setters, because it never calls them. Those need a capture of
+something that does, such as the SDK's setter or VITURE's own app, which is a further decision for
+Cody.
+
+| Feature | Status on the Luma Ultra | Tag |
+|---|---|---|
+| Firmware version | Known: `0x0001`, read-only, on the data pair. `drv-features` lists no id, and this is it | **C** [S4] |
+| Serial numbers, DP and OSD versions | Known: `0x0010`, `0x0011`, `0x000b`, `0x0063`, read-only | **C** [S4] |
+| Chip version | Known, but on `0x04`: `0x80` then `0xc3`. Not worth using that pipe for this | **C** [S4] |
+| Display mode changes | The only device with this event, which replaces polling `0x0007` if `0x100B` delivers it | **C** [S9] for the event, **U** on the wire |
+| Brightness read, set and events | Range 0 to 8 for the Luma series. Ids unknown | **C** the range [S2], **U** the bytes |
+| Volume read, set and events | Range 0 to 8 for the Luma series. Ids unknown | **C** the range [S2], **U** the bytes |
+| Electrochromic film | Range 0 to 1 for the Luma series, but the docs say its event is Beast-only. Ids unknown | **C** the range [S2], **U** the bytes |
+| Duty cycle dimming | In the SDK, with values 98, 42 and 30. Not confirmed on the Ultra | **U** |
+| Raw buttons | Nothing public. Only the state change a press causes may be visible | **U** |
+| Wear detection | The docs say `NOT_SUPPORTED` on the Ultra. A public wiki lists the sensor, so treat the status as a conflict until seen on the wire | **C** the docs, **U** the hardware |
+| Button lock, default mode, display size and distance, native 3DOF | Not supported on the Ultra | **C** [S9] |
+| Recentre | Host-side, no USB traffic. The SDK's reset is a VIO operation | **C** [S2] |
+| Prediction | Host-side, no USB traffic | **C** [S2] |
+| Temperature | Not exposed by the Carina callback. Could still be on the wire | **U** |
+
+Two warnings for `drv-features`. Its event ids `0x0301`, `0x0302` and `0x0304` are not proven here,
+and on Gen2 `0x0301` is the IMU control message [S5]. They must stay listen-only. Reading version ids
+while the stream runs is also unproven, so read them once before the start command, behind a flag,
+and soak that too.
 
 ## Capture plan
 
@@ -474,7 +549,7 @@ Limits to expect:
 
 - The text format keeps the first 32 bytes of each transfer. That is enough for commands and
   headers. If IMU frames are longer, the full layout needs `wireshark-cli` and
-  `sudo dumpcap -i usbmon5`.
+  `sudo dumpcap -i usbmon5`, and a magnetometer or VSync field may sit past that point.
 - usbmon only watches, but it does add a little CPU load on a stream this fast.
 - The device number changes on every drop. Pass the number that was live at the time.
 
@@ -502,6 +577,8 @@ Limits to expect:
 | Does `0x0007` come before the drop? | Capture through a drop |
 | Reply format of `0x0007` | Capture |
 | Are there calibration tables the host must load (bias, axes)? | Capture; the 16 KiB read is a candidate |
+| Does the wire carry a magnetometer, temperature or VSync? | Full-length capture |
+| Does the startup transfer hold factory calibration? | Capture, then compare with fitted bias |
 | Does the firmware version on Cody's unit change any of this? | `0x0001` in the capture; the log never recorded it |
 
 [S1]: sources.md#s1
