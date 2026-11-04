@@ -85,7 +85,7 @@ class RunnerTests(unittest.TestCase):
         path = self.state / f'{name}.result.json'
         self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
         data = json.loads(path.read_text())
-        self.assertEqual(set(data), RESULT_KEYS)
+        self.assertEqual(set(data) - {'stop_reason'}, RESULT_KEYS)  # only when the supervisor ended the renderer
         return data
 
     def test_tracking_is_ready_before_plugin_or_renderer(self):
@@ -231,6 +231,16 @@ class RunnerTests(unittest.TestCase):
         self.run_result = dict(self.run_result, renderer_returncode=0, complete=False, remaining=['XR-1'])
         self.assertEqual(self.main(), 2)
         self.assertEqual(self.result()['remaining'], ['XR-1'])
+
+    def test_the_supervisors_reason_reaches_the_result(self):
+        self.consent(); self.run_result = dict(self.run_result, renderer_returncode=-9, stop_reason='heartbeat-timeout')
+        self.main()
+        self.assertEqual(self.result()['stop_reason'], 'heartbeat-timeout')
+
+    def test_no_reason_leaves_the_result_as_it_was(self):
+        self.consent()
+        self.main()
+        self.assertNotIn('stop_reason', self.result())
 
     def test_result_written_on_every_exit(self):
         # Unreadable consent: no run id is known.

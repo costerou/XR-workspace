@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.Commons as Commons
+import "Model.js" as Model
 
 Item {
     id: root
@@ -111,6 +112,7 @@ Item {
                     Button { text:"Close"; onClicked:root.dismiss() }
                 }
                 Label { text:root.error || (client.connected ? root.snapshot.reason || "" : "controller not running"); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
+                Label { text:Model.incidentLine(root.snapshot); textFormat:Text.PlainText; visible:text!==""; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:"#e7c78a" }
                 Button {
                     visible:!client.connected || controllerService.running
                     text:controllerService.running ? "Starting controller…" : "Start / restart controller"

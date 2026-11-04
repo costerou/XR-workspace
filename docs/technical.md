@@ -39,6 +39,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Monitor resolution from the glass pill (the open panel's Resolution dropdown, above Scale, in the same Material Design 3 parts and 18 px font; its menu lists 16:9 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160, 16:10 1680x1050, 1920x1200, 2560x1600 and ultrawide 2560x1080, 3440x1440, 3840x1080, 5120x1440 in three columns, the current one marked; a pick resizes that XR desktop's own Hyprland output live and in place through the broker's `reshape`, like Ultrawide: no other output modeset, no XR restart, its windows stay on it, its placement stays; a new shape eases the tile's width and its neighbours' shift (also for Ultrawide); a desktop that shrinks pulls its floating windows back inside it (also for Ultrawide off and a larger Scale); a scale that no longer divides the size becomes the nearest one that does, and the Scale list greys out the rest; the profile keeps the size for the next start; `desktops.RESOLUTION`, `geometry.with_resolution`, `ViewControl.resolution_box` / `resolution_pick`, `fit_windows.py`, `SizeEase`; see [Live resolution changes](#live-resolution-changes-the-pills-resolution-dropdown)) | Offline tests only: `tests/native_spike/test_resolution_dropdown.py` (the list against the renderer's, the nearest-scale rule, plans, payload, the pick end to end through the fake broker into the saved profile with only `reshape` and its read-back on the wire, the C++ request validator for every size, pointer hits), `tests/native_spike/test_fit_windows.py` (which windows move and where, what counts as shrinking, the worker's order and failures, the generated Lua run in a real interpreter against a stand-in), ctest `view` (`SizeEase`: same smoothstep and time as zoom, neighbours between the two layouts), `glass` (layout, the box, the three-column menu in M3 roles, every label fitting), `glass_contract` (box, menu and item geometry, the sizes and groups), `placement_menu_ipc` (the `resolution` / `resolution_picker` fixture cases), `capture` (`ResizeSettle`) and `capture_e2e_churn_resize_*` (a resized capture waits before re-creating its buffers and never goes blank, and on the GPU paths its new shape eases; a reload's bounce does neither). Not run in an isolated VM or in the glasses: whether the swap is free of any visible glitch on the real compositor (wallpaper, bar and windows redrawing within the 100 ms the renderer waits), how windows re-lay out, whether Hyprland carries out the floating-window move and resize on a shown or hidden workspace as restore.py's use of them suggests, how the ease looks (the new frame is squeezed to the old shape as it starts), and how the three-column menu reads on the OLED panels are unverified. The panel grew another row (326 px tall). No broker change: every listed size was already inside `validDesktop`; the renderer, supervisor and controller must be installed together. |
 | Window memory (`remember-window-placement`, 2026-11-03: when XR stops every window on an XR desktop is remembered, with its desktop, workspace, tile order, scrolling column, floating geometry and fullscreen state, in `window-memory.json` beside `profiles.json`; the next start puts each still-open window back after the remembered monitors exist; kept current through Super drags, parked and brought back when a removed desktop is added again in the run, untouched by Ctrl+Alt+R) | Offline tests only: `tests/native_spike/test_window_memory.py`, `test_window_memory_lua.py` (the generated evals in a real Lua interpreter, against a stand-in for Hyprland's API written from the 0.56.2 source) and `test_window_memory_run.py` (the real `_run_owned`, `ViewControl` and `DesktopManager` with a fake broker and compositor). `bind_check` loads the evals and each dispatcher call in the real `Hyprland --verify-config`. Not run against a live Hyprland, in an isolated VM or in the glasses. Glasses steps W1–W19 are in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Text cursor in the overview (Cody's pick of the mockups on branch `text-cursor-mockups`, 2026-11-03: the Serif Beam, option 1; the dot's look `text` where the app under it asks for a text cursor, on a desktop's content only; see [Over text](#the-unified-overview-cursor)) | Offline tests only: ctest `free_pointer` (the shape against the mockup's own triangles, `serif_beam_shape.json`, and a CPU mirror of the fill rule: 14 x 28 px with its ring, centred on the click point, a stem of 2 px), `gl_frame` (the GL frame against that mirror, pixel for pixel, at both grey levels, under the 191/255 cap), `ownership`, `ownership_pair_boundary` (the production broker and `cursorShape` bodies), `ownership_pair_wire`, and `tests/native_spike/test_text_cursor.py` (the names, the hold, handles first, overview only, the sampler, the reply's strict checks, and contract tests through the real C++ validators). A one-off comparison also found the real renderer's frames identical to the mockup tool's in all 108 pairs tried (three desktops, both greys, fractional head positions, tilted heads); that tool is not on this branch, so that comparison is not a ctest. The read costs about 40 µs in Hyprland (parse, name and reply, measured offline; 0.12% of a core at 30 a second). Not run in an isolated VM or in the glasses, and the plugin with `cursor_shape` has never been loaded: it compiles against the installed headers and every new symbol it needs is exported by the installed Hyprland and hyprutils, which is not a load test. Which app asks for what comes from toolkit source (FEASIBILITY.md on that branch), not from watching apps. Whether a 2 px stem crawls with the head moving, and how the beam reads over text at a third of a desktop's size, can only be judged in the glasses. The ownership plugin, renderer and supervisor must be installed together: an older renderer drops every frame with this look, and an older plugin leaves the plain dot with one refused read a second. It is a new plugin binary, so its earlier acceptance has to be repeated. |
+| Incident reports (`incident-reports`, 2026-11-03: the controller watches every run and writes one private report per incident to `~/.local/state/viture-workspace/incidents/`, with a desktop notification, a line in the panel and an optional `on-incident` hook; see [Incident reports](#incident-reports)) | Offline tests only: `tests/xr_controller/test_incident_detect.py`, `test_incident_report.py`, `test_incident_monitor.py`, `test_incident_wiring.py`, `tests/native_spike/test_supervisor.py` (`StopReasonTests`, the status fields), `test_runner.py`, the panel's `tst_model.qml`, ctest `capture_e2e_*` (the real renderer's new status fields, a resize never looking like a stuck capture), `capture_e2e_tracked`. Also replayed by hand, read-only, over the journals of the 48 runs of 2026-11-01 to 2026-11-03: every normal end stayed silent and all the USB-ended runs came out as `usb-drop`. That replay fed the classifier real logs; it was not the monitor running live. Not installed, not run in a live controller, in an isolated VM or in the glasses: no notification has reached a real desktop from it, and no live USB drop, crash or stall has gone through it. The status fields changed, so install the renderer and the Python supervisor together. |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -621,6 +622,75 @@ calibration, so expect about 13.5 s.
 If the panel reports "Needs CLI recovery" (for example several unfinished runs), recover each run's journal with the
 supervisor CLI: `python -m tools.native_spike recover --journal JOURNAL --instance INSTANCE --output OUTPUT
 --consent-file CONSENT`. The panel shows the journal path.
+
+### Incident reports
+
+The controller service outlives runs, so it owns detection. `incident_monitor.py` is a thread in it: the tick hands over
+one observation a second and never waits, and the thread reads the host, feeds the pure detectors in
+`incident_detect.py` and writes reports with `incident_report.py`. It only reads. It never stops, restarts or recovers
+anything, and it reads no logs while no session runs.
+
+**What it watches** (each signal's thresholds are at the top of `incident_detect.py`):
+
+| Kind | Seen from |
+| --- | --- |
+| `renderer-crash`, `renderer-exit` | The run's result: a crash signal, another signal, or a nonzero exit code. `coredumpctl` supplies the backtrace. |
+| `run-killed`, `run-failed` | No result file for a dead unit (its end comes from its journal, as `--collect` removes a failed unit from `systemctl show`), or a result with an error or an unfinished recovery. |
+| `watchdog` | `stop_reason` in the result: the supervisor ended the renderer (no heartbeat for 2 s, a bad heartbeat, the guard failing or late, a send failing on a live renderer). Or the unit stayed up with its control socket silent for 15 s. |
+| `video-lost` | The connector's sysfs `status`, the output leaving Hyprland for 3 s, or its mode differing from the session's for 5 s. |
+| `present-stall` | No `presented_hz` for 5 s, or a rate under 40% of the session's usual rate for 10 s. Tracked sessions with the display awake only. |
+| `capture-failed` | Status `capture_path` falling from dmabuf to shm, or `capture_failure_run` reaching 30. |
+| `usb-drop` | `journalctl -k` USB disconnects on the glasses' ports or a hub above them, `Retrying driver connection` in `driver.log`, two failed USB commands within 30 s, or the glasses leaving sysfs. |
+| `tracking-lost` | Status `tracking` false for 3 s, never true 30 s in, the driver recalibrating or restarting, or its process gone. |
+| `hyprland-crash` | The pid in the run's `hyprland.lock` no longer being Hyprland. |
+| `plugin-failed` | The ownership plugin missing for 3 s, or a result error from its load or unload. |
+| `controller-restart` | A controller start finding the run it was watching ended abnormally or stranded (`.monitor-state` remembers it), or an unrecovered run it never watched. |
+| `recovery-failed`, `start-failed` | Recover coming back to `recovery-needed`, or a run that ended before state `running`. |
+
+**What the logs of 2026-11-03 decided.** The hub drops in pairs 2 to 23 s apart, and only the second may end the run, so
+an incident stays open for 25 s of quiet (60 s at most), or 5 s after the run ends. A run the USB drop ended leaves a tidy
+result (complete, phase done, rc 1), so the result alone never says why, and `usb-drop` outranks `renderer-exit`. One
+failed USB command is common (42 of 438 led nowhere), so it takes two. The port is learned from the vendor id, as a
+disconnect line names none: a game controller on `1-4` dropped in the very second a run ended. The kinds rank in
+`KINDS`, and a crash outranks the USB drop that may have set it off, as the crash is what software can fix. A desktop
+resize fails a capture or two (21 failures over 39 desktop resizes in `capture_e2e_churn_resize`), so failures only count
+in a row, and the renderer reports that as `capture_failure_run`.
+
+**What is not an incident.** Stop, also Stop during a start, and the renderer's SIGTERM or SIGKILL from Stop's own grace
+period. Recover that finishes. A controller restart under a live session, which the panel's restart is. A reboot:
+`.monitor-state` holds the boot id. Glasses unplugged after a clean end: an end's last unread log lines are read only
+if the end was abnormal. A suspend: USB lines around one are ignored, and any gap of over 5 s between observations
+restarts the timers and gives the display 30 s. Any trouble before state `running`, unless the start fails. A dark
+display, and a run without head tracking presenting nothing, as the renderer then draws only when something changes.
+Another Hyprland aborting: a core dump counts only for the live compositor's pid.
+
+**A report** is `incidents/<UTC time>-<kind>.json` with a short `.md` beside it. The folder is 0700, the files 0600, each
+written atomically, the `.md` first so that a watcher of `.json` files finds both. Fields: `schema`, `id`, `kind`,
+`summary`, `created_at`, `first_signal_at`, `session` (`ended`, `stopped` or `kept-running`), `run_id`, `cause` (`text`,
+`confidence`), `timeline`, `versions` (controller `source_sha`, `source_dirty`, `bin`, renderer and plugin sha256),
+`glasses`, `display`, `renderer` (`returncode`, `signal`, `stop_reason`, `complete`, `phase`, `error`), `unit`, `metrics`
+(`last`, `exit_report`), `core_dumps` (`exe`, `signal`, the crashing thread's frames), `logs` (`run`, `controller`,
+`driver`, `kernel`; the last 200 lines of each, the kernel's filtered to the glasses' USB tree and the GPU),
+`suppressed_since_last`, `truncated`, `privacy`. The cap is 256 KB: the oldest lines of the biggest log go first.
+
+**Privacy.** Structured fields hold named values only, so the controller passes the monitor five fields of each Hyprland
+monitor, and the renderer's exit report comes through as named numbers. Every string in a report then goes through
+`Scrubber`: URLs of any kind, media file paths, tokens by shape (long hex, base64, known key formats) or by name
+(`password=`, `Bearer`), home paths outside this app's own, private keys, addresses, serial numbers, and the user and
+host names. A line that mentions a window title or the clipboard is dropped whole. Nothing reads a capture or a core
+file: `coredumpctl info` supplies text frames only.
+
+**Limits.** A report waits up to 20 s for a core dump. The same kind is reported once in 10 minutes while a session
+lives, and once a minute when sessions end, 12 reports an hour in all; the rest are counted, logged, and named in the next
+report's `suppressed_since_last`. Reports are never deleted. An incident still open when the controller restarts is lost.
+A capture that stops delivering frames without failing looks like a static desktop, so it is not detected. A
+core dump is matched only when the run's renderer path or Hyprland's pid is known.
+
+**The hook.** After a report is saved, `$XDG_CONFIG_HOME/viture-workspace/on-incident` (`~/.config` by default), if it
+exists, runs as `on-incident <report.json>`: no shell, its own session, 30 s, then SIGKILL to its process group. It must
+be a regular executable that only you or root can change, or it is refused. It runs on its own thread, so a slow hook
+holds nothing up. Its exit code and the first 64 KB of its output go to `incidents/hook.log` (0600, rolled to `hook.log.1`
+past 256 KB). The repo never creates the hook.
 
 ### Sending windows to the glasses
 
@@ -1784,6 +1854,15 @@ Stop's restore and the next start round trips) and `test_window_memory_run.py` (
 capture, Ctrl+Alt+R and a pill's Remove and Add through the real `ViewControl` and `DesktopManager`). The stand-in is written from
 reading the source, so a wrong reading would pass there: the glasses steps W1–W19 are what check it.
 
+Incident reports add four files in `tests/xr_controller`: `test_incident_detect.py` (every detector and its false
+positives, with the real kernel, driver and unit lines of 2026-11-03), `test_incident_report.py` (redaction, the guess, the
+size cap, atomic private files, the rate limit, and the hook against real scripts: no shell, a hung hook killed with its
+children), `test_incident_monitor.py` (whole sessions as the controller reports them against a fake host, including the
+real sequences of that day, and `HostSources` against a fake sysfs, `/proc` and command runner) and
+`test_incident_wiring.py` (the real `Controller` into the real monitor). `tests/native_spike/test_supervisor.py` covers
+`stop_reason` and the status fields. Every `capture_e2e_*` run now requires the renderer's status to carry
+`capture_failure_run`, and `capture_e2e_tracked` its `tracking`. None of it reads the host or sends a notification.
+
 Check that this project's run, send-window and placement-pill keys clash with nothing in your Hyprland config (exit 0 no clash, 1 clash, 2 could not check):
 
 ```sh
@@ -1812,6 +1891,7 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
   fixed Lua, and shows it again when the pointer goes back into a desktop, when the overview ends, at run end, or on
   the first click after a dead run. It warps the cursor only onto the run's own XR desktops.
 - The isolated VM test path (`isolated-run`, `isolated-recover`) needs separate VM consent and refuses to run on the physical session.
+- The incident monitor only reads: journals, `driver.log`, sysfs, `/proc`, `coredumpctl`, Hyprland's lock file. Reports stay on this machine, in a 0700 folder, and hold no screen content, window titles, clipboard text or video links. The one thing it starts is the user's own `on-incident` hook, if there is one.
 - The unified overview cursor adds unmodified binds in the overview, in the free pointer's bind table and removed with
   it (see [The unified overview cursor](#the-unified-overview-cursor)): over a desktop a non-consuming left-button
   press/release (the window still gets the click); while the dot is free, the right, middle and side buttons and the

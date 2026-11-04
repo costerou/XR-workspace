@@ -16,6 +16,8 @@ from tools.native_spike.ipc import private_dir, read_private_json, check_peer, t
 from tools.native_spike.profiles import load_profile, load_setup, save_profile, profiles_path
 from tools.xr_probe.hardware import probe_usb, probe_drm
 from .detect import identify
+from .incident_monitor import HostSources, IncidentMonitor
+from .incident_report import Reports, hook_path
 from .install import install, load_installed
 from .state import Controller
 from .server import serve
@@ -138,6 +140,17 @@ class Host:
             *['--setenv='+key+'='+os.environ[key] for key in ('XDG_CONFIG_HOME','XDG_STATE_HOME','HYPRLAND_INSTANCE_SIGNATURE') if key in os.environ],*args],check=True,timeout=5)
 
 
+def incident_monitor(runtime,state_dir,config_home):
+    """The incident monitor (incident_monitor.py), started. Nothing about it may keep the controller from serving."""
+    try:
+        monitor=IncidentMonitor(HostSources(runtime,state_dir),Reports(Path(state_dir)/'incidents'),hook=hook_path(config_home))
+        monitor.start()
+        return monitor
+    except Exception as exc:
+        print(f'incident monitor not started: {exc}',file=sys.stderr)
+        return None
+
+
 def recover_run(consent_path,journal):
     from tools.native_spike.panel_consent import load_panel_consent
     from tools.native_spike.managed import recover_managed
@@ -195,7 +208,8 @@ def main(argv=None):
     try:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         host=Host(runtime,state,data)
-        controller=Controller(time.monotonic,host.probe,host.spawn,Units(runtime),Store(),fd,state)
+        monitor=incident_monitor(runtime,state,os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')
+        controller=Controller(time.monotonic,host.probe,host.spawn,Units(runtime),Store(),fd,state,monitor=monitor)
         socket_path=runtime/'viture-workspace/controller.sock'
         directory=private_dir(socket_path.parent,create=True)
         try:

@@ -309,6 +309,7 @@ def capture_names(consent, specs):
 def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None):
     session = journal.session
     snapshot = memory = None
+    report = {}  # why the supervisor ended the renderer, if it did (incident_detect.classify_end)
     with journal.transaction():
         if journal.operations or journal.broker is not None:
             raise OwnershipBlocked('existing run requires explicit recovery; use a fresh run id')
@@ -351,11 +352,11 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
                                                                        memory, cursor_shape=cursor_shape) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
-                                 control=control, pose_feed=pose_feed, renderer=renderer)
+                                 control=control, pose_feed=pose_feed, renderer=renderer, report=report)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.
         # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
         result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
     return {'journal': str(journal.path), 'renderer_returncode': returncode,
-            'complete': result.complete, 'remaining': result.remaining}
+            'complete': result.complete, 'remaining': result.remaining, **({'stop_reason': report['stop_reason']} if report.get('stop_reason') else {})}

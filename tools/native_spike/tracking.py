@@ -57,6 +57,11 @@ def _ours(data):
     return bool(data) and _start_tick(data['pid']) == data['start_tick']
 
 
+def driver_alive(runtime):
+    """Is the driver this app started still that process? (The incident monitor; status() rereads the whole log.)"""
+    return _ours(_read_state(runtime))
+
+
 def _other_drivers(exclude=None):
     found = []
     for d in Path('/proc').glob('[0-9]*'):

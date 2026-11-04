@@ -74,6 +74,17 @@ function startStatus(snapshot) {
     return glassesName(s.model) + (s.output ? " on " + s.output : "");
 }
 
+// The latest incident the controller saved (tools/xr_controller/incident_monitor.py), one line: "" when there has been none.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function incidentLine(snapshot) {
+    const incident = (snapshot || {}).incident;
+    if (!incident || !incident.summary) return "";
+    const at = new Date(incident.at);
+    const pad = function(n) { return String(n).padStart(2, "0"); };
+    const when = isNaN(at.getTime()) ? "" : " (" + MONTHS[at.getMonth()] + " " + at.getDate() + ", " + pad(at.getHours()) + ":" + pad(at.getMinutes()) + ")";
+    return "Last problem" + when + ": " + incident.summary + ".";
+}
+
 function barColorRole(state) {
     if (state === "running") return "accent";
     if (["recovery-needed", "cli-recovery", "failed"].indexOf(state) >= 0) return "warning";

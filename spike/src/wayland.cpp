@@ -936,10 +936,19 @@ void Presentation::close() {
 std::string Presentation::status_json(double now_ms) const {
     if (!impl_) return "{}";
     auto raw = impl_->metrics.status_json(now_ms);
-    if (impl_->video && impl_->video->state() != VideoState::off) {  // VR video state for the supervisor (video.py)
+    const auto add = [&raw](const std::string& field) {  // one more `"key":value` in the JSON object
         raw.pop_back();
         if (raw.size() > 1) raw += ",";
-        raw += std::string("\"video\":\"") + video_state_name(impl_->video->state()) + "\"}";
+        raw += field + "}";
+    };
+    if (impl_->video && impl_->video->state() != VideoState::off)  // VR video state for the supervisor (video.py)
+        add(std::string("\"video\":\"") + video_state_name(impl_->video->state()) + "\"");
+    // What the exit report says about tracking and capture, while it can still be acted on (incident_detect.py).
+    if (impl_->tracking_requested) add(std::string("\"tracking\":") + (impl_->pose.tracking() ? "true" : "false"));
+    if (!impl_->captures.empty()) {  // in a row: a resize fails a capture or two each time, and the next frame ends that
+        std::uint64_t run = 0;
+        for (const auto& ptr : impl_->captures) run = std::max(run, ptr->failure_run);
+        add("\"capture_failure_run\":" + std::to_string(run));
     }
     // PoseAge is relative to an unknown transport floor/device clock offset;
     // it cannot substantiate an absolute pose_age_ms measurement.
@@ -951,11 +960,7 @@ std::string Presentation::status_json(double now_ms) const {
         if (current.empty() || (!path.empty() && current != path)) return raw;
         path = current;
     }
-    if (!path.empty()) {
-        raw.pop_back();
-        if (raw.size() > 1) raw += ",";
-        raw += "\"capture_path\":\"" + path + "\"}";
-    }
+    if (!path.empty()) add("\"capture_path\":\"" + path + "\"");
     return raw;
 }
 std::string Presentation::timing_report() const {

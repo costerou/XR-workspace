@@ -505,6 +505,10 @@ if(XR_ENABLE_PRESENTATION)
       set_tests_properties(capture_e2e_environment_smoke_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
     # An open placement panel through the real renderer: its frame, the view shifted so all of it shows, frames still flowing.
+    # A tracked run's status says whether tracking works (here it cannot: no driver), which the incident monitor reads.
+    add_test(NAME capture_e2e_tracked COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --tracking
+      --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_tracked PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     add_test(NAME capture_e2e_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
       --environment grid --open-panel --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_open_panel PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
