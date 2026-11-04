@@ -57,3 +57,54 @@ Initial independent results on 1d141f8: diagnostic/native suite **29 discovered,
 QA boundary suite **5 passed**, 0.001s. These commands ran in fresh user+IPC+network
 namespaces. ABI fixture is locally compiled C with no SDK/device dependencies.
 Actual runtime acceptance remains pending the lead's committed implementation.
+
+Independent adversarial ABI fixture `tests/pro2_runtime_qa/sdk_fixture.c` compiles
+with C11, -Wall -Wextra -Werror and pthreads. It has no vendor dependencies.
+Scenarios cover per-API nonzero results, wrong capability/family/firmware/length,
+NULL create/callback, callback during close, asynchronous stream/no-pose/stale,
+duplicate/reversed clocks, nonfinite/invalid norm and 1024-callback overflow.
+Lifecycle trace records SDK calls and flags calls from a non-owner thread. Compilation
+alone is not execution evidence; fixture will drive committed native runtime tests.
+
+`python tests/pro2_runtime_qa/run.py` is the independent harness launcher. It removes
+private-capture/desktop/preload opt-ins, gives tests a temporary runtime directory,
+records host user/IPC/network namespace IDs and launches unittest inside fresh
+user+IPC+network namespaces. Native-runtime tests must verify those IDs differ
+before loading the synthetic SDK or publishing. It never installs dependencies.
+
+## Actual native bridge audit: 86e20dd
+
+Merged committed bridge head `86e20ddad91eccadb1f0cdadaece7513aca9911a`
+into own QA branch. Compiled synthetic bridge using actual bridge.cpp/publish.cpp,
+plus independent C ABI fixture and native PoseFeed observer. Dedicated inherited
+SDK/status FDs, temporary fake sysfs, private prefix, fresh user/IPC/net namespaces.
+No hardware, real SDK or compositor used. Wrapper/controller not yet present at
+this SHA, so full-route acceptance remains pending.
+
+Initial command `python tests/pro2_runtime_qa/run.py`: **12 tests passed**, 3.805s.
+Native scenarios exercise all init/API/cleanup errors, owner-thread trace, async
+callback during close, signal shutdown, 1024-callback overflow, null callback,
+clock duplicate/reversal, invalid quaternion/nonfinite, no pose/stale, topology
+change, wrong identities/multiple/hash before dynamic load. Native observer sees
+explicit provisional FOV44.5, feed enabled then disabled, and no private files
+left on teardown. Tightened observer also verifies a nonidentity H1 pose to detect
+unproven optical pitch inheritance.
+
+### RQ1 — invalid firmware response length accepted (open)
+
+At bridge.cpp firmware validation, memchr searches the entire zero-initialized
+256-byte buffer rather than the returned length. A synthetic SDK writes the
+correct complete version but reports length=1. Runtime accepts and emits ready.
+Expected fail-closed rejection of inconsistent ABI metadata before publication.
+
+Red reproduction command (fresh namespaces and fake SDK only):
+
+```
+python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -v
+```
+
+Result after adding firmware_short_length: **12 tests run, 1 failing subcase**
+(4.062s). `test_sdk_errors_and_cleanup_continue` expected nonzero, observed exit0,
+ready and done ready=true/cleanup_errors0. Exact version alone must not justify
+reading bytes outside declared response scope. Lead notified promptly to fix;
+QA does not edit runtime. Full output: qa-evidence/runtime/native-rq1-red.txt.

@@ -1,0 +1,27 @@
+test_callback_during_close_and_signal_shutdown (test_native_runtime.NativeRuntimeQA.test_callback_during_close_and_signal_shutdown) ... ok
+test_happy_path_real_native_reader_and_cleanup (test_native_runtime.NativeRuntimeQA.test_happy_path_real_native_reader_and_cleanup) ... ok
+test_identity_hash_and_multiple_fail_before_sdk (test_native_runtime.NativeRuntimeQA.test_identity_hash_and_multiple_fail_before_sdk) ... ok
+test_projection_denied_without_bounded_explicit_value (test_native_runtime.NativeRuntimeQA.test_projection_denied_without_bounded_explicit_value) ... ok
+test_sdk_errors_and_cleanup_continue (test_native_runtime.NativeRuntimeQA.test_sdk_errors_and_cleanup_continue) ... 
+  test_sdk_errors_and_cleanup_continue (test_native_runtime.NativeRuntimeQA.test_sdk_errors_and_cleanup_continue) (case='firmware_short_length') ... FAIL
+test_terminal_stream_faults (test_native_runtime.NativeRuntimeQA.test_terminal_stream_faults) ... ok
+test_topology_change_terminal (test_native_runtime.NativeRuntimeQA.test_topology_change_terminal) ... ok
+test_bad_identity_never_invokes_loader (test_replay_boundary.CandidateBoundaryQA.test_bad_identity_never_invokes_loader) ... ok
+test_hash_failure_precedes_any_dlopen (test_replay_boundary.CandidateBoundaryQA.test_hash_failure_precedes_any_dlopen) ... ok
+test_faults_disable_and_cannot_resume (test_replay_boundary.ReplayBoundaryQA.test_faults_disable_and_cannot_resume) ... ok
+test_h1_signs_without_optical_offset (test_replay_boundary.ReplayBoundaryQA.test_h1_signs_without_optical_offset) ... ok
+test_sign_continuity_and_close (test_replay_boundary.ReplayBoundaryQA.test_sign_continuity_and_close) ... ok
+
+======================================================================
+FAIL: test_sdk_errors_and_cleanup_continue (test_native_runtime.NativeRuntimeQA.test_sdk_errors_and_cleanup_continue) (case='firmware_short_length')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_native_runtime.py", line 114, in test_sdk_errors_and_cleanup_continue
+    self.assertNotEqual(code, 0, (case, records))
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 == 0 : ('firmware_short_length', [{'event': 'ready', 'projection_diagonal_approx': 44.5}, {'event': 'done', 'ready': True, 'samples': 10, 'cleanup_errors': 0, 'error': ''}])
+
+----------------------------------------------------------------------
+Ran 12 tests in 4.062s
+
+FAILED (failures=1)
