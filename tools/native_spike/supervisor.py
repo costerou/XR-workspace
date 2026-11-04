@@ -421,7 +421,7 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None):
+            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None, continuity_fd=None):
     """Shared child lifetime only; authorization remains in distinct callers. `report`: a dict that gets the stop reason.
     `depth_fd`: the depth engine's shared memory (immersive.DepthMemory), inherited."""
     import json
@@ -448,6 +448,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
                 '--wayland-fd', str(wayland_socket.fileno()), '--output', output,
                 '--run-id', run_id, '--session', session]
         argv += ['--status-fd', str(status_child.fileno())]
+        if continuity_fd is not None: argv += ['--continuity-fd', str(continuity_fd)]
         if depth_fd is not None: argv += ['--depth-fd', str(depth_fd)]
         if animate_pattern_ms is not None:
             argv += ['--animate-pattern-ms', str(animate_pattern_ms)]
@@ -457,7 +458,8 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
             env = dict(os.environ, MESA_SHADER_CACHE_DISABLE='true')
             child = (popen or subprocess.Popen)(argv, shell=False, close_fds=True, stdin=subprocess.DEVNULL, env=env,
                         pass_fds=(child_socket.fileno(), wayland_socket.fileno(), status_child.fileno(),
-                                  *(() if depth_fd is None else (depth_fd,))))
+                                  *(() if depth_fd is None else (depth_fd,)),
+                                  *(() if continuity_fd is None else (continuity_fd,))))
         finally:
             # No parent reference may retain compositor surfaces after child exit.
             wayland_socket.close()

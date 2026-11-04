@@ -294,6 +294,18 @@ private:
 // still on its way out finishes that.
 class ViewAnimator {
 public:
+    // Same-build private restart state: visit values, never vector storage/pointers.
+    template<class Archive> void checkpoint(Archive& a) {
+        a(duration_, turn_, pan_, pan_on_, pan_landing_, pan_peek_, pan_cross_, pan_turn_,
+          pan_zoom_, pan_zoom_speed_, pan_ms_, pan_seen_ms_, land_, start_ms_, spacing_start_ms_,
+          look_start_ms_, t_, spacing_t_, look_t_, from_zoom_, to_zoom_, from_spacing_,
+          to_spacing_, from_look_, from_turn_, landed_, serial_, turn_centred_, to_selected_,
+          shown_, look_from_, look_to_, switch_);
+    }
+    void pause_clock(double ms) {
+        pan_ms_ += ms; pan_seen_ms_ += ms; land_.start_ms += ms;
+        start_ms_ += ms; spacing_start_ms_ += ms; look_start_ms_ += ms; switch_.start_ms += ms;
+    }
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
     struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
     explicit ViewAnimator(float duration_ms = kViewEaseMs, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}

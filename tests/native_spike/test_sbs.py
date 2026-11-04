@@ -395,19 +395,19 @@ class HoldTests(unittest.TestCase):
         report = {}
         class Client:
             def query(self, kind, timeout=None): return [monitor(), monitor(name='DP-1')]
-        with mock.patch.object(survive, 'wait_for_glasses', lambda ready, restore, serve: restored.append(1) or True), \
+        with mock.patch.object(survive, 'wait_for_glasses', lambda ready, restore, serve, settle=None: restored.append(1) or True), \
                 mock.patch.object(survive, 'usb_identity', lambda: (1, 2)):
             code = managed.keep_renderer(lambda: codes.pop(0), Client(), 'DP-2', report, None, lambda: None, holds, tell=told.append, switching=lambda: True)
         self.assertEqual(code, 0)
         self.assertEqual(restored, [1])
-        self.assertEqual(told, [])  # no "dropped off USB" for something Cody just did
+        self.assertEqual(told, ['Switching display mode… Your desktops are safe.'])  # no "dropped off USB" for something Cody just did
 
     def test_a_real_drop_still_says_so(self):
         told, codes = [], [2, 0]
         holds = survive.Holds(); holds.revive = lambda: True
         class Client:
             def query(self, kind, timeout=None): return [monitor(name='DP-1')]
-        with mock.patch.object(survive, 'wait_for_glasses', lambda ready, restore, serve: True), mock.patch.object(survive, 'usb_identity', lambda: (1, 2)):
+        with mock.patch.object(survive, 'wait_for_glasses', lambda ready, restore, serve, settle=None: True), mock.patch.object(survive, 'usb_identity', lambda: (1, 2)):
             managed.keep_renderer(lambda: codes.pop(0), Client(), 'DP-2', {}, None, lambda: None, holds, tell=told.append)
         self.assertIn('dropped off USB', told[0])
 

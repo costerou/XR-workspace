@@ -1,0 +1,7 @@
+{
+  "fake_link_down_s": 1.0,
+  "before_resume_s": 4.0,
+  "pending_switch_resume_s": 1.0,
+  "ordinary_loss_resume_s": 4.0,
+  "excludes": "renderer startup, scanout and physical R1 blackout"
+}

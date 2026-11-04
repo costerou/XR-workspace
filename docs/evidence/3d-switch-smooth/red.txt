@@ -1,0 +1,17 @@
+test_pending_real_loss_still_reports (tests.xr_controller.test_mode_switch.ModeSwitchTests.test_pending_real_loss_still_reports) ... ok
+test_pending_reconnect_is_not_video_loss_in_either_direction (tests.xr_controller.test_mode_switch.ModeSwitchTests.test_pending_reconnect_is_not_video_loss_in_either_direction) ... FAIL
+test_unrequested_disconnect_still_reports (tests.xr_controller.test_mode_switch.ModeSwitchTests.test_unrequested_disconnect_still_reports) ... ok
+
+======================================================================
+FAIL: test_pending_reconnect_is_not_video_loss_in_either_direction (tests.xr_controller.test_mode_switch.ModeSwitchTests.test_pending_reconnect_is_not_video_loss_in_either_direction)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/3d-switch-smooth/tests/xr_controller/test_mode_switch.py", line 11, in test_pending_reconnect_is_not_video_loss_in_either_direction
+    self.assertNotIn('video-lost', kinds(signals))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'video-lost' unexpectedly found in ['video-lost', 'video-lost']
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+FAILED (failures=1)

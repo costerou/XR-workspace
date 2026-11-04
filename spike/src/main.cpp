@@ -1,5 +1,7 @@
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "xr/capture.hpp"
 #include <cerrno>
 #include <cstring>
@@ -15,7 +17,6 @@
 #include <vector>
 #include <sys/socket.h>
 #include <deque>
-#include <fcntl.h>
 #include <unistd.h>
 
 namespace {
@@ -49,7 +50,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21 && argc != 23) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
@@ -58,11 +59,17 @@ int main(int argc, char** argv) {
     // Optional modes: generated animation alone; or capture, optionally with the XRLinuxDriver pose feed.
     const int status_fd = args.contains("--status-fd") ? number(args["--status-fd"]) : -1;
     if (args.contains("--status-fd") && status_fd < 0) return 2;
+    const int continuity_fd = args.contains("--continuity-fd") ? number(args["--continuity-fd"]) : -1;
+    if (args.contains("--continuity-fd")) {
+        struct stat st{};
+        if (continuity_fd < 0 || fstat(continuity_fd, &st) || !S_ISREG(st.st_mode)
+            || st.st_uid != getuid() || st.st_size > 65536 || fcntl(continuity_fd, F_GET_SEALS) < 0) return 2;
+    }
     const int depth_fd = args.contains("--depth-fd") ? number(args["--depth-fd"]) : -1;
     if (args.contains("--depth-fd") && depth_fd < 0) return 2;
     if (args.contains("--control-errors") && args["--control-errors"] != "fatal") return 2;
     const bool control_errors_fatal = args.contains("--control-errors");
-    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd");
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd");
     if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
@@ -82,6 +89,7 @@ int main(int argc, char** argv) {
     if (control < 0 || wayland < 0 || control == wayland) return 2;
     if (status_fd >= 0 && (status_fd == control || status_fd == wayland)) return 2;
     if (depth_fd >= 0 && (depth_fd == control || depth_fd == wayland || depth_fd == status_fd)) return 2;
+    if (continuity_fd >= 0 && (continuity_fd == control || continuity_fd == wayland || continuity_fd == status_fd || continuity_fd == depth_fd)) return 2;
     for (int fd : {control, wayland, status_fd}) {
         if (fd < 0) continue;
         ucred peer{}; socklen_t size = sizeof(peer);
@@ -106,6 +114,7 @@ int main(int argc, char** argv) {
     if (!report(presentation.open(args["--output"], capture))) result = 1;
     if (!result && depth_fd >= 0) presentation.set_depth_fd(depth_fd);
     if (!result && pose_feed) presentation.enable_tracking("/tmp/shader_runtime_");  // XRLinuxDriver IPC (fixed path)
+    if (!result && presentation.restore_continuity(continuity_fd)) std::cerr << "continuity: restored\n";
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     // VR video files arrive as SCM_RIGHTS descriptors with their `video` open frame (docs/vr-video.md). Each open frame
     // takes the oldest received one; at most two wait, extras are closed, and none is ever opened by path here.
@@ -296,6 +305,8 @@ int main(int argc, char** argv) {
         }
     }
     for (int fd : video_fds) ::close(fd);
+    presentation.save_continuity(continuity_fd);
+    if (continuity_fd >= 0) ::close(continuity_fd);
     presentation.close(); // Pending feedback becomes abandoned, never invented discard.
     std::cerr << presentation.timing_report() << '\n';
     if (!capture.empty()) std::cerr << presentation.capture_report() << '\n';

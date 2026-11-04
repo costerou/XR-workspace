@@ -95,6 +95,8 @@ public:
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);
     void recenter();
+    bool restore_continuity(int fd);
+    void save_continuity(int fd);
     // Per-desktop placement in capture order, each {x, y, distance, curvature} in the validated wire units of ipc.hpp
     // WirePlacement (every desktop always faces you); entries beyond the captured outputs are ignored. GPU composition only.
     // `glide_ms` > 0 (ipc.hpp PlacementPayload glide): every desktop glides from where it is drawn to its new placement

@@ -88,6 +88,9 @@ class RunWatch:
         self.last_status = None        # the last metrics, for the report
         self.mode = None               # the session's mode, as first seen running
         self.seen_mode = None
+        self.switch_started = None
+        self.mode_switches = 0
+        self.switch_done = False
         self.drm = None
         self.usual_rate = None
         self.capture_path = None
@@ -144,6 +147,30 @@ class RunWatch:
 
     def _display(self, at, o, out):
         if not self.consent.get('output'): return  # an unreadable consent: nothing to compare with
+        pending = bool((o.get('immersive') or (o.get('status') or {}).get('immersive', {})).get('switching'))
+        monitor = o.get('monitor')
+        if not pending:
+            self.switch_done = False
+        if (pending and self.switch_started is None and not self.switch_done
+                and (o.get('drm') == 'disconnected' or monitor is None
+                     or (self.mode is not None and _mode(monitor) != self.mode))):
+            self.switch_started = at
+        if self.switch_started is not None:
+            mode = _mode(monitor) if monitor else None
+            if (mode and ((mode[:2] == (3840, 1200) and mode[2] in (60, 90))
+                         or (mode[:2] == (1920, 1200) and mode[2] == 120)) and mode != self.mode):
+                self.mode_switches += 1
+                self.mode = self.seen_mode = mode
+                self.switch_started = None
+                self.switch_done = True
+                self._video.update(at, False)
+                self._output_gone.update(at, False)
+                self._mode_changed.update(at, False)
+                return
+            if at - self.switch_started < 8.0:
+                return
+            self.switch_started = None
+            self.switch_done = True
         self.drm = o.get('drm')
         if self._video.update(at, self.drm == 'disconnected'):
             out.append(Signal(at, 'video-lost', 'drm', f"the glasses' display output {self.consent.get('output')} disconnected"))

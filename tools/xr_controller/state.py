@@ -86,6 +86,7 @@ class Controller:
             self.monitor.observe(dict(state=self.state,run_id=self.run.get('run_id') if self.run else None,stop_requested=self.stop_run,
                 instance=o.get('instance'),monitors=[_monitor_facts(m) for m in o.get('monitors') or []],
                 plugins=ownership_plugin_count(o.get('plugins') or []),
+                immersive=copy.deepcopy(self.live.get('immersive') or {}),
                 status=copy.deepcopy(self.live['status']) if self.state=='running' and 'status' in self.live else None))
         except Exception as exc:
             if str(exc)!=self.monitor_fault: log(f'incident monitor: {exc}')

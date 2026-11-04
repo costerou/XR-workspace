@@ -1,0 +1,26 @@
+test_enter_then_probable_exit_in_the_same_session (tests.xr_controller.test_mode_switch.LiveModeSwitchCases.test_enter_then_probable_exit_in_the_same_session) ... 
+  test_enter_then_probable_exit_in_the_same_session (tests.xr_controller.test_mode_switch.LiveModeSwitchCases.test_enter_then_probable_exit_in_the_same_session) (case='10:12 enter') ... FAIL
+test_enter_then_probable_exit_in_the_same_session (tests.xr_controller.test_mode_switch.LiveModeSwitchCases.test_enter_then_probable_exit_in_the_same_session) ... FAIL
+
+======================================================================
+FAIL: test_enter_then_probable_exit_in_the_same_session (tests.xr_controller.test_mode_switch.LiveModeSwitchCases.test_enter_then_probable_exit_in_the_same_session) (case='10:12 enter')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/3d-switch-smooth/tests/xr_controller/test_mode_switch.py", line 61, in test_enter_then_probable_exit_in_the_same_session
+    self.assertNotIn('video-lost', kinds(signals[before:]))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'video-lost' unexpectedly found in ['video-lost', 'video-lost']
+
+======================================================================
+FAIL: test_enter_then_probable_exit_in_the_same_session (tests.xr_controller.test_mode_switch.LiveModeSwitchCases.test_enter_then_probable_exit_in_the_same_session)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/3d-switch-smooth/tests/xr_controller/test_mode_switch.py", line 65, in test_enter_then_probable_exit_in_the_same_session
+    self.assertEqual(getattr(w, 'mode_switches', 0), 2)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 2
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=2)

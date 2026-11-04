@@ -212,3 +212,30 @@ python -m unittest discover -s tests/depth_engine                          # the
 ctest --test-dir build/release -R 'depth|stereo|immersive'                 # the join, the shaders, the real renderer
 python3 -m tools.immersive_proof --out DIR                                 # the whole chain on real content; refuses under a session
 ```
+
+### R1 display handover (2026-11-04)
+
+Pending enter and exit are exposed to incident monitoring, including the wait
+for the engine after clicking 3D. On an output loss, the supervisor restarts
+only the renderer inside the existing run, without the ordinary three-second
+USB settling delay. It leaves the tracking driver alone. The panel displays a
+switching card; DP cannot display that card during its physical outage.
+
+The incident monitor waits up to eight seconds from an observed display
+change for a supported new wide/narrow mode, then logs `mode-switch` rather
+than filing `video-lost`. An unresolved outage still reports video loss. USB,
+tracking and crash detection continue normally. The timer starts at the
+outage, so taking time to find R1 does not consume it.
+
+When R1 makes the glasses wide without a 3D click, a toast offers desktop
+3D. The AI engine is not started automatically, since the person may be
+switching for SBS video. R1 returning an active 3D desktop to narrow still
+falls back to flat rendering through the existing path.
+
+[Offline evidence and limitations](evidence/3d-switch-smooth/README.md).
+Renderer-local pose/recenter state now travels across the fast restart in
+private run-scoped memory: yaw anchor, follow spring, maximize/restore room,
+edge-pan/landed turns and level/roll references survive. Animation pauses
+through the display outage; initial control replay updates the restored view
+rather than creating a new anchor. Ordinary recovery and USB re-enumeration
+discard this state. See [continuity evidence](evidence/3d-switch-smooth/continuity/README.md).

@@ -257,7 +257,8 @@ class LumaLifecycle(unittest.TestCase):
         fake_driver(self.luma, CRASHES_ONCE.format(mark=str(self.luma) + '.crashed'))
         first = tracking.start(self.runtime, timeout=10, luma=str(self.luma))
         watch, notes = self.watch()
-        self.wait_for(lambda: tracking.driver_alive(self.runtime) and self.state()['pid'] != first['pid'], 10)
+        self.wait_for(lambda: tracking.driver_alive(self.runtime) and self.state()['pid'] != first['pid']
+                      and tracking.status(self.runtime)['calibrated'], 10)
         self.assertTrue(tracking.status(self.runtime)['calibrated'])
         self.assertEqual(len(watch.restarts), 1)
         self.assertEqual(notes, [])

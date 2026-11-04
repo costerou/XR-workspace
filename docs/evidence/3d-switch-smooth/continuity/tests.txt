@@ -1,0 +1,13 @@
+Offline validation; GPU work used nice 19 and iGPU DRI_PRIME=pci-0000_03_00_0.
+
+continuity-suite-depth_engine.log: 56 passed, 3 skipped in 1.92s
+continuity-suite-luma_capture.log: 234 passed in 15.67s
+continuity-suite-luma_probe.log: 135 passed, 9 subtests passed in 0.24s
+continuity-suite-luma_soak.log: 128 passed in 13.43s
+continuity-suite-probe.log: 62 passed, 153 subtests passed in 1.69s
+continuity-suite-stereo_eval.log: 49 passed in 9.20s
+continuity-suite-tests.log: 11 passed in 2.62s
+continuity-suite-xr_controller.log: 529 passed, 53 subtests passed in 5.04s
+C++: 92/92 passed; final continuity/pose/view/edge-pan/stereo subset 5/5 passed.
+QML: 46 passed; bind_check: config valid, no clash.
+Native Python: 2431 passed, 19 skipped, 10801 subtests passed in 123.22s (0:02:03)

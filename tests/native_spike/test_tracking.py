@@ -207,6 +207,12 @@ class RecenterTests(unittest.TestCase):
 class DriverLifecycleTests(unittest.TestCase):
     """Fake driver script stands in for /usr/bin/xrDriver; unshare network isolation is real."""
     def setUp(self):
+        # Lifecycle tests run fake drivers only. Keep the real scanner in the
+        # test specifically exercising process discovery; otherwise
+        # concurrent test jobs and the host's live driver are irrelevant.
+        if self._testMethodName != 'test_other_driver_check_covers_every_copy':
+            detector = patch.object(tracking, '_other_drivers', return_value=[])
+            detector.start(); self.addCleanup(detector.stop)
         # This machine's install is not part of a test with a fake driver; nor are its glasses (SYS_USB below).
         patcher = patch.object(tracking, '_driver_env', lambda: dict(os.environ)); patcher.start(); self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
