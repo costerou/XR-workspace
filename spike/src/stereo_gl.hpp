@@ -35,6 +35,7 @@ public:
     // a first frame, no history). `colour_w`: its width in pixels. Keeps framebuffer and viewport. False: an invalid frame, nothing changed.
     bool update(std::size_t source, const DepthInput& frame, GLuint colour, std::uint32_t colour_w, const StereoParams& params, float aspect, float dt_ms);
     bool ready(std::size_t source) const;
+    std::optional<DepthInput> cached_frame(std::size_t source) const;
     GLuint guide(std::size_t source) const;
     std::uint64_t seq(std::size_t source) const;
     // The tile program in use, its uniforms by name for the compositor's projection cache.
@@ -55,7 +56,7 @@ public:
     std::uint64_t updates() const { return updates_; }
 private:
     StereoPass() = default;
-    struct Source { GLuint raw = 0, raw_half = 0, text = 0, guide[2] = {0, 0}, fb[2] = {0, 0}, text_fb = 0; int w = 0, h = 0, current = -1; std::uint64_t seq = 0; };
+    struct Source { DepthInput cached; GLuint raw = 0, raw_half = 0, text = 0, guide[2] = {0, 0}, fb[2] = {0, 0}, text_fb = 0; int w = 0, h = 0, current = -1; std::uint64_t seq = 0; };
     void drop(Source& s);
     bool storage(Source& s, int w, int h);
     std::vector<Source> sources_;

@@ -11,6 +11,7 @@ from . import shm as S
 from .backends import resize_rgba, to_half
 from .scheduler import Scheduler
 from .temporal import TemporalFilter, luma_of
+from .refinement import refine, limit_steps
 
 
 BAR_LEVEL = 12        # Brightest a black bar may be, of 255.
@@ -133,7 +134,8 @@ class Engine:
             maps = [self.backend.infer([p])[0] for p in pixels]
         self.stats.batches += 1
         done = 0
-        for ch, f, px, depth, box in zip(picks, frames, wholes, maps, boxes):
+        for ch, f, px, model_rgb, depth, box in zip(picks, frames, wholes, pixels, maps, boxes):
+            depth = refine(depth, luma_of(model_rgb))
             if box is not None:
                 # In the frame's own coordinates, whatever size the model works at.
                 scale_x, scale_y = px.shape[1] / f.w, px.shape[0] / f.h
@@ -144,9 +146,10 @@ class Engine:
             last = self._last_ns.get(ch)
             dt = 1 / 60 if last is None else min((end_ns - last) / 1e9, 1.0)
             self._last_ns[ch] = end_ns
-            smooth, cut, flat = filt.update(depth, luma_of(px), dt)
+            gray = luma_of(px)
+            smooth, cut, flat = filt.update(depth, gray, dt)
             flags = (S.FLAG_SCENE_CUT if cut else 0) | (S.FLAG_FLAT if flat else 0)
-            if self.shm.publish(S.OUTPUT, ch, to_half(smooth), S.FMT_R16F, f.source_seq, f.source_ns, self.clock(), flags):
+            if self.shm.publish(S.OUTPUT, ch, to_half(limit_steps(smooth)), S.FMT_R16F, f.source_seq, f.source_ns, self.clock(), flags):
                 done += 1
             self.stats.inferred += 1
         self.scheduler.ran(picks, now_ns / 1e9)

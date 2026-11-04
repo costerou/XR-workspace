@@ -82,7 +82,15 @@ bool immersive(const Json& p, ImmersivePayload& out) {
     out.hover = std::int32_t(hover);
     out.global = p["global"].get<bool>(); out.stereo = p["stereo"].get<bool>(); out.tail = p["tail"].get<bool>();
     const auto& w = p["params"];
-    if (!w.is_object() || w.size() != 6) return false;
+    if (!w.is_object() || (w.size() != 6 && w.size() != 7)) return false;
+    if (w.contains("strengths")) {
+        const auto& a = w["strengths"];
+        if (!a.is_array() || a.size() != kMaxDesktops) return false;
+        for (std::size_t i = 0; i < kMaxDesktops; ++i) {
+            if (!a[i].is_number_integer() || a[i] < 0 || a[i] > 200) return false;
+            out.params.strengths[i] = a[i].get<int>();
+        }
+    } else if (w.size() != 6) return false;
     const struct { const char* key; std::int32_t max; std::int32_t* into; } fields[] = {
         {"strength", 200, &out.params.strength}, {"convergence", 100, &out.params.convergence}, {"near", 90, &out.params.near_arcmin},
         {"far", 60, &out.params.far_arcmin}, {"text", 100, &out.params.text}, {"range_ms", 10000, &out.params.range_ms}};

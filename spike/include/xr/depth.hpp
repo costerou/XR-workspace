@@ -12,6 +12,8 @@
 // reader, so a slow engine cannot stall a 120 Hz renderer. The reader copies a slot and rereads its sequence number; a
 // slot the writer came back to reads as "nothing new" and the next fetch gets a newer frame.
 #include <atomic>
+#include <array>
+#include "xr/desktops.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -82,6 +84,7 @@ struct DepthInput {
     unsigned texture = 0;
     float lo = 0.f, hi = 1.f;
     const std::uint16_t* half = nullptr;
+    bool reset_history = false;
     float convergence = -1.f;      // This frame's screen plane (nearness, 0..1). Negative: StereoParams::convergence.
 };
 inline constexpr int kDepthMinHeight = 256;
@@ -100,6 +103,7 @@ struct ImmersiveParams {
     std::int32_t near_arcmin = 4;       // comfort limit in front of the plane
     std::int32_t far_arcmin = 14;       // and behind it
     std::int32_t text = 0;              // percent of the parallax left on small text
+    std::array<int, kMaxDesktops> strengths = [] { std::array<int, kMaxDesktops> a; a.fill(-1); return a; }();
     std::int32_t range_ms = 3000;       // how slowly the plane follows the scene
 };
 

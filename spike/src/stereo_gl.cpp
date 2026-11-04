@@ -42,13 +42,14 @@ const char* kGuideFragment =
     "    float x = 2.0 * params.x * (n - params.y), a = abs(x);\n"
     "    v = a <= KNEE ? x : sign(x) * (KNEE + ROOM * tanh((a - KNEE) / ROOM));\n"
     "  }\n"
-    "  float t = texelFetch(text, p, 0).r;\n"
-    "  t = max(t, max(texelFetch(text, clamp(p + ivec2(-1, 0), ivec2(0), top), 0).r, texelFetch(text, clamp(p + ivec2(1, 0), ivec2(0), top), 0).r));\n"
-    "  t = max(t, max(texelFetch(text, clamp(p + ivec2(0, -1), ivec2(0), top), 0).r, texelFetch(text, clamp(p + ivec2(0, 1), ivec2(0), top), 0).r));\n"
-    "  t = max(t, max(texelFetch(text, clamp(p + ivec2(0, -2), ivec2(0), top), 0).r, texelFetch(text, clamp(p + ivec2(0, 2), ivec2(0), top), 0).r));\n"
+    "  float t = 0.0;\n"
+    "  for (int j = -3; j <= 3; ++j) for (int i = -2; i <= 2; ++i) {\n"
+    "    float w = (abs(i) < 2 ? 1.0 : 0.5) * (abs(j) < 3 ? 1.0 : 0.5);\n"
+    "    t = max(t, texelFetch(text, clamp(p + ivec2(i,j), ivec2(0), top), 0).r * w);\n"
+    "  }\n"
     "  v *= 1.0 + (params.z - 1.0) * t;\n"
-    "  float e = min(min(uv.x, 1.0 - uv.x) / TAPER, min(uv.y, 1.0 - uv.y) / (TAPER * aspect));\n"
-    "  v *= smoothstep(0.0, 1.0, e);\n"
+    "  float e = min(uv.x, 1.0 - uv.x) / TAPER;\n"
+    "  v *= smoothstep(0.0, 1.0, e) * smoothstep(0.0, 1.0, min(uv.y, 1.0 - uv.y) / (TAPER * aspect));\n"
     "  if (history > 0.5) {\n"
     "    float q = texelFetch(previous, p, 0).r, d = abs(v - q);\n"
     "    v = q + (v - q) * (alpha + (1.0 - alpha) * smoothstep(0.1, 0.35, d));\n"
@@ -86,10 +87,20 @@ const char* kWarpFragment =
     "  float steep = gap > 1e-6 ? smoothstep(0.8, 1.6, (gb - ga) / gap) : 0.0;\n"
     "  if (steep > 0.0) {\n"
     "    float margin = 1.5 / (float(textureSize(guide, 0).x) * max(length(dir), 1e-7));\n"
-    "    float q = o + margin, m = clamp(q - g_at(q), 0.0, span);\n"
-    "    vec2 f = v - side * (q + m) * dir;\n"
-    "    vec3 fill = textureLod(tex, f - 1.5 * up, 0.0).rgb + 2.0 * textureLod(tex, f, 0.0).rgb + textureLod(tex, f + 1.5 * up, 0.0).rgb;\n"
-    "    c = mix(c, fill * 0.25, steep);\n"
+    "    float q = o + margin, far = g_at(q);\n"
+    "    float candidate = o - margin, g = g_at(candidate);\n"
+    "    if (g < far) { q = candidate; far = g; }\n"
+    "    if (ga < far) { q = a; far = ga; }\n"
+    "    if (gb < far) { q = b; far = gb; }\n"
+    "    vec2 f = v - side * q * dir; vec3 fill = vec3(0.0); float weight = 0.0;\n"
+    "    for (int j = -1; j <= 1; ++j) {\n"
+    "      vec2 t = f + float(j) * 1.5 * up; float d = textureLod(guide, t, 0.0).r;\n"
+    "      float g = d > 0.0 ? d * gn : d * gf;\n"
+    "      float w = (j == 0 ? 2.0 : 1.0) * (1.0 - smoothstep(0.02 * span, 0.06 * span, g - far));\n"
+    "      fill += textureLod(tex, t, 0.0).rgb * w; weight += w;\n"
+    "    }\n"
+    "    float band = steep * smoothstep(0.0, 1.0, abs(g_at(o - margin) - g_at(o + margin)));\n"
+    "    c = mix(c, fill / max(weight, 1e-6), band);\n"
     "  }\n"
     "  color = vec4(mix(c, c.bgr, swizzle), 1.0);\n"
     "}\n";
@@ -271,6 +282,9 @@ bool StereoPass::update(std::size_t source, const DepthInput& f, GLuint colour, 
     glUniform1f(guide_.history, had && dt_ms > 0 ? 1.f : 0.f);
     quad(guide_.pos);
     s.current = next; s.seq = f.source_seq;
+    s.cached = f; s.cached.pixels = nullptr; s.cached.half = nullptr;
+    // Only retain owned uploads: an external texture may be released by its producer.
+    s.cached.texture = (f.pixels || f.half) ? raw : (f.texture == s.raw || f.texture == s.raw_half ? raw : 0);
     ++updates_;
     glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
@@ -281,6 +295,11 @@ bool StereoPass::update(std::size_t source, const DepthInput& f, GLuint colour, 
     if (blended) glEnable(GL_BLEND);
     if (scissored) glEnable(GL_SCISSOR_TEST);
     return true;
+}
+
+std::optional<DepthInput> StereoPass::cached_frame(std::size_t source) const {
+    if (source >= sources_.size() || !sources_[source].cached.texture) return std::nullopt;
+    return sources_[source].cached;
 }
 
 bool StereoPass::ready(std::size_t source) const { return source < sources_.size() && sources_[source].current >= 0; }

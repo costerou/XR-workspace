@@ -20,7 +20,7 @@ import numpy as np
 
 @dataclass
 class TemporalConfig:
-    pixel_tau: float = 0.12        # Seconds: easing of a static pixel.
+    pixel_tau: float = 0.24        # Seconds: easing of a static pixel.
     range_tau: float = 0.35        # Seconds: easing of the normalisation limits.
     luma_low: float = 4 / 255      # Picture change under this is treated as noise...
     luma_high: float = 24 / 255    # ...and at this much the pixel follows at once.

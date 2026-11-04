@@ -25,6 +25,7 @@ struct EyeViewport;
 struct StereoSettings {
     bool enabled = false;
     StereoParams params;
+    std::vector<int> strengths;
     std::vector<bool> desktops;
     float half_baseline = kStereoHalfBaseline;  // of the desktops' real depth (their Placement distance); 0: all on the screen plane
 };

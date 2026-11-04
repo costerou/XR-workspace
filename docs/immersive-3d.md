@@ -100,7 +100,7 @@ Other risks, smaller ones:
 | 3D segment beside a desktop's level bar | That desktop |
 | The button's tail | All of them; lit, none |
 | Ctrl+Alt+I | All of them: anything on, all off |
-| Panel, 3D section | Each desktop, Desktop / Video / Games, Soft / Standard / Enhanced, Screen plane, and what is happening now |
+| Panel, 3D section | Each desktop, Desktop / Video / Games, Soft / Standard / Enhanced, continuous Strength, selected-desktop Strength, Screen plane, and what is happening now |
 
 The look is saved per glasses model. Desktop is the default because it is the one that keeps text safe. Its numbers are the comfort study's,
 held equal to `tools/stereo_eval/presets.json` by a test.
@@ -110,6 +110,8 @@ held equal to `tools/stereo_eval/presets.json` by a test.
 | Desktop | 4′ | 14′ | 92nd percentile | none |
 | Video | 14′ | 36′ | 70th | all of it |
 | Games | 10′ | 30′ | 75th | none |
+
+Edge refinement, live strength and the newer before/after measurements are in [3d-edges-strength.md](3d-edges-strength.md).
 
 ## Numbers
 

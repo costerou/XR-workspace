@@ -87,4 +87,15 @@ int main() {
     CHECK(!b.view.take_landed_turns().empty());
     CHECK(b.view.take_landed_turns().empty());
     std::cout << "renderer continuity preserved\n";
-}
+}    // Preserve the entire adaptive filter, including its double accumulator and gain.
+    a.stabilization.strength(75);
+    for (int i = 0; i < 50; ++i)
+        a.stabilization.update(aim_rotation(float(i % 2) * .0001f, 0), i);
+    CHECK(b.decode(a.encode()));
+    for (int i = 50; i < 100; ++i) {
+        auto q = aim_rotation(float(i % 2) * .0001f, 0);
+        auto x = a.stabilization.update(q, i), y = b.stabilization.update(q, i);
+        CHECK(x.x == y.x && x.y == y.y && x.z == y.z && x.w == y.w);
+        CHECK(a.stabilization.prediction_gain() == b.stabilization.prediction_gain());
+    }
+

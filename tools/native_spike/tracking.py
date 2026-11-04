@@ -378,6 +378,7 @@ def start(runtime, timeout=120.0, luma=None, binary=None):
     log = LUMA_LOG if luma else DRIVER_LOG
     try:
         deadline = time.monotonic() + timeout
+        isolation_deadline = time.monotonic() + min(timeout, 2.0)
         while time.monotonic() < deadline:
             # First: a crashed driver is a zombie until reaped, so what follows would say only "exited", or, with no namespace
             # left to read, "not network-isolated". This says how it ended.
@@ -385,6 +386,11 @@ def start(runtime, timeout=120.0, luma=None, binary=None):
             now = status(runtime)
             if not now['running']: raise ValueError(_exit_failure(offset, log, child.poll()))
             if not now['network_isolated']:
+                # unshare may still be setting up its namespace: never accept calibration
+                # until isolated, but allow the owned launcher a bounded startup interval.
+                if time.monotonic() < isolation_deadline:
+                    time.sleep(0.02)
+                    continue
                 # Its namespaces go just before it can be waited on, so a process caught dying gets a moment to show it.
                 try: child.wait(timeout=0.2)
                 except subprocess.TimeoutExpired: raise ValueError('tracking driver is not network-isolated; stopped') from None
@@ -422,7 +428,12 @@ class LumaWatch(threading.Thread):
                 return
             print(f'xr-workspace: the XR Luma driver crashed; restart {len(self.restarts)} of {RESTARTS}', file=sys.stderr, flush=True)
             try: ensure_ready(self.runtime, timeout=LUMA_TIMEOUT, luma=self.luma)
-            except (OSError, ValueError) as exc: print(f'xr-workspace: the restart failed: {exc}', file=sys.stderr, flush=True)
+            except (OSError, ValueError) as exc:
+                print(f'xr-workspace: the restart failed: {exc}', file=sys.stderr, flush=True)
+                # start() cleans its state after failure. Otherwise the next loop mistakes
+                # that cleanup for an intentional stop and exits without telling anyone.
+                self.notify(f'The XR Luma driver keeps crashing and could not restart, so head tracking has stopped for this session. See {LUMA_LOG}.')
+                return
 
     def finish(self):
         self.stopping.set()
