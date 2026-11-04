@@ -89,3 +89,15 @@ Driver stream supplied the following installed inventory (reported by that strea
 Recommended prelaunch policy: block if PID is 0x1301 **or** exact product is Pro2, including contradictory identity evidence, before start/reuse/fallback. Lift only for a reviewed artifact with recorded binary/library hashes, explicit exact-PID support, correction/coordinate evidence tied to SDK and firmware, timestamp contract, supported pose frequency, and lifecycle/reconnect offline validation. A hand-edited zero pitch or deleted quaternion transform alone is not compatibility proof.
 
 Next evidence acquisition: obtain an official Linux x86_64 SDK bundle or upstream provider revision accompanied by Pro2-specific coordinate/pitch clarification, release provenance and minimum firmware. Record archive URL/version/SHA256 and headers/library hashes before considering installation. No vendor contact, download/install or hardware session was performed in this follow-up.
+
+## Provenance clarification — installed versus cached versus 3DoF
+
+Driver stream confirms cached upstream HEAD blob hashes (from `git show HEAD:lib/x86_64/viture/...`, not installed files):
+
+| Evidence set | Source identity | libglasses.so SHA256 | libcarina_vio.so SHA256 |
+| --- | --- | --- | --- |
+| Installed | Package 2.11.9-1; executable source revision not established by cache | `8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e` | `9a23e3ede795de7f6d6137a71755c57d3c9aba6055e96298ca8e8b266d3d4784` |
+| Cached upstream Git blobs | HEAD `958908487a36aad15c6cbb5b7865e404c7b7dfac` | `a68cbef5e39fa97086fe6e8d63a2a3649165c78c298f85ba896ff12ef75404ad` | `ed571faa1435abc622fd54770152b936dcaafb7e7fb603fda2e994bf94f19bdf` |
+| Local 3DoF manifest | `248fc87690d55c58ccc16d4e6bba19cd957373af`, includes PR147/148 and Carina patch | `a68cbef5e39fa97086fe6e8d63a2a3649165c78c298f85ba896ff12ef75404ad` | `ed571faa1435abc622fd54770152b936dcaafb7e7fb603fda2e994bf94f19bdf` |
+
+The two installed library file hashes differ from cached upstream. This establishes different file identity, not necessarily different executable code, ABI or behavior; those require separate evidence. Conversely, cached/3DoF matching library hashes do not make their executables equivalent: the 3DoF source adds PR147/148 and a Carina-specific patch. No source-to-installed-binary provenance or compatibility claim follows from cached HEAD. The installed PID acceptance disassembly remains evidence specifically about the installed `libglasses.so`; upstream source behavior remains evidence about the pinned source. There is still no approved replacement artifact or compatibility enablement.
