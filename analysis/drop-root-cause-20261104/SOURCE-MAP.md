@@ -27,7 +27,7 @@ This maps identified USB, display and recovery entry points. A text/source audit
 | Incident observation | `tools/xr_controller/incident_monitor.py:72-84,163,350` | Reads kernel, sysfs, compositor state; DRM times are sampled observations. |
 | Incident attribution | `tools/xr_controller/incident_report.py:187-190` | Kernel USB signal automatically creates hardware-leaning high-confidence prose; not causal evidence. |
 | Incident hook | `incident_report.py:379-415`; `~/.config/viture-workspace/on-incident` | Validates and invokes hook; installed hook posts a signed local notification, no USB action. Downstream agent actions are outside this small hook's audit. |
-| Rolling capture | `~/.hermes/profiles/coder/t3/usb_rolling_capture.py` | Opens usbmon5 read-only; journal watcher, file rotation/copy. Now blind to glasses on bus1. |
+| Rolling capture | `~/.hermes/profiles/coder/t3/usb_rolling_capture.py` | Originally usbmon5; follow-up running arguments `1 1-5` select usbmon1 and matching hub. Journal watcher, file rotation/copy; read-only USB access. |
 | Actual controller | `~/.config/systemd/user/viture-workspace-controller.service` | Imports feature-placement-menu-integrate; key tracking/hyprland files compared to investigative branch. |
 | Udev child probing | `/usr/lib/udev/rules.d/69-libmtp.rules:38` | mtp-probe during enumeration. Matched first-drop journal comparison has no immediate MTP precursor. |
 | Steam timer | `~/.local/share/SLSsteam/ensure-desktop-coverage.sh --guardian` | Desktop launcher reconciliation every5minutes; observed association weak and nonspecific. No direct USB action found by scoped search. |

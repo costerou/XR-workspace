@@ -32,7 +32,7 @@ for d in /sys/bus/usb/devices/*; do
 done
 ```
 
-Do not keep relying on `usbmon5`: the glasses were on bus1 at the cutoff. Once Cody has approved capture access, a passive recorder can use the current bus:
+Do not rely on an old `usbmon5` capture: the glasses were on bus1 at the cutoff. Follow-up verified the existing rolling recorder now runs with arguments `1 1-5`; prefer its retained snapshots rather than adding a duplicate reader. Once Cody has approved capture access, a passive recorder can use the current bus:
 
 ```bash
 # Only when the identity listing above confirms bus1 and this node is readable.
