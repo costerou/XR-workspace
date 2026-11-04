@@ -116,3 +116,28 @@ red identity/profile checks must turn green after platform integration. Provider
 command boundary, native wire, recovery and live gate requirements above remain
 explicit gates, not completed QA claims. Next safe live gate is parent-supervised
 G0 passive re-identification; provider and XR gates remain blocked.
+
+## Parent integration update
+
+Parent reports all six stream heads merged, with direct `managed.run_managed` and
+`recover_managed` PRO 2 rejection before client calls. Parent also reports native
+CTest **103/103 passed** using explicit renderD129 and fake runtime; this is
+parent-supplied offline evidence, not a QA rerun or live acceptance. Integrated
+Python suites are being run with pytest 9.2.0 and dependencies from existing uv
+cache on sys.path, without installation. Earlier missing pytest was an interpreter
+dependency issue, not an assertion failure; do not count it as product failure or
+assume the integrated Python run has completed.
+
+PRO 2 physical control is **HOLD L1, never R1**. Keep SBS disabled throughout the
+initial gates. Exact USB/product identity and independent `pro2` profiles remain
+mandatory. Future hardware activation is achievable through the staged provider,
+axis and lifecycle gates with parent consent once blockers are resolved; current
+refusal is not a permanent unsupported verdict.
+
+QD1 remains present in driver source at reviewed committed head `9785c1c`: PID
+read failure skips exact product inspection. Integrator should close this in the
+integrated source and rerun its regression; managed entrypoint guards add defense
+but do not repair the independent tracking entrypoint's incomplete-identity check.
+See qa-driver-review.md. Driver report now explicitly acknowledges preflight's
+runtime hotplug confinement limitation and reports 113 lifecycle tests passed;
+those are sibling results, distinct from QA's six-case rerun.
