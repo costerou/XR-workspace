@@ -11,7 +11,10 @@ SDK_SHA='8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e'
 
 def build(build_dir,destination):
     build_dir=Path(build_dir).absolute();destination=Path(destination).absolute()
-    destination.mkdir(mode=0o700,parents=False,exist_ok=False);(destination/'bin').mkdir(mode=0o700)
+    destination.mkdir(mode=0o700,parents=False,exist_ok=False)
+    from tools.pro2_runtime.launch import validate_bundle_location
+    validate_bundle_location(destination)
+    (destination/'bin').mkdir(mode=0o700)
     bridge=destination/'bin/pro2-sdk-bridge'
     subprocess.run(['c++','-std=c++20','-O2','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-pthread',
         '-I'+str(ROOT/'spike/driver/include'),str(ROOT/'tools/pro2_runtime/bridge.cpp'),str(ROOT/'spike/driver/src/publish.cpp'),'-lcrypto','-ldl','-o',str(bridge)],check=True)

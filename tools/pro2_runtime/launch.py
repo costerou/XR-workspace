@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 import secrets
 import threading
@@ -30,16 +31,45 @@ def pinned_fd(path,digest):
     except BaseException:os.close(fd);raise
 
 
-def verify_manifest(root):
+def validate_bundle_location(root):
+    """Dedicated supervised artifact path grammar, not normal installed-layout grammar.
+
+    Hyprland's plugin request is tokenized text (no shell). Restrict every root
+    component, require canonical/no-symlink location, then pin the exact suffix.
+    """
     root=Path(root).absolute()
+    if str(root)!=os.path.normpath(str(root)) or any(part in ('.','..') or not re.fullmatch(r'[A-Za-z0-9_.-]+',part) for part in root.parts[1:]):
+        raise ValueError('unsupported supervised bundle location: canonical ASCII path without whitespace/control tokens required')
+    if not root.is_dir() or root.resolve(strict=True)!=root:
+        raise ValueError('unsupported supervised bundle location: directory and ancestors must not be symlinks')
+    return root
+
+
+def validate_bundle_plugin(root,manifest,path=None):
+    root=validate_bundle_location(root)
+    expected=root/'bin/libxr-ownership.so'
+    if path is not None and (not isinstance(path,str) or path!=str(expected)):
+        raise ValueError('supervised bundle plugin pin required')
+    if expected.resolve(strict=True)!=expected:
+        raise ValueError('supervised bundle plugin must not traverse symlinks')
+    digest=manifest.get('files',{}).get('bin/libxr-ownership.so')
+    if not isinstance(digest,str) or not re.fullmatch('[0-9a-f]{64}',digest):raise ValueError('supervised plugin manifest pin missing')
+    fd=pinned_fd(expected,digest);os.close(fd)
+    return str(expected)
+
+
+def verify_manifest(root):
+    root=validate_bundle_location(root)
     manifest=json.loads((root/'manifest.json').read_text())
     if manifest.get('schema')!=1 or manifest.get('sdk_sha256')!=SHA256:raise ValueError('runtime manifest scope')
     for name,digest in manifest['files'].items():
         p=Path(name)
         if p.is_absolute() or '..' in p.parts:raise ValueError('manifest path')
+        if (root/p).resolve(strict=True)!=root/p:raise ValueError('bundle artifacts must not traverse symlinks')
         fd=pinned_fd(root/p,digest);os.close(fd)
     for name in ('bin/pro2-sdk-bridge','bin/xr-native-spike','bin/libxr-ownership.so'):
         if name not in manifest['files']:raise ValueError('required artifact missing')
+    validate_bundle_plugin(root,manifest)  # same exact check as command, before SDK owner construction
     return root,manifest
 
 
