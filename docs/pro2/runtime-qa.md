@@ -1,6 +1,8 @@
 # Independent PRO 2 runtime QA
 
-Status: runtime bridge acceptance pending; this is not a replay-only signoff.
+Status: independent offline native/wrapper/controller acceptance GREEN on
+`c31cc3180071fca0feee823273d3a713997b2ff8`; RQ1–RQ5 closed.
+Final rebuilt package review pending. No hardware/runtime activation performed.
 QA branch safely fast-forwarded to evidence head
 `1d141f87097cf122a7b035f4324b67c747bfd26a`. No source edits outside QA tests/docs.
 
@@ -14,15 +16,15 @@ firmware `30.0.00.002_20260804`. This QA never loads the installed SDK.
 
 | Boundary | Required independent check | State |
 | --- | --- | --- |
-| Admission | wrong VID/PID/product, duplicate/mixed devices, changed/missing identity, bad hash reject before SDK load or publication | diagnostic baseline covered; actual bridge pending |
-| SDK ABI | compiled synthetic exported functions, pointer width, callback signature, family/capability/firmware and nonzero API results | actual bridge pending |
-| Lifetime | exactly one owner, errors at every init/open/close/stop/shutdown stage, callbacks racing cleanup, idempotent teardown | actual bridge pending |
-| Bounded delivery | queue overflow terminal, no callback IPC or blocking, receipt/stamp clocks valid, no implicit recovery | actual bridge pending |
-| Readiness | disabled before required samples; no pose, invalid pose, stale receipt/clock reversal fail closed and disable feed | actual bridge pending |
-| Native bridge | actual compiled publisher -> existing reader/PoseState in fresh user+IPC namespace, zero unproven correction, private keys/cleanup | replay baseline only; bridge pending |
-| Controller test route | explicit supervised-test authorization; default denial; scoped projection override only; no normal production bypass | actual route pending |
+| Admission | wrong VID/PID/product, duplicate/mixed devices, changed/missing identity, bad hash reject before SDK load or publication | native identity/hash rejection verified |
+| SDK ABI | compiled synthetic exported functions, pointer width, callback signature, family/capability/firmware and nonzero API results | native fixture tests passed on c31cc31 |
+| Lifetime | exactly one owner, errors at every init/open/close/stop/shutdown stage, callbacks racing cleanup, idempotent teardown | native fixture tests passed on c31cc31 |
+| Bounded delivery | queue overflow terminal, no callback IPC or blocking, receipt/stamp clocks valid, no implicit recovery | native fixture tests passed on c31cc31 |
+| Readiness | disabled before required samples; no pose, invalid pose, stale receipt/clock reversal fail closed and disable feed | native fixture tests passed on c31cc31 |
+| Native bridge | actual compiled publisher -> existing reader/PoseState in fresh user+IPC namespace, zero unproven correction, private keys/cleanup | actual native worker + independent reader passed |
+| Controller test route | explicit supervised-test authorization; default denial; scoped projection override only; no normal production bypass | actual wrapper/controller tests passed |
 | Isolation | simulated SDK only, fresh user+IPC+network namespace, no host IPC, no compositor/GPU/services or devices | all execution commands explicitly isolated |
-| Legacy models | Luma/Beast guards, defaults, saved settings, wire/calibration semantics unchanged | baseline regressions; integrated route pending |
+| Legacy models | Luma/Beast guards, defaults, saved settings, wire/calibration semantics unchanged | 83 legacy/managed regressions passed |
 
 ## Reviewed baseline limits
 
@@ -210,3 +212,54 @@ python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -p test_co
 ```
 
 Lead notified promptly. Evidence: qa-evidence/runtime/recovery-rq4-rq5-red.txt.
+
+## Independent final functional recheck: c31cc31
+
+Exact committed functional head:
+`c31cc3180071fca0feee823273d3a713997b2ff8` (read from integration branch).
+Merged committed fixes into own QA branch before execution. **RQ1–RQ5 CLOSED**.
+RQ4 no-SBS scope propagates into explicit recovery and normal teardown;
+RQ5 successful recovery confirms ownership presence and unloads pinned bundle plugin.
+Legacy default restoration remains enabled for other models.
+
+Legitimate fixture updates: successful fake managed run now includes
+renderer_returncode=0 as real managed results do; explicit recovery fake client
+reports exact ownership plugin present. Missing/nonzero renderer code must not
+claim success. No production checks were weakened.
+
+Independent final commands/results:
+
+```
+python tests/pro2_runtime_qa/run.py
+# 28 tests passed, 13.612s
+python tests/pro2_runtime/run.py
+# 6 tests passed, 4.115s; actual native PoseState pipeline
+PYTHONPATH=.:tests/native_spike unshare -Ur -i -n -- python -m unittest tests.pro2.test_managed_boundary tests.xr_controller.test_pro2_platform tests.native_spike.test_panel_consent tests.native_spike.test_profiles tests.native_spike.test_managed tests.native_spike.test_recovery -q
+# 83 tests passed, 2.335s
+```
+
+The 28-case independent suite now also verifies failed Popen acquisition cleanup,
+SDK stdout cannot spoof ready on dedicated status FD (fixture text stays private),
+NoDeviceSbs enter denial/reassert/switching/close and VideoControl.close never create
+button adapters, and actual supervisor argv includes only the explicit private
+prefix/projection on test scope while legacy argv remains unchanged. Existing
+normal managed Pro2 start/recovery still reject before client calls. Neither
+Luma/Beast defaults nor profiles are silently migrated by this test route.
+
+All commands use fresh user/IPC/network namespaces for any SDK fixture/native IPC.
+The real SDK is never loaded; renderer/plugin test bytes in the independent
+controller test are inert and hash-checked. Compositor run is injected; real native
+reader/PoseState pipeline is CPU-only. No live compositor/GPU/mode/USB/controller
+or service operation occurred. Readiness is transport readiness, not field
+calibration. H1 and ns-scale remain pinned candidate scope; optical projection
+is explicitly provisional and consent-bound, no -8.5 correction or automatic46
+fallback. Snapshot topology polling does not atomically confine future SDK
+hotplug; exclusive bounded test topology remains a condition for parent approval.
+Opaque SDK hangs still rely on wrapper TERM/kill deadlines; these tests do not
+claim graceful cleanup of every proprietary hang or hardware firmware failure.
+
+Package check pending: current `build/pro2-runtime-review/manifest.json` observed
+source_commit=be41233, predating RQ4/RQ5. Lead notified to rebuild after fixes/QA
+merge. That older bundle is **not** the final accepted artifact. Do not install or
+activate it on the strength of code/test acceptance above. Fresh bundle hashes,
+source pin and provenance must be verified before final artifact handoff.

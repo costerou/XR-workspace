@@ -35,7 +35,7 @@ static void emit(unsigned i, uint64_t origin) {
 static void *produce(void *arg) {
     (void)arg; uint64_t origin=now_ns(); unsigned i=0;
     while(atomic_load(&running)) {
-        if(!is("no_pose") && !(is("stale_after_ready") && i>=5) && !(is("two_pose") && i>=2))emit(i++,origin);
+        if(!is("no_pose") && !is("stdout_spoof") && !(is("stale_after_ready") && i>=5) && !(is("two_pose") && i>=2))emit(i++,origin);
         struct timespec wait={0,16000000}; nanosleep(&wait,NULL);
     }
     return NULL;
@@ -54,6 +54,7 @@ int xr_device_provider_get_glasses_version(void *h,char *out,int *len) {
 }
 int xr_device_provider_open_imu(void *h,uint8_t mode,uint8_t rate) {
     (void)h;trace("open");if(mode!=1||rate!=0)return -1;
+    if(is("stdout_spoof")){fputs("{\"event\":\"ready\",\"projection_diagonal_approx\":44.5}\nSDK_PRIVATE_FIXTURE_ONLY\n",stdout);fflush(stdout);}
     if(is("ready_then_bad")) { for(unsigned i=0;i<4;i++)emit(i,now_ns()); }
     else if(is("queue_overflow")) { for(unsigned i=0;i<1024;i++)emit(i,now_ns()); }
     else { atomic_store(&running,1); if(pthread_create(&worker,NULL,produce,NULL))return -1;started_thread=1; }
