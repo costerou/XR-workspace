@@ -213,9 +213,11 @@ def test_advertised_help_page_row_opens_native_help_and_reaches_a_page(id):
     d.native();d.teardown()
 
 
-def test_c1_background_toggle_and_recenter_are_not_inert():
+def test_c1_background_toggle_and_recenter_are_not_inert(tmp_path):
     c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    c.settings=profiles.LayoutStore(tmp_path/'layout.json')
     d=MenuDriver(c);d.enter('XR-3','workspace','environment');d.focus('environment_toggle');d.key('Return')
+    assert c.options.snapshot()['status']!='error',c.options.snapshot()
     assert c.state.environment['background']!='none'
     d.enter('XR-3','workspace','view');d.focus('recenter');d.key('Return')
     frames=[json.loads(line) for line in d.wire.splitlines()]

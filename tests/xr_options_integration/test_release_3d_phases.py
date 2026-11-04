@@ -2,7 +2,7 @@
 import json
 import pytest
 from tools.native_spike.view import ViewControl,ViewState
-from tools.native_spike import immersive
+from tools.native_spike import immersive, profiles
 from tools.native_spike.supervisor import Supervisor
 from test_immersive import FakeEngine,FakeSbs,wait_for
 from test_menu_end_to_end import MenuDriver
@@ -10,11 +10,11 @@ from test_menu_end_to_end import MenuDriver
 
 @pytest.mark.parametrize('scope,id',[('monitor','immersive_monitor'),('workspace','immersive_all')])
 @pytest.mark.parametrize('failure',[False,True])
-def test_c1_3d_desired_engine_physical_and_native_drawing_remain_distinct(scope,id,failure):
+def test_c1_3d_desired_engine_physical_and_native_drawing_remain_distinct(scope,id,failure,tmp_path):
     log=[];notes=[]
     engine=FakeEngine(log,fail=immersive.EngineError('engine failed at authoritative startup') if failure else None)
     run=immersive.ImmersiveRun(engine,FakeSbs(log))
-    c=ViewControl(ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    c=ViewControl(ViewState(['XR-1','XR-3']),'run','session',lambda n:None,profiles.LayoutStore(tmp_path/'layout.json'),None)
     c.immersive_run=run;c.notify=notes.append
     d=MenuDriver(c)
     try:
