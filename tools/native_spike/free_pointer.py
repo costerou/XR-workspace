@@ -1372,9 +1372,13 @@ class OverviewPointer:
                 q = desktop_to_glass(tile, p, unproject(g, tile, p, self.pointer))
                 r = og.panel_rect(tile, pill_rect(tile))
                 if og.inside(r, q): return ('options_panel', i, q[0]-r[0], q[1]-r[1])
-        for i in front_order(g, placements):
+        order=front_order(g,placements)
+        qs={i:unproject(g,g['tiles'][i],placements[i],self.pointer) for i in order}
+        picture=next((i for i in order if qs[i] is not None and inside_by(g['tiles'][i],qs[i])>=ENTER_PX),None)
+        if picture is not None: return None  # gear atlas is drawn before captured desktop pictures
+        for i in order:
             tile = g['tiles'][i]
-            q = desktop_to_glass(tile, placements[i], unproject(g, tile, placements[i], self.pointer))
+            q = desktop_to_glass(tile, placements[i], qs[i])
             if og.gear_hit(pill_rect(tile), q): return ('options_gear', i)
         return None
 

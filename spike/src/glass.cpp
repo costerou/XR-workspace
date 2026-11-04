@@ -97,9 +97,9 @@ FRect glass_panel(const FRect& t) {
     return {t.x + (t.width - kPanelW) / 2, t.y + t.height + kGlassPillGap, kPanelW, kPanelH};
 }
 
-float glass_panel_shift(const Canvas& c, const FRect& tile, const Placement& on) {
+float glass_panel_shift(const Canvas& c, const FRect& tile, const Placement& on, bool options) {
     if (c.view_w <= 0 || c.view_h <= 0 || tile.width <= 0 || tile.height <= 0) return 0;
-    const FRect panel = glass_panel(tile);
+    const FRect panel = options ? options_panel(tile) : glass_panel(tile);
     auto at = [&](float gx) {  // the panel's bottom edge at glass x `gx`
         const auto [x, y] = glass_to_desktop(tile, on, gx, panel.y + panel.height);
         return place_point(c, tile, on, x, y);

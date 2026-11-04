@@ -1099,7 +1099,7 @@ int main(int argc, char** argv) {
         std::memcpy(CMSG_DATA(c), &fd, sizeof fd);
         (void)!::sendmsg(control[0], &msg, MSG_NOSIGNAL);
         ::close(fd);
-        raw(std::string(xr::kMaxControlPending + 8192, 'x') + "\n");  // 9. a frame with no sensible end
+        raw(std::string(16384 + 8192, 'x') + "\n");  // 9. oversized non-options frame; fits this nonblocking send
         send_frame(next_request++, "video", open);  // good, and no descriptor waits for it: stderr says so
         std::string placements;
         for (int i = 0; i < opt.outputs; ++i) placements += std::string(i ? "," : "") + "{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}";

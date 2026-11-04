@@ -1669,10 +1669,10 @@ Status Presentation::draw_test_pattern() {
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
             float shift = 0;  // for the panel as it is drawn: on the surface a held slider keeps it on
-            const int open = overview && s.glass.open() ? s.glass.content_desktop() : -1;
+            const int open = glass.options ? glass.content : overview && s.glass.open() ? s.glass.content_desktop() : -1;
             if (open >= 0 && std::size_t(open) < tiles.size()) {
                 const Canvas canvas{float(s.width), float(s.height), s.half_w, s.half_h};
-                shift = glass_panel_shift(canvas, tiles[std::size_t(open)], glass.surface && glass.surface_desktop == open ? *glass.surface : s.target_placement(std::size_t(open)));
+                shift = glass_panel_shift(canvas, tiles[std::size_t(open)], glass.surface && glass.surface_desktop == open ? *glass.surface : s.target_placement(std::size_t(open)), glass.options);
             }
             s.panel_shift.set(shift, help_now);
         }

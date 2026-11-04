@@ -856,7 +856,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         };
         for (const std::size_t i : order) {
             if (i >= s.textures.size() || i >= g.bars.size()) continue;
-            if(g.pills || int(i)==highlight) {
+            if((g.pills && g.bars[i]) || (highlight_alpha < .5f && int(i)==highlight)) {
                 bool restore=g.maximized && int(i)==highlight, hot=false;
                 if(s.free_pointer){auto [a,e]=Impl::dot_direction(canvas,s.free_x,s.free_y,s.free_directed,s.free_az,s.free_el);Vec3 ray{std::cos(e)*std::sin(a),std::sin(e),-std::cos(e)*std::cos(a)};
                   auto hit=options_maximize_ray(canvas,tiles[i],s.resolved[i],ray);hot=bool(hit);

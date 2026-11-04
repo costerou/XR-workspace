@@ -146,6 +146,11 @@ class Supervisor:
                         target=getattr(self.control,'view',self.control)
                         menu=getattr(target,'options',None)
                         if menu is not None: menu.acknowledge(rid)
+                    elif isinstance(value, dict) and set(value) == {'maximize_geometry'}:
+                        handler=getattr(self.control,'set_maximize_geometry',None)
+                        if handler is not None:
+                            try: handler(value['maximize_geometry'])
+                            except ValueError: handler(None)
                     elif isinstance(value, dict) and set(value) == {'overview_geometry'}:
                         # The overview's canvas and desktop slots, sent when they change (free pointer hit testing).
                         from .free_pointer import parse_overview_geometry

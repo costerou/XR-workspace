@@ -95,3 +95,18 @@ class NativeOwnerTests(unittest.TestCase):
         self.assertIsNone(editor.text_input)
 
 if __name__ == '__main__': unittest.main()
+
+class SessionAdapterTests(unittest.TestCase):
+    def test_native_stop_uses_existing_interrupt_unwind(self):
+        c=ViewControl(ViewState(['XR-1']),'run','session',None,None,None)
+        self.assertIn('stop',[r['id'] for r in options_rows(c,'workspace','XR-1','session')])
+        with self.assertRaises(KeyboardInterrupt): options_apply(c,'stop','confirmed','XR-1','workspace')
+        with self.assertRaises(ValueError): options_apply(c,'stop','','XR-1','workspace')
+
+class ViewAdapterTests(unittest.TestCase):
+    def test_follow_locked_choices_maximize_target_through_existing_actions(self):
+        c=ViewControl(ViewState(['XR-1','XR-3']),'run','session',lambda name: None,None,None)
+        options_apply(c,'mode_locked','','XR-3','monitor')
+        self.assertTrue(c.state.zoomed)
+        self.assertEqual(c.state.selected,1)
+        self.assertEqual(c.state.mode,'locked')

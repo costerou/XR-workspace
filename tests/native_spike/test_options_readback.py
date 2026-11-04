@@ -21,3 +21,10 @@ class ReadbackTests(unittest.TestCase):
   m=OptionsMenu(c,rows=lambda *a:[dict(id='send',label='Send',scope='monitor',kind='action',value='',enabled=True)],apply=lambda *a:b'')
   m.open('XR-1');m.intent('options_activate',row_id='send',monitor='XR-1',scope='monitor',revision=m.snapshot()['revision'],value='')
   m.refresh();self.assertEqual(m.snapshot()['status'],'pending')
+
+ def test_native_placement_child_replaces_parent_surface(self):
+  c=ViewControl(ViewState(['XR-1']),'run','session',None,None,None)
+  c.options.open('XR-1');d=c.options.snapshot()
+  c.options.intent('options_activate',row_id='menu_toggle',monitor='XR-1',scope='monitor',revision=d['revision'],value='')
+  self.assertTrue(c.state.menu_open)
+  self.assertFalse(c.options.snapshot()['open'])

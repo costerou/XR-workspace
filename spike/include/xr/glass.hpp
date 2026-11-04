@@ -135,7 +135,7 @@ bool glass_panel_action_enabled(std::size_t action, const PlacementMenuState& st
 // outer desktops sit lower in the view then). 0 when it fits.
 constexpr float kPanelShiftMarginPx = 12.f, kPanelShiftMax = 0.26f;  // ~15 degrees: a huge desktop's panel is left to your head
 constexpr double kPanelShiftMs = kGlassExpandMs;
-float glass_panel_shift(const Canvas& canvas, const FRect& tile, const Placement& placement);
+float glass_panel_shift(const Canvas& canvas, const FRect& tile, const Placement& placement, bool options = false);
 // `view` with the camera pitched down by `angle` radians: the rotation R(angle) * view in the eye's frame. `angle` 0: `view`.
 Mat3 glass_view_shift(const Mat3& view, float angle);
 // The shift's ease, on the renderer's monotonic clock (ms): from wherever it is to the latest target, over kPanelShiftMs.

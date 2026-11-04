@@ -96,3 +96,14 @@ class KeyboardTests(unittest.TestCase):
         c.options.open('XR-1'); c.options.intent('options_focus',focus=0)
         c.options_key('Right')
         self.assertEqual(values,[ -5 ])
+
+class OcclusionTests(unittest.TestCase):
+    def test_gear_behind_another_desktop_never_steals_its_click(self):
+        from tools.native_spike import view, free_pointer as fp, options_geometry as geo
+        c=view.ViewControl(view.ViewState(['XR-1','XR-2']),'run','session',None,None,None)
+        p=fp.OverviewPointer(c)
+        g=dict(w=1920,h=1080,half=(.36,.225),tiles=[(500,200,300,200),(400,395,600,350)])
+        p.geometry=g
+        r=geo.gear_rect(fp.pill_rect(g['tiles'][0]))
+        p.pointer=fp.project(g,g['tiles'][0],c.state.placements[0],r[0]+r[2]/2,r[1]+r[3]/2)
+        self.assertIsNone(p._options_hit())

@@ -177,15 +177,16 @@ class OptionsMenu:
             if original is None: return False
             original['revision']=self.data['revision']
             return self.intent('options_confirm',**original)
-        if row['id'] in ('remove_monitor','layout_reset') and name!='options_confirm':
+        if row['id'] in ('remove_monitor','layout_reset','stop') and name!='options_confirm':
             self.confirmation=dict(fields); self.child='confirmation'
-            warning='Evacuate windows to physical fallback; keep at least one monitor' if row['id']=='remove_monitor' else 'Reset remembered layout with window migration'
+            warning={'remove_monitor':'Evacuate windows to physical fallback; keep at least one monitor','layout_reset':'Reset remembered layout with window migration','stop':'Stop XR and return windows to physical fallback'}[row['id']]
             self.data['rows']=[dict(id='confirmation.apply',label=warning,scope=self.data['scope'],kind='action',value='',enabled=True),dict(id='confirmation.cancel',label='Cancel',scope=self.data['scope'],kind='action',value='',enabled=True)]
             self.data['focus']=0; self._bump(); return True
         if row['kind']=='toggle' and type(value) is not bool: return False
         if row['kind']=='range' and (type(value) not in (int,float) or not row.get('minimum',value)<=value<=row.get('maximum',value)): return False
         if row['kind']=='choice' and value not in row.get('choices',[]): return False
         try:
+            if name=='options_confirm' and row['id'] in ('remove_monitor','layout_reset','stop'): value='confirmed'
             callback=self._apply
             if callback is None:
                 from .options_actions import options_apply
@@ -193,6 +194,9 @@ class OptionsMenu:
             result=callback(self.control,row['id'],value,fields['monitor'],fields['scope'])
             if result is False: raise ValueError('Owner rejected change')
             if isinstance(result,bytes): self.output += result
+            if getattr(self.control.state,'menu_open',False) or getattr(self.control.state,'zoomed',False) or getattr(self.control,'video_active',False) or getattr(self.control,'help_visible',False):
+                self.close('native child')
+                return True
             self.pending_ids=set()
             if isinstance(result,bytes):
                 for line in result.splitlines():

@@ -9,24 +9,25 @@ from . import environment, immersive, geometry, quality
 from .options_editors import NativeEditors, row
 
 CATEGORIES = ('placement','output','3d','stabilization','layout','environment','view','video','input','keybinds','windows','privacy','help','session')
-SCOPE_CATEGORIES = {'monitor': ('placement','output','3d','view','windows'),
-                    'workspace': ('3d','stabilization','layout','environment','view','video','input','keybinds','windows','privacy','help','session')}
 
 ALIASES = {'video_open':'video_browse', 'video_paste_ui':'video_paste',
            'background_switch':'environment_toggle', 'immersive_strength_presets':'immersive_strength'}
 
 # Explicit routes; modal navigation remains owned by the existing native child.
 ACTIONS = {
- 'view': ('zoom_in', 'zoom_out', 'prev', 'next', 'recenter', 'mode_next', 'mode_follow', 'mode_locked'),
+ 'view': ('zoom_in', 'prev', 'next', 'recenter', 'mode_follow', 'mode_locked'),
  'layout': ('spacing_down', 'spacing_up', 'layout_reset', 'add_monitor'),
  'input': ('typing_toggle',), 'windows': ('send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'send_back'),
  'privacy': ('privacy_display',), 'help': ('help', 'help_prev', 'help_next'),
  'video': ('video_browse', 'video_play', 'video_paste', 'video_pause', 'video_seek_back', 'video_seek_fwd', 'video_seek_back_big', 'video_seek_fwd_big', 'video_format', 'video_quality', 'video_controls', 'playback_menu_toggle', 'video_exit'),
- 'keybinds': ('binds_toggle',), 'placement': ('menu_toggle', 'menu_reset', 'placement_flat', 'placement_apply', 'roll_ccw', 'roll_level', 'roll_cw'),
+ 'keybinds': ('binds_toggle',), 'placement': ('menu_toggle', 'menu_reset', 'placement_flat', 'roll_ccw', 'roll_level', 'roll_cw'),
  'output': ('ultrawide', 'remove_monitor'),
+ 'session': ('stop',),
 }
 MONITOR_ACTIONS = {'zoom_in', 'prev', 'next', 'send_glasses', 'send_glasses_1', 'send_glasses_2', 'send_glasses_3', 'send_glasses_4', 'menu_toggle', 'menu_reset', 'placement_flat', 'placement_apply', 'roll_ccw', 'roll_level', 'roll_cw', 'ultrawide', 'remove_monitor'}
+MONITOR_ACTIONS.update(('mode_follow','mode_locked'))
 LABELS = {'menu_toggle':'Placement editor', 'video_browse':'Choose local video', 'video_play':'Enter video URL', 'binds_toggle':'Edit key bindings', 'layout_reset':'Reset layout (migration confirmation)', 'remove_monitor':'Remove monitor (evacuate to physical fallback)'}
+LABELS.update(mode_follow='Maximize in Follow mode',mode_locked='Maximize in Locked mode')
 
 
 def _index(control, scope, monitor):
@@ -85,7 +86,10 @@ def options_rows(control, scope, monitor, category):
         for setting in quality.SETTINGS:
             out.append(row('quality_'+setting.key,setting.label,'choice',str(s.video_quality[setting.key]), choices=[str(v) for v,_ in setting.choices]))
     if category == 'session' and scope == 'workspace':
-        out.append(row('status','Session status','readonly','External status and emergency Stop remain available'))
+        out.append(row('session_identity','Session','readonly',control.session))
+        measured=getattr(getattr(control,'supervisor',None),'status',{})
+        for key in ('presented_hz','missed','capture_path','pose_age_ms','tracking'):
+            out.append(row('status_'+key,key.replace('_',' ').capitalize(),'readonly',measured.get(key,'Not measured')))
     for item in out:
         id = item['id']
         if s.typing and id != 'typing_toggle': item['enabled'] = False
@@ -95,7 +99,8 @@ def options_rows(control, scope, monitor, category):
             if id == 'add_monitor': item['enabled'] &= len(s.names)<geometry.MAX_DESKTOPS
         if id.startswith('video_') or id.startswith('quality_') or id == 'playback_menu_toggle':
             item['enabled'] = getattr(control,'options_video',None) is not None
-        if id == 'mode_next' or id in ('mode_follow','mode_locked'): item['enabled'] = s.zoomed
+        if id.startswith('video_') and id not in ('video_browse','video_play','video_paste','video_quality'):
+            item['enabled'] &= control.video_active
         if id == 'binds_toggle': item['enabled'] = control.keys is not None
         if id.startswith('send_'): item['enabled'] = control.sender is not None
         if id == 'privacy_display': item['enabled'] = control.privacy is not None
@@ -121,12 +126,21 @@ def options_apply(control, row_id, value, monitor, scope):
     matches = [r for r in rows if r['id']==row_id]
     if not matches: raise ValueError('row unavailable in scope')
     if not matches[0]['enabled']: raise ValueError('owner unavailable or action disabled')
+    if row_id == 'stop':
+        if value != 'confirmed': raise ValueError('Stop confirmation required')
+        raise KeyboardInterrupt  # existing managed run unwinds through Stop/recovery
+    if row_id == 'layout_reset' and value == 'confirmed':
+        out=control.layout_reset() or b''
+        if control.reset is None: out += control.layout_reset() or b''
+        return out
     if row_id in ('video_browse','video_play','binds_toggle'):
         if not hasattr(control,'options_editor'): control.options_editor = NativeEditors(control)
         return control.options_editor.open({'video_browse':'file','video_play':'url','binds_toggle':'keybinds'}[row_id])
     if row_id in ('mode_follow', 'mode_locked'):
-        if not s.zoomed: raise ValueError('mode only available maximized')
-        return control.on_message({'op':'mode_next'}) if s.maximized_mode != row_id[5:] else b''
+        out=control.select_desktop(i) or b''
+        if not s.zoomed: out += control.on_message({'op':'zoom_in'}) or b''
+        if s.maximized_mode != row_id[5:]: out += control.on_message({'op':'mode_next'}) or b''
+        return out
     if row_id == 'placement_apply' and value is None:
         control._save_placements()
         return control.pill_release()
@@ -175,7 +189,11 @@ def options_apply(control, row_id, value, monitor, scope):
             geometry.with_scale(s.size(i),value); kwargs['scale'] = value
         # Existing native placement child owns transaction arming and output readback.
         before = control.pill_click(i) if not s.menu_open or s.menu_desktop != i else b''
-        return (before or b'') + (control.desktop_action(i,{'add_monitor':'add','remove_monitor':'remove'}.get(row_id,row_id),**kwargs) or b'')
+        action={'add_monitor':'add','remove_monitor':'remove'}.get(row_id,row_id)
+        out=(before or b'') + (control.desktop_action(i,action,**kwargs) or b'')
+        if row_id=='remove_monitor' and value=='confirmed' and s.remove_armed:
+            out += control.desktop_action(i,action,**kwargs) or b''
+        return out
     if row_id in ('menu_toggle','menu_reset'):
         out = control.pill_click(i) if not s.menu_open or s.menu_desktop != i else b''
         return (out or b'') + ((control.on_message({'op':'menu_reset'}) or b'') if row_id == 'menu_reset' else b'')
