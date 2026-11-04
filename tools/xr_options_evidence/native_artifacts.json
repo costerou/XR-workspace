@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "native_owner_commit": "9c3d4cbe23381d2a191f64ed58dc57ba7dbd237d",
+  "artifacts": [
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-release/native-options-0.png",
+      "bytes": 13517,
+      "sha256": "ed1a3729e7c6043dab3620f03b2e69d7bc6d7b56c9125f5dae876270e45c9bb2",
+      "provenance": "owner-supplied; native origin and visual correctness unverified"
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-release/native-options-1.png",
+      "bytes": 25943,
+      "sha256": "98776d075f5ba0edac4031a1b7212106494b00384ae34cb89d18b1e4ac46c1af",
+      "provenance": "owner-supplied; native origin and visual correctness unverified"
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-release/native-options-2.png",
+      "bytes": 11488,
+      "sha256": "ded2dfb971c27cefdee067720f522308d9cf9b43651ee57a029d32d9354d2390",
+      "provenance": "owner-supplied; native origin and visual correctness unverified"
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-release/native-options-3.png",
+      "bytes": 12479,
+      "sha256": "fad67bba51f05f8add69b53ab17223dffea2afde8330939bdea1d93278534a64",
+      "provenance": "owner-supplied; native origin and visual correctness unverified"
+    },
+    {
+      "path": "/home/cody/.hermes/profiles/coder/previews/xr-options/build/native-release/native-options.mp4",
+      "bytes": 22371,
+      "sha256": "e224c9c051a613cd2556888b661dca7b26e818a4a180b56db8f1288e391235e1",
+      "provenance": "owner-supplied; native origin and visual correctness unverified"
+    }
+  ],
+  "declared_origin": "Native owner: production CPU raster composition, captured-picture placeholder",
+  "limitations": [
+    "Not actual projected GPU evidence",
+    "No live XR or glasses signoff",
+    "Hashes/signatures establish integrity, not native provenance or visual equivalence"
+  ]
+}
