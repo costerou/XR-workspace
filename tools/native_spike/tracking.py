@@ -188,7 +188,10 @@ def start(runtime, timeout=120.0):
             if not now['running']:
                 raise ValueError('tracking driver exited during startup')
             if not now['network_isolated']:
-                raise ValueError('tracking driver is not network-isolated; stopped')
+                # A process that just died has no network to read, which is not a leak: say what happened.
+                try: child.wait(0.2)
+                except subprocess.TimeoutExpired: raise ValueError('tracking driver is not network-isolated; stopped') from None
+                raise ValueError('tracking driver exited during startup')
             if now['calibrated']: return now
             if child.poll() is not None: break
             time.sleep(0.2)

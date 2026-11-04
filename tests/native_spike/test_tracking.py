@@ -96,6 +96,31 @@ class QuietDriverEnvTests(unittest.TestCase):
             self.assertEqual((env['XR_QUIET_DOF'], env['XR_QUIET_RECONNECT_HOLD_MS']), ('3', '20000'))
 
 
+class DiedDuringStartTests(unittest.TestCase):
+    """2026-11-04: a driver that crashed at once was reported as a network leak, and the incident report believed it."""
+    def start(self, child_exits):
+        class Child:
+            pid = 1
+            def wait(self, timeout):
+                if child_exits: return 1
+                raise subprocess.TimeoutExpired('driver', timeout)
+            def poll(self): return 1 if child_exits else None
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        runtime = Path(tmp.name)
+        with patch.object(tracking, '_check_config'), patch.object(tracking, '_check_access'), patch.object(tracking, '_other_drivers', lambda: []), \
+             patch.object(tracking, '_driver_env', lambda: {}), patch.object(tracking, '_ours', lambda data: False), patch.object(tracking, 'DRIVER_LOG', runtime / 'none.log'), \
+             patch.object(tracking.subprocess, 'Popen', lambda *a, **k: Child()), patch.object(tracking, '_start_tick', lambda pid: 7), \
+             patch.object(tracking, '_state', lambda rt: rt / 'state.json'), patch.object(tracking, 'stop', lambda rt: None), \
+             patch.object(tracking, 'status', lambda rt: {'running': True, 'network_isolated': False, 'calibrated': False}):
+            tracking.start(runtime, timeout=5)
+
+    def test_a_dead_driver_is_called_dead(self):
+        with self.assertRaisesRegex(ValueError, 'exited during startup'): self.start(True)
+
+    def test_a_live_one_on_the_network_is_still_refused(self):
+        with self.assertRaisesRegex(ValueError, 'not network-isolated'): self.start(False)
+
+
 class AccessTests(unittest.TestCase):
     def node(self, mode):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)

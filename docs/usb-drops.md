@@ -80,6 +80,12 @@ one. It adds one call into the library that driver already loads, and links noth
 
 **A clear refusal.** With glasses this user cannot open, Start says to replug them, where the driver used to segfault in the SDK.
 
+That segfault, `Cannot open device` then `jcx start failed` then `carina_a1088_read_custom_data`, is not a 6DoF or camera failure and
+says nothing about the drops. It is the device being unopenable: every instance since the 23:31 boot of 2026-11-03 has no ACL on the
+device node, and it needs no streaming to happen. `read_custom_data` is the SDK's USB command reader, used in 3DoF too (`SendData`
+calls ran in the 3DoF probe), and upstream's own backtrace in issue #122 is the same frame. Its incidents said "not network-isolated"
+only because a dead process has no network to read; that message is fixed too.
+
 **udev rules for you to install** (`packaging/udev/71-xr-workspace-glasses.rules`). After a boot with the glasses already plugged in,
 the driver package's rule loses its access tag and the driver cannot open them until a replug. On 2026-11-03: `TAGS=:uaccess:seat:`,
 `CURRENT_TAGS=:seat:`, no ACL for the user. This is upstream issue #129. It also keeps the hub and the tracking device from
