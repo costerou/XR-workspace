@@ -1,0 +1,14 @@
+test_bad_path_verb_and_changed_hash_never_request (test_bundle_plugin_path.BundlePluginPathQA.test_bad_path_verb_and_changed_hash_never_request) ... ok
+test_cli_preflight_without_consent_state_sdk_or_client (test_bundle_plugin_path.BundlePluginPathQA.test_cli_preflight_without_consent_state_sdk_or_client) ... ok
+test_exact_parent_release_location_is_valid_with_pin_and_request_spy (test_bundle_plugin_path.BundlePluginPathQA.test_exact_parent_release_location_is_valid_with_pin_and_request_spy) ... ok
+test_normal_install_regex_unchanged (test_bundle_plugin_path.BundlePluginPathQA.test_normal_install_regex_unchanged) ... ok
+test_packager_rejects_bad_location_before_compile (test_bundle_plugin_path.BundlePluginPathQA.test_packager_rejects_bad_location_before_compile) ... ok
+test_real_fixture_hash_gate_load_unload (test_bundle_plugin_path.BundlePluginPathQA.test_real_fixture_hash_gate_load_unload) ... ok
+test_symlink_plugin_never_request (test_bundle_plugin_path.BundlePluginPathQA.test_symlink_plugin_never_request) ... ok
+test_symlink_root_or_bin_never_request (test_bundle_plugin_path.BundlePluginPathQA.test_symlink_root_or_bin_never_request) ... ok
+test_unsafe_bundle_preflight_before_client_or_sdk (test_bundle_plugin_path.BundlePluginPathQA.test_unsafe_bundle_preflight_before_client_or_sdk) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.007s
+
+OK

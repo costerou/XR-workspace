@@ -1,7 +1,10 @@
 # Independent PRO 2 runtime QA
 
-Status: independent offline native/wrapper/controller and final bundle acceptance
-GREEN on `92f01a712da4403a77f6d58b74c842549a4744f8`. RQ1–RQ5 closed;
+Latest: RQ6 release-path blocker CLOSED on actual integrated head
+`aa73af455c0790b9943fe982e7690aa83c36e03d`:9 independent path cases
+and4 lead path cases pass; no SDK/client/hardware/retry or private-log access.
+Historical native/wrapper/controller and bundle acceptance was GREEN on
+`92f01a712da4403a77f6d58b74c842549a4744f8`. RQ1–RQ5 closed;
 117 final tests passed and 287 bundle file hashes verified. No SDK/hardware/GPU
 or live compositor activation performed. Earlier pending/open states below are
 audit history, superseded by the final recheck at the end.
@@ -353,3 +356,48 @@ No SDK, compositor client, plugin or controller is actually started or contacted
 No hardware/retry/install, no private logs read. RQ6 remains open until committed
 fix is independently retested. Historical92f01a7 acceptance did not cover this
 real BundleClient path dispatch; injected compositor clients bypassed that check.
+
+## RQ6 independently CLOSED — actual integrated aa73af4
+
+Fix source commit `42416e7` merged into own QA branch. Rechecked actual integration
+worktree with HEAD read immediately before and after execution:
+`aa73af455c0790b9943fe982e7690aa83c36e03d` both times.
+
+Actual integration-worktree command (external QA-owned test file, no sibling edits):
+
+```
+unshare -Ur -i -n -- python -m unittest discover -s /home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa -p test_bundle_plugin_path.py -v
+# 9 tests passed, 0.007s
+```
+
+Also executed from own QA branch:
+
+```
+python tests/pro2_runtime_qa/run.py discover -s tests/pro2_runtime_qa -p test_bundle_plugin_path.py -v
+# 9 tests passed, 0.007s
+PYTHONPATH=.:tests/native_spike unshare -Ur -i -n -- python -m unittest discover -s tests/pro2_runtime -p test_bundle_path.py -v
+# 4 lead tests passed, 0.006s
+```
+
+Actual BundleClient plugin_load/unload methods now permit the exact parent release
+layout with only `_request` mocked. Parent-location pin operation uses duplicated
+inert temporary FD: no parent plugin/SDK content opened. Separate QA-owned bundle
+uses real pinned_fd digest check on inert plugin bytes, dispatches expected load/
+unload request strings to spy, and rejects mutated bytes before request. Both
+root/bin/plugin symlinks and wrong verb/suffix/traversal/newline reject. Normal
+installed PLUGIN_PATH pattern is identical; old installed-layout acceptance and
+review-layout exclusion under that normal rule are unchanged.
+
+`verify_manifest` now runs dedicated canonical ASCII location and exact plugin
+manifest/digest checks before any client/SDK factory. Packager rejects an unsafe
+location before compiler call. CLI `--preflight` validates own inert bundle with
+no consent/state arguments, no read_private_json, BundleClient or RuntimeSession
+calls, and reports sdk_started=False/compositor_contacted=False. No plugin really
+loaded or unloaded: request spies only. No SDK library (real or synthetic) loaded
+in this path recheck, no hardware, renderer/GPU, services, installation or XR retry.
+
+This closes the reproduced path/dispatch blocker, not the parent's physical XR
+acceptance. The earlier frozen92f01a7 artifact pin is historical and must not be
+mistaken for validation of a rebuilt path-fix release. Parent/lead must retain the
+new release's own source/hash provenance and use its no-SDK `--preflight` before
+any separately authorized retry. Private SDK logs were not read.
