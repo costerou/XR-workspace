@@ -1,3 +1,4 @@
+#include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
 #include <wayland-client.h>
 #include "presentation-time-client-protocol.h"
@@ -470,6 +471,7 @@ struct Presentation::Impl : SurfaceRequests {
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
     BindPanelOverlay binds;    // key bind panel (Ctrl+Alt+K)
     bool binds_drawn = false;  // last frame showed it: draw once more so it clears
+    OptionsMenuState options; std::optional<Placement> options_surface; HudImage options_image; std::uint64_t options_generation=1000000;
     GlassPills glass;          // glass pills and the open placement panel (supervisor-owned state)
     bool glass_drawn = false;  // last frame showed an open or closing panel: draw once more so it clears
     PanelShift panel_shift;    // the view pitched down while a panel is open, so all of it shows (glass.hpp glass_panel_shift)
@@ -698,6 +700,7 @@ struct Presentation::Impl : SurfaceRequests {
         for (const auto& name : wanted) joined += (joined.empty() ? "" : ",") + name;
         const auto names = parse_capture_list(joined, selected ? selected->name : std::string());
         if (!names) return;
+        if(options.open && std::find(names->begin(),names->end(),options.monitor)==names->end()){options.open=false;options_surface.reset();}
         std::vector<std::string> was;  // the tiles of an eased change follow their desktops by name
         for (const auto& c : captures) was.push_back(c->name);
         auto erase_at = [](auto& v, std::size_t i) { if (i < v.size()) v.erase(v.begin() + std::ptrdiff_t(i)); };
@@ -1298,6 +1301,13 @@ void Presentation::set_help(bool visible, const std::vector<std::pair<std::strin
 void Presentation::set_binds(const BindPanelState& state) {
     if (impl_ && impl_->binds.set(state, double(monotonic_ms()))) impl_->cadence.invalidate();
 }
+void Presentation::set_options_menu(const OptionsMenuState& state) {
+ if(!impl_)return;
+ if(!state.open || state.monitor!=impl_->options.monitor)impl_->options_surface.reset();
+ impl_->options=state;
+ if(state.open && std::none_of(impl_->captures.begin(),impl_->captures.end(),[&](const auto& c){return c->name==state.monitor;}))impl_->options.open=false;
+ impl_->options_image=render_options_panel(state);++impl_->options_generation;impl_->cadence.invalidate();
+}
 void Presentation::set_placement_menu(const PlacementMenuState& state, const std::optional<std::array<std::int32_t, 4>>& surface) {
     if (!impl_) return;
     if (impl_->glass.set(state, double(monotonic_ms()), surface)) impl_->cadence.invalidate();
@@ -1639,6 +1649,15 @@ Status Presentation::draw_test_pattern() {
             glass.immersive_global = s.immersive.global; glass.immersive_hover = s.immersive.hover; glass.immersive_tail = s.immersive.tail;
             // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
             if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
+            if(s.options.open && overview) {
+                for(std::size_t i=0;i<s.captures.size();++i)if(s.captures[i]->name==s.options.monitor){
+                  if(s.free_pointer.held && !s.options_surface)s.options_surface=s.target_placement(i);
+                  if(!s.free_pointer.held)s.options_surface.reset();
+                  glass.surface=s.options_surface;glass.surface_desktop=int(i);
+                  glass.options=true;glass.top=glass.content=int(i);glass.expand.fill(0);glass.expand[i]=1;
+                  glass.image=&s.options_image;glass.generation=s.options_generation;glass.content_alpha=1;
+                }
+            }
             s.gl->set_glass(glass);
             s.glass_drawn = std::any_of(glass.expand.begin(), glass.expand.end(), [](float e) { return e > 0.f; });
             float shift = 0;  // for the panel as it is drawn: on the surface a held slider keeps it on
@@ -1649,7 +1668,7 @@ Status Presentation::draw_test_pattern() {
             }
             s.panel_shift.set(shift, help_now);
         }
-        const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
+        const bool free_pointer = s.free_pointer.visible && !s.view.switching();  // overview only; world-locked on the canvas
         if (const auto dot = s.pan_dot(tiles, s.resolved_placements(tiles)))  // the hand's: the real cursor is hidden and held
             // (degrees, as the frames below)
             s.gl->set_free_pointer(true, float(s.width) / 2, float(s.height) / 2, kFreePointerLevel, true, (*dot)[0] * float(180 / M_PI), (*dot)[1] * float(180 / M_PI), PointerLook::plain);

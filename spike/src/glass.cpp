@@ -1,4 +1,6 @@
 #include "xr/glass.hpp"
+#include "xr/ipc.hpp"
+#include "xr/options_geometry.hpp"
 #include "xr/material_draw.hpp"
 #include <algorithm>
 #include <cmath>
@@ -208,7 +210,8 @@ constexpr std::uint32_t kBarCells = 1 + 2 * kLevelSegments, kCapStates = 3, kCap
 constexpr std::uint32_t kAtlasMainW = std::uint32_t(kImmersiveMainW) * kHandleAtlasScale, kAtlasTailW = std::uint32_t(kImmersiveTailW) * kHandleAtlasScale;
 constexpr std::uint32_t kAtlasMainX = kAtlasGap + kAtlasBarW + kAtlasGap + kCapStates * (kAtlasCap + kAtlasGap), kAtlasTailX = kAtlasMainX + kAtlasMainW + kAtlasGap;
 constexpr std::uint32_t kAtlasW = kAtlasTailX + kAtlasTailW + kAtlasGap;
-constexpr std::uint32_t kAtlasH = kAtlasGap + std::max(kBarCells * (kAtlasBarH + kAtlasGap), kCapCorners * (kAtlasCap + kAtlasGap));
+constexpr std::uint32_t kAtlasOldH = kAtlasGap + std::max(kBarCells * (kAtlasBarH + kAtlasGap), kCapCorners * (kAtlasCap + kAtlasGap));
+constexpr std::uint32_t kAtlasH = kAtlasOldH + 160;
 struct AtlasCell { std::uint32_t x = 0, y = 0, w = 0, h = 0; };
 AtlasCell bar_cell(std::uint32_t row) { return {kAtlasGap, kAtlasGap + row * (kAtlasBarH + kAtlasGap), kAtlasBarW, kAtlasBarH}; }
 std::uint32_t bar_row(LevelSegment segment, bool active) {
@@ -315,8 +318,22 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font) {
             draw_button_main(im, main_cell(lit, hot), m, font, lit, hot);
             draw_button_tail(im, tail_cell(lit, hot), m, lit, hot);
         }
+    for(int state=0;state<4;++state) {
+      float x=2+state*84,y=float(kAtlasOldH)+2;
+      md_fill_rounded(im,x,y,x+78,y+78,14,state>=2?m.secondary_container:m.surface_container_high,1);
+      if(state%2)md_stroke_rounded(im,x+27,y+17,x+61,y+51,2,4,m.primary,1);
+      md_stroke_rounded(im,x+18,y+26,x+52,y+60,2,4,m.primary,1);
+    }
+    for(int state=0;state<2;++state){float x=2+state*260,y=float(kAtlasOldH)+84;md_fill_rounded(im,x,y,x+250,y+60,12,m.surface_container_high,1);text(im,font,state?"Restore":"Maximize",40,true,x+12,y+30,m.on_surface);}
+    const float gx=360,gy=float(kAtlasOldH)+2;
+    md_fill_rounded(im,gx,gy,gx+84,gy+42,21,m.primary_container,1);
+    for(int tooth=0;tooth<8;++tooth){float a=float(tooth)*std::numbers::pi_v<float>/4;md_disc(im,gx+42+10*std::cos(a),gy+21+10*std::sin(a),3,m.on_primary_container,1);}
+    md_disc(im,gx+42,gy+21,10,m.on_primary_container,1);md_disc(im,gx+42,gy+21,5,m.primary_container,1);
     return im;
 }
+AtlasBox options_gear_box(){return box_of({360,kAtlasOldH+2,84,42});}
+AtlasBox options_icon_box(bool restore,bool hot){return box_of({2+(std::uint32_t(restore)+2*std::uint32_t(hot))*84,kAtlasOldH+2,78,78});}
+AtlasBox options_hint_box(bool restore){return box_of({2+std::uint32_t(restore)*260,kAtlasOldH+84,250,60});}
 
 AtlasBox level_bar_box(LevelSegment segment, bool active) { return box_of(bar_cell(bar_row(segment, active))); }
 AtlasBox immersive_main_box(bool lit, bool hot) { return box_of(main_cell(lit, hot)); }
@@ -500,6 +517,40 @@ PanelButtonStyle glass_panel_button_style(std::size_t action, const PlacementMen
     if (action == 2 && state.armed) return {m.error_container, m.on_error_container, 1.f, 1.f};  // asks before it removes
     if (action == 0 && state.wide) return {m.primary, m.on_primary, 1.f, 1.f};                    // a toggle that is on
     return {m.secondary_container, m.on_secondary_container, 1.f, 1.f};                            // filled tonal
+}
+
+HudImage render_options_panel(const OptionsMenuState& state,const HudFont* font) {
+ const auto& m=glass_theme_scheme({.45f,.65f,.8f});
+ HudImage im{600,440,std::vector<std::uint8_t>(600*440*4,0)};
+ md_fill_rounded(im,0,0,600,440,18,m.surface_container_high,1);
+ text(im,font,state.scope=="monitor"?state.monitor:"Workspace / All monitors",18,true,16,22,m.on_surface);
+ text(im,font,"Close",16,false,530,22,m.on_surface_variant);
+ text(im,font,state.scope=="monitor"?"Workspace >":"< Monitor",14,false,350,22,m.on_surface_variant);
+ const std::vector<std::string> tabs={"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"};
+ text(im,font,"Next >",14,false,446,22,m.on_surface_variant);
+ auto at=std::find(tabs.begin(),tabs.end(),state.category);std::size_t start=at==tabs.end()?0:(std::size_t(at-tabs.begin())/4)*4;
+ for(std::size_t i=start;i<std::min(start+4,tabs.size());++i){float x=16+float(i-start)*142;if(tabs[i]==state.category)md_fill_rounded(im,x,44,x+136,80,8,m.secondary_container,1);text(im,font,tabs[i],14,tabs[i]==state.category,x+6,62,m.on_surface);}
+
+
+ HudImage body{600,304,std::vector<std::uint8_t>(600*304*4,0)};
+ md_fill_rounded(body,0,0,600,304,0,m.surface_container_high,1);
+ for(std::size_t i=0;i<state.rows.size();++i){const auto& r=state.rows[i];float y=float(i)*38-float(state.scroll);if(y+38<=0||y>=304)continue;
+  if(int(i)==state.focus)md_fill_rounded(body,16,y+2,584,y+36,8,m.secondary_container,1);
+  text(body,font,r.label,16,false,16,y+19,m.on_surface,r.enabled?1:.38f);
+  if(r.kind=="range" && r.maximum>r.minimum){
+    try {float t=float(std::clamp((std::stod(r.value)-r.minimum)/(r.maximum-r.minimum),0.,1.));
+     md_fill_rounded(body,300,y+28,450,y+32,2,m.primary,.24f);
+     md_disc(body,300+150*t,y+30,5,m.primary,r.enabled?1:.38f);
+    }catch(const std::exception&){} // value is presentation text; never execute or change it
+  }
+  if(r.kind=="toggle")md_stroke_rounded(body,302,y+9,336,y+29,10,2,m.primary,r.enabled?1:.38f);
+  if(r.kind=="choice")md_icon(body,MdIcon::arrow_drop_down,570,y+19,16,m.primary);
+  auto v=r.value+(r.unit.empty()?"":" "+r.unit);
+  text(body,font,v,16,false, std::max(310.f,584.f-float(text_width(font,v,16,false))),y+19,m.on_surface_variant,r.enabled?1:.38f);
+ }
+ for(unsigned y=0;y<304;++y)std::copy_n(body.rgba.begin()+y*2400,2400,im.rgba.begin()+(y+88)*2400);
+ text(im,font,state.status+" "+state.message,14,false,16,418,m.on_surface_variant);
+ return im;
 }
 
 HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font, std::array<float, 3> accent) {
