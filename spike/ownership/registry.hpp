@@ -13,17 +13,6 @@ bool validDesktop(int w,int h,double scale);
 // cursor_shape (plugin.cpp): `name`, a requested cursor's name, if it is one plain word (1..64 of A-Za-z0-9_.-, starting with
 // a letter or digit), else nothing: whatever the compositor holds, the broker never reports more than that.
 std::string cursorShapeName(const std::string& name);
-// Which cursor changes the plugin announces (plugin.cpp cursorChanged): a name that differs from the last one announced, and no
-// more than kPerSecond of them, so an app flipping its cursor cannot fill Hyprland's event queue, which would cost its slowest
-// listener the connection. One held back is simply not said: the supervisor's own reads still find it.
-class CursorNotice {
-    std::string last;
-    std::uint64_t windowMs=0;
-    unsigned sent=0;
-public:
-    static constexpr unsigned kPerSecond=240;
-    bool announce(const std::string& shape,std::uint64_t nowMs);
-};
 struct Object { virtual ~Object() = default; bool live=true, physical=false; };
 using Handle=std::shared_ptr<Object>;
 using Capture=std::function<void(Handle,bool)>;

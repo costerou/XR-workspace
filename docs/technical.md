@@ -1053,22 +1053,23 @@ still for the whole overview and let no click or wheel reach a window.
   `g_pHyprRenderer->m_lastCursorData.name`, one plain word (`registry.cpp cursorShapeName`: 1 to 64 of `A-Za-z0-9_.-`) or
   nothing; anywhere else, or for a cursor given as a picture (`wl_pointer.set_cursor`, which has no name), it returns
   nothing. `m_cursorSurfaceInfo.name` was not used: it goes stale over empty desktop and window borders.
-  **The push** (`text-cursor-snappier`, 2026-11-03, after Cody asked for a quicker change in the glasses): every change of
-  that name goes through `IHyprRenderer::setCursorFromName` or `setCursorSurface`, so the plugin hooks those two, runs the
-  original unchanged with the same arguments, and then only looks (`Broker::cursorChanged`). If what `cursor_shape` would
-  answer for a schema-1 run has changed, it writes `xrcursor>>name` to Hyprland's event socket (socket2; the name is as
-  `cursor_shape` gives it, empty for none), which the supervisor's loop already selects on (`ViewControl.on_events`,
-  `OverviewPointer.push_shape`). `CursorNotice` says each change once and at most 240 times a second, so an app flipping
-  its cursor cannot fill Hyprland's 64-event queue, which would drop its slowest listener. Mid-lifecycle (`busy`) nothing is
-  said. Those hooks are the plugin's only state or code path beside the op: both are taken or neither, and they come out on
-  unload before the broker goes. On socket2 the line is visible to any listener of the same user, and it is only a cursor name.
-  **The reads** stay, because a push can be lost and because a cursor that did not change sends none. The sampler asks only in
+  **No cursor hooks** (hotfix, 2026-11-03). `text-cursor-snappier` hooked `setCursorFromName` and `setCursorSurface` to write
+  `xrcursor>>name` on socket2. On its first real run, 45 s in, Hyprland aborted in `CInputManager::processMouseRequest` on a
+  freed cursor surface. `hookedCursorSurface` did `std::move` on its by-value `SP<CWLSurface>`, which under the Itanium ABI is
+  the caller's temporary. The pinned `setCursorHidden` was compiled knowing the callee leaves that temporary alone: it saves
+  the control block in a stack slot and decrements that saved copy after the call. So the hook's decrement and the caller's
+  both landed, and each unhide with an app-drawn cursor lost one reference; the surface and its control block were freed while
+  `m_cursorSurfaceInfo.wlSurface` still pointed at them, and the next `wl_pointer.set_cursor` dereferenced it. A hook is
+  bound by what the compiler assumed about the real function, which the C++ signature does not say. So the plugin takes no
+  function hook on any cursor or input call, by any switch: the code is gone, and `tests/native_spike/test_no_cursor_hooks.py`
+  checks the source and the built `.so`. The one hook left is `CMonitorRuleManager::clear()` (seamless layout switches): a
+  plain pointer argument, no ownership, not implicated, and the only one on that test's allowlist. The supervisor's
+  `xrcursor` receiver (`ViewControl.on_events`, `OverviewPointer.push_shape`) stays and hears nothing.
+  **The reads** are what the beam runs on. The sampler asks only in
   desktop mode with the handles on (through `ownership.cursor_reader`: a copy of the client with its own request ids, bounded
   at 0.25 s), and not until it has applied the pointer's last warp and the app has had `SHAPE_SETTLE_S` (33 ms) to answer it.
-  With no push it asks every `SHAPE_S` (8.3 ms: an older plugin, or a hook that failed), and once pushes arrive every
-  `SHAPE_CHECK_S` (250 ms), which only checks them. A read that disagrees with the last push brings the 8.3 ms back until the
-  next push; a read a push overtook is dropped (`shape_serial`); after a warp, or when the gate opens, the next read is not
-  put off. That read skips the client's session proof, which the transport's peer check and the run's guard already cover,
+  It asks every `SHAPE_S` (8.3 ms); `SHAPE_CHECK_S` and `shape_serial` are the idle receiver's. After a warp, or when the gate
+  opens, the next read is not put off. That read skips the client's session proof, which the transport's peer check and the run's guard already cover,
   and it only changes how the dot looks. A refused or failed read is the plain dot, and the next one waits a second.
   **The flicker filter:** the loop turns the word into the frame's `look` (`TextHold`, `_step_text`): on at once and off at
   once. Text that comes back within `TEXT_BOUNCE_S` (60 ms) of going is the gap between two lines, and for `TEXT_SWEEP_S`
