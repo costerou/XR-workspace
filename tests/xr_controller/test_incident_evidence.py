@@ -4,10 +4,34 @@ import unittest
 
 from tests.xr_controller.test_incident_monitor import Case, CLEAN, RUN, OTHER
 from tests.xr_controller.test_incident_report import episode, evidence, scrubber
-from tools.xr_controller.incident_report import build_bundle
+from tools.xr_controller.incident_report import amend_bundle, build_bundle
+from tools.xr_controller.incident_detect import Episode, Signal
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_subsecond_order_survives_saved_report_amendment(self):
+        e = Episode(RUN, 1000.1)
+        e.add(Signal(1000.1, 'usb-drop', 'kernel', 'hub disconnected'))
+        e.add(Signal(1000.2, 'video-lost', 'drm', 'display disconnected'))
+        previous = json.loads(json.dumps(build_bundle(e, evidence(), 1010, scrubber())))
+        end = Episode(RUN, 1100)
+        end.add(Signal(1100, 'renderer-exit', 'controller', 'ended'))
+        end.ended, end.ended_at = 'ended', 1100
+        revised = amend_bundle(previous, end, evidence(), 1110, scrubber())
+        self.assertEqual(revised['observations']['link_order'], 'usb-first')
+
+    def test_duplicate_repeat_count_stays_with_its_signal(self):
+        e = Episode(RUN, 1000)
+        e.add(Signal(1000, 'usb-drop', 'kernel', 'hub disconnected'))
+        e.add(Signal(1002, 'video-lost', 'drm', 'display disconnected'))
+        previous = build_bundle(e, evidence(), 1010, scrubber())
+        later = Episode(RUN, 1000.25)
+        later.add(Signal(1000.25, 'usb-drop', 'kernel', 'hub disconnected'))
+        later.repeats[0] = 3
+        revised = amend_bundle(previous, later, evidence(), 1020, scrubber())
+        self.assertEqual(revised['timeline'][0]['repeats'], 4)
+        self.assertNotIn('repeats', revised['timeline'][1])
+
     def test_usb_disconnect_is_not_a_hardware_root_cause(self):
         b = build_bundle(episode('usb-drop'), evidence(), 1010, scrubber())
         self.assertEqual(b['cause']['confidence'], 'low')

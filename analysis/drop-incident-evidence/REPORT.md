@@ -51,3 +51,9 @@ Final verification:
 - `git diff --check`: passed.
 
 The first native invocation used package-qualified names without the suite directory on `PYTHONPATH`. It produced two fixture-import errors (`test_launch_uses_given_renderer` and `test_launcher_interrupt_and_error_reap_renderer_and_started_worker`, both importing `test_hyprland`). The corrected command above resolves those imports and passes both tests. No test implementation was changed to hide those errors or warnings.
+
+## Parent review follow-up
+
+Two further regression tests failed before correction: (1) a saved USB event at1000.1 followed by video at1000.2 became same-timestamp after amendment, and (2) a duplicate USB event with three repeats incorrectly added those repeats to the later video entry. Timestamps now retain fractional seconds when supplied; repeat counts follow the matched signal and respect the bounded timeline. Historical seconds-only timestamps cannot regain missing precision.
+
+Independent verification after these fixes: `python3 -m unittest discover -s tests/xr_controller` — **535 passed** in4.861seconds. The previous91 supervisor/drop tests remain applicable: this follow-up changes only report timestamp formatting and amendment aggregation.

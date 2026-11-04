@@ -212,7 +212,7 @@ def guess_cause(episode, ev):
 
 
 def _iso(at):
-    return datetime.datetime.fromtimestamp(at, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    return datetime.datetime.fromtimestamp(at, datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 def serialize(bundle): return json.dumps(bundle, indent=1).encode()
@@ -283,12 +283,22 @@ def build_bundle(episode, ev, now, scrub):
 def amend_bundle(previous, episode, ev, now, scrub):
     """Correlate by exact run identity, without claiming the earlier incident caused the later end."""
     merged = Episode(episode.run_id, episode.first)
-    for entry in previous['timeline']:
-        merged.add(Signal(datetime.datetime.fromisoformat(entry['at']).timestamp(), entry['kind'], entry['source'], entry['detail']))
-        merged.repeats[-1] = entry.get('repeats', 0)
-    for signal, repeats in zip(episode.signals, episode.repeats):
+    def add_counted(signal, repeats):
+        match = next((i for i, seen in enumerate(merged.signals)
+                      if (seen.kind, seen.source, seen.detail) == (signal.kind, signal.source, signal.detail)
+                      and abs(seen.at - signal.at) < 1), None)
+        before = len(merged.signals)
         merged.add(signal)
-        merged.repeats[-1] += repeats
+        if match is not None:
+            merged.repeats[match] += repeats
+        elif len(merged.signals) > before:
+            merged.repeats[-1] = repeats
+        # A full bounded timeline did not retain this signal or its repeats.
+    for entry in previous['timeline']:
+        add_counted(Signal(datetime.datetime.fromisoformat(entry['at']).timestamp(), entry['kind'], entry['source'], entry['detail']),
+                    entry.get('repeats', 0))
+    for signal, repeats in zip(episode.signals, episode.repeats):
+        add_counted(signal, repeats)
     merged.ended, merged.ended_at = episode.ended, episode.ended_at
     fresh = build_bundle(merged, ev, now, scrub)
     out = dict(previous)
