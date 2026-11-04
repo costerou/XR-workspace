@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <pthread.h>
 #include <stdexcept>
@@ -24,6 +25,15 @@
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(std::string(__FILE__ ":") + std::to_string(__LINE__) + ": " #x); } while (0)
 using namespace luma;
 namespace fs = std::filesystem;
+
+static std::uint64_t g_allocations = 0;
+void* operator new(std::size_t size) {
+    ++g_allocations;
+    if (void* p = std::malloc(size ? size : 1)) return p;
+    throw std::bad_alloc();
+}
+void operator delete(void* p) noexcept { std::free(p); }
+void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 
 namespace {
 constexpr std::uint64_t kMs = 1'000'000;
@@ -101,7 +111,28 @@ bool same(xr::Quat a, Quatf b) {  // equal up to the reader's normalising
     constexpr float eps = 1e-5f;
     return std::fabs(a.x - b.x) < eps && std::fabs(a.y - b.y) < eps && std::fabs(a.z - b.z) < eps && std::fabs(a.w - b.w) < eps;
 }
-PublisherOptions step(std::uint32_t n) { PublisherOptions o; o.history_step = n; return o; }
+// What the driver itself does: the options that make the feed comparable with buffer.c.
+PublisherOptions step(std::uint32_t n) {
+    PublisherOptions o;
+    o.history_step = n;
+    o.instant_start = false;
+    o.mount_pitch_deg = 0;
+    o.fractional_ms = false;
+    return o;
+}
+// Without private_segments, for feeds FakeFeed created: no live process can make these tests depend on what is running.
+PublisherOptions shared(const std::string& prefix, const Scratch& scratch) {
+    PublisherOptions o = step(1);
+    o.prefix = prefix;
+    o.proc_root = scratch.dir + "/no_proc";
+    return o;
+}
+void fake_process(const Scratch& scratch, const std::string& stat_line) {
+    const auto pid = stat_line.substr(0, stat_line.find(' '));
+    const auto dir = fs::path(scratch.dir) / "proc" / pid;
+    fs::create_directories(dir);
+    std::ofstream(dir / "stat") << stat_line << "\n";
+}
 
 void feed_is_disabled_until_the_history_has_filled() {
     Scratch scratch;
@@ -113,7 +144,7 @@ void feed_is_disabled_until_the_history_has_filled() {
     for (int i = 0; i < 4; ++i) { CHECK(!publisher->publish(pose(i))); CHECK(!feed->read()); }  // 2N samples: not yet
     CHECK(publisher->publish(pose(4)));                                                         // the driver's 2N + 1st
     CHECK(feed->read());
-    CHECK(publisher->written() == 1);
+    CHECK(publisher->stats().written == 1);
 }
 
 // Byte for byte what src/buffer.c hands src/outputs.c, and the same seen through the reader.
@@ -273,7 +304,7 @@ void invalid_quaternions_are_dropped() {
     const float nan = std::nanf(""), inf = INFINITY;
     for (Quatf q : {Quatf{nan, 0, 0, 0}, Quatf{1, nan, 0, 0}, Quatf{1, 0, inf, 0}, Quatf{0, 0, 0, 0}})
         CHECK(!publisher->publish({q, 10 * kMs, 3, true}));
-    CHECK(publisher->dropped() == 4);
+    CHECK(publisher->stats().invalid == 4);
     const auto after = raw_pose(prefix);
     CHECK(std::memcmp(good.data(), after.data(), sizeof good) == 0);
     // ... and not kept in the history either.
@@ -285,7 +316,7 @@ void invalid_quaternions_are_dropped() {
 // All the way into the renderer's maths at the Luma Ultra's rate: 90 deg/s of yaw.
 void prediction_and_tracking_work_on_the_feed() {
     Scratch scratch;
-    auto publisher = open_private(scratch);  // N = 16
+    auto publisher = open_private(scratch, step(16));
     std::string why;
     auto feed = xr::PoseFeed::open(prefix_of(scratch), why);
     CHECK(feed);
@@ -322,9 +353,7 @@ void restart_keeps_an_attached_reader() {
     std::string why;
     auto feed = xr::PoseFeed::open(prefix, why);
     CHECK(feed);
-    PublisherOptions options;
-    options.prefix = prefix;
-    options.history_step = 1;
+    const PublisherOptions options = shared(prefix, scratch);
     {
         auto first = Publisher::open(options, why);
         CHECK(first);
@@ -353,10 +382,8 @@ void undersized_segment_is_replaced() {
     CHECK(shmctl(segment(path), IPC_RMID, nullptr) == 0);
     const int small = shmget(ftok(path.c_str(), 0), 8, 0600 | IPC_CREAT | IPC_EXCL);
     CHECK(small >= 0);
-    PublisherOptions options;
-    options.prefix = prefix;
     std::string why;
-    auto publisher = Publisher::open(options, why);
+    auto publisher = Publisher::open(shared(prefix, scratch), why);
     const int id = segment(path);
     shmid_ds info{};
     const bool replaced = publisher && id >= 0 && id != small && shmctl(id, IPC_STAT, &info) == 0 && info.shm_segsz >= sizeof(float) * 16;
@@ -412,7 +439,7 @@ void reader_that_died_holding_the_lock_costs_nothing() {
     die_holding(lock.mutex);
     int i = 0;
     for (; i < 3; ++i) publisher->publish(pose(i));
-    CHECK(publisher->written() == 1);
+    CHECK(publisher->stats().written == 1);
     std::string why;
     auto feed = xr::PoseFeed::open(prefix, why);
     CHECK(feed && feed->read());
@@ -436,8 +463,9 @@ void unrecoverable_lock_is_rebuilt() {
     CHECK(feed && feed->read());
 }
 
-// A reader stopped under the debugger holds the lock for as long as it likes. The writer's thread must keep running.
-void held_lock_costs_one_sample_not_the_writer() {
+// A reader stopped under the debugger holds the lock for as long as it likes. A 1 kHz writer must not notice: a wait of any
+// length per sample is what would back up the USB read loop.
+void held_lock_never_slows_the_writer() {
     Scratch scratch;
     auto publisher = open_private(scratch, step(1));
     const std::string prefix = prefix_of(scratch);
@@ -451,18 +479,20 @@ void held_lock_costs_one_sample_not_the_writer() {
         pthread_mutex_unlock(lock.mutex);
     });
     while (!held) std::this_thread::yield();
+    constexpr int kSkipped = 200;
     const auto start = std::chrono::steady_clock::now();
-    const bool written = publisher->publish(pose(3));
+    int written = 0;
+    for (int i = 0; i < kSkipped; ++i) written += publisher->publish(pose(3 + i));
     const auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     release = true;
     holder.join();
-    CHECK(!written);
-    CHECK(ms < 50);
-    CHECK(publisher->dropped() == 1);
-    CHECK(publisher->publish(pose(4)));
+    CHECK(written == 0);
+    CHECK(ms < kSkipped * 0.5);  // far under the 1 ms a sample has; a 1 ms wait each would take 200
+    CHECK(publisher->stats().busy == kSkipped);
+    CHECK(publisher->publish(pose(3 + kSkipped)));
     const auto v = raw_pose(prefix);
-    // The missed sample stayed in the history: the reader's spacing is not disturbed by a busy lock.
-    CHECK(v[12] == 4.f && v[13] == 3.f && v[14] == 2.f);
+    // The skipped samples stayed in the history: a busy lock does not disturb the reader's spacing.
+    CHECK(v[12] == float(3 + kSkipped) && v[13] == float(2 + kSkipped) && v[14] == float(1 + kSkipped));
 }
 
 void reader_never_tears_under_a_full_rate_writer() {
@@ -488,6 +518,161 @@ void reader_never_tears_under_a_full_rate_writer() {
     CHECK(reads > 0);
     CHECK(torn == 0);
 }
+
+// A reconnect must not stay blind for 2N samples, nor predict from a speed measured over a couple of ms.
+void instant_start_serves_the_first_sample_without_prediction() {
+    Scratch scratch;
+    PublisherOptions options = step(4);
+    options.instant_start = true;
+    auto publisher = open_private(scratch, options);
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why);
+    CHECK(feed);
+    CHECK(!feed->read());
+    for (int i = 0; i < 4; ++i) {  // no sample N back yet
+        CHECK(publisher->publish(pose(i)));
+        const auto sample = feed->read();
+        CHECK(sample && same(sample->orientation, distinct(i)) && same(sample->older[0], distinct(i)) && same(sample->older[1], distinct(i)));
+        CHECK(sample->device_ms == float(i) && sample->older_ms[0] == float(i) && sample->older_ms[1] == float(i));
+        CHECK(!xr::angular_velocity(xr::history_of(*sample)));
+    }
+    CHECK(publisher->publish(pose(4)));  // q1 is real, and N ms is a spacing predict.cpp takes; q2 is still q1
+    auto sample = feed->read();
+    CHECK(sample && same(sample->older[0], distinct(0)) && same(sample->older[1], distinct(0)));
+    CHECK(sample->older_ms[0] == 0.f && sample->older_ms[1] == 0.f);
+    CHECK(xr::angular_velocity(xr::history_of(*sample)));
+    for (int i = 5; i < 8; ++i) CHECK(publisher->publish(pose(i)));
+    sample = feed->read();
+    CHECK(sample && same(sample->older[0], distinct(3)) && same(sample->older[1], distinct(3)));
+    CHECK(publisher->publish(pose(8)));  // from here on, the driver's write
+    sample = feed->read();
+    CHECK(sample && same(sample->older[0], distinct(4)) && same(sample->older[1], distinct(0)));
+}
+
+void instant_start_is_the_default_and_recovers_at_once_after_a_pause() {
+    Scratch scratch;
+    CHECK(PublisherOptions{}.instant_start);
+    PublisherOptions options = step(16);
+    options.instant_start = true;
+    auto publisher = open_private(scratch, options);
+    std::string why;
+    auto feed = xr::PoseFeed::open(prefix_of(scratch), why);
+    CHECK(feed);
+    for (int i = 0; i < 100; ++i) CHECK(publisher->publish(pose(i)));
+    publisher->pause();
+    CHECK(!feed->read());
+    CHECK(publisher->publish(pose(600)));
+    const auto sample = feed->read();
+    CHECK(sample && sample->device_ms == 600.f && same(sample->older[1], distinct(600)));  // nothing from before the gap
+}
+
+void mount_pitch_is_turned_out_on_the_right() {
+    Scratch scratch;
+    PublisherOptions options = step(1);
+    options.mount_pitch_deg = -8.5f;
+    auto publisher = open_private(scratch, options);
+    const std::string prefix = prefix_of(scratch);
+    CHECK(PublisherOptions{}.mount_pitch_deg == -8.5f);
+    for (int i = 0; i < 3; ++i) publisher->publish(pose(i));
+    const float half = -8.5f * 3.14159265f / 360.f;
+    const xr::Quat turned = xr::quat_mul({distinct(2).x, distinct(2).y, distinct(2).z, distinct(2).w}, {0, std::sin(half), 0, std::cos(half)});
+    const auto v = raw_pose(prefix);
+    CHECK(std::fabs(v[0] - turned.x) < 1e-6f && std::fabs(v[1] - turned.y) < 1e-6f && std::fabs(v[2] - turned.z) < 1e-6f && std::fabs(v[3] - turned.w) < 1e-6f);
+    const Quatf q1 = distinct(1);  // the older samples too, or the speed would hold the tilt
+    const xr::Quat older = xr::quat_mul({q1.x, q1.y, q1.z, q1.w}, {0, std::sin(half), 0, std::cos(half)});
+    CHECK(std::fabs(v[4] - older.x) < 1e-6f && std::fabs(v[7] - older.w) < 1e-6f);
+}
+
+void fractional_ms_is_the_default_and_keeps_the_fraction() {
+    CHECK(PublisherOptions{}.fractional_ms);
+    Scratch scratch;
+    PublisherOptions options = step(1);
+    options.fractional_ms = true;
+    auto publisher = open_private(scratch, options);
+    const std::string prefix = prefix_of(scratch);
+    const std::uint64_t t0 = 3'000'000'000ull * kMs + 123'456;
+    publisher->publish({distinct(0), t0, 0, true});
+    publisher->publish({distinct(1), t0 + 1'250'000, 1, true});
+    CHECK(publisher->publish({distinct(2), t0 + 2'500'000, 2, true}));
+    const auto v = raw_pose(prefix);
+    CHECK(v[12] == 2.5f && v[13] == 1.25f && v[14] == 0.f);
+}
+
+void history_step_is_the_drivers() {
+    CHECK(history_step_for(1000) == 16 && history_step_for(500) == 8 && history_step_for(240) == 4);
+    CHECK(history_step_for(120) == 2 && history_step_for(90) == 1 && history_step_for(60) == 1 && history_step_for(30) == 1);
+}
+
+void second_publisher_is_refused_until_the_first_is_gone() {
+    Scratch scratch;
+    const std::string prefix = scratch.dir + "/shared_";
+    xr::test::FakeFeed driver(prefix);
+    const auto options = shared(prefix, scratch);
+    std::string why;
+    auto first = Publisher::open(options, why);
+    CHECK(first);
+    CHECK(!Publisher::open(options, why));
+    CHECK(why.find("another publisher") != std::string::npos);
+    for (int i = 0; i < 3; ++i) first->publish(pose(i));
+    CHECK(driver.pose[12] == 2.f);  // the refused one touched nothing
+    first.reset();
+    CHECK(Publisher::open(options, why));
+    // A crash lets go as well: the lock belongs to the process.
+    const pid_t child = fork();
+    CHECK(child >= 0);
+    if (child == 0) { std::string ignored; auto held = Publisher::open(options, ignored); _exit(held ? 0 : 1); }
+    int status = 0;
+    CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    CHECK(Publisher::open(options, why));
+}
+
+void running_xrdriver_is_refused_and_a_dead_one_is_not() {
+    Scratch scratch;
+    const std::string prefix = scratch.dir + "/shared_";
+    xr::test::FakeFeed driver(prefix);
+    driver.write(xr::Quat{0, 0, 0, 1}, 77.f);
+    *driver.disabled = false;
+    PublisherOptions options = shared(prefix, scratch);
+    options.proc_root = scratch.dir + "/proc";
+    fake_process(scratch, "100 (bash) S 1 100 100 0 -1");
+    fake_process(scratch, "200 ((sd-pam)) S 1 200 200 0 -1");
+    fake_process(scratch, "300 (xrDriver) Z 1 300 300 0 -1");  // the defunct one a parent has not reaped
+    std::string why;
+    CHECK(Publisher::open(options, why));
+    fake_process(scratch, "400 (xrDriver) S 1 400 400 0 -1");
+    *driver.disabled = false;
+    driver.write(xr::Quat{0, 0, 0, 1}, 77.f);
+    CHECK(!Publisher::open(options, why));
+    CHECK(why.find("xrDriver is running") != std::string::npos);
+    CHECK(driver.pose[12] == 77.f && !*driver.disabled);  // its feed and its mutex untouched
+    CHECK(pthread_mutex_lock(driver.mutex) == 0);
+    CHECK(pthread_mutex_unlock(driver.mutex) == 0);
+}
+
+void private_feeds_skip_the_writer_checks() {  // a test feed is not the live writer's business
+    Scratch scratch;
+    auto a = open_private(scratch);
+    Scratch other;
+    PublisherOptions options;
+    options.proc_root = scratch.dir + "/proc";
+    fake_process(scratch, "400 (xrDriver) S 1 400 400 0 -1");
+    auto b = open_private(other, options);
+    CHECK(b);
+    CHECK(!fs::exists(prefix_of(other) + "writer.lock"));
+}
+
+void publish_does_not_allocate() {
+    Scratch scratch;
+    auto publisher = open_private(scratch);
+    for (int i = 0; i < 100; ++i) publisher->publish(pose(i));
+    const std::uint64_t before = g_allocations;
+    for (int i = 100; i < 10000; ++i) CHECK(publisher->publish(pose(i)));
+    publisher->pause();
+    for (int i = 10000; i < 10100; ++i) CHECK(publisher->publish(pose(i)));
+    auto lost = pose(10100); lost.calibrated = false;
+    publisher->publish(lost);
+    CHECK(g_allocations == before);
+}
 }
 
 int main() {
@@ -500,7 +685,11 @@ int main() {
         T(invalid_quaternions_are_dropped), T(prediction_and_tracking_work_on_the_feed), T(restart_keeps_an_attached_reader),
         T(undersized_segment_is_replaced), T(private_open_refuses_a_key_in_use), T(private_feed_cleans_up),
         T(bad_options_are_refused), T(reader_that_died_holding_the_lock_costs_nothing), T(unrecoverable_lock_is_rebuilt),
-        T(held_lock_costs_one_sample_not_the_writer), T(reader_never_tears_under_a_full_rate_writer),
+        T(held_lock_never_slows_the_writer), T(reader_never_tears_under_a_full_rate_writer),
+        T(instant_start_serves_the_first_sample_without_prediction), T(instant_start_is_the_default_and_recovers_at_once_after_a_pause),
+        T(mount_pitch_is_turned_out_on_the_right), T(fractional_ms_is_the_default_and_keeps_the_fraction),
+        T(history_step_is_the_drivers), T(second_publisher_is_refused_until_the_first_is_gone),
+        T(running_xrdriver_is_refused_and_a_dead_one_is_not), T(private_feeds_skip_the_writer_checks), T(publish_does_not_allocate),
 #undef T
     };
     int failed = 0;
