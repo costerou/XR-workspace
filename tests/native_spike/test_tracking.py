@@ -130,6 +130,9 @@ class RecenterTests(unittest.TestCase):
 class DriverLifecycleTests(unittest.TestCase):
     """Fake driver script stands in for /usr/bin/xrDriver; unshare network isolation is real."""
     def setUp(self):
+        # This machine's glasses and install are not part of a test with a fake driver.
+        for name, value in (('_check_access', lambda: None), ('_driver_env', lambda: dict(os.environ))):
+            patcher = patch.object(tracking, name, value); patcher.start(); self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
         self.runtime = root / 'rt'; self.runtime.mkdir(mode=0o700)
