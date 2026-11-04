@@ -30,6 +30,11 @@ cases += [(iso, True), (iso_inspect, True), (iso_remove, True),
           (dict(iso, payload=dict(spec, mode="isolated-vm", name="XR-SPIKE-run-0")), False),
           (dict(iso, payload=dict(spec, mode="isolated-vm", workspace=11)), False),
           (dict(iso, payload=dict(spec, mode="isolated-vm", index=1)), False)]
+# The read-only cursor shape: schema 1, an empty payload, no isolated form.
+cursor = dict(legacy, epoch="a" * 48, op="cursor_shape", payload={})
+cases += [(cursor, True), (dict(cursor, schema=2), False), (dict(cursor, schema=2, payload=dict(mode="isolated-vm")), False),
+          (dict(cursor, payload=dict(id=uuid)), False), (dict(cursor, payload=dict(shape="text")), False),
+          (dict(cursor, payload=[]), False), (dict(cursor, epoch="not a token"), False)]
 for request, accepted in cases:
     result = subprocess.run([sys.argv[1], "--validate"], input="xrspike " + json.dumps(request),
                             text=True, capture_output=True, timeout=5, check=False)

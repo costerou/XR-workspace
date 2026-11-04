@@ -116,8 +116,9 @@ struct MoveHandlePayload { bool visible = false; std::uint32_t desktop = 0; bool
 // Optionally also "drag":{"w":int,"h":int,"target":int} while a window is being dragged to another desktop
 // (free_pointer.py window drag): the ghost, a w x h canvas px outline (1..kMaxGhostPx each) centred on the dot, and the
 // desktop it would land on (-1..kMaxDesktops-1, -1: none), framed in the accent colour.
-// Optionally also "look":string over a handle (free_pointer.py POINTER_LOOKS, view.hpp PointerLook): "resize_ew", "resize_ns",
-// "resize_nwse", "resize_nesw", "move" or "rotate"; absent: the plain dot.
+// Optionally also "look":string (free_pointer.py POINTER_LOOKS, view.hpp PointerLook): over a handle "resize_ew", "resize_ns",
+// "resize_nwse", "resize_nesw", "move" or "rotate"; over text on a desktop's content "text", the Serif Beam instead of the
+// dot; absent: the plain dot.
 // Malformed: rejected with kInvalidOverviewPointerCode and dropped, like move_handle.
 constexpr const char* kInvalidOverviewPointerCode = "invalid_overview_pointer";
 constexpr std::int32_t kMaxPointerAz = 18000, kMaxPointerEl = 9000, kMaxGhostPx = 512;

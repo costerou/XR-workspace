@@ -185,8 +185,15 @@ EDGES = ('t', 'b', 'l', 'r')
 # content, a level bar, an edge; else empty space. zone_of names them.
 ZONES = ('control', 'rotate', 'resize', 'move', 'content', 'space')
 # The dot's look over each (the `overview_pointer` frame's `look`; spike/include/xr/view.hpp PointerLook): content, empty
-# space and controls (an open panel's sliders and buttons, the help card) keep the plain dot.
-POINTER_LOOKS = ('resize_ew', 'resize_ns', 'resize_nwse', 'resize_nesw', 'move', 'rotate')
+# space and controls (an open panel's sliders and buttons, the help card) keep the plain dot, and `text` is the Serif Beam
+# over text on a desktop's content (is_text_shape, OverviewPointer._look).
+POINTER_LOOKS = ('resize_ew', 'resize_ns', 'resize_nwse', 'resize_nesw', 'move', 'rotate', 'text')
+# The Serif Beam: the names of a text cursor, as an app asks by name (wp_cursor_shape: text, vertical-text) or as a cursor
+# theme calls it (xterm, ibeam). Asked for by picture (wl_pointer.set_cursor), a cursor has no name: the plain dot.
+TEXT_SHAPES = frozenset({'text', 'vertical-text', 'xterm', 'ibeam'})
+TEXT_HOLD_S = 0.1         # the beam stays this long after the app stops asking for it, so the gaps between lines do not flicker
+SHAPE_S = 1 / 30          # desktop mode: how often the sampler asks what cursor the app wants (ownership.cursor_reader)
+SHAPE_RETRY_S = 1.0       # after a failed read
 RESIZE_LOOKS = {'l': 'resize_ew', 'r': 'resize_ew', 't': 'resize_ns', 'b': 'resize_ns',
                 'tl': 'resize_nwse', 'br': 'resize_nwse', 'tr': 'resize_nesw', 'bl': 'resize_nesw'}
 # Glass pill (glass.hpp glass_pill: share of the desktop's width clamped to px, height, gap under the desktop as laid out) and
@@ -541,8 +548,31 @@ def zone_of(h):
     return {'roll': 'rotate', 'corner': 'resize', 'edge': 'resize', 'pill': 'move', 'desktop': 'content'}.get(h[0], 'control')
 
 
+def is_text_shape(name):
+    """A requested cursor's name (a plain word, or None for none) is a text cursor: TEXT_SHAPES, in any case and with `_`
+    for `-`, as cursor themes spell them both ways."""
+    return isinstance(name, str) and name.lower().replace('_', '-') in TEXT_SHAPES
+
+
+class TextHold:
+    """Whether the beam is on: at once when the app asks for it, and TEXT_HOLD_S after the app stops, counted from the first
+    step without it. Asking again inside that time ends the wait, so a gap between lines changes nothing on screen."""
+    def __init__(self):
+        self.on, self.until = False, None
+
+    def step(self, text, now):
+        if text: self.on, self.until = True, None
+        elif self.on:
+            if self.until is None: self.until = now + TEXT_HOLD_S
+            elif now >= self.until: self.on, self.until = False, None
+        return self.on
+
+    def clear(self):
+        self.on, self.until = False, None
+
+
 def look_for(h):
-    """The dot's look over hit `h` (POINTER_LOOKS), None for the plain dot (content, controls, empty space)."""
+    """The dot's look over hit `h` (POINTER_LOOKS, handles only), None for the plain dot (content, controls, empty space)."""
     zone = zone_of(h)
     if zone == 'resize': return RESIZE_LOOKS[h[2]]
     return {'move': 'move', 'rotate': 'rotate'}.get(zone)
@@ -817,8 +847,8 @@ def overview_pointer_frame(run_id, session, request_id, pointer):
     """Renderer `overview_pointer` frame: {visible, x, y, held} and, while the dot is shown, {az, el}: x/y canvas
     px, az / el the dot's direction in hundredths of a degree (orbit.pointer_direction; the renderer draws the dot
     there). While a window is dragged also {drag: {w, h, target}}: the ghost's size (canvas px, 1..MAX_GHOST_PX) and the
-    desktop it would land on (-1: none). Over a handle also {look: POINTER_LOOKS} (look_for: a resize direction, move or
-    rotate; absent: the plain dot). spike/src/ipc.cpp checks the same."""
+    desktop it would land on (-1: none). Also {look: POINTER_LOOKS}, over a handle (look_for: a resize direction, move or
+    rotate) or over text on a desktop's content (text); absent: the plain dot. spike/src/ipc.cpp checks the same."""
     keys = {'visible', 'x', 'y', 'held'}
     if isinstance(pointer, dict) and 'look' in pointer:
         if pointer['look'] not in POINTER_LOOKS: raise ValueError('invalid overview pointer')
@@ -875,6 +905,8 @@ class OverviewPointer:
         self.control, self.clock = control, clock
         self._lock = threading.Lock()
         self._abs, self._motion, self._applied, self._outputs, self._fresh = None, [0.0, 0.0], 0, [], False
+        self._shape_text = False   # the sampler's last read: the app under the pointer asks for a text cursor (feed_shape)
+        self.text_hold = TextHold()  # the Serif Beam is on (_step_text, _look)
         self.geometry = None       # parse_overview_geometry, from the renderer
         self.layout_stale = False  # the desktops changed since it came (_layout_ready)
         self.help_geometry = None  # parse_help_geometry, from the renderer: the help card while it is up in the overview
@@ -1019,6 +1051,15 @@ class OverviewPointer:
             if changed: self._fresh = True
         if changed: self._poke()
         return changed
+
+    def feed_shape(self, name):
+        """Sampler thread: the cursor the app under the pointer asked for, by name, None for none or a failed read. Wakes the
+        loop on a change, and at every read while the hold runs, so the dot comes back on time without a cursor motion."""
+        text = is_text_shape(name)
+        with self._lock:
+            changed = text != self._shape_text
+            self._shape_text = text
+        if changed or self.text_hold.until is not None: self._poke()
 
     def _poke(self):
         try: self._wake_writer.send(b'.')
@@ -1196,6 +1237,7 @@ class OverviewPointer:
             out += self._end_drag()
             self.hover = None
         self._take_found()  # a lookup answered meanwhile (at once, for a cached one) shows in this frame
+        self._step_text(now)
         return out + self._frames(idle)
 
     def _absolute(self, cursor, now):
@@ -1584,14 +1626,33 @@ class OverviewPointer:
         """Carry mode's motion (unified_cursor.UnifiedPointer); no such mode here."""
         return b''
 
+    def _text_allowed(self):
+        """The beam's gate. The dot is the real cursor on a desktop's content (ZONES: an open panel over it or the sliver at
+        its edge is not), the run holds nothing, and the handles are on: the overview, never maximized, in typing mode, during
+        a video or with the key bind panel."""
+        return self.mode == 'desktop' and self.drag is None and self._handles_on() and zone_of(self._hit()) == 'content'
+
+    def _step_text(self, now):
+        """This tick's beam (TextHold). Off at once when the gate shuts: a handle wins with no hold, and a read from before
+        counts for nothing, so back in the overview the dot waits for a fresh one."""
+        with self._lock: text = self._shape_text
+        if not text and not self.text_hold.on: return
+        if self._text_allowed():
+            self.text_hold.step(text, now)
+            return
+        self.text_hold.clear()
+        with self._lock: self._shape_text = False
+
     def _look(self):
         """The dot's look (POINTER_LOOKS; None: the plain dot), the zone contract on screen: what it holds, else what it is
-        over in free mode. In desktop mode it is on a desktop's content, where it is the real cursor: plain."""
+        over in free mode. In desktop mode it is on a desktop's content, where it is the real cursor: the beam where the app
+        asks for a text cursor (_step_text), else plain."""
         d = self.drag
         if d is not None:
             if d['kind'] == 'roll' and d['side'] == 'level' and d['moved']: return None  # dragged off the button
             return {'resize': RESIZE_LOOKS.get(d.get('handle')), 'pill': 'move', 'roll': 'rotate'}.get(d['kind'])
-        return look_for(self.hover) if self.mode == 'free' else None
+        if self.mode == 'free': return look_for(self.hover)
+        return 'text' if self.mode == 'desktop' and self.text_hold.on else None
 
     def _pointer_frame(self, idle):
         """The dot: in desktop and free mode (the real cursor is hidden in both: overview_cursor.py), hidden when idle."""
@@ -1619,8 +1680,11 @@ class OverviewPointer:
 class PointerSampler:
     """Background cursor reads (250 Hz in the overview) and every compositor call this feature makes: the left-button
     binds, hiding / showing / parking the cursor and handing it back. stop() undoes them before returning."""
-    def __init__(self, client, names, pointer, bind_args, period=SAMPLE_S):
+    def __init__(self, client, names, pointer, bind_args, period=SAMPLE_S, cursor_shape=None):
         self.client, self.names, self.pointer, self.bind_args, self.period = client, list(names), pointer, bind_args, period
+        self.cursor_shape = cursor_shape  # () -> the requested cursor's name or None (ownership.cursor_reader); None: no reads
+        self._shape_due = 0.0     # the next read, monotonic
+        self.shape_errors = 0
         self.names_changed = False
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -1674,7 +1738,25 @@ class PointerSampler:
             cursor, motion = self._sample()
             self.pointer.feed(cursor, motion, outputs, self.applied if self.applied is not None else -1)
             self._recentre(cursor)
+            self._read_shape()
             self._stop.wait(self.period)
+
+    def _read_shape(self):
+        """The dot on a desktop's content: what cursor the app under it wants, every SHAPE_S (OverviewPointer.feed_shape).
+        Not until the sampler has applied the pointer's last warp and the app has had SHAPE_S to answer it. A failed read is
+        the plain dot, and the next one waits SHAPE_RETRY_S."""
+        read, p, now = self.cursor_shape, self.pointer, time.monotonic()
+        if read is None: return
+        if p.mode != 'desktop' or not p._handles_on() or self.applied is None or self.applied < p._sync:
+            self._shape_due = now + SHAPE_S
+            return
+        if now < self._shape_due: return
+        self._shape_due = now + SHAPE_S
+        try: name = read()
+        except (OSError, ValueError, TypeError, KeyError):
+            self.shape_errors += 1
+            self._shape_due, name = now + SHAPE_RETRY_S, None
+        p.feed_shape(name)
 
     def _sample(self):
         try:

@@ -308,6 +308,29 @@ std::vector<Vec3> direction_marks(const Canvas& c, float x, float y, float az, f
         out.push_back(at(ox + uy * half, oy - ux * half));
     };
     auto pair = [&](float ux, float uy) { mark(ux, uy, start, ux, uy); mark(-ux, -uy, start, -ux, -uy); };
+    // The Serif Beam's stem and one serif, from the click point. A serif is a capsule lying across the stem's end, one fan
+    // of kFreePointerSegments + 2 rim points; the triangles are the mockup's (serif_beam_shape.json).
+    auto stem = [&] {
+        const float l = cx - kBeamStemHalfPx - grow, r = cx + kBeamStemHalfPx + grow, t = cy - kBeamHalfPx - grow, b = cy + kBeamHalfPx + grow;
+        for (const auto& [px, py] : {std::pair{l, t}, {r, t}, {r, b}, {l, t}, {r, b}, {l, b}}) out.push_back(at(px, py));
+    };
+    auto serif = [&](float y) {
+        const int half = kFreePointerSegments / 2;
+        const float radius = kBeamSerifRadiusPx + grow;
+        std::vector<std::pair<float, float>> rim;  // along the serif (x) and across it (y), from its middle
+        for (const float end : {-kBeamSerifHalfPx, kBeamSerifHalfPx})
+            for (int i = 0; i <= half; ++i) {
+                const float a = float(M_PI) * (float(i) / float(half) + (end < 0 ? 1.f : 0.f));
+                rim.push_back({end + radius * std::sin(a), radius * std::cos(a)});
+            }
+        for (std::size_t i = 0; i < rim.size(); ++i) {
+            const auto& [ax, ay] = rim[i];
+            const auto& [bx, by] = rim[(i + 1) % rim.size()];
+            out.push_back(at(cx, cy + y));
+            out.push_back(at(cx + ax, cy + y + ay));
+            out.push_back(at(cx + bx, cy + y + by));
+        }
+    };
     switch (look) {
         case PointerLook::resize_ew: pair(1, 0); break;
         case PointerLook::resize_ns: pair(0, 1); break;
@@ -316,6 +339,7 @@ std::vector<Vec3> direction_marks(const Canvas& c, float x, float y, float az, f
         case PointerLook::move: pair(1, 0); pair(0, 1); break;
         case PointerLook::rotate:  // left and right of the dot, chasing each other clockwise
             mark(-1, 0, start + kPointerMarkHalfPx, 0, -1); mark(1, 0, start + kPointerMarkHalfPx, 0, 1); break;
+        case PointerLook::text: stem(); serif(-kBeamHalfPx); serif(kBeamHalfPx); break;
         case PointerLook::plain: break;
     }
     turn_to(c, cx, cy, az, el, out);

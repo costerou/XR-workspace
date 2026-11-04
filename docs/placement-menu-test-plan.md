@@ -11,8 +11,8 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G42), the free
-pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20) or the window memory script
-(W1–W19) has run in an isolated VM or been tried in the glasses.
+pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20), the text cursor script (C1–C17) or the
+window memory script (W1–W19) has run in an isolated VM or been tried in the glasses.
 
 ## Placement pills: automated coverage
 
@@ -567,6 +567,40 @@ something moving on XR-1 and XR-3, e.g. a clock):
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
+
+## Text cursor (the Serif Beam): automated coverage and glasses test script
+
+In the overview the dot turns into the Serif Beam, option 1 of the mockups on branch `text-cursor-mockups`, where the app under
+it asks for a text cursor (see **Over text** in [technical.md](technical.md#the-unified-overview-cursor)). Automated coverage:
+ctest `free_pointer`, `gl_frame`, `ownership`, `ownership_pair_wire`, `ownership_pair_boundary`;
+`tests/native_spike/test_text_cursor.py`. Passing them is not a glasses pass. Nothing below has run in an isolated VM or been
+tried in the glasses, and no app has been watched asking for a cursor. These steps need the new ownership plugin, renderer and
+supervisor installed together. Have foot, a Chromium or Electron window with a page of text, a GTK app and a Qt app open.
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C1 | In the overview move the dot over a paragraph in the Chromium window | The dot becomes a thin grey I-beam with a small serif at each end and a black ring, with no theme colour. It is about as tall as three lines of text there. |
+| C2 | Hold the beam on one letter and click | The click lands in the middle of the beam: the caret or the selection starts where the beam's middle was. |
+| C3 | Sweep the beam slowly down across several lines of text | No flicker between the beam and the dot in the gaps between lines. |
+| C4 | Move off the text onto an empty part of the page or a toolbar, and stop | The dot comes back a moment later, about a tenth of a second, and no slower. |
+| C5 | Hover a link | The plain dot: a link is not a text cursor. |
+| C6 | Repeat C1 to C4 in the GTK app's text field and the Qt app's text field | The same in both. If either keeps the dot, note which app. |
+| C7 | Hover foot: over text, then blank cells | The beam over both: foot asks for it across the window. Inside tmux or vim with mouse mode on, the plain dot. |
+| C8 | Hover an XWayland app (Spotify or Steam) over text | The plain dot: those send a picture with no name. |
+| C9 | From text, go straight off a desktop's edge, then onto a pill, a part of a level bar, and a corner | The arrows show at once, with no beam left behind and no pause. Nothing lights or moves differently from F28 to F31. |
+| C10 | Drag-select text across a line | The beam stays through the drag, a little brighter while the button is held, as the dot is. The app gets the selection. |
+| C11 | Hover text and press Ctrl+Alt+Up, then Ctrl+Alt+Down | Maximized you see the app's own cursor. Back in the overview, over text, the beam is back within a moment, and over anything else the dot. |
+| C12 | Hover text and press Ctrl+Alt+T, then Ctrl+Alt+T again | Typing mode: the normal cursor, no beam. Off again: the beam is back. |
+| C13 | During a VR video | No dot and no beam. |
+| C14 | Open a pill's panel over another desktop's text, or the help card over text, and hover them | The plain dot on the panel and on the card. |
+| C15 | Hold Super and drag a window with the beam on text | The drag's own arrows, no beam, and the plain dot or the beam, as the window under it says, once you let go. |
+| C16 | Move the beam slowly across a paragraph with your head moving and with your head tilted | Note whether the 2 px stem crawls, shimmers or looks stepped. It has no anti-aliasing, as the dot has none. |
+| C17 | Look at the beam over dark text on a light window and light text on a dark one | Both read clearly, and it is no brighter than the dot. Note whether it hides the letter you are pointing at. |
+
+Then note anything that looks wrong: an app whose text keeps the dot, a beam that stays too long or goes too soon, and how the
+beam feels against the size of the text.
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
 ## Window memory: automated coverage and glasses test script
 

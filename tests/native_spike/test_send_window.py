@@ -258,7 +258,7 @@ class WiringTests(unittest.TestCase):
         import inspect
         from tools.native_spike import managed
         src = inspect.getsource(managed._run_owned)
-        self.assertRegex(src, r'view_controls\(client, journal\.run_id, session, capture, output, store,\s+fallback, manager, memory\)')
+        self.assertRegex(src, r'view_controls\(client, journal\.run_id, session, capture, output, store,\s+fallback, manager,\s+memory, cursor_shape=cursor_shape\)')
         # recovery (after the layout restore, restore.py) after the with block
         self.assertLess(src.index('view_controls('), src.index('result = recover_restoring('))
 

@@ -69,7 +69,8 @@ bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     if (looks) {
         static constexpr std::pair<const char*, PointerLook> names[] = {
             {"resize_ew", PointerLook::resize_ew}, {"resize_ns", PointerLook::resize_ns}, {"resize_nwse", PointerLook::resize_nwse},
-            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate}};
+            {"resize_nesw", PointerLook::resize_nesw}, {"move", PointerLook::move}, {"rotate", PointerLook::rotate},
+            {"text", PointerLook::text}};
         if (!p["look"].is_string()) return false;
         const auto& name = p["look"].get_ref<const std::string&>();
         const auto* found = std::find_if(std::begin(names), std::end(names), [&](const auto& n) { return name == n.first; });

@@ -18,12 +18,19 @@ struct IOutput {
 };
 struct CDRMOutput : IOutput { int connector=31; int getConnectorID(){return connector;} };
 }
+struct Vector2D {double x=0,y=0;};
+struct Box {
+    double x=0,y=0,w=0,h=0;
+    bool containsPoint(const Vector2D& p) const {return p.x>=x && p.y>=y && p.x<x+w && p.y<y+h;}
+};
 struct Monitor {
     SP<Aquamarine::IOutput> m_output;
     std::string m_name;
     bool on=true,m_dpmsStatus=true,m_mirrorOf=false;
     std::vector<int> m_mirrors;
+    Box box;
     bool enabled(){return on;}
+    Box logicalBox() const {return box;}
 };
 using PHLMONITOR=SP<Monitor>;
 // Mirrors Hyprutils CWeakPointer semantics used by production (expired != live).
@@ -57,13 +64,23 @@ namespace Desktop {
 struct Windows {std::vector<int> windows(){return {};}} window;
 auto windowState(){return &window;}
 }
+// What cursorShape reads, as pinned efb5099 keeps it (Pointer::mgr()->position(), m_lastCursorData.name: "" for a picture).
+namespace Pointer {
+struct Manager {Vector2D at; Vector2D position(){return at;}} manager;
+Manager* mgr(){return &manager;}
+}
+struct Renderer {struct {std::string name;} m_lastCursorData;} renderer;
+Renderer* g_pHyprRenderer=&renderer;
 struct Boundary : PairBackend, Backend {
     int selections=0;
+    SP<Aquamarine::IOutput> created;  // the output a create binds to (the XR output of the cursor_shape cases)
     Handle wrap(SP<Aquamarine::IOutput> o,bool legacy=false) {++selections; auto h=std::make_shared<NativeObject>(); h->output=o; h->legacyDrmEligible=legacy; return h;}
     int mutations=0;
     bool collision(const Json&) override {return false;}
     // Lifecycle doubles succeed only through the production fallback eligibility check.
-    bool create(const Json&,const Capture& capture) override {++mutations; capture(std::make_shared<Object>(),true); return true;}
+    bool create(const Json&,const Capture& capture) override {
+        ++mutations; auto o=std::make_shared<NativeObject>(); o->output=created; capture(o,true); return true;
+    }
     bool configure(const Handle&,const Json&) override {return true;}
     bool verified(const Handle& h,const Json&) override {return h->live;}
     bool evacuate(const Handle&,const Handle& fallback) override {++mutations; return usable(fallback);}
@@ -162,6 +179,72 @@ void isolatedLifecycle() {
     CHECK(send(legacy,envelope(2,r["epoch"],"inspect",{{"id",uuid},{"mode","isolated-vm"}})).contains("error"));
     CHECK(legacy.backend.mutations==0);
 }
+// cursor_shape through the production broker and cursorShape body: the name for the pointer on this run's own live XR
+// output, else nothing, and it changes nothing anywhere.
+void cursorShapeRead() {
+    twoOutputs();
+    auto xr=std::make_shared<Monitor>(); auto output=std::make_shared<Aquamarine::CDRMOutput>();
+    output->name="XR-1"; xr->m_name="XR-1"; xr->m_output=output; xr->box={1280,0,1920,1080};
+    State::monitors.ms[0]->box={0,0,1280,720};
+    State::monitors.ms.push_back(xr);
+    Broker broker; broker.backend.created=output;
+    const Json read=Json::object();
+    auto cursor=[&](const std::string& epoch) {return envelope(1,epoch,"cursor_shape",read);};
+    auto shape=[&](const std::string& epoch) {auto reply=send(broker,cursor(epoch)); CHECK(reply.contains("result")); return reply["result"]["shape"].get<std::string>();};
+    Pointer::manager.at={1500,500}; renderer.m_lastCursorData.name="text";
+    CHECK(send(broker,cursor("unknown")).contains("error"));            // no hello yet
+    auto hello=send(broker,envelope(1,"unknown","hello",{{"fallback_name","Virtual-2"}}));
+    CHECK(hello.contains("result"));
+    const std::string epoch=hello["epoch"];
+    CHECK(shape(epoch).empty());                                        // no XR output yet
+    CHECK(send(broker,envelope(1,epoch,"create",spec(false)))["result"]["state"]=="live");
+    Json second=envelope(1,"unknown","hello",{{"fallback_name","Virtual-2"}}); second["run_id"]="second";
+    CHECK(send(broker,second).contains("result"));
+    const int mutations=broker.backend.mutations,selections=broker.backend.selections;
+    {
+        auto reply=send(broker,cursor(epoch));
+        CHECK(reply["schema"]==1 && reply["session"]=="guest" && reply["run_id"]=="run" && reply["request_id"]==1 && reply["epoch"]==epoch);
+        CHECK(reply["result"]==Json({{"shape","text"}}));
+    }
+    for(const char* name:{"vertical-text","left_ptr","xterm"}) { renderer.m_lastCursorData.name=name; CHECK(shape(epoch)==name); }
+    renderer.m_lastCursorData.name="";                                  // an app's picture cursor has no name
+    CHECK(shape(epoch).empty());
+    for(const std::string& name:{std::string("te xt"),std::string(65,'a'),std::string("text\"}")}) { renderer.m_lastCursorData.name=name; CHECK(shape(epoch).empty()); }
+    renderer.m_lastCursorData.name="text";
+    Pointer::manager.at={100,100};  CHECK(shape(epoch).empty());        // on the physical monitor
+    Pointer::manager.at={3200,500}; CHECK(shape(epoch).empty());        // the first pixel past XR-1
+    Pointer::manager.at={3199,500}; CHECK(shape(epoch)=="text");
+    Pointer::manager.at={1280,0};   CHECK(shape(epoch)=="text");
+    // Another run's output is not this run's, and every identity must hold.
+    {
+        Json other=cursor(epoch); other["run_id"]="second";
+        CHECK(send(broker,other)["result"]["shape"]=="");
+        Json wrong=cursor(epoch); wrong["session"]="stranger"; CHECK(send(broker,wrong).contains("error"));
+        wrong=cursor(epoch); wrong["run_id"]="unknown-run"; CHECK(send(broker,wrong).contains("error"));
+    }
+    CHECK(send(broker,cursor(std::string(48,'b'))).contains("error"));  // a stale epoch
+    Json payload=cursor(epoch); payload["payload"]={{"id",uuid}}; CHECK(send(broker,payload).contains("error"));
+    // Nothing moved: no lifecycle step, no selection, the name and the output as they were.
+    CHECK(broker.backend.mutations==mutations && broker.backend.selections==selections);
+    CHECK(renderer.m_lastCursorData.name=="text" && send(broker,envelope(1,epoch,"inspect",{{"id",uuid}}))["result"]["state"]=="live");
+    // A replaced monitor is not the run's output any more; neither is one that has gone.
+    {
+        auto keep=State::monitors.ms.back();
+        auto replacement=std::make_shared<Monitor>(*keep);
+        State::monitors.ms.back()=replacement;
+        CHECK(shape(epoch).empty());
+        State::monitors.ms.back()=keep;
+        CHECK(shape(epoch)=="text");
+    }
+    // An isolated pair run has no such op: its schema is refused by the validator, and schema 1 from its run by the broker.
+    {
+        twoOutputs(); Broker isolated;
+        auto pair=send(isolated,envelope(2,"unknown","pair_hello",{{"mode","isolated-vm"},{"target_name","Virtual-1"},{"fallback_name","Virtual-2"}}));
+        CHECK(pair.contains("result"));
+        CHECK(send(isolated,envelope(1,pair["epoch"],"cursor_shape",read)).contains("error"));
+        CHECK(send(isolated,envelope(2,pair["epoch"],"cursor_shape",{{"mode","isolated-vm"}})).contains("error"));
+    }
+}
 // Regression (physical phys1 + VM xr-isolated-bindrace): a strong broker reference kept a
 // destroyed CMonitor alive, so Hyprland's late wl_output bind dereferenced its torn-down
 // output instead of seeing an expired monitor. The broker must hold monitors weakly.
@@ -181,6 +264,7 @@ void monitorNotRetained() {
 int main() {
     monitorNotRetained();
     isolatedLifecycle();
+    cursorShapeRead();
     for(int side=0;side<2;++side) for(int fault=0;fault<20;++fault) {
         State::monitors.ms.clear(); statFail=false; character=true;
         for(int i=0;i<2;++i) {

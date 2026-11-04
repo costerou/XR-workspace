@@ -172,12 +172,19 @@ std::vector<Vec3> direction_disc(const Canvas& canvas, float x, float y, float a
 // The dot's look (free_pointer.py POINTER_LOOKS, the `overview_pointer` frame's `look`): it stays one cursor and shows what
 // a press would do there. plain over content, empty space and controls; two small arrowheads either side of the disc along
 // the resize direction on a desktop's edge or corner (ew: left / right edges, ns: top / bottom, nwse: top-left / bottom-right
-// corners, nesw: top-right / bottom-left); four on a pill (move); two chasing round the disc on a level bar (rotate).
-enum class PointerLook : std::uint8_t { plain, resize_ew, resize_ns, resize_nwse, resize_nesw, move, rotate };
+// corners, nesw: top-right / bottom-left); four on a pill (move); two chasing round the disc on a level bar (rotate). text
+// over a desktop's content where the app asks for a text cursor: the Serif Beam, which stands in for the disc rather than
+// going round it (gl.cpp draws no disc under it), centred on the click point.
+enum class PointerLook : std::uint8_t { plain, resize_ew, resize_ns, resize_nwse, resize_nesw, move, rotate, text };
 constexpr float kPointerMarkGapPx = 2.5f, kPointerMarkLenPx = 5.f, kPointerMarkHalfPx = 3.5f;  // past the ring, canvas px
-// Triangles (three vertices per mark, GL_TRIANGLES) of look `look`'s marks round the dot at canvas (x, y), turned to
-// (az, el) exactly as direction_disc turns the dot, so they stay round it anywhere round you and stay upright. `grow` px
-// fattens each (the black outline drawn under them, as the ring is under the disc). Empty for plain or an empty canvas.
+// The Serif Beam (canvas px from the click point; option 1 of the mockups, branch text-cursor-mockups): a stem 2 px wide, so
+// it keeps its width as the head moves (a width like 2.5 would flip between 2 and 3 with no anti-aliasing), between two
+// rounded serifs. With the ring it is 14 x 28 px; the serifs' middles are on the stem's ends.
+constexpr float kBeamHalfPx = 11.f, kBeamStemHalfPx = 1.f, kBeamSerifHalfPx = 4.f, kBeamSerifRadiusPx = 1.f;
+// Triangles (three vertices each, GL_TRIANGLES) of look `look`'s marks round the dot at canvas (x, y), or of the Serif Beam
+// for text, turned to (az, el) exactly as direction_disc turns the dot, so they stay round it anywhere round you and stay
+// upright. `grow` px fattens each (the black outline drawn under them, as the ring is under the disc). Empty for plain or
+// an empty canvas.
 std::vector<Vec3> direction_marks(const Canvas& canvas, float x, float y, float az, float el, PointerLook look, float grow = 0.f);
 // Window drag (free_pointer.py): the dragged window's ghost, a w x h canvas px rectangle outline `thickness` px wide (on
 // the inside of w x h), centred on canvas (x, y) and turned to (az, el) exactly as direction_disc turns the dot, so it

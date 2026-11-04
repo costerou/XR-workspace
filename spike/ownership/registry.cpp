@@ -11,6 +11,12 @@ bool validDesktop(int w,int h,double scale) {
     if(n<4 || n>12 || (n>8 && n%2) || n/4.0!=scale) return false;
     return (long(w)*4)%n==0 && (long(h)*4)%n==0;
 }
+std::string cursorShapeName(const std::string& name) {
+    auto word=[](unsigned char c) { return (c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9'); };
+    if(name.empty() || name.size()>64 || !word(name[0])) return {};
+    for(unsigned char c:name) if(!word(c) && c!='_' && c!='.' && c!='-') return {};
+    return name;
+}
 Json parse_request(const std::string& wire) {
     if(wire.size()>8192 || !wire.starts_with("xrspike ")) throw std::runtime_error("request bounds/prefix");
     std::map<int,std::set<std::string>> keys;
@@ -33,6 +39,7 @@ Json parse_request(const std::string& wire) {
     if(op=="hello" && j["schema"]==1) wanted={"fallback_name"};
     else if(op=="pair_hello" && j["schema"]==2) wanted={"target_name","fallback_name"};
     else if(op=="pair_observe" && j["schema"]==2) wanted={"target","fallback"};
+    else if(op=="cursor_shape" && j["schema"]==1) wanted={};
     else if(op=="inspect") wanted={"id"};
     else if(op=="evacuate_remove") wanted={"id","name","fallback"};
     else if(op=="create" || op=="reshape") wanted={"id","name","index","width","height","refresh_millihz","scale","x","y"};
@@ -130,6 +137,14 @@ Entry& Registry::lookup(const std::string& session,const std::string& run,const 
     if(it==entries.end() || it->second.session!=session || it->second.run!=run)
         throw std::runtime_error("unproven UUID/session/run");
     return it->second;
+}
+std::vector<Handle> Registry::liveOutputs(const std::string& session,const std::string& run) const {
+    std::vector<Handle> out;
+    for(const auto& [id,e]:entries) {
+        (void)id;
+        if(e.session==session && e.run==run && e.state=="live" && e.object && e.object->live) out.push_back(e.object);
+    }
+    return out;
 }
 std::string Registry::create(const std::string& session,const std::string& run,const Json& spec) {
     Guard guard(busy);

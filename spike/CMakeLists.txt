@@ -266,7 +266,8 @@ if(XR_ENABLE_PRESENTATION)
       target_compile_options(free_pointer_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME free_pointer COMMAND free_pointer_test
-      "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/overview_pointer_payloads.json")
+      "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/overview_pointer_payloads.json"
+      "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/serif_beam_shape.json")
   endif()
   # Pop-up text: installed system font via fontconfig + FreeType (local libraries, no downloads;
   # approved 2026-10-31). Missing font at runtime -> built-in pixel font, reported.

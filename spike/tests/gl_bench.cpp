@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 #include "gl.hpp"
+#include "pointer_raster.hpp"
 #include "xr/environment.hpp"
 #define XR_GL_COUNT_NO_MACROS
 #include "gl_call_counts.hpp"
@@ -95,6 +96,7 @@ struct Scenario {
     bool help = false, popup = false, handle = false, pointer = false;
     int drag_target = -1; bool ghost = false;  // overview window drag: the ghost round the dot, the target desktop framed
     PointerLook look = PointerLook::plain;     // the dot's look: marks round it
+    bool held = false;                         // a button held: the pointer at its held level
     bool upload_each_frame = false;
     bool roll = false;                         // the level bars and corner caps on every desktop, desktop 1's left segment hovered
     bool surface = false;                      // desktop 1's held panel on its press-time placement (Placement{})
@@ -122,9 +124,11 @@ std::vector<Scenario> scenarios() {
       s.placements = {tilted_left, curved, tilted_right}; out.push_back(s); }
     { Scenario s{"help_card"}; s.pills = true; s.help = true; s.pointer = true; out.push_back(s); }
     for (const auto& [name, look] : {std::pair{"look_resize_ew", PointerLook::resize_ew}, std::pair{"look_resize_nwse", PointerLook::resize_nwse},
-                                     std::pair{"look_move", PointerLook::move}, std::pair{"look_rotate", PointerLook::rotate}}) {
+                                     std::pair{"look_move", PointerLook::move}, std::pair{"look_rotate", PointerLook::rotate},
+                                     std::pair{"look_text", PointerLook::text}}) {
         Scenario s{name}; s.pills = true; s.pointer = true; s.look = look; out.push_back(s);
     }
+    { Scenario s{"look_text_held"}; s.pills = true; s.pointer = true; s.look = PointerLook::text; s.held = true; out.push_back(s); }
     { Scenario s{"window_drag"}; s.pills = true; s.pointer = true; s.ghost = true; s.drag_target = 2; s.placements = {tilted_left, curved, tilted_right};
       out.push_back(s); }
     Placement rolled = tilted_right; rolled.roll = 0.14f;
@@ -207,7 +211,7 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     if (s.handle) { glass.cap_hover = 1; glass.cap_corner = 3; }
     if (s.surface) { glass.surface_desktop = 1; glass.surface = Placement{}; }
     gl.set_glass(glass);
-    gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, s.ghost ? kFreePointerHeldLevel : kFreePointerLevel, false, 0, 0, s.look);
+    gl.set_free_pointer(s.pointer, float(w) * 0.55f, float(h) * 0.42f, s.ghost || s.held ? kFreePointerHeldLevel : kFreePointerLevel, false, 0, 0, s.look);
     gl.set_window_drag(s.ghost ? 72.f : 0.f, s.ghost ? 45.f : 0.f, s.drag_target);
     const double t = now_us();
     CHECK(gl.draw_and_swap(tiles, placements, int(s.position), 1.f - s.zoom, head(frame, s.head_motion), half_w, half_h));
@@ -295,6 +299,36 @@ int check(std::uint32_t w, std::uint32_t h) {
             CHECK(changed > 20);
             for (const auto& other : drawn) CHECK(other != px);
             drawn.push_back(px);
+        }
+        // The Serif Beam against its CPU mirror (pointer_raster.hpp): over a frame with no pointer, the GL paints exactly the
+        // mirror's pixels, grey on the shape, black on its ring, hard edges with nothing in between, no disc under it, and
+        // nothing else; at the plain and the held level, both under the OLED cap.
+        Scenario none{"no_pointer"}; none.pills = true;
+        draw_frame(*gl, r, none, 0, w, h, false);
+        const auto under = read_rgb(w, h);
+        const double d = std::tan(46.0 * M_PI / 360.0), a = double(w) / h;
+        const Canvas canvas{float(w), float(h), float(d * a / std::sqrt(1 + a * a)), float(d / std::sqrt(1 + a * a))};
+        const double wx = (2.0 * cx / canvas.view_w - 1) * canvas.half_w, wy = (1 - 2.0 * cy / canvas.view_h) * canvas.half_h;
+        const float az = float(std::atan2(wx, 1.0)), el = float(std::atan2(wy, std::hypot(wx, 1.0)));
+        const int x0 = int(cx) - 30, y0 = int(cy) - 30;
+        const auto outline = direction_marks(canvas, cx, cy, az, el, PointerLook::text, kFreePointerRingPx), shape = direction_marks(canvas, cx, cy, az, el, PointerLook::text);
+        const auto ring_mask = pointer_mask(canvas, outline, x0, y0, 60, 60), ink_mask = pointer_mask(canvas, shape, x0, y0, 60, 60);
+        CHECK(ink_mask.count() > 60 && ring_mask.count() > ink_mask.count());
+        for (const auto& other : drawn) CHECK(other != ref[named("look_text")][0]);
+        for (const auto& [name, level] : {std::pair{"look_text", kFreePointerLevel}, std::pair{"look_text_held", kFreePointerHeldLevel}}) {
+            const auto& px = ref[named(name)][0];
+            const int grey = int(level * 255 + 0.5f);
+            CHECK(grey <= 191);
+            std::size_t wrong = 0;
+            for (std::uint32_t y = 0; y < h; ++y) for (std::uint32_t x = 0; x < w; ++x) {  // canvas x, y; GL rows run bottom up
+                const std::size_t i = (std::size_t(h - 1 - y) * w + x) * 3;
+                const bool ink = ink_mask.at(int(x), int(y)), ring = ring_mask.at(int(x), int(y));
+                for (int c = 0; c < 3; ++c) {
+                    const int want = ink ? grey : ring ? 0 : int(under[i + std::size_t(c)]), got = px[i + std::size_t(c)];
+                    if (std::abs(got - want) > ((ink || ring) ? 1 : 0)) { if (!wrong) std::fprintf(stderr, "%s: at (%u,%u) channel %d is %d, not %d\n", name, x, y, c, got, want); ++wrong; }
+                }
+            }
+            if (wrong) { std::fprintf(stderr, "%s: %zu channels differ from the CPU mirror\n", name, wrong); ++failures; }
         }
     }
     // One long-lived compositor: forward, then backward, then interleaved, so every scenario follows several others.

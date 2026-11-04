@@ -4,10 +4,14 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 namespace xr::ownership {
 using Json = nlohmann::json;
 Json parse_request(const std::string&);
 bool validDesktop(int w,int h,double scale);
+// cursor_shape (plugin.cpp): `name`, a requested cursor's name, if it is one plain word (1..64 of A-Za-z0-9_.-, starting with
+// a letter or digit), else nothing: whatever the compositor holds, the broker never reports more than that.
+std::string cursorShapeName(const std::string& name);
 struct Object { virtual ~Object() = default; bool live=true, physical=false; };
 using Handle=std::shared_ptr<Object>;
 using Capture=std::function<void(Handle,bool)>;
@@ -78,5 +82,7 @@ public:
     // verifies against `spec` (which becomes its spec), else "invalid" (recovery still removes it).
     std::string reshape(const std::string&,const std::string&,const Json&);
     const Entry& entry(const std::string& id) const { return entries.at(id); }
+    // This run's outputs in state "live" and still alive (cursor_shape asks which one the pointer is on). Only reads.
+    std::vector<Handle> liveOutputs(const std::string& session,const std::string& run) const;
 };
 }

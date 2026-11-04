@@ -114,12 +114,14 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None):
+def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None,
+                  cursor_shape=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
     `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
     run's desktops.DesktopManager (the pills' Ultrawide / Add / Remove); closed here, before the run's recovery. `windows`:
-    the run's window_memory.WindowTracker; it takes its last capture here, while the XR outputs still hold the windows."""
+    the run's window_memory.WindowTracker; it takes its last capture here, while the XR outputs still hold the windows.
+    `cursor_shape`: the broker's read of the cursor an app asked for (ownership.cursor_reader), for the dot's look over text."""
     if not capture:
         yield None
         return
@@ -188,7 +190,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if rolls: pointer.rolls[:len(rolls)] = rolls  # the saved levelling rolls (the `roll` frame sends them)
         control.wake = pointer.wake_reader
         if hasattr(client, 'lock_pointer') and hasattr(client, 'enter_desktop'):
-            sampler = UnifiedSampler(client, capture, pointer, bind_args).start()
+            sampler = UnifiedSampler(client, capture, pointer, bind_args, cursor_shape=cursor_shape).start()
             control.desktop_listeners.append(sampler.set_names)  # a pill's Add / Remove: its monitors again
         # Send the focused window to the glasses / back (Ctrl+Alt+G, 1-4, B). Closed first at run end (below).
         if hasattr(client, 'mutate'):
@@ -345,8 +347,9 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             if memory is not None: memory.place(names)
             adopt_windows(client, fallback, names, notify=notify)
             if memory is not None: memory.finish()
-        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store,
-                                                                                   fallback, manager, memory) as control:
+        cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
+        with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
+                                                                       memory, cursor_shape=cursor_shape) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
                                  control=control, pose_feed=pose_feed, renderer=renderer)
     finally:

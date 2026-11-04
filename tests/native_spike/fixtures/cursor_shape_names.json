@@ -1,0 +1,7 @@
+{
+  "_comment": "The requested cursor's name as the broker may report it, shared by tests/native_spike/test_text_cursor.py with both sides: spike/ownership/registry.cpp cursorShapeName (through ownership_test --cursor-name) gives `accepted` back unchanged and `refused` as nothing, and tools/native_spike/ownership.py CURSOR_NAME takes exactly `accepted`. The empty name is neither: it is how the broker says it has none.",
+  "accepted": ["text", "vertical-text", "xterm", "ibeam", "IBeam", "left_ptr", "default", "nwse-resize", "e29285e634086352946a0e7090d73106",
+               "a", "x.y", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  "refused": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "te xt", " text", "text ", "text\n", "-text", "_text", ".text",
+              "te\"xt", "te\\xt", "te/xt", "téxt", "te\u0000xt", "{}", "../text"]
+}
