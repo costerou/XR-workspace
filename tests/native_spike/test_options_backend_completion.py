@@ -179,3 +179,15 @@ class SupersedingRequests(unittest.TestCase):
             owner.observe_renderer({'enabled':False,'physical_sbs':False})
             self.assertEqual(len(result),1)
         finally: owner.close()
+
+class CandidateFocus(unittest.TestCase):
+    def test_visible_default_candidate_is_selected_without_choice_event(self):
+        from types import SimpleNamespace
+        from tools.native_spike.options_editors import NativeEditors
+        editor=NativeEditors(SimpleNamespace(keys=None)); editor.open('url')
+        editor.apply('editor.char.digits','9')
+        displayed=next(r for r in editor.rows() if r['id']=='editor.char.punctuation')['value']
+        self.assertEqual(displayed,':')
+        self.assertTrue(editor.select_candidate('editor.char.punctuation'))
+        editor.apply('editor.insert')
+        self.assertEqual(editor.text,':')

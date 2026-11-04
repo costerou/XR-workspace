@@ -27,6 +27,7 @@ class NativeEditors:
         self.text_input = None
         self.text_field = None
         self.character = 'a'
+        self.candidates = {name:chars[0] for name,chars in self.CHARSETS.items()}
         self.hex_digits = list('000000')
 
     def open(self, kind):
@@ -80,10 +81,23 @@ class NativeEditors:
     def text_rows(self):
         out=[row('editor.hardware','Physical text input','readonly','Unavailable without authoritative keyboard state; use character controls')]
         for name,chars in self.CHARSETS.items():
-            out.append(row('editor.char.'+name,'Choose '+name,'choice',self.character if self.character in chars else chars[0],choices=list(chars)))
+            out.append(row('editor.char.'+name,'Focus to select '+name,'choice',self.candidates[name],choices=list(chars)))
         out += [row('editor.selected','Selected character','readonly',self.character),row('editor.insert','Insert character'),row('editor.backspace','Backspace'),row('editor.clear','Clear text')]
         for n,digit in enumerate(self.hex_digits): out.append(row(f'editor.hex.{n}',f'Unicode hex digit {n+1}','choice',digit,choices=list('0123456789abcdef')))
         return out+[row('editor.unicode','Insert Unicode scalar')]
+
+    def select_candidate(self,row_id):
+        """Focusing a visible character choice selects its displayed candidate.
+
+        Supervisor calls this on options_focus before refreshing child rows. No
+        character is inserted until explicit editor.insert activation.
+        """
+        if self.kind not in ('url','file') or not row_id.startswith('editor.char.'): return False
+        group=row_id.rsplit('.',1)[1]
+        if group not in self.candidates: return False
+        changed=self.character!=self.candidates[group]
+        self.character=self.candidates[group]
+        return changed
 
     def _buffer(self,text):
         if not isinstance(text,str) or len(text.encode('utf-8'))>256 or any(not ch.isprintable() for ch in text): raise ValueError('Text requires printable UTF-8, at most 256 bytes')
@@ -96,7 +110,7 @@ class NativeEditors:
             if id.startswith('editor.char.'):
                 group=id.rsplit('.',1)[1]
                 if group not in self.CHARSETS or value not in self.CHARSETS[group] or not isinstance(value,str) or len(value)!=1: raise ValueError('Invalid character')
-                self.character=value; return b''
+                self.candidates[group]=self.character=value; return b''
             if id.startswith('editor.hex.'):
                 n=int(id.rsplit('.',1)[1])
                 if not 0<=n<6 or not isinstance(value,str) or len(value)!=1 or value not in '0123456789abcdef': raise ValueError('Invalid hex digit')
