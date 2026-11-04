@@ -421,7 +421,7 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None, continuity_fd=None):
+            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None, continuity_fd=None, pro2_scope=None):
     """Shared child lifetime only; authorization remains in distinct callers. `report`: a dict that gets the stop reason.
     `depth_fd`: the depth engine's shared memory (immersive.DepthMemory), inherited."""
     import json
@@ -437,6 +437,9 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
     if pose_feed:
         if not capture_argv: raise ValueError('head tracking requires managed-output capture')
         capture_argv += ['--pose-feed', 'xrld']
+        if pro2_scope is not None:
+            pro2_scope.healthy()
+            capture_argv += ['--pro2-test-pose-prefix',pro2_scope.prefix,'--pro2-test-projection',str(pro2_scope.projection)]
     token(output); token(run_id); token(session)
     peer = struct.unpack('3i', wayland_socket.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if peer[1] != os.getuid() or peer != client._peer[:3]: raise PermissionError('Wayland/IPC peer mismatch')

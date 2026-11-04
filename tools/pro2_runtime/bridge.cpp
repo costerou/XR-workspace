@@ -16,6 +16,7 @@
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <ifaddrs.h>
 namespace fs=std::filesystem;
 using Clock=std::chrono::steady_clock;
 constexpr const char* kHash="8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e";
@@ -71,6 +72,10 @@ int main(int argc,char** argv){
  std::signal(SIGINT,signal_stop);std::signal(SIGTERM,signal_stop);std::signal(SIGPIPE,SIG_IGN);
  Api sdk;std::unique_ptr<luma::Publisher> publisher;bool created=false,open_attempt=false;int cleanup_errors=0;std::size_t samples=0;std::string error;bool ready=false;
  try{
+  struct ifaddrs* interfaces=nullptr;
+  if(getifaddrs(&interfaces))throw std::runtime_error("network-namespace");
+  bool isolated=true;for(auto* p=interfaces;p;p=p->ifa_next)if(std::string(p->ifa_name)!="lo")isolated=false;
+  freeifaddrs(interfaces);if(!isolated)throw std::runtime_error("network-not-isolated");
   const auto fingerprint=identity(root);if(hash_fd(sdk_fd)!=expected)throw std::runtime_error("sdk-hash");
   sdk.lib=dlopen(("/proc/self/fd/"+std::to_string(sdk_fd)).c_str(),RTLD_NOW|RTLD_LOCAL);if(!sdk.lib)throw std::runtime_error("sdk-load");
   // Resolve every lifecycle function before create so missing cleanup API cannot strand a handle.
@@ -88,7 +93,7 @@ int main(int argc,char** argv){
   if(sdk.get<Api::Call>("start")(sdk.handle))throw std::runtime_error("start");
   if(reg(sdk.handle,callback))throw std::runtime_error("register");
   char version[256]{};int length=sizeof version;
-  if(firmware(sdk.handle,version,&length)||length<=0||length>256||!memchr(version,0,sizeof version)||std::string(version)!="30.0.00.002_20260804")throw std::runtime_error("firmware");
+  if(firmware(sdk.handle,version,&length)||length<=0||length>256||!memchr(version,0,sizeof version)||std::string(version)!="30.0.00.002_20260804"||(length!=int(std::strlen(version))&&length!=int(std::strlen(version)+1)))throw std::runtime_error("firmware");
   luma::PublisherOptions options;options.prefix=prefix;options.private_segments=true;options.history_step=1;options.mount_pitch_deg=0;options.display_fov_deg=static_cast<float>(projection);options.look_ahead_cfg={0,0,0,0};
   std::string why;publisher=luma::Publisher::open(options,why);if(!publisher)throw std::runtime_error("publisher-open");
   accepting=true;open_attempt=true;if(open(sdk.handle,1,0))throw std::runtime_error("open");

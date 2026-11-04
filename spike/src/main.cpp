@@ -1,5 +1,7 @@
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
+#include "xr/pose.hpp"
+#include <cmath>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "xr/capture.hpp"
@@ -50,7 +52,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21 && argc != 23) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21 && argc != 23 && argc != 25 && argc != 27) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
@@ -69,7 +71,7 @@ int main(int argc, char** argv) {
     if (args.contains("--depth-fd") && depth_fd < 0) return 2;
     if (args.contains("--control-errors") && args["--control-errors"] != "fatal") return 2;
     const bool control_errors_fatal = args.contains("--control-errors");
-    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd");
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd") - args.count("--continuity-fd") - args.count("--pro2-test-pose-prefix") - args.count("--pro2-test-projection");
     if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
@@ -84,6 +86,14 @@ int main(int argc, char** argv) {
             if (!args.contains("--pose-feed") || args["--pose-feed"] != "xrld") return 2;
             pose_feed = true;
         }
+    }
+    float test_projection = 0;
+    std::string test_prefix;
+    if(args.contains("--pro2-test-pose-prefix") || args.contains("--pro2-test-projection")) {
+        if(!pose_feed || !args.contains("--pro2-test-pose-prefix") || !args.contains("--pro2-test-projection")) return 2;
+        test_prefix=args["--pro2-test-pose-prefix"];
+        char* end=nullptr;test_projection=std::strtof(args["--pro2-test-projection"].c_str(),&end);
+        if(!end || *end || !std::isfinite(test_projection) || test_projection<44.5f || test_projection>50.f || test_prefix.empty() || test_prefix[0]!='/' || test_prefix=="/tmp/shader_runtime_") return 2;
     }
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
@@ -110,10 +120,14 @@ int main(int argc, char** argv) {
     setenv("WAYLAND_SOCKET", args["--wayland-fd"].c_str(), 1);
     std::signal(SIGTERM, stop); std::signal(SIGINT, stop);
     xr::Presentation presentation;
+    if(!test_prefix.empty()) {
+        std::string why;auto feed=xr::PoseFeed::open(test_prefix,why);
+        if(!feed || !feed->read() || !feed->display_fov() || std::fabs(*feed->display_fov()-test_projection)>.001f) return 2;
+    }
     int result = 0;
     if (!report(presentation.open(args["--output"], capture))) result = 1;
     if (!result && depth_fd >= 0) presentation.set_depth_fd(depth_fd);
-    if (!result && pose_feed) presentation.enable_tracking("/tmp/shader_runtime_");  // XRLinuxDriver IPC (fixed path)
+    if (!result && pose_feed) presentation.enable_tracking(test_prefix.empty()?"/tmp/shader_runtime_":test_prefix,test_projection);  // XRLinuxDriver IPC (fixed path)
     if (!result && presentation.restore_continuity(continuity_fd)) std::cerr << "continuity: restored\n";
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     // VR video files arrive as SCM_RIGHTS descriptors with their `video` open frame (docs/vr-video.md). Each open frame

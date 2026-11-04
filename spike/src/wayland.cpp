@@ -445,6 +445,7 @@ struct Presentation::Impl : SurfaceRequests {
     // Head tracking (XRLinuxDriver feed); absent/stale feed holds the last pose, never blocks.
     bool tracking_requested = false;
     std::string pose_prefix;
+    float supervised_projection = 0;
     std::unique_ptr<PoseFeed> pose_feed;
     Stabilizer stabilization;
     std::string pose_why;
@@ -496,7 +497,7 @@ struct Presentation::Impl : SurfaceRequests {
         // Fill the glasses' FOV at the centre pose; diagonal FOV from the driver when published.
         const auto published = pose_feed ? pose_feed->display_fov() : std::nullopt;
         fov_from_driver = published.has_value();
-        const float diag = published.value_or(46.f);  // fallback is reported, never silent
+        const float diag = supervised_projection > 0 ? supervised_projection : published.value_or(46.f);  // fallback is reported, never silent
         fov_deg = diag;
         const double d = std::tan(diag * M_PI / 360.0), a = height ? double(width) / height : 16.0 / 10.0;
         half_w = float(d * a / std::sqrt(1 + a * a)); half_h = float(d / std::sqrt(1 + a * a));
@@ -1228,8 +1229,9 @@ Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     impl_->cadence = PatternCadence(duration_ms, monotonic_ms());
     return {};
 }
-void Presentation::enable_tracking(std::string prefix) {
+void Presentation::enable_tracking(std::string prefix, float supervised_projection) {
     if (!impl_ || !impl_->gl) return;  // head tracking needs GPU composition
+    impl_->supervised_projection = supervised_projection;
     impl_->tracking_requested = true; impl_->pose_prefix = std::move(prefix); impl_->cadence.invalidate();
 }
 void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
