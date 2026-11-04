@@ -172,11 +172,134 @@ def test_c1_output_transaction_actual_broker_readback_or_rollback(id,refuse):
             d.focus('confirmation.apply');d.key('Return')
         d.add(c.poll());d.native()
         if refuse:
-            assert run.manager.desktops()==before, 'failed output operation must rollback authoritative specs'
+            if id in ('resolution','scale','ultrawide'):
+                # BrokerTransport deliberately invalidates ownership on refused
+                # reshape. Preserved safety contract keeps untrusted requested
+                # specs for the guard; no bypass can manufacture a rollback.
+                from tools.native_spike.journal import recover
+                assert run.manager.desktops()!=before
+                assert any(e['state']=='invalid' for e in run.transport.registry.values())
+                assert not recover(run.journal,run.broker).complete
+            else:
+                assert run.manager.desktops()==before, 'trusted refusal must preserve authoritative specs'
             assert c.options.snapshot()['status']=='error', c.options.snapshot()
+            assert c.options.snapshot()['message'] and 'timed out' not in c.options.snapshot()['message'].lower()
         else:
             assert run.manager.desktops()!=before, 'C1 action never reached real broker transaction'
             assert c.options.snapshot()['status'] in ('pending','applied'), 'native child must retain owner completion state'
         d.teardown()
     finally:
         run.manager.close();cleanup.doCleanups()
+
+
+@pytest.mark.parametrize('id',['placement_flat','menu_reset'])
+def test_c1_flat_reset_changes_only_target_via_native_placement_owner(id,tmp_path):
+    from tools.native_spike.geometry import DEFAULT_PLACEMENT
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3'],placements=[dict(DEFAULT_PLACEMENT),dict(DEFAULT_PLACEMENT,x=250)]),
+                       'run','session',lambda n:None,profiles.LayoutStore(tmp_path/'layout.json'),None)
+    d=MenuDriver(c);d.enter('XR-3','monitor','placement');d.focus(id);d.key('Return')
+    assert c.state.placements==[DEFAULT_PLACEMENT,DEFAULT_PLACEMENT]
+    d.native();d.teardown()
+
+
+@pytest.mark.parametrize('id',['roll_ccw','roll_cw','roll_level'])
+def test_c1_roll_keys_use_actual_pointer_owner_and_target(id):
+    from tools.native_spike.free_pointer import OverviewPointer
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    p=c.overview_pointer=OverviewPointer(c)
+    try:
+        c.set_roll_geometry([300,-600]);before=list(p.rolls)
+        d=MenuDriver(c);d.enter('XR-3','monitor','placement');d.focus(id);d.key('Return')
+        assert p.rolls[0]==before[0] and p.rolls[1]!=before[1]
+        d.native();d.teardown()
+    finally:p.close()
+
+
+@pytest.mark.parametrize('id',['help_prev','help_next'])
+def test_advertised_help_page_row_opens_native_help_and_reaches_a_page(id):
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    d=MenuDriver(c);d.enter('XR-3','workspace','help');d.focus(id);d.key('Return')
+    assert c.help_visible, f'{id} advertised while no help child exists, but key activation is inert'
+    d.native();d.teardown()
+
+
+def test_c1_background_toggle_and_recenter_are_not_inert(tmp_path):
+    c=view.ViewControl(view.ViewState(['XR-1','XR-3']),'run','session',lambda n:None,None,None)
+    c.settings=profiles.LayoutStore(tmp_path/'layout.json')
+    d=MenuDriver(c);d.enter('XR-3','workspace','environment');d.focus('environment_toggle');d.key('Return')
+    assert c.options.snapshot()['status']!='error',c.options.snapshot()
+    assert c.state.environment['background']!='none'
+    d.enter('XR-3','workspace','view');d.focus('recenter');d.key('Return')
+    frames=[json.loads(line) for line in d.wire.splitlines()]
+    assert any(frame['op']=='recenter' for frame in frames)
+    d.native();d.teardown()
+
+
+@pytest.mark.parametrize('op,target',[('send_glasses_1',31),('send_glasses_2',41),('send_glasses_3',51),('send_glasses_4',61),('send_back',1)])
+@pytest.mark.parametrize('obey',[True,False])
+def test_c1_each_numbered_send_and_back_verifies_actual_target(op,target,obey):
+    from test_release_owner_callbacks import Backend
+    from tools.native_spike.send import WindowSender
+    backend=Backend(obey)
+    for name,workspace in [('XR-2',41),('XR-4',61)]:
+        backend.monitors.append(dict(id=len(backend.monitors),name=name,activeWorkspace=dict(id=workspace,name=str(workspace))))
+    if op=='send_back':backend.window.update(monitor=3,workspace=dict(id=51))
+    c=view.ViewControl(view.ViewState(['XR-1','XR-2','XR-3','XR-4']),'run','session',lambda n:None,None,None)
+    owner=c.sender=WindowSender(backend,c.state.names,'DP-1',notify=None)
+    d=MenuDriver(c)
+    try:
+        d.enter('XR-3','workspace' if op=='send_back' else 'monitor','windows');d.focus(op);d.key('Return')
+        for thread in owner._threads:thread.join(2);assert not thread.is_alive()
+        d.add(c.poll());d.native()
+        expected=target if obey else (51 if op=='send_back' else 1)
+        assert backend.window['workspace']['id']==expected
+        assert c.options.snapshot()['status']==('applied' if obey else 'error'),c.options.snapshot()
+        d.teardown()
+    finally:owner.close()
+
+
+@pytest.mark.parametrize('count,id,category,scope',[(1,'remove_monitor','output','monitor'),(4,'add_monitor','layout','workspace')])
+def test_c1_output_limits_disabled_and_cannot_be_activated(count,id,category,scope):
+    import unittest
+    from test_desktops import Run,D169
+    cleanup=unittest.TestCase();run=Run(cleanup,[D169]*count)
+    c=view.ViewControl(view.ViewState(run.manager.names()),'run','session',lambda n:None,None,None)
+    c.desktops=run.manager;c.state.sizes=run.manager.desktops();d=MenuDriver(c)
+    try:
+        d.enter(c.state.names[-1],scope,category)
+        index=next(i for i,r in enumerate(c.options.snapshot()['rows']) if r['id']==id)
+        assert not c.options.snapshot()['rows'][index]['enabled']
+        before=copy.deepcopy(run.manager.specs)
+        d.intent('options_focus',focus=index);d.key('Return')
+        assert run.manager.specs==before and not c.state.desktops_busy
+        assert c.options.snapshot()['status']!='applied'
+        d.native();d.teardown()
+    finally:run.manager.close();cleanup.doCleanups()
+
+
+def test_c1_reset_has_distinct_confirmation_and_authoritative_no_step_completion():
+    import test_layout_reset as legacy_reset
+    f=legacy_reset.ResetTests();f.setUp()
+    try:
+        f.start([legacy_reset.D169]*3,[legacy_reset.FLAT]*3,[0]*3)
+        c=f.c;d=MenuDriver(c);d.enter('XR-3','workspace','layout');d.focus('layout_reset');d.key('Return')
+        assert c.options.confirmation is not None and c.reset is None
+        label=c.options.snapshot()['rows'][0]['label'].lower()
+        assert 'migration' in label and 'physical fallback' not in label
+        d.focus('confirmation.apply');d.key('Return')
+        for delta in (0,.6,1.2,2):
+            f.now=100+delta;d.add(c.poll(f.now))
+        assert c.reset is None
+        assert c.state.names==['XR-1','XR-2','XR-3']
+        assert c.options.snapshot()['status'] in ('pending','applied'),c.options.snapshot()
+        d.native();d.teardown()
+    finally:f.doCleanups()
+
+
+def test_c1_stop_requires_confirmation_and_uses_existing_unwind():
+    c=view.ViewControl(view.ViewState(['XR-1']),'run','session',lambda n:None,None,None)
+    d=MenuDriver(c);d.enter('XR-1','workspace','session');d.focus('stop');d.key('Return')
+    assert c.options.confirmation is not None
+    d.focus('confirmation.apply')
+    with pytest.raises(KeyboardInterrupt):d.key('Return')
+    d.native();d.teardown()

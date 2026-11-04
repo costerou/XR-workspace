@@ -43,7 +43,16 @@
           "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner",
+        "tests/xr_options_integration/test_release_native_reachability.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "zoom_out",
@@ -73,7 +82,7 @@
         "in_xr_input",
         "restart_cleanup"
       ],
-      "implementation_route": "options_apply",
+      "implementation_route": "preserved overview key / actual native Restore",
       "functional_owner_evidence": {
         "status": "passed",
         "junit_sha256": "41e3c7185254d6719139f84854a2ff6f3c4768850c9684bc23fe46f1820a1499",
@@ -84,7 +93,15 @@
           "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_native_reachability.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "prev",
@@ -124,7 +141,15 @@
           "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "next",
@@ -164,7 +189,15 @@
           "tests/native_spike/test_maximize_level.py::HeldPlaceTests::test_every_way_back_to_the_overview_applies_it"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "spacing_down",
@@ -202,7 +235,15 @@
           "tests/native_spike/test_view.py::ViewStateTests::test_spacing_bounded_and_persisted"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "spacing_up",
@@ -240,7 +281,15 @@
           "tests/native_spike/test_view.py::ViewStateTests::test_spacing_bounded_and_persisted"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "recenter",
@@ -278,7 +327,15 @@
           "tests/native_spike/test_tracking.py::RecenterTests::test_recenter_op_sends_recenter_frame_without_view_change"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "layout_reset",
@@ -318,7 +375,13 @@
           "tests/native_spike/test_layout_reset.py::ResetTests::test_a_run_ending_mid_reset_saves_the_default"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "mode_next",
@@ -357,7 +420,13 @@
           "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "prediction",
@@ -395,7 +464,15 @@
           "tests/native_spike/test_view.py::ViewModeAndCursorFollowTests::test_prediction_toggles_reaches_renderer_and_is_saved"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "typing_toggle",
@@ -436,7 +513,15 @@
           "tests/native_spike/test_typing_mode.py::ControlTests::test_run_end_stops_further_swaps"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "privacy_display",
@@ -476,7 +561,16 @@
           "tests/native_spike/test_privacy.py::GuardAndRecoveryTests::test_crash_recovery_wakes_the_fallback_before_its_physical_check"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_async_action_actual_owner_backend_completion_failure_and_cleanup",
+        "tests/xr_options_integration/test_release_owner_callbacks.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "environment_toggle",
@@ -516,7 +610,15 @@
           "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_toggle",
@@ -557,7 +659,15 @@
           "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_3d_phases.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_toggle",
@@ -597,7 +707,15 @@
           "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_close_persists_the_current_placements"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_open",
@@ -638,7 +756,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_internal_text.py",
+        "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_paste",
@@ -678,7 +805,13 @@
           "tests/native_spike/test_web_video.py::BindHelperTests::test_paste_sends_the_clipboard_as_video_open"
         ],
         "exception": "Native clipboard video route"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "playback_menu_toggle",
@@ -717,7 +850,15 @@
           "tests/native_spike/test_video.py::ControlTests::test_controls_close_after_the_idle_timeout"
         ],
         "exception": "Retained native video controls"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "help",
@@ -757,7 +898,15 @@
           "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "binds_toggle",
@@ -797,7 +946,15 @@
           "tests/native_spike/test_keybinds.py::PanelTests::test_keys_hyprland_holds_are_refused_with_its_description"
         ],
         "exception": "Native keybind child; v4 modal handoff separately gated"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "help_prev",
@@ -837,7 +994,15 @@
           "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_advertised_help_page_row_opens_native_help_and_reaches_a_page"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "help_next",
@@ -877,7 +1042,15 @@
           "tests/native_spike/test_help_pages.py::PointerTests::test_clicks_on_the_arrows_and_indicator_turn_pages"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_advertised_help_page_row_opens_native_help_and_reaches_a_page"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "send_glasses",
@@ -917,7 +1090,16 @@
           "tests/native_spike/test_send_window.py::WorkerTests::test_close_waits_for_a_move_in_flight_and_no_move_starts_after"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_async_action_actual_owner_backend_completion_failure_and_cleanup",
+        "tests/xr_options_integration/test_release_owner_callbacks.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "send_glasses_1",
@@ -957,7 +1139,13 @@
           "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "send_glasses_2",
@@ -997,7 +1185,13 @@
           "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "send_glasses_3",
@@ -1037,7 +1231,13 @@
           "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "send_glasses_4",
@@ -1077,7 +1277,13 @@
           "tests/native_spike/test_send_window.py::MoveTests::test_a_desktop_this_run_does_not_have"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "send_back",
@@ -1117,7 +1323,13 @@
           "tests/native_spike/test_send_window.py::WorkerTests::test_close_waits_for_a_move_in_flight_and_no_move_starts_after"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_field_prev",
@@ -1157,7 +1369,13 @@
           "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_field_next",
@@ -1197,7 +1415,13 @@
           "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_dec",
@@ -1238,7 +1462,13 @@
           "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_inc",
@@ -1279,7 +1509,13 @@
           "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_dec_big",
@@ -1320,7 +1556,13 @@
           "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_inc_big",
@@ -1361,7 +1603,13 @@
           "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_debounced_save_lands_without_closing"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_desktop_next",
@@ -1401,7 +1649,13 @@
           "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_desktop_prev",
@@ -1441,7 +1695,13 @@
           "tests/native_spike/test_placement_menu.py::MenuNavigationTests::test_navigation_does_not_change_placements_or_save"
         ],
         "exception": "Preserved placement child keyboard"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_reset",
@@ -1481,7 +1741,15 @@
           "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_adjust_touches_only_the_selected_desktop_and_field"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_flat_reset_changes_only_target_via_native_placement_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_back",
@@ -1521,7 +1789,13 @@
           "tests/native_spike/test_placement_menu.py::MenuPersistenceTests::test_close_persists_the_current_placements"
         ],
         "exception": "Preserved placement child close"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_ultrawide",
@@ -1561,7 +1835,13 @@
           "tests/native_spike/test_desktops.py::ManagerTests::test_a_reshape_that_does_not_read_back_is_kept_untrusted"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_add",
@@ -1601,7 +1881,13 @@
           "tests/native_spike/test_desktops.py::ManagerTests::test_one_change_at_a_time_and_none_after_close"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "menu_delete",
@@ -1642,7 +1928,13 @@
           "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_pause",
@@ -1682,7 +1974,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_seek_back",
@@ -1722,7 +2023,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_seek_fwd",
@@ -1762,7 +2072,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_seek_back_big",
@@ -1802,7 +2121,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_seek_fwd_big",
@@ -1842,7 +2170,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_format",
@@ -1882,7 +2219,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame",
+        "tests/xr_options_integration/test_release_video_readback.py::test_video_owner_reports_only_after_observed_native_result"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_up",
@@ -1922,7 +2268,15 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_down",
@@ -1962,7 +2316,15 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls while playing"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_exit",
@@ -2002,7 +2364,15 @@
           "tests/native_spike/test_video.py::ControlTests::test_renderer_error_and_missing_support_return_to_the_desktops"
         ],
         "exception": "Retained native video controls"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_quality",
@@ -2043,7 +2413,16 @@
           "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
         ],
         "exception": "Retained native video quality editor; actual renderer readback separately gated"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_retained_quality_editor_opens_changes_and_cancels_without_seeking",
+        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_controls",
@@ -2083,7 +2462,15 @@
           "tests/native_spike/test_video.py::ControlTests::test_controls_close_after_the_idle_timeout"
         ],
         "exception": "Retained native video controls"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_playing_video_retains_native_action_ingress_and_frame"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "stabilization",
@@ -2122,7 +2509,15 @@
           "tests/native_spike/test_stabilization.py::test_legacy_profile_defaults_and_custom_strength_roundtrip"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_all",
@@ -2163,7 +2558,15 @@
           "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_3d_phases.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_monitor",
@@ -2204,7 +2607,15 @@
           "tests/native_spike/test_immersive.py::RunTests::test_the_end_of_a_run_brings_it_all_down_before_recovery"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_3d_phases.py"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_preset",
@@ -2245,7 +2656,15 @@
           "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_strength_presets",
@@ -2286,7 +2705,13 @@
           "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_strength",
@@ -2327,7 +2752,15 @@
           "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_monitor_strength",
@@ -2367,7 +2800,15 @@
           "tests/native_spike/test_immersive_strength.py::DesktopStrengthTests::test_bad_strength_is_rejected"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_plane",
@@ -2408,7 +2849,15 @@
           "tests/native_spike/test_immersive.py::LookTests::test_a_new_renderer_is_told_3d_is_on"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "placement_x",
@@ -2449,7 +2898,15 @@
           "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "placement_y",
@@ -2490,7 +2947,15 @@
           "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "placement_distance",
@@ -2531,7 +2996,15 @@
           "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "placement_curvature",
@@ -2572,7 +3045,15 @@
           "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "placement_apply",
@@ -2613,7 +3094,13 @@
           "tests/native_spike/test_placement.py::PlacementControlTests::test_save_failure_still_applies"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "placement_flat",
@@ -2653,7 +3140,15 @@
           "tests/native_spike/test_placement_menu.py::MenuAdjustTests::test_adjust_touches_only_the_selected_desktop_and_field"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_flat_reset_changes_only_target_via_native_placement_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "mode_follow",
@@ -2693,7 +3188,15 @@
           "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "mode_locked",
@@ -2733,7 +3236,15 @@
           "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_switch_and_ctrl_alt_v_while_maximized_change_no_roll"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_action_key_reaches_actual_view_owner"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_browse",
@@ -2774,7 +3285,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_internal_text.py",
+        "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_play",
@@ -2815,7 +3335,16 @@
           "tests/native_spike/test_video.py::ControlTests::test_close_removes_the_keys_and_drops_unsent_files"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_internal_text.py",
+        "tests/xr_options_integration/test_release_video_readback.py::test_open_failure_is_backend_error_even_when_child_closed"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "video_paste_ui",
@@ -2855,7 +3384,13 @@
           "tests/native_spike/test_web_video.py::BindHelperTests::test_paste_sends_the_clipboard_as_video_open"
         ],
         "exception": "Native clipboard video route"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "resolution",
@@ -2895,7 +3430,15 @@
           "tests/native_spike/test_resolution_dropdown.py::PointerTests::test_presses_reach_the_control"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "scale",
@@ -2935,7 +3478,15 @@
           "tests/native_spike/test_scale_dropdown.py::PointerTests::test_presses_reach_the_control"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "ultrawide",
@@ -2974,7 +3525,15 @@
           "tests/native_spike/test_desktops.py::ManagerTests::test_a_reshape_that_does_not_read_back_is_kept_untrusted"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "add_monitor",
@@ -3013,7 +3572,15 @@
           "tests/native_spike/test_desktops.py::ManagerTests::test_one_change_at_a_time_and_none_after_close"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "remove_monitor",
@@ -3053,7 +3620,15 @@
           "tests/native_spike/test_recovery.py::RecoveryTests::test_no_physical_fallback_preserves_resources"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_output_transaction_actual_broker_readback_or_rollback"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "background",
@@ -3093,7 +3668,15 @@
           "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "background_brightness",
@@ -3133,7 +3716,15 @@
           "tests/native_spike/test_environment.py::PanelTests::test_a_release_saves_at_once"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_setting_keyboard_owner_readback_native_wire_and_restart"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "roll_ccw",
@@ -3174,7 +3765,15 @@
           "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
         ],
         "exception": "Preserved native top level bar"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "roll_level",
@@ -3215,7 +3814,15 @@
           "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
         ],
         "exception": "Preserved native top level bar"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "roll_cw",
@@ -3256,7 +3863,15 @@
           "tests/native_spike/test_maximize_level.py::RollsStayTests::test_a_turn_click_cut_off_by_a_maximize_turns_nothing"
         ],
         "exception": "Preserved native top level bar"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_roll_keys_use_actual_pointer_owner_and_target"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "drag_move",
@@ -3296,7 +3911,13 @@
           "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
         ],
         "exception": "Preserved pill gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "drag_resize",
@@ -3336,7 +3957,13 @@
           "tests/native_spike/test_free_pointer.py::GateTests::test_off_in_typing_mode_and_a_drag_is_saved"
         ],
         "exception": "Preserved corner/edge gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "quality_filter",
@@ -3377,7 +4004,16 @@
           "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
         ],
         "exception": "Retained native video quality editor; actual renderer readback separately gated"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_retained_quality_editor_opens_changes_and_cancels_without_seeking",
+        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "quality_deband",
@@ -3418,7 +4054,16 @@
           "tests/native_spike/test_quality.py::MenuTests::test_hiding_the_card_closes_the_menu"
         ],
         "exception": "Retained native video quality editor; actual renderer readback separately gated"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_retained_video.py::test_retained_quality_editor_opens_changes_and_cancels_without_seeking",
+        "tests/xr_options_integration/test_release_video_readback.py::test_quality_change_waits_for_applied_property_and_propagates_error"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "bind_change",
@@ -3458,7 +4103,15 @@
           "tests/native_spike/test_keybinds.py::PanelTests::test_keys_hyprland_holds_are_refused_with_its_description"
         ],
         "exception": "Native keybind child; v4 modal handoff separately gated"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "bind_reset",
@@ -3498,7 +4151,15 @@
           "tests/native_spike/test_keybinds.py::PanelTests::test_stale_or_closed_keys_do_nothing_but_close_the_compositors_panel_again"
         ],
         "exception": "Native keybind child"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "bind_reset_all",
@@ -3538,7 +4199,15 @@
           "tests/native_spike/test_keybinds.py::PanelTests::test_stale_or_closed_keys_do_nothing_but_close_the_compositors_panel_again"
         ],
         "exception": "Native keybind child"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "bind_cancel",
@@ -3578,7 +4247,15 @@
           "tests/native_spike/test_keybinds.py::PanelTests::test_a_change_waits_only_so_long_and_the_panel_closes_when_idle"
         ],
         "exception": "Native keybind child"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "bind_navigation",
@@ -3617,7 +4294,15 @@
           "tests/native_spike/test_keybinds.py::PanelTests::test_up_down_page_home_end_pick_a_row"
         ],
         "exception": "Native keybind child"
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_release_text_modal.py::test_native_keybind_child_capture_escape_and_keyboard_reacquisition"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "fallback",
@@ -3654,7 +4339,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_snapshot_exposes_fallback_choices_and_pending_scope"
         ],
         "exception": "Pre-start only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "tracking",
@@ -3693,7 +4384,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_unticking_head_tracking_drops_the_driver_from_the_consent"
         ],
         "exception": "Pre-start only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "tracking_driver",
@@ -3732,7 +4429,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_unticking_head_tracking_drops_the_driver_from_the_consent"
         ],
         "exception": "Pre-start only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "mode_switch",
@@ -3769,7 +4472,13 @@
           "tests/xr_controller/test_runner.py::RunnerTests::test_no_mode_switch_when_false"
         ],
         "exception": "Pre-start consent only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "startup_desktops",
@@ -3806,7 +4515,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_start_scope_falls_back_to_three_flat_desktops_with_the_reason_logged"
         ],
         "exception": "Pre-start only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "stop",
@@ -3846,7 +4561,13 @@
           "tests/native_spike/test_recovery.py::RecoveryTests::test_crash_after_prepare_before_confirm"
         ],
         "exception": "External safety Stop plus native confirmation"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "recover",
@@ -3885,7 +4606,13 @@
           "tests/native_spike/test_recovery.py::RecoveryTests::test_disconnect_or_wrong_session_fails_closed"
         ],
         "exception": "External recovery-only safety path"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "start",
@@ -3923,7 +4650,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_confirm_with_stale_scope_id_refused"
         ],
         "exception": "Pre-start consent only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "confirm_start",
@@ -3961,7 +4694,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_confirm_with_stale_scope_id_refused"
         ],
         "exception": "Pre-start consent only"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "confirm_recover",
@@ -3999,7 +4738,13 @@
           "tests/native_spike/test_recovery.py::RecoveryTests::test_disconnect_or_wrong_session_fails_closed"
         ],
         "exception": "External recovery-only safety path"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "cancel",
@@ -4036,7 +4781,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_tracking_startup_reports_progress_and_can_be_cancelled"
         ],
         "exception": "External confirmation cancellation"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "status",
@@ -4075,7 +4826,13 @@
           "tests/xr_controller/test_server.py::ServerTests::test_status_survives_client_disconnect"
         ],
         "exception": "External measured status"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "controller_restart",
@@ -4115,7 +4872,13 @@
           "tests/xr_controller/test_state.py::StateTests::test_live_unit_without_journal_blocks_second_start"
         ],
         "exception": "External controller fault; rediscovery tested without restarting service"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "close_external",
@@ -4153,7 +4916,13 @@
           "tests/xr_controller/test_server.py::ServerTests::test_status_survives_client_disconnect"
         ],
         "exception": "External shell dismissal; transport disconnect tested, QML dismiss gesture unverified"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "immersive_connected_tail",
@@ -4194,7 +4963,13 @@
           "tests/native_spike/test_immersive.py::ButtonTests::test_a_stale_click_does_nothing"
         ],
         "exception": "Preserved Connected Tail gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "select_pointer",
@@ -4232,7 +5007,13 @@
           "tests/native_spike/test_full_interaction.py::FocusAndKeyboardTests::test_the_selected_desktop_follows_the_dot_for_the_keys_that_act_on_it"
         ],
         "exception": "Preserved app-content pointer"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "edge_pan",
@@ -4272,7 +5053,13 @@
           "tests/native_spike/test_edge_pan.py::SamplerTests::test_back_to_the_overview_mid_pan_ends_it"
         ],
         "exception": "Preserved edge-pan gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "background_switch",
@@ -4312,7 +5099,15 @@
           "tests/native_spike/test_environment.py::ControlTests::test_a_saved_background_comes_back_at_the_start"
         ],
         "exception": null
-      }
+      },
+      "release_scenarios": [
+        "tests/xr_options_integration/test_menu_end_to_end.py::test_c1_background_toggle_and_recenter_are_not_inert"
+      ],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "profile_remember",
@@ -4351,7 +5146,13 @@
           "tests/native_spike/test_remember_setup.py::LoadSetupTests::test_an_unusable_save_falls_back_whole_with_the_reason"
         ],
         "exception": "Automatic per-model persistence"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "plugin_restart",
@@ -4391,7 +5192,13 @@
           "tests/xr_controller/test_runner.py::RunnerTests::test_does_not_unload_foreign_plugin"
         ],
         "exception": "External shell fault; shell restart gesture unverified, no live restart authorized"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "resize_press",
@@ -4431,7 +5238,13 @@
           "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
         ],
         "exception": "Preserved capture protocol"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "resize_release",
@@ -4471,7 +5284,13 @@
           "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
         ],
         "exception": "Preserved capture protocol"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "resize_cancel",
@@ -4511,7 +5330,13 @@
           "tests/native_spike/test_free_pointer.py::ClickTests::test_a_lost_release_is_finished_by_the_next_press"
         ],
         "exception": "Preserved capture protocol"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "super_left_press",
@@ -4552,7 +5377,13 @@
           "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
         ],
         "exception": "Preserved Super gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "super_right_press",
@@ -4593,7 +5424,13 @@
           "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
         ],
         "exception": "Preserved Super gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     },
     {
       "id": "super_release",
@@ -4634,7 +5471,13 @@
           "tests/native_spike/test_super_drag.py::SuperResizeTests::test_right_drag_forwarding_needs_nothing_of_the_run"
         ],
         "exception": "Preserved Super gesture"
-      }
+      },
+      "release_scenarios": [],
+      "remaining_release_checks": [
+        "actual C1/preserved input equivalence",
+        "owner readback or specific failure",
+        "cleanup/recovery equivalence"
+      ]
     }
   ],
   "gates": [
@@ -4681,12 +5524,10 @@
     }
   ],
   "limitations": [
-    "Sibling acceptance report/validator read and validator tests passed; no integrated acceptance implied",
-    "No native capture or live hardware claim",
-    "External runtime editors remain enabled: options_runtime_complete is not advertised.",
-    "Some async action completion readback and complete per-row native acceptance remain unverified.",
-    "Native offline raster PNG/MP4 are not projected GPU or live glasses evidence."
+    "116 owner regression scenarios executed; no full equivalence inferred",
+    "Per-row release_scenarios are executable targets, not pass claims; release and native receipt gates remain pending",
+    "No live XR, device, service, compositor or GPU test performed by QA"
   ],
-  "contract": "B1+C1 v1 with approved maximize addendum v2",
+  "contract": "B1+C1 release gate v4 with internal text fallback resolution",
   "inventory_sha256": "9a2f7944b7bbefbcd548b1517d09559efc19f5711c8bb20a26663f5aab26e7de"
 }
