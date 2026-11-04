@@ -1,5 +1,9 @@
 # Independent PRO 2 runtime QA
 
+Current RQ7 status: canonical type/pickle fix189fc93 passes independent
+checks and42-case QA suite; full genuine packaged-CLI wire lifecycle acceptance
+remains pending. Earlier artifact green is historical, not retry authorization.
+
 Latest artifact: corrected source `910cabc198e14b5e18910ebb5005bf0c9b74127a`
 independently audited with307 manifest file hashes and a fresh extraction.
 Packaged --preflight and actual packaged BundleClient request-spy dispatch pass.
@@ -510,3 +514,39 @@ No SDK or external client is needed for these four cases. On pre-fix code,
 4 tests run:2 pass,2 fail (canonical module absent/old class origin),0.115s.
 The exact packaged CLI test requires PRO2_QA_CLI_BUNDLE explicitly and is skipped
 in ordinary discovery without that artifact; that skip is not acceptance.
+
+## RQ7 canonical fix checkpoint —189fc93 / package8c72f1c
+
+Merged committed fix189fc93: TestScope, ScopedGuard and BundleClient now originate
+in tools.pro2_runtime.scope; controller keeps aliases and managed retains strict
+canonical isinstance. Generated shell entry imports canonical main, not runpy.
+No runtime edits by QA. Four independent canonical/strict-impostor/fresh-process
+pickle/actual spawn-worker cases pass0.117s. Exact packaged CLI entry regression
+on build/pro2-cli-fixed-ready passes0.143s: real managed class check accepts it and
+failure cleanup still occurs. This minimal fake endpoint intentionally rejects
+its next unsupported external query; it is **not** successful managed execution.
+
+Fresh extraction audit of that intermediate package passed317 hashes/source pin
+8c72f1cf292a23260d97b915bc130744ba77a280. Audit now additionally requires packaged
+scope.py match git, canonical imported-main entrypoint, canonical class aliases
+and class module origin from extracted files. Manifest SHA256:
+4973b36942d168112fa12fa0ce7023983fd7a50b66bc56d128ccd3dbaf29f680.
+Preflight and request-spy operations again perform no real SDK/client activity.
+
+```
+PRO2_QA_CLI_BUNDLE=/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-cli-fixed-ready python tests/pro2_runtime_qa/run.py
+# 42 tests passed,13.371s; explicit packaged CLI opt-in set, no skips
+```
+
+Native SDK tests in that full suite use only locally compiled independent
+synthetic SDK under fresh user/IPC/network namespaces. No real SDK or device is
+loaded. Own canonical/pickle/entry and extraction tests need no SDK library.
+
+Full wire harness under lead ownership is still required for actual execute →
+managed → journal → view_controls → _launch, with actual canonical BundleClient,
+private fake Unix compositor/Wayland endpoints, simulated SDK owner/native writer
+and CPU renderer/reader. QA reviewed in-progress harness design without duplicating
+its endpoints. It uses real RPC/peer identity and no execute/run/client-factory
+substitution. Full committed harness and final rebuilt extraction must pass before
+RQ7 overall acceptance is closed. Previous source-module/mocked-run acceptance
+was insufficient for this entrypoint defect; preserve the red evidence.
