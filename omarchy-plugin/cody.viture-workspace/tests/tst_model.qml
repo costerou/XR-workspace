@@ -127,6 +127,18 @@ TestCase {
         compare(Model.desktopEdit(1920,1080,2.25), null);
     }
     // Maximize-follow (2026-11-03): the panel says Maximized / Overview, never "zoom"; the overview is always anchored.
+    function test_incidentLine() {
+        compare(Model.incidentLine({}), "");
+        compare(Model.incidentLine(undefined), "");
+        compare(Model.incidentLine({incident:null}), "");
+        const at = new Date(2026, 10, 3, 20, 6, 12);
+        compare(Model.incidentLine({incident:{summary:"the glasses' USB connection dropped and the session ended", at:at.toISOString()}}),
+                "Last problem (Nov 3, 20:06): the glasses' USB connection dropped and the session ended.");
+        compare(Model.incidentLine({incident:{summary:"the XR renderer crashed", at:"not a time"}}), "Last problem: the XR renderer crashed.");
+        compare(Model.incidentLine({incident:{summary:"the XR renderer crashed"}}), "Last problem: the XR renderer crashed.");
+        compare(Model.incidentLine({incident:{kind:"usb-drop"}}), "");
+    }
+
     function test_viewLabels() {
         compare(Model.viewLabel({}), "awaiting measured state");
         compare(Model.viewLabel(undefined), "awaiting measured state");

@@ -84,7 +84,7 @@ ColumnLayout {
         Layout.fillWidth:true;  Layout.preferredHeight:childrenRect.height; spacing:12
         Repeater {
             model:Object.keys(root.snapshot.status || {})
-            delegate: Label { required property string modelData; text:({presented_hz:"Presented (Hz)",missed:"Missed frames",capture_path:"Capture",pose_age_ms:"Pose age (ms)"}[modelData] || modelData) + ": " + root.snapshot.status[modelData] }
+            delegate: Label { required property string modelData; text:({presented_hz:"Presented (Hz)",missed:"Missed frames",capture_path:"Capture",pose_age_ms:"Pose age (ms)",tracking:"Head tracking",capture_failure_run:"Capture failures in a row"}[modelData] || modelData) + ": " + root.snapshot.status[modelData] }
         }
     }
     RowLayout {

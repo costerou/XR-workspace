@@ -19,10 +19,16 @@ from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request 
 from .detect import pick_fallback
 
 
+def _monitor_facts(monitor):
+    """The fields of a Hyprland monitor the incident monitor may see. Named: the rest holds workspace names and serials."""
+    return dict(name=monitor.get('name'),width=monitor.get('width'),height=monitor.get('height'),refresh=monitor.get('refreshRate'),dpms=monitor.get('dpmsStatus'))
+
+
 class Controller:
-    def __init__(self, clock, probe, spawn, units, store, consent_dir_fd, state_dir):
+    def __init__(self, clock, probe, spawn, units, store, consent_dir_fd, state_dir, monitor=None):
         self.clock,self.probe,self.spawn,self.units,self.store = clock,probe,spawn,units,store
         self.consent_fd,self.state_dir = consent_dir_fd,Path(state_dir)
+        self.monitor=monitor; self.stop_run=None; self.monitor_fault=None  # incident_monitor.py; the run Stop was asked of
         self.state='no-glasses'; self.pending=None; self.run=None; self.error=None
         self.observed={}; self.started=None; self.last_failure=None
         self.live={}; self.last_status=None; self.status_run=None
@@ -44,7 +50,8 @@ class Controller:
             # The running session's desktops (a glass pill's Ultrawide / Add / Remove change them live): sizes and XR-n names.
             desktops=self.live.get('desktops') if self.state=='running' else None,
             names=self.live.get('names') if self.state=='running' else None,
-            video=self.live.get('video') if self.state=='running' else None))
+            video=self.live.get('video') if self.state=='running' else None,
+            incident=self.monitor.latest if self.monitor is not None else None))
 
     def _state(self, state):
         if self.state != state: self.pending=None
@@ -66,6 +73,20 @@ class Controller:
         try: self._tick()
         except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as exc:
             self.error=str(exc); self.pending=None; self._state('failed')
+        self._report()
+
+    def _report(self):
+        """This tick, for the incident monitor. Never costs the tick anything: a queue, and a fault here is said once."""
+        if self.monitor is None: return
+        o=self.observed
+        try:
+            self.monitor.observe(dict(state=self.state,run_id=self.run.get('run_id') if self.run else None,stop_requested=self.stop_run,
+                instance=o.get('instance'),monitors=[_monitor_facts(m) for m in o.get('monitors') or []],
+                plugins=ownership_plugin_count(o.get('plugins') or []),
+                status=copy.deepcopy(self.live['status']) if self.state=='running' and 'status' in self.live else None))
+        except Exception as exc:
+            if str(exc)!=self.monitor_fault: log(f'incident monitor: {exc}')
+            self.monitor_fault=str(exc)
 
     def _tick(self):
         old=self.observed
@@ -245,7 +266,7 @@ class Controller:
             operation='stop' if op=='stop' else msg.get('operation',msg.get('view_op'))
             if isinstance(operation,dict): operation=operation.get('op')
             if op=='view_op' and operation not in USER_OPS and operation not in VIDEO_KEY_OPS: raise ValueError('invalid view operation')
-            if op=='stop': self.units.stop(self.run['run_id']); self._state('stopping'); self.started=self.clock()
+            if op=='stop': self.stop_run=self.run['run_id']; self.units.stop(self.run['run_id']); self._state('stopping'); self.started=self.clock()
             elif not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')
             return
         raise ValueError('unknown operation')
