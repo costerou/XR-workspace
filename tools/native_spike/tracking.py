@@ -18,6 +18,11 @@ DRIVER = '/usr/bin/xrDriver'
 DRIVER_LOG = Path.home() / '.local/state/xr_driver/driver.log'
 DRIVER_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'xr_driver/config.ini'
 READY = 'Device calibration complete'
+# Shown to Cody as written, in the panel and as an incident report's likely cause.
+CRASHED = ("The glasses' head tracking couldn't connect and the tracking driver crashed. "
+           "Unplug the glasses' USB, wait 10 seconds, plug it back in and try again.")
+# What the driver logs when it dies trying to reach the glasses; any one of them is enough.
+CRASH_LINES = ('Cannot open device', 'jcx start failed', 'Failed to send USB command - MsgID: 0x100B', 'Segmentation fault occurred')
 # Without a MAC to hash into a hardware id the driver retries for 30 s, then carries on. A made-up MAC
 # on `lo` ends that wait, and `lo` stays down, so there are still no routes. The driver only looks at
 # interfaces with an IPv4 address. It must not be 127.0.0.1: an address on a down interface swallows
@@ -99,6 +104,13 @@ def _check_config():
         raise ValueError('XRLinuxDriver config must be disabled=false and output_mode=external_only (no mouse/joystick)')
 
 
+def _exit_failure(offset):
+    """Why a driver that is gone failed, from what it logged since this start. Bytes first: the log is not plain text."""
+    log = DRIVER_LOG.read_bytes() if DRIVER_LOG.exists() else b''
+    current = log[offset:].decode(errors='replace')
+    return CRASHED if any(line in current for line in CRASH_LINES) else 'tracking driver exited during startup'
+
+
 def status(runtime):
     data = _read_state(runtime)
     if not _ours(data): return {'running': False}
@@ -144,17 +156,21 @@ def start(runtime, timeout=120.0):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             now = status(runtime)
-            if not now['running']:
-                raise ValueError('tracking driver exited during startup')
+            # First: a dead process has no namespace to read, so it would look like an isolation failure.
+            if not now['running'] or child.poll() is not None:
+                raise ValueError(_exit_failure(offset))
             if not now['network_isolated']:
-                raise ValueError('tracking driver is not network-isolated; stopped')
+                # Its namespaces go just before it can be waited on, so a process caught dying gets a moment to show it.
+                try: child.wait(timeout=0.2)
+                except subprocess.TimeoutExpired: raise ValueError('tracking driver is not network-isolated; stopped') from None
+                raise ValueError(_exit_failure(offset))
             if now['calibrated']: return now
-            if child.poll() is not None: break
             time.sleep(0.2)
         raise ValueError('tracking driver did not calibrate in time (keep the glasses still while it starts)')
     except BaseException:
         # Cancellation must not leave a child keeping the transient unit alive.
         stop(runtime)
+        _state(runtime).unlink(missing_ok=True)  # stop() leaves the record of a driver that is already gone
         raise
 
 

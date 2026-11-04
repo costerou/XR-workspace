@@ -18,6 +18,13 @@ from tools.native_spike.__main__ import load_consent
 from tools.native_spike.supervisor import _launch
 
 INSTANCE = 'a' * 40 + '_123_456'
+# As they appear in the real driver.log of 2026-11-04.
+CRASH_LINES = ('[E][libglasses] Failed to send USB command - MsgID: 0x100B, error code: -1',
+               '[CARINA][TIME]:3044930524\t[PID:474055][TID:474076]\tCannot open device, may not connect',
+               '[CARINA][TIME]:3044930538\t[PID:474055][TID:474076]\tjcx start failed[35ca,1104]',
+               '2026-11-04 00:22:00.932 [ERROR] Segmentation fault occurred')
+CRASH_MESSAGE = ("The glasses' head tracking couldn't connect and the tracking driver crashed. "
+                 'Unplug the glasses\' USB, wait 10 seconds, plug it back in and try again.')
 
 
 class TrackingConsentTests(unittest.TestCase):
@@ -161,6 +168,50 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertFalse(tracking.status(self.runtime)['running'])
         self.assertFalse(Path(f"/proc/{status['pid']}").exists() and Path(f"/proc/{status['pid']}/exe").exists()
                          and os.readlink(f"/proc/{status['pid']}/exe") == sys.executable)
+
+    def fake_driver(self, *lines, then='sys.exit(1)'):
+        """A driver that writes these log lines, then does `then`."""
+        text = ''.join(line + '\n' for line in lines)
+        self.driver.write_text(textwrap.dedent(f'''\
+            #!{sys.executable}
+            import signal, sys, time
+            signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+            open({str(self.log)!r}, 'a').write({text!r})
+            {then}
+            '''))
+
+    def failure(self):
+        with self.assertRaises(ValueError) as caught: tracking.start(self.runtime, timeout=10)
+        return str(caught.exception)
+
+    def test_driver_that_crashes_at_start_gets_the_plain_message(self):
+        self.fake_driver(*CRASH_LINES)
+        started = time.monotonic()
+        self.assertEqual(self.failure(), CRASH_MESSAGE)
+        self.assertLess(time.monotonic() - started, 4)  # at once, not after waiting for a process already gone
+        self.assertFalse(tracking._state(self.runtime).exists())
+
+    def test_any_one_crash_line_is_enough(self):
+        for line in CRASH_LINES:
+            with self.subTest(line):
+                self.fake_driver(line)
+                self.assertEqual(self.failure(), CRASH_MESSAGE)
+
+    def test_a_crash_logged_before_this_start_is_not_this_start(self):
+        self.log.write_text(''.join(line + '\n' for line in CRASH_LINES))
+        self.fake_driver('Starting up XR driver')
+        self.assertEqual(self.failure(), 'tracking driver exited during startup')
+
+    def test_exit_with_no_crash_in_the_log_blames_no_usb(self):
+        self.fake_driver('Starting up XR driver')
+        self.assertEqual(self.failure(), 'tracking driver exited during startup')
+
+    def test_live_driver_outside_the_namespace_is_still_refused(self):
+        # The crash lines must not excuse it: the process is alive, so isolation is the failure.
+        self.fake_driver(*CRASH_LINES, then='while True: time.sleep(0.1)')
+        with patch.object(tracking, '_network_isolated', return_value=False):
+            self.assertEqual(self.failure(), 'tracking driver is not network-isolated; stopped')
+        self.assertFalse(tracking.status(self.runtime)['running'])
 
     def test_refuses_config_that_could_drive_the_mouse(self):
         self.config.write_text('disabled=false\noutput_mode=mouse\n')

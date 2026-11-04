@@ -572,7 +572,10 @@ on the live desktop.
 
 A panel start with *Head tracking* ticked starts the tracking driver itself (`tools.native_spike.tracking.ensure_ready`):
 it reuses an already calibrated, network-isolated driver this app started, or (re)starts its own and waits up to 120 s
-for calibration. It refuses to compete with an XRLinuxDriver it did not start. For manual and CLI runs:
+for calibration. It refuses to compete with an XRLinuxDriver it did not start. If the driver dies during that wait, the
+log after this start decides the message: `Cannot open device`, `jcx start failed`, `Failed to send USB command - MsgID:
+0x100B` or `Segmentation fault occurred` means the plain "unplug the glasses' USB" text in the panel, which is also the
+incident report's likely cause. "Not network-isolated" is only ever about a process that is alive. For manual and CLI runs:
 
 ```sh
 python -m tools.native_spike tracking start   # also: status, stop
