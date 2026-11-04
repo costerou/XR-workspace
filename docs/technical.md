@@ -572,11 +572,38 @@ on the live desktop.
 
 A panel start with *Head tracking* ticked starts the tracking driver itself (`tools.native_spike.tracking.ensure_ready`):
 it reuses an already calibrated, network-isolated driver this app started, or (re)starts its own and waits up to 120 s
-for calibration. It refuses to compete with an XRLinuxDriver it did not start. For manual and CLI runs:
+for calibration. It refuses to compete with a tracking driver it did not start, of either kind. For manual and CLI runs:
 
 ```sh
 python -m tools.native_spike tracking start   # also: status, stop
+python -m tools.native_spike tracking start --driver luma   # the installed, pinned XR Luma driver
 ```
+
+### Choosing the driver
+
+The profile's `tracking_driver` is `xrdriver` (the default) or `luma`, set under *Startup options* once
+`installed.json` has a `luma_driver` pin. `tools.xr_controller.install` pins `xr-luma-driver` by hash like the renderer,
+from the build folder or its `driver/` folder, and a build without it installs as before. A pin outside the install
+directory is refused, and the binary joins the folder's hash, so a new driver gets a new folder and a running session
+keeps its pin. Luma chosen but not installed starts XRLinuxDriver, which is what the confirm box then says.
+
+A Luma start has consent `tracking: "luma"` plus the `luma_driver` pin, and the box says XRLinuxDriver may take over. The
+runner checks the pin, then calls `tracking.ensure_ready_luma`: up to 30 s for `xr-luma-driver` to print
+`luma: calibrated` on stderr (kept in `$XDG_STATE_HOME/viture-workspace/luma-driver.log`), then up to 90 s for
+XRLinuxDriver, so the panel's 120 s still holds. A later `luma: disconnected` or `luma: calibrating` line clears readiness
+until the next `luma: calibrated`. The fallback shows a desktop notification and is saved as `tracking_fallback` in the
+run's result; the setting stays, so the next start tries Luma again. Cancelling during the wait does not fall back. The
+two drivers share `tracking.json`, so `stop`, `status`, `ensure_ready` and the incident monitor's liveness check work on
+either, and `ensure_ready` swaps our own driver when the other kind, or an older install of Luma, is left running.
+
+The incident monitor still reads XRLinuxDriver's log only. A Luma run's USB drops come from the kernel log, and loss of
+tracking from the renderer's status and the driver's liveness.
+
+The Luma driver runs as `unshare --user --map-current-user --net`, the same network block without the mount namespace:
+it has no licence to fetch and no name lookups, so it needs neither the made-up MAC nor the hidden resolver directory.
+**A network namespace owned by a user namespace receives no kernel uevents** (`uevent_net_init` in `lib/kobject_uevent.c`
+only lists namespaces owned by the initial user namespace), so hotplug monitoring through libudev or netlink hears
+nothing in there. The driver must notice a replugged device by polling.
 
 ### How the tracking driver is kept offline
 

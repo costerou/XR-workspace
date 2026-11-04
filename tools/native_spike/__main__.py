@@ -51,6 +51,15 @@ def preflight(client):
             'capture': False, 'sdk': False}
 
 
+def _pinned_luma():
+    """The installed Luma driver's path, checked against its pin: this command never runs a build output."""
+    from tools.xr_controller.install import LUMA_KEY, load_installed, verify_pinned
+    pin = load_installed(Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share')).get(LUMA_KEY)
+    if pin is None: raise ValueError('the XR Luma driver is not installed')
+    verify_pinned(pin)
+    return pin['path']
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Native XR spike: fail-closed P2 test-pattern qualification')
     commands = parser.add_subparsers(dest='command', required=True)
@@ -69,14 +78,16 @@ def main(argv=None):
         p.add_argument('--instance', required=True); p.add_argument('--output', required=True)
         p.add_argument('--consent-file', type=Path, required=True)
         if command == 'isolated-recover': p.add_argument('--journal', type=Path, required=True)
-    p = commands.add_parser('tracking', help='network-blocked XRLinuxDriver head-tracking driver')
+    p = commands.add_parser('tracking', help='network-blocked head-tracking driver')
     p.add_argument('action', choices=('start', 'stop', 'status'))
+    p.add_argument('--driver', choices=('xrdriver', 'luma'), default='xrdriver', help='which driver `start` runs; luma must be installed')
     args = parser.parse_args(argv)
     if args.command == 'tracking':
         from . import tracking
         try:
             runtime = Path(os.environ['XDG_RUNTIME_DIR'])
-            result = getattr(tracking, args.action)(runtime)
+            if args.action == 'start' and args.driver == tracking.LUMA: result = tracking.start(runtime, luma=_pinned_luma())
+            else: result = getattr(tracking, args.action)(runtime)
             print(json.dumps(result, sort_keys=True)); return 0
         except (OSError, ValueError, KeyError) as exc:
             print(f'blocked: {exc}', file=sys.stderr); return 2

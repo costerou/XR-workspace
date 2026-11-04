@@ -182,6 +182,10 @@ class RunWatchTests(unittest.TestCase):
         watch = healthy()
         self.assertEqual(run(watch, 4, start=20, status=dict(GOOD, presented_hz=None)) + run(watch, 20, start=24), [])
 
+    def test_a_luma_run_is_watched_like_any_tracked_run(self):
+        self.assertTrue(RunWatch(RUN, dict(CONSENT, tracking='luma'), 0.0).tracking)
+        self.assertFalse(RunWatch(RUN, UNTRACKED, 0.0).tracking)
+
     def test_an_untracked_static_desktop_presents_nothing_and_that_is_fine(self):
         # wayland.cpp frame_done: without head tracking the renderer draws only when something changes.
         self.assertEqual(run(RunWatch(RUN, UNTRACKED, 0.0), 120, status=dict(GOOD, presented_hz=None, tracking=None)), [])

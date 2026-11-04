@@ -124,6 +124,37 @@ TestCase {
         verify(findChild(launcher, "startButton").enabled);
     }
 
+    function test_trackingDriverIsOfferedOnceInstalled() {
+        // No Luma driver installed: nothing to pick.
+        let launcher = make(idle({luma_available:false}), settings({tracking_driver:"xrdriver"}));
+        launcher.showOptions = true;
+        waitForItemPolished(launcher);
+        verify(!findChild(launcher, "trackingDriverOption").visible);
+        verify(!findChild(launcher, "lumaMissing").visible);
+        // Installed: a pick, showing what is saved, and it saves through the controller.
+        launcher = make(idle({luma_available:true}), settings({tracking_driver:"xrdriver"}));
+        launcher.showOptions = true;
+        waitForItemPolished(launcher);
+        verify(findChild(launcher, "trackingDriverOption").visible);
+        const combo = findChild(launcher, "trackingDriverCombo");
+        compare(combo.currentText, "XRLinuxDriver");
+        combo.currentIndex = 1;
+        combo.activated(1);
+        compare(requestSpy.count, 1);
+        compare(requestSpy.signalArguments[0][0], {op:"set_settings", settings:{tracking_driver:"luma"}});
+        // Tracking off: no driver to pick.
+        launcher = make(idle({luma_available:true}), settings({tracking:false, tracking_driver:"luma"}));
+        launcher.showOptions = true;
+        waitForItemPolished(launcher);
+        verify(!findChild(launcher, "trackingDriverOption").visible);
+        // Chosen, then a build without it was installed: the choice still shows and says what a start will do.
+        launcher = make(idle({luma_available:false}), settings({tracking_driver:"luma"}));
+        launcher.showOptions = true;
+        waitForItemPolished(launcher);
+        compare(findChild(launcher, "trackingDriverCombo").currentText, "XR Luma (test)");
+        verify(findChild(launcher, "lumaMissing").visible);
+    }
+
     function test_desktopPreviewTilesDraw() {
         // A tile's negative z (bigger behind) once put every tile under the preview's own fill, out of sight.
         const launcher = make();

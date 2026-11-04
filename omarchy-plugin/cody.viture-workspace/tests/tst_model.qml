@@ -109,6 +109,11 @@ TestCase {
             mode_switch:{width:1920,height:1200,refresh_hz:120}};
         const lines = Model.scopeLines(scope, "start");
         compare(lines.filter(l => l.optional).map(l => l.key), ["tracking", "mode_switch"]);
+        verify(lines.some(l => l.key === "tracking" && l.text === "Head tracking via XRLinuxDriver, network blocked."));
+        // The Luma scope says it can hand over: the click agrees to both drivers.
+        const luma = Model.scopeLines(Object.assign({}, scope, {tracking:"luma"}), "start").filter(l => l.key === "tracking");
+        compare(luma.length, 1);
+        verify(luma[0].optional && /XR Luma driver/.test(luma[0].text) && /XRLinuxDriver takes over/.test(luma[0].text));
         verify(lines.some(l => l.text.indexOf("3840 × 1080 · 125%") >= 0));
         verify(lines.some(l => l.text.indexOf("DP-1") >= 0));
         verify(Model.scopeLines(scope, "recover").every(l => !l.optional));

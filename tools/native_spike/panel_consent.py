@@ -7,11 +7,13 @@ from .geometry import validate_desktops
 from .ipc import read_private_json, token
 from .profiles import MODELS
 from .supervisor import CAPTURE_ALLOW, CAPTURE_SCOPE
+from .tracking import LUMA, SCOPES
 
 PANEL_GATE = 'P2-panel'
 PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
               'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
 FIXED_KEYS = {'schema', 'gate', 'allow', 'capture', 'input', 'sdk'}
+LUMA_PIN = 'luma_driver'  # the pinned binary a consent with tracking 'luma' runs; present then and only then
 LUMA_MODE = {'width': 1920, 'height': 1200, 'refresh_hz': 120}
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')
 
@@ -24,8 +26,12 @@ def _artifact(value):
     return {'path': path, 'sha256': sha}
 
 
+def _keys(data):
+    return PANEL_KEYS | {LUMA_PIN} if data.get('tracking') == LUMA else PANEL_KEYS
+
+
 def _validate(data, instance=None, output=None):
-    if not isinstance(data, dict) or set(data) != PANEL_KEYS: raise ValueError('invalid consent fields')
+    if not isinstance(data, dict) or set(data) != _keys(data): raise ValueError('invalid consent fields')
     if type(data['schema']) is not int or data['schema'] != 1 or data['gate'] != PANEL_GATE:
         raise ValueError(f'{PANEL_GATE} consent required')
     token(data['run_id']); token(data['instance']); token(data['output']); token(data['recovery_output'])
@@ -37,14 +43,15 @@ def _validate(data, instance=None, output=None):
     if not isinstance(data['capture'], str) or data['capture'] != CAPTURE_SCOPE or data['allow'] != CAPTURE_ALLOW:
         raise ValueError('exact managed-output capture scope required')
     tracking = data['tracking']
-    if tracking is not False and (not isinstance(tracking, str) or tracking != 'xrlinuxdriver'):
-        raise ValueError('tracking scope must be false or "xrlinuxdriver"')
+    if tracking is not False and (not isinstance(tracking, str) or tracking not in SCOPES):
+        raise ValueError('tracking scope must be false, "xrlinuxdriver" or "luma"')
     mode = data['mode_switch']
     if mode is not False:
         if data['model'] != 'luma-ultra': raise ValueError('mode switch is Luma Ultra only')
         if not isinstance(mode, dict) or set(mode) != set(LUMA_MODE) or any(type(mode[k]) is not int or mode[k] != v for k, v in LUMA_MODE.items()):
             raise ValueError('mode switch must be exactly 1920x1200@120')
     data['plugin'] = _artifact(data['plugin']); data['renderer'] = _artifact(data['renderer'])
+    if LUMA_PIN in data: data[LUMA_PIN] = _artifact(data[LUMA_PIN])
     # The desktops the session starts with (1..MAX_DESKTOPS). The approved capture scope is the run's own managed outputs:
     # desktops a pill adds, removes or reshapes during the session stay inside it (desktops.py).
     data['desktops'] = validate_desktops(data['desktops'])
@@ -53,8 +60,7 @@ def _validate(data, instance=None, output=None):
 
 
 def build_consent(scope):
-    expected = PANEL_KEYS - FIXED_KEYS
-    if not isinstance(scope, dict) or set(scope) != expected: raise ValueError('invalid scope fields')
+    if not isinstance(scope, dict) or set(scope) != _keys(scope) - FIXED_KEYS: raise ValueError('invalid scope fields')
     consent = {'schema': 1, 'gate': PANEL_GATE, 'allow': list(CAPTURE_ALLOW), 'capture': CAPTURE_SCOPE,
                'input': False, 'sdk': False, **json.loads(json.dumps(scope))}
     return _validate(consent)

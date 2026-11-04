@@ -59,6 +59,7 @@ BASE_QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 
 BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
 BASE_PROFILE_KEYS = {'desktops', 'environment', 'fallback', 'mode', 'mode_switch', 'placements', 'previous_setup', 'prediction',
+                     'tracking_driver',  # which head tracking driver, a startup choice (drv-integration)
                      'rolls', 'spacing', 'tracking', 'video_quality'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
 # rolls: each desktop's levelling roll, saved with the monitor setup since remember-layout-reset-bind (2026-11-03);
 # previous_setup: the layout Ctrl+Alt+R last replaced, a one-step backup

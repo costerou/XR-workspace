@@ -4,7 +4,7 @@ from pathlib import Path
 from dataclasses import dataclass
 # Up here, not where they are used: a run imports from the worktree, so a module first imported at Stop would be whatever an
 # install has checked out since the session started. Recovery needs nothing more from the disk once the run is up.
-from . import monitor_rules, privacy, restore, send
+from . import monitor_rules, privacy, restore, send, tracking
 from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
@@ -112,7 +112,7 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
     with managed_owner(directory / 'journal.json'):
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
-                          pose_feed=consent.get('tracking') == 'xrlinuxdriver', store=store, renderer=renderer,
+                          pose_feed=consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
                           adopt=adopting, create_failed=_setup_failed(store, desktops))
 
 

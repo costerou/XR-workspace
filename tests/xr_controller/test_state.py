@@ -51,6 +51,50 @@ class StateTests(unittest.TestCase):
         self.c.request(dict(op='cancel'))
         self.assertIsNone(self.c.snapshot()['pending'])
 
+    def with_luma(self):
+        self.observation['installed']['luma_driver']=dict(path='/p/luma',sha256='b'*64); self.c.tick()
+    def choose_luma(self):
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'tracking_driver':'luma'}))['ok'])
+
+    def test_default_start_is_xrlinuxdriver_even_with_luma_installed(self):
+        self.with_luma()
+        scope=self.begin()['scope']
+        self.assertEqual(scope['tracking'],'xrlinuxdriver'); self.assertNotIn('luma_driver',scope)
+
+    def test_chosen_luma_goes_into_the_consent_with_its_pin(self):
+        self.with_luma(); self.choose_luma()
+        self.assertTrue(self.c.snapshot()['luma_available'])
+        r=self.begin(); self.assertEqual(r['scope']['tracking'],'luma')
+        self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=r['scope_id']))['ok'])
+        consent=load_panel_consent(self.path/(r['scope']['run_id']+'.json'),'instance','DP-2')
+        self.assertEqual((consent['tracking'],consent['luma_driver']),('luma',dict(path='/p/luma',sha256='b'*64)))
+
+    def test_unticking_tracking_drops_the_luma_pin(self):
+        self.with_luma(); self.choose_luma()
+        r=self.begin(); self.assertTrue(self.c.request(dict(op='confirm_start',scope_id=r['scope_id'],optional={'tracking':False}))['ok'])
+        consent=load_panel_consent(self.path/(r['scope']['run_id']+'.json'),'instance','DP-2')
+        self.assertIs(consent['tracking'],False); self.assertNotIn('luma_driver',consent)
+
+    def test_chosen_luma_not_installed_offers_xrlinuxdriver(self):
+        self.assertFalse(self.c.snapshot()['luma_available'])
+        self.choose_luma()
+        with contextlib.redirect_stderr(io.StringIO()) as log: scope=self.begin()['scope']
+        self.assertEqual(scope['tracking'],'xrlinuxdriver'); self.assertNotIn('luma_driver',scope)
+        self.assertIn('not installed',log.getvalue())
+        self.assertEqual(self.c.store.profile['tracking_driver'],'luma')  # the choice stays for an install that has it
+
+    def test_tracking_off_ignores_the_driver_choice(self):
+        self.with_luma(); self.choose_luma()
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'tracking':False}))['ok'])
+        scope=self.begin()['scope']
+        self.assertIs(scope['tracking'],False); self.assertNotIn('luma_driver',scope)
+
+    def test_driver_choice_is_locked_while_running_and_validated(self):
+        self.assertFalse(self.c.request(dict(op='set_settings',settings={'tracking_driver':'other'}))['ok'])
+        self.c.state='running'; self.c.run=dict(run_id='r',session='s')
+        reply=self.c.request(dict(op='set_settings',settings={'tracking_driver':'luma'}))
+        self.assertFalse(reply['ok']); self.assertIn('locked',reply['error'])
+
     def test_start_scope_restores_the_saved_desktops(self):
         # remember-layout-reset-bind: the last session's count, resolutions and scales come back (profiles.load_setup).
         wide={'width':2560,'height':1080,'scale':1.0}; sharp={'width':2560,'height':1440,'scale':1.25}

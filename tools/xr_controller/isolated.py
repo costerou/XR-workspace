@@ -16,7 +16,7 @@ from tools.native_spike import isolated as vm
 from tools.native_spike.hyprland import ownership_plugin_count
 from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import private_dir, read_private_json
-from tools.native_spike.panel_consent import load_panel_consent
+from tools.native_spike.panel_consent import LUMA_PIN, load_panel_consent
 from tools.native_spike.profiles import ProfileStore, profiles_path
 from .__main__ import Host, Units, Store, isolated as command
 from .install import load_installed, verify_pinned
@@ -44,6 +44,7 @@ def bind_controller(controller,consent):
         for key in ('instance','output','recovery_output'):
             if scope[key]!=consent[key]: raise ValueError('VM controller pair changed')
         scope.update(run_id=consent['run_id'],tracking=consent.get('tracking',False),mode_switch=False)
+        scope.pop(LUMA_PIN,None)  # a VM has no glasses: its consent names the whole tracking scope
         return scope
     controller.scope_transform=scope
 

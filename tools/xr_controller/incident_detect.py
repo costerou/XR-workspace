@@ -13,6 +13,8 @@ import json
 import re
 import signal as signals
 
+from tools.native_spike.tracking import SCOPES
+
 # Every kind, most telling first: an incident is named after the highest of its signals (Episode.kind). A crash outranks
 # the USB drop that may have set it off, because the crash is the part software can fix.
 KINDS = ('hyprland-crash', 'renderer-crash', 'usb-drop', 'video-lost', 'plugin-failed', 'watchdog', 'controller-restart', 'run-killed',
@@ -74,7 +76,7 @@ class RunWatch:
     def __init__(self, run_id, consent, at):
         consent = consent or {}
         self.run_id, self.consent, self.created = run_id, consent, at
-        self.tracking = consent.get('tracking') == 'xrlinuxdriver'
+        self.tracking = consent.get('tracking') in SCOPES
         self.stopped = False           # a Stop was asked for, so the end is a normal one (classify_end)
         self.running_since = None
         self.last_at = None
