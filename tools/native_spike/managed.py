@@ -381,16 +381,18 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         if not holds.begin():
             tell('The glasses keep dropping off USB, so XR stopped. Check the cable.')
             return returncode
+        if expected: tell('Switching display mode… Your desktops are safe.')
         if not expected: tell('The glasses dropped off USB. Your desktops are safe; XR comes back by itself.')
         def ready():
             try: return survive.output_ok(client, output) and (usb_before is None or survive.usb_identity() is not None)
             except (OSError, ValueError, TimeoutError): return False
         try:
-            back = survive.wait_for_glasses(ready, restore=restore_output, serve=lambda s: serve_without_renderer(control, s))
+            back = survive.wait_for_glasses(ready, restore=restore_output, serve=lambda s: serve_without_renderer(control, s),
+                                            settle=0.0 if expected else None)
             if back:
                 restarted = getattr(control, 'renderer_restarted', None)
                 if restarted is not None: restarted()
-                if not holds.revive():
+                if not expected and not holds.revive():
                     tell('XR is back without head tracking: the tracking driver did not start.')
         except KeyboardInterrupt:  # Stop while waiting: the same end as Stop in _launch, which swallows it too
             holds.finish(False)

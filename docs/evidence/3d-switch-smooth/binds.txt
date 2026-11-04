@@ -1,0 +1,3 @@
+Hyprland --verify-config: config ok (0)
+desktop config: 252 chords bound
+no clash: 22 run binds (typing toggle Ctrl+Alt+T, key bind panel Ctrl+Alt+K), send-window binds (Ctrl+Alt+G, Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3, Ctrl+Alt+4, Ctrl+Alt+B), placement panel binds (Down, Esc, Left, N, R, Right, Shift+Del, Shift+Left, Shift+Right, Shift+Tab, Tab, U, Up), the free pointer's left button (and the unified cursor's non-consuming click binds) and the input lock's other buttons and wheel

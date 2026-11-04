@@ -370,8 +370,15 @@ class ImmersiveRun:
 
     def switching(self):
         """The glasses are changing mode, so the output going for a moment is expected (sbs.py)."""
+        now = time.monotonic()
+        if now >= getattr(self, '_next_mode_probe', 0):
+            self._next_mode_probe = now + 1.0
+            probe = getattr(self.sbs, 'follow_by_hand', None)
+            if probe is not None: probe()
         check = getattr(self.sbs, 'switching', None)
-        return bool(check is not None and check())
+        with self._cond:
+            pending = self._target != self._current
+        return pending or bool(check is not None and check())
 
     def close(self, timeout=CLOSE_WAIT_S):
         """Run end: everything down, before recovery. Bounded: an adapter that hangs cannot hold recovery up, so the

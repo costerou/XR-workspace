@@ -350,7 +350,10 @@ class IncidentMonitor:
                          drm=self._safe(self.sources.drm, output) if output else None, usb_present=bool(ports) if ports is not None else None,
                          hyprland_alive=self._safe(self.sources.alive, live.hypr_pid), driver_alive=self._safe(self.sources.driver_alive))
         first_running = state == 'running' and watch.running_since is None
+        switches = watch.mode_switches
         signals = watch.observe({**o, **facts})
+        if watch.mode_switches != switches:
+            log(f'mode-switch: {watch.run_id}: {watch.mode_text()}')
         if first_running: self._save()
         if state == 'running':
             if not live.armed: self._arm(live)

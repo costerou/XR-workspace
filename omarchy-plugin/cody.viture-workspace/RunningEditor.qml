@@ -81,6 +81,14 @@ ColumnLayout {
             }
         }
     }
+    Frame {
+        objectName: "modeSwitchCard"
+        visible: !!root.immersive.switching
+        Layout.fillWidth: true
+        Label {
+            text: (root.immersive.names || []).length ? "Switching to 3D…" : "Switching to 2D…"
+        }
+    }
     RowLayout {
         objectName:"immersiveRow"
         Label { text:"3D"; font.bold:true }

@@ -80,12 +80,21 @@ class ButtonSbs:
         self.clock, self.sleep, self.enter_wait = clock, sleep, enter_wait
         self.left_at = None     # when leave() last asked for the button: the glasses are still wide, until settle() sees otherwise
         self.expect_until = 0.0
+        self.hand_wide = False
 
     def _monitor(self):
         """The output, or None while it is away (a press may do that)."""
         try: found = [m for m in monitors(self.client.query('monitors')) if m['name'] == self.output]
         except (OSError, ValueError, TimeoutError, KeyError, TypeError): return None
         return found[0] if len(found) == 1 else None
+
+    def follow_by_hand(self):
+        monitor = self._monitor()
+        if monitor is not None:
+            wide = is_wide(monitor)
+            if wide and not self.hand_wide and not self.switching():
+                self.tell('The glasses are in 3D. Click 3D to enable desktop depth.')
+            self.hand_wide = wide
 
     def _apply(self, monitor, rate):
         apply = getattr(self.client, 'apply_wide_mode', None)
@@ -105,7 +114,7 @@ class ButtonSbs:
 
     def switching(self):
         """A change of mode is under way or just happened, so the output going away is that and not a drop."""
-        return self.left_at is not None or self.clock() < self.expect_until
+        return (self.left_at is not None and self.clock() - self.left_at < ENTER_WAIT_S) or self.clock() < self.expect_until
 
     def enter(self, cancelled=lambda: False):
         """Until the glasses are wide and driven wide. False if `cancelled()` came true first. Raises SbsError if the button was

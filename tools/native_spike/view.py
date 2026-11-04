@@ -1222,6 +1222,7 @@ class ViewControl:
         s = self.state
         run = self.immersive_run
         return {'setting': _immersive.validate(s.immersive), 'names': [] if self.immersive_failed else _immersive.on_names(s.immersive, s.names),
+                'switching': bool(getattr(run, 'switching', lambda: False)()),
                 'stereo': self.immersive_stereo, 'failed': self.immersive_failed, 'phase': run.phase if run is not None else 'off',
                 'installed': run is not None and getattr(run.engine, 'binary', None) is not None}
 
