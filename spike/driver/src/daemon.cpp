@@ -1,4 +1,5 @@
 #include "luma/daemon.hpp"
+#include "luma/capture_file.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -45,13 +46,14 @@ void Daemon::log_stats() {
     const std::uint64_t now = parts_.now_ns();
     const std::uint64_t window = now - stats_since_;
     const double rate = window ? double(stats_.samples - stats_samples_) * 1e9 / double(window) : 0;
-    logf("luma: stats samples=%llu rate_hz=%.0f lost=%llu published=%llu bad_packets=%llu bad_poses=%llu commands=%llu "
-         "starts_skipped=%llu opens=%llu connections=%llu disconnects=%llu reconnects=%llu stale=%llu time_jumps=%llu max_process_us=%.1f",
-         (unsigned long long)stats_.samples, rate, (unsigned long long)parts_.decoder.lost_samples(), (unsigned long long)stats_.published,
+    logf("luma: stats samples=%llu rate_hz=%.0f lost=%llu repeats=%llu published=%llu bad_packets=%llu bad_poses=%llu commands=%llu "
+         "starts_skipped=%llu opens=%llu connections=%llu disconnects=%llu reconnects=%llu stale=%llu time_jumps=%llu max_process_us=%.1f p99_process_us=%.1f",
+         (unsigned long long)stats_.samples, rate, (unsigned long long)parts_.decoder.lost_samples(), (unsigned long long)stats_.repeats,
+         (unsigned long long)stats_.published,
          (unsigned long long)stats_.bad_packets, (unsigned long long)stats_.bad_poses, (unsigned long long)stats_.commands,
          (unsigned long long)stats_.starts_skipped, (unsigned long long)stats_.opens, (unsigned long long)stats_.connections,
          (unsigned long long)stats_.disconnects, (unsigned long long)stats_.reconnects, (unsigned long long)stats_.stale_events,
-         (unsigned long long)stats_.time_jumps, double(stats_.max_process_ns) / 1000.0);
+         (unsigned long long)stats_.time_jumps, double(stats_.max_process_ns) / 1000.0, double(process_ns_.percentile(0.99)) / 1000.0);
     stats_samples_ = stats_.samples;
     stats_since_ = now;
     stats_.max_process_ns = 0;
@@ -85,10 +87,15 @@ DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
         if (up_) {
             const ReadResult r = parts_.link.read(buffer_, config_.read_timeout);
             const std::uint64_t after = parts_.now_ns();
+            const std::uint64_t work_began = rt::monotonic_raw_ns();  // a real clock: a replay's now_ns is simulated
             switch (r.status) {
             case ReadStatus::data:
                 on_packet(std::span<const std::uint8_t>(buffer_).first(std::min(r.size, buffer_.size())), after);
-                stats_.max_process_ns = std::max(stats_.max_process_ns, parts_.now_ns() - after);
+                {
+                    const std::uint64_t spent = rt::monotonic_raw_ns() - work_began;
+                    stats_.max_process_ns = std::max(stats_.max_process_ns, spent);
+                    process_ns_.record(spent);
+                }
                 break;
             case ReadStatus::timeout: break;
             case ReadStatus::gone: go_down("gone", false, after); break;
@@ -136,6 +143,7 @@ void Daemon::connect(std::uint64_t now) {
     waiting_for_.clear();
     up_ = start_pending_ = true;
     start_sent_ = false;
+    before_start_sent_ = 0;
     ++stats_.connections;
     connection_has_sample_ = false;
     watch_from_ = now;
@@ -146,9 +154,18 @@ void Daemon::connect(std::uint64_t now) {
 }
 
 void Daemon::send_start(std::uint64_t now) {
+    if (before_start_sent_ < parts_.before_start.size()) {
+        const auto& command = parts_.before_start[before_start_sent_++];
+        start_sent_ = true;
+        ++stats_.commands;
+        start_at_ = now + ns(config_.start_spacing);
+        if (!parts_.link.write(command)) go_down("write-failed", true, now);
+        return;
+    }
     start_pending_ = false;
-    start_sent_ = true;
     watch_from_ = now;  // the silence that counts starts here
+    if (parts_.start_command.empty()) return;  // listening only
+    start_sent_ = true;
     ++stats_.commands;  // counted even if it fails: it may have reached the wire
     if (!parts_.link.write(parts_.start_command)) go_down("write-failed", true, now);
 }
@@ -192,7 +209,8 @@ void Daemon::watchdog(std::uint64_t now) {
 
 void Daemon::on_packet(std::span<const std::uint8_t> packet, std::uint64_t now) {
     if (std::optional<ImuSample> sample = parts_.decoder.decode(packet)) on_sample(*sample, now);
-    else ++stats_.bad_packets;  // also the device's reply to the start command: not worth a log line
+    else if (parts_.decoder.last_was_repeat()) ++stats_.repeats;
+    else ++stats_.bad_packets;
 }
 
 void Daemon::begin_after_outage(std::uint64_t now) {
@@ -293,11 +311,20 @@ template <std::size_t N> std::uint64_t little(const unsigned char (&b)[N]) {
 }
 }
 
-std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why) {
+std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why, std::uint8_t endpoint) {
     std::ifstream in(path, std::ios::binary);
     if (!in) { why = "cannot open " + path; return std::nullopt; }
     char magic[sizeof kMagic]{};
-    if (!in.read(magic, sizeof magic) || std::memcmp(magic, kMagic, sizeof magic) != 0) { why = "not a capture: " + path; return std::nullopt; }
+    if (!in.read(magic, sizeof magic)) { why = "not a capture: " + path; return std::nullopt; }
+    if (std::memcmp(magic, "LUMACAP1", sizeof magic) == 0) {
+        auto events = capture::load_replay(path, &why, endpoint);
+        if (!events) return std::nullopt;
+        std::vector<CaptureRecord> records;
+        records.reserve(events->size());
+        for (capture::ReplayEvent& e : *events) records.push_back({e.t_ns, CaptureKind(e.kind), std::move(e.payload)});
+        return records;
+    }
+    if (std::memcmp(magic, kMagic, sizeof magic) != 0) { why = "not a capture: " + path; return std::nullopt; }
     std::vector<CaptureRecord> records;
     for (;;) {
         unsigned char t[8], size[4], kind[1];
@@ -387,7 +414,15 @@ const char* const kUsage =
     "  --keep-calibration-ms N  back within this long after a drop: keep the calibration (default 300000)\n"
     "  --settle-ms N            leave a device that just came back alone this long before any command (default 200)\n"
     "  --no-keep-heading        after a new calibration, start from its own heading instead of the last one\n"
-    "  --no-stop-command        leave the stream on at exit: one command fewer, and the next start needs none\n"
+    "  --no-stop-command        leave the stream on at exit (the Ultra has no known stop, so this changes nothing there yet)\n"
+    "  --start MODE             listen: send nothing. stream: the start alone (default). prepared: 0x97 then the start.\n"
+    "                           full: 0x100B, 0x97, then the start, as VITURE's own software does\n"
+    "  --read-events            also read endpoint 0x83, and throw it away\n"
+    "  --drain-camera           also read camera endpoint 0x82 and throw it away: 19 MB/s, for a device that stalls without it\n"
+    "  --no-rt                  leave scheduling alone\n"
+    "  --state-dir PATH         where the gyro bias is kept between runs\n"
+    "  --pose-log FILE          replay only: t_ns, then w x y z, as five doubles, for every Nth pose\n"
+    "  --pose-log-every N       default 10\n"
     "  --help\n";
 
 namespace {
@@ -419,6 +454,26 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         else if (arg == "--replay-realtime") o.replay_realtime = true;
         else if (arg == "--no-keep-heading") o.config.keep_heading = false;
         else if (arg == "--no-stop-command") o.stop_command = false;
+        else if (arg == "--read-events") o.read_events = true;
+        else if (arg == "--drain-camera") o.drain_camera = true;
+        else if (arg == "--no-rt") o.no_rt = true;
+        else if (arg == "--state-dir") { const char* v = value(); if (!v) return std::nullopt; o.state_dir = v; }
+        else if (arg == "--pose-log") { const char* v = value(); if (!v) return std::nullopt; o.pose_log = v; }
+        else if (arg == "--pose-log-every") {
+            milliseconds every{};
+            if (!number(every)) return std::nullopt;
+            o.pose_log_every = unsigned(every.count());
+        }
+        else if (arg == "--start") {
+            const char* v = value();
+            if (!v) return std::nullopt;
+            const std::string_view mode = v;
+            if (mode == "listen") o.start = Options::Start::listen;
+            else if (mode == "stream") o.start = Options::Start::stream;
+            else if (mode == "prepared") o.start = Options::Start::prepared;
+            else if (mode == "full") o.start = Options::Start::full;
+            else { why = "--start needs listen, stream, prepared or full"; return std::nullopt; }
+        }
         else if (arg == "--ipc-prefix") { const char* v = value(); if (!v) return std::nullopt; o.ipc_prefix = v; prefix_given = true; }
         else if (arg == "--replay") { const char* v = value(); if (!v) return std::nullopt; o.replay = v; }
         else if (arg == "--stale-ms") { if (!number(o.config.stale_after)) return std::nullopt; }
@@ -431,6 +486,7 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
     if (o.replay && !prefix_given) { why = "--replay needs its own --ipc-prefix: the default is the live feed"; return std::nullopt; }
     if (o.replay && o.ipc_prefix == kLiveIpcPrefix) { why = "--replay must not write the live feed"; return std::nullopt; }
     if (o.replay_realtime && !o.replay) { why = "--replay-realtime needs --replay"; return std::nullopt; }
+    if (o.pose_log && !o.replay) { why = "--pose-log needs --replay"; return std::nullopt; }
     o.config.settle_max = std::max(o.config.settle_max, o.config.settle_first);
     if (o.config.silent_reopen_after <= o.config.stale_after) { why = "--reopen-ms must be longer than --stale-ms"; return std::nullopt; }
     return o;

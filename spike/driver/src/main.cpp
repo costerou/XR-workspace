@@ -1,5 +1,6 @@
 // xr-luma-driver: our own head-tracking driver for the VITURE Luma Ultra. See include/luma/daemon.hpp.
 #include "luma/daemon.hpp"
+#include "luma/rt.hpp"
 #include "luma/wiring.hpp"
 #include <atomic>
 #include <cerrno>
@@ -66,6 +67,23 @@ int main(int argc, char** argv) {
 
     if (const std::string refused = take_instance_lock(options->ipc_prefix); !refused.empty()) return fail(5, refused);
 
+    // Live only. It helps when it can and costs nothing when it cannot: acceptance P3, works without privileges.
+    if (!options->replay && !options->no_rt) {
+        rt::ThreadPolicy policy;
+        const rt::ThreadPolicyResult result = rt::apply_thread_policy(policy);
+        if (!result.detail.empty()) log_line("luma: scheduling " + result.detail);
+    }
+
+    std::unique_ptr<wiring::BiasStore> bias;
+    if (!options->replay) {
+        const std::string dir = options->state_dir.empty() ? wiring::default_state_dir() : options->state_dir;
+        if (!dir.empty()) {
+            bias = std::make_unique<wiring::BiasStore>(dir + "/luma-gyro-bias");
+            bias->load();
+            if (bias->bias()) log_line("luma: bias restored");
+        }
+    }
+
     std::unique_ptr<Link> link;
     ReplayLink* replay = nullptr;
     if (options->replay) {
@@ -75,17 +93,36 @@ int main(int argc, char** argv) {
         replay = owned.get();
         link = std::move(owned);
     } else {
-        link = wiring::live_link(why);
+        link = wiring::live_link(why, *options, &log_line);
         if (!link) return fail(3, "transport " + why);
     }
-    std::unique_ptr<Sink> sink = wiring::feed_sink(options->ipc_prefix, why);
+    std::unique_ptr<Sink> sink = wiring::feed_sink(options->ipc_prefix, why, replay != nullptr);
     if (!sink) return fail(4, "feed " + why);
+    if (options->pose_log) {
+        sink = wiring::logging_sink(std::move(sink), *options->pose_log, options->pose_log_every, why);
+        if (!sink) return fail(4, why);
+    }
 
     const std::unique_ptr<Decoder> decoder = wiring::decoder();
-    DaemonParts parts{*link, *decoder, &wiring::estimator, *sink,
+    std::function<std::unique_ptr<Estimator>()> make_estimator = &wiring::estimator;
+    if (bias) make_estimator = [store = bias.get()] { return wiring::estimator_with(*store); };
+    DaemonParts parts{*link, *decoder, std::move(make_estimator), *sink,
                       replay ? std::function<std::uint64_t()>([replay] { return replay->now_ns(); }) : std::function<std::uint64_t()>(&monotonic_ns),
-                      &log_line, wiring::start_command(), options->stop_command ? wiring::stop_command() : std::vector<std::uint8_t>{}};
-    Daemon daemon(std::move(parts), options->config);
-    daemon.run(g_stop);
+                      &log_line, wiring::start_for(options->start), options->stop_command ? wiring::stop_command() : std::vector<std::uint8_t>{},
+                      wiring::before_start(options->start)};
+    if (options->start == Options::Start::listen) parts.stop_command.clear();
+    {
+        Daemon daemon(std::move(parts), options->config);
+        daemon.run(g_stop);
+        if (replay) {
+            const rt::LatencyHistogram& times = daemon.process_times();
+            char line[160];
+            std::snprintf(line, sizeof line, "luma: replay process_us p50=%.2f p99=%.2f p999=%.2f max=%.2f packets=%llu",
+                          double(times.percentile(0.5)) / 1000.0, double(times.percentile(0.99)) / 1000.0,
+                          double(times.percentile(0.999)) / 1000.0, double(times.max()) / 1000.0, (unsigned long long)times.count());
+            log_line(line);
+        }
+    }  // the estimator hands over its bias as the daemon goes
+    if (bias) bias->save();
     return 0;
 }

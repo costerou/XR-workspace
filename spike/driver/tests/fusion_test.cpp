@@ -226,7 +226,7 @@ void worn_start_is_usable_by_timeout_then_good() {
     CHECK(r.f.status().quality == FusionQuality::Coarse);
     CHECK_LT(r.f.status().calibrated_after_s, 2.7);
     CHECK_LT(r.bias_err_deg_s(), 1.0);
-    r.go(30, worn_rest, 99);
+    r.go(50, worn_rest, 99);  // coarse_to_good_s of agreeing rest, retuned on a real session
     CHECK(r.f.status().quality == FusionQuality::Good);
     CHECK_LT(r.bias_err_deg_s(), 0.25);
 }
@@ -490,8 +490,8 @@ void mag_option_holds_heading_against_bias() {
     FusionConfig c;
     c.use_mag = true;
     Run on(m, c);
-    off.go(minutes(300, 120), w, 3);
-    on.go(minutes(300, 120), w, 3);
+    off.go(minutes(300, 180), w, 3);
+    on.go(minutes(300, 180), w, 3);
     CHECK_LT(on.drift_deg_min(), 0.5);
     CHECK_LT(on.drift_deg_min() * 3, off.drift_deg_min());
     on.row("worn, big bias, mag on");

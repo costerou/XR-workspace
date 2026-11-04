@@ -1,59 +1,38 @@
 // VITURE wire protocol: frames, checks, IMU decoding and the stream commands.
 //
-// READ THIS FIRST. THE LUMA ULTRA'S IMU PACKET IS NOT PUBLICLY KNOWN.
+// THE LUMA ULTRA'S IMU LAYOUT BELOW IS MEASURED, FROM A PASSIVE USBMON CAPTURE OF A
+// LIVE XR SESSION (2026-11-04, 19.5 minutes, spike/driver/docs/capture-findings.md).
+// Nothing here comes from the VITURE SDK: the capture records the device's own
+// traffic on Cody's machine, and no SDK code was read.
 //
-// XRLinuxDriver holds no wire format at all: src/devices/viture.c calls the
-// closed libglasses.so and only sees decoded callbacks. This file is built
-// from what other open projects published, and each fact below says which
-// device it was seen on. Nothing here comes from the VITURE SDK.
+//   Luma Ultra, IMU stream: interrupt IN 0x81, 28 bytes, one sample per packet at
+//     1 kHz. Layout and scales are in parse_imu's section below. Golden bytes from
+//     the capture are in tests/protocol_test.cpp and tests/fixtures/.
+//
+//   Luma Ultra, start: FA 55 95 00 00 on bulk OUT 0x04. The first IMU packet
+//     arrives 0.74 ms later, with reads queued on 0x81 for 1.2 s before it and
+//     none delivered. That it is the cause is inferred from the timing, and the
+//     same command very probably starts the cameras: bulk 0x82 begins with it.
+//     Stop: never captured, so stop_imu returns nothing for this device. Sending
+//     a guessed id at the channel that also flashes firmware is not an option.
 //
 //   Luma Ultra, data envelope (FF FE / FF FD), endpoints 0x06 / 0x87:
-//     github.com/go-viture/luma (BSD-3-Clause, cc37e96), info.go. Measured on
-//     a Luma Ultra for read-only requests. That project read the layout out of
-//     the vendor's library, then confirmed it on hardware. A real reply from
-//     its tests passes the CRC below, and so does VITURE's own updater's frames.
-//     Not established: any message beyond its five reads.
-//
-//   Luma Ultra, IMU stream: UNKNOWN. The pipe, the start command and the packet
-//     layout are all unpublished. The descriptors of 35ca:1104 show interrupt
-//     IN pipes 0x81 and 0x83, which are candidates and nothing more. The HID
-//     interfaces of the companion 35ca:1102 are a dead end: Spatial-Screens
-//     (cee6556, docs/plan/roadmap.md) sent the classic IMU enable to both on
-//     real hardware and got no reply, and their report descriptors say usage
-//     page 0x0C (consumer), not vendor.
-//     Cody's driver.log (2026-11-03) narrows where to look. Healthy starts with
-//     6DOF on and off show the same steps: "get exp flag", a 15872-byte transfer
-//     and "open_vst_str", then 0x100B (one byte, once), then 0x0007 polling. The
-//     SDK's message builder logs no other id, so whatever starts the stream does
-//     not go through it (inferred). A capture has to cover every pipe and
-//     control transfers, not only 0x06 / 0x87.
+//     github.com/go-viture/luma (BSD-3-Clause, cc37e96), info.go, and now the
+//     capture: 0x100B once, then 0x0007 about once a second, all CRCs good.
 //
 //   VITURE Pro 2 (35ca:1301), protocol V2: github.com/elasticjava/viture-v2
-//     (MIT, 8b29df0), PROTOCOL.md. Measured with usbmon on a Pro 2. This is the
-//     only gyro and accelerometer packet with a public byte layout, and no
-//     Luma Ultra has been shown to speak it.
-//
-// So until a capture of a real session settles it (recording a session running
-// the SDK is Cody's call, see spike/driver/docs/protocol.md):
-//   - parse_imu() returns nothing for every Luma Ultra frame, because
-//     kLumaUltraImuFields is empty. It never guesses, since a wrong guess would
-//     turn into plausible head motion.
-//   - start_imu(Device::luma_ultra) returns nothing, because an unknown opcode
-//     must not be written to glasses somebody is wearing.
-// The decoder is table driven, so a capture needs one kLumaUltraImuFields entry
-// and one start message, not a new parser. Tests prove that path with a
-// synthetic layout.
+//     (MIT, 8b29df0), PROTOCOL.md. Measured with usbmon on a Pro 2.
 //
 // Every command sent is a chance to upset the firmware, and zero USB drops comes
-// first, so a stream gets one start, one stop and no polling. Deliberately absent,
-// all optional for head tracking: display mode (message 0x0007, the one timing
-// out in the current driver's log), status reports (0x100B, whose effect is
-// unknown), brightness, volume, film, serial and version reads. The FA 55
-// envelope on endpoints 0x04 / 0x85 is absent too: go-viture reports it as the
-// channel the vendor's updater flashes through.
+// first, so a stream gets one start and no polling. Deliberately absent, all
+// optional for head tracking: display mode (message 0x0007, the one timing out in
+// the current driver's log), status reports (0x100B, whose effect is unknown),
+// brightness, volume, film, serial and version reads, the calibration read (FA 55
+// E4/E5) and exposure control (FA 55 90).
 #pragma once
 #include "luma/transport.hpp"
 #include "luma/types.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -67,6 +46,11 @@ inline constexpr std::uint8_t kDataEndpointOut = 0x06;
 inline constexpr std::uint8_t kDataEndpointIn = 0x87;
 inline constexpr std::size_t kDataPacketSize = 512;
 inline constexpr std::uint8_t kV2EndpointOut = 0x01;
+inline constexpr std::uint8_t kMcuEndpointOut = kLumaUltraFlashOut;
+inline constexpr std::uint8_t kMcuEndpointIn = kLumaUltraFlashIn;
+inline constexpr std::uint8_t kLumaImuEndpoint = 0x81;    // interrupt IN, polled every 500 us
+inline constexpr std::uint8_t kLumaEventEndpoint = 0x83;  // interrupt IN: 16-byte type 0x91 frames at the display rate
+inline constexpr std::uint8_t kLumaCameraEndpoint = 0x82; // bulk IN: 16 KiB tiles, 19 MB/s while the cameras run. Never read by default
 
 // CRC-16/XMODEM: polynomial 0x1021, initial value 0, no reflection, no final
 // xor. Check value: "123456789" gives 0x31C3. Older VITURE write-ups disagree
@@ -139,13 +123,36 @@ inline constexpr ImuFields kV2RawFields{
     .tick_ns = 1'000'000,
 };
 
-// EMPTY ON PURPOSE, see the top of this file. Fill it from a capture. Two
-// published facts to check against then: the SDK hands over accelerometer
-// first, then gyro (viture_device_carina.h), and Spatial-Screens saw about 9.8
-// at rest, so that callback is already in m/s2, not g. Before trusting a layout,
-// confirm on a capture that the accelerometer reads about 9.8 at rest: the range
-// limits below do not catch a wrong one (reversed bytes can land in range).
+// The data envelope carries no IMU on the Luma Ultra: its stream has a framing of
+// its own (below). Left for a device or firmware that does put one there.
 inline constexpr std::optional<ImuFields> kLumaUltraImuFields = std::nullopt;
+
+// The Luma Ultra's stream packet, all little-endian, as measured:
+//   0..2   AA 8F 00
+//   3      type: 0x88 IMU on 0x81, 0x91 display event on 0x83, others on camera 0x82
+//   4..5   sequence, +1 per packet, wraps at 65536 (65.5 s at 1 kHz)
+//   6..7   payload length, 16 for an IMU packet
+//   8..11  device time, 100 us per tick, from the device's boot
+//   12..17 gyro x, y, z, i16, 16.4 LSB per deg/s
+//   18..23 accel x, y, z, i16, 8192 LSB per g
+//   24..27 u32, most likely temperature: climbs 1760 to 2910 as the glasses warm
+// Gyro scale: fitted, rotation of gravity between still moments, error minimum at
+// 16.4 (+-2000 deg/s) out of 8.2 to 65.5. Accel: 8270 LSB at rest is 1.01 g, so
+// +-4 g. Axes: the same frame for both (a sign flip gives 12 degrees of error
+// against 0.4), right-handed, z up from gravity, y the roll axis by PCA, and the
+// sensor sits 8.2 +- 0.5 cm along -y from the head's rotation centre, from a
+// rigid-body fit (spike/driver/docs/capture-findings.md). So on the wire
+//   forward = -y, left = +x, up = +z
+// and parse_imu returns the body frame Fusion and Predictor want, x forward, y left,
+// z up, accel as specific force (+9.8 on z when level).
+inline constexpr std::size_t kLumaImuPacketSize = 28;
+inline constexpr std::uint8_t kLumaImuType = 0x88;
+inline constexpr std::uint16_t kLumaImuPayload = 16;
+inline constexpr std::uint64_t kLumaTickNs = 100'000;
+inline constexpr std::uint64_t kLumaSampleNs = 1'000'000;
+inline constexpr float kLumaGyroLsbPerDegS = 16.4f;
+inline constexpr float kLumaAccelLsbPerG = 8192.0f;
+inline constexpr unsigned kLumaSeqBits = 16;
 
 struct ParseOptions {
     ImuFields v2 = kV2RawFields;
@@ -162,10 +169,16 @@ inline constexpr float kMaxAccelMs2 = 320.0f;
 // holds a non-finite, out-of-range or all-zero reading. Trailing bytes past the
 // frame's own length are padding and are ignored. Safe on the real-time thread:
 // it cannot throw and makes no allocation, and a test measures that.
+// For a Luma Ultra packet, t_ns is device time and seq the 16-bit wire sequence:
+// pass both through a SequenceTracker made with luma_sequence_tracker().
 std::optional<ImuSample> parse_imu(std::span<const std::uint8_t> packet) noexcept;
 // Same, with other layouts. A separate name, because the daemon stores parse_imu
 // as a plain function pointer, which an overload would make ambiguous.
 std::optional<ImuSample> parse_imu_with(std::span<const std::uint8_t> packet, const ParseOptions& options) noexcept;
+
+// The inverse of parse_imu for a Luma Ultra packet, for fixtures and fakes. The
+// sample's body frame goes back to wire axes; values saturate at the i16 range.
+std::array<std::uint8_t, kLumaImuPacketSize> encode_luma_imu(const ImuSample& sample, std::uint32_t temperature_raw = 2000) noexcept;
 
 // A command, and the endpoint it goes to.
 struct Command {
@@ -184,9 +197,16 @@ enum class ImuRate : std::uint8_t { hz60 = 0, hz90 = 1, hz120 = 2, hz240 = 3, hz
 // have ever been shown to be safe.
 std::optional<Command> data_request(std::uint16_t msg_id, std::span<const std::uint8_t> payload = {});
 
-// The only commands a stream needs. Empty for the Luma Ultra until it is known
-// what starts its stream: the caller must treat that as "cannot start", and
-// must not invent a fallback.
+// One FA 55 frame for the MCU channel: FA 55, command, big-endian payload length,
+// payload. Transport passes only the exact frames on its allowlist (allowed_mcu_frame),
+// because this channel also flashes firmware.
+std::optional<Command> mcu_request(std::uint8_t command, std::span<const std::uint8_t> payload = {});
+inline constexpr std::uint8_t kMcuStartStream = 0x95;
+inline constexpr std::uint8_t kMcuBeforeStart = 0x97;  // sent 100 ms before 0x95 by the SDK; its meaning is unknown
+
+// The only commands a stream needs. stop_imu is empty for the Luma Ultra because no
+// capture has shown one: leave the stream on rather than guess. rate is ignored
+// there: nothing sent in the capture sets one, and the device runs at 1 kHz.
 std::optional<Command> start_imu(Device device, ImuRate rate = ImuRate::hz1000);
 std::optional<Command> stop_imu(Device device);
 
@@ -209,7 +229,10 @@ public:
         bool restarted = false;  // the device's counter started over
     };
 
-    explicit SequenceTracker(std::uint64_t tick_ns = kV2RawFields.tick_ns) : tick_ns_(tick_ns) {}
+    // seq_bits: how wide the device's counter is. Below 32 the tracker also widens
+    // sample.seq to one that does not wrap, which Fusion's gap check relies on.
+    explicit SequenceTracker(std::uint64_t tick_ns = kV2RawFields.tick_ns, unsigned seq_bits = 32)
+        : tick_ns_(tick_ns), mask_(seq_bits >= 32 ? 0xffffffffu : (1u << seq_bits) - 1u) {}
 
     Result observe(ImuSample& sample) noexcept;
     // Call after a reconnect: the next sample starts a fresh count.
@@ -218,11 +241,18 @@ public:
 
 private:
     std::uint64_t tick_ns_;
+    std::uint32_t mask_;
     std::uint64_t ticks_ = 0;  // extended past 32 bits
     std::uint64_t lost_total_ = 0;
     std::uint32_t last_ = 0;
     bool have_last_ = false;
     bool have_ticks_ = false;
 };
+
+// The tracker for the Luma Ultra's stream: one sample per millisecond, 16-bit sequence.
+// Its t_ns counts samples, not the device's 100 us clock, on purpose: over the
+// capture the packets ran at 1000.00 Hz of host time within 8 ppm, while the device
+// stamp ran 65 ppm fast and carries +-100 us of jitter.
+inline SequenceTracker luma_sequence_tracker() { return SequenceTracker(kLumaSampleNs, kLumaSeqBits); }
 
 }  // namespace luma

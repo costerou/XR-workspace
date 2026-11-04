@@ -1,4 +1,4 @@
-"""python3 -m tools.luma_capture check|record|report|show|merge|pcap. See tools/luma_capture/README.md."""
+"""python3 -m tools.luma_capture check|record|report|show|merge|pcap|import-usbmon. See tools/luma_capture/README.md."""
 import argparse
 import json
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 import signal
 import sys
 
-from . import capfile, pcap
+from . import capfile, pcap, rawmon
 from .audit import audit, compare, passed, render_audit, render_compare
 from .protocol import Framing, Labeler, status_name
 from .recorder import Recorder, add_mark, describe, start_followers
@@ -128,6 +128,12 @@ def command_pcap(args):
     return 0
 
 
+def command_import(args):
+    stats = {}
+    print(f'{rawmon.import_raw(args.source, args.output, stats=stats)} records in {args.output}; {stats}')
+    return 0
+
+
 def parser():
     top = argparse.ArgumentParser(prog='python3 -m tools.luma_capture', description=__doc__)
     commands = top.add_subparsers(dest='command', required=True)
@@ -178,6 +184,10 @@ def parser():
     export.add_argument('paths', nargs='+')
     export.add_argument('--output', '-o', required=True)
     export.set_defaults(run=command_pcap)
+    convert = commands.add_parser('import-usbmon', help='a raw `cat /dev/usbmonN` dump to a sanitised .lcap')
+    convert.add_argument('source')
+    convert.add_argument('--output', '-o', required=True)
+    convert.set_defaults(run=command_import)
     return top
 
 
@@ -185,7 +195,7 @@ def main(argv=None):
     args = parser().parse_args(argv)
     try:
         return args.run(args)
-    except capfile.CaptureError as error:
+    except (capfile.CaptureError, rawmon.RawError) as error:
         sys.exit(str(error))
 
 

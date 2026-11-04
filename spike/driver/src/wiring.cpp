@@ -1,70 +1,196 @@
-// The one file that knows the real Transport, parse_imu, Fusion and Publisher. None of them is on master yet, so these are
-// stand-ins, enough to run the whole binary against a capture; a replay through them shows the daemon works, not that a
-// pose is right. As each piece lands, replace its function here and take its name out of kStandIn:
-//   live_link         TransportLink<Transport, IoStatus> (include/luma/transport_link.hpp)
-//   decoder           parse_imu, then SequenceTracker::observe: drop what it does not accept, reset() in new_connection,
-//                     lost_total() in lost_samples
-//   start/stop_command   luma::Command's IMU stream start and stop
-//   estimator         an Estimator over luma::Fusion (update already matches)
-//   feed_sink         a Sink over luma::Publisher (publish, and set_stale onto its `disabled` flag)
+// The one file that knows the real Transport, parse_imu, Fusion and Publisher.
 #include "luma/wiring.hpp"
+#include "luma/fusion.hpp"
+#include "luma/protocol.hpp"
+#include "luma/publish.hpp"
+#include "luma/transport.hpp"
+#include "luma/transport_link.hpp"
+#include <cerrno>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 namespace luma::wiring {
-const char* const kStandIn = "transport decoder commands estimator feed";
-
-std::unique_ptr<Link> live_link(std::string& why) {
-    why = "transport not built in yet";
-    return nullptr;
-}
+const char* const kStandIn = "";
 
 namespace {
-class NullSink final : public Sink {
-public:
-    void publish(const PoseOut&) override {}
-    void set_stale(bool) override {}
-};
-// Integrates the gyro, nothing more. Calls itself calibrated after 100 samples so the states can be exercised.
-class GyroOnly final : public Estimator {
-public:
-    PoseOut update(const ImuSample& s) override {
-        const float dt = have_t_ ? float(s.t_ns - t_) * 1e-9f : 0.f;
-        have_t_ = true; t_ = s.t_ns;
-        const Quatf d{1, 0.5f * s.gyro_rad_s[0] * dt, 0.5f * s.gyro_rad_s[1] * dt, 0.5f * s.gyro_rad_s[2] * dt};
-        const Quatf a = q_;
-        q_ = {a.w * d.w - a.x * d.x - a.y * d.y - a.z * d.z, a.w * d.x + a.x * d.w + a.y * d.z - a.z * d.y,
-              a.w * d.y - a.x * d.z + a.y * d.w + a.z * d.x, a.w * d.z + a.x * d.y - a.y * d.x + a.z * d.w};
-        const float n = std::sqrt(q_.w * q_.w + q_.x * q_.x + q_.y * q_.y + q_.z * q_.z);
-        q_ = {q_.w / n, q_.x / n, q_.y / n, q_.z / n};
-        return {q_, s.t_ns, s.seq, ++count_ >= 100};
+constexpr std::size_t kImuBurst = 8;
+using Live = TransportLink<Transport, IoStatus>;
+
+std::string hex_of(std::span<const std::uint8_t> bytes) {
+    std::string out;
+    char pair[3];
+    for (const std::uint8_t b : bytes) {
+        std::snprintf(pair, sizeof pair, "%02x", b);
+        out += pair;
     }
+    return out;
+}
+
+class PublishSink final : public Sink {
+public:
+    explicit PublishSink(std::unique_ptr<Publisher> publisher) : publisher_(std::move(publisher)) {}
+    void publish(const PoseOut& pose) override { publisher_->publish(pose); }
+    void set_stale(bool stale) override { if (stale) publisher_->pause(); }  // the next publish clears it
 private:
-    Quatf q_{};
-    std::uint64_t t_ = 0, count_ = 0;
-    bool have_t_ = false;
+    std::unique_ptr<Publisher> publisher_;
 };
-struct Packed { std::uint64_t t_ns; std::uint32_t seq; float gyro[3], accel[3]; };
-class StandInDecoder final : public Decoder {
+
+class PoseLog final : public Sink {
 public:
-    std::optional<ImuSample> decode(std::span<const std::uint8_t> bytes) override {
-        Packed p;
-        if (bytes.size() != sizeof p) return std::nullopt;
-        std::memcpy(&p, bytes.data(), sizeof p);
-        return ImuSample{p.t_ns, {p.gyro[0], p.gyro[1], p.gyro[2]}, {p.accel[0], p.accel[1], p.accel[2]}, std::nullopt, p.seq};
+    PoseLog(std::unique_ptr<Sink> inner, std::FILE* file, unsigned every) : inner_(std::move(inner)), file_(file), every_(every ? every : 1) {}
+    ~PoseLog() override { std::fclose(file_); }
+    void publish(const PoseOut& pose) override {
+        inner_->publish(pose);
+        if (count_++ % every_) return;
+        const double row[5] = {double(pose.t_ns), pose.q.w, pose.q.x, pose.q.y, pose.q.z};
+        std::fwrite(row, sizeof row, 1, file_);
     }
+    void set_stale(bool stale) override { inner_->set_stale(stale); }
+private:
+    std::unique_ptr<Sink> inner_;
+    std::FILE* file_;
+    unsigned every_;
+    std::uint64_t count_ = 0;
+};
+
+class FusionEstimator final : public Estimator {
+public:
+    explicit FusionEstimator(FusionConfig config, BiasStore* store = nullptr) : fusion_(config), store_(store) {}
+    ~FusionEstimator() override {
+        if (!store_) return;
+        const FusionStatus s = fusion_.status();
+        if (s.quality == FusionQuality::Good || s.quality == FusionQuality::Recovering) store_->remember(s.gyro_bias_rad_s);
+    }
+    PoseOut update(const ImuSample& sample) override { return fusion_.update(sample); }
+private:
+    Fusion fusion_;
+    BiasStore* store_;
+};
+
+class RealDecoder final : public Decoder {
+public:
+    std::optional<ImuSample> decode(std::span<const std::uint8_t> packet) override {
+        repeat_ = false;
+        std::optional<ImuSample> sample = parse_imu(packet);
+        if (!sample) return std::nullopt;
+        if (tracker_.observe(*sample).verdict == SequenceTracker::Verdict::accepted) return sample;
+        repeat_ = true;
+        return std::nullopt;
+    }
+    void new_connection() override { tracker_.reset(); }
+    std::uint64_t lost_samples() const override { return tracker_.lost_total(); }
+    bool last_was_repeat() const override { return repeat_; }
+private:
+    SequenceTracker tracker_ = luma_sequence_tracker();
+    bool repeat_ = false;
 };
 }
 
-std::unique_ptr<Sink> feed_sink(const std::string&, std::string&) { return std::make_unique<NullSink>(); }
-std::unique_ptr<Estimator> estimator() { return std::make_unique<GyroOnly>(); }
-std::unique_ptr<Decoder> decoder() { return std::make_unique<StandInDecoder>(); }
-std::vector<std::uint8_t> start_command() { return {0x01}; }
-std::vector<std::uint8_t> stop_command() { return {0x00}; }
+void BiasStore::load() {
+    std::ifstream in(path_);
+    std::array<float, 3> b{};
+    if (in >> b[0] >> b[1] >> b[2]) {
+        for (const float v : b) if (!std::isfinite(v) || std::fabs(v) > 0.35f) return;
+        bias_ = b;
+    }
+}
+
+bool BiasStore::save() const {
+    if (!bias_) return false;
+    std::error_code ignored;
+    std::filesystem::create_directories(std::filesystem::path(path_).parent_path(), ignored);
+    const std::string temporary = path_ + ".tmp";
+    {
+        std::ofstream out(temporary, std::ios::trunc);
+        out.precision(9);
+        out << (*bias_)[0] << ' ' << (*bias_)[1] << ' ' << (*bias_)[2] << '\n';
+        if (!out.flush()) return false;
+    }
+    return std::rename(temporary.c_str(), path_.c_str()) == 0;
+}
+
+std::string default_state_dir() {
+    if (const char* state = std::getenv("XDG_STATE_HOME"); state && *state) return std::string(state) + "/viture-workspace";
+    if (const char* home = std::getenv("HOME"); home && *home) return std::string(home) + "/.local/state/viture-workspace";
+    return {};
+}
+
+std::unique_ptr<Link> live_link(std::string& why, const Options& options, Logger log) {
+    TransportConfig config;
+    config.in_endpoints = {kLumaImuEndpoint, kMcuEndpointIn};
+    config.out_endpoint = kMcuEndpointOut;
+    config.allow_mcu_channel = true;
+    config.urbs_per_endpoint = kImuBurst;
+    if (options.read_events) config.in_endpoints.push_back(kLumaEventEndpoint);
+    if (options.drain_camera) config.drain_endpoints.push_back(kLumaCameraEndpoint);
+    if (options.start == Options::Start::full) {
+        config.extra_out_endpoints.push_back(kDataEndpointOut);
+        config.in_endpoints.push_back(kDataEndpointIn);
+    }
+    auto link = std::make_unique<Live>(std::move(config));
+    link->set_stream_endpoint(kLumaImuEndpoint);
+    link->set_route([](std::span<const std::uint8_t> bytes) { return !bytes.empty() && bytes[0] == 0xff ? kDataEndpointOut : kMcuEndpointOut; });
+    link->set_other_packet_handler([log = std::move(log)](std::uint8_t endpoint, std::span<const std::uint8_t> bytes) {
+        if (endpoint == kLumaEventEndpoint || !log) return;  // 120 of these a second say nothing
+        char line[96];
+        std::snprintf(line, sizeof line, "luma: reply endpoint=0x%02x bytes=%zu head=", endpoint, bytes.size());
+        log(std::string(line) + hex_of(bytes.first(std::min<std::size_t>(bytes.size(), 16))));
+    });
+    (void)why;
+    return link;
+}
+
+std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments) {
+    PublisherOptions options;
+    options.prefix = ipc_prefix;
+    options.history_step = history_step_for(1000);
+    options.private_segments = private_segments;
+    auto publisher = Publisher::open(options, why);
+    if (!publisher) return nullptr;
+    return std::make_unique<PublishSink>(std::move(publisher));
+}
+
+std::unique_ptr<Sink> logging_sink(std::unique_ptr<Sink> inner, const std::string& path, unsigned every, std::string& why) {
+    std::FILE* file = std::fopen(path.c_str(), "wb");
+    if (!file) {
+        why = "cannot write " + path + ": " + std::strerror(errno);
+        return nullptr;
+    }
+    return std::make_unique<PoseLog>(std::move(inner), file, every);
+}
+
+std::unique_ptr<Estimator> estimator() { return std::make_unique<FusionEstimator>(FusionConfig{}); }
+
+std::unique_ptr<Estimator> estimator_with(BiasStore& store) {
+    FusionConfig config;
+    config.warm_start_bias = store.bias();
+    return std::make_unique<FusionEstimator>(config, &store);
+}
+
+std::unique_ptr<Decoder> decoder() { return std::make_unique<RealDecoder>(); }
+
+std::vector<std::uint8_t> start_command() { return start_imu(Device::luma_ultra)->bytes; }
+std::vector<std::uint8_t> stop_command() {
+    const auto stop = stop_imu(Device::luma_ultra);
+    return stop ? stop->bytes : std::vector<std::uint8_t>{};
+}
+
+std::vector<std::vector<std::uint8_t>> before_start(Options::Start mode) {
+    std::vector<std::vector<std::uint8_t>> commands;
+    if (mode == Options::Start::full) commands.push_back(data_request(0x100B, std::array<std::uint8_t, 1>{0x01})->bytes);
+    if (mode == Options::Start::full || mode == Options::Start::prepared) commands.push_back(mcu_request(kMcuBeforeStart)->bytes);
+    return commands;
+}
+
+std::vector<std::uint8_t> start_for(Options::Start mode) { return mode == Options::Start::listen ? std::vector<std::uint8_t>{} : start_command(); }
+
 std::vector<std::uint8_t> stand_in_packet(const ImuSample& s) {
-    const Packed p{s.t_ns, s.seq, {s.gyro_rad_s[0], s.gyro_rad_s[1], s.gyro_rad_s[2]}, {s.accel_m_s2[0], s.accel_m_s2[1], s.accel_m_s2[2]}};
-    std::vector<std::uint8_t> bytes(sizeof p);
-    std::memcpy(bytes.data(), &p, sizeof p);
-    return bytes;
+    const auto packet = encode_luma_imu(s);
+    return {packet.begin(), packet.end()};
 }
 }

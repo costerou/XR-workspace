@@ -6,8 +6,9 @@
 
 namespace luma {
 
-// One inertial sample, in SI units and in the sensor's own axes. Axes are not
-// remapped here: that belongs to whoever consumes the sample.
+// One inertial sample in SI units, body frame: x forward, y left, z up, and accel
+// as specific force (+9.8 on z when level). parse_imu does the remapping for the
+// Luma Ultra, whose wire axes were measured: see protocol.hpp.
 struct ImuSample {
     std::uint64_t t_ns;
     std::array<float, 3> gyro_rad_s;

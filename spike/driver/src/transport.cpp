@@ -161,6 +161,13 @@ std::optional<FoundDevice> find_device(const TransportConfig& config) {
     return std::nullopt;
 }
 
+bool allowed_mcu_frame(std::span<const std::uint8_t> frame) noexcept {
+    static constexpr std::array<std::array<std::uint8_t, 5>, 2> kFrames{{{0xfa, 0x55, 0x95, 0x00, 0x00}, {0xfa, 0x55, 0x97, 0x00, 0x00}}};
+    return std::any_of(kFrames.begin(), kFrames.end(), [&](const auto& known) {
+        return frame.size() == known.size() && std::equal(frame.begin(), frame.end(), known.begin());
+    });
+}
+
 bool is_allowed_ioctl(unsigned long request) {
     switch (request) {
     case USBDEVFS_CLAIMINTERFACE:
@@ -193,6 +200,8 @@ struct Transport::Impl {
         int length = 0;  // One packet: the most a transfer on this endpoint moves.
         std::uint8_t endpoint = 0;
         bool busy = false;  // With the kernel.
+        bool out = false;    // Host to device.
+        bool drain = false;  // Read and thrown away.
         std::unique_ptr<usbdevfs_urb> urb = std::make_unique<usbdevfs_urb>();  // Own allocation: it ends in a flexible array.
     };
     struct Slot {
@@ -224,6 +233,7 @@ struct Transport::Impl {
     int last_urb_status = 0;
     Clock::time_point last_packet{};
     Urb* out_urb = nullptr;
+    std::vector<Urb*> extra_out_urbs;
 
     // Received packets, preallocated so the hot path does not touch the heap.
     std::vector<std::uint8_t> ring;
@@ -267,8 +277,7 @@ struct Transport::Impl {
     bool check_endpoints(const FoundDevice& found) {
         if (config.in_endpoints.empty()) return fail_open("usbfs needs at least one IN endpoint in the configuration");
         auto check = [&](std::uint8_t address, bool in) {
-            if (config.vendor_id == kVitureVendorId && config.product_id == kLumaUltraProductId &&
-                (address == kLumaUltraFlashOut || address == kLumaUltraFlashIn))
+            if (is_ultra() && !config.allow_mcu_channel && (address == kLumaUltraFlashOut || address == kLumaUltraFlashIn))
                 return fail_open("refusing endpoint " + hex(address) + ": it also carries firmware updates");
             if (static_cast<bool>(address & 0x80) != in)
                 return fail_open("endpoint " + hex(address) + (in ? " is not an IN endpoint" : " is not an OUT endpoint"));
@@ -282,8 +291,14 @@ struct Transport::Impl {
         };
         for (std::uint8_t address : config.in_endpoints)
             if (!check(address, true)) return false;
+        for (std::uint8_t address : config.drain_endpoints)
+            if (!check(address, true)) return false;
+        for (std::uint8_t address : config.extra_out_endpoints)
+            if (!check(address, false)) return false;
         return config.out_endpoint == 0 || check(config.out_endpoint, false);
     }
+
+    bool is_ultra() const { return config.vendor_id == kVitureVendorId && config.product_id == kLumaUltraProductId; }
 
     void prepare_urb(Urb& u, std::uint8_t endpoint, const FoundDevice& found) {
         u.endpoint = endpoint;
@@ -332,10 +347,31 @@ struct Transport::Impl {
                 }
             }
         }
-        if (config.out_endpoint != 0) {
-            out_urb = &urbs.emplace_back();
-            prepare_urb(*out_urb, config.out_endpoint, found);
+        for (std::uint8_t endpoint : config.drain_endpoints) {
+            for (int i = 0; i < config.drain_urbs; ++i) {
+                Urb& u = urbs.emplace_back();
+                prepare_urb(u, endpoint, found);
+                u.drain = true;
+                u.buffer.resize(config.drain_urb_bytes);
+                u.length = static_cast<int>(config.drain_urb_bytes);
+                u.urb->buffer = u.buffer.data();
+                if (!submit(u, u.length)) {
+                    int error = errno;
+                    ++stats.open_failures;
+                    stats.last_open_errno = error;
+                    return fail_open(std::string("URB submit failed: ") + std::strerror(error));
+                }
+            }
         }
+        const auto add_out = [&](std::uint8_t endpoint) {
+            Urb* urb = &urbs.emplace_back();
+            prepare_urb(*urb, endpoint, found);
+            urb->out = true;
+            return urb;
+        };
+        if (config.out_endpoint != 0) out_urb = add_out(config.out_endpoint);
+        extra_out_urbs.clear();
+        for (std::uint8_t endpoint : config.extra_out_endpoints) extra_out_urbs.push_back(add_out(endpoint));
         return true;
     }
 
@@ -426,6 +462,7 @@ struct Transport::Impl {
         fd = -1;
         urbs.clear();
         out_urb = nullptr;
+        extra_out_urbs.clear();
     }
 
     void lose_link(std::string reason) {
@@ -505,7 +542,7 @@ struct Transport::Impl {
             mark_lost(transfer_failure(u.endpoint, status));
             return;
         }
-        if (u.urb->actual_length > 0) enqueue(u);
+        if (u.urb->actual_length > 0 && !u.drain) enqueue(u);
         if (!lost && !submit(u, u.length)) mark_lost(std::string("URB resubmit failed: ") + std::strerror(errno));
     }
 
@@ -519,7 +556,7 @@ struct Transport::Impl {
             }
             Urb& u = *static_cast<Urb*>(static_cast<usbdevfs_urb*>(done)->usercontext);
             u.busy = false;
-            if (&u != out_urb) handle_in(u);
+            if (!u.out) handle_in(u);
         }
     }
 
@@ -658,9 +695,13 @@ struct Transport::Impl {
         finish_reap();
     }
 
-    IoStatus write_usbfs(std::span<const std::uint8_t> data, milliseconds timeout) {
+    IoStatus write_usbfs(Urb* out_urb, std::span<const std::uint8_t> data, milliseconds timeout) {
         if (!out_urb) {
             last_error = "no OUT endpoint configured";
+            return IoStatus::Error;
+        }
+        if (is_ultra() && out_urb->endpoint == kLumaUltraFlashOut && !allowed_mcu_frame(data)) {
+            last_error = "refusing a frame on 0x04 that is not on the allowlist: it also carries firmware updates";
             return IoStatus::Error;
         }
         if (data.size() > static_cast<std::size_t>(out_urb->length)) {
@@ -732,7 +773,22 @@ IoStatus Transport::write(std::span<const std::uint8_t> data, std::chrono::milli
     if (!i.opened) return IoStatus::Closed;
     if (i.fd < 0) return IoStatus::Disconnected;
     if (i.current->backend == Backend::Hidraw) return i.write_hidraw(data);
-    return i.write_usbfs(data, timeout);
+    return i.write_usbfs(i.out_urb, data, timeout);
+}
+
+IoStatus Transport::write_to(std::uint8_t endpoint, std::span<const std::uint8_t> data, std::chrono::milliseconds timeout) {
+    Impl& i = *impl_;
+    if (!i.opened) return IoStatus::Closed;
+    if (i.fd < 0) return IoStatus::Disconnected;
+    if (i.current->backend == Backend::Hidraw) {
+        i.last_error = "hidraw has no endpoints to choose from";
+        return IoStatus::Error;
+    }
+    if (i.out_urb && i.out_urb->endpoint == endpoint) return i.write_usbfs(i.out_urb, data, timeout);
+    for (Impl::Urb* urb : i.extra_out_urbs)
+        if (urb->endpoint == endpoint) return i.write_usbfs(urb, data, timeout);
+    i.last_error = "endpoint " + hex(endpoint) + " is not configured for writes";
+    return IoStatus::Error;
 }
 
 void Transport::close() {

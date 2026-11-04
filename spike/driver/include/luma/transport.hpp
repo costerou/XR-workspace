@@ -4,11 +4,13 @@
 // Primary path: usbfs bulk on the Ultra's data channel, raw /dev/bus/usb URBs with no libusb. The 35ca:1104
 // has one vendor interface and no kernel driver, so no hidraw node exists for it. Sysfs, read 2026-11-03
 // with the device untouched:
+//   interrupt IN 0x81 (1024, 500 us): the IMU, one 28-byte packet per ms (usbmon, docs/capture-findings.md)
+//   interrupt IN 0x83 (512, 1 ms): 16-byte events at the display rate
+//   bulk IN 0x82 (512): the cameras, 19 MB/s in 16 KiB transfers
 //   bulk OUT 0x06, bulk IN 0x87 (512): the data channel, 512-byte frames (spike/driver/docs/protocol.md)
-//   bulk OUT 0x04, bulk IN 0x85 (512): the MCU channel, which also flashes firmware. Refused on this device.
-//   interrupt IN 0x81 (1024, 500 us), 0x83 (512, 1 ms), bulk IN 0x82: unused by any open source
-// Which endpoint carries the IMU stream is still unknown until a usbmon capture; 0x83 is the first
-// candidate. Listing it in in_endpoints is all it takes: URB type and size come from sysfs per endpoint.
+//   bulk OUT 0x04, bulk IN 0x85 (512): the MCU channel, which also flashes firmware. The stream start lives
+//     here, so it can be opened on request (allow_mcu_channel), and then only allowed_mcu_frame() bytes pass.
+// URB type and size come from sysfs per endpoint.
 // Backend::Hidraw remains for the HID interfaces on the 35ca:1102 mic device, on request only.
 // docs/transport.md has the reasoning and what has not been proven on real hardware.
 //
@@ -27,8 +29,9 @@
 // (the udev rule matches ACTION=="add" only). last_error() then says what to do.
 //
 // Safety: this class never resets the device, never sets a configuration or alternate setting,
-// never clears a halt, never detaches a kernel driver and never touches the Ultra's firmware endpoints. Every ioctl goes through an allowlist,
-// is_allowed_ioctl(), so those calls cannot be made by accident. If another program holds the
+// never clears a halt, never detaches a kernel driver, and sends the Ultra's firmware channel nothing but the exact
+// frames seen from VITURE's own software in a normal session. Every ioctl goes through an allowlist, is_allowed_ioctl(),
+// and every frame on that channel through allowed_mcu_frame(), so those cannot go wrong by accident. If another program holds the
 // interface (a running xrDriver), the claim fails with EBUSY and we keep waiting; we never take it.
 //
 // Threading: one thread drives read(), write(), open(), close(), next_event() and stats(). Only
@@ -56,7 +59,8 @@ inline constexpr std::uint16_t kVitureVendorId = 0x35ca;
 inline constexpr std::uint16_t kLumaUltraProductId = 0x1104;
 inline constexpr std::uint16_t kVitureMicProductId = 0x1102;
 // The Ultra's command channel: 512-byte frames (drv-protocol-research, from go-viture). Its other
-// pair, 0x04/0x85, also carries firmware updates, so Transport refuses to use it on this device.
+// pair, 0x04/0x85, also carries firmware updates, so Transport refuses it on this device unless asked,
+// and even then passes only the frames allowed_mcu_frame() knows.
 inline constexpr std::uint8_t kLumaUltraDataOut = 0x06;
 inline constexpr std::uint8_t kLumaUltraDataIn = 0x87;
 inline constexpr std::uint8_t kLumaUltraFlashOut = 0x04;
@@ -76,6 +80,16 @@ struct TransportConfig {
     // reads on a camera endpoint could keep sensors busy.
     std::vector<std::uint8_t> in_endpoints{kLumaUltraDataIn};
     std::uint8_t out_endpoint = kLumaUltraDataOut;
+    // More OUT endpoints, reached with write_to().
+    std::vector<std::uint8_t> extra_out_endpoints;
+    // Opens 0x04/0x85 on the Ultra. Without it a config naming them is refused. With it, a write to 0x04 that is
+    // not exactly an allowed_mcu_frame() is refused, without reaching the device.
+    bool allow_mcu_channel = false;
+    // IN endpoints read and thrown away, with URBs of drain_urb_bytes rather than one packet, for a device that
+    // stalls if an endpoint backs up. Off unless a live test shows the need: it means 19 MB/s on the bus.
+    std::vector<std::uint8_t> drain_endpoints;
+    std::size_t drain_urb_bytes = 16384;
+    int drain_urbs = 6;  // What VITURE's own software queues on the camera endpoint.
     // Room for one packet. Every URB is exactly the endpoint's wMaxPacketSize, because USB ends a transfer
     // on a short packet or a full buffer: a bigger URB would hold back a frame of exactly one packet
     // until the next arrived, and a smaller one would be babble. An endpoint larger than this is refused.
@@ -178,6 +192,11 @@ public:
 // The only ioctls Transport may issue: claim, release, submit, reap and discard.
 bool is_allowed_ioctl(unsigned long request);
 
+// The only bytes that may reach the Ultra's firmware channel, compared whole: FA 55 95 00 00 (starts the stream) and
+// FA 55 97 00 00 (sent just before it). Both were captured from VITURE's own software in a normal session
+// (docs/capture-findings.md). Adding to this list needs a capture showing the frame, never a guess.
+bool allowed_mcu_frame(std::span<const std::uint8_t> frame) noexcept;
+
 class Transport {
 public:
     explicit Transport(TransportConfig config, std::shared_ptr<Sys> sys = nullptr);
@@ -205,6 +224,8 @@ public:
     // be out of step until the next one (nothing here may send CLEAR_HALT), and a device in that state
     // acknowledges a packet and drops it. Anything that must arrive needs a reply or a sequence check.
     IoStatus write(std::span<const std::uint8_t> data, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000});
+    // The same, to out_endpoint or one of extra_out_endpoints. Any other endpoint is Error.
+    IoStatus write_to(std::uint8_t endpoint, std::span<const std::uint8_t> data, std::chrono::milliseconds timeout = std::chrono::milliseconds{1000});
 
     // Cancels transfers, releases the interface and closes. No reset. open() may be called again.
     void close();

@@ -63,9 +63,9 @@ struct FusionConfig {
     float quiet_tau_s = 60.f;
     float quiet_track_limit = 0.0175f;  // rad/s (1 deg/s)
     float quiet_window_coarse_s = 5.f;
-    float quiet_tau_coarse_s = 10.f;
+    float quiet_tau_coarse_s = 20.f;
     float quiet_limit_coarse = 0.05f;
-    float coarse_to_good_s = 20.f;   // Quiet time that promotes Coarse to Good.
+    float coarse_to_good_s = 40.f;   // Quiet time that promotes Coarse to Good.
     float max_bias = 0.35f;          // rad/s
     // Timing.
     float max_gap_s = 0.25f;         // A longer gap is not integrated: that motion is lost.

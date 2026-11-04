@@ -14,6 +14,7 @@ constexpr double kBlockS = 0.1;      // Stillness is judged over blocks of this 
 constexpr int kMinQuietBlocks = 5;   // Fewer than this in start-up: no bias guess is better than one.
 constexpr int kStillRunBlocks = 5;   // Half a second before a pause counts as still.
 constexpr std::size_t kMaxStartBlocks = 64;
+constexpr std::size_t kMaxQuietBlocks = 600;  // 60 s: the longest window the median can hold, without allocating.
 
 V operator+(V a, V b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
 V operator-(V a, V b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
@@ -104,9 +105,10 @@ struct Fusion::State {
     bool have_prev_block = false;
     int run = 0;  // Unbroken still blocks.
     V run_gyro{}, run_accel{};
-    int quiet_n = 0;
-    V quiet_sum{};
+    std::size_t quiet_n = 0;
+    std::array<V, kMaxQuietBlocks> quiet_blocks{};
     double quiet_total_s = 0;
+    double quiet_learned_s = 0;  // Worn rest time behind the current bias: its weight against the next window.
     bool quiet_disagreed = false;
     // Quiet block means seen in start-up: their median is the Coarse bias.
     std::array<V, kMaxStartBlocks> start_blocks{};
@@ -137,7 +139,6 @@ struct Fusion::State {
         run = 0;
         run_gyro = run_accel = V{};
         quiet_n = 0;
-        quiet_sum = V{};
     }
     void mark_calibrated(FusionQuality to) {
         base = to;
@@ -239,6 +240,17 @@ struct Fusion::State {
         mark_calibrated(FusionQuality::Coarse);
     }
 
+    V quiet_median() {
+        V median;
+        std::array<double, kMaxQuietBlocks> axis{};
+        for (std::size_t i = 0; i < 3; ++i) {
+            for (std::size_t k = 0; k < quiet_n; ++k) axis[k] = quiet_blocks[k][i];
+            std::nth_element(axis.begin(), axis.begin() + std::ptrdiff_t(quiet_n / 2), axis.begin() + std::ptrdiff_t(quiet_n));
+            median[i] = axis[quiet_n / 2];
+        }
+        return median;
+    }
+
     void close_block() {
         const double n = block_n;
         const V g = g_sum * (1 / n), a = a_sum * (1 / n);
@@ -282,37 +294,43 @@ struct Fusion::State {
             if (norm(d) < c.still_track_limit) bias = clamp_bias(bias + d * (kBlockS / c.still_tau_s));
             else if (run >= relearn_blocks && norm(d) < c.still_relearn_limit) bias = clamp_bias(run_gyro * (1.0 / run));
             quiet_n = 0;
-            quiet_sum = V{};
             return;
         }
         // Worn. Turns stay out (is_quiet), the rests between them count however they are spaced:
-        // a resting head does not keep turning one way, so the long mean is the bias.
+        // a resting head does not keep turning one way, so the window's middle value is the bias.
+        // The median, not the mean: on a real session a slow turn that passes as quiet moved a 60 s mean
+        // by up to 0.5 deg/s and the median by 0.05 (spike/driver/docs/capture-findings.md).
         // The turn-rate limit leans on the bias, so a Coarse one must not use it: it would keep only
         // the blocks that agree with the wrong bias and never learn the right one.
         const bool coarse = base == FusionQuality::Coarse;
         if (!is_quiet || (!coarse && norm(g - bias) >= c.quiet_max_rate)) return;
-        quiet_sum = quiet_sum + g;
-        ++quiet_n;
-        const double window_s = quiet_n * kBlockS;
-        if (window_s < (coarse ? c.quiet_window_coarse_s : c.quiet_window_s) - 1e-6) return;
-        const V d = quiet_sum * (1.0 / quiet_n) - bias;
+        if (quiet_n < kMaxQuietBlocks) quiet_blocks[quiet_n++] = g;
+        const double window_s = double(quiet_n) * kBlockS;
+        const double wanted = std::min(double(coarse ? c.quiet_window_coarse_s : c.quiet_window_s), double(kMaxQuietBlocks) * kBlockS);
+        if (window_s < wanted - 1e-6) return;
+        const V d = quiet_median() - bias;
         quiet_n = 0;
-        quiet_sum = V{};
         const bool agrees = norm(d) < c.quiet_track_limit;
+        // Each window weighs what it measured against what the bias already rests on, so the first ones
+        // correct a poor start in seconds. tau is only the floor, which lets it follow a warming sensor.
+        const double tau = coarse ? c.quiet_tau_coarse_s : c.quiet_tau_s;
+        const double gain = window_s / std::min(double(tau), quiet_learned_s + window_s);
         if (coarse) {
             if (norm(d) >= c.quiet_limit_coarse) return;
-            bias = clamp_bias(bias + d * (window_s / c.quiet_tau_coarse_s));
+            bias = clamp_bias(bias + d * gain);
+            quiet_learned_s += window_s;
             quiet_total_s = agrees ? quiet_total_s + window_s : 0;
             if (quiet_total_s >= c.coarse_to_good_s) mark_calibrated(FusionQuality::Good);
             return;
         }
         if (agrees) {
             quiet_disagreed = false;
-            bias = clamp_bias(bias + d * (window_s / c.quiet_tau_s));
+            bias = clamp_bias(bias + d * gain);
+            quiet_learned_s += window_s;
         } else if (quiet_disagreed) {
             // A minute of rests saying the same: no head does that, the bias is wrong. Own up.
             quiet_disagreed = false;
-            quiet_total_s = 0;
+            quiet_total_s = quiet_learned_s = 0;
             base = FusionQuality::Coarse;
         } else {
             quiet_disagreed = true;

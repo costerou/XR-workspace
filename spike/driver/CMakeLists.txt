@@ -23,18 +23,18 @@ add_test(NAME luma_publish COMMAND publish_test)
 # Each other piece declares its own targets and tests in its own file, so pieces can land in any
 # order. Add one line per piece.
 include(protocol.cmake)
-include(daemon.cmake OPTIONAL)
-include(display.cmake OPTIONAL)
-include(features.cmake OPTIONAL)
-include(cmake/fusion.cmake OPTIONAL)
+include(cmake/fusion.cmake)
 add_subdirectory(bench)
+include(daemon.cmake)
+include(display.cmake)
+include(features.cmake)
 
-# drv-review-qa's shape check. Exit 77 means a piece is missing, which ctest must show as skipped.
+# drv-review-qa's shape check. Everything is merged, so a missing header now fails instead of skipping.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/contract_test.cpp")
   add_executable(luma_contract_test tests/contract_test.cpp)
   target_compile_options(luma_contract_test PRIVATE -Wall -Wextra -Wpedantic)
   target_link_libraries(luma_contract_test PRIVATE xr_luma_driver)
-  target_compile_definitions(luma_contract_test PRIVATE XR_ENABLE_LUMA_DRIVER=1)
+  target_compile_definitions(luma_contract_test PRIVATE XR_ENABLE_LUMA_DRIVER=1 LUMA_CONTRACT_REQUIRED=1)
   target_include_directories(luma_contract_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
   add_test(NAME luma_contract COMMAND luma_contract_test)
   set_tests_properties(luma_contract PROPERTIES SKIP_RETURN_CODE 77)

@@ -3,8 +3,10 @@
 //   - bytes computed by an independent script from a published layout, using
 //     published sensor values, so they check this code against the layout.
 //   - bytes a real device or VITURE's own code produced, kept in go-viture's
-//     tests: the strongest kind, marked as such where used.
-// No vector here is a real Luma Ultra IMU packet: none has been published.
+//     tests: the strongest kind, marked as such where used;
+//   - bytes from our own usbmon capture of a live session on Cody's Luma Ultra
+//     (2026-11-04, spike/driver/docs/capture-findings.md), marked "captured". The
+//     longer real stream is tests/fixtures/luma_imu_real.bin, used by real_capture_test.
 #include "luma/protocol.hpp"
 #include <algorithm>
 #include <array>
@@ -488,10 +490,120 @@ void test_v2_commands_match_published_bytes() {
     CHECK(classify(fast->bytes).msg_id == 0x0301);
 }
 
-void test_luma_ultra_has_no_command_until_one_is_known() {
-    CHECK(!start_imu(Device::luma_ultra));
-    CHECK(!start_imu(Device::luma_ultra, ImuRate::hz60));
-    CHECK(!stop_imu(Device::luma_ultra));
+void test_luma_ultra_start_is_the_captured_bytes_and_stop_stays_unknown() {
+    const auto start = start_imu(Device::luma_ultra);
+    CHECK(start);
+    CHECK(start->endpoint == 0x04);
+    CHECK(start->bytes == Bytes({0xfa, 0x55, 0x95, 0x00, 0x00}));  // captured, 5.526 s into the session
+    CHECK(start_imu(Device::luma_ultra, ImuRate::hz60)->bytes == start->bytes);  // nothing sets a rate on this device
+    CHECK(mcu_request(kMcuBeforeStart)->bytes == Bytes({0xfa, 0x55, 0x97, 0x00, 0x00}));  // captured
+    const std::array<std::uint8_t, 2> exposure{0x06, 0xc0};
+    CHECK(mcu_request(0x90, exposure)->bytes == Bytes({0xfa, 0x55, 0x90, 0x00, 0x02, 0x06, 0xc0}));  // captured framing
+    CHECK(!stop_imu(Device::luma_ultra));  // no capture has shown one
+}
+
+Bytes hex(const char* text) {
+    Bytes out;
+    for (const char* p = text; *p;) {
+        if (*p == ' ') { ++p; continue; }
+        out.push_back(std::uint8_t(std::stoi(std::string(p, 2), nullptr, 16)));
+        p += 2;
+    }
+    return out;
+}
+
+constexpr float kGyroLsb = 3.14159265358979f / 180.0f / 16.4f;
+constexpr float kAccelLsb = 9.80665f / 8192.0f;
+bool close_to(float a, float b) { return std::fabs(a - b) < 1e-5f; }
+
+void test_captured_imu_packet_decodes_to_the_body_frame() {
+    // captured: the first IMU packet of the session, glasses in Cody's hands.
+    const auto s = parse_imu(hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00"));
+    CHECK(s);
+    CHECK(s->seq == 0x153c);
+    CHECK(s->t_ns == 0x11edd * 100'000ull);
+    // wire gyro -12, 5, 36 and accel -235, -2031, 8052. Forward = -y, left = +x, up = +z.
+    CHECK(close_to(s->gyro_rad_s[0], -5 * kGyroLsb));
+    CHECK(close_to(s->gyro_rad_s[1], -12 * kGyroLsb));
+    CHECK(close_to(s->gyro_rad_s[2], 36 * kGyroLsb));
+    CHECK(close_to(s->accel_m_s2[0], 2031 * kAccelLsb));
+    CHECK(close_to(s->accel_m_s2[1], -235 * kAccelLsb));
+    CHECK(close_to(s->accel_m_s2[2], 8052 * kAccelLsb));
+    CHECK(!s->mag);
+    const float g = std::hypot(s->accel_m_s2[0], s->accel_m_s2[1], s->accel_m_s2[2]);
+    CHECK(g > 9.5f && g < 10.2f);  // the check a wrong layout fails: about 9.8 at rest
+}
+
+void test_captured_mid_session_packets() {
+    // captured: 506 s in, 1 ms apart; the temperature word has climbed.
+    const auto a = parse_imu(hex("aa 8f 00 88 eb b8 10 00 f0 89 4d 00 00 00 f4 ff 04 00 09 ff 96 02 17 20 98 0a 00 00"));
+    const auto b = parse_imu(hex("aa 8f 00 88 ec b8 10 00 fa 89 4d 00 00 00 f3 ff 03 00 1e ff 8c 02 1b 20 98 0a 00 00"));
+    CHECK(a && b);
+    CHECK(a->seq + 1 == b->seq);
+    CHECK(b->t_ns - a->t_ns == 1'000'000);
+}
+
+void test_stream_packets_that_are_not_imu_are_refused() {
+    // captured: a display event from 0x83 and a camera tile header from 0x82.
+    CHECK(!parse_imu(hex("aa 8f 00 91 00 00 00 00 58 1e 01 00 00 00 00 00")));
+    CHECK(!parse_imu(hex("aa 8f 00 12 01 00 f4 3f d2 20 01 00 11 0e 14 14 11 0f 10 14 15 0e 11 0d 10 12 0e 13")));
+    // captured: the MCU's reply to the start.
+    CHECK(!parse_imu(hex("fa 55 95 00 00 00")));
+    auto good = hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00");
+    for (std::size_t n = 0; n < good.size(); ++n) CHECK(!parse_imu(std::span(good).first(n)));
+    // An all-zero accelerometer is a blank packet, and the length field must say 16.
+    CHECK(!parse_imu(hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 00 00 00 00 00 00 e8 06 00 00")));
+    CHECK(!parse_imu(hex("aa 8f 00 88 3c 15 0f 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00")));
+}
+
+void test_luma_encoder_is_the_parser_inverse() {
+    const auto real = hex("aa 8f 00 88 3c 15 10 00 dd 1e 01 00 f4 ff 05 00 24 00 15 ff 11 f8 74 1f e8 06 00 00");
+    const auto s = parse_imu(real);
+    CHECK(s);
+    const auto back = encode_luma_imu(*s, 0x6e8);
+    CHECK(Bytes(back.begin(), back.end()) == real);
+}
+
+void test_captured_envelope_frames_match_our_builder() {
+    // captured: the old driver's two data-channel messages, byte for byte over the first 48.
+    const auto status = data_request(0x100B, std::array<std::uint8_t, 1>{0x01});
+    CHECK(status);
+    const auto want = hex("ff fe 72 f5 0d 00 00 00 00 00 00 00 00 00 0b 10 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00");
+    CHECK(std::equal(want.begin(), want.end(), status->bytes.begin()));
+    const auto mode = data_request(0x0007);
+    const auto want_mode = hex("ff fe e3 47 0c 00 00 00 00 00 00 00 00 00 07 00 00 00 00 00");
+    CHECK(mode && std::equal(want_mode.begin(), want_mode.end(), mode->bytes.begin()));
+    // captured replies, with a device timer in the counter field and the status in the body.
+    const auto reply = hex("ff fd a0 cf 0e 00 00 00 00 00 fb 16 00 00 0b 10 00 00 00 01");
+    const auto frame = parse_data_frame(reply);
+    CHECK(frame && frame->msg_id == 0x100B && (frame->counter >> 32) == 0x16fb);
+    const auto mode_reply = hex("ff fd b2 30 0e 00 00 00 00 00 e7 1a 00 00 07 00 00 00 00 31");
+    const auto mode_frame = parse_data_frame(mode_reply);
+    CHECK(mode_frame && mode_frame->msg_id == 0x0007 && mode_frame->body[1] == 0x31);
+}
+
+void test_tracker_widens_the_16_bit_sequence() {
+    auto tracker = luma_sequence_tracker();
+    ImuSample first{};
+    first.seq = 65534;
+    first.t_ns = 1;
+    CHECK(tracker.observe(first).verdict == SequenceTracker::Verdict::accepted);
+    const std::uint32_t base = first.seq;
+    for (std::uint32_t i = 1; i <= 5; ++i) {
+        ImuSample s{};
+        s.seq = (65534 + i) & 0xffff;
+        const auto r = tracker.observe(s);
+        CHECK(r.verdict == SequenceTracker::Verdict::accepted && r.lost == 0 && !r.restarted);
+        CHECK(s.seq == base + i);  // does not wrap
+        CHECK(s.t_ns == std::uint64_t(base + i) * 1'000'000ull);
+    }
+    ImuSample repeat{};
+    repeat.seq = 3;
+    CHECK(tracker.observe(repeat).verdict == SequenceTracker::Verdict::duplicate);  // the session's first 63 packets come twice
+    ImuSample gap{};
+    gap.seq = 3 + 36;
+    CHECK(tracker.observe(gap).lost == 35);
+    CHECK(tracker.lost_total() == 35);
 }
 
 ImuSample at(std::uint32_t seq) {
@@ -679,7 +791,13 @@ int main() {
         T(test_data_envelope_decoder_rejections),
         T(test_classify),
         T(test_v2_commands_match_published_bytes),
-        T(test_luma_ultra_has_no_command_until_one_is_known),
+        T(test_luma_ultra_start_is_the_captured_bytes_and_stop_stays_unknown),
+        T(test_captured_imu_packet_decodes_to_the_body_frame),
+        T(test_captured_mid_session_packets),
+        T(test_stream_packets_that_are_not_imu_are_refused),
+        T(test_luma_encoder_is_the_parser_inverse),
+        T(test_captured_envelope_frames_match_our_builder),
+        T(test_tracker_widens_the_16_bit_sequence),
         T(test_tracker_in_order),
         T(test_tracker_counts_gaps),
         T(test_tracker_rejects_duplicate_and_late_packets),

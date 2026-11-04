@@ -34,6 +34,7 @@
 //   luma: stopped reason=signal|replay-end
 // Readiness is "the last `calibrated` comes after the last `disconnected` and `calibrating`", as tracking.py reads it:
 // that is why a kept calibration logs `calibrated restored=1` again after its `reconnected`.
+#include "luma/rt.hpp"
 #include "luma/types.hpp"
 #include <array>
 #include <atomic>
@@ -94,6 +95,8 @@ public:
     virtual std::optional<ImuSample> decode(std::span<const std::uint8_t> packet) = 0;
     virtual void new_connection() {}
     virtual std::uint64_t lost_samples() const { return 0; }
+    // The last packet decode() turned down was a repeat of an earlier one, not junk. The Ultra sends the first 60 or so twice.
+    virtual bool last_was_repeat() const { return false; }
 };
 
 using Logger = std::function<void(std::string_view)>;
@@ -105,6 +108,7 @@ struct DaemonConfig {
     milliseconds retry_first{20}, retry_max{100};           // device gone: looking for it costs no USB traffic
     milliseconds silent_retry_first{2000}, silent_retry_max{8000};  // device silent: each try sends a command
     milliseconds listen_first{20};           // after an open, before any command: a running stream needs none (20 samples)
+    milliseconds start_spacing{100};         // between the commands of before_start, as VITURE's own software spaces them
     milliseconds settle_first{200}, settle_max{3200};  // the same for a device that just came back: see the top of this file
     // Back within this long: same calibration, same orientation. Fusion needs no reset for a gap (FusionQuality::Recovering
     // re-acquires gravity and the bias still holds), while a new calibration means holding still. The window only guards
@@ -117,7 +121,7 @@ struct DaemonConfig {
 };
 
 struct Stats {
-    std::uint64_t samples = 0, bad_packets = 0, bad_poses = 0, published = 0;
+    std::uint64_t samples = 0, bad_packets = 0, bad_poses = 0, published = 0, repeats = 0;
     std::uint64_t commands = 0, opens = 0, connections = 0, disconnects = 0, reconnects = 0;
     std::uint64_t stale_events = 0, time_jumps = 0, fresh_calibrations = 0;
     std::uint64_t starts_skipped = 0;  // connections that found the stream already on, and sent nothing
@@ -133,6 +137,9 @@ struct DaemonParts {
     Logger log;
     std::vector<std::uint8_t> start_command;
     std::vector<std::uint8_t> stop_command;  // empty: none is sent at exit
+    // Sent in order ahead of start_command, start_spacing apart. A sample arriving meanwhile cancels the rest. An empty
+    // start_command with nothing here only listens.
+    std::vector<std::vector<std::uint8_t>> before_start{};
 };
 
 enum class DaemonEnd { stop_requested, replay_ended };
@@ -143,6 +150,7 @@ public:
     // Until `stop` is set (a signal handler may set it; it is noticed within read_timeout) or a replay ends.
     DaemonEnd run(const std::atomic<bool>& stop);
     const Stats& stats() const { return stats_; }
+    const rt::LatencyHistogram& process_times() const { return process_ns_; }  // the whole run, bytes in to pose out
 private:
     void connect(std::uint64_t now);
     void send_start(std::uint64_t now);
@@ -161,6 +169,8 @@ private:
     DaemonParts parts_;
     DaemonConfig config_;
     Stats stats_{};
+    rt::LatencyHistogram process_ns_;
+    std::size_t before_start_sent_ = 0;
     std::unique_ptr<Estimator> estimator_;
     std::array<std::uint8_t, 1024> buffer_{};
 
@@ -195,11 +205,13 @@ private:
     std::uint64_t next_stats_ = 0, stats_samples_ = 0, stats_since_ = 0;
 };
 
-// A recording to run instead of the glasses. This is a provisional container until docs/capture-format.md (drv-recorder)
-// lands; only load_capture needs to change. "LUMACAP0", then records of little-endian u64 t_ns, u32 size, u8 kind, payload.
+// A recording to run instead of the glasses. load_capture reads a real capture, .lcap (docs/capture-format.md), keeping one
+// endpoint's data. It also reads the plain "LUMACAP0" container the tests write: little-endian u64 t_ns, u32 size, u8 kind,
+// payload.
 enum class CaptureKind : std::uint8_t { from_device = 0, to_device = 1, device_gone = 2, device_back = 3 };
 struct CaptureRecord { std::uint64_t t_ns = 0; CaptureKind kind = CaptureKind::from_device; std::vector<std::uint8_t> payload; };
-std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why);
+inline constexpr std::uint8_t kReplayEndpoint = 0x81;  // protocol.hpp's kLumaImuEndpoint
+std::optional<std::vector<CaptureRecord>> load_capture(const std::string& path, std::string& why, std::uint8_t endpoint = kReplayEndpoint);
 bool save_capture(const std::string& path, const std::vector<CaptureRecord>& records);
 
 // Plays a capture on a simulated clock (now_ns), so its silences and drops trip the same watchdog as a real one and a
@@ -231,6 +243,15 @@ struct Options {
     std::string ipc_prefix = kLiveIpcPrefix;
     std::optional<std::string> replay;
     bool replay_realtime = false, help = false, stop_command = true;
+    // listen: send nothing. stream: FA 55 95 alone. prepared: 97 then 95. full: 0x100B, 97, 95, the order VITURE's own
+    // software uses. See spike/driver/docs/live-test-plan.md, the start ladder.
+    enum class Start { listen, stream, prepared, full } start = Start::stream;
+    bool read_events = false;    // also read 0x83, and throw it away
+    bool drain_camera = false;   // also read 0x82 and throw it away: 19 MB/s, only if a live test shows the need
+    bool no_rt = false;          // leave the thread's scheduling alone
+    std::string state_dir;       // where the gyro bias is kept between runs; empty: $XDG_STATE_HOME or ~/.local/state
+    std::optional<std::string> pose_log;  // --replay only: write every Nth pose here, for tools
+    unsigned pose_log_every = 10;
     DaemonConfig config{};
 };
 // nullopt: `why` says what is wrong with the command line. A replay must name its --ipc-prefix: run with the default it

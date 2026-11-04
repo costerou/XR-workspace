@@ -4,7 +4,6 @@
 #include <array>
 #include <bit>
 #include <cmath>
-#include <limits>
 
 namespace luma {
 namespace {
@@ -16,6 +15,10 @@ constexpr std::size_t kV2HeaderSize = 8;
 constexpr std::uint16_t kV2ImuControl = 0x0301;
 constexpr std::uint8_t kV2StreamOff = 0x00;
 constexpr std::uint8_t kV2StreamRaw = 0x02;  // on the wire; the SDK's own enum differs
+
+constexpr float kDegToRad = 3.14159265358979f / 180.0f;
+constexpr std::uint8_t kMcuSync0 = 0xfa;
+constexpr std::uint8_t kMcuSync1 = 0x55;
 
 constexpr std::uint8_t kSyncLead = 0xff;
 constexpr std::uint8_t kSyncStream = 0xfc;
@@ -78,6 +81,22 @@ std::optional<ImuSample> decode(Bytes payload, const ImuFields& f) {
     if (std::all_of(accel->begin(), accel->end(), [](float v) { return v == 0.0f; })) return std::nullopt;
     const std::uint32_t ticks = read_u32(payload.data() + f.timestamp_offset, f.big_endian);
     return ImuSample{std::uint64_t(ticks) * f.tick_ns, *gyro, *accel, std::nullopt, ticks};
+}
+
+// One Luma Ultra stream packet: see the layout in protocol.hpp.
+std::optional<ImuSample> decode_luma(Bytes p) {
+    if (p.size() < kLumaImuPacketSize || p[0] != 0xaa || p[1] != 0x8f || p[2] != 0x00 || p[3] != kLumaImuType)
+        return std::nullopt;
+    if (read_le16(p.data() + 6) != kLumaImuPayload) return std::nullopt;
+    const auto axis = [&](std::size_t offset) { return float(std::int16_t(read_le16(p.data() + offset))); };
+    const float gyro = kDegToRad / kLumaGyroLsbPerDegS, accel = kStandardGravity / kLumaAccelLsbPerG;
+    const float ax = axis(18), ay = axis(20), az = axis(22);
+    if (ax == 0.f && ay == 0.f && az == 0.f) return std::nullopt;  // no accelerometer reads exactly this
+    return ImuSample{std::uint64_t(read_u32(p.data() + 8, false)) * kLumaTickNs,
+                     {-axis(14) * gyro, axis(12) * gyro, axis(16) * gyro},
+                     {-ay * accel, ax * accel, az * accel},
+                     std::nullopt,
+                     read_le16(p.data() + 4)};
 }
 
 bool is_v2(Bytes p) {
@@ -159,6 +178,7 @@ std::optional<ImuSample> parse_imu_with(Bytes packet, const ParseOptions& option
         if (v2->msg_id != options.v2.msg_id) return std::nullopt;
         return decode(v2->payload, options.v2);
     }
+    if (const auto sample = decode_luma(packet)) return sample;
     if (!options.luma_ultra) return std::nullopt;
     const auto frame = parse_data_frame(packet);
     if (!frame || frame->kind == FrameKind::data_request || frame->msg_id != options.luma_ultra->msg_id)
@@ -185,14 +205,40 @@ std::optional<Command> data_request(std::uint16_t msg_id, Bytes payload) {
     return c;
 }
 
+std::array<std::uint8_t, kLumaImuPacketSize> encode_luma_imu(const ImuSample& s, std::uint32_t temperature_raw) noexcept {
+    std::array<std::uint8_t, kLumaImuPacketSize> b{0xaa, 0x8f, 0x00, kLumaImuType};
+    const auto put16 = [&](std::size_t at, std::uint16_t v) { b[at] = std::uint8_t(v); b[at + 1] = std::uint8_t(v >> 8); };
+    const auto put32 = [&](std::size_t at, std::uint32_t v) { put16(at, std::uint16_t(v)); put16(at + 2, std::uint16_t(v >> 16)); };
+    const auto lsb = [](float v) { return std::uint16_t(std::int16_t(std::lround(std::clamp(v, -32768.f, 32767.f)))); };
+    const float gyro = kLumaGyroLsbPerDegS / kDegToRad, accel = kLumaAccelLsbPerG / kStandardGravity;
+    put16(4, std::uint16_t(s.seq));
+    put16(6, kLumaImuPayload);
+    put32(8, std::uint32_t(s.t_ns / kLumaTickNs));
+    put16(12, lsb(s.gyro_rad_s[1] * gyro));   // wire x = left
+    put16(14, lsb(-s.gyro_rad_s[0] * gyro));  // wire y = back
+    put16(16, lsb(s.gyro_rad_s[2] * gyro));   // wire z = up
+    put16(18, lsb(s.accel_m_s2[1] * accel));
+    put16(20, lsb(-s.accel_m_s2[0] * accel));
+    put16(22, lsb(s.accel_m_s2[2] * accel));
+    put32(24, temperature_raw);
+    return b;
+}
+
+std::optional<Command> mcu_request(std::uint8_t command, Bytes payload) {
+    if (payload.size() > 0xffff) return std::nullopt;
+    Command c{{kMcuSync0, kMcuSync1, command, std::uint8_t(payload.size() >> 8), std::uint8_t(payload.size())}, kMcuEndpointOut};
+    c.bytes.insert(c.bytes.end(), payload.begin(), payload.end());
+    return c;
+}
+
 std::optional<Command> start_imu(Device device, ImuRate rate) {
     if (device == Device::v2) return v2_imu_control(kV2StreamRaw, std::uint8_t(rate));
-    return std::nullopt;  // Luma Ultra: what starts the stream is unknown, see protocol.hpp
+    return mcu_request(kMcuStartStream);
 }
 
 std::optional<Command> stop_imu(Device device) {
     if (device == Device::v2) return v2_imu_control(kV2StreamOff, 0);
-    return std::nullopt;  // Luma Ultra: see start_imu
+    return std::nullopt;  // Luma Ultra: no capture has shown a stop, see protocol.hpp
 }
 
 SequenceTracker::Result SequenceTracker::observe(ImuSample& sample) noexcept {
@@ -200,11 +246,11 @@ SequenceTracker::Result SequenceTracker::observe(ImuSample& sample) noexcept {
     if (!have_last_) {
         ticks_ = have_ticks_ ? ticks_ + 1 : sample.seq;
     } else {
-        // Unsigned subtraction, so the 32-bit wrap is one ordinary step forward.
-        const std::uint32_t forward = sample.seq - last_;
-        const std::uint32_t backward = last_ - sample.seq;
+        // Unsigned subtraction, so the wrap is one ordinary step forward.
+        const std::uint32_t forward = (sample.seq - last_) & mask_;
+        const std::uint32_t backward = (last_ - sample.seq) & mask_;
         if (forward == 0) return {Verdict::duplicate};
-        if (forward <= std::uint32_t(std::numeric_limits<std::int32_t>::max())) {
+        if (forward <= mask_ / 2) {
             result.lost = forward - 1;
             lost_total_ += result.lost;
             ticks_ += forward;
@@ -219,6 +265,7 @@ SequenceTracker::Result SequenceTracker::observe(ImuSample& sample) noexcept {
     have_last_ = true;
     have_ticks_ = true;
     sample.t_ns = ticks_ * tick_ns_;
+    if (mask_ != 0xffffffffu) sample.seq = std::uint32_t(ticks_);
     return result;
 }
 
