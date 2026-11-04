@@ -16,9 +16,14 @@ sys.path.insert(0,str(root))
 with patch.object(ctypes,'CDLL',side_effect=AssertionError('SDK/library load forbidden')) as library:
  from tools.pro2_runtime import launch
  from tools.xr_controller import pro2_test
+ from tools.pro2_runtime import scope
  from tools.native_spike.hyprland import HyprlandClient,PLUGIN_PATH
  assert Path(launch.__file__).resolve().is_relative_to(root)
  assert Path(pro2_test.__file__).resolve().is_relative_to(root)
+ assert Path(scope.__file__).resolve().is_relative_to(root)
+ for name in ('TestScope','ScopedGuard','BundleClient'):
+  assert getattr(pro2_test,name) is getattr(scope,name)
+  assert getattr(pro2_test,name).__module__=='tools.pro2_runtime.scope'
  with patch.object(HyprlandClient,'__init__',side_effect=AssertionError('real client construction forbidden')) as init:
   actual,manifest=launch.verify_manifest(root)
   client=pro2_test.BundleClient.__new__(pro2_test.BundleClient)

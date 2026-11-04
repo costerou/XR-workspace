@@ -27,11 +27,15 @@ def audit(bundle, source):
         if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             raise ValueError('artifact hash mismatch: ' + name)
     for name in ('tools/pro2_runtime/bridge.cpp', 'tools/pro2_runtime/launch.py',
+                 'tools/pro2_runtime/scope.py',
                  'tools/xr_controller/pro2_test.py', 'tools/native_spike/managed.py',
                  'tools/native_spike/supervisor.py'):
         original = subprocess.check_output(['git', 'show', expected + ':' + name], cwd=REPO)
         if (root / name).read_bytes() != original:
             raise ValueError('packaged source differs from pinned commit: ' + name)
+    entry = (root / 'bin/pro2-supervised-test').read_text()
+    if 'runpy' in entry or 'from tools.xr_controller.pro2_test import main' not in entry:
+        raise ValueError('packaged CLI must use canonical imported main')
     bridge = (root / 'bin/pro2-sdk-bridge').read_bytes()
     renderer = (root / 'bin/xr-native-spike').read_bytes()
     if not bridge.startswith(b'\x7fELF') or not renderer.startswith(b'\x7fELF'):

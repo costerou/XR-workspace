@@ -1,0 +1,6 @@
+test_actual_packaged_cli_does_not_create_main_scope_class (test_cli_bootstrap.PackagedBootstrapQA.test_actual_packaged_cli_does_not_create_main_scope_class) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.143s
+
+OK
