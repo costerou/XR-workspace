@@ -207,6 +207,12 @@ class RecenterTests(unittest.TestCase):
 class DriverLifecycleTests(unittest.TestCase):
     """Fake driver script stands in for /usr/bin/xrDriver; unshare network isolation is real."""
     def setUp(self):
+        # Snapshot host processes only: foreign drivers created by a test still exercise the real scanner.
+        scan = tracking._other_drivers
+        host = set(scan())
+        detector = patch.object(tracking, '_other_drivers',
+                                lambda exclude=None: [pid for pid in scan(exclude) if pid not in host])
+        detector.start(); self.addCleanup(detector.stop)
         # This machine's install is not part of a test with a fake driver; nor are its glasses (SYS_USB below).
         patcher = patch.object(tracking, '_driver_env', lambda: dict(os.environ)); patcher.start(); self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
@@ -296,6 +302,20 @@ class DriverLifecycleTests(unittest.TestCase):
                 else:
                     start.assert_called_once_with(self.runtime, timeout=120.0, luma=None, binary=None)
                     self.assertEqual(stop.call_count, int(state['running']))
+
+    def test_namespace_setup_must_finish_before_calibration_is_accepted(self):
+        class Child:
+            pid = 123
+            def poll(self): return None
+            def wait(self, timeout=None): raise subprocess.TimeoutExpired('launcher', timeout)
+        ready = {'running':True, 'calibrated':True, 'network_isolated':True}
+        with patch.object(tracking, '_ours', return_value=False), \
+                patch.object(tracking, '_other_drivers', return_value=[]), \
+                patch.object(tracking, '_start_tick', return_value='1'), \
+                patch.object(tracking.subprocess, 'Popen', return_value=Child()), \
+                patch.object(tracking, 'status', side_effect=[{**ready, 'network_isolated':False}, ready]) as status:
+            self.assertEqual(tracking.start(self.runtime, timeout=1), ready)
+            self.assertEqual(status.call_count, 2)
 
     def test_start_status_stop_network_blocked(self):
         real_driver_may_be_running = patch.object(tracking, '_other_drivers', return_value=[])

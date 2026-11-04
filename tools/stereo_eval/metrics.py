@@ -276,3 +276,44 @@ def check_targets(result: dict, targets: dict) -> list[str]:
         if 'min' in bound and node < bound['min']:
             misses.append(f"{key} {node:.3g} < {bound['min']}")
     return misses
+
+
+def edge_artifact(source: np.ndarray, eye: np.ndarray, search_px: int = 24) -> dict:
+    """Image-space edge residual after local horizontal registration (RGB fraction, lower is better).
+
+    Compare 5x5 patches, allowing the stereo shift but not arbitrary pixel recolouring.
+    Score within a 12px band of source edges. Sensitive to halos, doubled edges and
+    stretched texture; not a ground-truth occlusion metric (newly exposed background is unknown).
+    """
+    a, b = source.astype(np.float32) / 255., eye.astype(np.float32) / 255.
+    gray = luma(source)
+    gy, gx = np.gradient(gray)
+    band = box((np.maximum(np.abs(gx), np.abs(gy)) > 12).astype(np.float32), 12) > 0
+    residual = np.full(gray.shape, np.inf, np.float32)
+    padded = np.pad(a, ((0, 0), (search_px, search_px), (0, 0)), mode='edge')
+    for shift in range(-search_px, search_px + 1):
+        candidate = padded[:, search_px + shift:search_px + shift + a.shape[1]]
+        residual = np.minimum(residual, box(np.abs(candidate - b).mean(axis=2), 2))
+    border = search_px + 12
+    band[:, :border] = False; band[:, -border:] = False
+    values = residual[band]
+    return {'mean_residual': float(values.mean()) if values.size else 0.,
+            'p95_residual': float(np.percentile(values, 95)) if values.size else 0.,
+            'edge_band_share': float(band.mean())}
+
+
+def temporal_flicker(sources: list[np.ndarray], eyes: list[np.ndarray]) -> dict:
+    """Extra RGB change on unchanged source neighbourhoods, fraction of full scale/frame.
+
+    Uses the source to mask motion, unlike an eye-only score that can call a pan flicker.
+    The depth-map flicker() metric remains complementary, in arcminutes.
+    """
+    values = []
+    for i in range(1, len(eyes)):
+        change = np.abs(luma(sources[i]) - luma(sources[i-1]))
+        still = box(change, 3) < 2
+        delta = np.abs(eyes[i].astype(np.float32) - eyes[i-1].astype(np.float32)).mean(axis=2) / 255.
+        source_delta = np.abs(sources[i].astype(np.float32) - sources[i-1].astype(np.float32)).mean(axis=2) / 255.
+        delta = np.maximum(delta - source_delta, 0.)
+        if still.any(): values.append(float(delta[still].mean()))
+    return {'mean_rgb_change': float(np.mean(values)) if values else 0., 'pairs': len(values)}

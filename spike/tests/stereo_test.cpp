@@ -191,6 +191,30 @@ void warp_answers() {
     CHECK(out_max <= source_max + 1e-5f);
 }
 
+void text_band() {
+    auto depth = fake::flat_depth(64, 64, 1.f), mask = fake::flat_depth(64, 64, 0.f);
+    mask.px[32 * 64 + 32] = 1.f;
+    StereoParams p; p.text_keep = 0;
+    const auto out = stereo_guide(depth, 0, 1, &mask, nullptr, p, 1, 1);
+    CHECK(std::fabs(out.at(32, 34)) < 1e-6f); // Retain the original two-row protected core.
+    CHECK(out.at(32, 35) > 0 && out.at(32, 35) < out.at(32, 36)); // Feather outside it.
+}
+
+void background_fill() {
+    constexpr int W = 320, H = 200;
+    RgbF colour{W, H, std::vector<float>(W * H * 3)};
+    auto guide = fake::flat_depth(W, H, -0.5f);
+    for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+        const bool near = (x >= 90 && x < 100) || (x >= 120 && x < 160) || (y != 100 && x >= 100 && x < 120);
+        guide.px[y * W + x] = near ? 1.f : -0.5f;
+        colour.px[(y * W + x) * 3] = near ? 1.f : 0.f;
+        colour.px[(y * W + x) * 3 + 1] = near ? 0.f : 0.6f;
+    }
+    const auto out = stereo_warp(colour, guide, W, H, 0, {10, 8});
+    // A second foreground object must never be copied into the newly exposed wall.
+    for (int x = 117; x <= 128; ++x) CHECK(out.px[(100 * W + x) * 3] < 0.25f);
+}
+
 void surface_hit() {
     const Canvas c{1920, 1200, 0.44f, 0.275f};
     const FRect tile{480, 300, 960, 600};
@@ -208,7 +232,7 @@ void surface_hit() {
 }
 
 int main() {
-    params_are_clamped(); depth_to_v(); contract(); comfort(); edges_and_time(); text_mask(); warp_answers(); surface_hit();
+    params_are_clamped(); depth_to_v(); contract(); comfort(); edges_and_time(); text_mask(); warp_answers(); background_fill(); text_band(); surface_hit();
     if (failures) { std::fprintf(stderr, "stereo: %d failure(s)\n", failures); return 1; }
     std::puts("stereo: ok");
     return 0;

@@ -17,7 +17,7 @@ def scene():
 
 
 class Flicker(unittest.TestCase):
-    def test_noise_on_a_still_picture_is_reduced_fourfold(self):
+    def test_noise_on_a_still_picture_is_reduced_fivefold(self):
         rng = np.random.default_rng(1)
         d, luma = scene()
         f = TemporalFilter()
@@ -29,7 +29,7 @@ class Flicker(unittest.TestCase):
             out.append(smooth.copy())
         before = np.std(np.stack(raw[60:]), axis=0).mean()
         after = np.std(np.stack(out[60:]), axis=0).mean()
-        self.assertLess(after, before / 4)  # An ease of 0.13 per frame gives 4.1 in theory.
+        self.assertLess(after, before / 5)  # Stronger static EMA; motion and scene cuts still release it.
 
     def test_the_whole_map_jumping_in_scale_does_not_flicker(self):
         # What the model really does: same scene, different overall scale and offset from frame to frame.

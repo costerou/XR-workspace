@@ -461,3 +461,16 @@ class TrackingCli(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class RestartFailureNotice(unittest.TestCase):
+    def test_failed_start_cleanup_is_not_mistaken_for_an_intentional_stop(self):
+        notes = []
+        with patch.object(tracking, '_read_state', side_effect=[{'driver':'luma'}, None]), \
+                patch.object(tracking, '_ours', return_value=False), \
+                patch.object(tracking, 'ensure_ready', side_effect=ValueError('startup crash')):
+            watch = tracking.LumaWatch(Path('/unused-test-runtime'), '/fake-driver', notes.append, poll=.001)
+            watch.start(); watch.join(1)
+        self.assertFalse(watch.is_alive())
+        self.assertEqual(len(notes), 1)
+        self.assertIn('head tracking has stopped', notes[0])

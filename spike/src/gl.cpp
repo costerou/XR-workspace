@@ -474,8 +474,20 @@ void GlCompositor::remove_source(std::size_t at) {
 
 void GlCompositor::set_stereo(const StereoSettings& settings) {
     auto& s = *impl_;
+    const bool strength_changed = s.stereo_set.params.strength != stereo_clamped(settings.params).strength ||
+                                  s.stereo_set.strengths != settings.strengths;
     s.stereo_set = settings; s.stereo_set.params = stereo_clamped(settings.params);
     s.stereo_set.half_baseline = std::isfinite(settings.half_baseline) ? std::clamp(settings.half_baseline, 0.f, 2.f * kStereoHalfBaseline) : kStereoHalfBaseline;
+    if (settings.enabled && strength_changed && s.stereo) {
+        for (std::size_t i = 0; i < s.stereo_sources.size(); ++i) if (auto frame = s.stereo->cached_frame(i)) {
+            // A still desktop produces no new inference. Rebuild from its owned raw
+            // upload immediately, without granting stale depth a new freshness timestamp.
+            const double age = s.stereo_sources[i].depth_ms;
+            frame->reset_history = true;
+            set_depth(i, *frame);
+            s.stereo_sources[i].depth_ms = age;
+        }
+    }
     if (!settings.enabled || s.stereo || !s.stereo_why.empty()) return;
     s.stereo = StereoPass::create(s.pos, s.uv, s.color_pos, s.stereo_why);  // the shaders, now and not on a later frame
     if (s.stereo) s.stereo->resize_sources(s.textures.size());

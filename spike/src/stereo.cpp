@@ -194,9 +194,9 @@ PlaneF stereo_guide(const PlaneF& depth, float lo, float hi, const PlaneF* text,
             const auto mask = [&](int a, int b) { return text->at(std::clamp(a, 0, text->w - 1), std::clamp(b, 0, text->h - 1)); };
             // Two rows up and down: the space between two lines of text is no reason for the plane to come back.
             float t = 0;
-            for (int j = -2; j <= 2; ++j) for (int i = -2; i <= 2; ++i) {
-                const float w = float((3 - std::abs(i)) * (3 - std::abs(j)));
-                t = std::max(t, mask(x + i, y + j) * w / 9.f);
+            for (int j = -3; j <= 3; ++j) for (int i = -2; i <= 2; ++i) {
+                const float w = (std::abs(i) < 2 ? 1.f : 0.5f) * (std::abs(j) < 3 ? 1.f : 0.5f);
+                t = std::max(t, mask(x + i, y + j) * w);
             }
             v *= 1.f + (params.text_keep - 1.f) * t;
         }
@@ -231,11 +231,27 @@ RgbF stereo_warp(const RgbF& colour, const PlaneF& guide, int out_w, int out_h, 
         const float o = gap > 1e-6f && ha - hb > 1e-6f ? a - gap * ha / (ha - hb) : b;
         auto c = stereo_sample(colour, u - side * o * du, v);
         const float steep = gap > 1e-6f ? stereo_smoothstep(kStereoHoleLo, kStereoHoleHi, (gb - ga) / gap) : 0.f;
-        if (steep > 0.f) {  // a hole behind a near edge: the background beside it, mirrored so it does not streak
-            const float q = o + margin, m = std::clamp(q - g_at(q), 0.f, span);
-            const float fu = u - side * (q + m) * du;
-            const auto f0 = stereo_sample(colour, fu, v - 1.5f * dv), f1 = stereo_sample(colour, fu, v), f2 = stereo_sample(colour, fu, v + 1.5f * dv);
-            for (std::size_t k = 0; k < 3; ++k) c[k] += ((f0[k] + 2.f * f1[k] + f2[k]) * 0.25f - c[k]) * steep;
+        if (steep > 0.f) {
+            // Search on both sides and keep only the farther surface. Vertical smoothing
+            // taps must belong to that same background, never the foreground above/below.
+            float q = o + margin, far = g_at(q);
+            for (const float candidate : {o - margin, a, b}) {
+                const float g = g_at(candidate);
+                if (g < far) { q = candidate; far = g; }
+            }
+            const float fu = u - side * q * du;
+            std::array<float, 3> fill{};
+            float weight = 0;
+            for (int j = -1; j <= 1; ++j) {
+                const float fv = v + float(j) * 1.5f * dv;
+                const float g = stereo_half_disparity(stereo_sample(guide, fu, fv), budget);
+                const float w = (j == 0 ? 2.f : 1.f) * (1.f - stereo_smoothstep(0.02f * span, 0.06f * span, g - far));
+                const auto sample = stereo_sample(colour, fu, fv);
+                for (std::size_t k = 0; k < 3; ++k) fill[k] += sample[k] * w;
+                weight += w;
+            }
+            const float band = steep * stereo_smoothstep(0.f, 1.f, std::fabs(g_at(o - margin) - g_at(o + margin)));
+            for (std::size_t k = 0; k < 3; ++k) c[k] += (fill[k] / std::max(weight, 1e-6f) - c[k]) * band;
         }
         auto* p = &out.px[(std::size_t(y) * out_w + x) * 3];
         p[0] = c[0]; p[1] = c[1]; p[2] = c[2];

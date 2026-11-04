@@ -72,3 +72,17 @@ python -m unittest discover -s tests/stereo_eval -v
 ```
 
 No model, network or GPU. Each metric is tested on a scene with a known answer: it has to rank a bad result below a good one.
+
+## Edge-artifact A/B proof
+
+`metrics.edge_artifact(source, eye)` reports mean/p95 RGB patch residuals in a source-edge band after local horizontal registration.
+It detects halos, doubling and stretched texture while allowing legitimate stereo displacement. `metrics.temporal_flicker(sources, eyes)`
+measures extra RGB change on still source neighbourhoods (full-scale fraction per frame), subtracting source change. Both have known-answer tests.
+They complement the existing arcminute-valued disparity flicker and jitter, rather than replacing them.
+
+The real-engine A/B runner is `python -m tools.immersive_proof.edges --stage before|after --bench BINARY --photo PORTRAIT --out DIR`.
+Use `--engine-root BASELINE_ARCHIVE` for the before engine. It owns a private memfd and a separate low-priority engine process;
+it never captures a live display or contacts the running XR session. This explicit offline runner is permitted while XR is active;
+the older general `immersive_proof` command retains its active-session guard. Run GPU work at `nice -n 19`.
+`python -m tools.immersive_proof.edges_compare DIR` builds identical worst-edge crops and combined JSON. All source fixtures and
+recorded SBS frames remain under `edges-*-work`, for independent re-scoring. See `docs/3d-edges-strength.md` for results and limitations.

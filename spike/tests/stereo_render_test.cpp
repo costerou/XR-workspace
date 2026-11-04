@@ -448,6 +448,35 @@ void whole_view() {
     CHECK(glGetError() == GL_NO_ERROR);
 }
 
+void live_strength() {
+    constexpr int W = 640, H = 400;
+    std::string why;
+    auto gl = GlCompositor::create_offscreen(2 * W, H, 1, why); CHECK(gl != nullptr);
+    if (!gl) return;
+    gl->resize(W, H, 2 * W, H);
+    StereoSettings set; set.enabled = true; set.params.strength = 1; set.params.convergence = .5f; set.half_baseline = 0;
+    gl->set_stereo(set);
+    const auto bytes = bgrx(fake::box_picture(W, H));
+    gl->upload(0, bytes.data(), W, H, W * 4);
+    const std::vector<FRect> tiles{{0, 0, W, H}};
+    const std::vector<Placement> at{{}};
+    settle(*gl, tiles, at, {fake::box_depth(320, 256)});
+    const auto difference = [&] {
+        gl->draw_and_swap(tiles, at, -1, 0, kIdentity, kHalfW, kHalfH); glFinish();
+        const auto sbs = read(0, 0, 2 * W, H); int changed = 0;
+        for (int y = 20; y < H - 20; ++y) for (int x = 20; x < W - 20; ++x)
+            changed += std::memcmp(sbs.at(x, y), sbs.at(x + W, y), 3) != 0;
+        return changed;
+    };
+    CHECK(difference() > 100);
+    set.params.strength = 0; gl->set_stereo(set);
+    CHECK(difference() == 0); // No fresh depth frame: the desktop is completely still.
+    set.strengths = {100}; gl->set_stereo(set);
+    CHECK(difference() > 100); // Per-desktop override is live too.
+    set.strengths = {0}; gl->set_stereo(set);
+    CHECK(difference() == 0);
+}
+
 void frame_time() {
     constexpr int W = 1920, H = 1200, DW = 518, DH = 324;
     std::string why;
@@ -502,7 +531,7 @@ int main(int argc, char** argv) {
     probe.reset();
     if (!write) warp_mirror();
     goldens(dir, write);
-    if (!write) { measured_disparity(); whole_view(); frame_time(); }
+    if (!write) { measured_disparity(); whole_view(); live_strength(); frame_time(); }
     if (failures) { std::fprintf(stderr, "stereo_render: %d failure(s)\n", failures); return 1; }
     std::puts("stereo_render: ok");
     return 0;
