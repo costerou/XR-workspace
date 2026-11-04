@@ -172,8 +172,18 @@ def test_c1_output_transaction_actual_broker_readback_or_rollback(id,refuse):
             d.focus('confirmation.apply');d.key('Return')
         d.add(c.poll());d.native()
         if refuse:
-            assert run.manager.desktops()==before, 'failed output operation must rollback authoritative specs'
+            if id in ('resolution','scale','ultrawide'):
+                # BrokerTransport deliberately invalidates ownership on refused
+                # reshape. Preserved safety contract keeps untrusted requested
+                # specs for the guard; no bypass can manufacture a rollback.
+                from tools.native_spike.journal import recover
+                assert run.manager.desktops()!=before
+                assert any(e['state']=='invalid' for e in run.transport.registry.values())
+                assert not recover(run.journal,run.broker).complete
+            else:
+                assert run.manager.desktops()==before, 'trusted refusal must preserve authoritative specs'
             assert c.options.snapshot()['status']=='error', c.options.snapshot()
+            assert c.options.snapshot()['message'] and 'timed out' not in c.options.snapshot()['message'].lower()
         else:
             assert run.manager.desktops()!=before, 'C1 action never reached real broker transaction'
             assert c.options.snapshot()['status'] in ('pending','applied'), 'native child must retain owner completion state'
