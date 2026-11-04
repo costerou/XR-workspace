@@ -42,6 +42,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Text cursor in the overview (Cody's pick of the mockups on branch `text-cursor-mockups`, 2026-11-03: the Serif Beam, option 1; the dot's look `text` where the app under it asks for a text cursor, on a desktop's content only; see [Over text](#the-unified-overview-cursor)) | Offline tests only: ctest `free_pointer` (the shape against the mockup's own triangles, `serif_beam_shape.json`, and a CPU mirror of the fill rule: 14 x 28 px with its ring, centred on the click point, a stem of 2 px), `gl_frame` (the GL frame against that mirror, pixel for pixel, at both grey levels, under the 191/255 cap), `ownership`, `ownership_pair_boundary` (the production broker and `cursorShape` bodies), `ownership_pair_wire`, and `tests/native_spike/test_text_cursor.py` (the names, the hold, handles first, overview only, the sampler, the reply's strict checks, and contract tests through the real C++ validators). A one-off comparison also found the real renderer's frames identical to the mockup tool's in all 108 pairs tried (three desktops, both greys, fractional head positions, tilted heads); that tool is not on this branch, so that comparison is not a ctest. The read costs about 40 µs in Hyprland (parse, name and reply, measured offline; 0.12% of a core at 30 a second). Not run in an isolated VM or in the glasses, and the plugin with `cursor_shape` has never been loaded: it compiles against the installed headers and every new symbol it needs is exported by the installed Hyprland and hyprutils, which is not a load test. Which app asks for what comes from toolkit source (FEASIBILITY.md on that branch), not from watching apps. Whether a 2 px stem crawls with the head moving, and how the beam reads over text at a third of a desktop's size, can only be judged in the glasses. The ownership plugin, renderer and supervisor must be installed together: an older renderer drops every frame with this look, and an older plugin leaves the plain dot with one refused read a second. It is a new plugin binary, so its earlier acceptance has to be repeated. |
 | Incident reports (`incident-reports`, 2026-11-03: the controller watches every run and writes one private report per incident to `~/.local/state/viture-workspace/incidents/`, with a desktop notification, a line in the panel and an optional `on-incident` hook; see [Incident reports](#incident-reports)) | Offline tests only: `tests/xr_controller/test_incident_detect.py`, `test_incident_report.py`, `test_incident_monitor.py`, `test_incident_wiring.py`, `tests/native_spike/test_supervisor.py` (`StopReasonTests`, the status fields), `test_runner.py`, the panel's `tst_model.qml`, ctest `capture_e2e_*` (the real renderer's new status fields, a resize never looking like a stuck capture), `capture_e2e_tracked`. Also replayed by hand, read-only, over the journals of the 48 runs of 2026-11-01 to 2026-11-03: every normal end stayed silent and all the USB-ended runs came out as `usb-drop`. That replay fed the classifier real logs; it was not the monitor running live. Not installed, not run in a live controller, in an isolated VM or in the glasses: no notification has reached a real desktop from it, and no live USB drop, crash or stall has gone through it. The status fields changed, so install the renderer and the Python supervisor together. |
 | Recovery past a monitor rule (`recover-incomplete-fix`, after run `4468c283` on 2026-11-03: Omarchy's scale control, used with XR-1 focused, left a rule naming XR-1 and the broker could then never remove that output; see [When a recovery cannot finish](#when-a-recovery-cannot-finish)) | Offline tests only: `tests/native_spike/test_leftover_rule.py` (the run's own journal shape through the real journal, broker client and `recover_managed` against a compositor double that blocks as the loaded plugin did, stop to finish), `tests/xr_controller/test_recovery_report.py` (`recover-run`, the panel's reason and confirm box, the incident report), ctest `ownership` (the step a refusal names) and `ownership_offset` (the plugin's real `cleanup`). Not run against a live Hyprland or in the glasses, so what the broker does on the real output is unobserved; the reload's effect on the rule comes from reading the pinned source. The plugin, Python controller and panel must be installed together. Steps R1 to R7 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
+| Tracking drops (`survive-usb-drop`, 2026-11-04: a USB drop that leaves the video up holds the view with a hint, resumes with no jump, gives up after 60 s; [Head tracking drops](#head-tracking-drops)) | Offline tests, and the real renderer against a simulated feed. Never met a real drop: steps D1 to D7. Not installed. |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -578,6 +579,70 @@ for calibration. It refuses to compete with an XRLinuxDriver it did not start. F
 python -m tools.native_spike tracking start   # also: status, stop
 ```
 
+### Head tracking drops
+
+The glasses' USB can drop while their video stays up: head tracking stops, and the display goes on showing whatever it is
+sent. That used to freeze the picture with no word why, and the feed then came back on a new reference, so the view jumped.
+Now a run rides it out. Tests only so far, none of this has met a real drop (steps D1 to D7).
+
+| What happens | What you see |
+|---|---|
+| The feed stops | The view stays where it was. Windows, desktops, typing and the mouse carry on: only the head tracking is gone. |
+| A second later | **Reconnecting tracking...** in a small card where the pop-ups appear, for as long as it lasts. |
+| The driver reconnects by itself and calibrates | Nothing yet. Fresh samples must run unbroken for 250 ms first, as a second disconnect can come seconds after the first. |
+| Tracking is back | The hint fades and the view carries on from exactly where it was. If you turned your head meanwhile, the desktops come with you, as with a recentre. |
+| 60 s without it | The session ends the ordinary way, windows back on your monitor, with a notification and a report. |
+| The video goes | The session ends the ordinary way, at once. The renderer's surface is on that output, so there is nothing to hold. |
+
+**Renderer** (`spike/include/xr/pose.hpp`, `PoseState`). A silence over 500 ms is a drop; shorter is the same feed, a moment
+late, and is simply believed again. After a drop the driver's reference has changed (`conj(reference) * pose`, taken as
+calibration ends), so the first accepted sample is taken to be the head where it was when the view was held. The centre and
+the level estimate (`up_`, ours to carry, as the feed has no gravity in it) go through that change of frame together. A recentre pressed during the drop still applies. XRLinuxDriver writes no pose until
+it has calibrated (`outputs.c`, `handle_imu_update`), so a fresh device timestamp means a calibrated sample. The renderer's
+exit report counts `tracking.reanchors` and `tracking.hints`.
+
+The hint is not on the pill, as first asked: a collapsed pill is 14 px tall, and a maximized desktop has none.
+
+**Supervisor** (`tools/native_spike/supervisor.py`). It reads the renderer's status `tracking`. False for the limit, after it
+has once been true, stops the renderer with `stop_reason: tracking-timeout`, which goes through the ordinary recovery. The
+limit is per outage: 18 of 53 drops came within 30 s of the one before. A run that never had tracking has nothing to lose and
+carries on. Set the limit in `~/.config/viture-workspace/tracking.json`, read at each start. Anything else in that file is
+logged and the default stands.
+
+```json
+{"lost_timeout_s": 60}
+```
+
+**Driver.** Nothing restarts it during a run. At a start, `ensure_ready` gives an isolated driver found uncalibrated 30 s to
+finish by itself, since it reconnects in about 3 s and calibrates in about 15, and only then restarts it.
+
+**Reports.** A drop still writes its incident report, and every report now has `session_kept_alive` (and a *Kept alive* line
+in the `.md`). Giving up is a `tracking-lost` with source `supervisor`, not a crash, though the renderer it stopped ends on a
+signal.
+
+**What this does not cover.** A drop that takes the video too. The second disconnect of a pair usually does: in the incident
+of 2026-11-04 00:58 (`20261104T055823Z-usb-drop`), Hyprland's log has DP-2 disconnected and connected again at 1080p60, and
+that is what ended the run, not the tracking, which the renderer had held for 19 s. The report's `display` block looked
+healthy only because it holds the last 2 s poll before the end. Branch `usb-drop-fix` (`tools/native_spike/survive.py`) holds a run through that
+case by starting a new renderer. The two fit together and neither replaces the other.
+
+Tests: `spike/tests/pose_test.cpp` (the drop on a fake clock), `capture_e2e_feed_drop` and `capture_e2e_feed_gone_video_loss`
+(the real renderer against `spike/tests/feed_script.cpp`, a simulated driver feed with 20 s and two disconnects),
+`tests/native_spike/test_usb_drop.py` (the supervisor, the config, the driver's wait).
+
+Steps on the glasses, once installed. The kernel log (`journalctl -k | grep 'usb 5-2: USB disconnect'`) tells you a drop
+happened; D1 to D4 need a USB-only drop, so unplugging the cable will not do, as that takes the video too.
+
+| Step | Do | Expect |
+|---|---|---|
+| D1 | Work in XR until a drop leaves the picture up | The view freezes; within about a second the card says Reconnecting tracking... |
+| D2 | Keep typing and moving the mouse during it | Windows work; nothing moves on its own |
+| D3 | Keep your head still until it recovers | The card fades, and the picture does not jump |
+| D4 | Next drop, turn your head during it | Once back, the desktops are in front of you, at your new heading, and level after a few seconds of looking around |
+| D5 | Set `lost_timeout_s` to 10, and during a run stop the driver from a terminal | 10 s later XR ends, windows back on the monitor, a notification, a report with `Kept alive: no` |
+| D6 | With a drop that kept the session, read the report | `Kept alive: yes` |
+| D7 | Stop XR during a drop, start at once | The start waits for the driver instead of restarting it; `pgrep -x xrDriver` keeps its pid |
+
 ### How the tracking driver is kept offline
 
 The driver starts inside its own unprivileged user, network and mount namespaces (`tracking._driver_argv`). The network
@@ -702,7 +767,7 @@ anything, and it reads no logs while no session runs.
 | `present-stall` | No `presented_hz` for 5 s, or a rate under 40% of the session's usual rate for 10 s. Tracked sessions with the display awake only. |
 | `capture-failed` | Status `capture_path` falling from dmabuf to shm, or `capture_failure_run` reaching 30. |
 | `usb-drop` | `journalctl -k` USB disconnects on the glasses' ports or a hub above them, `Retrying driver connection` in `driver.log`, two failed USB commands within 30 s, or the glasses leaving sysfs. |
-| `tracking-lost` | Status `tracking` false for 3 s, never true 30 s in, the driver recalibrating or restarting, or its process gone. |
+| `tracking-lost` | Status `tracking` false for 3 s, never true 30 s in, the driver recalibrating or restarting, its process gone, or `stop_reason` `tracking-timeout` (the supervisor gave up: [Head tracking drops](#head-tracking-drops)). |
 | `hyprland-crash` | The pid in the run's `hyprland.lock` no longer being Hyprland. |
 | `plugin-failed` | The ownership plugin missing for 3 s, or a result error from its load or unload. |
 | `controller-restart` | A controller start finding the run it was watching ended abnormally or stranded (`.monitor-state` remembers it), or an unrecovered run it never watched. |

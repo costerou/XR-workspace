@@ -360,6 +360,12 @@ class EndOfRunTests(unittest.TestCase):
     def test_something_else_killing_the_renderer(self):
         self.assertEqual(self.end(self.result(renderer_returncode=-9)), ['renderer-crash'])
 
+    def test_tracking_gone_past_the_limit_is_tracking_lost_not_a_crash(self):
+        out = classify_end(100.0, self.result(renderer_returncode=-15, stop_reason='tracking-timeout'), started=True)
+        self.assertEqual(kinds(out), ['tracking-lost'])
+        self.assertEqual(out[0].source, 'supervisor')
+        self.assertIn('did not come back', out[0].detail)
+
     def test_the_heartbeat_watchdog(self):
         out = classify_end(100.0, self.result(renderer_returncode=-9, stop_reason='heartbeat-timeout'), started=True)
         self.assertEqual(kinds(out), ['watchdog'])

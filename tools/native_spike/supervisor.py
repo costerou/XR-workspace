@@ -6,6 +6,8 @@ import selectors
 import socket
 import time
 
+from .tracking import lost_timeout
+
 
 # Two sequential IPC requests, each bounded at two seconds, plus scheduling
 # allowance. This is separate from (and never extends) heartbeat's two seconds.
@@ -40,7 +42,7 @@ class PhysicalPairGuard:
 
 
 class Supervisor:
-    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None, status_socket=None):
+    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None, status_socket=None, tracking_timeout=None):
         if not math.isfinite(grace) or grace < 0: raise ValueError("invalid grace")
         self.child, self.recovery = child, recovery
         self.last_heartbeat = time.monotonic() if now is None else now
@@ -50,6 +52,12 @@ class Supervisor:
         self.kill_sent = False
         self.result = None
         self.stop_reason = None  # why the supervisor ended the renderer, for the run's result; None if it ended by itself
+        # A USB drop stops the pose feed and leaves the video up: the renderer holds the view and the driver reconnects by
+        # itself. Tracking gone for this many seconds ends the run; None (no head tracking): never. Only after it has worked:
+        # a run that never had it has lost nothing.
+        self.tracking_timeout = tracking_timeout
+        self.tracked = False
+        self.tracking_lost_at = None
         self.guard = guard
         self.status_socket = status_socket
         self.status = {}
@@ -78,6 +86,8 @@ class Supervisor:
         if self.child.poll() is None:
             if self.stopping_at is None and now - self.last_heartbeat >= 2:
                 self.disconnect(now, 'heartbeat-timeout')
+            if self.tracking_timeout is not None and self.tracking_lost_at is not None and now - self.tracking_lost_at >= self.tracking_timeout:
+                self.disconnect(now, 'tracking-timeout')
             if self.stopping_at is not None and not self.kill_sent and now - self.stopping_at >= self.grace:
                 self.kill_sent = True
                 try: self.child.kill()
@@ -85,7 +95,10 @@ class Supervisor:
             if self.child.poll() is None: return
         self.result = self.recovery()
         self.finished = True
-    def status_bytes(self, data):
+    def _tracking_status(self, tracking, now):
+        if tracking: self.tracked, self.tracking_lost_at = True, None
+        elif self.tracked and self.tracking_lost_at is None: self.tracking_lost_at = now
+    def status_bytes(self, data, now=None):
         from .ipc import strict_json
         # Bounded streaming parser, also used for the atomic datagrams from the renderer.
         for chunk in data.splitlines(keepends=True):
@@ -126,6 +139,7 @@ class Supervisor:
                             else: valid = type(v) in (int,float) and math.isfinite(v) and v >= 0
                             if not valid: raise ValueError('invalid measured value')
                         self.status = value
+                        if 'tracking' in value: self._tracking_status(value['tracking'], time.monotonic() if now is None else now)
                 except (ValueError, TypeError): pass
             self._status_buffer = b''; self._status_discard = False
 
@@ -419,7 +433,8 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
             wayland_socket.close()
         child_socket.close()
         status_child.close()
-        watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard, control=control, status_socket=status_parent)
+        watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard, control=control, status_socket=status_parent,
+                              tracking_timeout=lost_timeout() if pose_feed else None)
         try:
             try:
                 parent.settimeout(0.25)

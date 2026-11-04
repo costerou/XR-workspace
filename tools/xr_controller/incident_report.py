@@ -235,7 +235,8 @@ def build_bundle(episode, ev, now, scrub):
                 for s, n in sorted(zip(episode.signals, episode.repeats), key=lambda pair: pair[0].at)]
     bundle = dict(
         schema=1, id=time.strftime('%Y%m%dT%H%M%SZ', time.gmtime(now)) + f'-{kind}', kind=kind, summary=summary_line(kind, episode.ended),
-        created_at=_iso(now), first_signal_at=_iso(episode.first), session=episode.ended or 'kept-running', run_id=episode.run_id,
+        created_at=_iso(now), first_signal_at=_iso(episode.first), session=episode.ended or 'kept-running',
+        session_kept_alive=not episode.ended, run_id=episode.run_id,
         cause=guess_cause(episode, dict(ev, logs=logs, cores=cores)), timeline=timeline,
         versions=dict(source_sha=source.get('sha'), source_dirty=source.get('dirty'), bin=Path(renderer['path']).parent.name if renderer.get('path') else None,
                       renderer_sha256=renderer.get('sha256'), plugin_sha256=plugin.get('sha256')),
@@ -256,7 +257,7 @@ def markdown(bundle):
     """The short version for a person, beside the JSON."""
     summary = bundle['summary']
     out = [f"# XR Workspace incident: {bundle['kind']}", '', f'{summary[:1].upper()}{summary[1:]}.', '',
-           f"- When: {bundle['first_signal_at']}", f"- Session: {bundle['session']}", f"- Run: {bundle['run_id']}",
+           f"- When: {bundle['first_signal_at']}", f"- Session: {bundle['session']}", f"- Kept alive: {'yes' if bundle.get('session_kept_alive') else 'no'}", f"- Run: {bundle['run_id']}",
            f"- Glasses: {bundle['glasses']['model']} on {bundle['glasses']['output']}, {bundle['display']['mode']}",
            f"- Build: source {(bundle['versions']['source_sha'] or 'unknown')[:12]}, bin {bundle['versions']['bin']}", '',
            f"Likely cause ({bundle['cause']['confidence']} confidence): {bundle['cause']['text']}", '']

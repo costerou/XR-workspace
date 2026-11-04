@@ -290,6 +290,10 @@ _WATCHDOG = {'heartbeat-timeout': 'the renderer sent no heartbeat for 2 seconds,
              'send-failed': 'the supervisor could not reach the renderer, and stopped it'}
 
 
+# The supervisor gave up on a USB drop: its limit, not a crash, though the renderer it stopped ends on a signal.
+TRACKING_TIMEOUT = 'tracking-timeout'
+
+
 def signal_name(number):
     try: return signals.Signals(number).name
     except ValueError: return f'signal {number}'
@@ -319,7 +323,9 @@ def classify_end(at, result, *, started=True, stopped=False, stranded=False, uni
     rc, reason, error = result.get('renderer_returncode'), result.get('stop_reason'), result.get('error')
     interrupted = stopped or reason == 'interrupted'
     own_exit = type(rc) is int and (rc > 0 or -rc in _CRASHES)  # a send fails on a renderer that went by itself, too
-    if reason in _WATCHDOG and not (reason == 'send-failed' and own_exit):
+    if reason == TRACKING_TIMEOUT:
+        out.append(Signal(at, 'tracking-lost', 'supervisor', 'head tracking did not come back in time, so the session ended'))
+    elif reason in _WATCHDOG and not (reason == 'send-failed' and own_exit):
         out.append(Signal(at, 'watchdog', 'supervisor', _WATCHDOG[reason]))
     elif type(rc) is int and rc < 0:
         number = -rc
@@ -360,7 +366,7 @@ _JOURNAL_LINE = re.compile(r'(?:\S+ ){1,2}?[^:\s]+: (.*)')  # with or without th
 _PRESENTATION = ('submitted', 'presented', 'discarded', 'abandoned', 'pending', 'invalid_timing', 'interval_count', 'interval_mean_ns',
                  'interval_min_ns', 'interval_max_ns', 'observation_duration_ns')
 _CAPTURE = ('name', 'frames', 'failures', 'reallocations', 'path')
-_TRACKING = ('feed', 'tracking', 'samples', 'lost_events')
+_TRACKING = ('feed', 'tracking', 'samples', 'lost_events', 'reanchors', 'hints')
 _REPORT_KINDS = ('generated_pattern_presentation_timing', 'managed_output_capture')
 
 

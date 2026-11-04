@@ -297,6 +297,30 @@ class ManagedTests(unittest.TestCase):
                 self.assertTrue(all(r['state'] == 'done' for r in Journal.open(path, 'run', 'session').operations))
                 self.assertTrue(all(r['state'] == 'dead' for r in transport.registry.values()))
 
+    def test_giving_up_on_head_tracking_tells_the_person_once_the_windows_are_back(self):
+        from tools.native_spike import managed
+        for reason, told in (('tracking-timeout', True), ('guard-failed', False), (None, False)):
+            with self.subTest(reason=reason):
+                path = self.path.with_name(f'{reason}.json')
+                journal = Journal.open(path, 'run', 'session')
+                transport = ManagedTransport(path)
+                broker = OwnershipBrokerClient(transport, 'run', 'session', 'DP-1')
+                broker.require_output_ownership()
+                def connect(session):
+                    import socket
+                    peer, wayland = socket.socketpair()
+                    self.addCleanup(peer.close); self.addCleanup(wayland.close)
+                    return wayland
+                transport.connect_wayland = connect
+                def launch(*args, report=None, **kwargs):
+                    report['stop_reason'] = reason
+                    return -15
+                with patch.object(managed, '_launch', launch), patch.object(managed.send, 'notify') as notify:
+                    run = managed._run_owned(transport, journal, broker, 'DP-2', 'DP-1', plan_outputs([], [], 'run'))
+                self.assertTrue(run['complete'])
+                messages = [c.args[0] for c in notify.call_args_list if 'Head tracking' in c.args[0]]
+                self.assertEqual(bool(messages), told)
+
     def test_real_watchdog_reaps_child_on_managed_epoch_loss(self):
         import multiprocessing
         import socket

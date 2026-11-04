@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import time
 
 from .ipc import private_dir
@@ -18,6 +19,14 @@ DRIVER = '/usr/bin/xrDriver'
 DRIVER_LOG = Path.home() / '.local/state/xr_driver/driver.log'
 DRIVER_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'xr_driver/config.ini'
 READY = 'Device calibration complete'
+# How long a run holds its view with no head tracking before it gives up (supervisor.py). The file is optional and only says
+# {"lost_timeout_s": seconds}: anything else is logged and the default stands, because a typo must not cost a session.
+RECOVERY_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'viture-workspace/tracking.json'
+LOST_TIMEOUT_S = 60.0
+LOST_TIMEOUT_MAX_S = 3600.0
+# A driver found uncalibrated has this long to finish reconnecting by itself (about 3 s) and calibrating (about 15 s) before
+# it is restarted.
+RECONNECT_WAIT_S = 30.0
 # Without a MAC to hash into a hardware id the driver retries for 30 s, then carries on. A made-up MAC
 # on `lo` ends that wait, and `lo` stays down, so there are still no routes. The driver only looks at
 # interfaces with an IPv4 address. It must not be 127.0.0.1: an address on a down interface swallows
@@ -112,13 +121,42 @@ def status(runtime):
     return {'running': True, 'pid': pid, 'network_isolated': _network_isolated(pid), 'calibrated': calibrated}
 
 
+def lost_timeout():
+    """RECOVERY_CONFIG's limit in seconds, else LOST_TIMEOUT_S. Never raises."""
+    try: text = RECOVERY_CONFIG.read_text()
+    except FileNotFoundError: return LOST_TIMEOUT_S
+    except OSError as exc:
+        print(f'xr-workspace: tracking: {RECOVERY_CONFIG.name} not read: {exc}', file=sys.stderr)
+        return LOST_TIMEOUT_S
+    try:
+        data = json.loads(text)
+        value = data['lost_timeout_s'] if isinstance(data, dict) and set(data) == {'lost_timeout_s'} else None
+        if type(value) in (int, float) and 0 < value <= LOST_TIMEOUT_MAX_S: return float(value)
+    except ValueError:
+        pass
+    print(f'xr-workspace: tracking: {RECOVERY_CONFIG.name} needs {{"lost_timeout_s": 1..{LOST_TIMEOUT_MAX_S:.0f}}}; '
+          f'using {LOST_TIMEOUT_S:.0f} s', file=sys.stderr)
+    return LOST_TIMEOUT_S
+
+
+def _wait_for_reconnect(runtime):
+    """A driver that lost the glasses gets them back by itself, so leave it to: 18 of 53 drops came within 30 s of the one
+    before, and a restart here would land on glasses about to drop again. The newest status."""
+    deadline = time.monotonic() + RECONNECT_WAIT_S
+    while True:
+        now = status(runtime)
+        if not (now['running'] and now['network_isolated']) or now['calibrated'] or time.monotonic() >= deadline: return now
+        time.sleep(0.2)
+
+
 def ensure_ready(runtime, timeout=120.0):
-    """Reuse a calibrated isolated driver, or restart our disconnected driver.
+    """Reuse a calibrated isolated driver, give a reconnecting one time to finish, or restart ours.
 
     Only the PID/start-tick recorded by this app can be stopped. A separate
     driver is never killed; start() refuses to compete with it.
     """
     now = status(runtime)
+    if now['running'] and now['network_isolated'] and not now['calibrated']: now = _wait_for_reconnect(runtime)
     if now['running'] and now['network_isolated'] and now['calibrated']:
         return now
     if now['running']:
