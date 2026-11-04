@@ -30,6 +30,8 @@ FAKE_ADDRESS = '192.0.2.1/32'
 # does not cover it. So the MAC is only set once that directory is hidden. If any step fails the
 # driver gets no id, never tries the licence server, and just starts 30 s later.
 RESOLVED_DIR = '/run/systemd/resolve'
+QUIET_SETTINGS = DRIVER_CONFIG.parent.parent / 'viture-workspace' / 'quiet-driver.json'
+QUIET_DEFAULTS = {'enabled': True, 'dof3': True, 'quiet_polls': True, 'reconnect_hold_ms': 20000}
 
 
 def _start_tick(pid):
@@ -82,6 +84,32 @@ def _driver_argv():
     return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, DRIVER]
 
 
+def _shim_settings():
+    """The quiet driver's settings (docs/usb-drops.md), each one undoable alone. A broken file is the defaults, not the end."""
+    try: saved = json.loads(QUIET_SETTINGS.read_text())
+    except (OSError, ValueError): saved = {}
+    settings = dict(QUIET_DEFAULTS)
+    if isinstance(saved, dict): settings.update({k: saved[k] for k in QUIET_DEFAULTS if type(saved.get(k)) is type(QUIET_DEFAULTS[k])})
+    return settings
+
+
+def _driver_env(data_home=None):
+    """The driver's environment: ours, with the quiet driver preloaded if the install carries one that still matches its
+    pin. No shim or a changed one: the plain driver, as before."""
+    env = dict(os.environ)
+    settings = _shim_settings()
+    if not settings['enabled']: return env
+    from tools.xr_controller.install import load_shim
+    try: shim = load_shim(data_home or Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share'))
+    except (OSError, ValueError): shim = None
+    if shim is None: return env
+    env['LD_PRELOAD'] = shim
+    if settings['dof3']: env['XR_QUIET_DOF'] = '3'
+    if settings['quiet_polls']: env['XR_QUIET_POLLS'] = '1'
+    if settings['reconnect_hold_ms'] > 0: env['XR_QUIET_RECONNECT_HOLD_MS'] = str(settings['reconnect_hold_ms'])
+    return env
+
+
 def _interfaces(pid):
     return [line.split(':')[0].strip() for line in Path(f'/proc/{pid}/net/dev').read_text().splitlines()[2:]]
 
@@ -126,13 +154,26 @@ def ensure_ready(runtime, timeout=120.0):
     return start(runtime, timeout=timeout)
 
 
+def _check_access(identity=None, dev_root=Path('/dev/bus/usb')):
+    """Glasses this user cannot open: the driver only says "Cannot open device" and segfaults in the SDK. Say what to do instead.
+    (After a boot with them plugged in, until packaging/udev/71-xr-workspace-glasses.rules is installed: docs/usb-drops.md.)
+    Glasses that are not there are left to the driver, which waits for them."""
+    from . import survive
+    identity = identity or survive.usb_identity()
+    if identity is None: return
+    node = dev_root / f'{identity[0]:03d}' / f'{identity[1]:03d}'
+    if node.exists() and not os.access(node, os.R_OK | os.W_OK):
+        raise ValueError("this user cannot open the glasses' USB device: unplug their USB plug and plug it back in")
+
+
 def start(runtime, timeout=120.0):
     if _ours(_read_state(runtime)): raise ValueError('tracking already running')
     _check_config()
+    _check_access()
     if _other_drivers(): raise ValueError('another XRLinuxDriver is running; refusing to compete for the glasses')
     offset = DRIVER_LOG.stat().st_size if DRIVER_LOG.exists() else 0
     child = subprocess.Popen(_driver_argv(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             start_new_session=True, close_fds=True)
+                             start_new_session=True, close_fds=True, env=_driver_env())
     deadline = time.monotonic() + 2
     tick = None
     while tick is None and time.monotonic() < deadline:  # unshare execs the driver in the same pid

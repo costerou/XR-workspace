@@ -8,7 +8,8 @@ import shutil
 import stat
 import tempfile
 
-RENDERER, PLUGIN = 'xr-native-spike', 'libxr-ownership.so'
+RENDERER, PLUGIN, SHIM = 'xr-native-spike', 'libxr-ownership.so', 'libxr-quiet-driver.so'
+SHIM_PIN = 'quiet-driver.pin.json'
 _HEX = re.compile(r'[0-9a-f]{64}')
 
 
@@ -33,6 +34,38 @@ def _atomic_write(path, data, mode):
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True); raise
+
+
+def _pin_shim(build_dir, target):
+    """The quiet driver (docs/usb-drops.md), beside the renderer and pinned the same way. Optional: a build without it, or an
+    older install, runs the plain driver."""
+    source = Path(build_dir) / SHIM
+    if not source.exists(): return None
+    sha = _sha(source)
+    dest = Path(target) / SHIM
+    entry = {'path': str(dest), 'sha256': sha}
+    try:
+        verify_pinned(entry); return entry
+    except ValueError:
+        pass
+    fd, tmp = tempfile.mkstemp(dir=target, prefix='.tmp-')
+    try:
+        with os.fdopen(fd, 'wb') as out, open(source, 'rb') as src:
+            shutil.copyfileobj(src, out); out.flush(); os.fsync(out.fileno())
+        os.chmod(tmp, 0o500)
+        if _sha(tmp) != sha: raise ValueError('build output changed during install')
+        os.replace(tmp, dest)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True); raise
+    return entry
+
+
+def load_shim(data_home):
+    """The installed quiet driver's path, verified, or None."""
+    try: entry = json.loads((_root(data_home) / SHIM_PIN).read_text())
+    except FileNotFoundError: return None
+    verify_pinned(entry)
+    return entry['path']
 
 
 def install(build_dir, data_home):
@@ -64,6 +97,10 @@ def install(build_dir, data_home):
             os.replace(tmp, dest)
         except BaseException:
             Path(tmp).unlink(missing_ok=True); raise
+    # Its own file: installed.json is read strictly, by whatever worktree a run comes from.
+    shim = _pin_shim(build_dir, target)
+    if shim is not None: _atomic_write(root / SHIM_PIN, json.dumps(shim, indent=2).encode(), 0o600)
+    else: (root / SHIM_PIN).unlink(missing_ok=True)
     _atomic_write(root / 'installed.json', json.dumps(entry, indent=2).encode(), 0o600)
     return entry
 

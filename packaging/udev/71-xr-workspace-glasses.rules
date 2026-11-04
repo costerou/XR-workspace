@@ -1,0 +1,14 @@
+# XR Workspace: the VITURE Luma Ultra. Not installed by anything here: docs/usb-drops.md has the commands, and removing this file
+# undoes it.
+#
+# Access. The driver package's 70-viture-xr.rules matches ACTION=="add" only, so on a boot with the glasses already plugged in the
+# "bind" event that follows clears the uaccess tag, and logind never gives the user the device: "Cannot open device, may not
+# connect", then a segfault in the SDK. Measured 2026-11-03: TAGS=:uaccess:seat: but CURRENT_TAGS=:seat:. Upstream issue #129's
+# workaround is the same bug. This rule has no ACTION, so the tag survives every event.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="35ca", MODE="0660", TAG+="uaccess"
+
+# Power. The glasses' own hub and its tracking device never suspend. Not the cause as far as anyone can tell (the hub was never
+# seen suspended, and the disconnects are clean), but one thing fewer to wonder about. The camera is left alone: nothing here uses
+# it, and suspended it draws less.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="1a86", ATTR{idProduct}=="8091", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="35ca", ATTR{idProduct}=="1104", ATTR{power/control}="on"

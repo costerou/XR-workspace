@@ -94,6 +94,7 @@ def execute(consent_path, data_home, progress=None):
                           store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'])
         result.update(complete=run['complete'], renderer_returncode=run['renderer_returncode'], remaining=run['remaining'])
         if run.get('stop_reason'): result['stop_reason'] = run['stop_reason']
+        if run.get('holds'): result['usb_holds'] = run['holds']  # survive.py: drops this run outlived, or waited out
         if run.get('reasons'): result['recovery'] = run['reasons']  # `remaining` lists the same recovery's steps
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)

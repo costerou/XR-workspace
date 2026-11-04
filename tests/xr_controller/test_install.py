@@ -7,6 +7,7 @@ import stat
 import tempfile
 import unittest
 
+from tools.xr_controller import install as install_module
 from tools.xr_controller.install import install, load_installed, verify_pinned
 
 
@@ -69,6 +70,26 @@ class InstallTests(unittest.TestCase):
         path = Path(entry['plugin']['path']); path.unlink()
         path.symlink_to(self.build / 'libxr-ownership.so')
         with self.assertRaisesRegex(ValueError, 'pinned binary changed'): verify_pinned(entry['plugin'])
+
+    def test_the_quiet_driver_is_pinned_beside_the_renderer(self):
+        build, data = Path(self.tmp.name) / 'qb', Path(self.tmp.name) / 'qd'
+        build.mkdir()
+        for name, body in ((install_module.RENDERER, b'r'), (install_module.PLUGIN, b'p'), (install_module.SHIM, b's')): (build / name).write_bytes(body)
+        entry = install(build, data)
+        self.assertEqual(set(entry), {'plugin', 'renderer'})  # installed.json stays what load_installed accepts
+        load_installed(data)
+        shim = install_module.load_shim(data)
+        self.assertEqual(Path(shim).read_bytes(), b's'); self.assertNotIn('qb', shim)
+        os.chmod(shim, 0o700); Path(shim).write_bytes(b'changed')
+        with self.assertRaises(ValueError): install_module.load_shim(data)
+
+    def test_an_install_without_the_quiet_driver_runs_the_plain_one(self):
+        build, data = Path(self.tmp.name) / 'nb', Path(self.tmp.name) / 'nd'
+        build.mkdir()
+        for name, body in ((install_module.RENDERER, b'r'), (install_module.PLUGIN, b'p'), (install_module.SHIM, b's')): (build / name).write_bytes(body)
+        install(build, data)
+        (build / install_module.SHIM).unlink(); install(build, data)
+        self.assertIsNone(install_module.load_shim(data))
 
     def test_install_never_points_into_build_dir(self):
         entry = install(self.build, self.data)

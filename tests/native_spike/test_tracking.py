@@ -55,6 +55,68 @@ class TrackingConsentTests(unittest.TestCase):
             _launch(Client, 'run', 'session', 'DP-2', wayland2, None, popen=spawn, pose_feed=True)
 
 
+class QuietDriverEnvTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.settings = Path(self.tmp.name) / 'quiet-driver.json'
+        patcher = patch.object(tracking, 'QUIET_SETTINGS', self.settings); patcher.start(); self.addCleanup(patcher.stop)
+
+    def env(self, shim='/pinned/libxr-quiet-driver.so'):
+        with patch('tools.xr_controller.install.load_shim', lambda home: shim), patch.dict(os.environ, {}, clear=False):
+            for key in ('LD_PRELOAD', 'XR_QUIET_DOF', 'XR_QUIET_POLLS', 'XR_QUIET_RECONNECT_HOLD_MS'): os.environ.pop(key, None)
+            return tracking._driver_env(Path(self.tmp.name))
+
+    def test_on_by_default_when_installed(self):
+        env = self.env()
+        self.assertEqual(env['LD_PRELOAD'], '/pinned/libxr-quiet-driver.so')
+        self.assertEqual((env['XR_QUIET_DOF'], env['XR_QUIET_POLLS'], env['XR_QUIET_RECONNECT_HOLD_MS']), ('3', '1', '20000'))
+
+    def test_no_shim_is_the_plain_driver(self):
+        self.assertNotIn('LD_PRELOAD', self.env(None))
+
+    def test_a_shim_that_fails_its_pin_is_the_plain_driver(self):
+        def changed(home): raise ValueError('pin mismatch')
+        with patch('tools.xr_controller.install.load_shim', changed):
+            self.assertNotIn('LD_PRELOAD', tracking._driver_env(Path(self.tmp.name)))
+
+    def test_each_setting_undoes_alone(self):
+        self.settings.write_text(json.dumps({'dof3': False}))
+        env = self.env(); self.assertNotIn('XR_QUIET_DOF', env); self.assertEqual(env['XR_QUIET_POLLS'], '1')
+        self.settings.write_text(json.dumps({'reconnect_hold_ms': 0}))
+        env = self.env(); self.assertNotIn('XR_QUIET_RECONNECT_HOLD_MS', env); self.assertEqual(env['XR_QUIET_DOF'], '3')
+
+    def test_enabled_false_is_the_plain_driver(self):
+        self.settings.write_text(json.dumps({'enabled': False}))
+        self.assertNotIn('LD_PRELOAD', self.env())
+
+    def test_a_broken_settings_file_is_the_defaults(self):
+        for text in ('not json', '[1]', json.dumps({'dof3': 'yes', 'reconnect_hold_ms': 'long'})):
+            self.settings.write_text(text)
+            env = self.env()
+            self.assertEqual((env['XR_QUIET_DOF'], env['XR_QUIET_RECONNECT_HOLD_MS']), ('3', '20000'))
+
+
+class AccessTests(unittest.TestCase):
+    def node(self, mode):
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        d = Path(tmp.name) / '005'; d.mkdir()
+        (d / '004').write_bytes(b''); (d / '004').chmod(mode)
+        return Path(tmp.name)
+
+    def test_a_device_this_user_cannot_open_says_what_to_do(self):
+        root = self.node(0o000)
+        if os.access(root / '005/004', os.R_OK): self.skipTest('running as root')
+        with self.assertRaisesRegex(ValueError, 'plug it back in'):
+            tracking._check_access((5, 4), root)
+
+    def test_a_device_it_can_open_passes(self):
+        tracking._check_access((5, 4), self.node(0o600))
+
+    def test_absent_glasses_are_the_drivers_to_wait_for(self):
+        with patch('tools.native_spike.survive.usb_identity', lambda *_: None): tracking._check_access()
+        tracking._check_access((5, 9), self.node(0o600))
+
+
 class RecenterTests(unittest.TestCase):
     def test_recenter_op_sends_recenter_frame_without_view_change(self):
         state = view.ViewState(['XR-1', 'XR-2'])
