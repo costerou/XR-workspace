@@ -386,8 +386,9 @@ faint average of its lines, under half a level at 100%, reaches one level at 200
 drag applies live and saves on release.
 
 *World-locked, always.* The renderer gives the pass `environment_view(relative, reference)`: the head pose, prediction
-included, relative to the recentre reference turned to level. It takes only the reference's heading about gravity (the pose
-feed's z axis), so a recentre with the head tipped leaves the floor flat. The desktops' `view` and the mode controller's anchor
+included, relative to the recentre reference turned to level. It takes only the reference's heading about the world's up (not
+the pose feed's z axis, which is no such thing: [Level bar and corner caps](#level-bar-and-corner-caps)), so a recentre with
+the head tipped leaves the floor flat. The desktops' `view` and the mode controller's anchor
 are never involved, so anchor, follow, locked and a maximized desktop all see the same room. A recentre turns it to the new
 heading, as it does the desktops.
 
@@ -1292,10 +1293,44 @@ after a desktop change, an edit applies as given. Everything here is covered by 
 Every desktop faces you, upright in the canvas frame. That frame is the head's orientation at the last recentre, so a
 recentre with the head tipped to one side leaves every desktop rolled as you see it, and a pitched one leaves desktops
 turned off to the side rolled. In anchor mode, while head tracking runs and no mode blend is in progress, the renderer
-measures each desktop's roll from level (`view.hpp desktop_tilt`: the world's up from the pose feed, `pose.hpp
-canvas_up`, projected onto the desktop at its centre) and reports it on the status socket as
-`{"roll_geometry":{"tilt":[t,...]}}` (hundredths of a degree, counter-clockwise positive, `null` where it is not
-measured; on change, at most every 100 ms). The tilt leaves out the levelling roll, so the supervisor owns that alone.
+measures each desktop's roll from level (`view.hpp desktop_tilt`: the world's up, `pose.hpp canvas_up`, projected onto the
+desktop at its centre) and reports it on the status socket as `{"roll_geometry":{"tilt":[t,...]}}` (hundredths of a degree,
+counter-clockwise positive, `null` where it is not measured; on change, at most every 100 ms). The tilt leaves out the
+levelling roll, so the supervisor owns that alone.
+
+**The world's up is estimated, because the pose feed has no gravity in it.** XRLinuxDriver publishes the head's pose
+relative to the one it captured as calibration finished (`src/driver.c driver_handle_pose`: `conj(reference) * pose`), about
+45 s after XR starts here. The Carina's own pose is gravity-anchored, but that frame stops at the driver; what reaches us has
+the glasses' up at that moment for its z, wherever they were. Until 2026-11-03 the feed's z was taken for gravity. Worn
+straight at the start that was right, which is why nobody saw it: with the glasses set down upside down until calibration
+finished, the feed's z was 165° from the worn glasses' up, so every desktop measured about -165°, the roll that cancels that
+hit the 90° bound, and the middle segment turned the desktop 90° counter-clockwise. (Cody's run of 2026-11-03: the driver log
+shows `Centering screen` at 19:40:03, and the live feed's z read 163 to 168° from the glasses' up for 40 s of wear.)
+
+`PoseState::up_` now holds the world's up in the feed's frame, and `PoseState::reference` gives the recentre reference turned
+into a frame where it is z, so `canvas_up` and the background's floor (`environment_view`), the two things that needed it,
+are right with no change of their own. Two facts about a head carry it:
+
+- At a recentre the glasses are on your head, so up is within 45° of the head's own up. It stays if it is: a tipped recentre
+  is what the bar is for, and up lives in the feed's frame, which a recentre does not move. If not, the feed's z takes over
+  if that is within reach (exact for glasses worn straight at the start), else the head's own up, which has the head's
+  pitch in it.
+- A head is held straight on average, so whichever way it turns, its left-right axis stays level. A small Kalman filter on
+  that one measurement (`learn_up`) corrects a reference that only looked right, and learns pitch as soon as the head has
+  turned a little. It is not an average of the head's own up, which would take on the pitch of whatever you look at.
+
+Replayed through `PoseState`, 3 minutes of Cody's real head motion read from the live feed gave a head roll against the
+estimate of -0.4° mean, 1.8° rms (a head is indeed straight on average); gaze elevation averaged -10°, which an average of
+the head's up would have taken for level. Starts 45 and 90 s apart ended within 2° of each other, and a start on the right
+answer wandered at most 1.9°. The next run, calibrated with the glasses on (20:07:12), had the feed's z 13° from the glasses'
+up: how far off it is really is a matter of where they were at that moment.
+
+Limits, all of them from having no gravity reading. A head held tipped for minutes comes to count as level, which is at
+least level as you see it. Glasses further than 60° from up teach nothing, so setting them down does no harm. A start
+somewhere the feed's z only looks right (in a hand, 30° off) is that wrong until the head has shown it up, about half a
+minute of normal use; a start on the head alone is up to about 6° off for its first half minute. The exact answer would take
+the driver publishing its reference or its absolute pose, which it does not, or the VITURE SDK, whose licence is not
+accepted here.
 
 `free_pointer.OverviewPointer` keeps a levelling roll per desktop (not part of the wire placement; since 2026-11-03 saved
 in the profile's `rolls` with the monitor setup and restored at start, see

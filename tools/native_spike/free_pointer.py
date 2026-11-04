@@ -116,8 +116,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Level bar (glass.hpp level_bar_scale / level_bar_rect / level_bar_segment, mirrored here with the LEVEL_* constants; the
     `glass_contract` ctest compares them; arrow brackets round the top corners until 2026-11-03, Cody's pick of the handle
     mockups): in anchor mode the renderer reports how far each desktop is from level as you see it, gravity from the head
-    tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted, or a pitched one seen off to the side,
-    leaves desktops rolled). This class owns each desktop's levelling roll (`rolls`, hundredths of a degree, saved with the
+    tracker (`roll_geometry`, view.hpp desktop_tilt; the driver publishes no gravity, so it is estimated from the head,
+    pose.hpp PoseState::up_; a recentre with your head tilted, or a pitched one seen off to the side, leaves desktops
+    rolled). This class owns each desktop's levelling roll (`rolls`, hundredths of a degree, saved with the
     layout) and sends it with the bars (the wire's `icons`) in the `roll` frame. Every desktop shows one in the overview,
     level or not, measured or not: a segmented capsule LEVEL_BAR_GAP above its top edge, the pill's counterpart, all in tile
     px on the desktop's surface, so it moves, scales and rolls with the desktop (a resize keeps it the same share of the

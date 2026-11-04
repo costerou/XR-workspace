@@ -17,7 +17,7 @@ MdRgb environment_line_color(MdRgb accent) {
 }
 
 Quat heading(Quat q) {
-    const auto f = apply(quat_to_mat3(q), {1, 0, 0});  // forward (driver x) in the reference frame; z is up (gravity)
+    const auto f = apply(quat_to_mat3(q), {1, 0, 0});  // forward (driver x) in the level frame; z is up
     if (std::hypot(f[0], f[1]) < 1e-4f) return Quat{};  // looking straight up or down: no heading to keep
     const float yaw = std::atan2(f[1], f[0]);
     return Quat{0, 0, std::sin(yaw / 2), std::cos(yaw / 2)};
