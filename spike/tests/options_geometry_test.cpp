@@ -8,7 +8,7 @@ int main(){
  auto panel=xr::options_panel(t);if(panel.width!=600||panel.height!=440||panel.y!=p.y)return 2;
  }
  for(float curve:{0.f,1.f,2.094f})for(float roll:{-.5f,0.f,.5f})for(float distance:{.1f,1.f,2.f}){
- xr::Canvas c{1920,1080,1,.5625};xr::FRect t{300,200,640,360};xr::Placement on{.1f,.2f,distance,curve,roll};auto r=xr::options_maximize(t);auto q=xr::place_point(c,t,on,r.x+r.width/2,r.y+r.height/2);float len=std::sqrt(q.x*q.x+q.y*q.y+q.z*q.z);xr::Vec3 ray{q.x/len,q.y/len,q.z/len};if(!xr::options_maximize_ray(c,t,on,ray))return 4;
+ xr::Canvas c{1920,1080,1,.5625};xr::FRect t{300,200,640,360};xr::Placement on{.1f,.2f,distance,curve,roll};auto r=xr::options_maximize(t);auto q=xr::place_point(c,t,on,r.x+r.width/2,r.y+r.height/2);float len=std::sqrt(q.x*q.x+q.y*q.y+q.z*q.z);xr::Vec3 ray{q.x/len,q.y/len,q.z/len};if(!xr::options_maximize_ray(c,t,on,ray)){std::cerr<<curve<<" "<<roll<<" "<<distance<<"\n";return 4;}
  }
  if(xr::options_row_at(20,88,38,10)!=1||xr::options_row_at(20,392,0,64)!=-1)return 3;
  std::cout<<"{\"width\":600,\"height\":440,\"header\":44,\"tabs_top\":44,\"tabs_height\":36,\"body_top\":88,\"body_bottom\":392,\"row_height\":38,\"pad\":16,\"footer_top\":400,\"gear_width\":28,\"gear_height\":14,\"gear_gap\":12,\"hit_pad\":4,\"maximize_width\":26,\"maximize_gap\":12}\n";
