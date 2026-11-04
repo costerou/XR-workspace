@@ -1,0 +1,36 @@
+test_actual_controller_route_uses_real_wrapper_and_only_fake_client (test_controller_route.ControllerRouteQA.test_actual_controller_route_uses_real_wrapper_and_only_fake_client) ... ok
+test_actual_wrapper_native_sdk_health_and_teardown (test_controller_route.ControllerRouteQA.test_actual_wrapper_native_sdk_health_and_teardown) ... ok
+test_artifact_rejection_closes_already_pinned_sdk_fd (test_controller_route.ControllerRouteQA.test_artifact_rejection_closes_already_pinned_sdk_fd) ... ok
+test_consent_and_projection_default_deny_before_client (test_controller_route.ControllerRouteQA.test_consent_and_projection_default_deny_before_client) ... ok
+test_pro2_recovery_never_enters_legacy_sbs_restore (test_controller_route.ControllerRouteQA.test_pro2_recovery_never_enters_legacy_sbs_restore) ... FAIL
+test_scope_stale_wrong_nonce_and_future_receipt_fail_closed (test_controller_route.ControllerRouteQA.test_scope_stale_wrong_nonce_and_future_receipt_fail_closed) ... ok
+test_successful_explicit_recovery_unloads_retained_bundle_plugin (test_controller_route.ControllerRouteQA.test_successful_explicit_recovery_unloads_retained_bundle_plugin) ... FAIL
+test_terminal_event_in_same_batch_cannot_return_ready_session (test_controller_route.ControllerRouteQA.test_terminal_event_in_same_batch_cannot_return_ready_session) ... ok
+
+======================================================================
+FAIL: test_pro2_recovery_never_enters_legacy_sbs_restore (test_controller_route.ControllerRouteQA.test_pro2_recovery_never_enters_legacy_sbs_restore)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_controller_route.py", line 191, in test_pro2_recovery_never_enters_legacy_sbs_restore
+    legacy_sbs.assert_not_called()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 947, in assert_not_called
+    raise AssertionError(msg)
+AssertionError: Expected 'restore_2d' to not have been called. Called 1 times.
+Calls: [call(<tools.native_spike.sbs.ButtonSbs object at 0x7f01a5cf7e00>)].
+
+======================================================================
+FAIL: test_successful_explicit_recovery_unloads_retained_bundle_plugin (test_controller_route.ControllerRouteQA.test_successful_explicit_recovery_unloads_retained_bundle_plugin)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_controller_route.py", line 205, in test_successful_explicit_recovery_unloads_retained_bundle_plugin
+    client.plugin_unload.assert_called_once_with(str(bundle / 'bin/libxr-ownership.so'))
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 997, in assert_called_once_with
+    raise AssertionError(msg)
+AssertionError: Expected 'plugin_unload' to be called once. Called 0 times.
+
+----------------------------------------------------------------------
+Ran 8 tests in 3.142s
+
+FAILED (failures=2)

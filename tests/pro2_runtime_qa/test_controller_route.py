@@ -165,3 +165,41 @@ class ControllerRouteQA(unittest.TestCase):
                     for number in {n for n in os.listdir('/proc/self/fd') if os.path.exists('/proc/self/fd/' + n)} - before:
                         try: os.close(int(number))
                         except OSError: pass
+
+    def test_pro2_recovery_never_enters_legacy_sbs_restore(self):
+        from contextlib import nullcontext
+        from tools.native_spike import managed
+        with tempfile.TemporaryDirectory(dir=self.build) as tmp:
+            client = Mock(); client.runtime_dir = Path(tmp)
+            client.verified_session.return_value = dict(id='offline')
+            consent = {**self.consent(), 'mode_switch': False, 'sbs_mode': None}
+            path = client.runtime_dir / 'xr-workspace-spike' / consent['run_id'] / 'journal.json'
+            journal = Mock(); journal.path = path
+            journal.broker = {key: consent[key] for key in ('instance', 'output', 'recovery_output')}
+            journal.output_names.return_value = []
+            with patch.object(managed, 'managed_owner', return_value=nullcontext()), \
+                 patch.object(managed.Journal, 'open', return_value=journal), \
+                 patch.object(managed.OwnershipBrokerClient, 'from_journal', return_value=Mock()), \
+                 patch.object(managed, 'validate_physical_pair'), patch.object(managed.privacy, 'wake'), \
+                 patch.object(managed.monitor_rules, 'clear', return_value=[]), \
+                 patch.object(managed.monitor_rules, 'named', return_value=[]), \
+                 patch.object(managed.restore, 'load', return_value=None), patch.object(managed.restore, 'discard'), \
+                 patch.object(managed, 'recover', return_value=Mock(complete=True, remaining=[], reasons=[])), \
+                 patch.object(managed.immersive, 'restore_2d') as legacy_sbs:
+                result = managed.recover_pro2_test_managed(client, consent, path)
+                self.assertTrue(result['complete'])
+                legacy_sbs.assert_not_called()
+
+    def test_successful_explicit_recovery_unloads_retained_bundle_plugin(self):
+        from tools.xr_controller import pro2_test
+        from tools.native_spike import managed
+        with tempfile.TemporaryDirectory(dir=self.build) as tmp:
+            root = Path(tmp); client = Mock(); factory = Mock()
+            with self.fixture_context(root):
+                bundle = self.make_bundle(root)
+                with patch.object(managed, 'recover_pro2_test_managed', return_value=dict(complete=True)):
+                    result = pro2_test.execute(self.consent(), bundle, root, recover=True,
+                                              client_factory=lambda *_: client, session_factory=factory)
+            self.assertTrue(result['complete'])
+            factory.assert_not_called()
+            client.plugin_unload.assert_called_once_with(str(bundle / 'bin/libxr-ownership.so'))
