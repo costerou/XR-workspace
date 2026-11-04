@@ -539,3 +539,6 @@ if(XR_ENABLE_PRESENTATION)
     target_link_libraries(video_bench PRIVATE PkgConfig::MPV)
   endif()
 endif()
+
+# Our own Luma Ultra driver: the wire protocol (spike/driver/include/luma/protocol.hpp).
+include(driver/protocol.cmake)
