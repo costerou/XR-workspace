@@ -3,6 +3,7 @@ Quickshell.Io, which qmltestrunner does not have, so this copies the panel into 
 and runs the runner there."""
 from pathlib import Path
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -139,9 +140,74 @@ TestCase {
 '''
 
 
+RELEASE_TEST = '''import QtQuick
+import QtTest
+import "panel" as Workspace
+TestCase {
+    id: testCase
+    name: "ApprovedExternalSurface"
+    when: windowShown
+    visible: true
+    width: 900; height: 860
+    Component { id: running; Workspace.RunningEditor {} }
+    Component { id: notice; Workspace.SessionNotice {} }
+    Component { id: launcher; Workspace.Launcher {} }
+    function test_approved_surface_and_capability_loss() {
+        const editor = createTemporaryObject(running, testCase, {width:900,
+            snapshot:{state:"running",model:"beast",output:"DP-2",names:["XR-1"],capabilities:["options_runtime_complete"],status:{presented_hz:89.5}}, settings:{}});
+        verify(editor !== null);
+        verify(editor.xrRuntimeComplete);
+        const legacy = findChild(editor, "runtimeEditors");
+        verify(!legacy.visible && !legacy.enabled);
+        for (const name of ["immersiveAll", "immersiveStrengthSlider", "livePlacement"])
+            verify(!findChild(editor, name).visible && !findChild(editor, name).enabled, name);
+        const status = findChild(editor, "measuredStatus");
+        verify(status.visible);
+        verify(status.children.some(child => child.text === "Presented (Hz): 89.5"));
+        const stop = findChild(editor, "stopButton");
+        verify(stop.visible && stop.enabled);
+        const sent = []; editor.request.connect(m => sent.push(m));
+        mouseClick(stop); compare(sent, [{op:"stop"}]);
+        editor.snapshot = {state:"running",capabilities:[]};
+        verify(legacy.visible && legacy.enabled);
+        // No renderer measurements/capabilities are needed for emergency Stop.
+        verify(stop.visible && stop.enabled);
+        mouseClick(stop); compare(sent.length, 2);
+    }
+    function test_recover_independent_of_approved_runtime() {
+        const item = createTemporaryObject(notice, testCase, {width:900,snapshot:{state:"recovery-needed",run_id:"run"}});
+        const recover = findChild(item, "recoverButton");
+        verify(recover.visible && recover.enabled);
+        const sent = []; item.request.connect(m => sent.push(m));
+        mouseClick(recover); compare(sent, [{op:"begin_recover"}]);
+        item.snapshot = {state:"running"}; verify(!recover.visible);
+        item.snapshot = {state:"cli-recovery"}; verify(!recover.visible);
+    }
+    function test_startup_preserved_in_approved_build() {
+        const item = createTemporaryObject(launcher, testCase, {width:900,
+            snapshot:{state:"idle",fallback:"DP-1",fallback_candidates:["DP-1"],model:"beast"},settings:{tracking:true,desktops:[]}});
+        const start = findChild(item, "startButton");
+        verify(start.visible && start.enabled);
+        const sent = []; item.request.connect(m => sent.push(m));
+        mouseClick(start); compare(sent, [{op:"begin_start"}]);
+        findChild(item, "startupOptionsToggle").clicked();
+        verify(findChild(item, "startupOptions").visible);
+        verify(findChild(item, "trackingOption").visible);
+    }
+}
+'''
+
+
 @unittest.skipUnless(os.path.exists(RUNNER), 'needs qmltestrunner')
 class RunningEditorTests(unittest.TestCase):
+    def test_future_approved_external_surface(self):
+        # A reviewed-build fixture in a disposable copy; never changes production approval.
+        self.run_qml(RELEASE_TEST, approved=True, totals=5)
+
     def test_the_3d_row(self):
+        self.run_qml(TEST, approved=False, totals=10)
+
+    def run_qml(self, qml, approved, totals):
         with tempfile.TemporaryDirectory() as tmp:
             commons = Path(tmp) / 'imports' / 'qs' / 'Commons'
             commons.mkdir(parents=True)
@@ -149,11 +215,16 @@ class RunningEditorTests(unittest.TestCase):
             (commons / 'Color.qml').write_text(COLOR)
             shutil.copytree(PLUGIN, Path(tmp) / 'panel', ignore=shutil.ignore_patterns('tests', '__pycache__'))
             (Path(tmp) / 'panel' / 'VideoControls.qml').write_text(VIDEO)
-            (Path(tmp) / 'tst_running.qml').write_text(TEST)
+            model = Path(tmp) / 'panel' / 'Model.js'
+            # Always exercise the absent-approval path, even after a future release activation.
+            record = '{qa_commit:"' + 'a'*40 + '",lead_commit:"' + 'b'*40 + '",inventory_rows:116}' if approved else 'null'
+            model.write_text(re.sub(r'const OPTIONS_EQUIVALENCE = .*?;',
+                                    'const OPTIONS_EQUIVALENCE = ' + record + ';', model.read_text(), count=1))
+            (Path(tmp) / 'tst_running.qml').write_text(qml)
             done = subprocess.run([RUNNER, '-input', tmp, '-import', str(Path(tmp) / 'imports')], capture_output=True, text=True, timeout=60,
                                   env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'})
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn('Totals: 10 passed', done.stdout)  # initTestCase, the three tests, cleanupTestCase
+        self.assertIn(f'Totals: {totals} passed', done.stdout)
 
 
 if __name__ == '__main__':
