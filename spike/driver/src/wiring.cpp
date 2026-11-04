@@ -86,19 +86,31 @@ public:
         repeat_ = false;
         std::optional<ImuSample> sample = parse_imu(packet);
         if (!sample) return std::nullopt;
+        // The stream outlives any reader, and the glasses keep the next packet back for whoever reads next, however long that
+        // takes. Taken as live it is a false gap in `lost`, a false time jump, and with a saved bias a start tilted to wherever
+        // the glasses were then: fusion's first sample sets its attitude. Measured 2026-11-04: 24 degrees off, settling over
+        // 10 s. Skipping it costs 1 ms when it happens to be fresh. Capture: docs/capture-findings.md.
+        if (first_of_connection_) {
+            first_of_connection_ = false;
+            repeat_ = true;
+            return std::nullopt;
+        }
         temperature_ = luma_temperature_c(packet);
         if (tracker_.observe(*sample).verdict == SequenceTracker::Verdict::accepted) return sample;
         repeat_ = true;
         return std::nullopt;
     }
-    void new_connection() override { tracker_.reset(); }
+    void new_connection() override {
+        tracker_.reset();
+        first_of_connection_ = true;
+    }
     std::uint64_t lost_samples() const override { return tracker_.lost_total(); }
     bool last_was_repeat() const override { return repeat_; }
     std::optional<float> temperature_c() const override { return temperature_; }
 private:
     SequenceTracker tracker_ = luma_sequence_tracker();
     std::optional<float> temperature_;
-    bool repeat_ = false;
+    bool repeat_ = false, first_of_connection_ = true;
 };
 }
 

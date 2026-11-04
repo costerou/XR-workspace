@@ -73,6 +73,9 @@ and says why (F9). The 3DoF test never does, because a test that quietly ran the
 **Fallback covers the start only.** If the stream stalls after `luma: calibrated`, the session stays on the new driver with the
 feed marked stale while the daemon retries, and Cody has to choose Standard and restart.
 
+The live bench run of 2026-11-04 passed stage G with `--start stream` alone: one command, 1000 Hz, no camera traffic, all four
+signs right. At rest on the desk, true pitch is 21 degrees, which the feed reads as 12.5 with the mount.
+
 Two pieces are merged but deliberately not wired in:
 
 - **`luma::Predictor`.** Scored on the real session 25 ms ahead, head moving: no prediction 1.35 degrees rms, the renderer's

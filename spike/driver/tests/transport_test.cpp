@@ -1051,7 +1051,7 @@ void test_whole_driver_on_a_fake_kernel() {
     glasses.join();
 
     const auto stats = daemon.stats();
-    CHECK(stats.samples == kSamples);
+    CHECK(stats.samples == kSamples - 1);  // the first packet of a connection is never used
     CHECK(stats.bad_packets == 0);
     CHECK(stats.commands == 1);
     CHECK(sink.published > 1000);

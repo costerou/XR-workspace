@@ -734,6 +734,49 @@ void test_bias_store(const std::filesystem::path& dir) {
     CHECK(!wild.bias());
 }
 
+std::vector<std::uint8_t> bytes_of(const char* hex) {
+    std::vector<std::uint8_t> out;
+    for (const char* p = hex; *p;) {
+        if (*p == ' ') { ++p; continue; }
+        out.push_back(std::uint8_t(std::strtoul(std::string(p, 2).c_str(), nullptr, 16)));
+        p += 2;
+    }
+    return out;
+}
+
+// Captured 2026-11-04 at a real restart, with the stream running on through it. The glasses keep the next packet back for
+// whoever reads next, so the first thing a new reader gets is 5 s old, then the live stream, seq 5003 on.
+void test_the_packet_held_for_the_next_reader_is_not_used() {
+    const auto decoder = wiring::decoder();
+    decoder->new_connection();
+    CHECK(!decoder->decode(bytes_of("aa 8f 00 88 d7 2d 10 00 9e 22 c8 02 fe ff fa ff 04 00 6e 00 6a f1 dd e3 e8 05 00 00")));
+    CHECK(decoder->last_was_repeat());  // neither junk nor a sample
+    CHECK(decoder->decode(bytes_of("aa 8f 00 88 62 41 10 00 10 e6 c8 02 fc ff fa ff 05 00 66 00 6c f1 e9 e3 10 06 00 00")));
+    CHECK(decoder->decode(bytes_of("aa 8f 00 88 63 41 10 00 1a e6 c8 02 ff ff fb ff 04 00 6d 00 75 f1 f2 e3 00 06 00 00")));
+    CHECK(decoder->lost_samples() == 0);  // nothing was lost: no reader was there to lose it
+    decoder->new_connection();            // the same again after any reconnect
+    CHECK(!decoder->decode(bytes_of("aa 8f 00 88 d7 2d 10 00 9e 22 c8 02 fe ff fa ff 04 00 6e 00 6a f1 dd e3 e8 05 00 00")));
+    CHECK(decoder->lost_samples() == 0);
+}
+
+void test_a_saved_bias_start_takes_its_tilt_from_the_live_stream() {
+    // Fusion's first sample sets its attitude, and with a saved bias it is calibrated at once and corrects slowly after that.
+    wiring::BiasStore store("/nonexistent/bias");
+    store.remember({0, 0, 0});
+    const auto estimator = wiring::estimator_with(store);
+    const auto decoder = wiring::decoder();
+    decoder->new_connection();
+    const auto feed = [&](const ImuSample& sample) -> std::optional<PoseOut> {
+        const auto decoded = decoder->decode(wiring::stand_in_packet(sample));
+        if (!decoded) return std::nullopt;
+        return estimator->update(*decoded);
+    };
+    CHECK(!feed(ImuSample{1 * kMs, {0, 0, 0}, {0, 0, -9.8f}, std::nullopt, 100}));     // held since the glasses lay upside down
+    const auto first = feed(ImuSample{9 * kMs, {0, 0, 0}, {0, 0, 9.8f}, std::nullopt, 5000});  // now they are level
+    CHECK(first && first->calibrated);
+    if (first) CHECK(std::fabs(first->q.x) < 0.01f && std::fabs(first->q.y) < 0.01f);  // level from the first pose out
+}
+
 void test_a_long_running_driver_hands_over_its_bias() {
     // The driver outlives its XR runs, so the bias must reach the store with the estimator still alive.
     wiring::BiasStore store("/nonexistent/bias");
@@ -812,7 +855,7 @@ void test_feature_host_refuses_anything_that_sends() {
 void test_replay_clean() {
     Replay r; replay(r, capture(3000));
     CHECK(r.end == DaemonEnd::replay_ended);
-    CHECK(r.stats.samples == 3000);
+    CHECK(r.stats.samples == 2999);  // the first packet of a connection is never used
     CHECK(r.sink.published >= 1400 && r.sink.published <= 1510);  // real Fusion: 1.5 s still, then everything is published
     CHECK(r.commands == 0);           // samples from the first moment: listened, sent nothing. No stop when a replay runs out
     CHECK(count(r.lines, "luma: stopped reason=replay-end") == 1);
@@ -1054,6 +1097,8 @@ int main(int argc, char** argv) {
     RUN(test_real_capture_format, dir);
     RUN(test_bias_store, dir);
     RUN(test_feature_host_refuses_anything_that_sends);
+    RUN(test_the_packet_held_for_the_next_reader_is_not_used);
+    RUN(test_a_saved_bias_start_takes_its_tilt_from_the_live_stream);
     RUN(test_a_long_running_driver_hands_over_its_bias);
     RUN(test_a_poor_bias_is_not_kept);
     RUN(test_stats_line);

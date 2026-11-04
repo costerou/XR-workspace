@@ -95,7 +95,8 @@ public:
     virtual std::optional<ImuSample> decode(std::span<const std::uint8_t> packet) = 0;
     virtual void new_connection() {}
     virtual std::uint64_t lost_samples() const { return 0; }
-    // The last packet decode() turned down was a repeat of an earlier one, not junk. The Ultra sends the first 60 or so twice.
+    // The last packet decode() turned down was not junk: the Ultra sends the first 60 or so twice, and the first of a connection
+    // may be left over from whoever read last.
     virtual bool last_was_repeat() const { return false; }
     virtual std::optional<float> temperature_c() const { return std::nullopt; }  // from the newest packet, when it has one
 };

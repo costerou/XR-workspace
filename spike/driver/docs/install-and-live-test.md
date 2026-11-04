@@ -12,7 +12,7 @@ controller and the panel.
 |---|---|---|
 | `xr-native-spike` | `6310f1270327` | Same |
 | `libxr-ownership.so` | `9587ca186ac1` | Same |
-| `xr-luma-driver` | `94c527eda35c` | New |
+| `xr-luma-driver` | `66028d8c3fb0` | New |
 
 ## Install
 
@@ -159,6 +159,27 @@ rm "$HOME/.config/viture-workspace/luma-driver-flags"
 
 Unchanged from `docs/tracking-3dof-ab.md`: pick 3DoF test in the same box. It never falls back, on purpose: a failure stops the
 start and says why, because a test run that quietly used the standard driver would give a false result.
+
+## Updating just the driver
+
+For a build that changes only `xr-luma-driver`. **Never during a run:** XR must be stopped from the panel first. The driver stays
+running between runs, so stop it here, or the gate refuses. With `LIVE`, `BUILD`, `SHA`, `STATE` and `xr_status` set as in A1, and
+`installed.json` copied aside as in A2:
+
+```sh
+test -z "$(systemctl --user list-units 'viture-xr-*' --no-legend)" \
+  && xr_status | grep -q "'state': 'idle'" \
+  && (cd "$LIVE" && python3 -m tools.native_spike tracking stop) \
+  && ! pgrep -x xrDriver && ! pgrep -x xr-luma-driver \
+  && git -C "$LIVE" fetch -q origin \
+  && git -C "$LIVE" checkout -q --detach "$SHA" \
+  && (cd "$LIVE" && python3 -m tools.xr_controller install --build "$BUILD") \
+  && systemctl --user restart viture-workspace-controller.service
+echo "install=$?"; sleep 3; xr_status
+```
+
+Pass: `install=0`, `idle`, and `luma` still available. The next XR start runs the new pin. The panel needs no restart unless the
+hand-over says its QML changed.
 
 ## Going back
 

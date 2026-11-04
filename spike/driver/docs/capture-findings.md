@@ -165,6 +165,27 @@ acceleration tracks yaw acceleration with correlation 0.93, putting the sensor 8
 is behind the glasses, so -y is forward. This needs no moves or cue timing, only that the accelerometer reports true specific force.
 Step G6 is the direct check.
 
+## The stream outlives the driver, and the glasses hold one packet back
+
+Once started, the stream keeps running with no reader attached and needs no second start. The glasses keep the next packet
+back for whoever reads next, however long that takes. In the bench capture, at a restart 5 s after the last read:
+
+| Host time | Sequence | What it is |
+|---|---|---|
+| 79.98 s | 11734 | The last packet the old reader took |
+| 84.99 s | 11735 | The next one in line: **5 s old** |
+| 84.99 s, 0.5 ms on | 16738 | The live stream |
+
+Taken as live, that one packet did three things. `lost` read 5002, and 30813 after a 686 s wait, which is the gap wrapped at 65536.
+Nothing was lost, since no reader was attached. `time_jumps` read 1. And it set fusion's attitude: with a saved bias the driver is
+calibrated from the first sample and corrects slowly after that, so the session starts tilted to wherever the glasses were when the
+last reader left. In G6b, on a still desk at a true pitch of 21.0 degrees, the feed read 24.7 six seconds in and settled with a 3.2 s
+time constant, which puts the start about 24 degrees off. So the driver never uses the first packet of a connection.
+
+With the stream running and nothing new to send, the glasses answer about half of the host's 500 µs polls with an empty packet, so
+the driver wakes about 2000 times a second, not 1000. Transport ignores them. The SDK's reads showed none of these, for reasons
+not worked out.
+
 ## Replay through the real daemon
 
 `xr-luma-driver --replay` on the sanitised capture, with real parser, tracker, Fusion and Publisher:
