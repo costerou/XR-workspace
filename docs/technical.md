@@ -756,6 +756,13 @@ The size has limits and is saved like the other placements:
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - A resize never changes the glass pill's (or its open panel's) size: it moves with the desktop's bottom edge and stays
   the same size on screen (`view.hpp glass_to_desktop`, mirrored by `free_pointer.glass_to_desktop` for hit testing).
+  It stays 4 px, as seen, under the selected desktop's border. The border is tile px, so it grows with the desktop (60 px
+  at ten times the size), which is why glass hangs from the border's outer edge rather than the desktop's bottom edge:
+  from there the gap is the same at every size, and nothing else changes at the default size. Every desktop's glass
+  hangs there, selected or not, so selecting a desktop never moves its pill: a bigger desktop that isn't selected shows
+  the empty strip where its border would be. The pill's grab zone runs up to the desktop's bottom edge over that strip
+  and stops there (`free_pointer.on_pill`), and beside it the edge still resizes. While a slider is held the open panel
+  stays on its press-time surface, so a dragged Distance moves the desktop's border past it until you let go.
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
 - Growing pushes the desktops round it out of its way ([Bumping](#bumping-desktops-out-of-the-way)); with no room left

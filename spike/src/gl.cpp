@@ -48,7 +48,7 @@ const char* kGlowFragment =
 const char* kPanelFragment =
     "precision mediump float; varying vec2 v; uniform sampler2D tex; uniform float alpha;\n"
     "void main() { gl_FragColor = texture2D(tex, v) * alpha; }\n";
-constexpr float kBorderPx = 6.f, kGlowRadiusPx = 40.f, kGlowSigmaPx = 12.f, kGlowIntensity = 0.18f;
+constexpr float kGlowRadiusPx = 40.f, kGlowSigmaPx = 12.f, kGlowIntensity = 0.18f;
 GLuint compile(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, nullptr); glCompileShader(shader);

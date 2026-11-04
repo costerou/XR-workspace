@@ -672,7 +672,8 @@ int main() {
 
     // A resize never changes the glass's size: from half to ten times the desktop's size (distance 2 .. 0.1, flat or
     // curved, at its slot or turned round you) the pill and the panel appear exactly as big as at distance 1, and the
-    // pill stays kGlassPillGap (as seen) under the desktop's bottom edge, which moves with the resize.
+    // pill stays kGlassPillGap - kBorderPx (as seen) under the selected desktop's border, which moves and grows with the
+    // resize.
     {
         const Canvas cv{1920, 1200, 0.36f, 0.225f};
         const FRect tile{666.67f, 435, 586.67f, 330};
@@ -709,8 +710,8 @@ int main() {
                 if (p.x == 0 && p.curvature == 0) {  // flat at its slot: exactly the same on the canvas, and the gap under
                     const auto c = canvas_size(p, pill), e = canvas_size(p, panel), e1 = canvas_size({}, panel);  // the (resized) bottom edge too
                     CHECK(near(c[0], pill1[0], 0.05f) && near(c[1], pill1[1], 0.05f) && near(e[0], e1[0], 0.1f) && near(e[1], e1[1], 0.1f));
-                    const float bottom = seen(p, {tile.x + tile.width / 2, tile.y + tile.height})[1];
-                    CHECK(near(seen(p, glass_to_desktop(tile, p, pill.x + pill.width / 2, pill.y))[1] - bottom, kGlassPillGap, 0.05f));
+                    const float border = seen(p, {tile.x + tile.width / 2, tile.y + tile.height + kBorderPx})[1];
+                    CHECK(near(seen(p, glass_to_desktop(tile, p, pill.x + pill.width / 2, pill.y))[1] - border, kGlassPillGap - kBorderPx, 0.05f));
                 }
             }
         // The desktop itself does scale (ten times at the floor) while its glass does not.
@@ -723,8 +724,54 @@ int main() {
             const Vec3 w = place_point(cv, tile, huge, at[0], at[1]);
             CHECK(near(v.world.x, w.x, 1e-5f) && near(v.world.y, w.y, 1e-5f) && near(v.world.z, w.z, 1e-5f));
             CHECK(near(v.px, pill.x, 1e-2f) || near(v.px, pill.x + pill.width, 1e-2f));
+            CHECK(near(v.py, pill.y, 1e-2f) || near(v.py, pill.y + pill.height, 1e-2f));
         }
         CHECK(glass_to_desktop(tile, {}, 700, 800) == (std::array<float, 2>{700, 800}));  // distance 1: the tile's own px
+    }
+
+    // The glass never lies on the border. The border is tile px, so it grows with its desktop; the glass keeps its apparent
+    // size, gap included. So the glass hangs from the border's outer edge: at every size, curvature, roll and place, and all
+    // along the morph, its top is the same gap (as seen) under that edge, which is tile px kBorderPx under the desktop.
+    {
+        const Canvas cv{1536, 960, 0.36f, 0.225f};
+        auto hangs_under_the_border = [&](const FRect& tile, const Placement& p) {
+            const float edge = tile.y + tile.height + kBorderPx, want = (kGlassPillGap - kBorderPx) * p.distance;
+            for (const float e : {0.f, 0.25f, 0.5f, 0.75f, 1.f}) {
+                const FRect r = glass_morph(tile, e);
+                for (const float gx : {r.x, r.x + r.width / 2, r.x + r.width}) {
+                    const auto q = glass_to_desktop(tile, p, gx, r.y);
+                    CHECK(q[1] > edge && near(q[1] - edge, want, 2e-3f));
+                }
+            }
+        };
+        // The real rows, one to four desktops, 16:9 to 32:9: the drawn pill stays out of every corner's cap, in any state.
+        auto clear_of_the_caps = [&](const FRect& tile, const Placement& p) {
+            const FRect pill = glass_pill(tile);
+            const auto a = glass_to_desktop(tile, p, pill.x, pill.y), b = glass_to_desktop(tile, p, pill.x + pill.width, pill.y + pill.height);
+            for (const std::uint32_t corner : {2u, 3u}) {
+                const FRect c = corner_cap_rect(tile, corner);
+                CHECK(b[0] <= c.x || a[0] >= c.x + c.width || b[1] <= c.y || a[1] >= c.y + c.height);
+            }
+        };
+        for (const std::size_t desktops : {1u, 2u, 3u, 4u})
+            for (const Size shape : {Size{1920, 1080}, Size{2560, 1080}, Size{3840, 1080}}) {
+                const std::vector<Size> sizes(desktops, shape);
+                for (const FRect& tile : overview_layout(sizes, 1536, 960, 40))
+                    for (const float d : {0.1f, 0.15f, 0.25f, 0.4f, 0.55f, 0.6f, 0.65f, 0.8f, 1.f, 1.25f, 1.5f, 2.f})
+                        for (const float curve : {0.f, 1.f, 2.0944f})
+                            for (const float roll : {0.f, 0.3f, -0.74f, 1.5708f})
+                                for (const std::array<float, 2> orbit : {std::array<float, 2>{0, 0}, std::array<float, 2>{0.3f, -0.1f}}) {
+                                    const Placement p{orbit[0], orbit[1], d, curve, roll};
+                                    hangs_under_the_border(tile, p);
+                                    clear_of_the_caps(tile, p);
+                                }
+            }
+        // The last moment of a zoom, while the pills still show (below 1%: wayland.cpp): the same on what is drawn then.
+        const std::vector<Size> sizes(3, Size{1920, 1080});
+        const auto overview = overview_layout(sizes, 1536, 960, 40), now = blended_layout(sizes, 1536, 960, 40, 0.009f, 1.f);
+        const std::vector<Placement> resized{{0, 0, 0.6f, 0, 0}, {0, 0, 0.3f, 1.f, 0.2f}, {0.1f, 0, 1.5f, 0, 0}};
+        const auto drawn = zoomed_placements(cv, overview, now, resized, 0.009f, 1.f);
+        for (std::size_t i = 0; i < now.size(); ++i) hangs_under_the_border(now[i], drawn[i]);
     }
 
     // A held slider: the open panel is drawn on the press-time surface, the desktop's own placement is untouched.
