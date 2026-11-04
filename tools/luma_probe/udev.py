@@ -42,7 +42,7 @@ def _names_usb_device(line):
     return 'SUBSYSTEM=="usb"' in line and 'KERNEL==' not in line
 
 
-def covers(lines):
+def covers(lines, product_id=GLASSES_PRODUCT):
     """Which routes a rule grants for good: usb is the glasses' /dev/bus/usb node, hidraw any VITURE hidraw node.
 
     A usb rule limited to ACTION=="add" does not count. Seen after one reboot, 2026-11-03: TAGS=:uaccess:seat:
@@ -56,9 +56,9 @@ def covers(lines):
         if not _VENDOR.search(line) or not _GRANT.search(line):
             continue
         product = _PRODUCT.search(line)
-        if _names_usb_device(line) and _ADD_ONLY not in line and (not product or product.group(1) == GLASSES_PRODUCT):
+        if _names_usb_device(line) and _ADD_ONLY not in line and (not product or product.group(1) == product_id):
             found['usb'] = True
-        if 'SUBSYSTEM=="hidraw"' in line:
+        if 'SUBSYSTEM=="hidraw"' in line and (not product or product.group(1) == product_id):
             found['hidraw'] = True
     return found
 
