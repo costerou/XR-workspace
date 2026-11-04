@@ -24,6 +24,7 @@ from tools.native_spike import (bind_check, bump, free_pointer as fp, input_lock
                                 view, xr_control)
 from test_free_pointer import PointerBase, X1  # the free pointer driven like the sampler would (same directory)
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, validate_placements
+from control_wire import in_order
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads((ROOT / 'tests/native_spike/fixtures/overview_pointer_payloads.json').read_text())
@@ -496,6 +497,7 @@ def run_control(g=G, placements=None, store=None):
 
 
 def frames(out):
+    in_order(out)
     return [json.loads(line) for line in (out or b'').splitlines() if line]
 
 

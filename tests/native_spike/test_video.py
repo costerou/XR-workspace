@@ -14,12 +14,14 @@ from tools.native_spike import video, view, xr_control
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
 from tools.native_spike.supervisor import Supervisor, _send_frame
+from control_wire import in_order
 
 FIXTURE = Path(__file__).with_name('fixtures') / 'video_payloads.json'
 NAMES = ['XR-1', 'XR-2', 'XR-3']
 
 
 def frames(data):
+    in_order(data)
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
 

@@ -110,7 +110,7 @@ def _restore_output(client, consent, output):
     return restore
 
 
-def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None):
+def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None, faults=None):
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
@@ -131,7 +131,7 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
                           adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output),
-                          sbs_mode=consent.get('sbs_mode'))
+                          sbs_mode=consent.get('sbs_mode'), faults=faults)
 
 
 # The broker's verdicts on an output itself (ownership.OwnershipBrokerClient.verify): it was not made live, or did not
@@ -403,7 +403,7 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         if not expected: tell('The glasses are back. XR picks up where it was.')
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None, sbs_mode=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None, faults=None, sbs_mode=None):
     session = journal.session
     holds = survive.Holds()
     holds.revive = (lambda: survive.revive_tracking(client.runtime_dir, tracking)) if pose_feed else (lambda: True)
@@ -458,7 +458,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                     return _launch(client, journal.run_id, session, output, wayland, None,
                                    guard=manager.guard() if manager is not None else guard,
                                    capture=[s['name'] for s in live] if capture else capture,
-                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report, **depth_fd)
+                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report, faults=faults, **depth_fd)
             # 3D's two ends, on a run with a view control (any capture run): VideoControl hands these through.
             run_3d = getattr(control, 'immersive_run', None)
             depth_memory = getattr(control, 'depth_memory', None)

@@ -1351,13 +1351,12 @@ class ViewControl:
                 return self.state.apply_menu(op)
             out = self._menu_update(change)
             return (b''.join(frames) + out) or None
+        # Frames go out in the order they were built: each takes the next request id, and an id below the last is a replay.
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
-        level = self.state.menu_desktop if op == 'menu_reset' and self.state.menu_open else None
-        levelled = b''
-        if level is not None and self.overview_pointer is not None:  # R: its rotation back to level too, not only its placement.
-            levelled = self.overview_pointer.level(level)  # First: bumping counts the roll, and it should not push for one going away
+        if op == 'menu_reset' and self.state.menu_open and self.overview_pointer is not None:  # R: its rotation back to level too,
+            out += self.overview_pointer.level(self.state.menu_desktop)  # first: bumping counts the roll, and should not push for one going away
         out += self._menu_update(lambda: self.state.apply_menu(op))
-        return (out + levelled) or None
+        return out or None
 
     # --- the overview free pointer's pill clicks and sliders (free_pointer.OverviewPointer) ------------------------------
     def follow_focus(self):

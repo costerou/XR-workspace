@@ -187,6 +187,19 @@ if(XR_ENABLE_IPC)
   add_test(NAME placement_menu_ipc COMMAND placement_menu_ipc_test
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/placement_menu_payloads.json")
   set_tests_properties(placement_menu_ipc PROPERTIES SKIP_RETURN_CODE 77)
+  # The real supervisor's frames through the renderer's own control checks (tests/native_spike/test_control_wire.py).
+  add_executable(control_wire_check tests/control_wire_check.cpp)
+  target_link_libraries(control_wire_check PRIVATE xr_ipc nlohmann_json::nlohmann_json)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(control_wire_check PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  find_package(Python3 COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME control_wire COMMAND "${Python3_EXECUTABLE}" -m unittest test_control_wire test_control_panel_fuzz
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    set_tests_properties(control_wire PROPERTIES TIMEOUT 120
+      ENVIRONMENT "CONTROL_WIRE_CHECK=$<TARGET_FILE:control_wire_check>;PYTHONPATH=.:tests/native_spike")
+  endif()
 endif()
 
 if(XR_ENABLE_PRESENTATION)
@@ -593,6 +606,18 @@ if(XR_ENABLE_PRESENTATION)
     add_test(NAME capture_e2e_tracked COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --tracking
       --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_tracked PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    # A bad control frame costs that frame, never the session (ipc.hpp ControlStream): the frame that ended a session on
+    # 2026-11-04 and every other kind, through the real renderer as it ships. Every other test here runs it with the strict
+    # rule, which the second test proves does stop it.
+    add_test(NAME capture_e2e_bad_control COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
+      --bad-control --control-errors log --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_bad_control PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    add_test(NAME capture_e2e_bad_control_fatal COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
+      --bad-control --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_bad_control_fatal PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    add_test(NAME capture_e2e_control_closed COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
+      --close-control --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_control_closed PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     # A USB drop against a simulated driver feed: 20 s with two disconnects, then back on a new reference. The real renderer
     # stays up, says so, and resumes. With the feed gone, losing the output still ends it.
     add_executable(feed_script tests/feed_script.cpp)

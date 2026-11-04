@@ -527,6 +527,7 @@ It notices when:
 - head tracking is lost
 - Hyprland crashes, or the XR plugin stops working
 - a session dies or stops answering, or Recover doesn't finish
+- XR Workspace hits an internal error, even one it could carry on from
 
 If the glasses' USB drops and the picture stays up, the session carries on. The view holds still, a small card says
 **Reconnecting tracking...**, and when tracking is back the view carries on from where it was. After 60 s without it the

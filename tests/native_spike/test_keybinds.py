@@ -13,6 +13,7 @@ from unittest import mock
 from tools.native_spike import bind_check, hyprland, keybinds as kb, send, video, view, xr_control
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
+from control_wire import in_order
 
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = ['XR-1', 'XR-2', 'XR-3']
@@ -100,6 +101,7 @@ OURS_ON_DELETE = 'bind\n\tmodmask: 12\n\tsubmap: \n\tkey: Delete\n\tkeycode: 0\n
 
 
 def frames(data):
+    in_order(data)
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
 

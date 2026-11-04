@@ -100,9 +100,10 @@ row slot and the zoomed desktop comes flat in front of you (`zoomed_placement`).
 - Drawn only in the overview (any zoom hides them), back to front with the open panel's desktop last (the supervisor
   hit-tests the open panel first). An open panel is drawn even when `move_handle.visible` is false. The CPU fallback
   renderer draws none of it.
-- A frame with a malformed payload is dropped (`invalid_menu`, `invalid_move_handle`) and the run continues. Any other
-  malformed or replayed frame still ends the run. The old head-locked menu card, its `menu_pointer` op (now rejected)
-  and its `menu_geometry` status line are gone.
+- A frame the renderer refuses is logged (`control: refused frame ...`), counted in the exit report (`control_stream`) and
+  dropped, and the run continues (`xr::ControlStream`, ipc.hpp). Only tests stop on it: `--control-errors fatal`, which
+  `capture_e2e_bench` passes unless told otherwise. The old head-locked menu card, its `menu_pointer` op (now rejected) and
+  its `menu_geometry` status line are gone.
 - `capture_report` includes `placement_menu` (`open`, `desktop`, `shown`, `hidden`, `renders`).
 - Tests: `glass` (geometry, look, panel content, animation and its hold until the overview, draw order, a held
   slider's surface), `glass_render` (shader against its CPU mirror on a surfaceless EGL context; skipped without

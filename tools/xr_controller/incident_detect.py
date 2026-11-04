@@ -13,12 +13,16 @@ import json
 import re
 import signal as signals
 
+from tools.native_spike.faults import RUN as RUN_FAULT
 from tools.native_spike.tracking import SCOPES
 
 # Every kind, most telling first: an incident is named after the highest of its signals (Episode.kind). A crash outranks
-# the USB drop that may have set it off, because the crash is the part software can fix.
-KINDS = ('hyprland-crash', 'renderer-crash', 'usb-drop', 'video-lost', 'plugin-failed', 'watchdog', 'controller-restart', 'run-killed',
-         'run-failed', 'capture-failed', 'present-stall', 'tracking-lost', 'renderer-exit', 'recovery-failed', 'start-failed')
+# the USB drop that may have set it off, because the crash is the part software can fix, and so does a renderer that lost its
+# control channel: the tracking loss the driver logs a moment later is what that looks like from outside (2026-11-04 03:21).
+# The last software kinds are for sessions that carried on, so anything else that happened names the report.
+KINDS = ('hyprland-crash', 'renderer-crash', 'control-closed', 'usb-drop', 'video-lost', 'plugin-failed', 'watchdog', 'controller-restart', 'run-killed',
+         'run-failed', 'capture-failed', 'present-stall', 'tracking-lost', 'renderer-exit', 'control-refused', 'supervisor-fault',
+         'recovery-failed', 'start-failed')
 
 STALL_S = 5.0            # no frames for this long is a stall
 COLLAPSE_RATIO = 0.4     # under this share of the session's usual rate; a halving to 60 under load is not a collapse
@@ -325,9 +329,32 @@ def _unit_text(unit):
     return "the run's unit ended without reporting a result"
 
 
-def classify_end(at, result, *, started=True, stopped=False, stranded=False, unit=None):
+_CONTROL_CLOSED = re.compile(r'control: supervisor channel closed')  # main.cpp; before 2026-11-04, "closed or invalid"
+
+
+def _control_closed_at(lines, at):
+    """When the renderer said its control channel closed, from a line of the run's journal (exit code 1 alone says nothing),
+    `at` if the line has no time it can read, None if it never said so. Its own time puts it in the timeline ahead of what
+    followed from it: the monitor only hears of the end a moment later."""
+    for line in reversed(list(lines)):
+        if not _CONTROL_CLOSED.search(line): continue
+        try: return datetime.datetime.fromisoformat(line.split(' ', 1)[0]).timestamp()
+        except ValueError: return at
+    return None
+
+
+def faults_of(result):
+    """The supervisor faults a run's result holds (faults.py), in one shape whatever the file held: no odd result may cost a report."""
+    faults = (result or {}).get('faults')
+    if not isinstance(faults, list): return []
+    return [dict(where=f['where'], count=f.get('count'), traceback=[str(line) for line in f['traceback']]) for f in faults
+            if isinstance(f, dict) and isinstance(f.get('where'), str) and isinstance(f.get('traceback'), list)]
+
+
+def classify_end(at, result, *, started=True, stopped=False, stranded=False, unit=None, log=()):
     """Signals for a run that is over: [] for every normal end. `result` is its .result.json, or None. `started`: it reached
-    state 'running'. `stopped`: Stop was asked for. `stranded`: it left work for Recover."""
+    state 'running'. `stopped`: Stop was asked for. `stranded`: it left work for Recover. `log`: the last lines of the run's
+    journal, for what the result cannot say."""
     out = []
     if result is None:
         if stranded or not stopped:
@@ -347,7 +374,16 @@ def classify_end(at, result, *, started=True, stopped=False, stranded=False, uni
         elif not (interrupted and number in _STOP_SIGNALS):
             out.append(Signal(at, 'renderer-crash', 'renderer', f'something killed the renderer ({signal_name(number)})'))
     elif type(rc) is int and rc > 0 and not interrupted:
-        out.append(Signal(at, 'renderer-exit', 'renderer', f'the renderer exited with code {rc}'))
+        closed = _control_closed_at(log, at)
+        if closed is not None: out.append(Signal(closed, 'control-closed', 'renderer', 'the renderer stopped: it lost its control channel to the supervisor'))
+        else: out.append(Signal(at, 'renderer-exit', 'renderer', f'the renderer exited with code {rc}'))
+    # The session may have gone on and ended well: these still happened, and each is a bug.
+    refused = exit_metrics(log).get('control', {}).get('refused')
+    if type(refused) is int and refused > 0:
+        out.append(Signal(at, 'control-refused', 'renderer', f'the renderer refused {refused} control message{"s" if refused > 1 else ""} from the supervisor and carried on'))
+    carried = [f for f in faults_of(result) if f['where'] != RUN_FAULT]
+    if carried:
+        out.append(Signal(at, 'supervisor-fault', 'supervisor', f"the supervisor hit an internal error and carried on: {', '.join(f['where'] for f in carried)}"))
     if error == 'KeyboardInterrupt': return out  # Stop while a run was starting
     if error:
         phase = result.get('phase')
@@ -380,7 +416,8 @@ _PRESENTATION = ('submitted', 'presented', 'discarded', 'abandoned', 'pending', 
                  'interval_min_ns', 'interval_max_ns', 'observation_duration_ns')
 _CAPTURE = ('name', 'frames', 'failures', 'reallocations', 'path')
 _TRACKING = ('feed', 'tracking', 'samples', 'lost_events', 'reanchors', 'hints')
-_REPORT_KINDS = ('generated_pattern_presentation_timing', 'managed_output_capture')
+_CONTROL = ('accepted', 'refused')
+_REPORT_KINDS = ('generated_pattern_presentation_timing', 'managed_output_capture', 'control_stream')
 
 
 def _report(line):
@@ -404,6 +441,8 @@ def exit_metrics(lines):
         if report is None: continue
         if report['kind'] == _REPORT_KINDS[0]:
             out['presentation'] = {k: report[k] for k in _PRESENTATION if k in report}
+        elif report['kind'] == _REPORT_KINDS[2]:
+            out['control'] = {k: report[k] for k in _CONTROL if k in report}
         else:
             out['capture'] = [{k: o[k] for k in _CAPTURE if k in o} for o in report.get('outputs') or [] if isinstance(o, dict)]
             tracking = report.get('tracking')

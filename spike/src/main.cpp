@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
                      "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
+                     "Optional --control-errors fatal, for tests: a bad control frame stops the renderer. Otherwise it is logged and dropped.\n"
                      "Default static; optional --animate-pattern-ms 1..60000 (exact matching consent required).\n"
                      "Or --capture XR-1[,XR-2[,XR-3[,XR-4]]]: show only the app's own managed outputs (managed-output capture consent),\n"
                      "  optionally with --pose-feed xrld: world-anchored 3DoF from the network-blocked XRLinuxDriver feed.\n"
@@ -48,7 +49,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19 && argc != 21) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
@@ -59,7 +60,9 @@ int main(int argc, char** argv) {
     if (args.contains("--status-fd") && status_fd < 0) return 2;
     const int depth_fd = args.contains("--depth-fd") ? number(args["--depth-fd"]) : -1;
     if (args.contains("--depth-fd") && depth_fd < 0) return 2;
-    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--depth-fd");
+    if (args.contains("--control-errors") && args["--control-errors"] != "fatal") return 2;
+    const bool control_errors_fatal = args.contains("--control-errors");
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--control-errors") - args.count("--depth-fd");
     if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
@@ -104,10 +107,6 @@ int main(int argc, char** argv) {
     if (!result && depth_fd >= 0) presentation.set_depth_fd(depth_fd);
     if (!result && pose_feed) presentation.enable_tracking("/tmp/shader_runtime_");  // XRLinuxDriver IPC (fixed path)
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
-    // Further supervisor frames (view, stop) on the same private socket; replay-protected queue.
-    xr::ControlQueue queue(args["--run-id"], args["--session"]);
-    (void)queue.push(raw);  // the validated start frame sets the replay floor
-    std::string pending;
     // VR video files arrive as SCM_RIGHTS descriptors with their `video` open frame (docs/vr-video.md). Each open frame
     // takes the oldest received one; at most two wait, extras are closed, and none is ever opened by path here.
     std::deque<int> video_fds;
@@ -127,121 +126,127 @@ int main(int argc, char** argv) {
         }
         return n;
     };
+    auto apply = [&](xr::ControlMessage* m) {
+        if (m->op == xr::ControlOp::video) {  // VR video, display only (video_mode.hpp)
+            const auto& v = std::get<xr::VideoPayload>(m->payload);
+            switch (v.action) {
+            case xr::VideoAction::open: {
+                if (video_fds.empty()) { std::cerr << "control: video open without a file descriptor\n"; break; }
+                const int fd = video_fds.front(); video_fds.pop_front();
+                presentation.video_open(fd, v.format, v.title);
+                break;
+            }
+            case xr::VideoAction::close: presentation.video_close(); break;
+            case xr::VideoAction::pause: presentation.video_pause(); break;
+            case xr::VideoAction::seek: presentation.video_seek(v.seconds); break;
+            case xr::VideoAction::format: presentation.video_format(v.format); break;
+            case xr::VideoAction::controls: presentation.video_controls(v.visible); break;
+            case xr::VideoAction::quality: presentation.video_quality(v.quality); break;
+            case xr::VideoAction::menu: presentation.video_menu(v.visible, v.rows, v.selected); break;
+            }
+            return;
+        }
+        if (m->op == xr::ControlOp::stop) stopping = 1;
+        else if (m->op == xr::ControlOp::recenter) presentation.recenter();
+        else if (m->op == xr::ControlOp::style) {
+            const auto& c = std::get<xr::StylePayload>(m->payload);
+            presentation.set_accent(c.r, c.g, c.b);
+        }
+        else if (m->op == xr::ControlOp::help) {
+            const auto& h = std::get<xr::HelpPayload>(m->payload);
+            presentation.set_help(h.visible, h.rows, h.sections, h.turn);
+        }
+        else if (m->op == xr::ControlOp::binds) {  // display only; malformed payloads are dropped above
+            if (const auto* b = std::get_if<xr::BindPanelState>(&m->payload)) presentation.set_binds(*b);
+        }
+        else if (m->op == xr::ControlOp::placement_menu) {
+            // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
+            if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
+                xr::PlacementMenuState state;
+                state.open = menu->open; state.desktop = menu->desktop; state.field = menu->field;
+                for (std::size_t i = 0; i < state.placements.size(); ++i) {
+                    const auto& w = menu->placements[i];
+                    state.placements[i] = {w.x, w.y, w.distance, w.curvature};
+                }
+                state.count = menu->count; state.numbers = menu->numbers;
+                state.wide = menu->wide; state.armed = menu->armed; state.busy = menu->busy;
+                state.scale = menu->scale; state.scales = menu->scales; state.picker = menu->picker;
+                state.resolution_w = menu->resolution_w; state.resolution_h = menu->resolution_h;
+                state.resolution_picker = menu->resolution_picker;
+                state.background = menu->background; state.brightness = menu->brightness;
+                state.background_picker = menu->background_picker;
+                std::optional<std::array<std::int32_t, 4>> surface;
+                if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
+                    surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};
+                presentation.set_placement_menu(state, surface);
+            }
+        }
+        else if (m->op == xr::ControlOp::resize_handle) {  // display only; malformed ones were dropped above
+            if (const auto* h = std::get_if<xr::ResizeHandlePayload>(&m->payload))
+                presentation.set_resize_handle(h->visible, h->desktop, h->corner, h->active);
+        }
+        else if (m->op == xr::ControlOp::overview_pointer) {  // display only; malformed ones were dropped above
+            if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
+                presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el,
+                                                 p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1, p->look);
+        }
+        else if (m->op == xr::ControlOp::edge_pan) {  // display only; malformed ones were dropped above
+            if (const auto* p = std::get_if<xr::EdgePan>(&m->payload)) presentation.set_edge_pan(*p);
+        }
+        else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
+            if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
+                presentation.set_roll(r->roll, r->bars, r->hover, r->side, r->active);
+        }
+        else if (m->op == xr::ControlOp::immersive) {  // 3D; malformed ones were dropped above
+            if (const auto* i = std::get_if<xr::ImmersivePayload>(&m->payload)) presentation.set_immersive(i->desktops, i->global, i->stereo, i->hover, i->tail, i->params);
+        }
+        else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
+            if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
+                presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
+        }
+        else if (m->op == xr::ControlOp::environment) {  // the background; malformed ones were dropped above
+            if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->background, e->brightness);
+        }
+        else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
+            const auto& d = std::get<xr::DesktopsPayload>(m->payload);
+            if (d.ease) presentation.ease_tiles();  // Ctrl+Alt+R: before the captures change
+            presentation.set_desktops(d.outputs, d.renew);
+        }
+        else if (m->op == xr::ControlOp::placement) {
+            std::vector<std::array<std::int32_t, 4>> placements;
+            const auto& payload = std::get<xr::PlacementPayload>(m->payload);
+            for (const auto& w : payload.desktops)
+                placements.push_back({w.x, w.y, w.distance, w.curvature});
+            presentation.set_placements(placements, payload.glide_ms);
+        }
+        else if (m->op == xr::ControlOp::view) {
+            const auto& v = std::get<xr::ViewPayload>(m->payload);
+            presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing, v.center, v.cut, v.pan);
+        }
+    };
+    // Further supervisor frames (view, stop) on the same private socket, replay-protected. A bad one is dropped (ipc.hpp).
+    std::uint64_t refusals = 0;
+    xr::ControlStream stream(args["--run-id"], args["--session"], control_errors_fatal, [&](xr::ControlMessage& m) { apply(&m); },
+                             [&](const xr::ControlRefusal& r) {
+        if (++refusals <= 20 || refusals % 1000 == 0)  // bounded: a supervisor that keeps doing this must not fill the journal
+            std::cerr << "control: refused frame " << r.request_id << " (" << (r.op.empty() ? "unreadable" : r.op) << "): " << r.error.code
+                      << ": " << r.error.detail << " (" << refusals << " so far): " << r.frame << '\n';
+        // A video open brings its descriptor, and only its own open takes one: left here, the next open would play this file.
+        if ((r.op == "video" || r.op.empty()) && !video_fds.empty()) { ::close(video_fds.front()); video_fds.pop_front(); }
+    });
+    stream.start(raw);  // the validated start frame sets the replay floor
+    std::string closed = "EOF";  // why the socket ended, for the log
     auto read_control = [&]() -> bool {
         char buffer[4096];
         for (;;) {
             const ssize_t n = receive(buffer, sizeof(buffer));
             if (n == 0) return false;  // supervisor gone
-            if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
-            pending.append(buffer, std::size_t(n));
-            if (pending.size() > 65536) return false;
-            for (std::size_t nl; (nl = pending.find('\n')) != std::string::npos;) {
-                auto frame = pending.substr(0, nl + 1); pending.erase(0, nl + 1);
-                const auto pushed = queue.push(frame);
-                if (const auto* error = std::get_if<xr::Error>(&pushed)) {
-                    if (!xr::ignorable_control_error(*error)) return false;  // malformed/replayed: stop
-                    std::cerr << "control: " << error->detail << "\n";
-                    continue;
-                }
-                while (auto m = queue.pop()) {
-                    if (m->op == xr::ControlOp::video) {  // VR video, display only (video_mode.hpp)
-                        const auto& v = std::get<xr::VideoPayload>(m->payload);
-                        switch (v.action) {
-                        case xr::VideoAction::open: {
-                            if (video_fds.empty()) { std::cerr << "control: video open without a file descriptor\n"; break; }
-                            const int fd = video_fds.front(); video_fds.pop_front();
-                            presentation.video_open(fd, v.format, v.title);
-                            break;
-                        }
-                        case xr::VideoAction::close: presentation.video_close(); break;
-                        case xr::VideoAction::pause: presentation.video_pause(); break;
-                        case xr::VideoAction::seek: presentation.video_seek(v.seconds); break;
-                        case xr::VideoAction::format: presentation.video_format(v.format); break;
-                        case xr::VideoAction::controls: presentation.video_controls(v.visible); break;
-                        case xr::VideoAction::quality: presentation.video_quality(v.quality); break;
-                        case xr::VideoAction::menu: presentation.video_menu(v.visible, v.rows, v.selected); break;
-                        }
-                        continue;
-                    }
-                    if (m->op == xr::ControlOp::stop) stopping = 1;
-                    else if (m->op == xr::ControlOp::recenter) presentation.recenter();
-                    else if (m->op == xr::ControlOp::style) {
-                        const auto& c = std::get<xr::StylePayload>(m->payload);
-                        presentation.set_accent(c.r, c.g, c.b);
-                    }
-                    else if (m->op == xr::ControlOp::help) {
-                        const auto& h = std::get<xr::HelpPayload>(m->payload);
-                        presentation.set_help(h.visible, h.rows, h.sections, h.turn);
-                    }
-                    else if (m->op == xr::ControlOp::binds) {  // display only; malformed payloads are dropped above
-                        if (const auto* b = std::get_if<xr::BindPanelState>(&m->payload)) presentation.set_binds(*b);
-                    }
-                    else if (m->op == xr::ControlOp::placement_menu) {
-                        // Display only; malformed payloads never get here (dropped above, see ipc.hpp).
-                        if (const auto* menu = std::get_if<xr::PlacementMenuPayload>(&m->payload)) {
-                            xr::PlacementMenuState state;
-                            state.open = menu->open; state.desktop = menu->desktop; state.field = menu->field;
-                            for (std::size_t i = 0; i < state.placements.size(); ++i) {
-                                const auto& w = menu->placements[i];
-                                state.placements[i] = {w.x, w.y, w.distance, w.curvature};
-                            }
-                            state.count = menu->count; state.numbers = menu->numbers;
-                            state.wide = menu->wide; state.armed = menu->armed; state.busy = menu->busy;
-                            state.scale = menu->scale; state.scales = menu->scales; state.picker = menu->picker;
-                            state.resolution_w = menu->resolution_w; state.resolution_h = menu->resolution_h;
-                            state.resolution_picker = menu->resolution_picker;
-                            state.background = menu->background; state.brightness = menu->brightness;
-                            state.background_picker = menu->background_picker;
-                            std::optional<std::array<std::int32_t, 4>> surface;
-                            if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
-                                surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};
-                            presentation.set_placement_menu(state, surface);
-                        }
-                    }
-                    else if (m->op == xr::ControlOp::resize_handle) {  // display only; malformed ones were dropped above
-                        if (const auto* h = std::get_if<xr::ResizeHandlePayload>(&m->payload))
-                            presentation.set_resize_handle(h->visible, h->desktop, h->corner, h->active);
-                    }
-                    else if (m->op == xr::ControlOp::overview_pointer) {  // display only; malformed ones were dropped above
-                        if (const auto* p = std::get_if<xr::OverviewPointerPayload>(&m->payload))
-                            presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el,
-                                                             p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1, p->look);
-                    }
-                    else if (m->op == xr::ControlOp::edge_pan) {  // display only; malformed ones were dropped above
-                        if (const auto* p = std::get_if<xr::EdgePan>(&m->payload)) presentation.set_edge_pan(*p);
-                    }
-                    else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
-                        if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
-                            presentation.set_roll(r->roll, r->bars, r->hover, r->side, r->active);
-                    }
-                    else if (m->op == xr::ControlOp::immersive) {  // 3D; malformed ones were dropped above
-                        if (const auto* i = std::get_if<xr::ImmersivePayload>(&m->payload)) presentation.set_immersive(i->desktops, i->global, i->stereo, i->hover, i->tail, i->params);
-                    }
-                    else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
-                        if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
-                            presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
-                    }
-                    else if (m->op == xr::ControlOp::environment) {  // the background; malformed ones were dropped above
-                        if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->background, e->brightness);
-                    }
-                    else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
-                        const auto& d = std::get<xr::DesktopsPayload>(m->payload);
-                        if (d.ease) presentation.ease_tiles();  // Ctrl+Alt+R: before the captures change
-                        presentation.set_desktops(d.outputs, d.renew);
-                    }
-                    else if (m->op == xr::ControlOp::placement) {
-                        std::vector<std::array<std::int32_t, 4>> placements;
-                        const auto& payload = std::get<xr::PlacementPayload>(m->payload);
-                        for (const auto& w : payload.desktops)
-                            placements.push_back({w.x, w.y, w.distance, w.curvature});
-                        presentation.set_placements(placements, payload.glide_ms);
-                    }
-                    else if (m->op == xr::ControlOp::view) {
-                        const auto& v = std::get<xr::ViewPayload>(m->payload);
-                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing, v.center, v.cut, v.pan);
-                    }
-                }
+            if (n < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return true;
+                closed = std::string("recv: ") + std::strerror(errno);
+                return false;
             }
+            if (!stream.feed({buffer, std::size_t(n)})) return false;
         }
     };
     auto next_status = std::chrono::steady_clock::now();
@@ -250,7 +255,11 @@ int main(int argc, char** argv) {
         // Most wakes are Wayland events: read the control socket only when the wait did not see it idle.
         bool control_ready = true;
         if (!report(presentation.draw_test_pattern()) || !report(presentation.dispatch(50, control, &control_ready))) { result = 1; break; }
-        if (control_ready && !read_control()) { std::cerr << "control: supervisor channel closed or invalid\n"; result = 1; break; }
+        if (control_ready && !read_control()) {
+            if (stream.stopped()) std::cerr << "control: stopping on a refused frame (--control-errors fatal)\n";
+            else std::cerr << "control: supervisor channel closed (" << closed << ")\n";
+            result = 1; break;
+        }
         if (status_fd >= 0)  // overview layout for the supervisor's free-pointer hit testing, only when it changes
             if (const auto geometry = presentation.take_overview_geometry()) {
                 const auto line = *geometry + "\n";
@@ -281,12 +290,16 @@ int main(int argc, char** argv) {
             // Datagram socketpair: EAGAIN drops a whole sample, never a partial JSON line.
             (void)send(status_fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
         }
-        if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) { result = 1; break; }
+        if (send(control, "H", 1, MSG_NOSIGNAL | MSG_DONTWAIT) != 1) {
+            std::cerr << "control: supervisor channel closed (heartbeat: " << std::strerror(errno) << ")\n";
+            result = 1; break;
+        }
     }
     for (int fd : video_fds) ::close(fd);
     presentation.close(); // Pending feedback becomes abandoned, never invented discard.
     std::cerr << presentation.timing_report() << '\n';
     if (!capture.empty()) std::cerr << presentation.capture_report() << '\n';
+    std::cerr << "{\"kind\":\"control_stream\",\"accepted\":" << stream.accepted() << ",\"refused\":" << stream.refused() << "}\n";
     if (status_fd >= 0) ::close(status_fd);
     ::close(control); return result;
 }

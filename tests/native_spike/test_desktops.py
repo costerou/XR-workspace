@@ -17,6 +17,7 @@ from tools.native_spike.hyprland import create_outputs, plan_outputs, OwnershipB
 from tools.native_spike.journal import Journal, recover
 from tools.native_spike.ownership import OwnershipBrokerClient
 from test_ownership import Transport
+from control_wire import in_order
 
 ROOT = Path(__file__).resolve().parents[2]
 D169 = {'width': 1920, 'height': 1080, 'scale': 1.0}
@@ -26,6 +27,7 @@ FLAT = dict(g.DEFAULT_PLACEMENT)
 
 
 def frames(raw):
+    in_order(raw)
     if not raw: return []
     return [json.loads(line) for line in bytes(raw).decode().splitlines()]
 

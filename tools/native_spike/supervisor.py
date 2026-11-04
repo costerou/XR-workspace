@@ -6,6 +6,7 @@ import selectors
 import socket
 import time
 
+from .faults import Faults
 from .tracking import lost_timeout
 
 
@@ -71,7 +72,7 @@ def serve_without_renderer(control, seconds):
 
 
 class Supervisor:
-    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None, status_socket=None, tracking_timeout=None):
+    def __init__(self, child, recovery, *, now=None, grace=0.5, guard=None, control=None, status_socket=None, tracking_timeout=None, faults=None):
         if not math.isfinite(grace) or grace < 0: raise ValueError("invalid grace")
         self.child, self.recovery = child, recovery
         self.last_heartbeat = time.monotonic() if now is None else now
@@ -93,6 +94,7 @@ class Supervisor:
         self._status_buffer = b''
         self._status_discard = False
         self.control = control  # optional ViewControl: user ops on the run's private control socket
+        self.faults = Faults() if faults is None else faults  # what _contained caught, for the run's result (the caller's, to outlive this renderer)
         # The guard's spawn worker (run()); replace_guard swaps it while the loop runs (desktops.py).
         self._guard_worker = self._guard_receiver = self._guard_ready = None
         self._guard_deadline = 0.0
@@ -232,10 +234,20 @@ class Supervisor:
             if not valid: self.disconnect(now, 'guard-failed')
             else: self._guard_deadline = now + GUARD_PERIOD + GUARD_DEADLINE
 
+    def _contained(self, where, call, *args):
+        """One of the run's handlers, on the loop everything shares. A bug in one costs that call, never the session: it is
+        logged with its traceback and kept for the run's result (faults.py). The watchdog's own work is not done through here:
+        if that fails, the run should stop. KeyboardInterrupt, which is Stop, goes through."""
+        try: return call(*args)
+        except Exception as exc:
+            self.faults.record(where, exc)
+            return None
+
     def _control_ready(self, renderer_socket):
         """One bounded user op (peer UID, framing, replay checked by PrivateServer); never fatal."""
-        message = control_request(self.control, self.status)
-        if message is not None: self._send(self.control.on_message(message), renderer_socket)
+        message = self._contained('a control request', control_request, self.control, self.status)
+        if message is not None:
+            self._contained(f"key {message['op']}", lambda: self._send(self.control.on_message(message), renderer_socket))
 
     def _events_ready(self, renderer_socket, selector):
         """Hyprland event bytes (cursor follow). EOF/error just disables it; never fatal."""
@@ -245,7 +257,11 @@ class Supervisor:
         if not data:
             selector.unregister(self.control.events)
             return
-        self._send(self.control.on_events(data), renderer_socket)
+        self._contained('hyprland event', lambda: self._send(self.control.on_events(data), renderer_socket))
+
+    def _poll(self, poll, renderer_socket):
+        out = poll(time.monotonic())
+        if isinstance(out, (bytes, bytearray)) and out: self._send(out, renderer_socket)  # keeps FdFrame descriptors
 
     def _send(self, frame, renderer_socket):
         try:
@@ -313,7 +329,7 @@ class Supervisor:
                             try: data = status_socket.recv(16385)
                             except BlockingIOError: continue
                             except OSError: data = b''
-                            if data: self.status_bytes(data)
+                            if data: self._contained('renderer status', self.status_bytes, data)
                             else: selector.unregister(status_socket)
                             continue
                         try: data = heartbeat_socket.recv(256)
@@ -324,9 +340,7 @@ class Supervisor:
                             selector.unregister(heartbeat_socket)
                     self.tick(time.monotonic())
                     poll = getattr(self.control, 'poll', None)  # free pointer, debounced panel save, overlay idle close
-                    if poll is not None:
-                        out = poll(time.monotonic())
-                        if isinstance(out, (bytes, bytearray)) and out: self._send(out, heartbeat_socket)  # keeps FdFrame descriptors
+                    if poll is not None: self._contained('poll', self._poll, poll, heartbeat_socket)
             return self.result
         finally:
             # Reaping the renderer is never delayed by waiting on IPC. Once this
@@ -407,7 +421,7 @@ def capture_arguments(names, output):
 
 
 def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=None, guard=None, animate_pattern_ms=None,
-            capture=None, control=None, pose_feed=False, renderer=None, report=None, depth_fd=None):
+            capture=None, control=None, pose_feed=False, renderer=None, report=None, faults=None, depth_fd=None):
     """Shared child lifetime only; authorization remains in distinct callers. `report`: a dict that gets the stop reason.
     `depth_fd`: the depth engine's shared memory (immersive.DepthMemory), inherited."""
     import json
@@ -450,7 +464,7 @@ def _launch(client, run_id, session, output, wayland_socket, recovery, *, popen=
         child_socket.close()
         status_child.close()
         watchdog = Supervisor(child, recovery if recovery is not None else lambda: child.poll(), guard=guard, control=control, status_socket=status_parent,
-                              tracking_timeout=lost_timeout() if pose_feed else None)
+                              tracking_timeout=lost_timeout() if pose_feed else None, faults=faults)
         try:
             try:
                 parent.settimeout(0.25)

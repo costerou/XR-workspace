@@ -554,7 +554,7 @@ class VideoControl:
         if not self.active: return None
         if self.menu:
             out = self._on_menu_key(op)
-            if out is not None: return self._controls_frame(True) + out or None
+            if out is not None: return out or None  # (the menu is on the card, so the card is up)
         if op == 'video_quality': return (self._controls_frame(True) + self._menu_frame(True)) or None
         if op == 'video_exit': return self._close() or None
         if op in ('video_controls', 'video_up', 'video_down'): return self._controls_frame(not self.controls) or None

@@ -39,6 +39,65 @@ def evidence(**over):
     return dict(base, **over)
 
 
+class SoftwareFaultReportTests(unittest.TestCase):
+    def test_a_closed_channel_is_named_with_high_confidence_and_clears_tracking_and_usb(self):
+        guess = guess_cause(episode('tracking-lost', 'control-closed', ended='ended'), evidence())
+        self.assertEqual(guess['confidence'], 'high')
+        self.assertIn('control channel', guess['text'])
+        self.assertIn('software fault', guess['text'])
+        self.assertIn('not the cause', guess['text'])
+
+    def test_it_comes_before_a_usb_drop_that_happened_to_be_near(self):
+        self.assertIn('control channel', guess_cause(episode('usb-drop', 'control-closed', ended='ended'), evidence())['text'])
+
+    def test_a_real_crash_still_comes_first(self):
+        core = dict(exe='xr-native-spike', signal='SIGSEGV', frames=[])
+        self.assertIn('crashed', guess_cause(episode('control-closed', ended='ended'), evidence(cores=[core]))['text'])
+
+    def test_refused_frames_say_how_many(self):
+        guess = guess_cause(episode('control-refused', ended='stopped'), evidence(metrics=dict(control=dict(accepted=9, refused=3))))
+        self.assertEqual(guess['confidence'], 'high')
+        self.assertIn('3', guess['text'])
+
+    def faulted(self):
+        return evidence(result=dict(run_id=RUN, renderer_returncode=0, complete=True, phase='done', error=None,
+                                    faults=[dict(where='key menu_reset', count=2,
+                                                 traceback=['tools/native_spike/view.py:1244 _on_menu', "KeyError: 'placements'"])]))
+
+    def test_a_supervisor_fault_is_named_where_it_was(self):
+        guess = guess_cause(episode('supervisor-fault', ended='stopped'), self.faulted())
+        self.assertEqual(guess['confidence'], 'high')
+        self.assertIn('key menu_reset', guess['text'])
+        self.assertIn('KeyError', guess['text'])
+
+    def test_the_bundle_and_the_summary_carry_the_traceback(self):
+        bundle = build_bundle(episode('supervisor-fault', ended='stopped'), self.faulted(), 1793780500.0, scrubber())
+        self.assertEqual(bundle['faults'][0]['where'], 'key menu_reset')
+        self.assertEqual(bundle['faults'][0]['traceback'][-1], "KeyError: 'placements'")
+        text = markdown(bundle)
+        self.assertIn('Supervisor errors', text)
+        self.assertIn("KeyError: 'placements'", text)
+        self.assertIn('view.py:1244', text)
+
+    def test_a_traceback_is_redacted_like_everything_else(self):
+        ev = evidence(result=dict(run_id=RUN, renderer_returncode=0, complete=True, phase='done', error=None,
+                                  faults=[dict(where='poll', count=1, traceback=[f'{HOME}/secret/plans.py:3 f', 'ValueError: token=abcdef123456'])]))
+        text = json.dumps(build_bundle(episode('supervisor-fault', ended='stopped'), ev, 1793780500.0, scrubber()))
+        self.assertNotIn('secret/plans', text)
+        self.assertNotIn('abcdef123456', text)
+
+    def test_no_faults_no_section(self):
+        bundle = build_bundle(episode('renderer-exit', ended='ended'), evidence(), 1793780500.0, scrubber())
+        self.assertEqual(bundle['faults'], [])
+        self.assertNotIn('Supervisor errors', markdown(bundle))
+
+    def test_odd_faults_in_a_result_cost_nothing(self):
+        for odd in ('x', 7, [1], [dict(where=1)], [dict(traceback='no')]):
+            with self.subTest(odd):
+                ev = evidence(result=dict(run_id=RUN, renderer_returncode=0, complete=True, phase='done', error=None, faults=odd))
+                markdown(build_bundle(episode('renderer-exit', ended='ended'), ev, 1793780500.0, scrubber()))
+
+
 class RedactionTests(unittest.TestCase):
     def assertGone(self, text, *secrets, **over):
         out = Scrubber(**dict(dict(home=HOME, user='testuser', host='testhost'), **over)).text(text)

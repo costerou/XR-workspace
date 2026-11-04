@@ -25,6 +25,7 @@
 #include "xr/capture.hpp"
 #include "xr/depth.hpp"
 #include "xr/desktops.hpp"
+#include "xr/ipc.hpp"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -99,6 +100,9 @@ struct Options {
     // private /tmp and IPC namespace, gone for S seconds with two disconnects. --check: the renderer stays up and resumes.
     std::string feed_script;
     double feed_drop = 0;
+    bool close_control = false;  // --close-control: the supervisor's end closes in the window. --check: the renderer stops and says why.
+    bool bad_control = false;  // --bad-control: every kind of bad frame in the window, with a good one after each kind
+    std::string control_errors = "fatal";  // the renderer's rule (ipc.hpp ControlStream): tests run strict; `--control-errors log` is the shipped one
     double video_loss = 0;  // --video-loss S: S seconds in, DP-2 leaves as when the glasses' display link drops. --check: the renderer ends by itself.
     // --immersive: the run as 3D makes it. The surface is side by side (twice the output's width, as the glasses' wide mode), the
     // real renderer gets the real shared memory, and a stand-in depth engine here reads its pictures and sends maps.
@@ -869,7 +873,7 @@ void usage() {
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
                          "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--edge-pan] [--check]\n"
-                         "                  [--feed-drop S --feed-script PATH] [--video-loss S]\n");
+                         "                  [--feed-drop S --feed-script PATH] [--video-loss S] [--bad-control] [--close-control] [--control-errors fatal|log]\n");
 }
 }  // namespace
 
@@ -901,6 +905,9 @@ int main(int argc, char** argv) {
         else if (a == "--video-loss") opt.video_loss = std::stod(next());
         else if (a == "--immersive") opt.immersive = true;
         else if (a == "--engine-dies") { opt.engine_dies = std::stod(next()); opt.immersive = true; }
+        else if (a == "--bad-control") opt.bad_control = true;
+        else if (a == "--close-control") opt.close_control = true;
+        else if (a == "--control-errors") opt.control_errors = next();
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
@@ -1030,6 +1037,7 @@ int main(int argc, char** argv) {
             args.insert(args.end(), {opt.feed_script, "--live-s", "3", "--gone-s", std::to_string(opt.feed_drop), "--"});
         args.insert(args.end(), {opt.renderer, "--supervised-fd", "10", "--wayland-fd", "11", "--output", "DP-2",
                                  "--run-id", "bench1", "--session", "s1", "--status-fd", "12"});
+        if (opt.control_errors == "fatal") args.insert(args.end(), {"--control-errors", "fatal"});
         if (capture) {
             std::string list;
             for (int i = 1; i <= opt.outputs; ++i) list += (i > 1 ? ",XR-" : "XR-") + std::to_string(i);
@@ -1062,6 +1070,40 @@ int main(int argc, char** argv) {
         send_frame(next_request++, "placement_menu", "{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[" + placements + "]}");
     }
 
+    // What the renderer must survive (--bad-control), each frame as the socket would carry it, then frames that must still work.
+    auto send_bad_control = [&] {
+        const auto raw = [&](const std::string& text) { (void)!::send(control[0], text.data(), text.size(), MSG_NOSIGNAL); };
+        const auto line = [](std::uint64_t id, const char* run, const char* op, const std::string& payload) {
+            return "{\"schema\":1,\"request_id\":" + std::to_string(id) + ",\"run_id\":\"" + run + "\",\"session\":\"s1\",\"op\":\"" + op + "\",\"payload\":" + payload + "}\n";
+        };
+        const std::string roll = R"({"roll":[0,0,0,0],"icons":["none","none","none","none"],"hover":-1,"side":"none","active":false})";
+        const std::string open = R"({"action":"open","projection":"360","stereo":"mono","fov":180,"title":"a private film"})";
+        send_frame(next_request++, "roll", roll);  // the floor
+        send_frame(next_request - 2, "roll", roll);  // 1. the 2026-11-04 crash: a good frame with an id already passed
+        send_frame(next_request - 1, "roll", roll);  // 2. the same id again
+        raw(line(next_request, "another-run", "roll", roll));  // 3. someone else's run
+        raw("this is not a control frame\n");  // 4.
+        raw(line(next_request, "bench1", "no_such_op", "{}"));  // 5.
+        raw(line(next_request, "bench1", "view", "{}"));  // 6. a malformed payload that acts
+        raw(line(next_request, "bench1", "roll", "{}"));  // 7. and one that is display only
+        // 8. a video open refused with its descriptor: that file must go with it, or the next open plays it.
+        const std::string replay = line(next_request - 1, "bench1", "video", open);
+        int fd = ::open("/dev/null", O_RDONLY | O_CLOEXEC);
+        iovec io{const_cast<char*>(replay.data()), replay.size()};
+        alignas(cmsghdr) char ancillary[CMSG_SPACE(sizeof(int))];
+        msghdr msg{}; msg.msg_iov = &io; msg.msg_iovlen = 1; msg.msg_control = ancillary; msg.msg_controllen = sizeof ancillary;
+        cmsghdr* c = CMSG_FIRSTHDR(&msg);
+        c->cmsg_level = SOL_SOCKET; c->cmsg_type = SCM_RIGHTS; c->cmsg_len = CMSG_LEN(sizeof(int));
+        std::memcpy(CMSG_DATA(c), &fd, sizeof fd);
+        (void)!::sendmsg(control[0], &msg, MSG_NOSIGNAL);
+        ::close(fd);
+        raw(std::string(xr::kMaxControlPending + 8192, 'x') + "\n");  // 9. a frame with no sensible end
+        send_frame(next_request++, "video", open);  // good, and no descriptor waits for it: stderr says so
+        std::string placements;
+        for (int i = 0; i < opt.outputs; ++i) placements += std::string(i ? "," : "") + "{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}";
+        send_frame(next_request++, "placement_menu", "{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[" + placements + "]}");  // good: the view shifts
+    };
+    constexpr int kBadControlFrames = 9;
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
     nlohmann::json last_status;  // the newest measured status (not the geometry lines the same socket carries)
     std::string stderr_text;
@@ -1161,6 +1203,8 @@ int main(int argc, char** argv) {
             drain();
             server.measuring = true; measured_pid = renderer_pid(pid, opt.renderer);
             cpu0 = process_cpu_ns(measured_pid); ctx0 = process_ctx_switches(measured_pid); hb0 = heartbeats;
+            if (opt.bad_control) send_bad_control();
+            if (opt.close_control) ::shutdown(control[0], SHUT_WR);
             if (malloc_count) { mallocs0 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(1); }
             if (opt.maximize) {
                 const std::string selected = ",\"selected\":" + std::to_string(opt.edge_pan ? 0 : opt.maximize - 1) + ",\"spacing\":40,\"mode\":\"";
@@ -1268,6 +1312,7 @@ int main(int argc, char** argv) {
     }
     for (const auto& j : reports) {
         if (j.contains("tracking") && j["tracking"].is_object()) out["tracking_report"] = j["tracking"];
+        if (j.value("kind", "") == "control_stream") out["control_stream"] = j;
         if (j.contains("kind") && j["kind"] == "managed_output_capture") {
             nlohmann::json paths = nlohmann::json::array();
             for (const auto& o : j["outputs"]) paths.push_back({{"name", o["name"]}, {"path", o["path"]}, {"fallback", o["fallback"]}, {"frames", o["frames"]},
@@ -1300,8 +1345,40 @@ int main(int argc, char** argv) {
             g = nullptr; g_gpu = nullptr;
             return status_rc;
         }
+        if (opt.close_control) {  // the one thing that still ends a session, and it says so
+            status_rc = 0;  // exit status 1 is the point here
+            if (rc != 1) fail("the renderer did not stop when the supervisor closed its end");
+            if (stderr_text.find("control: supervisor channel closed (EOF)") == std::string::npos) fail("the renderer did not say why it stopped");
+            wl_display_destroy(server.display);
+            g = nullptr; g_gpu = nullptr;
+            return status_rc;
+        }
+        if (opt.bad_control && opt.control_errors == "fatal") {  // what every other test relies on: a bad frame does stop this renderer
+            status_rc = 0;  // exit status 1 is the point here
+            if (rc != 1) fail("the renderer did not stop on a refused frame");
+            if (stderr_text.find("control: stopping on a refused frame") == std::string::npos) fail("the renderer ended some other way");
+            if (stderr_text.find("control: refused frame") == std::string::npos) fail("the refused frame was not logged");
+            wl_display_destroy(server.display);
+            g = nullptr; g_gpu = nullptr;
+            return status_rc;
+        }
         if (rc != 0) fail("renderer exit status");
         if (server.commits < std::uint64_t(opt.seconds * opt.hz * 0.25)) fail("too few commits");  // frames flow; not a speed check
+        // Whatever else a run tests: the renderer took every frame it was sent. Even one it may ignore is a bug in the sender.
+        if (!out.contains("control_stream")) fail("no control_stream report");
+        else if (out["control_stream"].value("refused", -1) != (opt.bad_control ? kBadControlFrames : 0)) fail("the renderer refused other frames than it was meant to");
+        if (opt.bad_control) {
+            if (stderr_text.find("control: video open without a file descriptor") == std::string::npos) fail("a refused video open left its descriptor for the next one");
+            if (stderr_text.find("control: refused frame") == std::string::npos) fail("the refused frames were not logged");
+            if (out.value("view_shift_mrad", 0) <= 0) fail("a good frame after the bad ones did nothing");
+            // The 2026-11-04 crash, as the journal would now tell it: which frame, why, and what it looked like.
+            if (stderr_text.find("(roll): control_replay: request id ") == std::string::npos) fail("a replay was not named as one");
+            if (stderr_text.find("(roll): control_wrong_run:") == std::string::npos) fail("another run's frame was not named as one");
+            if (stderr_text.find("(no_such_op): invalid_control: unknown op") == std::string::npos) fail("an unknown op was not named as one");
+            if (stderr_text.find("(view): invalid_control: bad view payload") == std::string::npos) fail("a bad payload was not named as one");
+            if (stderr_text.find("\"op\":\"roll\"") == std::string::npos) fail("the log did not show the frame's shape");
+            if (stderr_text.find("private film") != std::string::npos || stderr_text.find("another-run") != std::string::npos) fail("a frame's text reached the log");
+        }
         if (!window_complete || !stop_sent) fail("renderer ended before the measured window did");
         if (opt.feed_drop > 0) {
             const auto tracking = out.value("tracking_report", nlohmann::json::object());
@@ -1367,7 +1444,7 @@ int main(int argc, char** argv) {
             if (server.centre_none) fail("a frame had no desktop's frame in the middle of the view");
         }
         if (opt.open_panel && out.value("view_shift_mrad", 0) <= 0) fail("the open panel did not shift the view");
-        if (!opt.open_panel && capture && out.value("view_shift_mrad", 0) != 0) fail("the view stayed shifted with no panel open");
+        if (!opt.open_panel && !opt.bad_control && capture && out.value("view_shift_mrad", 0) != 0) fail("the view stayed shifted with no panel open");
         if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
         if (capture && opt.churn == "bounce") {
             if (!out.contains("capture_paths")) fail("no capture report");
