@@ -309,6 +309,7 @@ struct Presentation::Impl : SurfaceRequests {
     void apply_immersive(bool stereo, const ImmersiveParams& params, const std::array<bool, kMaxDesktops>& desktops) {
         StereoSettings set;
         set.enabled = stereo; set.params = stereo_from_wire(params);
+        set.strengths.assign(params.strengths.begin(), params.strengths.end());
         set.desktops.assign(desktops.begin(), desktops.end());
         gl->set_stereo(set);
     }

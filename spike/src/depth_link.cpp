@@ -114,7 +114,7 @@ void DepthLink::tick(GlCompositor& gl, const Tick& t) {
             const bool snap = !c.have_anchor || (f->flags & kDepthSceneCut) || t.range_ms <= 0.f;
             c.anchor = snap ? now : c.anchor + (now - c.anchor) * float(1.0 - std::exp(-dt_ms / double(t.range_ms)));
             c.have_anchor = true; c.map_ns = t.now_ns;
-            DepthInput in; in.w = f->w; in.h = f->h; in.source_seq = f->source_seq; in.half = half.data(); in.convergence = c.anchor;
+            DepthInput in; in.w = f->w; in.h = f->h; in.source_seq = f->source_seq; in.half = half.data(); in.convergence = c.anchor; in.reset_history = (f->flags & kDepthSceneCut) != 0;
             if (gl.set_depth(i, in)) {
                 c.seen = f->source_seq; ++maps_;
                 if (f->done_ns >= f->source_ns) lag_us_ = (f->done_ns - f->source_ns) / 1000;

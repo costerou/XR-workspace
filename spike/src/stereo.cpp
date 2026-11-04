@@ -57,8 +57,8 @@ float stereo_v(float nearness, const StereoParams& in) {
 }
 
 float stereo_edge_gain(float u, float v, float aspect) {
-    const float e = std::min(std::min(u, 1.f - u) / kStereoEdgeTaper, std::min(v, 1.f - v) / (kStereoEdgeTaper * aspect));
-    return stereo_smoothstep(0.f, 1.f, e);
+    return stereo_smoothstep(0.f, 1.f, std::min(u, 1.f - u) / kStereoEdgeTaper) *
+           stereo_smoothstep(0.f, 1.f, std::min(v, 1.f - v) / (kStereoEdgeTaper * aspect));
 }
 
 float stereo_temporal(float previous, float current, float alpha) {
@@ -193,7 +193,11 @@ PlaneF stereo_guide(const PlaneF& depth, float lo, float hi, const PlaneF* text,
         if (text) {
             const auto mask = [&](int a, int b) { return text->at(std::clamp(a, 0, text->w - 1), std::clamp(b, 0, text->h - 1)); };
             // Two rows up and down: the space between two lines of text is no reason for the plane to come back.
-            const float t = std::max({mask(x, y), mask(x - 1, y), mask(x + 1, y), mask(x, y - 1), mask(x, y + 1), mask(x, y - 2), mask(x, y + 2)});
+            float t = 0;
+            for (int j = -2; j <= 2; ++j) for (int i = -2; i <= 2; ++i) {
+                const float w = float((3 - std::abs(i)) * (3 - std::abs(j)));
+                t = std::max(t, mask(x + i, y + j) * w / 9.f);
+            }
             v *= 1.f + (params.text_keep - 1.f) * t;
         }
         v *= stereo_edge_gain((float(x) + 0.5f) / float(depth.w), (float(y) + 0.5f) / float(depth.h), aspect);

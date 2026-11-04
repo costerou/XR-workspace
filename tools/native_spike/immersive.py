@@ -121,13 +121,17 @@ def clean(value):
     every = data['global'] if type(data.get('global')) is bool else False
     raw = data.get('desktops') if isinstance(data.get('desktops'), dict) else {}
     preset = data['preset'] if isinstance(data.get('preset'), str) and data['preset'] in PRESETS else DEFAULTS['preset']
-    return {'global': every, 'desktops': dict(sorted((n, v) for n, v in raw.items() if _name_ok(n) and type(v) is bool and v != every)),
+    strengths = data.get('strengths')
+    overrides = ({'strengths': {n: v for n, v in strengths.items()
+                               if _name_ok(n) and type(v) is int and 0 <= v <= STRENGTH_MAX}}
+                 if isinstance(strengths, dict) and strengths else {})
+    return {**overrides, 'global': every, 'desktops': dict(sorted((n, v) for n, v in raw.items() if _name_ok(n) and type(v) is bool and v != every)),
             'preset': preset, 'strength': _percent(data.get('strength'), STRENGTH_MAX, DEFAULTS['strength']),
             'convergence': _percent(data.get('convergence'), 100, PRESETS[preset]['convergence'])}
 
 
 def is_valid(value):
-    return isinstance(value, dict) and set(value) == set(KEYS) and clean(value) == value
+    return isinstance(value, dict) and set(value) in (set(KEYS), set(KEYS) | {'strengths'}) and clean(value) == value
 
 
 def validate(value):
@@ -178,7 +182,9 @@ def wire_params(setting):
     """The `params` of an `immersive` frame."""
     setting = clean(setting)
     p = PRESETS[setting['preset']]
-    return {'strength': setting['strength'], 'convergence': setting['convergence'], 'near': p['near'], 'far': p['far'],
+    overrides = ({'strengths': [setting['strengths'].get(n, setting['strength']) for n in DESKTOP_NAMES]}
+                 if setting.get('strengths') else {})
+    return {**overrides, 'strength': setting['strength'], 'convergence': setting['convergence'], 'near': p['near'], 'far': p['far'],
             'text': p['text'], 'range_ms': p['range_ms']}
 
 

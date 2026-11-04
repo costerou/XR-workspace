@@ -496,7 +496,9 @@ bool GlCompositor::set_depth(std::size_t source, const DepthInput& frame) {
     if (!colour || !w || !h) return false;
     auto& state = s.stereo_sources[source];
     const double now = Impl::now_ms();
-    const bool ok = s.stereo->update(source, frame, colour, w, s.stereo_set.params, float(w) / float(h), state.depth_ms >= 0 ? float(now - state.depth_ms) : 0.f);
+    auto params = s.stereo_set.params;
+    if (source < s.stereo_set.strengths.size() && s.stereo_set.strengths[source] >= 0) params.strength = s.stereo_set.strengths[source] / 100.f;
+    const bool ok = s.stereo->update(source, frame, colour, w, params, float(w) / float(h), !frame.reset_history && state.depth_ms >= 0 ? float(now - state.depth_ms) : 0.f);
     if (ok) state.depth_ms = now;
     s.current = 0;
     return ok;

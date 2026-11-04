@@ -11,6 +11,7 @@ from . import shm as S
 from .backends import resize_rgba, to_half
 from .scheduler import Scheduler
 from .temporal import TemporalFilter, luma_of
+from .refinement import refine
 
 
 BAR_LEVEL = 12        # Brightest a black bar may be, of 255.
@@ -144,7 +145,8 @@ class Engine:
             last = self._last_ns.get(ch)
             dt = 1 / 60 if last is None else min((end_ns - last) / 1e9, 1.0)
             self._last_ns[ch] = end_ns
-            smooth, cut, flat = filt.update(depth, luma_of(px), dt)
+            gray = luma_of(px)
+            smooth, cut, flat = filt.update(refine(depth, gray), gray, dt)
             flags = (S.FLAG_SCENE_CUT if cut else 0) | (S.FLAG_FLAT if flat else 0)
             if self.shm.publish(S.OUTPUT, ch, to_half(smooth), S.FMT_R16F, f.source_seq, f.source_ns, self.clock(), flags):
                 done += 1

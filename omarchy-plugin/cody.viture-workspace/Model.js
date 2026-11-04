@@ -301,3 +301,9 @@ function trackingDriverChoices(drivers, saved) {
         .map(d => ({label:d.label + (d.available ? "" : " (missing)"), key:d.key}));
 }
 function trackingDriverIndex(choices, saved) { return choices.findIndex(c => c.key === saved); }
+
+function immersiveDesktopStrength(setting, name, value) {
+    const strengths = Object.assign({}, setting.strengths || {});
+    strengths[name] = Math.round(value);
+    return Object.assign({}, setting, {strengths:strengths});
+}

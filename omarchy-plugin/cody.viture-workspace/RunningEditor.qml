@@ -122,6 +122,26 @@ ColumnLayout {
         }
     }
     RowLayout {
+        Label { text:"Strength" }
+        Slider {
+            objectName:"immersiveStrengthSlider"
+            Layout.fillWidth:true; from:0; to:100; stepSize:0.5; enabled:!root.busy
+            value:(root.immersiveSetting.strength ?? 100) / 2
+            onMoved:root.request({op:"set_settings",settings:{immersive:Model.immersiveStrength(root.immersiveSetting,value * 2)}})
+        }
+        Label { text:Math.round((root.immersiveSetting.strength ?? 100) / 2) + "%" }
+    }
+    RowLayout {
+        visible:root.view.selected >= 0 && root.view.selected < root.names.length
+        Label { text:"Selected desktop strength" }
+        Slider {
+            objectName:"immersiveDesktopStrengthSlider"
+            Layout.fillWidth:true; from:0; to:100; stepSize:0.5; enabled:!root.busy
+            value:((root.immersiveSetting.strengths || {})[root.names[root.view.selected]] ?? root.immersiveSetting.strength ?? 100) / 2
+            onMoved:root.request({op:"set_settings",settings:{immersive:Model.immersiveDesktopStrength(root.immersiveSetting,root.names[root.view.selected],value * 2)}})
+        }
+    }
+    RowLayout {
         objectName:"immersiveConvergence"
         Label { text:"Screen plane" }
         Slider {
