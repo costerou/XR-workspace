@@ -1364,7 +1364,7 @@ class OverviewPointer:
         menu = getattr(self.control, 'options', None)
         d = menu.snapshot() if menu is not None else None
         placements = self._rolled()
-        if d and d['open'] and d['monitor'] in self.control.state.names:
+        if d and menu.visible and d['monitor'] in self.control.state.names:
             i = self.control.state.names.index(d['monitor'])
             if i < len(g['tiles']):
                 tile = g['tiles'][i]

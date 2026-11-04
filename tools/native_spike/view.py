@@ -1084,6 +1084,9 @@ class ViewControl:
         self.options_binds = None  # optional (owned: bool) -> None; outer runner supplies subscription
         self._options_owned = False
         self._options_sent = None
+        self.owner_readback = None
+        self.options_output_done = None
+        self.options_immersive_done = None
         self.options_video = None
         self.depth_memory = None  # immersive.DepthMemory, if the engine is installed; set by managed.view_controls
         self.immersive_failures = 0  # diagnostics
@@ -1091,6 +1094,9 @@ class ViewControl:
     def _options_frame(self, force=False):
         pending_output, self.options.output = self.options.output, b''
         snapshot = self.options.snapshot()
+        if not self.options.visible:
+            snapshot['open']=False
+            self.options.capture=None
         owned = self.options.keyboard_owned
         if owned != self._options_owned:
             self._options_owned = owned
@@ -1131,11 +1137,8 @@ class ViewControl:
         if editor is not None and editor.kind in ('url','file') and editor.text_field in ('editor.text','editor.path') and key not in ('Tab','Shift+Tab','Up','Down'):
             if key == 'BackSpace': editor.text=editor.text[:-1]
             elif key == 'Return':
-                try:
-                    self.options.output += editor.apply('editor.play' if editor.kind=='url' else 'editor.path',editor.text) or b''
-                    self.options.data.update(status='idle',message='')
-                except (ValueError,OSError) as exc:
-                    self.options.data.update(status='error',message=str(exc)[:256])
+                target='editor.submit' if any(r['id']=='editor.submit' for r in d['rows']) else ('editor.play' if editor.kind=='url' else 'editor.path')
+                return self.options_intent('options_activate',row_id=target,monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=editor.text)
             elif key != 'Escape': return b''
             if key != 'Escape':
                 self.options.refresh()
@@ -1244,6 +1247,9 @@ class ViewControl:
     def renderer_restarted(self):
         """A new renderer in the same run (survive.py). It starts knowing what initial_frame says; what was only ever sent as
         a change goes again, and what it would not be showing is shut."""
+        if hasattr(self,'owner_readback'): self.owner_readback=None
+        if hasattr(self,'options_output_done'): self.options_output_done=None
+        if hasattr(self,'options_immersive_done'): self.options_immersive_done=None
         pointer = getattr(self, 'overview_pointer', None)
         if pointer is not None and hasattr(pointer, 'set_maximize_geometry'): pointer.set_maximize_geometry(None)
         if hasattr(self, 'options'):
@@ -1303,7 +1309,11 @@ class ViewControl:
         renderer stops drawing 3D before the glasses leave it. Frames (bytes), b'' if nothing changed."""
         s, wanted = self.state, self._immersive_wanted()
         if not wanted: self.immersive_stereo = False
-        if self.immersive_run is not None: self.immersive_run.request(wanted)
+        done,self.options_immersive_done=self.options_immersive_done,None
+        if self.immersive_run is not None:
+            if done is None: self.immersive_run.request(wanted)
+            else: self.immersive_run.request(wanted,done=done)
+        elif done is not None: done(False,'3D owner unavailable')
         flags = [False if self.immersive_failed else _immersive.desktop_on(s.immersive, n) for n in s.names]
         every = bool(flags) and all(flags)  # lights the tails
         flags += [False] * (MAX_DESKTOPS - len(flags))  # the wire's length, so a desktop added with nothing on sends nothing
@@ -1727,7 +1737,10 @@ class ViewControl:
             self._desktops_changed()
         if self.supervisor is not None: self.supervisor.pause_guard()
         s.desktops_busy = True
-        if not self.desktops.start(change):
+        done,self.options_output_done=self.options_output_done,None
+        started=self.desktops.start(change) if done is None else self.desktops.start(change,done=done)
+        if not started:
+            if done is not None: done(False,'Output owner refused transaction')
             s.desktops_busy = False
             if self.supervisor is not None: self.supervisor.replace_guard(self.desktops.guard())
         return out + self._menu_frame()
@@ -1967,6 +1980,15 @@ class ViewControl:
         if self.state.mode == 'anchor': return {'center': True}
         return {'pan': True} if panned else {'cut': True}
 
+    def set_owner_readback(self, value):
+        from .options_menu import validate_owner_readback
+        self.owner_readback=validate_owner_readback(value)
+        pointer=self.overview_pointer
+        if pointer is not None and pointer.maximize_geometry is not None:
+            target=pointer.maximize_geometry['monitor']
+            if not any(o['name']==target and not o.get('stopped',False) for o in self.owner_readback['outputs']):
+                pointer.set_maximize_geometry(None)
+
     def set_maximize_geometry(self, geometry):
         """Renderer status: settled UI mesh used only for region-gated Restore input."""
         if self.overview_pointer is not None: self.overview_pointer.set_maximize_geometry(geometry)
@@ -2117,9 +2139,15 @@ class ViewControl:
                 if key != 'space' or not editing: return self.options_key(key)
             translator = getattr(self, 'options_key_text', None)
             if translator is not None:
+                if not getattr(translator,'authoritative_state',False):
+                    editor=getattr(self,'options_editor',None)
+                    if editor is not None and editor.kind in ('url','file'):
+                        self.options.data.update(status='error',message='Hardware text unavailable: compositor XKB lock/group state missing; use character controls')
+                        return self._options_frame()
+                    return None
                 try: return self.options_text(translator(payload.get('mods'), payload.get('code')))
                 except (ValueError, OSError) as exc:
-                    self.options.data.update(status='error', message=str(exc)[:256])
+                    self.options.data.update(status='error', message=self.options._detail(exc))
                     return self._options_frame()
             return None
         if isinstance(message, dict) and message.get('op') == 'menu_back' and self.options.keyboard_owned:
@@ -2265,6 +2293,8 @@ class ViewControl:
         """Run end: no later panel or typing bind change, and wait (bounded in total) for any in flight, so none outlives
         the run."""
         self.options.close('stop')
+        self.owner_readback=None
+        if self.overview_pointer is not None: self.overview_pointer.set_maximize_geometry(None)
         self._options_frame()
         self.menu_binds = self.typing_binds = None
         deadline = time.monotonic() + timeout
