@@ -147,7 +147,7 @@ Any other long gap in the capture is a recorder hole (see above).
 |---|---|---|
 | Samples | 1,225,244, 0 bad packets, 63 repeats | |
 | Rate | 1000 Hz outside recorder holes | L4: 1 kHz |
-| Time per packet, bytes in to pose out | 0.12 µs median, 0.13 µs p99.9, 19 µs worst | L1: p99 under 500 µs. This is CPU only: USB and scheduling come on top |
+| Time per packet, bytes in to pose out | 0.12 µs median, 0.14 µs p99.9, 10 to 70 µs worst over four runs | L1: p99 under 500 µs. This is CPU only: USB and scheduling come on top |
 | Calibrated | 2.60 s from the first sample, with the glasses moving | C2: within the 2.5 s timeout. The 0.1 s over is one 100 ms block. Old driver: about 11.5 s |
 | Tilt against gravity at rest | 0.30° median, 0.66° p95 | C4: 1° |
 | Heading at rest | See below | D1: 0.5°/min |

@@ -82,10 +82,10 @@ Two pieces are merged but deliberately not wired in:
 |---|---|
 | Z zero drops | Untested. Session level only |
 | C calibration | Replay: 2.60 s from a moving start (C2), tilt 0.30 degrees (C4). C1, C3, C5, C6 need the glasses. The saved bias is wired |
-| L latency, rate | Replay: 0.12 µs CPU per packet, 19 µs worst; no allocation in the hot path; 1 kHz. USB and scheduling not yet measured. L3 needs the shadow run, K1 |
+| L latency, rate | Replay: 0.12 µs CPU per packet, 10 to 70 µs worst; no allocation in the hot path; 1 kHz. USB and scheduling not yet measured. L3 needs the shadow run, K1 |
 | D drift | Replay: about 0.5 degrees/min against an offline reference, tilt held. **Heading is the known weakness**: see `capture-findings.md` |
 | P resources | Offline only |
-| R reconnect | Fakes only. R1 cannot pass as configured, see above |
+| R reconnect | Fakes only, now including the whole driver over a fake kernel (`test_whole_driver_on_a_fake_kernel`). R1 cannot pass as configured, see above |
 | S safety | S1, S2, S5, S6 offline by `contract_test`. S4, S7 by tests. S3 changed. S8, S9 fakes |
 | F fit | F1 to F6, F8, F9 pass offline. F10 passes: no stand-ins left |
 | X features | X1, X2, X4 pass. The rest need glasses |

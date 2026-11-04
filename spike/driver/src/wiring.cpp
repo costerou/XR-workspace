@@ -180,7 +180,7 @@ std::string default_state_dir() {
     return {};
 }
 
-std::unique_ptr<Link> live_link(std::string& why, const Options& options, Logger log) {
+TransportConfig live_config(const Options& options) {
     TransportConfig config;
     config.in_endpoints = {kLumaImuEndpoint, kMcuEndpointIn};
     config.out_endpoint = kMcuEndpointOut;
@@ -192,7 +192,11 @@ std::unique_ptr<Link> live_link(std::string& why, const Options& options, Logger
         config.extra_out_endpoints.push_back(kDataEndpointOut);
         config.in_endpoints.push_back(kDataEndpointIn);
     }
-    auto link = std::make_unique<Live>(std::move(config));
+    return config;
+}
+
+std::unique_ptr<Link> link_with(TransportConfig config, std::shared_ptr<Sys> sys, Logger log) {
+    auto link = std::make_unique<Live>(std::move(config), std::move(sys));
     link->set_stream_endpoint(kLumaImuEndpoint);
     link->set_route([](std::span<const std::uint8_t> bytes) { return !bytes.empty() && bytes[0] == 0xff ? kDataEndpointOut : kMcuEndpointOut; });
     link->set_other_packet_handler([log = std::move(log)](std::uint8_t endpoint, std::span<const std::uint8_t> bytes) {
@@ -201,9 +205,10 @@ std::unique_ptr<Link> live_link(std::string& why, const Options& options, Logger
         std::snprintf(line, sizeof line, "luma: reply endpoint=0x%02x bytes=%zu head=", endpoint, bytes.size());
         log(std::string(line) + hex_of(bytes.first(std::min<std::size_t>(bytes.size(), 16))));
     });
-    (void)why;
     return link;
 }
+
+std::unique_ptr<Link> live_link(const Options& options, Logger log) { return link_with(live_config(options), nullptr, std::move(log)); }
 
 std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments) {
     PublisherOptions options;

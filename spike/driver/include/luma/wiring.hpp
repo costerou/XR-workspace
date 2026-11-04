@@ -1,6 +1,7 @@
 #pragma once
 // Where the daemon meets the real pieces. Only src/wiring.cpp knows their APIs.
 #include "luma/daemon.hpp"
+#include "luma/transport.hpp"
 #include <array>
 #include <memory>
 #include <optional>
@@ -40,7 +41,10 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-std::unique_ptr<Link> live_link(std::string& why, const Options& options = {}, Logger log = {});
+TransportConfig live_config(const Options& options);  // what the glasses are opened with
+// A link over any Sys, so a test can run all of this against a fake kernel. nullptr: the real one.
+std::unique_ptr<Link> link_with(TransportConfig config, std::shared_ptr<Sys> sys, Logger log);
+std::unique_ptr<Link> live_link(const Options& options, Logger log);
 // private_segments: create and remove our own segments and never attach to any that exist. A replay must set it: ftok keys
 // hold only 16 bits of the inode, so even a private prefix can land on the live feed's key.
 std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why, bool private_segments = false);

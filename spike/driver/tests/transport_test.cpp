@@ -8,6 +8,8 @@
 // behaviour, read from the kernel source: drivers/usb/core/devio.c, driver.c, message.c and xhci-ring.c.
 // See the class comment for what it models.
 #include "luma/transport.hpp"
+#include "luma/protocol.hpp"
+#include "luma/wiring.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -991,6 +993,109 @@ void test_drain_endpoint_reads_and_throws_away() {
     CHECK(t->connected());
 }
 
+// The whole driver as it opens the real glasses: live_config, the real link, decoder, Fusion and daemon, over a fake kernel.
+// The closest thing to the first bench run that needs no glasses.
+struct CountingSink final : luma::Sink {
+    std::atomic<std::uint64_t> published{0};
+    void publish(const luma::PoseOut&) override { ++published; }
+    void set_stale(bool) override {}
+};
+
+void test_whole_driver_on_a_fake_kernel() {
+    FakeTree tree;
+    auto config = luma::wiring::live_config(luma::Options{});
+    config.rescan_interval = 10ms;
+    config.sysfs_root = tree.sysfs();
+    config.dev_root = tree.dev();
+    auto fake = std::make_shared<FakeUsbfs>(tree);
+    fake->arrive(101);
+
+    std::mutex lines_lock;
+    std::vector<std::string> lines;
+    const luma::Logger log = [&](std::string_view line) {
+        std::lock_guard lock(lines_lock);
+        lines.emplace_back(line);
+    };
+    const auto link = luma::wiring::link_with(config, fake, log);
+    const auto decoder = luma::wiring::decoder();
+    CountingSink sink;
+    luma::DaemonParts parts{*link, *decoder, &luma::wiring::estimator, sink,
+                            [] { return std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count()); },
+                            log, luma::wiring::start_command(), luma::wiring::stop_command()};
+    luma::Daemon daemon(std::move(parts));
+    std::atomic<bool> stop{false};
+    constexpr std::uint32_t kSamples = 3000;
+    std::thread glasses([&] {
+        const auto give_up = Clock::now() + 5s;
+        while (fake->sent().empty() && Clock::now() < give_up) std::this_thread::sleep_for(1ms);
+        fake->deliver(0x85, {0xfa, 0x55, 0x95, 0x00, 0x00, 0x00});
+        for (std::uint32_t i = 1; i <= kSamples && Clock::now() < give_up + 10s;) {
+            luma::ImuSample sample{i * 1'000'000ull, {0.006f, 0.001f, 0.005f}, {0.1f, 0.2f, 9.8f}, std::nullopt, i & 0xffff};
+            const auto packet = luma::encode_luma_imu(sample);
+            if (fake->deliver(0x81, std::vector<std::uint8_t>(packet.begin(), packet.end()))) {
+                ++i;
+                std::this_thread::sleep_for(20us);  // a real 1 kHz stream never outruns the reader; flat out, this one could
+            } else {
+                std::this_thread::sleep_for(50us);
+            }
+        }
+        // Everything delivered has been read once the count stops moving.
+        const auto wait = Clock::now() + 3s;
+        for (std::uint64_t seen = ~std::uint64_t{0}; seen != sink.published && Clock::now() < wait;) {
+            seen = sink.published;
+            std::this_thread::sleep_for(100ms);
+        }
+        stop = true;
+    });
+    daemon.run(stop);
+    glasses.join();
+
+    const auto stats = daemon.stats();
+    CHECK(stats.samples == kSamples);
+    CHECK(stats.bad_packets == 0);
+    CHECK(stats.commands == 1);
+    CHECK(sink.published > 1000);
+    const auto sent = fake->sent();
+    CHECK(sent.size() == 1);
+    if (!sent.empty()) CHECK(sent[0] == (std::vector<std::uint8_t>{0xfa, 0x55, 0x95, 0x00, 0x00}));
+    std::set<int> touched;
+    for (int endpoint : fake->submitted_endpoints()) touched.insert(endpoint);
+    CHECK(touched == (std::set<int>{0x81, 0x85, 0x04}));  // nothing near the cameras or the data channel
+    const auto said = [&](const char* text) { return std::any_of(lines.begin(), lines.end(), [&](const std::string& l) { return l.find(text) != std::string::npos; }); };
+    CHECK(said("luma: reply endpoint=0x85 bytes=6 head=fa5595000000"));
+    CHECK(said("luma: calibrated restored=0"));
+    CHECK(!said("disconnected"));
+}
+
+void test_live_config_follows_the_flags() {
+    using luma::Options;
+    const auto plain = luma::wiring::live_config(Options{});
+    CHECK(plain.in_endpoints == (std::vector<std::uint8_t>{0x81, 0x85}));
+    CHECK(plain.out_endpoint == 0x04 && plain.allow_mcu_channel);
+    CHECK(plain.drain_endpoints.empty() && plain.extra_out_endpoints.empty());
+    Options events;
+    events.read_events = true;
+    CHECK(luma::wiring::live_config(events).in_endpoints == (std::vector<std::uint8_t>{0x81, 0x85, 0x83}));
+    Options drain;
+    drain.drain_camera = true;
+    CHECK(luma::wiring::live_config(drain).drain_endpoints == std::vector<std::uint8_t>{0x82});
+    Options full;
+    full.start = Options::Start::full;
+    const auto all = luma::wiring::live_config(full);
+    CHECK(all.extra_out_endpoints == std::vector<std::uint8_t>{0x06});
+    CHECK(std::count(all.in_endpoints.begin(), all.in_endpoints.end(), 0x87) == 1);
+    CHECK(luma::wiring::before_start(Options::Start::stream).empty());
+    CHECK(luma::wiring::before_start(Options::Start::prepared).size() == 1);
+    CHECK(luma::wiring::before_start(Options::Start::full).size() == 2);
+    CHECK(luma::wiring::start_for(Options::Start::listen).empty());
+    CHECK(luma::wiring::start_for(Options::Start::stream) == (std::vector<std::uint8_t>{0xfa, 0x55, 0x95, 0x00, 0x00}));
+    // Everything a live flag can make the driver send passes the allowlist. The 0x100B of `full` goes to the data channel.
+    for (auto mode : {Options::Start::stream, Options::Start::prepared, Options::Start::full}) {
+        CHECK(luma::allowed_mcu_frame(luma::wiring::start_for(mode)));
+        for (const auto& command : luma::wiring::before_start(mode)) CHECK(command[0] == 0xff || luma::allowed_mcu_frame(command));
+    }
+}
+
 void test_usbfs_needs_an_in_endpoint() {
     FakeTree tree;
     auto config = usb_config(tree);
@@ -1920,6 +2025,8 @@ int main() {
         T(test_live_path_with_captured_packets),
         T(test_write_to_reaches_only_configured_endpoints),
         T(test_drain_endpoint_reads_and_throws_away),
+        T(test_whole_driver_on_a_fake_kernel),
+        T(test_live_config_follows_the_flags),
         T(test_usbfs_needs_an_in_endpoint),
         T(test_usbfs_waits_for_a_busy_interface_and_never_takes_it),
         T(test_usbfs_retries_while_udev_applies_permissions),

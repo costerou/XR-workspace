@@ -886,6 +886,18 @@ void test_options() {
     CHECK(flags && flags->config.settle_max == milliseconds(5000));
     CHECK(plain && plain->config.keep_heading && plain->stop_command);
     CHECK(plain && plain->config.calibration_keep == milliseconds(300000));
+    // What the live plan runs.
+    CHECK(plain && plain->start == Options::Start::stream && !plain->read_events && !plain->drain_camera);  // tracking.py's default
+    CHECK(parse({"--start", "listen"})->start == Options::Start::listen);
+    CHECK(parse({"--start", "prepared"})->start == Options::Start::prepared);
+    CHECK(parse({"--start", "full"})->start == Options::Start::full);
+    CHECK(!parse({"--start", "guess"}));
+    CHECK(!parse({"--start"}));
+    const auto live = parse({"--start", "stream", "--read-events", "--drain-camera", "--no-rt", "--state-dir", "/x", "--feature-discovery", "--no-feature-temperature"});
+    CHECK(live && live->read_events && live->drain_camera && live->no_rt && live->state_dir == "/x" && live->feature_flags.size() == 2);
+    CHECK(!parse({"--pose-log", "f"}));  // writes to disk on the pose thread: replay only
+    const auto logged = parse({"--replay", "f", "--ipc-prefix", "/run/x_", "--pose-log", "p", "--pose-log-every", "5"});
+    CHECK(logged && logged->pose_log == "p" && logged->pose_log_every == 5);
 }
 
 // ---- the real binary -----------------------------------------------------------------------------------------------

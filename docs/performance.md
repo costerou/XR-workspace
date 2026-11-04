@@ -169,6 +169,6 @@ and UBSan runs are clean; to repeat one, compile `rt_test.cpp` and `rt.cpp` with
 ## On the real capture
 
 `xr-luma-driver --replay` on the 20-minute session in `spike/driver/docs/capture-findings.md`, parse through publish, on one
-thread: 0.12 µs median, 19 µs worst, 1.2 million packets in 0.2 s. So the driver's own code is a rounding error next to USB
+thread: 0.12 µs median, 10 to 70 µs worst, 1.2 million packets in 0.2 s. So the driver's own code is a rounding error next to USB
 and scheduling, which is why the daemon runs inline rather than through the ring. USB and scheduling have still only been
 measured against a fake transport.
