@@ -67,8 +67,16 @@ std::string json(const Event& e) {
     return std::string(buf.data(), n);
 }
 
+// These tests are about the gate's logic, so they use the short windows they were written with. The defaults, which are
+// much longer, have their own test.
+void short_windows(Config& c) {
+    c.settle = std::chrono::milliseconds{2000};
+    c.drop_window = std::chrono::milliseconds{3000};
+}
+
 Config gen2() {
     Config c;
+    short_windows(c);
     std::string err;
     CHECK(parse_flag(c, "--feature-profile=gen2", &err) == FlagResult::Ok);
     return c;
@@ -76,6 +84,7 @@ Config gen2() {
 
 Config mapped_control() {
     Config c;
+    short_windows(c);
     c.control = true;
     std::string err;
     CHECK(apply_map_override(c.map, "brightness_send=0x1234", &err));
@@ -170,6 +179,12 @@ void test_firmware_once_per_connection() {
     sent = run_for(m, now, 3600 * kSec, true, 0x5003, reply);
     CHECK(sent.size() == 1);
     CHECK(m.commands_sent_total() == 2);
+}
+
+void test_default_windows_are_the_safer_ones() {
+    const Config c;
+    CHECK(c.settle == std::chrono::minutes{5});
+    CHECK(c.drop_window == std::chrono::seconds{60});
 }
 
 void test_waits_for_a_settled_connection() {
@@ -841,7 +856,7 @@ int main() {
     const struct { const char* name; void (*run)(); } tests[] = {
 #define T(n) {#n, n}
         T(test_defaults_send_nothing), T(test_luma_map_has_no_guesses), T(test_published_v2_vectors),
-        T(test_firmware_once_per_connection), T(test_waits_for_a_settled_connection),
+        T(test_firmware_once_per_connection), T(test_default_windows_are_the_safer_ones), T(test_waits_for_a_settled_connection),
         T(test_flapping_connection_sends_nothing), T(test_timeout_stops_commands_and_never_retries),
         T(test_write_failure_stops_commands), T(test_drop_after_command_latches_until_restart),
         T(test_rejected_is_not_retried), T(test_brightness_control), T(test_startup_brightness_once),

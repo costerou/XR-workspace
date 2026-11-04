@@ -219,7 +219,7 @@ TransportConfig usb_config(const FakeTree& tree) {
 }
 
 const std::vector<std::pair<std::string, std::string>> kEndpoints = {
-    {"81", "Interrupt"}, {"82", "Bulk"}, {"87", "Bulk"}, {"04", "Bulk"}, {"06", "Bulk"}};
+    {"81", "Interrupt"}, {"82", "Bulk"}, {"87", "Bulk"}, {"04", "Bulk"}, {"06", "Bulk"}, {"85", "Bulk"}};
 
 // A stand-in for usbfs. What it copies from the kernel, and where:
 //  - A transfer ends on a short packet or a full buffer; a packet larger than the URB is babble.
@@ -563,7 +563,7 @@ void test_finds_usb_device_and_endpoints() {
     CHECK(found->backend == Backend::Usbfs);
     CHECK(found->sys_name == "5-2.1");
     CHECK(found->node == tree.dev() / "bus/usb/005/101");
-    CHECK(found->endpoints.size() == 5);
+    CHECK(found->endpoints.size() == 6);
     auto type = [&](std::uint8_t address) {
         for (const auto& e : found->endpoints)
             if (e.address == address) return e.bulk ? 1 : 0;
@@ -894,6 +894,101 @@ void test_usbfs_refuses_the_flash_channel_on_the_ultra() {
         CHECK(fake->claims() == 0);
         CHECK(!fake->descriptor_open());
     }
+}
+
+// The stream start lives on that same channel, so it opens on request. Then only the exact captured frames pass.
+TransportConfig live_config(const FakeTree& tree) {
+    auto config = usb_config(tree);
+    config.in_endpoints = {0x81, 0x85};
+    config.out_endpoint = 0x04;
+    config.allow_mcu_channel = true;
+    return config;
+}
+
+void test_mcu_channel_passes_only_allowlisted_frames() {
+    using Bytes = std::vector<std::uint8_t>;
+    CHECK(luma::allowed_mcu_frame(Bytes{0xfa, 0x55, 0x95, 0x00, 0x00}));
+    CHECK(luma::allowed_mcu_frame(Bytes{0xfa, 0x55, 0x97, 0x00, 0x00}));
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, live_config(tree));
+    std::unique_ptr<Transport> t(raw);
+    CHECK(t->open());
+    CHECK(t->write(Bytes{0xfa, 0x55, 0x95, 0x00, 0x00}) == IoStatus::Ok);
+    CHECK(fake->sent().size() == 1);
+    const std::vector<Bytes> refused{
+        {},
+        {0xfa, 0x55},
+        {0xfa, 0x55, 0x95, 0x00},                    // cut short
+        {0xfa, 0x55, 0x95, 0x00, 0x00, 0x00},        // one byte long
+        {0xfa, 0x55, 0x95, 0x00, 0x01, 0x00},        // with a payload
+        {0xfa, 0x55, 0x96, 0x00, 0x00},              // a neighbouring id: exactly the guess this list is here to stop
+        {0xfa, 0x55, 0x90, 0x00, 0x02, 0x06, 0xc0},  // captured, but exposure control has no place here
+        {0xfa, 0x55, 0xe5, 0x01, 0x00},              // captured, but it reads calibration
+        {0xff, 0xfe, 0x00, 0x00},
+    };
+    for (const Bytes& frame : refused) {
+        CHECK(t->write(frame) == IoStatus::Error);
+        CHECK(t->last_error().find("allowlist") != std::string::npos);
+    }
+    CHECK(fake->sent().size() == 1);  // none of them reached the device
+    CHECK(t->connected());
+}
+
+void test_live_path_with_captured_packets() {
+    FakeTree tree;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, live_config(tree));
+    std::unique_ptr<Transport> t(raw);
+    CHECK(t->open());
+    std::vector<std::uint8_t> buffer(1024);
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Connected);
+    CHECK(t->write(std::vector<std::uint8_t>{0xfa, 0x55, 0x95, 0x00, 0x00}) == IoStatus::Ok);
+    CHECK(fake->deliver(0x85, {0xfa, 0x55, 0x95, 0x00, 0x00, 0x00}));  // captured reply
+    const std::vector<std::uint8_t> imu{0xaa, 0x8f, 0x00, 0x88, 0x3c, 0x15, 0x10, 0x00, 0xdd, 0x1e, 0x01, 0x00, 0xf4, 0xff,
+                                        0x05, 0x00, 0x24, 0x00, 0x15, 0xff, 0x11, 0xf8, 0x74, 0x1f, 0xe8, 0x06, 0x00, 0x00};
+    CHECK(fake->deliver(0x81, imu));
+    auto reply = t->read(buffer, 100ms);
+    CHECK(reply.status == IoStatus::Ok && reply.endpoint == 0x85 && reply.bytes == 6);
+    auto sample = t->read(buffer, 100ms);
+    CHECK(sample.status == IoStatus::Ok && sample.endpoint == 0x81 && sample.bytes == imu.size());
+    CHECK(std::equal(imu.begin(), imu.end(), buffer.begin()));
+}
+
+void test_write_to_reaches_only_configured_endpoints() {
+    FakeTree tree;
+    auto config = live_config(tree);
+    config.extra_out_endpoints = {0x06};
+    config.in_endpoints.push_back(0x87);
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    CHECK(t->open());
+    CHECK(t->write_to(0x06, std::vector<std::uint8_t>(512, 1)) == IoStatus::Ok);
+    CHECK(t->write_to(0x02, std::vector<std::uint8_t>{1}) == IoStatus::Error);
+    CHECK(t->write_to(0x04, std::vector<std::uint8_t>{0xfa, 0x55, 0x90, 0x00, 0x00}) == IoStatus::Error);  // still the allowlist
+    CHECK(t->write_to(0x04, std::vector<std::uint8_t>{0xfa, 0x55, 0x97, 0x00, 0x00}) == IoStatus::Ok);
+    CHECK(fake->sent().size() == 2);
+}
+
+void test_drain_endpoint_reads_and_throws_away() {
+    FakeTree tree;
+    auto config = live_config(tree);
+    config.drain_endpoints = {0x82};
+    config.drain_urbs = 3;
+    config.drain_urb_bytes = 16384;
+    Transport* raw;
+    auto fake = connected_usb(tree, raw, config);
+    std::unique_ptr<Transport> t(raw);
+    CHECK(t->open());
+    std::vector<std::uint8_t> buffer(1024);
+    CHECK(t->read(buffer, 100ms).status == IoStatus::Connected);
+    CHECK(fake->deliver(0x82, std::vector<std::uint8_t>(16384, 9)));
+    auto r = t->read(buffer, 30ms);
+    CHECK(r.status == IoStatus::Timeout);  // nothing for the reader
+    const auto endpoints = fake->submitted_endpoints();
+    CHECK(std::count(endpoints.begin(), endpoints.end(), 0x82) == 4);  // 3 queued, and the finished one went straight back
+    CHECK(t->connected());
 }
 
 void test_usbfs_needs_an_in_endpoint() {
@@ -1821,6 +1916,10 @@ int main() {
         T(test_usbfs_ignores_empty_packets_but_keeps_reading),
         T(test_usbfs_rejects_endpoints_the_device_does_not_have),
         T(test_usbfs_refuses_the_flash_channel_on_the_ultra),
+        T(test_mcu_channel_passes_only_allowlisted_frames),
+        T(test_live_path_with_captured_packets),
+        T(test_write_to_reaches_only_configured_endpoints),
+        T(test_drain_endpoint_reads_and_throws_away),
         T(test_usbfs_needs_an_in_endpoint),
         T(test_usbfs_waits_for_a_busy_interface_and_never_takes_it),
         T(test_usbfs_retries_while_udev_applies_permissions),

@@ -29,6 +29,11 @@ include(daemon.cmake)
 include(display.cmake)
 include(features.cmake)
 
+# The binary, defined here where contract_test looks for it. xr_luma_daemon is in daemon.cmake.
+add_executable(xr-luma-driver src/main.cpp)
+target_link_libraries(xr-luma-driver PRIVATE xr_luma_daemon)
+target_compile_options(xr-luma-driver PRIVATE -Wall -Wextra -Wpedantic -Werror)
+
 # drv-review-qa's shape check. Everything is merged, so a missing header now fails instead of skipping.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/contract_test.cpp")
   add_executable(luma_contract_test tests/contract_test.cpp)
@@ -36,6 +41,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/contract_test.cpp")
   target_link_libraries(luma_contract_test PRIVATE xr_luma_driver)
   target_compile_definitions(luma_contract_test PRIVATE XR_ENABLE_LUMA_DRIVER=1 LUMA_CONTRACT_REQUIRED=1)
   target_include_directories(luma_contract_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-  add_test(NAME luma_contract COMMAND luma_contract_test)
+  add_test(NAME luma_contract COMMAND luma_contract_test "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(luma_contract PROPERTIES SKIP_RETURN_CODE 77)
 endif()

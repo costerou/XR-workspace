@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <new>
 #include <string>
@@ -45,6 +46,7 @@ struct Device {
     std::vector<Span> absent, silent, junk, refuse;  // ms since start of the test
     bool restart_clock_on_return = false;
     bool streaming = false;  // needs a start; a drop ends it, closing the link does not
+    std::uint8_t stream_byte = 0x01;  // the command that starts it
     std::uint64_t clock_zero = 0;
     std::vector<std::uint64_t> stamp_override;  // raw device stamps for the first samples, then the clock
     std::uint64_t run_ms = 0;
@@ -98,7 +100,7 @@ public:
         sent.emplace_back(bytes.begin(), bytes.end());
         sent_ms.push_back(d_.ms());
         if (within(d_.refuse, d_.ms())) return false;
-        if (bytes.size() == 1 && bytes[0] == 0x01) d_.streaming = true;
+        if (bytes.size() == 1 && bytes[0] == d_.stream_byte) d_.streaming = true;
         return true;
     }
     void close() override { CHECK(open_now); open_now = false; ++closes; }
@@ -170,7 +172,8 @@ struct Rig {
     FusionLog fusion;
     std::vector<std::string> lines;
     int settle = 100, nan_at = -1, lose_at = -1;
-    std::vector<std::uint8_t> stop_command{0x00};
+    std::vector<std::uint8_t> stop_command{0x00}, start_command{0x01};
+    std::vector<std::vector<std::uint8_t>> before_start;
     DaemonConfig config{};
     Stats stats{};
     DaemonEnd end{};
@@ -182,7 +185,7 @@ struct Rig {
                 ++fusion.made;
                 return std::make_unique<FakeEstimator>(fusion, settle, nan_at, lose_at, q);
             },
-            sink, [this] { return device.now; }, [this](std::string_view l) { lines.emplace_back(l); }, {0x01}, stop_command};
+            sink, [this] { return device.now; }, [this](std::string_view l) { lines.emplace_back(l); }, start_command, stop_command, before_start};
         Daemon daemon(std::move(parts), config);
         end = daemon.run(device.stop);
         stats = daemon.stats();
@@ -654,17 +657,124 @@ int count(const std::vector<std::string>& lines, std::string_view prefix) {
     return n;
 }
 
+void test_start_sequence_is_spaced_and_stops_when_samples_come() {
+    { Rig r; r.stop_command.clear(); r.before_start = {{0x02}}; r.run(1000);
+      CHECK(r.link.sent.size() == 2);
+      CHECK(r.link.sent[0] == std::vector<std::uint8_t>{0x02} && r.link.sent[1] == std::vector<std::uint8_t>{0x01});
+      CHECK(r.link.sent_ms[1] - r.link.sent_ms[0] >= 100); }
+    { Rig r; r.stop_command.clear(); r.before_start = {{0x02}}; r.device.stream_byte = 0x02; r.run(1000);
+      CHECK(r.link.sent.size() == 1);  // what came first was enough: nothing more goes out
+      CHECK(r.stats.starts_skipped == 1); }
+}
+
+void test_listen_only_sends_nothing() {
+    Rig r; r.start_command.clear(); r.stop_command.clear(); r.run(4000);
+    CHECK(r.link.sent.empty());
+    CHECK(r.stats.commands == 0);
+    CHECK(r.count("luma: disconnected reason=silent") == 1);  // and it says so: silence on an open link is reported
+}
+
+void test_repeats_are_not_junk() {
+    std::vector<CaptureRecord> records;
+    for (std::uint64_t t = 1; t <= 3000; ++t) {
+        auto packet = wiring::stand_in_packet(sample_at(t * kMs, std::uint32_t(t)));
+        records.push_back({t * kMs, CaptureKind::from_device, packet});
+        if (t <= 60) records.push_back({t * kMs + 500'000, CaptureKind::from_device, packet});  // the Ultra's first 60 or so come twice
+    }
+    Replay r; replay(r, records);
+    CHECK(r.stats.samples == 3000);
+    CHECK(r.stats.repeats == 60);
+    CHECK(r.stats.bad_packets == 0);
+}
+
+void test_real_capture_format(const std::filesystem::path& dir) {
+    // A hand-made LUMACAP1 file, as tools/luma_capture writes: the reader itself is proven against those in test_cpp_reader.py.
+    const auto put = [](std::string& out, auto value) { out.append(reinterpret_cast<const char*>(&value), sizeof value); };
+    std::string file("LUMACAP1");
+    put(file, std::uint16_t(1)); put(file, std::uint16_t(32)); put(file, std::uint16_t(48)); put(file, std::uint16_t(0));
+    put(file, std::uint64_t(0)); put(file, std::uint32_t(5)); put(file, std::uint32_t(0));
+    const auto record = [&](std::uint8_t endpoint, std::uint8_t xfer, std::uint64_t t, const std::vector<std::uint8_t>& data) {
+        put(file, std::uint32_t(48 + data.size())); file += char(1); file += 'C'; file += char(xfer); file += char(endpoint);
+        put(file, t); put(file, std::uint64_t(1)); put(file, std::uint16_t(5)); file += char(13); file += char(0x02);
+        put(file, std::int32_t(0)); put(file, std::uint32_t(data.size())); put(file, std::uint32_t(data.size())); put(file, std::uint64_t(0));
+        file.append(reinterpret_cast<const char*>(data.data()), data.size());
+    };
+    for (std::uint64_t t = 1; t <= 100; ++t) {
+        record(0x81, 1, t * kMs, wiring::stand_in_packet(sample_at(t * kMs, std::uint32_t(t))));
+        record(0x83, 1, t * kMs, std::vector<std::uint8_t>(16, 7));  // the display's events are not played to the parser
+    }
+    const std::string path = dir / "real.lcap";
+    { std::ofstream(path, std::ios::binary) << file; }
+    std::string why;
+    const auto records = load_capture(path, why);
+    CHECK(records.has_value());
+    if (!records) return;
+    CHECK(records->size() == 100);
+    for (const CaptureRecord& r : *records) CHECK(r.kind == CaptureKind::from_device && r.payload.size() == 28);
+}
+
+void test_bias_store(const std::filesystem::path& dir) {
+    const std::string path = dir / "state" / "bias";
+    wiring::BiasStore store(path);
+    store.load();
+    CHECK(!store.bias());                    // a first run: cold start
+    CHECK(!store.save());                    // nothing learned, nothing written
+    store.remember({0.01f, -0.02f, 0.03f});
+    CHECK(store.save());
+    wiring::BiasStore again(path);
+    again.load();
+    CHECK(again.bias() && std::fabs((*again.bias())[2] - 0.03f) < 1e-6f);
+    { std::ofstream(path) << "garbage"; }
+    wiring::BiasStore bad(path);
+    bad.load();
+    CHECK(!bad.bias());
+    { std::ofstream(path) << "0 0 9"; }      // beyond anything a gyro could need: refused, not clamped
+    wiring::BiasStore wild(path);
+    wild.load();
+    CHECK(!wild.bias());
+}
+
+void test_transport_link_routes_and_filters() {
+    struct Routed {
+        struct Read { Io status = Io::Timeout; std::size_t bytes = 0; std::uint8_t endpoint = 0; };
+        std::vector<Read> script;
+        std::size_t at = 0;
+        std::vector<std::uint8_t> routed_to;
+        void open() {}
+        Read read(std::span<std::uint8_t>, milliseconds) { return at < script.size() ? script[at++] : Read{}; }
+        Io write(std::span<const std::uint8_t>, milliseconds) { return Io::Error; }
+        Io write_to(std::uint8_t endpoint, std::span<const std::uint8_t>, milliseconds) { routed_to.push_back(endpoint); return Io::Ok; }
+        void close() {}
+        std::string last_error() const { return {}; }
+    };
+    TransportLink<Routed, Io> link;
+    std::vector<int> others;
+    link.set_stream_endpoint(0x81);
+    link.set_other_packet_handler([&](std::uint8_t endpoint, std::span<const std::uint8_t>) { others.push_back(endpoint); });
+    link.set_route([](std::span<const std::uint8_t> bytes) { return bytes[0] == 0xff ? std::uint8_t(0x06) : std::uint8_t(0x04); });
+    auto& t = link.transport();
+    t.script = {{Io::Ok, 28, 0x81}, {Io::Ok, 6, 0x85}, {Io::Ok, 28, 0x81}};
+    std::uint8_t buffer[32];
+    CHECK(link.read(buffer, milliseconds(1)).status == ReadStatus::data);
+    CHECK(link.read(buffer, milliseconds(1)).status == ReadStatus::timeout);  // the MCU's reply is not a sample
+    CHECK(link.read(buffer, milliseconds(1)).status == ReadStatus::data);
+    CHECK(others == std::vector<int>{0x85});
+    const std::uint8_t mcu[] = {0xfa}, data[] = {0xff};
+    CHECK(link.write(mcu) && link.write(data));
+    CHECK(t.routed_to == (std::vector<std::uint8_t>{0x04, 0x06}));
+}
+
 void test_replay_clean() {
-    Replay r; replay(r, capture(2000));
+    Replay r; replay(r, capture(3000));
     CHECK(r.end == DaemonEnd::replay_ended);
-    CHECK(r.stats.samples == 2000);
-    CHECK(r.sink.published == 1901);  // the stand-in estimator's first 99 are calibration
+    CHECK(r.stats.samples == 3000);
+    CHECK(r.sink.published >= 1400 && r.sink.published <= 1510);  // real Fusion: 1.5 s still, then everything is published
     CHECK(r.commands == 0);           // samples from the first moment: listened, sent nothing. No stop when a replay runs out
     CHECK(count(r.lines, "luma: stopped reason=replay-end") == 1);
 }
 
 void test_replay_reproduces_a_drop_and_a_stall() {
-    Replay r; replay(r, capture(6000, {{1000, 1200}}, {{3000, 3500}}));
+    Replay r; replay(r, capture(8000, {{3000, 3200}}, {{5000, 5500}}));
     CHECK(count(r.lines, "luma: stale") == 1);
     CHECK(count(r.lines, "luma: fresh") == 1);
     CHECK(count(r.lines, "luma: disconnected reason=gone") == 1);
@@ -791,7 +901,7 @@ void test_binary(const std::string& binary, const std::filesystem::path& dir) {
     if (binary.empty()) { ++g_failures; std::cerr << "  FAILED no binary given\n"; return; }
     const std::string prefix = (dir / "ipc_").string();
     const std::string cap = dir / "run.cap";
-    CHECK(save_capture(cap, capture(1500)));
+    CHECK(save_capture(cap, capture(2000)));
 
     { auto p = spawn(binary, {"--replay", cap, "--ipc-prefix", prefix});  // a whole run, as fast as it goes
       const std::string log = drain(p.err);
@@ -880,6 +990,12 @@ int main(int argc, char** argv) {
     RUN(test_no_heading_looking_straight_up);
     RUN(test_hot_path_allocates_nothing);
     RUN(test_transport_link);
+    RUN(test_transport_link_routes_and_filters);
+    RUN(test_start_sequence_is_spaced_and_stops_when_samples_come);
+    RUN(test_listen_only_sends_nothing);
+    RUN(test_repeats_are_not_junk);
+    RUN(test_real_capture_format, dir);
+    RUN(test_bias_store, dir);
     RUN(test_stats_line);
     RUN(test_every_line_is_parseable);
     RUN(test_replay_clean);

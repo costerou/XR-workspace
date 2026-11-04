@@ -109,3 +109,33 @@ def import_raw(source, output, *, stats=None):
     if stats is not None:
         stats.update(isochronous_left_out=skipped, devices={str(k): v for k, v in devices.items()})
     return count
+
+
+IMU_PACKET = 28
+IMU_HEAD = b'\xaa\x8f\x00\x88'
+
+
+def imu_fixture(capture, output, *, start_s, seconds):
+    """Cuts a stretch of the glasses' IMU stream out of a .lcap: 28 byte packets end to end, and nothing else.
+
+    start_s counts from the first IMU packet. A packet that does not look like an IMU packet stops it, so a fixture
+    can only ever hold sensor readings: no serials, no calibration, no descriptors. Returns the packet count.
+    """
+    first = None
+    kept = []
+    for record in capfile.records([capture]):
+        if not record.replayable or record.ep != 0x81:
+            continue
+        if len(record.data) != IMU_PACKET or record.data[:4] != IMU_HEAD:
+            raise RawError(f'not an IMU packet on 0x81: {record.data[:8].hex()}')
+        first = record.t_ns if first is None else first
+        at = (record.t_ns - first) * 1e-9
+        if at >= start_s + seconds:
+            break
+        if at >= start_s:
+            kept.append(record.data)
+    if not kept:
+        raise RawError(f'{capture}: no IMU packets in that stretch')
+    with open(output, 'wb') as file:
+        file.write(b''.join(kept))
+    return len(kept)

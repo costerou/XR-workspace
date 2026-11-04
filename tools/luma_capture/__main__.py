@@ -134,6 +134,11 @@ def command_import(args):
     return 0
 
 
+def command_fixture(args):
+    print(f'{rawmon.imu_fixture(args.capture, args.output, start_s=args.start, seconds=args.seconds)} packets in {args.output}')
+    return 0
+
+
 def parser():
     top = argparse.ArgumentParser(prog='python3 -m tools.luma_capture', description=__doc__)
     commands = top.add_subparsers(dest='command', required=True)
@@ -188,6 +193,12 @@ def parser():
     convert.add_argument('source')
     convert.add_argument('--output', '-o', required=True)
     convert.set_defaults(run=command_import)
+    fixture = commands.add_parser('imu-fixture', help='cut IMU packets out of a capture, for tests')
+    fixture.add_argument('capture')
+    fixture.add_argument('--start', type=float, required=True, help='seconds after the first IMU packet')
+    fixture.add_argument('--seconds', type=float, required=True)
+    fixture.add_argument('--output', '-o', required=True)
+    fixture.set_defaults(run=command_fixture)
     return top
 
 

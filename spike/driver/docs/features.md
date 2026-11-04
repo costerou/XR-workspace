@@ -10,13 +10,14 @@ on a real Luma Ultra.
    requested. Nothing repeats on a timer. A failed command is not retried.
 2. **No guessing.** A message id that no public source gives stays empty, and the
    feature reports `unavailable`. Unknown ids are never tried on the glasses.
-3. **Commands back off first.** Commands wait for a connection to survive 2 s, run
+3. **Commands back off first.** Commands wait for a connection to survive 5 minutes (raised from 2 s at assembly, to
+   match display control: the safer value wins), run
    one at a time at least 250 ms apart, and stop at 16 per connection.
 4. **A timeout stops commands for that connection.** The drop log shows timed-out
    commands right before drops, so the driver does not push on.
-5. **A USB drop within 3 s of a command stops commands until the daemon restarts.**
+5. **A USB drop within 60 s of a command stops commands until the daemon restarts** (3 s before assembly).
    That cannot prove the command caused the drop. At 37 drops a day a drop lands in
-   any given 3 s window about 0.1% of the time, so a false stop is rare and costs
+   any given 60 s window about 2.5% of the time, so a false stop is rare and costs
    only an optional feature.
 6. **Tracking comes first.** `on_message()`, `tick()`, `pop_event()` and
    `StillWatch::update()` do no I/O and allocate nothing, and the test counts

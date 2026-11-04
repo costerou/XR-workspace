@@ -86,10 +86,12 @@ struct Config {
     std::optional<int> dimming;
 
     // Timing.
-    std::chrono::milliseconds settle{2000};  // a connection must last this long first
+    // The same five minutes and 60 s as display.hpp's DisplayTiming, the safer of the two values each: 5 of the 11 dropped
+    // sessions on 2026-11-03 fell at 18 to 135 s, and a daemon restarted by a drop cannot remember it.
+    std::chrono::milliseconds settle{300'000};  // a connection must last this long first
     std::chrono::milliseconds min_gap{250};
     std::chrono::milliseconds reply_timeout{1000};
-    std::chrono::milliseconds drop_window{3000};
+    std::chrono::milliseconds drop_window{60'000};
     std::chrono::milliseconds wear_off_debounce{3000};
     std::chrono::milliseconds wear_on_debounce{200};
     std::chrono::milliseconds saver_delay{30000};
