@@ -46,6 +46,8 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True, help='new evidence directory')
     parser.add_argument('--suite', action='append', choices=SUITES)
     parser.add_argument('--decoder', type=Path)
+    parser.add_argument('--restore-geometry', type=Path, help='CPU production Restore geometry executable')
+    parser.add_argument('--native-report', type=Path, help='CPU production VideoDefaults report executable')
     parser.add_argument('--native-build', type=Path, help='built offline pose/stabilization/geometry/transport tests')
     parser.add_argument('--artifact', action='append', default=[], type=Path)
     args = parser.parse_args(argv)
@@ -53,6 +55,8 @@ def main(argv=None):
     env = dict(os.environ, PYTHONPATH=str(ROOT)+os.pathsep+str(ROOT/'tests/native_spike')+os.pathsep+str(ROOT/'tests/xr_options_integration'))
     if args.decoder:
         env['CONTROL_WIRE_CHECK'] = str(args.decoder.resolve(strict=True))
+    if args.restore_geometry: env['XR_RESTORE_GEOMETRY_BINARY']=str(args.restore_geometry.resolve(strict=True))
+    if args.native_report: env['XR_NATIVE_REPORT_BINARY']=str(args.native_report.resolve(strict=True))
     records = []
     for suite in args.suite or list(SUITES):
         command = [sys.executable, '-m', 'pytest', '-q', *SUITES[suite]]

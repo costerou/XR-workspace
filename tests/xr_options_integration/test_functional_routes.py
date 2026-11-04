@@ -12,8 +12,9 @@ from pathlib import Path
 import sys
 import unittest
 import pytest
+from tools.native_spike import view
 
-ROOT=Path(__file__).resolve().parents[2]
+ROOT=Path(view.__file__).resolve().parents[2]
 CASES=json.loads((Path(__file__).with_name('route_cases.json')).read_text())
 MODULES={}
 
