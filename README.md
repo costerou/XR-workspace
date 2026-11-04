@@ -475,6 +475,32 @@ pill and the video controls are dimmed, and they close by themselves after 30 se
 dot, glass pills, level bars and corner caps are dim and hide after 30 seconds without mouse movement. Don't leave a bright
 video paused for a long time either.
 
+### When something goes wrong
+
+XR Workspace keeps an eye on itself while a session runs. If something breaks, you get a desktop notification saying
+**"XR Workspace hit a problem: ... A report was saved."**, and the panel shows the last problem and when it happened.
+Nothing is needed from you: the session is left as it is, and it never stops or restarts anything by itself.
+
+It notices when:
+
+- the program drawing in the glasses crashes or stops unexpectedly
+- the picture stops reaching the glasses, or the frame rate collapses
+- the glasses' USB connection drops
+- head tracking is lost
+- Hyprland crashes, or the XR plugin stops working
+- a session dies or stops answering, or Recover doesn't finish
+
+Pressing Stop, using Recover, restarting the panel and unplugging the glasses after you stop are all normal, so none of
+them make a report. A USB drop the session survives does make one, so you can see how often it happens, but the same
+problem is reported at most once every ten minutes.
+
+Each report is a pair of files in `~/.local/state/viture-workspace/incidents/`: a short `.md` you can read and a `.json`
+with the full detail. It says what happened and when, and what the likely cause was. Reports stay on your computer. They
+hold logs and timing numbers, with no screen content, window titles, clipboard text or video links, and anything that
+looks like a password or key is removed. If `~/.config/viture-workspace/on-incident` exists and can be run, XR Workspace
+runs it with the report's path, so another tool can pick the report up. There's more in
+[docs/technical.md](docs/technical.md#incident-reports).
+
 ## FAQ
 
 **Does it change my normal monitor setup?**
