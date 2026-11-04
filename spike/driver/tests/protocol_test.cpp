@@ -182,6 +182,27 @@ void test_data_request_matches_vendor_frames() {
     }
 }
 
+void test_data_request_sizes_match_the_sdk_log() {
+    // What the SDK's own builder logged on Cody's glasses, in driver.log:
+    //   MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+    //   MsgID: 0x100B, PayloadLen: 1, DataLen: 13, PacketLen: 512
+    // Both are built only to compare sizes: neither is a command we send, and
+    // the 0x100B value is unknown, so the byte here is a placeholder.
+    const auto display_mode = data_request(0x0007);
+    CHECK(display_mode);
+    CHECK(display_mode->bytes.size() == 512);
+    CHECK(display_mode->bytes[4] == 12 && display_mode->bytes[5] == 0);
+    // CRC computed independently; drv-protocol-research's tool gets the same.
+    const Bytes want = from_hex("fffee3470c0000000000000000000700");
+    CHECK(std::equal(want.begin(), want.end(), display_mode->bytes.begin()));
+
+    const Bytes one_byte = {0x01};
+    const auto status_report = data_request(0x100B, one_byte);
+    CHECK(status_report);
+    CHECK(status_report->bytes.size() == 512);
+    CHECK(status_report->bytes[4] == 13 && status_report->bytes[5] == 0);
+}
+
 void test_real_luma_ultra_reply_passes_every_check() {
     // Sent by a real Luma Ultra on 2026-09-07, kept in go-viture info_test.go. It
     // proves that device replies carry the CRC this code checks: go-viture
@@ -638,6 +659,7 @@ int main() {
         T(test_checks_match_published_values),
         T(test_data_request_golden),
         T(test_data_request_matches_vendor_frames),
+        T(test_data_request_sizes_match_the_sdk_log),
         T(test_real_luma_ultra_reply_passes_every_check),
         T(test_hot_path_never_allocates),
         T(test_data_request_refuses_oversize_payload),

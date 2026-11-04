@@ -21,6 +21,12 @@
 //     (cee6556, docs/plan/roadmap.md) sent the classic IMU enable to both on
 //     real hardware and got no reply, and their report descriptors say usage
 //     page 0x0C (consumer), not vendor.
+//     Cody's driver.log (2026-11-03) narrows where to look. Healthy starts with
+//     6DOF on and off show the same steps: "get exp flag", a 15872-byte transfer
+//     and "open_vst_str", then 0x100B (one byte, once), then 0x0007 polling. The
+//     SDK's message builder logs no other id, so whatever starts the stream does
+//     not go through it (inferred). A capture has to cover every pipe and
+//     control transfers, not only 0x06 / 0x87.
 //
 //   VITURE Pro 2 (35ca:1301), protocol V2: github.com/elasticjava/viture-v2
 //     (MIT, 8b29df0), PROTOCOL.md. Measured with usbmon on a Pro 2. This is the
