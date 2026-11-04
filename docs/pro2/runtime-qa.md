@@ -601,3 +601,19 @@ matching source/hash/entrypoint validation and this exact CLI matrix. This is
 not physical XR/window-comfort acceptance or authorization to retry either older
 release. The earlier mocked client/source-module tests were not sufficient;
 future acceptance must retain this genuine packaged entrypoint coverage.
+
+The independent extraction utility now accepts --genuine-cli-matrix. It audits
+original and extracted hashes/source/canonical entry and dispatch, then runs the
+committed full-wire harness against that fresh extracted package before removing
+it. Requires at least4 actual tests, zero skips, exit0 and OK, then rechecks the
+unchanged production extraction. Disposable test substitutions remain inside each
+harness case; the audited original/extracted release tree is not modified.
+Checkpoint command on source8c72f1c:
+
+```
+python tests/pro2_runtime_qa/audit_extracted_bundle.py ../pro2-integrate/build/pro2-cli-fixed-ready --source 8c72f1c --genuine-cli-matrix
+```
+
+PASS:317 hashes/canonical packaged source+entry+dispatch and all4 genuine CLI
+cases from the fresh extraction. This additionally proves the combined audit
+workflow works; final frozen replacement source/archive is still pending.

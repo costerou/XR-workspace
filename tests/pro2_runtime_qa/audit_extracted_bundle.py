@@ -1,6 +1,9 @@
 """Audit copied archive extraction + packaged preflight/dispatch without SDK/client."""
 import argparse
 import json
+import os
+import re
+import sys
 from pathlib import Path
 import subprocess
 import tarfile
@@ -39,7 +42,7 @@ with patch.object(ctypes,'CDLL',side_effect=AssertionError('SDK/library load for
 '''
 
 
-def run(bundle, source):
+def run(bundle, source, genuine_cli=False):
     original=audit(bundle, source)
     with tempfile.TemporaryDirectory(prefix='pro2-release-qa-') as tmp:
         base=Path(tmp);archive=base/'review.tar'
@@ -59,11 +62,23 @@ def run(bundle, source):
         dispatch=subprocess.run([*command,'python','-I','-c',SPY,str(root)],capture_output=True,text=True,check=True,timeout=30)
         spy=json.loads(dispatch.stdout)
         if audit(root,source)!=original:raise ValueError('artifact changed during preflight/spy')
-        return dict(bundle=original,extraction_identical=True,packaged_preflight=result,packaged_dispatch=spy)
+        matrix=None
+        if genuine_cli:
+            repo=Path(__file__).resolve().parents[2]
+            env=dict(os.environ,PRO2_QA_CLI_BUNDLE=str(root))
+            completed=subprocess.run([sys.executable,'tests/pro2_cli/run.py'],cwd=repo,env=env,capture_output=True,text=True,check=True,timeout=120)
+            output=completed.stdout+completed.stderr
+            count=re.search(r'Ran (\d+) tests',output)
+            if not count or int(count.group(1))<4 or 'skipped' in output or '\nOK\n' not in output:
+                raise ValueError('genuine CLI matrix incomplete: '+output)
+            matrix=dict(tests_passed=int(count.group(1)),exit_code=completed.returncode,output=output)
+            if audit(root,source)!=original:raise ValueError('artifact changed during genuine CLI matrix')
+        return dict(bundle=original,extraction_identical=True,packaged_preflight=result,packaged_dispatch=spy,genuine_cli_matrix=matrix)
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('bundle',type=Path);parser.add_argument('--source',required=True)
+    parser.add_argument('--genuine-cli-matrix',action='store_true',help='run committed synthetic SDK/private endpoint CLI cases against extraction')
     args=parser.parse_args()
-    print(json.dumps(run(args.bundle,args.source),indent=2))
+    print(json.dumps(run(args.bundle,args.source,args.genuine_cli_matrix),indent=2))
