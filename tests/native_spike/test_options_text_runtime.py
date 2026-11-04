@@ -22,6 +22,8 @@ class TextRuntimeTests(unittest.TestCase):
                 assert request=='j/devices'
                 return json.dumps({'keyboards':[dict(main=True,rules='evdev',model='pc105',layout='us',variant='',options='')]})
         translate=RuntimeText(c,Client())
-        self.assertEqual(translate(1,38),'A')
+        with self.assertRaisesRegex(ValueError,'Authoritative XKB'):
+            translate(1,38)
+        self.assertEqual(translate(1,38,state=dict(depressed=1,latched=0,locked=0,group=0)),'A')
         c.options_editor.close()
         self.assertIsNone(c.options_editor.text_input)

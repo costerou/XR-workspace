@@ -48,7 +48,10 @@ class AdapterTests(unittest.TestCase):
             editor.open('file')
             self.assertEqual(editor.rows()[2]['label'],'video.mp4')
             editor.apply('editor.file.0')
-            self.c.options_video.on_message.assert_called_once_with({'op':'video_open','payload':{'path':str(file)}})
+            self.c.options_video.on_message.assert_called_once()
+            args,kwargs=self.c.options_video.on_message.call_args
+            self.assertEqual(args,({'op':'video_open','payload':{'path':str(file)}},))
+            self.assertTrue(callable(kwargs['done']))
             editor.open('url')
             editor.apply('editor.text','$(touch /tmp/no)')
             with self.assertRaises(ValueError): editor.apply('editor.play')
@@ -92,7 +95,10 @@ class NativeOwnerTests(unittest.TestCase):
         self.assertEqual(editor.text,'a')
         editor.apply('editor.text','https://example.com/video')
         editor.key(36)
-        c.options_video.on_message.assert_called_once_with({'op':'video_open','payload':{'url':'https://example.com/video'}})
+        c.options_video.on_message.assert_called_once()
+        args,kwargs=c.options_video.on_message.call_args
+        self.assertEqual(args,({'op':'video_open','payload':{'url':'https://example.com/video'}},))
+        self.assertTrue(callable(kwargs['done']))
         self.assertIsNone(editor.text_input)
 
 if __name__ == '__main__': unittest.main()
