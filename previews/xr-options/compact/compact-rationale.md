@@ -1,0 +1,21 @@
+# Compact XR options mockups C1–C3
+
+Planning only, based on origin/master ff7b26a. HTML reconstructions, not native renderer screenshots. No runtime code changed, installed or exercised. Simple monochrome B-style gear is provisional; existing drag/placement pill and Connected Tail 3D remain separate.
+
+Recommend **C3** for everyday use: stabilization, scoped strength and recenter immediately accessible, with all nine categories one step away. C1 offers Workspace/selected-monitor tabs with a two-column category chooser for faster scanning. C2 uses a single-column grouped drill-in with Back, reducing simultaneous choices. All use the same category inventory so design selection does not remove controls.
+
+Paths: gear → category → control in C1/C2; gear → All settings → category → control in C3. Search finds category and contained control labels. Workspace/All monitors and selected XR-2 are explicitly labelled; monitor categories select monitor scope, workspace categories select workspace scope. 3D can be inspected under both tabs. Profiles mean automatically remembered per-glasses setup, not an invented profile picker.
+
+Source inspection: spike/include/xr/glass.hpp, material.hpp; spike/src/glass.cpp, hud.cpp; tools/native_spike/free_pointer.py, view.py, quality.py; tools/xr_controller/server.py; omarchy-plugin/cody.viture-workspace QML RunningEditor, PlacementEditor, DesktopEditor, StabilizationControls, VideoControls and Panel. Tonal dark Material surfaces, rounded capsules, state layers, system typography and bounded panel follow the existing family. Native render tests exist, but these new layouts have no native renderer implementation; no native XR preview was claimed.
+
+Scope includes stabilization/prediction/recenter; global and monitor 3D and strength, screen plane; live resolution/scale/ultrawide/add/remove; orbit/distance/curvature/roll/level, maximize/follow/locked and monitor switching; spacing and saved layout/reset; environment/brightness; typing/keybinds/help/window sending; VR file/link/playback/seeking/format/texture filter/deband; privacy and diagnostics. Runtime keybind editing and file browse are representative entry points, not complete editors. Select values and simulated slider values illustrate interaction, not a complete parameter specification. No backend calls occur.
+
+18 px gaps separate gear, pill and 3D. New controls have 44 px minimum targets; existing thin drag pill remains thin. Mockup uses 18 px body text at presented canvas scale; native angular readability must be validated before implementation. Panels are monitor-anchored and do not chase head motion. A production implementation must preserve the existing press-time surface freeze while changing placement and gently fit the panel within view; no bounce. Overview/maximized toggle demonstrates context. 180 ms opacity only.
+
+Remove, layout reset and Stop open scoped confirmation with Cancel; follow/locked is disabled in overview, invalid scale is disabled, and startup-only tracking/output is labelled before Start/restart required. Startup configuration must not be duplicated into running options. The example restart state is explanatory, not a new runtime backend setting.
+
+**Safety recommendation:** retain a minimal external session/status and emergency Stop/Recover when the XR picture or tracking fails. All normal runtime configuration moves inside XR after final design selection. Do not remove the recovery escape hatch.
+
+Validation: local headless Chromium opened HTML and clicked all 27 design/category paths, confirmation/Cancel and Escape. Screenshots inspected; capture waits for transition completion. compact-validation.json records category row counts. MP4 records the interaction sweep, including opening/closing and maximized context. Shared preview automation rejected blank/local-file URLs, so local Chromium was used. No live XR or GPU-heavy workload.
+
+Inventory reconciliation: shared INVENTORY.md taxonomy reviewed; profiles corrected to automatic saved setup; texture filter/deband explicitly included. Shared inventory.json was not available at export time; reconcile its eventual row-level parameter details before a production build. Sibling-owned files untouched.

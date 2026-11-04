@@ -1,0 +1,142 @@
+{
+  "checks": [
+    {
+      "design": 1,
+      "category": "Display stabilization",
+      "rows": 4
+    },
+    {
+      "design": 1,
+      "category": "3D depth",
+      "rows": 4
+    },
+    {
+      "design": 1,
+      "category": "Monitor settings",
+      "rows": 5
+    },
+    {
+      "design": 1,
+      "category": "Placement & view",
+      "rows": 9
+    },
+    {
+      "design": 1,
+      "category": "Layout & profile",
+      "rows": 3
+    },
+    {
+      "design": 1,
+      "category": "Background",
+      "rows": 3
+    },
+    {
+      "design": 1,
+      "category": "Input & keybinds",
+      "rows": 4
+    },
+    {
+      "design": 1,
+      "category": "VR video",
+      "rows": 11
+    },
+    {
+      "design": 1,
+      "category": "Advanced & session",
+      "rows": 6
+    },
+    {
+      "design": 2,
+      "category": "Display stabilization",
+      "rows": 4
+    },
+    {
+      "design": 2,
+      "category": "3D depth",
+      "rows": 4
+    },
+    {
+      "design": 2,
+      "category": "Monitor settings",
+      "rows": 5
+    },
+    {
+      "design": 2,
+      "category": "Placement & view",
+      "rows": 9
+    },
+    {
+      "design": 2,
+      "category": "Layout & profile",
+      "rows": 3
+    },
+    {
+      "design": 2,
+      "category": "Background",
+      "rows": 3
+    },
+    {
+      "design": 2,
+      "category": "Input & keybinds",
+      "rows": 4
+    },
+    {
+      "design": 2,
+      "category": "VR video",
+      "rows": 11
+    },
+    {
+      "design": 2,
+      "category": "Advanced & session",
+      "rows": 6
+    },
+    {
+      "design": 3,
+      "category": "Display stabilization",
+      "rows": 4
+    },
+    {
+      "design": 3,
+      "category": "3D depth",
+      "rows": 4
+    },
+    {
+      "design": 3,
+      "category": "Monitor settings",
+      "rows": 5
+    },
+    {
+      "design": 3,
+      "category": "Placement & view",
+      "rows": 9
+    },
+    {
+      "design": 3,
+      "category": "Layout & profile",
+      "rows": 3
+    },
+    {
+      "design": 3,
+      "category": "Background",
+      "rows": 3
+    },
+    {
+      "design": 3,
+      "category": "Input & keybinds",
+      "rows": 4
+    },
+    {
+      "design": 3,
+      "category": "VR video",
+      "rows": 11
+    },
+    {
+      "design": 3,
+      "category": "Advanced & session",
+      "rows": 6
+    }
+  ],
+  "escape": true,
+  "confirmation": true,
+  "htmlMockup": true
+}

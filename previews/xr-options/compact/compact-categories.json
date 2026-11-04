@@ -1,0 +1,216 @@
+{
+  "Display stabilization": [
+    [
+      "Stabilization",
+      "range"
+    ],
+    [
+      "Off \u00b7 Light \u00b7 Medium \u00b7 Strong",
+      "select"
+    ],
+    [
+      "Head-pose prediction",
+      "toggle"
+    ],
+    [
+      "Recenter",
+      "button"
+    ]
+  ],
+  "3D depth": [
+    [
+      "Enable 3D",
+      "toggle"
+    ],
+    [
+      "Preset",
+      "select"
+    ],
+    [
+      "Strength",
+      "range"
+    ],
+    [
+      "Screen plane / convergence",
+      "range"
+    ],
+    [
+      "Use Workspace strength",
+      "toggle"
+    ]
+  ],
+  "Monitor settings": [
+    [
+      "Resolution",
+      "select"
+    ],
+    [
+      "Scale",
+      "select"
+    ],
+    [
+      "Ultrawide",
+      "toggle"
+    ],
+    [
+      "Add monitor",
+      "button"
+    ],
+    [
+      "Remove selected monitor",
+      "danger"
+    ]
+  ],
+  "Placement & view": [
+    [
+      "Left / right",
+      "range"
+    ],
+    [
+      "Down / up",
+      "range"
+    ],
+    [
+      "Distance / apparent size",
+      "range"
+    ],
+    [
+      "Curvature",
+      "range"
+    ],
+    [
+      "Roll",
+      "range"
+    ],
+    [
+      "Level / flat",
+      "button"
+    ],
+    [
+      "Maximize / overview",
+      "button"
+    ],
+    [
+      "Follow / locked",
+      "select"
+    ],
+    [
+      "Previous / next monitor",
+      "button"
+    ]
+  ],
+  "Layout & profile": [
+    [
+      "Spacing",
+      "range"
+    ],
+    [
+      "Saved setup \u00b7 current glasses profile",
+      "button"
+    ],
+    [
+      "Reset all to three flat monitors",
+      "danger"
+    ]
+  ],
+  "Background": [
+    [
+      "Background enabled",
+      "toggle"
+    ],
+    [
+      "Environment",
+      "select"
+    ],
+    [
+      "Brightness",
+      "range"
+    ]
+  ],
+  "Input & keybinds": [
+    [
+      "Typing mode",
+      "toggle"
+    ],
+    [
+      "Edit keybinds",
+      "button"
+    ],
+    [
+      "Keyboard help \u00b7 pages",
+      "button"
+    ],
+    [
+      "Send window to selected / XR-1\u20264 / physical",
+      "select"
+    ]
+  ],
+  "VR video": [
+    [
+      "File / video URL",
+      "text"
+    ],
+    [
+      "Browse file in XR",
+      "button"
+    ],
+    [
+      "Paste from browser",
+      "button"
+    ],
+    [
+      "Play / pause",
+      "button"
+    ],
+    [
+      "Seek \u221260 / \u221210 / +10 / +60 seconds",
+      "select"
+    ],
+    [
+      "Format \u00b7 180/360 \u00b7 mono/SBS/TB \u00b7 projection",
+      "select"
+    ],
+    [
+      "Playback controls visibility",
+      "toggle"
+    ],
+    [
+      "Video quality",
+      "select"
+    ],
+    [
+      "Recenter video",
+      "button"
+    ],
+    [
+      "Back to desktops",
+      "button"
+    ]
+  ],
+  "Advanced & session": [
+    [
+      "Privacy \u00b7 physical display off",
+      "toggle"
+    ],
+    [
+      "Tracking / presented Hz / missed frames / pose age",
+      "status"
+    ],
+    [
+      "Capture path / failures / stream errors",
+      "status"
+    ],
+    [
+      "Capture backend \u00b7 startup only",
+      "restart"
+    ],
+    [
+      "Stop session",
+      "danger"
+    ],
+    [
+      "Recover session",
+      "button"
+    ]
+  ]
+}
