@@ -1,0 +1,82 @@
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_runtime_qa/audit_extracted_bundle.py", line 86, in <module>
+    print(json.dumps(run(args.bundle,args.source,args.genuine_cli_matrix),indent=2))
+                     ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_runtime_qa/audit_extracted_bundle.py", line 72, in run
+    raise ValueError('genuine CLI matrix failed (exit '+str(completed.returncode)+'):\n'+output)
+ValueError: genuine CLI matrix failed (exit 1):
+test_partial_output_failure_rolls_back (test_cli.FullCliTests.test_partial_output_failure_rolls_back) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+Traceback (most recent call last):
+
+FAIL
+test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+
+FAIL
+test_renderer_failure_rolls_back (test_cli.FullCliTests.test_renderer_failure_rolls_back) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+
+FAIL
+test_sdk_open_failure_before_plugin (test_cli.FullCliTests.test_sdk_open_failure_before_plugin) ... fixture compositor stdout: 
+fixture compositor stderr: Exception in thread Thread-1 (serve):
+Exception in thread Thread-2 (serve):
+
+FAIL
+
+======================================================================
+FAIL: test_partial_output_failure_rolls_back (test_cli.FullCliTests.test_partial_output_failure_rolls_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 93, in test_partial_output_failure_rolls_back
+    def test_partial_output_failure_rolls_back(self):self.run_case('create-fail')
+                                                     ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 45, in run_case
+    self.assertTrue(all(path.is_socket() for path in [*sockets,runtime/'wayland-1']))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 91, in test_real_packaged_cli
+    def test_real_packaged_cli(self):self.run_case('success')
+                                     ~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 45, in run_case
+    self.assertTrue(all(path.is_socket() for path in [*sockets,runtime/'wayland-1']))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_renderer_failure_rolls_back (test_cli.FullCliTests.test_renderer_failure_rolls_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 92, in test_renderer_failure_rolls_back
+    def test_renderer_failure_rolls_back(self):self.run_case('renderer-fail')
+                                               ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 45, in run_case
+    self.assertTrue(all(path.is_socket() for path in [*sockets,runtime/'wayland-1']))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_sdk_open_failure_before_plugin (test_cli.FullCliTests.test_sdk_open_failure_before_plugin)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 94, in test_sdk_open_failure_before_plugin
+    def test_sdk_open_failure_before_plugin(self):self.run_case('sdk-open-fail')
+                                                  ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 45, in run_case
+    self.assertTrue(all(path.is_socket() for path in [*sockets,runtime/'wayland-1']))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 4 tests in 7.250s
+
+FAILED (failures=4)
+

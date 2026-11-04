@@ -1,7 +1,8 @@
 """Private fake wire endpoints. Run by a copied Python executable named Hyprland."""
 import json,os,re,socket,threading,sys,time,struct
 from pathlib import Path
-root=Path(sys.argv[1]);instance=sys.argv[2];directory=root/'hypr'/instance;directory.mkdir(parents=True,mode=0o700)
+root=Path(sys.argv[1]).resolve(strict=True);os.chdir(root)
+instance=sys.argv[2];directory=root/'hypr'/instance;directory.mkdir(parents=True,mode=0o700)
 (directory/'hyprland.lock').write_text(str(os.getpid())+'\nwayland-1\n')
 trace=root/'wire.jsonl';registry={};plugins=[]
 def log(event):
@@ -48,8 +49,7 @@ def respond(wire,caller_pid):
    result=registry[p['id']]
   return dict(**{k:j[k] for k in ('schema','session','run_id','request_id')},epoch='epoch-one',result=result)
  raise RuntimeError('unhandled fixture request '+wire[:100])
-def serve(path,kind):
- s=socket.socket(socket.AF_UNIX);s.bind(str(path));s.listen(100)
+def serve(s,kind):
  while True:
   conn,_=s.accept()
   def handle(c):
@@ -61,6 +61,11 @@ def serve(path,kind):
    except Exception as e:log(dict(error=repr(e)))
    finally:c.close()
   threading.Thread(target=handle,args=(conn,),daemon=True).start()
-for path,kind in [(directory/'.socket.sock','rpc'),(directory/'.socket2.sock','events'),(root/'wayland-1','wayland')]:threading.Thread(target=serve,args=(path,kind),daemon=True).start()
+# Bind synchronously before readiness. Relative names address this private cwd;
+# no short-path alias, /tmp socket, host IPC or production transport change.
+listeners=[]
+for path,kind in [(directory/'.socket.sock','rpc'),(directory/'.socket2.sock','events'),(root/'wayland-1','wayland')]:
+ s=socket.socket(socket.AF_UNIX);s.bind(str(path.relative_to(root)));s.listen(100);listeners.append((s,kind))
+for listener,kind in listeners:threading.Thread(target=serve,args=(listener,kind),daemon=True).start()
 (root/'fake-ready').write_text('ready')
 while True:time.sleep(.1)

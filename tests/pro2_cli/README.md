@@ -37,3 +37,15 @@ managedimport. Scope/client types now live only in canonical scope.py; strictgat
 remains. Shell imports canonicalmain directly. This harness must be run against a
 fresh package and a finalarchive extraction; importedexecute tests alone are not
 fullentrypoint acceptance.
+
+Scratch-path portability: set TMPDIR to a private scratch directory. When unset,
+the runner and combined extraction auditor use build/pro2-cli-scratch in this
+checkout rather than /tmp. Each runner creates a private nested TMPDIR/runtime;
+all user+IPC+network namespace and fake display/D-Bus/device safeguards remain.
+The fake compositor binds relative names from its private cwd and announces
+readiness only after every listener binds. Cases assert absolute filesystem socket
+paths exceed 107 bytes and real client dirfd transport still reaches them. Failure
+stderr is included in the combined auditor's error. See
+`docs/pro2/runtime-evidence/scratch-path/README.md` for the reproduced long-root
+failure and exact parent-command RED/GREEN evidence. Use current repository tests;
+the immutable release's review/tests copy predates this harness-only correction.

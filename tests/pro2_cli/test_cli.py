@@ -33,14 +33,22 @@ class FullCliTests(unittest.TestCase):
             python.write_text('#!/bin/sh\nexec '+sys.executable+' -I '+str(HERE/'bootstrap.py')+' "$@"\n');python.chmod(0o700);env['PATH']=str(shim)+':'+env['PATH'];env['DBUS_SESSION_BUS_ADDRESS']='unix:path='+str(runtime/'no-dbus');env.pop('PULSE_SERVER',None);env['PRO2_CLI_CASE']=case
             try:
                 deadline=time.monotonic()+3
-                while not (runtime/'fake-ready').exists() and time.monotonic()<deadline:time.sleep(.01)
-                self.assertTrue((runtime/'fake-ready').exists())
+                while not (runtime/'fake-ready').exists() and server.poll() is None and time.monotonic()<deadline:time.sleep(.01)
+                if not (runtime/'fake-ready').exists():
+                    if server.poll() is None:server.terminate()
+                    out,err=server.communicate(timeout=3)
+                    self.fail(dict(stage='fake compositor startup',returncode=server.returncode,runtime=str(runtime),stdout=out.decode(errors='replace'),stderr=err.decode(errors='replace')))
+                # Exercise filesystem socket paths exceeding Linux sockaddr_un,
+                # while the real client uses its existing pinned-dirfd transport.
+                sockets=[runtime/'hypr'/instance/name for name in ('.socket.sock','.socket2.sock')]
+                self.assertGreater(len(os.fsencode(sockets[1])),107)
+                self.assertTrue(all(path.is_socket() for path in [*sockets,runtime/'wayland-1']))
                 child=subprocess.Popen([str(bundle/'bin/pro2-supervised-test'),'--consent',str(consent),'--state-dir',str(state)],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
                 stdout,stderr=child.communicate(timeout=30)
                 from types import SimpleNamespace
                 result=SimpleNamespace(returncode=child.returncode,stdout=stdout,stderr=stderr)
                 report=json.loads((state/'pro2-test-result.json').read_text())
-                wire=[json.loads(l) for l in (runtime/'wire.jsonl').read_text().splitlines()]
+                wire=[json.loads(l) for l in (runtime/'wire.jsonl').read_text().splitlines()] if (runtime/'wire.jsonl').exists() else []
                 stages=[r.get('stage') for r in wire]
                 debug=dict(renderer=json.loads((runtime/'renderer.json').read_text()) if (runtime/'renderer.json').exists() else None,returncode=result.returncode,report=report,stages=stages[-25:],stderr=result.stderr[-1500:],wire_errors=[r for r in wire if 'error'in r])
                 self.assertFalse(debug['wire_errors'],debug)
@@ -69,6 +77,12 @@ class FullCliTests(unittest.TestCase):
                     stages=[json.loads(l).get('stage') for l in (runtime/'wire.jsonl').read_text().splitlines()]
                 self.assertIn('plugin-unload',stages)
                 journal=json.loads((runtime/'xr-workspace-spike/genuine-cli/journal.json').read_text());self.assertTrue(all(r['state']=='done' for r in journal['operations']))
+            except BaseException:
+                server.terminate()
+                out,err=server.communicate(timeout=3)
+                print('fixture compositor stdout: '+out.decode(errors='replace')[-8000:],file=sys.stderr)
+                print('fixture compositor stderr: '+err.decode(errors='replace')[-8000:],file=sys.stderr)
+                raise
             finally:
                 server.terminate()
                 try:server.communicate(timeout=3)

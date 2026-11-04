@@ -44,7 +44,10 @@ with patch.object(ctypes,'CDLL',side_effect=AssertionError('SDK/library load for
 
 def run(bundle, source, genuine_cli=False):
     original=audit(bundle, source)
-    with tempfile.TemporaryDirectory(prefix='pro2-release-qa-') as tmp:
+    repo=Path(__file__).resolve().parents[2]
+    scratch=Path(os.environ.get('TMPDIR',str(repo/'build/pro2-cli-scratch'))).resolve()
+    scratch.mkdir(mode=0o700,parents=True,exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='pro2-release-qa-',dir=scratch) as tmp:
         base=Path(tmp);archive=base/'review.tar'
         with tarfile.open(archive,'w') as stream:
             stream.add(Path(bundle),arcname='pro2-runtime-release/runtime')
@@ -64,10 +67,11 @@ def run(bundle, source, genuine_cli=False):
         if audit(root,source)!=original:raise ValueError('artifact changed during preflight/spy')
         matrix=None
         if genuine_cli:
-            repo=Path(__file__).resolve().parents[2]
             env=dict(os.environ,PRO2_QA_CLI_BUNDLE=str(root))
-            completed=subprocess.run([sys.executable,'tests/pro2_cli/run.py'],cwd=repo,env=env,capture_output=True,text=True,check=True,timeout=120)
+            completed=subprocess.run([sys.executable,'tests/pro2_cli/run.py'],cwd=repo,env=env,capture_output=True,text=True,check=False,timeout=120)
             output=completed.stdout+completed.stderr
+            if completed.returncode:
+                raise ValueError('genuine CLI matrix failed (exit '+str(completed.returncode)+'):\n'+output)
             count=re.search(r'Ran (\d+) tests',output)
             if not count or int(count.group(1))<4 or 'skipped' in output or '\nOK\n' not in output:
                 raise ValueError('genuine CLI matrix incomplete: '+output)
