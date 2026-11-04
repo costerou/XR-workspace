@@ -109,13 +109,16 @@ class EndToEnd(Base):
                 patch.object(cli, 'UsbmonSource', Source), \
                 patch.object(cli, 'scan_devices', side_effect=lambda: [glasses] if batches else []), \
                 patch.object(cli, 'start_followers', return_value=stop):
-            code, printed = run('record', '--out', out, '--duration', 0.6, '--post-roll', 0)   # longer than one sysfs poll
+            # Longer than one sysfs poll, so the recorder sees the glasses go.
+            code, printed = run('record', '--out', out, '--duration', 0.6, '--post-roll', 0)
         self.assertEqual(code, 0)
         self.assertIn('Recording bus 5', printed)
         self.assertTrue(stop.is_set())
         self.assertTrue(Source.closed)
         result = analyze([out])
-        self.assertEqual(len(result['drops']), 1)
+        # The synthetic transfers carry 2025 times and the recorder's note today's, so the failed transfer forms a
+        # second, unconfirmed cluster here. Only the note may count.
+        self.assertEqual(sum(drop['confirmed'] for drop in result['drops']), 1)
         self.assertGreater(result['endpoints']['ep81']['transfers'], 1000)
         self.assertTrue(list((out / 'drops').rglob('*.lcap')))
 
