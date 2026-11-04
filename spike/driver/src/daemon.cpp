@@ -13,6 +13,16 @@ namespace {
 constexpr std::uint64_t kMs = 1'000'000;
 std::uint64_t ns(milliseconds ms) { return std::uint64_t(ms.count()) * kMs; }
 bool finite(const Quatf& q) { return std::isfinite(q.w) && std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z); }
+Quatf multiply(const Quatf& a, const Quatf& b) {
+    return {a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z, a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w};
+}
+// The heading of the forward axis (body x) in a world with z up. Looking straight up or down there is none.
+std::optional<float> heading_of(const Quatf& q) {
+    const float forward_x = 1 - 2 * (q.y * q.y + q.z * q.z), forward_y = 2 * (q.x * q.y + q.w * q.z);
+    if (std::hypot(forward_x, forward_y) < 0.1f) return std::nullopt;
+    return std::atan2(forward_y, forward_x);
+}
 milliseconds doubled(milliseconds first, unsigned times, milliseconds cap) {
     auto delay = first;
     for (unsigned i = 0; i < times && delay < cap; ++i) delay *= 2;
@@ -32,12 +42,19 @@ void Daemon::logf(const char* format, ...) {
 }
 
 void Daemon::log_stats() {
-    logf("luma: stats samples=%llu published=%llu bad_packets=%llu bad_poses=%llu commands=%llu opens=%llu connections=%llu "
-         "disconnects=%llu reconnects=%llu stale=%llu time_jumps=%llu",
-         (unsigned long long)stats_.samples, (unsigned long long)stats_.published, (unsigned long long)stats_.bad_packets,
-         (unsigned long long)stats_.bad_poses, (unsigned long long)stats_.commands, (unsigned long long)stats_.opens,
-         (unsigned long long)stats_.connections, (unsigned long long)stats_.disconnects, (unsigned long long)stats_.reconnects,
-         (unsigned long long)stats_.stale_events, (unsigned long long)stats_.time_jumps);
+    const std::uint64_t now = parts_.now_ns();
+    const std::uint64_t window = now - stats_since_;
+    const double rate = window ? double(stats_.samples - stats_samples_) * 1e9 / double(window) : 0;
+    logf("luma: stats samples=%llu rate_hz=%.0f lost=%llu published=%llu bad_packets=%llu bad_poses=%llu commands=%llu "
+         "starts_skipped=%llu opens=%llu connections=%llu disconnects=%llu reconnects=%llu stale=%llu time_jumps=%llu max_process_us=%.1f",
+         (unsigned long long)stats_.samples, rate, (unsigned long long)parts_.decoder.lost_samples(), (unsigned long long)stats_.published,
+         (unsigned long long)stats_.bad_packets, (unsigned long long)stats_.bad_poses, (unsigned long long)stats_.commands,
+         (unsigned long long)stats_.starts_skipped, (unsigned long long)stats_.opens, (unsigned long long)stats_.connections,
+         (unsigned long long)stats_.disconnects, (unsigned long long)stats_.reconnects, (unsigned long long)stats_.stale_events,
+         (unsigned long long)stats_.time_jumps, double(stats_.max_process_ns) / 1000.0);
+    stats_samples_ = stats_.samples;
+    stats_since_ = now;
+    stats_.max_process_ns = 0;
 }
 
 void Daemon::set_stale(bool stale) {
@@ -50,7 +67,7 @@ void Daemon::new_estimator() {
     estimator_ = parts_.make_estimator();
     ++stats_.fresh_calibrations;
     calibrated_ = announced_ = restored_ = false;
-    announce_calibrating_ = true;
+    announce_calibrating_ = heading_pending_ = true;
 }
 
 DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
@@ -60,6 +77,7 @@ DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
     const std::uint64_t started = parts_.now_ns();
     next_open_ = started;
     next_stats_ = started + ns(config_.stats_every);
+    stats_since_ = started;
     bool ended = false;
     while (!stop.load(std::memory_order_relaxed) && !ended) {
         const std::uint64_t now = parts_.now_ns();
@@ -68,12 +86,16 @@ DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
             const ReadResult r = parts_.link.read(buffer_, config_.read_timeout);
             const std::uint64_t after = parts_.now_ns();
             switch (r.status) {
-            case ReadStatus::data: on_packet(std::span<const std::uint8_t>(buffer_).first(std::min(r.size, buffer_.size())), after); break;
+            case ReadStatus::data:
+                on_packet(std::span<const std::uint8_t>(buffer_).first(std::min(r.size, buffer_.size())), after);
+                stats_.max_process_ns = std::max(stats_.max_process_ns, parts_.now_ns() - after);
+                break;
             case ReadStatus::timeout: break;
             case ReadStatus::gone: go_down("gone", false, after); break;
             case ReadStatus::end: ended = true; break;
             }
-            if (up_ && !ended) watchdog(after);
+            if (up_ && !ended && start_pending_ && after >= start_at_) send_start(after);
+            if (up_ && !ended && !start_pending_) watchdog(after);
         } else {
             if (parts_.link.exhausted()) ended = true;
             else connect(now);
@@ -81,7 +103,8 @@ DaemonEnd Daemon::run(const std::atomic<bool>& stop) {
     }
     // A stop asks the glasses to stop streaming, once, if they are still there. A replay that ran out has nobody to tell.
     if (up_) {
-        if (!ended && !parts_.stop_command.empty()) { ++stats_.commands; parts_.link.write(parts_.stop_command); }
+        // Only if we know the link was in use: a stop during the settling wait would be the very traffic that wait avoids.
+        if (!ended && !start_pending_ && !parts_.stop_command.empty()) { ++stats_.commands; parts_.link.write(parts_.stop_command); }
         parts_.link.close();
         up_ = false;
     }
@@ -99,38 +122,51 @@ void Daemon::connect(std::uint64_t now) {
     std::string why;
     ++stats_.opens;
     if (!parts_.link.open(why)) {
+        device_left_ = true;
         next_open_ = now + ns(doubled(config_.retry_first, retries_, config_.retry_max));
         ++retries_;
+        if (why != waiting_for_) {  // a device held by another driver would otherwise look like no device, for ever
+            waiting_for_ = why;
+            std::string reason = why.empty() ? "unknown" : why;
+            std::replace(reason.begin(), reason.end(), ' ', '-');
+            logf("luma: waiting reason=%s", reason.c_str());
+        }
         return;
     }
-    ++stats_.commands;  // counted even if it fails: it may have reached the wire
-    if (!parts_.link.write(parts_.start_command)) {
-        // The device is not taking commands: this is a retry of the same kind as a silent one, not a free one.
-        parts_.link.close();
-        const bool first = !outage_;
-        if (first) { outage_ = true; down_since_ = have_time_ ? last_sample_now_ : now; ++stats_.disconnects; logf("luma: disconnected reason=write-failed"); }
-        next_open_ = now + ns(doubled(config_.silent_retry_first, silent_retries_, config_.silent_retry_max));
-        ++silent_retries_;
-        return;
-    }
-    up_ = true;
+    waiting_for_.clear();
+    up_ = start_pending_ = true;
+    start_sent_ = false;
     ++stats_.connections;
     connection_has_sample_ = false;
     watch_from_ = now;
+    start_at_ = now + ns(device_left_ ? doubled(config_.settle_first, settle_level_, config_.settle_max) : config_.listen_first);
+    device_left_ = false;
+    parts_.decoder.new_connection();
     if (!ever_connected_) { ever_connected_ = true; logf("luma: connected"); }
+}
+
+void Daemon::send_start(std::uint64_t now) {
+    start_pending_ = false;
+    start_sent_ = true;
+    watch_from_ = now;  // the silence that counts starts here
+    ++stats_.commands;  // counted even if it fails: it may have reached the wire
+    if (!parts_.link.write(parts_.start_command)) go_down("write-failed", true, now);
 }
 
 void Daemon::go_down(const char* reason, bool silent, std::uint64_t now) {
     parts_.link.close();
     up_ = false;
-    if (connection_has_sample_ && watch_from_ - connection_first_sample_ >= ns(config_.healthy_after)) retries_ = silent_retries_ = 0;
+    const bool healthy = connection_has_sample_ && watch_from_ - connection_first_sample_ >= ns(config_.healthy_after);
+    if (healthy) retries_ = silent_retries_ = settle_level_ = 0;
+    else if (!silent && start_sent_) ++settle_level_;  // it died soon after we spoke to it: speak later next time
+    if (!silent) device_left_ = true;
     if (!outage_) {
         outage_ = true;
         ++stats_.disconnects;
         down_since_ = connection_has_sample_ ? watch_from_ : now;
         logf("luma: disconnected reason=%s", reason);
     } else if (silent) {
-        logf("luma: retry attempt=%u reason=silent", silent_retries_ + 1);
+        logf("luma: retry attempt=%u reason=%s", silent_retries_ + 1, reason);
     }
     set_stale(true);
     announced_ = false;
@@ -155,7 +191,7 @@ void Daemon::watchdog(std::uint64_t now) {
 }
 
 void Daemon::on_packet(std::span<const std::uint8_t> packet, std::uint64_t now) {
-    if (std::optional<ImuSample> sample = parts_.parse(packet)) on_sample(*sample, now);
+    if (std::optional<ImuSample> sample = parts_.decoder.decode(packet)) on_sample(*sample, now);
     else ++stats_.bad_packets;  // also the device's reply to the start command: not worth a log line
 }
 
@@ -171,33 +207,42 @@ void Daemon::begin_after_outage(std::uint64_t now) {
     logf("luma: reconnected gap_ms=%llu calibration=%s", (unsigned long long)(gap / kMs), calibration);
 }
 
-// The device clock is not ours to trust across a drop: the glasses may restart it from zero, and a stream can resume
-// seconds later. What each side needs differs:
-//   - the estimator gets time that just carries on by one sample, so a gap is never integrated as one huge step of
-//     whatever the gyro says first;
-//   - the feed gets true elapsed time on top (published_gap_), never going backwards, so readers age and predict correctly.
+// The device clock is not ours to trust across a drop: the glasses may restart it from zero. Everything downstream gets one
+// clock that only runs forward. Across a reconnect or a jump it advances by the time that really passed, so the estimator
+// sees the gap as a gap (Fusion then skips that motion and re-acquires gravity, where hiding it would keep it integrating as
+// if nothing had happened) and readers of the feed age and predict correctly.
 // Arithmetic is modular on purpose: offset_ may "go negative".
-ImuSample Daemon::continuous_time(ImuSample sample, std::uint64_t now) {
+ImuSample Daemon::steady_time(ImuSample sample, std::uint64_t now) {
     const std::uint64_t raw = sample.t_ns;
     if (have_time_) {
         const bool jumped = raw <= last_raw_ || raw - last_raw_ > ns(config_.time_jump);
         if (resume_time_ || jumped) {
             if (!resume_time_) ++stats_.time_jumps;
-            offset_ = last_continuous_ + nominal_dt_ - raw;
-            const std::uint64_t host_gap = now - last_sample_now_;
-            published_gap_ += host_gap > nominal_dt_ ? host_gap - nominal_dt_ : 0;
-        } else {
-            nominal_dt_ = std::clamp<std::uint64_t>(raw - last_raw_, 100'000, 20'000'000);
+            offset_ = last_steady_ + std::max<std::uint64_t>(now - last_sample_now_, 1) - raw;
         }
-    } else {
-        offset_ = 0;
     }
     resume_time_ = false;
     have_time_ = true;
     last_raw_ = raw;
     last_sample_now_ = now;
-    sample.t_ns = last_continuous_ = raw + offset_;
+    sample.t_ns = last_steady_ = raw + offset_;
     return sample;
+}
+
+// A new estimator's world x is wherever the glasses faced when it calibrated, so without this every desktop would jump to a
+// new place. Turning its world about up, by the heading difference, carries on from the last pose published; tilt is left
+// alone, as that is true gravity. Whatever the head really did while nothing was measured stays unknown, as with any gap.
+void Daemon::carry_heading(PoseOut& pose) {
+    if (heading_pending_) {
+        heading_pending_ = heading_fixed_ = false;
+        const std::optional<float> was = have_last_q_ ? heading_of(last_q_) : std::nullopt, is = heading_of(pose.q);
+        if (config_.keep_heading && was && is) {
+            const float half = (*was - *is) / 2;
+            heading_fix_ = {std::cos(half), 0, 0, std::sin(half)};
+            heading_fixed_ = heading_kept_ = true;
+        }
+    }
+    if (heading_fixed_) pose.q = multiply(heading_fix_, pose.q);
 }
 
 void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
@@ -206,11 +251,11 @@ void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
     const std::uint64_t quiet = now - watch_from_;
     watch_from_ = now;
     if (!connection_has_sample_) { connection_has_sample_ = true; connection_first_sample_ = now; }
+    if (start_pending_) { start_pending_ = false; ++stats_.starts_skipped; }  // the stream is on: no command needed
     if (outage_) begin_after_outage(now);
     if (announce_calibrating_) { announce_calibrating_ = false; logf("luma: calibrating"); }
 
-    PoseOut pose = estimator_->update(continuous_time(sample, now));
-    pose.t_ns += published_gap_;
+    PoseOut pose = estimator_->update(steady_time(sample, now));
     if (!pose.calibrated) {
         if (calibrated_) {  // the estimator gave up its calibration (a new one is its call, not ours)
             calibrated_ = announced_ = false;
@@ -221,16 +266,19 @@ void Daemon::on_sample(ImuSample sample, std::uint64_t now) {
     }
     calibrated_ = true;
     if (!finite(pose.q) || pose.t_ns <= last_published_t_) { ++stats_.bad_poses; return; }
+    carry_heading(pose);
     if (!announced_) {
         announced_ = true;
-        logf("luma: calibrated restored=%d", restored_ ? 1 : 0);
-        restored_ = false;
+        logf("luma: calibrated restored=%d%s", restored_ ? 1 : 0, heading_kept_ ? " heading=kept" : "");
+        restored_ = heading_kept_ = false;
     } else if (was_quiet) {
         logf("luma: fresh gap_ms=%llu", (unsigned long long)(quiet / kMs));
     }
     set_stale(false);
     parts_.sink.publish(pose);
     last_published_t_ = pose.t_ns;
+    last_q_ = pose.q;
+    have_last_q_ = true;
     ++stats_.published;
 }
 
@@ -336,7 +384,10 @@ const char* const kUsage =
     "  --replay-realtime        replay at recorded speed instead of as fast as it goes\n"
     "  --stale-ms N             no samples this long: mark the feed stale (default 100)\n"
     "  --reopen-ms N            no samples this long: close and reopen the device (default 1000)\n"
-    "  --keep-calibration-ms N  back within this long after a drop: keep the calibration (default 5000)\n"
+    "  --keep-calibration-ms N  back within this long after a drop: keep the calibration (default 300000)\n"
+    "  --settle-ms N            leave a device that just came back alone this long before any command (default 200)\n"
+    "  --no-keep-heading        after a new calibration, start from its own heading instead of the last one\n"
+    "  --no-stop-command        leave the stream on at exit: one command fewer, and the next start needs none\n"
     "  --help\n";
 
 namespace {
@@ -366,17 +417,21 @@ std::optional<Options> parse_options(std::span<const char* const> args, std::str
         };
         if (arg == "--help" || arg == "-h") o.help = true;
         else if (arg == "--replay-realtime") o.replay_realtime = true;
+        else if (arg == "--no-keep-heading") o.config.keep_heading = false;
+        else if (arg == "--no-stop-command") o.stop_command = false;
         else if (arg == "--ipc-prefix") { const char* v = value(); if (!v) return std::nullopt; o.ipc_prefix = v; prefix_given = true; }
         else if (arg == "--replay") { const char* v = value(); if (!v) return std::nullopt; o.replay = v; }
         else if (arg == "--stale-ms") { if (!number(o.config.stale_after)) return std::nullopt; }
         else if (arg == "--reopen-ms") { if (!number(o.config.silent_reopen_after)) return std::nullopt; }
         else if (arg == "--keep-calibration-ms") { if (!number(o.config.calibration_keep)) return std::nullopt; }
+        else if (arg == "--settle-ms") { if (!number(o.config.settle_first)) return std::nullopt; }
         else { why = "unknown option: " + std::string(arg); return std::nullopt; }
     }
     if (o.ipc_prefix.empty()) { why = "--ipc-prefix must not be empty"; return std::nullopt; }
     if (o.replay && !prefix_given) { why = "--replay needs its own --ipc-prefix: the default is the live feed"; return std::nullopt; }
     if (o.replay && o.ipc_prefix == kLiveIpcPrefix) { why = "--replay must not write the live feed"; return std::nullopt; }
     if (o.replay_realtime && !o.replay) { why = "--replay-realtime needs --replay"; return std::nullopt; }
+    o.config.settle_max = std::max(o.config.settle_max, o.config.settle_first);
     if (o.config.silent_reopen_after <= o.config.stale_after) { why = "--reopen-ms must be longer than --stale-ms"; return std::nullopt; }
     return o;
 }

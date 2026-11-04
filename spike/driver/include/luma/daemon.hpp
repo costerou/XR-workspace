@@ -5,20 +5,30 @@
 // a simulated clock (tests/daemon_test.cpp). src/wiring.cpp is the one file that plugs the real Transport, parse_imu,
 // Fusion and Publisher into them.
 //
-// Why the command traffic is so strict: XRLinuxDriver's sessions drop the glasses off USB while its driver is talking to
-// them (`get_display_mode ... returned -7`, `Failed to send USB command - MsgID: 0x0007`, then `USB disconnect`), and as a
-// plain display they never drop. So the daemon sends the start command once per connection and nothing else while it runs:
-// no polling, no keep-alive, no display-mode query, and never a device reset. A retry against a silent device is itself a
-// command, so those back off to one every 9 s (Stats::commands counts them; the `luma: stats` line shows it).
+// Zero USB drops comes first, so the command traffic is as small as it can be. Sessions with XRLinuxDriver drop the glasses
+// and as a plain display they never do; what the evidence shows is in docs/upstream-findings.md, and nothing proves the cause
+// yet. So the daemon sends at most one start per connection and nothing else while it runs: no polling, no keep-alive, no
+// display-mode query, never a device reset. Three rules from those findings:
+//   - Listen first. If samples are already arriving after an open, the stream is on and no command goes out at all.
+//   - Let the glasses settle. 18 of 53 drops came within 30 s of the one before, and a reconnect may be what caused the
+//     second, so a device that just came back is left alone for settle_first; if it dies again soon after a start, for
+//     twice as long, up to settle_max. A device that drops during the wait never received a command.
+//   - Leave a silent device alone. In some drops the IMU stopped 7-12 s before the hub left, so a stalled stream is not
+//     pushed at: retries double up to one every 9 s.
+// Stats::commands counts every command, and the `luma: stats` line shows it.
 //
 // stderr lines, one event per line, `luma: <event> key=value ...`:
-//   luma: connected                         the device is open and the start command went out (first time only)
+//   luma: connected                         the device is open (first time only)
+//   luma: waiting reason=WHY                the device cannot be opened, whenever WHY changes (absent; another driver has it)
 //   luma: calibrating                       a new calibration began: hold the glasses still
-//   luma: calibrated restored=0|1           the pose is usable; restored=1: a reconnect kept the earlier calibration
+//   luma: calibrated restored=0|1 [heading=kept]
+//                                           the pose is usable; restored=1: a reconnect kept the earlier calibration;
+//                                           heading=kept: a new calibration, turned to carry on from the last heading
 //   luma: stale ms=N                        the link is up but no samples for N ms; the feed is marked disabled
 //   luma: fresh gap_ms=N                    samples came back on the same connection
 //   luma: disconnected reason=gone|silent|write-failed
-//   luma: retry attempt=N reason=silent     another try at a device that opens but stays silent
+//   luma: retry attempt=N reason=silent|write-failed
+//                                           another try at a device that opens but stays silent or refuses the start
 //   luma: reconnected gap_ms=N calibration=kept|lost|none
 //   luma: stats samples=N ... commands=N    once a minute and at exit
 //   luma: stopped reason=signal|replay-end
@@ -77,30 +87,46 @@ public:
     virtual void set_stale(bool stale) = 0;
 };
 
-using Parser = std::optional<ImuSample> (*)(std::span<const std::uint8_t>);
+// Bytes to samples. Stateful, because counting lost samples and spotting a restarted device counter needs history.
+class Decoder {
+public:
+    virtual ~Decoder() = default;
+    virtual std::optional<ImuSample> decode(std::span<const std::uint8_t> packet) = 0;
+    virtual void new_connection() {}
+    virtual std::uint64_t lost_samples() const { return 0; }
+};
+
 using Logger = std::function<void(std::string_view)>;
 
 struct DaemonConfig {
     milliseconds read_timeout{20};           // also how soon a stop request is noticed
     milliseconds stale_after{100};           // matches PoseState's default in spike/include/xr/pose.hpp
     milliseconds silent_reopen_after{1000};  // no samples this long on an open link: close and try again
-    milliseconds retry_first{50}, retry_max{500};           // device gone: opening costs no USB traffic
-    milliseconds silent_retry_first{500}, silent_retry_max{8000};  // device silent: each try sends a command
-    milliseconds calibration_keep{5000};     // back within this long: same calibration, same orientation
+    milliseconds retry_first{20}, retry_max{100};           // device gone: looking for it costs no USB traffic
+    milliseconds silent_retry_first{2000}, silent_retry_max{8000};  // device silent: each try sends a command
+    milliseconds listen_first{20};           // after an open, before any command: a running stream needs none (20 samples)
+    milliseconds settle_first{200}, settle_max{3200};  // the same for a device that just came back: see the top of this file
+    // Back within this long: same calibration, same orientation. Fusion needs no reset for a gap (FusionQuality::Recovering
+    // re-acquires gravity and the bias still holds), while a new calibration means holding still. The window only guards
+    // against a bias gone stale, which Fusion goes on correcting anyway. Drops cluster, so a short window would lose it for nothing.
+    milliseconds calibration_keep{300000};
     milliseconds healthy_after{2000};        // a connection this long ends the back-off; a flapping one does not
     milliseconds time_jump{500};             // device time stepping further than this is a new time base
     milliseconds stats_every{60000};
+    bool keep_heading = true;                // a new calibration carries on from the last published heading
 };
 
 struct Stats {
     std::uint64_t samples = 0, bad_packets = 0, bad_poses = 0, published = 0;
     std::uint64_t commands = 0, opens = 0, connections = 0, disconnects = 0, reconnects = 0;
     std::uint64_t stale_events = 0, time_jumps = 0, fresh_calibrations = 0;
+    std::uint64_t starts_skipped = 0;  // connections that found the stream already on, and sent nothing
+    std::uint64_t max_process_ns = 0;  // the slowest packet, bytes in to pose out, since the last stats line
 };
 
 struct DaemonParts {
     Link& link;
-    Parser parse;
+    Decoder& decoder;
     std::function<std::unique_ptr<Estimator>()> make_estimator;  // a new one means a new calibration
     Sink& sink;
     std::function<std::uint64_t()> now_ns;  // monotonic
@@ -119,10 +145,12 @@ public:
     const Stats& stats() const { return stats_; }
 private:
     void connect(std::uint64_t now);
+    void send_start(std::uint64_t now);
     void on_packet(std::span<const std::uint8_t> packet, std::uint64_t now);
     void on_sample(ImuSample sample, std::uint64_t now);
     void begin_after_outage(std::uint64_t now);
-    ImuSample continuous_time(ImuSample sample, std::uint64_t now);
+    ImuSample steady_time(ImuSample sample, std::uint64_t now);
+    void carry_heading(PoseOut& pose);
     void watchdog(std::uint64_t now);
     void go_down(const char* reason, bool silent, std::uint64_t now);
     void new_estimator();
@@ -141,7 +169,12 @@ private:
     bool outage_ = false;            // between `disconnected` and the first sample after it
     std::uint64_t down_since_ = 0;   // the last sample before the outage
     std::uint64_t next_open_ = 0;
-    unsigned retries_ = 0, silent_retries_ = 0;
+    unsigned retries_ = 0, silent_retries_ = 0, settle_level_ = 0;
+    bool device_left_ = false;       // it went away since we last had it: it gets to settle
+    bool start_pending_ = false;     // connected, listening, nothing sent yet
+    bool start_sent_ = false;        // on this connection
+    std::uint64_t start_at_ = 0;
+    std::string waiting_for_;        // the last `waiting` reason logged
     std::uint64_t watch_from_ = 0;   // the last sample, or the moment this connection opened
     std::uint64_t connection_first_sample_ = 0;
     bool connection_has_sample_ = false;
@@ -152,12 +185,14 @@ private:
     bool restored_ = false;          // the next `calibrated` is a kept calibration
     bool announce_calibrating_ = false;
 
-    // Device time, made continuous: see continuous_time.
+    // Device time, made to run forward: see steady_time.
     bool have_time_ = false, resume_time_ = false;
-    std::uint64_t last_raw_ = 0, last_continuous_ = 0, last_sample_now_ = 0;
-    std::uint64_t offset_ = 0, published_gap_ = 0, nominal_dt_ = 1'000'000;
+    std::uint64_t last_raw_ = 0, last_steady_ = 0, last_sample_now_ = 0, offset_ = 0;
     std::uint64_t last_published_t_ = 0;
-    std::uint64_t next_stats_ = 0;
+    // A new calibration's heading is the world it happened to face: see carry_heading.
+    bool heading_pending_ = false, heading_fixed_ = false, heading_kept_ = false, have_last_q_ = false;
+    Quatf heading_fix_{}, last_q_{};
+    std::uint64_t next_stats_ = 0, stats_samples_ = 0, stats_since_ = 0;
 };
 
 // A recording to run instead of the glasses. This is a provisional container until docs/capture-format.md (drv-recorder)
@@ -195,7 +230,7 @@ inline constexpr const char* kLiveIpcPrefix = "/tmp/shader_runtime_";  // what s
 struct Options {
     std::string ipc_prefix = kLiveIpcPrefix;
     std::optional<std::string> replay;
-    bool replay_realtime = false, help = false;
+    bool replay_realtime = false, help = false, stop_command = true;
     DaemonConfig config{};
 };
 // nullopt: `why` says what is wrong with the command line. A replay must name its --ipc-prefix: run with the default it

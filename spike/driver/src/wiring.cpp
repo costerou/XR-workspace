@@ -1,8 +1,9 @@
 // The one file that knows the real Transport, parse_imu, Fusion and Publisher. None of them is on master yet, so these are
 // stand-ins, enough to run the whole binary against a capture; a replay through them shows the daemon works, not that a
 // pose is right. As each piece lands, replace its function here and take its name out of kStandIn:
-//   live_link         a Link over luma::Transport
-//   parser            return &luma::parse_imu (the signatures already match)
+//   live_link         TransportLink<Transport, IoStatus> (include/luma/transport_link.hpp)
+//   decoder           parse_imu, then SequenceTracker::observe: drop what it does not accept, reset() in new_connection,
+//                     lost_total() in lost_samples
 //   start/stop_command   luma::Command's IMU stream start and stop
 //   estimator         an Estimator over luma::Fusion (update already matches)
 //   feed_sink         a Sink over luma::Publisher (publish, and set_stale onto its `disabled` flag)
@@ -11,7 +12,7 @@
 #include <cstring>
 
 namespace luma::wiring {
-const char* const kStandIn = "transport parser commands estimator feed";
+const char* const kStandIn = "transport decoder commands estimator feed";
 
 std::unique_ptr<Link> live_link(std::string& why) {
     why = "transport not built in yet";
@@ -44,17 +45,20 @@ private:
     bool have_t_ = false;
 };
 struct Packed { std::uint64_t t_ns; std::uint32_t seq; float gyro[3], accel[3]; };
-std::optional<ImuSample> stand_in_parse(std::span<const std::uint8_t> bytes) {
-    Packed p;
-    if (bytes.size() != sizeof p) return std::nullopt;
-    std::memcpy(&p, bytes.data(), sizeof p);
-    return ImuSample{p.t_ns, {p.gyro[0], p.gyro[1], p.gyro[2]}, {p.accel[0], p.accel[1], p.accel[2]}, std::nullopt, p.seq};
-}
+class StandInDecoder final : public Decoder {
+public:
+    std::optional<ImuSample> decode(std::span<const std::uint8_t> bytes) override {
+        Packed p;
+        if (bytes.size() != sizeof p) return std::nullopt;
+        std::memcpy(&p, bytes.data(), sizeof p);
+        return ImuSample{p.t_ns, {p.gyro[0], p.gyro[1], p.gyro[2]}, {p.accel[0], p.accel[1], p.accel[2]}, std::nullopt, p.seq};
+    }
+};
 }
 
 std::unique_ptr<Sink> feed_sink(const std::string&, std::string&) { return std::make_unique<NullSink>(); }
 std::unique_ptr<Estimator> estimator() { return std::make_unique<GyroOnly>(); }
-Parser parser() { return &stand_in_parse; }
+std::unique_ptr<Decoder> decoder() { return std::make_unique<StandInDecoder>(); }
 std::vector<std::uint8_t> start_command() { return {0x01}; }
 std::vector<std::uint8_t> stop_command() { return {0x00}; }
 std::vector<std::uint8_t> stand_in_packet(const ImuSample& s) {

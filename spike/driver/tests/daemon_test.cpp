@@ -1,6 +1,7 @@
 // The daemon against a simulated device and clock: every failure mode, in moments, with no USB and no IPC. The second half
 // runs the real binary as a process (argv[1]) on captures in a private folder; it never opens a device or the live feed.
 #include "luma/daemon.hpp"
+#include "luma/transport_link.hpp"
 #include "luma/wiring.hpp"
 #include <cerrno>
 #include <cmath>
@@ -9,16 +10,25 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <cstddef>
 #include <filesystem>
 #include <iostream>
+#include <new>
 #include <string>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"  // the counting pair below is malloc and free on both sides
+static std::uint64_t g_allocated = 0;
+void* operator new(std::size_t n) { ++g_allocated; if (void* p = std::malloc(n ? n : 1)) return p; throw std::bad_alloc(); }
+void operator delete(void* p) noexcept { std::free(p); }
+void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+
 using namespace luma;
 namespace {
 int g_failures = 0;
+std::uint64_t allocations();
 #define CHECK(x) do { if (!(x)) { ++g_failures; std::cerr << "  FAILED " << __FILE__ << ':' << __LINE__ << ": " #x "\n"; } } while (0)
 constexpr std::uint64_t kMs = 1'000'000;
 
@@ -34,9 +44,11 @@ struct Device {
     std::uint64_t base = 1'000 * kMs;
     std::vector<Span> absent, silent, junk, refuse;  // ms since start of the test
     bool restart_clock_on_return = false;
+    bool streaming = false;  // needs a start; a drop ends it, closing the link does not
     std::uint64_t clock_zero = 0;
     std::vector<std::uint64_t> stamp_override;  // raw device stamps for the first samples, then the clock
     std::uint64_t run_ms = 0;
+    std::string why_absent = "absent";
     std::atomic<bool> stop{false};
     std::uint64_t ms() const { return (now - base) / kMs; }
     void tick() { if (ms() >= run_ms) stop = true; }
@@ -49,12 +61,13 @@ public:
     std::vector<std::uint64_t> sent_ms;
     int opens = 0, closes = 0;
     bool open_now = false, hotplug = false;
+    std::uint64_t allocations_in_window = 0, at_window_start = 0;
     std::uint64_t reopened_ms = 0;
     bool open(std::string& why) override {
         CHECK(!open_now);
         ++opens;
         d_.tick();
-        if (within(d_.absent, d_.ms())) { why = "absent"; return false; }
+        if (within(d_.absent, d_.ms())) { why = d_.why_absent; d_.streaming = false; was_gone_ = true; return false; }
         if (was_gone_) { was_gone_ = false; if (d_.restart_clock_on_return) d_.clock_zero = d_.now; }
         open_now = true; reopened_ms = d_.ms();
         return true;
@@ -62,10 +75,18 @@ public:
     ReadResult read(std::span<std::uint8_t> into, milliseconds timeout) override {
         CHECK(open_now);
         const std::uint64_t next = d_.ms() + 1;
-        if (within(d_.absent, next)) { d_.now += kMs; d_.tick(); was_gone_ = true; return {ReadStatus::gone, 0}; }
-        if (within(d_.silent, next) || sent.empty()) { d_.now += std::uint64_t(timeout.count()) * kMs; d_.tick(); return {ReadStatus::timeout, 0}; }
+        if (within(d_.absent, next)) { d_.now += kMs; d_.tick(); was_gone_ = true; d_.streaming = false; return {ReadStatus::gone, 0}; }
+        if (within(d_.silent, next) || !d_.streaming) {
+            for (auto left = timeout.count(); left > 0; --left) {  // a wait ends the moment the device goes
+                if (within(d_.absent, d_.ms() + 1)) break;
+                d_.now += kMs; d_.tick();
+            }
+            return {ReadStatus::timeout, 0};
+        }
         d_.now += kMs;
         d_.tick();
+        if (d_.ms() == 2000) at_window_start = allocations();
+        if (d_.ms() == 3000) allocations_in_window = allocations() - at_window_start;
         if (within(d_.junk, d_.ms())) { into[0] = 0xff; return {ReadStatus::data, 1}; }
         struct { std::uint64_t t; std::uint32_t seq; } packet{d_.now - d_.clock_zero, seq_++};
         if (stamp_next_ < d_.stamp_override.size()) packet.t = d_.stamp_override[stamp_next_++];
@@ -76,7 +97,9 @@ public:
         CHECK(open_now);
         sent.emplace_back(bytes.begin(), bytes.end());
         sent_ms.push_back(d_.ms());
-        return !within(d_.refuse, d_.ms());
+        if (within(d_.refuse, d_.ms())) return false;
+        if (bytes.size() == 1 && bytes[0] == 0x01) d_.streaming = true;
+        return true;
     }
     void close() override { CHECK(open_now); open_now = false; ++closes; }
     bool wait_for_device(milliseconds timeout) override {
@@ -94,39 +117,46 @@ private:
     bool was_gone_ = false;
 };
 
-std::optional<ImuSample> fake_parse(std::span<const std::uint8_t> bytes) {
-    struct { std::uint64_t t; std::uint32_t seq; } packet;
-    if (bytes.size() != sizeof packet) return std::nullopt;
-    std::memcpy(&packet, bytes.data(), sizeof packet);
-    return ImuSample{packet.t, {}, {}, std::nullopt, packet.seq};
-}
+struct FakeDecoder final : Decoder {
+    int connections = 0;
+    std::optional<ImuSample> decode(std::span<const std::uint8_t> bytes) override {
+        struct { std::uint64_t t; std::uint32_t seq; } packet;
+        if (bytes.size() != sizeof packet) return std::nullopt;
+        std::memcpy(&packet, bytes.data(), sizeof packet);
+        return ImuSample{packet.t, {}, {}, std::nullopt, packet.seq};
+    }
+    void new_connection() override { ++connections; }
+    std::uint64_t lost_samples() const override { return 7; }
+};
 
 struct FusionLog { int made = 0; std::vector<std::uint64_t> steps_ns; std::uint64_t last_t = 0; };
 class FakeEstimator final : public Estimator {
 public:
-    FakeEstimator(FusionLog& log, int settle, int nan_at, int lose_at) : log_(log), settle_(settle), nan_at_(nan_at), lose_at_(lose_at) {}
+    FakeEstimator(FusionLog& log, int settle, int nan_at, int lose_at, Quatf q) : log_(log), settle_(settle), nan_at_(nan_at), lose_at_(lose_at), q_(q) {}
     PoseOut update(const ImuSample& s) override {
         if (log_.last_t) log_.steps_ns.push_back(s.t_ns - log_.last_t);
         log_.last_t = s.t_ns;
         ++count_;
-        PoseOut out{Quatf{}, s.t_ns, s.seq, count_ >= settle_ && count_ != lose_at_};
+        PoseOut out{q_, s.t_ns, s.seq, count_ >= settle_ && count_ != lose_at_};
         if (count_ == nan_at_) out.q.w = std::nanf("");
         return out;
     }
 private:
     FusionLog& log_;
     int settle_, nan_at_, lose_at_, count_ = 0;
+    Quatf q_;
 };
 
 struct FakeSink final : Sink {
     std::uint64_t published = 0, last_t = 0;
+    Quatf last_q{};
     bool backwards = false, stale = false, published_while_stale = false;
     std::vector<bool> changes;
     void publish(const PoseOut& p) override {
         CHECK(p.calibrated);
         if (p.t_ns <= last_t) backwards = true;
         if (stale) published_while_stale = true;
-        last_t = p.t_ns; ++published;
+        last_t = p.t_ns; last_q = p.q; ++published;
     }
     void set_stale(bool s) override { stale = s; changes.push_back(s); }
 };
@@ -134,6 +164,8 @@ struct FakeSink final : Sink {
 struct Rig {
     Device device;
     FakeLink link{device};
+    FakeDecoder decoder;
+    std::vector<Quatf> poses;  // what each new estimator reports, in order
     FakeSink sink;
     FusionLog fusion;
     std::vector<std::string> lines;
@@ -144,8 +176,12 @@ struct Rig {
     DaemonEnd end{};
     void run(std::uint64_t ms) {
         device.run_ms = ms;
-        DaemonParts parts{link, fake_parse,
-            [this] { ++fusion.made; return std::make_unique<FakeEstimator>(fusion, settle, nan_at, lose_at); },
+        DaemonParts parts{link, decoder,
+            [this] {
+                const Quatf q = std::size_t(fusion.made) < poses.size() ? poses[std::size_t(fusion.made)] : Quatf{};
+                ++fusion.made;
+                return std::make_unique<FakeEstimator>(fusion, settle, nan_at, lose_at, q);
+            },
             sink, [this] { return device.now; }, [this](std::string_view l) { lines.emplace_back(l); }, {0x01}, stop_command};
         Daemon daemon(std::move(parts), config);
         end = daemon.run(device.stop);
@@ -172,6 +208,8 @@ struct Rig {
     }
     void dump() const { for (const auto& l : lines) std::cerr << "    " << l << '\n'; }
 };
+
+std::uint64_t allocations() { return g_allocated; }
 
 void test_clean_run() {
     Rig r; r.run(3000);
@@ -203,7 +241,7 @@ void test_nothing_published_before_calibration() {
 }
 
 void test_short_drop_keeps_calibration() {
-    Rig r; r.device.absent = {{2000, 4000}}; r.run(6000);
+    Rig r; r.device.absent = {{3000, 5000}}; r.run(7500);
     CHECK(r.fusion.made == 1);  // the same estimator: calibration and orientation survive
     CHECK(r.count("luma: disconnected reason=gone") == 1);
     CHECK(r.count("luma: reconnected") == 1);
@@ -216,7 +254,9 @@ void test_short_drop_keeps_calibration() {
     CHECK(r.index("luma: reconnected") < r.index("luma: calibrated restored=1"));
     CHECK(r.ready());
     CHECK(r.starts() == 2);  // one per connection
-    CHECK(r.link.reopened_ms >= 4000 && r.link.reopened_ms <= 4500);  // back within the back-off's cap
+    CHECK(r.link.reopened_ms >= 5000 && r.link.reopened_ms <= 5100);  // found within one rescan
+    CHECK(r.link.sent_ms[1] >= 5200 && r.link.sent_ms[1] <= 5320);    // and left alone to settle first
+    CHECK(r.decoder.connections == 2);
     CHECK(!r.sink.backwards);
 }
 
@@ -232,7 +272,7 @@ void test_hotplug_event_ends_the_wait() {
 }
 
 void test_long_drop_recalibrates() {
-    Rig r; r.device.absent = {{2000, 9000}}; r.run(12000);
+    Rig r; r.config.calibration_keep = milliseconds(5000); r.device.absent = {{2000, 9000}}; r.run(12000);
     CHECK(r.fusion.made == 2);
     CHECK(r.lines[std::size_t(r.index("luma: reconnected"))].find("calibration=lost") != std::string::npos);
     CHECK(r.count("luma: calibrating") == 2);
@@ -243,12 +283,14 @@ void test_long_drop_recalibrates() {
 }
 
 void test_keep_window_boundary() {
-    Rig kept; kept.device.absent = {{2000, 6500}}; kept.run(8000);
+    Rig kept; kept.config.calibration_keep = milliseconds(5000); kept.device.absent = {{2000, 6500}}; kept.run(8000);
     CHECK(kept.fusion.made == 1);
-    Rig lost; lost.device.absent = {{2000, 7500}}; lost.run(9000);
+    Rig lost; lost.config.calibration_keep = milliseconds(5000); lost.device.absent = {{2000, 7500}}; lost.run(9000);
     CHECK(lost.fusion.made == 2);
-    Rig custom; custom.config.calibration_keep = milliseconds(200); custom.device.absent = {{2000, 3000}}; custom.run(5000);
-    CHECK(custom.fusion.made == 2);
+    Rig standard; standard.device.absent = {{2000, 200000}}; standard.run(202000);  // over three minutes away: still kept
+    CHECK(standard.fusion.made == 1 && standard.ready());
+    Rig too_long; too_long.device.absent = {{2000, 400000}}; too_long.run(403000);
+    CHECK(too_long.fusion.made == 2);
 }
 
 void test_drop_during_calibration_starts_it_over() {
@@ -264,7 +306,9 @@ void test_glasses_absent_at_start() {
     CHECK(r.count("luma: connected") == 1);
     CHECK(r.count("luma: disconnected") == 0 && r.count("luma: reconnected") == 0);
     CHECK(r.starts() == 1);  // opening costs nothing on the wire; only the one that worked sent a command
-    CHECK(r.link.opens > 4 && r.link.opens < 12);
+    CHECK(r.link.opens > 20 && r.link.opens < 50);  // looking, not talking
+    CHECK(r.count("luma: waiting reason=absent") == 1);  // said once, not thirty times
+    CHECK(r.link.sent_ms[0] >= 3200);                    // it only just arrived: it settles too
     CHECK(r.ready());
 }
 
@@ -294,7 +338,8 @@ void test_silent_device_is_reopened_and_recovers() {
     CHECK(r.count("luma: reconnected") == 1);
     CHECK(r.fusion.made == 1);
     CHECK(r.ready());
-    CHECK(r.starts() >= 2 && r.starts() <= 4);
+    CHECK(r.starts() >= 1 && r.starts() <= 3);
+    CHECK(r.stats.starts_skipped >= 1);  // it came back by itself: the last open needed no command
     CHECK(r.link.closes == r.link.opens);
 }
 
@@ -303,18 +348,19 @@ void test_silent_device_gets_almost_no_commands() {
     // 10 in the first minute while it backs off, then one every 9 s: never polling a device that may be in trouble.
     CHECK(r.starts() >= 30 && r.starts() <= 45);
     CHECK(r.count("luma: disconnected") == 1);
-    CHECK(r.count("luma: retry attempt=") == r.starts() - 2);
+    CHECK(r.count("luma: retry attempt=") == r.starts() - 1);  // each start after the first, and the silence that ended it
     const auto& at = r.link.sent_ms;
     CHECK(at[at.size() - 2] - at[at.size() - 3] >= 8900);  // the last two starts (the very last command is the stop)
 }
 
 void test_device_that_opens_but_never_streams() {
     Rig r; r.device.silent = {{0, 1'000'000}}; r.run(20000);
+    CHECK(r.link.sent_ms[0] <= 40);  // nothing to wait for on a device that was already there
     CHECK(r.count("luma: connected") == 1);
     CHECK(r.count("luma: calibrating") == 0 && r.count("luma: calibrated") == 0);
     CHECK(r.count("luma: reconnected") == 0);
     CHECK(r.sink.published == 0 && r.sink.stale);
-    CHECK(r.starts() <= 7);
+    CHECK(r.starts() <= 5);
     CHECK(!r.ready());
 }
 
@@ -342,11 +388,103 @@ void test_refused_command_backs_off() {
 
 void test_flapping_device_is_rate_limited() {
     Rig r;
-    for (std::uint64_t t = 1000; t < 61000; t += 300) r.device.absent.push_back({t + 100, t + 300});  // up 100 ms, gone 200 ms, for a minute
-    r.run(61000);
-    CHECK(r.starts() <= 125);  // about 2 a second at worst, however fast it flaps
-    CHECK(r.stats.disconnects <= 125);
+    for (std::uint64_t t = 1000; t < 61000; t += 700) r.device.absent.push_back({t + 400, t + 700});  // up 400 ms, gone 300 ms, for a minute
+    r.run(65000);
+    CHECK(r.starts() <= 4);  // the wait after a return outgrows its time up: a flapping device is not spoken to
     CHECK(!r.sink.backwards);
+    CHECK(r.ready());        // and once it holds, it comes back
+}
+
+void test_flicker_too_short_to_settle_gets_no_command() {
+    Rig r;
+    for (std::uint64_t t = 3000; t < 8000; t += 300) r.device.absent.push_back({t + 100, t + 300});
+    r.run(8050);
+    CHECK(r.starts() == 1);  // only the first, before the flicker began
+    CHECK(r.link.sent.size() == 1);  // and no stop into a link that is still settling
+}
+
+void test_settle_grows_after_a_quick_death_and_resets_when_healthy() {
+    Rig r; r.device.absent = {{1000, 1100}, {1400, 1500}, {1900, 2000}, {9000, 9100}};
+    r.run(12000);
+    // The first drop comes 1 s in, unhealthy, so the wait grows from 200 ms to 400; gone again at 1400 it never reached a
+    // command, and the same again at 1900. Once it holds, the start goes out 400 ms after the last return.
+    const auto& at = r.link.sent_ms;
+    CHECK(at.size() == 4);  // first start, the one after the flicker, the one after 9100, the stop
+    CHECK(at.size() == 4 && at[1] >= 2400 && at[1] <= 2520);
+    CHECK(at.size() == 4 && at[2] >= 9300 && at[2] <= 9420);  // healthy for 6 s: back to 200 ms
+}
+
+void test_settling_is_not_silence() {
+    Rig r; r.config.settle_first = milliseconds(1500); r.device.absent = {{3000, 4000}}; r.run(7000);
+    CHECK(r.count("luma: retry") == 0);  // longer than the watchdog's second, and nobody has asked the device for anything yet
+    CHECK(r.link.sent_ms.size() == 3 && r.link.sent_ms[1] >= 5500 && r.link.sent_ms[1] <= 5620);
+    CHECK(r.ready());
+}
+
+void test_stream_already_on_needs_no_command() {
+    Rig r; r.device.streaming = true; r.run(2000);
+    CHECK(r.starts() == 0);
+    CHECK(r.stats.starts_skipped == 1);
+    CHECK(r.stats.commands == 1);  // the stop
+    CHECK(r.ready());
+}
+
+void test_no_stop_after_listening_only_when_settling() {
+    Rig r; r.device.absent = {{1000, 1100}}; r.run(1200);  // the stop request lands inside the settling wait
+    CHECK(r.link.sent.size() == 1);
+    CHECK(!r.link.open_now);
+}
+
+void test_says_why_it_waits() {
+    Rig r; r.device.why_absent = "busy held by another driver"; r.device.absent = {{0, 2000}}; r.run(3000);
+    CHECK(r.count("luma: waiting reason=busy-held-by-another-driver") == 1);
+    CHECK(r.count("luma: connected") == 1);
+}
+
+Quatf yawed(float rad) { return {std::cos(rad / 2), 0, 0, std::sin(rad / 2)}; }
+float yaw_of(const Quatf& q) { return 2 * std::atan2(q.z, q.w); }
+
+void test_new_calibration_keeps_the_heading() {
+    Rig r; r.config.calibration_keep = milliseconds(500); r.poses = {yawed(0.7f), yawed(-1.1f)};
+    r.device.absent = {{2000, 3000}}; r.run(5000);
+    CHECK(r.fusion.made == 2);
+    CHECK(std::abs(yaw_of(r.sink.last_q) - 0.7f) < 1e-3f);  // not -1.1: the desktops stay where they were
+    CHECK(r.count("luma: calibrated restored=0 heading=kept") == 1);
+    Rig off; off.config.calibration_keep = milliseconds(500); off.config.keep_heading = false; off.poses = {yawed(0.7f), yawed(-1.1f)};
+    off.device.absent = {{2000, 3000}}; off.run(5000);
+    CHECK(std::abs(yaw_of(off.sink.last_q) + 1.1f) < 1e-3f);
+    CHECK(off.count("luma: calibrated restored=0") == 2 && off.count("luma: calibrated restored=0 heading=kept") == 0);
+}
+
+void test_heading_carries_through_two_recalibrations() {
+    Rig r; r.config.calibration_keep = milliseconds(300); r.poses = {yawed(0.5f), yawed(2.f), yawed(-2.f)};
+    r.device.absent = {{1000, 2000}, {4000, 5000}}; r.run(7000);
+    CHECK(r.fusion.made == 3);
+    CHECK(std::abs(yaw_of(r.sink.last_q) - 0.5f) < 1e-3f);
+}
+
+void test_heading_leaves_tilt_alone() {
+    // Pitched 30 degrees about y, heading 0 then 1 rad: the second estimator's tilt is true gravity and must survive.
+    const Quatf pitched{std::cos(0.2618f), 0, std::sin(0.2618f), 0};
+    const Quatf turned{yawed(1.f).w * pitched.w, -yawed(1.f).z * pitched.y, yawed(1.f).w * pitched.y, yawed(1.f).z * pitched.w};
+    Rig r; r.config.calibration_keep = milliseconds(300); r.poses = {pitched, turned}; r.device.absent = {{1000, 2000}}; r.run(3000);
+    const Quatf& q = r.sink.last_q;
+    CHECK(std::abs(q.w - pitched.w) < 1e-3f && std::abs(q.y - pitched.y) < 1e-3f && std::abs(q.z) < 1e-3f);
+}
+
+void test_no_heading_looking_straight_up() {
+    const Quatf up{std::cos(0.7854f), 0, -std::sin(0.7854f), 0};  // forward is world up: heading means nothing
+    Rig r; r.config.calibration_keep = milliseconds(300); r.poses = {up, yawed(1.f)}; r.device.absent = {{1000, 2000}}; r.run(3000);
+    CHECK(std::abs(yaw_of(r.sink.last_q) - 1.f) < 1e-3f);
+    CHECK(r.count("luma: calibrated restored=0 heading=kept") == 0);
+}
+
+// The steady per-sample path allocates nothing and costs next to nothing: 1 kHz with no room for surprises.
+void test_hot_path_allocates_nothing() {
+    Rig r; r.fusion.steps_ns.reserve(8000);  // the fake's own log must not be what is counted
+    r.run(4000);
+    CHECK(r.link.allocations_in_window == 0);
+    CHECK(r.stats.samples > 3900);
 }
 
 void test_healthy_connection_resets_the_back_off() {
@@ -370,16 +508,15 @@ void test_no_stop_command_configured() {
 }
 
 void test_device_clock_restarts_after_a_drop() {
-    Rig r; r.device.absent = {{2000, 3000}}; r.device.restart_clock_on_return = true; r.run(5000);
+    Rig r; r.device.absent = {{3000, 4000}}; r.device.restart_clock_on_return = true; r.run(6000);
     CHECK(r.stats.time_jumps == 0);  // a reconnect's rebase is expected, not an anomaly
     CHECK(!r.sink.backwards);
     CHECK(r.stats.bad_poses == 0);
-    // The estimator never sees the gap: its largest step is one sample, so it cannot integrate a second of stale gyro.
+    // Time keeps running for the estimator and the feed alike: a gap is a gap (Fusion then skips it and re-acquires gravity).
     std::uint64_t largest = 0;
-    for (std::uint64_t s : r.fusion.steps_ns) largest = std::max(largest, s);
-    CHECK(largest <= 2 * kMs);
-    // The feed sees the gap: 5 s of wall time on the published clock, not 4.
-    CHECK(r.sink.last_t > 4'900 * kMs + 1'000 * kMs);
+    for (std::uint64_t step : r.fusion.steps_ns) largest = std::max(largest, step);
+    CHECK(largest >= 900 * kMs && largest <= 1400 * kMs);
+    CHECK(r.sink.last_t > 5'900 * kMs + 1'000 * kMs);  // 6 s of real time on the published clock, not 5
 }
 
 void test_timestamp_glitches_mid_connection() {
@@ -412,7 +549,11 @@ void test_estimator_gives_up_calibration() {
 void test_stats_line() {
     Rig r; r.config.stats_every = milliseconds(1000); r.run(3500);
     CHECK(r.count("luma: stats") >= 4);
-    CHECK(r.lines[std::size_t(r.index("luma: stats"))].find("commands=1") != std::string::npos);
+    const std::string& line = r.lines[std::size_t(r.index("luma: stats", r.index("luma: stats") + 1))];  // the first holds the start-up
+    CHECK(line.find("commands=1 ") != std::string::npos);
+    CHECK(line.find("rate_hz=1000 ") != std::string::npos || line.find("rate_hz=999 ") != std::string::npos);
+    CHECK(line.find("lost=7 ") != std::string::npos);
+    CHECK(line.find("max_process_us=") != std::string::npos);
 }
 
 void test_every_line_is_parseable() {
@@ -427,6 +568,58 @@ void test_every_line_is_parseable() {
             at = next;
         }
     }
+}
+
+// ---- TransportLink, against a stand-in with luma::Transport's shape ----------------------------------------------------
+enum class Io { Ok, Timeout, Interrupted, Connected, Disconnected, Closed, Error };
+struct ShapedTransport {
+    struct Read { Io status = Io::Timeout; std::size_t bytes = 0; };
+    std::vector<Read> script;
+    std::size_t at = 0;
+    int opens = 0, closes = 0;
+    Io write_result = Io::Ok;
+    milliseconds write_timeout{0}, last_read_timeout{-1};
+    void open() { ++opens; }
+    Read read(std::span<std::uint8_t>, milliseconds timeout) { last_read_timeout = timeout; return at < script.size() ? script[at++] : Read{}; }
+    Io write(std::span<const std::uint8_t>, milliseconds timeout) { write_timeout = timeout; return write_result; }
+    void close() { ++closes; }
+    std::string last_error() const { return "EBUSY: claimed by another driver"; }
+};
+void test_transport_link() {
+    using Shaped = TransportLink<ShapedTransport, Io>;
+    std::uint8_t buffer[8];
+    std::string why;
+    Shaped link;
+    auto& t = link.transport();
+    CHECK(!link.open(why) && why.find("EBUSY") != std::string::npos);  // not up yet: nothing to wait for but the reason
+    CHECK(t.opens == 1);
+    t.script = {{Io::Timeout}, {Io::Connected}};
+    CHECK(!link.wait_for_device(milliseconds(20)));
+    CHECK(t.last_read_timeout == milliseconds(20));
+    CHECK(link.wait_for_device(milliseconds(20)));
+    CHECK(link.open(why));
+    CHECK(t.opens == 1);  // Transport keeps its own link: open is not repeated
+
+    t.script = {{Io::Ok, 8}, {Io::Timeout}, {Io::Interrupted}, {Io::Disconnected}};
+    t.at = 0;
+    CHECK(link.read(buffer, milliseconds(20)).status == ReadStatus::data);
+    CHECK(link.read(buffer, milliseconds(20)).status == ReadStatus::timeout);
+    CHECK(link.read(buffer, milliseconds(20)).status == ReadStatus::timeout);  // a signal: the daemon's loop looks at its flag
+    CHECK(link.read(buffer, milliseconds(20)).status == ReadStatus::gone);
+    link.close();
+    CHECK(t.closes == 0);  // gone: Transport is already rescanning, and closing would stop it
+    CHECK(!link.open(why));
+
+    t.script = {{Io::Connected}};
+    t.at = 0;
+    CHECK(link.open(why));
+    CHECK(link.write(std::span<const std::uint8_t>(buffer, 1)));
+    CHECK(t.write_timeout == milliseconds(200));
+    t.write_result = Io::Error;
+    CHECK(!link.write(std::span<const std::uint8_t>(buffer, 1)));
+    link.close();  // up but silent: let go of it, and start again next time
+    CHECK(t.closes == 1);
+    CHECK(!link.open(why) && t.opens == 2);
 }
 
 // ---- capture and replay ------------------------------------------------------------------------------------------
@@ -447,7 +640,8 @@ struct Replay { std::vector<std::string> lines; std::uint64_t commands = 0; Stat
 void replay(Replay& r, std::vector<CaptureRecord> records) {
     ReplayLink link(std::move(records), false);
     std::atomic<bool> stop{false};
-    DaemonParts parts{link, wiring::parser(), &wiring::estimator, r.sink, [&] { return link.now_ns(); },
+    const auto decoder = wiring::decoder();
+    DaemonParts parts{link, *decoder, &wiring::estimator, r.sink, [&] { return link.now_ns(); },
                       [&](std::string_view l) { r.lines.emplace_back(l); }, wiring::start_command(), wiring::stop_command()};
     Daemon d(std::move(parts));
     r.end = d.run(stop);
@@ -465,7 +659,7 @@ void test_replay_clean() {
     CHECK(r.end == DaemonEnd::replay_ended);
     CHECK(r.stats.samples == 2000);
     CHECK(r.sink.published == 1901);  // the stand-in estimator's first 99 are calibration
-    CHECK(r.commands == 1);           // the start; a replay that ran out sends no stop
+    CHECK(r.commands == 0);           // samples from the first moment: listened, sent nothing. No stop when a replay runs out
     CHECK(count(r.lines, "luma: stopped reason=replay-end") == 1);
 }
 
@@ -476,7 +670,7 @@ void test_replay_reproduces_a_drop_and_a_stall() {
     CHECK(count(r.lines, "luma: disconnected reason=gone") == 1);
     CHECK(count(r.lines, "luma: reconnected") == 1);
     CHECK(count(r.lines, "luma: calibrated restored=1") == 1);
-    CHECK(r.commands == 2);
+    CHECK(r.commands <= 2);
     CHECK(!r.sink.backwards);
 }
 
@@ -552,6 +746,11 @@ void test_options() {
     CHECK(!parse({"--stale-ms", "10x"}));
     CHECK(!parse({"--stale-ms", "2000"}));  // not shorter than the reopen
     CHECK(!parse({"--frobnicate"}));
+    const auto flags = parse({"--no-keep-heading", "--no-stop-command", "--settle-ms", "5000"});
+    CHECK(flags && !flags->config.keep_heading && !flags->stop_command && flags->config.settle_first == milliseconds(5000));
+    CHECK(flags && flags->config.settle_max == milliseconds(5000));
+    CHECK(plain && plain->config.keep_heading && plain->stop_command);
+    CHECK(plain && plain->config.calibration_keep == milliseconds(300000));
 }
 
 // ---- the real binary -----------------------------------------------------------------------------------------------
@@ -669,6 +868,18 @@ int main(int argc, char** argv) {
     RUN(test_timestamp_glitches_mid_connection);
     RUN(test_bad_pose_never_reaches_the_feed);
     RUN(test_estimator_gives_up_calibration);
+    RUN(test_flicker_too_short_to_settle_gets_no_command);
+    RUN(test_settle_grows_after_a_quick_death_and_resets_when_healthy);
+    RUN(test_settling_is_not_silence);
+    RUN(test_stream_already_on_needs_no_command);
+    RUN(test_no_stop_after_listening_only_when_settling);
+    RUN(test_says_why_it_waits);
+    RUN(test_new_calibration_keeps_the_heading);
+    RUN(test_heading_carries_through_two_recalibrations);
+    RUN(test_heading_leaves_tilt_alone);
+    RUN(test_no_heading_looking_straight_up);
+    RUN(test_hot_path_allocates_nothing);
+    RUN(test_transport_link);
     RUN(test_stats_line);
     RUN(test_every_line_is_parseable);
     RUN(test_replay_clean);

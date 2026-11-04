@@ -81,9 +81,10 @@ int main(int argc, char** argv) {
     std::unique_ptr<Sink> sink = wiring::feed_sink(options->ipc_prefix, why);
     if (!sink) return fail(4, "feed " + why);
 
-    DaemonParts parts{*link, wiring::parser(), &wiring::estimator, *sink,
+    const std::unique_ptr<Decoder> decoder = wiring::decoder();
+    DaemonParts parts{*link, *decoder, &wiring::estimator, *sink,
                       replay ? std::function<std::uint64_t()>([replay] { return replay->now_ns(); }) : std::function<std::uint64_t()>(&monotonic_ns),
-                      &log_line, wiring::start_command(), wiring::stop_command()};
+                      &log_line, wiring::start_command(), options->stop_command ? wiring::stop_command() : std::vector<std::uint8_t>{}};
     Daemon daemon(std::move(parts), options->config);
     daemon.run(g_stop);
     return 0;

@@ -10,7 +10,7 @@ extern const char* const kStandIn;  // empty once nothing is a stand-in
 std::unique_ptr<Link> live_link(std::string& why);  // nullptr: no transport (why says so)
 std::unique_ptr<Sink> feed_sink(const std::string& ipc_prefix, std::string& why);
 std::unique_ptr<Estimator> estimator();
-Parser parser();
+std::unique_ptr<Decoder> decoder();
 std::vector<std::uint8_t> start_command();
 std::vector<std::uint8_t> stop_command();
 std::vector<std::uint8_t> stand_in_packet(const ImuSample& sample);  // what the stand-in parser reads; tests build captures with it
