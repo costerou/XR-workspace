@@ -1,0 +1,2708 @@
+{
+  "schema": 1,
+  "base": "origin/master ff7b26a",
+  "status": "complete",
+  "purpose": "planning only; null exact_label means unlabelled gesture/key operation",
+  "rows": [
+    {
+      "identifier": "zoom_in",
+      "exact_label": "Maximize the selected desktop",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "zoom_in",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + up"
+      ],
+      "label_aliases": [
+        {
+          "label": "Maximize",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "zoom_out",
+      "exact_label": "Overview",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "zoom_out",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + down"
+      ],
+      "label_aliases": [
+        {
+          "label": "Overview",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "prev",
+      "exact_label": "Previous desktop",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "prev",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + left"
+      ],
+      "label_aliases": [
+        {
+          "label": "\u25c0 Prev",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "next",
+      "exact_label": "Next desktop",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "next",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + right"
+      ],
+      "label_aliases": [
+        {
+          "label": "Next \u25b6",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "spacing_down",
+      "exact_label": "Less space between desktops",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "spacing_down",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + bracketleft"
+      ],
+      "label_aliases": [
+        {
+          "label": "Spacing \u2212",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "spacing_up",
+      "exact_label": "More space between desktops",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "spacing_up",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + bracketright"
+      ],
+      "label_aliases": [
+        {
+          "label": "Spacing +",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "recenter",
+      "exact_label": "Recenter the view",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "recenter",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + space"
+      ],
+      "label_aliases": [
+        {
+          "label": "Recenter",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "layout_reset",
+      "exact_label": "Reset to 3 flat desktops (press twice)",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 159
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence. Two presses within 3 seconds; refuse during video/busy; backup previous_setup; preserve window memory.",
+      "wire": "layout_reset",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + R"
+      ]
+    },
+    {
+      "identifier": "mode_next",
+      "exact_label": "Maximized: follow / locked",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "mode_next",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + V"
+      ],
+      "label_aliases": [
+        {
+          "label": "Maximized: follow / locked",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "prediction",
+      "exact_label": "Toggle pose prediction",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 149
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "prediction",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + P"
+      ],
+      "label_aliases": [
+        {
+          "label": "Pose prediction",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "typing_toggle",
+      "exact_label": "Typing mode: XR keys off / on",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 157
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "typing_toggle",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + T"
+      ]
+    },
+    {
+      "identifier": "privacy_display",
+      "exact_label": "Privacy: main display off / on",
+      "source": {
+        "file": "tools/native_spike/privacy.py",
+        "line": 37
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence. DPMS fallback must wake on stop/recovery and stale helper.",
+      "wire": "privacy_display",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + D"
+      ]
+    },
+    {
+      "identifier": "environment_toggle",
+      "exact_label": "Background: none / last used",
+      "source": {
+        "file": "tools/native_spike/environment.py",
+        "line": 38
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "environment_toggle",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + E"
+      ]
+    },
+    {
+      "identifier": "immersive_toggle",
+      "exact_label": "Immersive 3D: all desktops on / off",
+      "source": {
+        "file": "tools/native_spike/immersive.py",
+        "line": 91
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "immersive_toggle",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + I"
+      ]
+    },
+    {
+      "identifier": "menu_toggle",
+      "exact_label": "Placement pill of the selected desktop",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 158
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "menu_toggle",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + L"
+      ]
+    },
+    {
+      "identifier": "video_open",
+      "exact_label": "Play a 180/360 VR video",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 160
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "video_open",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + O"
+      ]
+    },
+    {
+      "identifier": "video_paste",
+      "exact_label": "Play the browser video you copied",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 161
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "video_paste",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + U"
+      ]
+    },
+    {
+      "identifier": "playback_menu_toggle",
+      "exact_label": "VR video: hide / show playback controls",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 164
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "playback_menu_toggle",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + C"
+      ]
+    },
+    {
+      "identifier": "help",
+      "exact_label": "Help card (every key)",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 149
+      },
+      "current_location": "Run keybind; native help/keybind panel; desktop QML capability button",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "help",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + H"
+      ],
+      "label_aliases": [
+        {
+          "label": "help",
+          "source": {
+            "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+            "line": 147
+          }
+        }
+      ]
+    },
+    {
+      "identifier": "binds_toggle",
+      "exact_label": "Key binds (this panel)",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 165
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "binds_toggle",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + K"
+      ]
+    },
+    {
+      "identifier": "help_prev",
+      "exact_label": "Previous help page",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 162
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "help_prev",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + Page_Up"
+      ]
+    },
+    {
+      "identifier": "help_next",
+      "exact_label": "Next help page",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 162
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "help_next",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + Page_Down"
+      ]
+    },
+    {
+      "identifier": "send_glasses",
+      "exact_label": "Send window to the selected desktop",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "send_glasses",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + G"
+      ]
+    },
+    {
+      "identifier": "send_glasses_1",
+      "exact_label": "Send window to XR-1",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "send_glasses_1",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + code:10"
+      ]
+    },
+    {
+      "identifier": "send_glasses_2",
+      "exact_label": "Send window to XR-2",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "send_glasses_2",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + code:11"
+      ]
+    },
+    {
+      "identifier": "send_glasses_3",
+      "exact_label": "Send window to XR-3",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "send_glasses_3",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + code:12"
+      ]
+    },
+    {
+      "identifier": "send_glasses_4",
+      "exact_label": "Send window to XR-4",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "send_glasses_4",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + code:13"
+      ]
+    },
+    {
+      "identifier": "send_back",
+      "exact_label": "Send window back to the main display",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "current_location": "Run keybind; native help/keybind panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
+      "wire": "send_back",
+      "notes": "",
+      "keys": [
+        "CTRL + ALT + B"
+      ]
+    },
+    {
+      "identifier": "menu_field_prev",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_field_prev",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "identifier": "menu_field_next",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_field_next",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "identifier": "menu_dec",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_dec",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "identifier": "menu_inc",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_inc",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "identifier": "menu_dec_big",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_dec_big",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "SHIFT + left"
+      ]
+    },
+    {
+      "identifier": "menu_inc_big",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_inc_big",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "SHIFT + right"
+      ]
+    },
+    {
+      "identifier": "menu_desktop_next",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_desktop_next",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "Tab"
+      ]
+    },
+    {
+      "identifier": "menu_desktop_prev",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_desktop_prev",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "SHIFT + Tab"
+      ]
+    },
+    {
+      "identifier": "menu_reset",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_reset",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "R"
+      ]
+    },
+    {
+      "identifier": "menu_back",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_back",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "Escape"
+      ]
+    },
+    {
+      "identifier": "menu_ultrawide",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_ultrawide",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "U"
+      ]
+    },
+    {
+      "identifier": "menu_add",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_add",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "N"
+      ]
+    },
+    {
+      "identifier": "menu_delete",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "current_location": "Native placement panel modal key only (unlabelled key action)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
+      "wire": "menu_delete",
+      "notes": "No standalone visible label; keyboard operation, not an omitted menu feature.",
+      "keys": [
+        "SHIFT + Delete"
+      ]
+    },
+    {
+      "identifier": "video_pause",
+      "exact_label": "Play / pause",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_pause",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "space"
+      ]
+    },
+    {
+      "identifier": "video_seek_back",
+      "exact_label": "\u221210 s",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_seek_back",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "left"
+      ]
+    },
+    {
+      "identifier": "video_seek_fwd",
+      "exact_label": "+10 s",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_seek_fwd",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "right"
+      ]
+    },
+    {
+      "identifier": "video_seek_back_big",
+      "exact_label": "\u221260 s",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_seek_back_big",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "SHIFT + left"
+      ]
+    },
+    {
+      "identifier": "video_seek_fwd_big",
+      "exact_label": "+60 s",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_seek_fwd_big",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "SHIFT + right"
+      ]
+    },
+    {
+      "identifier": "video_format",
+      "exact_label": "Next format",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 52
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_format",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "Tab"
+      ]
+    },
+    {
+      "identifier": "video_up",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 50
+      },
+      "current_location": "Video modal keys; key-only quality navigation",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_up",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "up"
+      ]
+    },
+    {
+      "identifier": "video_down",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 50
+      },
+      "current_location": "Video modal keys; key-only quality navigation",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_down",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "down"
+      ]
+    },
+    {
+      "identifier": "video_exit",
+      "exact_label": "Back to desktops",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 52
+      },
+      "current_location": "Video modal keys; QML playback buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_exit",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "Escape"
+      ]
+    },
+    {
+      "identifier": "video_quality",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 50
+      },
+      "current_location": "Video modal keys; key-only quality navigation",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
+      "wire": "video_quality",
+      "notes": "In quality menu arrows adjust values, Up/Down/Tab select rows; Space still play/pause.",
+      "keys": [
+        "q"
+      ]
+    },
+    {
+      "identifier": "video_controls",
+      "exact_label": "Show / hide controls",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 26
+      },
+      "current_location": "QML video buttons",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "view_op(video_controls)",
+      "notes": "Distinct from persistent per-run playback_menu_toggle policy.",
+      "keys": []
+    },
+    {
+      "identifier": "stabilization",
+      "exact_label": "Stabilization",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/StabilizationControls.qml",
+        "line": 23
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors \u00b7 Display",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "stabilization {strength:0..100}",
+      "notes": "Off=0, Light=25, Medium=60, Strong=100; coalesce final slider value.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_all",
+      "exact_label": "All desktops",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 103
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive {global,desktops,preset,strength,strengths,convergence}",
+      "notes": "Clears per-monitor enable exceptions.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_monitor",
+      "exact_label": "XR-n",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 110
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive.desktops[XR-n]",
+      "notes": "Native Connected Tail 3D button changes one; its tail changes all. Preserve both.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_preset",
+      "exact_label": "Desktop / Video / Games",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 171
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive.preset + convergence",
+      "notes": "Preset resets screen plane to 92/70/75.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_strength_presets",
+      "exact_label": "Soft / Standard / Enhanced",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 172
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive.strength=50/100/150",
+      "notes": "Wire units differ from displayed strength percent.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_strength",
+      "exact_label": "Strength",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 139
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive.strength=0..200",
+      "notes": "UI 0..100% maps to wire value times two.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_monitor_strength",
+      "exact_label": "Selected desktop strength",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 150
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive.strengths[XR-n]=0..200",
+      "notes": "Falls back to global strength; retain stable names after removal.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_plane",
+      "exact_label": "Screen plane",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 160
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive.convergence=0..100",
+      "notes": "Depth engine and consented SBS support required; failure remains 2D until explicit retry.",
+      "keys": []
+    },
+    {
+      "identifier": "placement_x",
+      "exact_label": "Left / right",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 212
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "placement.desktops[].x",
+      "notes": "Tenths of degrees, -1800..1800; native label Left/right.",
+      "keys": []
+    },
+    {
+      "identifier": "placement_y",
+      "exact_label": "Down / up",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 212
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "placement.desktops[].y",
+      "notes": "Tenths of degrees, -900..900; native label Down/up.",
+      "keys": []
+    },
+    {
+      "identifier": "placement_distance",
+      "exact_label": "Distance",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 28
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "placement.desktops[].distance",
+      "notes": "10..200 percent; corner/edge resize also changes apparent size via distance.",
+      "keys": []
+    },
+    {
+      "identifier": "placement_curvature",
+      "exact_label": "Curvature",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 28
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "placement.desktops[].curvature",
+      "notes": "0..120 degrees; preserved when maximized.",
+      "keys": []
+    },
+    {
+      "identifier": "placement_apply",
+      "exact_label": "Apply placement",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 55
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "set_settings {placements}",
+      "notes": "Absolute QML apply permits overlap; native drags/keys bump neighbors. While maximized held until overview.",
+      "keys": []
+    },
+    {
+      "identifier": "placement_flat",
+      "exact_label": "Flat",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 56
+      },
+      "current_location": "Desktop QML",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "set_settings {placements}",
+      "notes": "QML flat resets four placement fields; native R also levels roll.",
+      "keys": []
+    },
+    {
+      "identifier": "mode_follow",
+      "exact_label": "follow",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 67
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "set_settings {mode:\"follow\"}",
+      "notes": "Only maximized; every run starts overview/anchor; choice is per run, not restored.",
+      "keys": []
+    },
+    {
+      "identifier": "mode_locked",
+      "exact_label": "locked",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 67
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "set_settings {mode:\"locked\"}",
+      "notes": "Only maximized; 0DoF head locked.",
+      "keys": []
+    },
+    {
+      "identifier": "video_browse",
+      "exact_label": "Browse\u2026",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 60
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "video_open {path}",
+      "notes": "File picker must remain visible on XR desktop; helper exits video before picker.",
+      "keys": []
+    },
+    {
+      "identifier": "video_play",
+      "exact_label": "Play",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 61
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "video_open {path|url|web,format?}",
+      "notes": "Probe/open validated file descriptor; reject invalid protocols; async web resolver errors visible.",
+      "keys": []
+    },
+    {
+      "identifier": "video_paste_ui",
+      "exact_label": "Paste from browser",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 66
+      },
+      "current_location": "Desktop QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "video_open {url}",
+      "notes": "One-shot clipboard read, 16 KiB limit; no automatic clipboard polling.",
+      "keys": []
+    },
+    {
+      "identifier": "resolution",
+      "exact_label": "Resolution",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 552
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "desktops RESOLUTION",
+      "notes": "Live native dropdown despite startup-only desktop set_settings route; busy gate; select compatible scale.",
+      "keys": []
+    },
+    {
+      "identifier": "scale",
+      "exact_label": "Scale",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 555
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "desktops SCALE",
+      "notes": "100,125,150,175,200,250,300%; disable steps without whole logical pixels.",
+      "keys": []
+    },
+    {
+      "identifier": "ultrawide",
+      "exact_label": "Ultrawide",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 333
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "desktops ULTRAWIDE",
+      "notes": "Toggles 16:9/ultrawide through broker; busy gate.",
+      "keys": []
+    },
+    {
+      "identifier": "add_monitor",
+      "exact_label": "Add new",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 334
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "desktops ADD",
+      "notes": "Maximum four desktops; fills missing XR-n; guard paused during broker transaction.",
+      "keys": []
+    },
+    {
+      "identifier": "remove_monitor",
+      "exact_label": "Remove / Remove?",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 335
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "desktops REMOVE",
+      "notes": "Minimum one; double press confirmation; transfer windows to fallback; busy gate.",
+      "keys": []
+    },
+    {
+      "identifier": "background",
+      "exact_label": "Background",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 560
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "environment {background,last,brightness}",
+      "notes": "None/Grid/Smoke; currently duplicated in each monitor panel but global.",
+      "keys": []
+    },
+    {
+      "identifier": "background_brightness",
+      "exact_label": "Brightness",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 570
+      },
+      "current_location": "Native glass placement panel",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "environment.brightness",
+      "notes": "10..200%; disabled with no background.",
+      "keys": []
+    },
+    {
+      "identifier": "roll_ccw",
+      "exact_label": null,
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 174
+      },
+      "current_location": "Native overview affordance (icon/gesture, no text)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "roll {desktop,side}",
+      "notes": "Left bar segment click/drag counter-clockwise; click step or level when crossed.",
+      "keys": []
+    },
+    {
+      "identifier": "roll_level",
+      "exact_label": null,
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 174
+      },
+      "current_location": "Native overview affordance (icon/gesture, no text)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "roll {desktop,side}",
+      "notes": "Center level-bar segment levels selected desktop.",
+      "keys": []
+    },
+    {
+      "identifier": "roll_cw",
+      "exact_label": null,
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 174
+      },
+      "current_location": "Native overview affordance (icon/gesture, no text)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "roll {desktop,side}",
+      "notes": "Right segment click/drag clockwise.",
+      "keys": []
+    },
+    {
+      "identifier": "drag_move",
+      "exact_label": null,
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 35
+      },
+      "current_location": "Native overview affordance (icon/gesture, no text)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "placement + placement_menu.surface",
+      "notes": "Pill/header drag; click opens panel; preserve separate options hit region.",
+      "keys": []
+    },
+    {
+      "identifier": "drag_resize",
+      "exact_label": null,
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 185
+      },
+      "current_location": "Native overview affordance (icon/gesture, no text)",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 Placement",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "placement distance",
+      "notes": "Corners/edges resize apparent size; Super bypass hands window drag to compositor.",
+      "keys": []
+    },
+    {
+      "identifier": "quality_filter",
+      "exact_label": "Texture filter",
+      "source": {
+        "file": "tools/native_spike/quality.py",
+        "line": 31
+      },
+      "current_location": "Native VR quality menu (Q), not QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video \u00b7 Quality",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "video action=quality filter",
+      "notes": "Choices: catmull-rom=Catmull-Rom, sharp=Sharp, bilinear=Bilinear, nearest=Nearest pixels; saved live. Controller accepts video_quality in settings but does not forward it live: do not equate accepted request with applied renderer state.",
+      "keys": []
+    },
+    {
+      "identifier": "quality_deband",
+      "exact_label": "Deband",
+      "source": {
+        "file": "tools/native_spike/quality.py",
+        "line": 33
+      },
+      "current_location": "Native VR quality menu (Q), not QML",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Video \u00b7 Quality",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "video action=quality deband",
+      "notes": "Choices: False=Off, True=On; saved live. Controller accepts video_quality in settings but does not forward it live: do not equate accepted request with applied renderer state.",
+      "keys": []
+    },
+    {
+      "identifier": "bind_change",
+      "exact_label": "Enter",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 9
+      },
+      "current_location": "Native keybind panel modal keys",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input \u00b7 Key binds",
+      "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "notes": "Saved overrides only, atomic mode 0600; reset all requires two presses.",
+      "keys": []
+    },
+    {
+      "identifier": "bind_reset",
+      "exact_label": "R",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 11
+      },
+      "current_location": "Native keybind panel modal keys",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input \u00b7 Key binds",
+      "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "notes": "Saved overrides only, atomic mode 0600; reset all requires two presses.",
+      "keys": []
+    },
+    {
+      "identifier": "bind_reset_all",
+      "exact_label": "Shift+R",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 11
+      },
+      "current_location": "Native keybind panel modal keys",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input \u00b7 Key binds",
+      "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "notes": "Saved overrides only, atomic mode 0600; reset all requires two presses.",
+      "keys": []
+    },
+    {
+      "identifier": "bind_cancel",
+      "exact_label": "Esc",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 10
+      },
+      "current_location": "Native keybind panel modal keys",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input \u00b7 Key binds",
+      "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "notes": "Saved overrides only, atomic mode 0600; reset all requires two presses.",
+      "keys": []
+    },
+    {
+      "identifier": "bind_navigation",
+      "exact_label": "Up / Down (PgUp / PgDn, Home / End)",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 9
+      },
+      "current_location": "Native keybind panel modal keys",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input \u00b7 Key binds",
+      "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "notes": "Saved overrides only, atomic mode 0600; reset all requires two presses.",
+      "keys": []
+    },
+    {
+      "identifier": "fallback",
+      "exact_label": "Return windows to",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 32
+      },
+      "current_location": "Pre-start QML Startup options",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Before Start",
+      "safety_dependency": "Idle only; new consent for start; never expand running consent.",
+      "wire": "set_settings {fallback}",
+      "notes": "Requires stop/start to change current session scope.",
+      "keys": []
+    },
+    {
+      "identifier": "tracking",
+      "exact_label": "Head tracking",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 172
+      },
+      "current_location": "Pre-start QML Startup options",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Before Start",
+      "safety_dependency": "Idle only; new consent for start; never expand running consent.",
+      "wire": "set_settings {tracking}",
+      "notes": "Requires stop/start to change current session scope.",
+      "keys": []
+    },
+    {
+      "identifier": "tracking_driver",
+      "exact_label": "Tracking driver",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 182
+      },
+      "current_location": "Pre-start QML Startup options",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Before Start",
+      "safety_dependency": "Idle only; new consent for start; never expand running consent.",
+      "wire": "set_settings {tracking_driver}",
+      "notes": "Requires stop/start to change current session scope.",
+      "keys": []
+    },
+    {
+      "identifier": "mode_switch",
+      "exact_label": "120 Hz mode switch",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 173
+      },
+      "current_location": "Pre-start QML Startup options",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Before Start",
+      "safety_dependency": "Idle only; new consent for start; never expand running consent.",
+      "wire": "set_settings {mode_switch}",
+      "notes": "Requires stop/start to change current session scope.",
+      "keys": []
+    },
+    {
+      "identifier": "startup_desktops",
+      "exact_label": "Save desktop",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/DesktopEditor.qml",
+        "line": 59
+      },
+      "current_location": "Pre-start QML Startup options",
+      "scope": "per-monitor",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Before Start",
+      "safety_dependency": "Idle only; new consent for start; never expand running consent.",
+      "wire": "set_settings {desktops}",
+      "notes": "desktops route is idle-only; native runtime resolution/scale/add/remove are separately supported.",
+      "keys": []
+    },
+    {
+      "identifier": "stop",
+      "exact_label": "Stop",
+      "source": {
+        "file": "tools/xr_controller/state.py",
+        "line": 316
+      },
+      "current_location": "External session/consent shell",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
+      "wire": "stop",
+      "notes": "Recommendation: keep external status and emergency Stop/Recover reachable without XR picture/tracking.",
+      "keys": []
+    },
+    {
+      "identifier": "recover",
+      "exact_label": "Recover",
+      "source": {
+        "file": "tools/xr_controller/state.py",
+        "line": 274
+      },
+      "current_location": "External session/consent shell",
+      "scope": "workspace",
+      "lifecycle": "recovery-only",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
+      "wire": "recover",
+      "notes": "Recommendation: keep external status and emergency Stop/Recover reachable without XR picture/tracking.",
+      "keys": []
+    },
+    {
+      "identifier": "start",
+      "exact_label": "Start XR",
+      "source": {
+        "file": "tools/xr_controller/state.py",
+        "line": 255
+      },
+      "current_location": "External session/consent shell",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
+      "wire": "start",
+      "notes": "Recommendation: keep external status and emergency Stop/Recover reachable without XR picture/tracking.",
+      "keys": []
+    },
+    {
+      "identifier": "confirm_start",
+      "exact_label": "Start",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+        "line": 36
+      },
+      "current_location": "External session/consent shell",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
+      "wire": "confirm_start",
+      "notes": "Recommendation: keep external status and emergency Stop/Recover reachable without XR picture/tracking.",
+      "keys": []
+    },
+    {
+      "identifier": "confirm_recover",
+      "exact_label": "Recover",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+        "line": 36
+      },
+      "current_location": "External session/consent shell",
+      "scope": "workspace",
+      "lifecycle": "recovery-only",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
+      "wire": "confirm_recover",
+      "notes": "Recommendation: keep external status and emergency Stop/Recover reachable without XR picture/tracking.",
+      "keys": []
+    },
+    {
+      "identifier": "cancel",
+      "exact_label": "Cancel",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+        "line": 34
+      },
+      "current_location": "External session/consent shell",
+      "scope": "workspace",
+      "lifecycle": "confirmation-only",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
+      "wire": "cancel",
+      "notes": "Recommendation: keep external status and emergency Stop/Recover reachable without XR picture/tracking.",
+      "keys": []
+    },
+    {
+      "identifier": "status",
+      "exact_label": "Measured, this session",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 169
+      },
+      "current_location": "QML read-only telemetry",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "status / state event",
+      "notes": "Not a mutation: presented_hz, missed, capture_path, pose_age_ms, tracking, capture_failure_run; immersive/video errors and incident summary.",
+      "keys": []
+    },
+    {
+      "identifier": "controller_restart",
+      "exact_label": "Start / restart controller",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Panel.qml",
+        "line": 118
+      },
+      "current_location": "External disconnected shell",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Help & Session",
+      "safety_dependency": "Only shown disconnected; restart controller service is not restart renderer and not a substitute for recovery.",
+      "wire": "systemctl user restart controller",
+      "notes": "",
+      "keys": []
+    },
+    {
+      "identifier": "close_external",
+      "exact_label": "Close",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Panel.qml",
+        "line": 112
+      },
+      "current_location": "External panel; Escape",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "External shell",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "dismiss()",
+      "notes": "Closes window only, does not stop XR.",
+      "keys": []
+    },
+    {
+      "identifier": "immersive_connected_tail",
+      "exact_label": "3D",
+      "source": {
+        "file": "tools/native_spike/free_pointer.py",
+        "line": 1502
+      },
+      "current_location": "Native Connected Tail 3D main segment / all-monitor tail",
+      "scope": "selected monitor + workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Selected monitor \u00b7 3D",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "immersive_click / immersive_tail_click",
+      "notes": "Main segment targets monitor; tail targets all. Preserve existing geometry and hover distinction.",
+      "keys": []
+    },
+    {
+      "identifier": "select_pointer",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/free_pointer.py",
+        "line": 20
+      },
+      "current_location": "Overview pointer entering desktop / desktop click",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "select_desktop",
+      "notes": "Selection only; never click-to-maximize. App content clicks pass through.",
+      "keys": []
+    },
+    {
+      "identifier": "edge_pan",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 16
+      },
+      "current_location": "Maximized pointer pushes beyond edge",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "edge_pan + switch_desktop",
+      "notes": "Spatial neighbors determine destination; hand-pan lands directly; keys otherwise cut.",
+      "keys": []
+    },
+    {
+      "identifier": "background_switch",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/free_pointer.py",
+        "line": 1523
+      },
+      "current_location": "Native Background switch",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "environment_toggle",
+      "notes": "Same global state as Ctrl+Alt+E; return to last non-None scene.",
+      "keys": []
+    },
+    {
+      "identifier": "profile_remember",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/profiles.py",
+        "line": 54
+      },
+      "current_location": "Automatic persistence, not a selectable profile menu",
+      "scope": "per-glasses model",
+      "lifecycle": "live",
+      "proposed_menu_section": "Workspace / All monitors",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "profiles schema 2: desktops,placements,rolls; previous_setup",
+      "notes": "Read whole setup or default; atomic saves; previous_setup has no current Restore action. Window memory is independent and untouched by reset.",
+      "keys": []
+    },
+    {
+      "identifier": "plugin_restart",
+      "exact_label": "Restart plugin",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/BarWidget.qml",
+        "line": 23
+      },
+      "current_location": "External bar context menu",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "proposed_menu_section": "External shell",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "shell restartPlugin",
+      "notes": "Restarts panel plugin, not XR session; retain for shell fault handling.",
+      "keys": []
+    },
+    {
+      "identifier": "resize_press",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 1966
+      },
+      "current_location": "Internal pointer/button routing; no standalone menu item",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "resize_press",
+      "notes": "Gesture plumbing, not a new setting. Preserve non-consuming app/Super drag delivery, cancellation and release cleanup.",
+      "keys": []
+    },
+    {
+      "identifier": "resize_release",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 1966
+      },
+      "current_location": "Internal pointer/button routing; no standalone menu item",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "resize_release",
+      "notes": "Gesture plumbing, not a new setting. Preserve non-consuming app/Super drag delivery, cancellation and release cleanup.",
+      "keys": []
+    },
+    {
+      "identifier": "resize_cancel",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 1957
+      },
+      "current_location": "Internal pointer/button routing; no standalone menu item",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "resize_cancel",
+      "notes": "Gesture plumbing, not a new setting. Preserve non-consuming app/Super drag delivery, cancellation and release cleanup.",
+      "keys": []
+    },
+    {
+      "identifier": "super_left_press",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 177
+      },
+      "current_location": "Internal pointer/button routing; no standalone menu item",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "super_left_press",
+      "notes": "Gesture plumbing, not a new setting. Preserve non-consuming app/Super drag delivery, cancellation and release cleanup.",
+      "keys": []
+    },
+    {
+      "identifier": "super_right_press",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 177
+      },
+      "current_location": "Internal pointer/button routing; no standalone menu item",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "super_right_press",
+      "notes": "Gesture plumbing, not a new setting. Preserve non-consuming app/Super drag delivery, cancellation and release cleanup.",
+      "keys": []
+    },
+    {
+      "identifier": "super_release",
+      "exact_label": null,
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 177
+      },
+      "current_location": "Internal pointer/button routing; no standalone menu item",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "proposed_menu_section": "View & Input",
+      "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
+      "wire": "super_release",
+      "notes": "Gesture plumbing, not a new setting. Preserve non-consuming app/Super drag delivery, cancellation and release cleanup.",
+      "keys": []
+    }
+  ],
+  "source_manifest": [
+    {
+      "file": "tools/native_spike/edge_pan.py",
+      "lines": 278,
+      "sha256": "558028988768cfd8fc4e80b8ae5dab31a296cdb5ed669070db2da30a2ae4941b"
+    },
+    {
+      "file": "tools/native_spike/environment.py",
+      "lines": 126,
+      "sha256": "b6ec517cd50c30eff168bf9b5acddefc703d1ff275d700d319ba1a9ce9318b56"
+    },
+    {
+      "file": "tools/native_spike/faults.py",
+      "lines": 54,
+      "sha256": "4c33fe0c8ca1efc9b06dc341b1eed6c4d08084f29dc03a2dd523ef0381bc67ca"
+    },
+    {
+      "file": "tools/native_spike/fit_windows.py",
+      "lines": 93,
+      "sha256": "bf38cb2bc37d981d0083c2e45c24394668c74b04285744fc18541275e0fed90a"
+    },
+    {
+      "file": "tools/native_spike/free_pointer.py",
+      "lines": 1944,
+      "sha256": "db6e91a9ef87ed669e382f91ccbce82a2da593072449b8be8ef035e0f863bfbc"
+    },
+    {
+      "file": "tools/native_spike/geometry.py",
+      "lines": 166,
+      "sha256": "c9e7109200de0f2a1254904c23361fbd31464c00ca0fb2c36432ef9de9946dbe"
+    },
+    {
+      "file": "tools/native_spike/hyprland.py",
+      "lines": 672,
+      "sha256": "673e27ef8d39b2dd0566639b24c7b240452f0201b141fc29ba4f52b6bc8233a7"
+    },
+    {
+      "file": "tools/native_spike/immersive.py",
+      "lines": 499,
+      "sha256": "92b60609b6d39fe8b70e8cb8403a07685781dcc4d3535999b00e9d7682054d14"
+    },
+    {
+      "file": "tools/native_spike/input_lock.py",
+      "lines": 221,
+      "sha256": "cd4323eed6aa56d7cb083b193826230295108460d0411e313c3e791de9c26565"
+    },
+    {
+      "file": "tools/native_spike/ipc.py",
+      "lines": 201,
+      "sha256": "a441cfefa89f11ec3cdf907354d3c938da709f01e379a745918b72d63ccc165b"
+    },
+    {
+      "file": "tools/native_spike/isolated.py",
+      "lines": 219,
+      "sha256": "cd8567d59c0ed0d91510422c298a2fb0dec657d378d699fdcd386b984f7a2b21"
+    },
+    {
+      "file": "tools/native_spike/journal.py",
+      "lines": 308,
+      "sha256": "bb69083ba728fc3e3513334ab22c2d1373030c342c636976ad14e8539c61192b"
+    },
+    {
+      "file": "tools/native_spike/keybinds.py",
+      "lines": 670,
+      "sha256": "fc0d415f8af3caf86fa433d89ca8546ae06e8172d4943a051d1f7696c492a013"
+    },
+    {
+      "file": "tools/native_spike/managed.py",
+      "lines": 495,
+      "sha256": "dab139bf786768f1a7d5aed2234cd615b0011cfa4be80f6f0eeaa5516ba303c8"
+    },
+    {
+      "file": "tools/native_spike/monitor_rules.py",
+      "lines": 148,
+      "sha256": "19a6c61a25ac3cb44e259b9fa12b15a446d282c894d77850a7df56b6cadd855d"
+    },
+    {
+      "file": "tools/native_spike/neighbors.py",
+      "lines": 127,
+      "sha256": "0d37ffdff90795350f5e337df1449074e9cc5433db6a182eb7aca767c690e438"
+    },
+    {
+      "file": "tools/native_spike/orbit.py",
+      "lines": 458,
+      "sha256": "d71d4ae2b9ca95718de947f265730944e4dc5aa2dc2ec4a626b0790bc083428f"
+    },
+    {
+      "file": "tools/native_spike/overview_cursor.py",
+      "lines": 80,
+      "sha256": "5897715fe28191cec1eb3a6062fc71856390cebbffd0b8a66bc367cf09ce9969"
+    },
+    {
+      "file": "tools/native_spike/ownership.py",
+      "lines": 333,
+      "sha256": "ad32796c309de4f686635179804c362310a4346ed64ee75217eb773dd107478b"
+    },
+    {
+      "file": "tools/native_spike/panel_consent.py",
+      "lines": 102,
+      "sha256": "eab4ddb65289606c3507433a39d8c5cb6892a5b98aea594e02727fd9de439c71"
+    },
+    {
+      "file": "tools/native_spike/privacy.py",
+      "lines": 157,
+      "sha256": "2b71c80a98b3520534b8fe71dc843e34d5c68b1696f99f565488360a807eefdf"
+    },
+    {
+      "file": "tools/native_spike/profiles.py",
+      "lines": 327,
+      "sha256": "8b572be199b33b328c61c4100f2acec860655c95a3374220718e4fe71576e90b"
+    },
+    {
+      "file": "tools/native_spike/quality.py",
+      "lines": 95,
+      "sha256": "8d6060789a58935c1d3962ab9df38c681180072df42797bc5cfb04ffabe54e82"
+    },
+    {
+      "file": "tools/native_spike/resize.py",
+      "lines": 116,
+      "sha256": "2b4952978054c5d35b57237685dbe44f40d58346c1a2b96f01a372ef914a9072"
+    },
+    {
+      "file": "tools/native_spike/restore.py",
+      "lines": 270,
+      "sha256": "b131c370808e09eb124fba58401a045d235b6f35308deb3721b92d75c4542354"
+    },
+    {
+      "file": "tools/native_spike/sbs.py",
+      "lines": 171,
+      "sha256": "6fcb190e93de4c6cf9b7c21c201ac0145b6e4dfec2a9b03aec7de14d22808369"
+    },
+    {
+      "file": "tools/native_spike/sbs_probe.py",
+      "lines": 121,
+      "sha256": "5c01de1322f0c640798f1e614931ee9804ed64754406c11aff612b06d8d8ec85"
+    },
+    {
+      "file": "tools/native_spike/send.py",
+      "lines": 313,
+      "sha256": "7106a76b2b7682046b9c2e2454bc083c6a0b913a37b2309dfbe037b3e43648b0"
+    },
+    {
+      "file": "tools/native_spike/supervisor.py",
+      "lines": 494,
+      "sha256": "93763f2ff21ab4089a6aeda4c14fa20b2d69c170a61e46a8797b2a283f6c7ac6"
+    },
+    {
+      "file": "tools/native_spike/survive.py",
+      "lines": 109,
+      "sha256": "29e0fcdf97679a8f3d213d8652b596501248ae1f7cedbe6c90ca7bf2bd0f7184"
+    },
+    {
+      "file": "tools/native_spike/tracking.py",
+      "lines": 460,
+      "sha256": "15ffe71f33a836a3e2710f26ad1c0c5d644ee792d62c18ed897b36e50f785e37"
+    },
+    {
+      "file": "tools/native_spike/unified_cursor.py",
+      "lines": 936,
+      "sha256": "b7dcd2bb7aa17074933965620503560db0bccfbff034d0575e0d9d546dbc17c9"
+    },
+    {
+      "file": "tools/native_spike/video.py",
+      "lines": 770,
+      "sha256": "67a09ee3d5870e1f35c711b848deed7e7b387fde0cb4f39446b5689e148d8ee2"
+    },
+    {
+      "file": "tools/native_spike/view.py",
+      "lines": 2090,
+      "sha256": "41a7d6a00ff3f44d45f18669559b2a487c58575903bdbeba92bfaadbb3295f80"
+    },
+    {
+      "file": "tools/native_spike/web_video.py",
+      "lines": 700,
+      "sha256": "ac1ee38d8b65a577f87e825e5af37dc3f8cac98fe4339f45eece5982e4a4e10f"
+    },
+    {
+      "file": "tools/native_spike/window_memory.py",
+      "lines": 792,
+      "sha256": "0fb17a48d88175409921cd7807825726a5d3c6eec4bb72522352b7a1832f4612"
+    },
+    {
+      "file": "tools/native_spike/xr_control.py",
+      "lines": 282,
+      "sha256": "ea0187e6cbb174367dee858e96d41a9378c26d798c4d18b4708212bee16f5693"
+    },
+    {
+      "file": "tools/native_spike/__init__.py",
+      "lines": 1,
+      "sha256": "f8b0282cfd2c84ca456bedcf6d5a95366a88f3af97138a76504067fca07f9cff"
+    },
+    {
+      "file": "tools/native_spike/__main__.py",
+      "lines": 146,
+      "sha256": "111e95f6475417c7c5d113b504d83b8cbfc449be96a61acfd4993a4ea0eb658a"
+    },
+    {
+      "file": "tools/native_spike/adopt.py",
+      "lines": 173,
+      "sha256": "49963b4d7a2ae20e05487f96a44f796afe6cc53460d64ede40db4c04144a4772"
+    },
+    {
+      "file": "tools/native_spike/bench_control.py",
+      "lines": 515,
+      "sha256": "d4ec2ff5997db20ec799aa9941b393e4e65fd6b68add717f8ba68ae851dce76c"
+    },
+    {
+      "file": "tools/native_spike/bind_check.py",
+      "lines": 228,
+      "sha256": "0ca9646a48796028091365c96bbeecec4078d5967473517cece5ca95b927465c"
+    },
+    {
+      "file": "tools/native_spike/bump.py",
+      "lines": 410,
+      "sha256": "c4e04e086376d3477a58118f8584b905d7f6553bfee84b8a2028df165216bad7"
+    },
+    {
+      "file": "tools/native_spike/columns.py",
+      "lines": 201,
+      "sha256": "daa9fcdde94336e9eff2f3c4d8f7d6f6ddff0645d4a3a5ef87236ec0b84c4ac5"
+    },
+    {
+      "file": "tools/native_spike/desktops.py",
+      "lines": 324,
+      "sha256": "c63e408853acf533e8e9bd30e10dd627fba3b8e24d0e7d12ef7685ecac2819cb"
+    },
+    {
+      "file": "tools/xr_controller/__init__.py",
+      "lines": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "tools/xr_controller/__main__.py",
+      "lines": 278,
+      "sha256": "e5992b5fb361ab9feb0aa1c2a6178ba337c315ded85b2f63779948cbbd9e7595"
+    },
+    {
+      "file": "tools/xr_controller/detect.py",
+      "lines": 25,
+      "sha256": "8bca9711dbb183b3e303ac49c1b6062bf248ad4d9b3ae63c18ed8debc80256ac"
+    },
+    {
+      "file": "tools/xr_controller/incident_detect.py",
+      "lines": 541,
+      "sha256": "59327e0bca4532a8bb6f763d55ce2460bed73ba0f11070c36b5a80b554738956"
+    },
+    {
+      "file": "tools/xr_controller/incident_monitor.py",
+      "lines": 486,
+      "sha256": "81f98a594234b771d23bb89a05253065a0534f4ccf052ca7d4a22c23d530f8e0"
+    },
+    {
+      "file": "tools/xr_controller/incident_report.py",
+      "lines": 420,
+      "sha256": "5be2dfbcc6b607d95d32c8f12a07e28f39bfe824a24410541708d743c76a47c5"
+    },
+    {
+      "file": "tools/xr_controller/install.py",
+      "lines": 223,
+      "sha256": "54a733328fd7901e735a35dd93197b9aece7fb7432af2b8c54f0fef03252c04e"
+    },
+    {
+      "file": "tools/xr_controller/isolated.py",
+      "lines": 153,
+      "sha256": "00ad56cdde64bffb579cd59174d5cb0561bc9a7b7e557d184056205fc5961afa"
+    },
+    {
+      "file": "tools/xr_controller/runner.py",
+      "lines": 174,
+      "sha256": "d888a346c125b097387499e2c70c0f9fa95770368a5df847f5b0d19850ec58da"
+    },
+    {
+      "file": "tools/xr_controller/server.py",
+      "lines": 90,
+      "sha256": "402bb6fcf500f2bea1981d400a035fce245a636cb7bc3575d897f788a8f06495"
+    },
+    {
+      "file": "tools/xr_controller/state.py",
+      "lines": 324,
+      "sha256": "3cd3a1773d1840d54a43b2c2e64c959115e51cd9347a18c435878964f2dade33"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/BarWidget.qml",
+      "lines": 70,
+      "sha256": "ffc40bd6689f8dfe1462a252e993cd56f6d0f168db3a6271048779d1d5fd40a2"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+      "lines": 38,
+      "sha256": "9e7cf74725fe76a2e8061cd0424eda08c8399c16ac2d73402b1e3f7b0aaa5faa"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/ControllerClient.qml",
+      "lines": 91,
+      "sha256": "babc12ee3593c51b4cc497cfeed715e24a20ae99d8a998645ade69b45c467eb9"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/DesktopEditor.qml",
+      "lines": 60,
+      "sha256": "a231be273c81d6048d225454a4de52a875c1dddd4fcf212b4bf1ee5762ad332d"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+      "lines": 197,
+      "sha256": "bab72026422a17bcb1dd2b5f885d411ca049e9a9e2e5fcf48fe45263c8385368"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/Logo.qml",
+      "lines": 41,
+      "sha256": "3e679797e7f555f603ee000d793f906fedcc9200bfa74af0f0e21a7490751b0b"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/Panel.qml",
+      "lines": 169,
+      "sha256": "a24af4c17bc80edbfe7b03d23dc39734ea6c101dc4cfda4235d669560be79e9b"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+      "lines": 58,
+      "sha256": "90528eb7e09f1fa6d95dca6b927916e3c56c8b25518021c23a0f6fa918279fa0"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+      "lines": 198,
+      "sha256": "10aee707a017406c11e2addc3c1f2abf231b1834062851f114a64f7c7750be62"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/StabilizationControls.qml",
+      "lines": 53,
+      "sha256": "f94a0c04b4a2e57c7a4ef675805a3b9eca7f35a59e7f067e3199ed178bed0608"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+      "lines": 114,
+      "sha256": "0fff213d31ec4355767573fa52372cea0926f778c85b91fbef8266041b466f28"
+    },
+    {
+      "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+      "lines": 309,
+      "sha256": "6b363f6a75b7ed818a88ed3facc3de6ef430bba32f95f7fd7685e590514f9a93"
+    },
+    {
+      "file": "spike/include/xr/video.hpp",
+      "lines": 156,
+      "sha256": "74d8aba249050937f257956481e97fb7f44853cda10d8e85c2fcdfb125db595a"
+    },
+    {
+      "file": "spike/include/xr/view.hpp",
+      "lines": 418,
+      "sha256": "47830bf436d4f2363d1c09cad1f6af40bd7c2ebca135283015dd1bcf2f8b9ba7"
+    },
+    {
+      "file": "spike/include/xr/binds_panel.hpp",
+      "lines": 88,
+      "sha256": "0bb6027200c1dc377c4f7278197aea3b2c0003482124ef3eabeeacadc1ab5105"
+    },
+    {
+      "file": "spike/include/xr/capture.hpp",
+      "lines": 162,
+      "sha256": "4c303c259a438c1be55f2b2fcd08768eb737209084f7154410c66c8fe5fc3677"
+    },
+    {
+      "file": "spike/include/xr/continuity.hpp",
+      "lines": 95,
+      "sha256": "5f183c93d54553acdf56df2982c9303a60604487f86d1b036b84b4ed89a0c7d1"
+    },
+    {
+      "file": "spike/include/xr/depth.hpp",
+      "lines": 259,
+      "sha256": "07c64d8cf2219a4fa26c6818a6c7edc941816bb4f8ba24e68d73070b381ce99c"
+    },
+    {
+      "file": "spike/include/xr/desktops.hpp",
+      "lines": 30,
+      "sha256": "c07a6acdc11f8a9add4e2c30e90112f2cfa9b4cbc66347800faed89d6da71a3b"
+    },
+    {
+      "file": "spike/include/xr/environment.hpp",
+      "lines": 92,
+      "sha256": "b49af594467592f5cec216cd9abb493398724533a93c5ebe070e92ae6070fa49"
+    },
+    {
+      "file": "spike/include/xr/glass.hpp",
+      "lines": 371,
+      "sha256": "b010077d47c02dfe2b832d16ebe1780ef234d79900910660e127f71179f07691"
+    },
+    {
+      "file": "spike/include/xr/glass_theme.hpp",
+      "lines": 30,
+      "sha256": "a8ce8ca1b84b6cdac61a3763f53cc83e1e6044e817e3cd9f0e6e46ddc08dfd8d"
+    },
+    {
+      "file": "spike/include/xr/hud.hpp",
+      "lines": 287,
+      "sha256": "08f625d089227330a5f2f7e4e9b34f72514f682bb9b454888f7a2dbc8e951cdf"
+    },
+    {
+      "file": "spike/include/xr/ipc.hpp",
+      "lines": 250,
+      "sha256": "0db63bd4cd3f77b6427e93ef5a6354f76b5da72fde1ae0d27217f607d5b05d12"
+    },
+    {
+      "file": "spike/include/xr/material.hpp",
+      "lines": 70,
+      "sha256": "b717fa909d45a43afe0034b6c1ad48a0471a581f98fbe3e3482b9f986e247831"
+    },
+    {
+      "file": "spike/include/xr/material_draw.hpp",
+      "lines": 34,
+      "sha256": "5d8ff20b3479b9a93c3e23f75444c4557a5d00b1657355e44db2b255f1418593"
+    },
+    {
+      "file": "spike/include/xr/metrics.hpp",
+      "lines": 51,
+      "sha256": "c4107c2552793b0a7533e916bbb2731c9e201ae5c70c84a625bc568d7fd6e35b"
+    },
+    {
+      "file": "spike/include/xr/pose.hpp",
+      "lines": 182,
+      "sha256": "9c344b35b436654aad665f98b036253630438cdf11297746366eed110b9a0f43"
+    },
+    {
+      "file": "spike/include/xr/predict.hpp",
+      "lines": 112,
+      "sha256": "9438ef9f9681a0e59931c40a7a32f880866143e0644124722bd576676e5e2110"
+    },
+    {
+      "file": "spike/include/xr/presentation.hpp",
+      "lines": 197,
+      "sha256": "3433f2662db9e5a32072f96fc9cc33ebf7b532a6076ab5f9dc8aef554e4e56b0"
+    },
+    {
+      "file": "spike/include/xr/stabilization.hpp",
+      "lines": 96,
+      "sha256": "0f9ec212fde74805c45b991c71874509d33fed0cddc1d494f077bd1fee8832fe"
+    },
+    {
+      "file": "spike/include/xr/stereo.hpp",
+      "lines": 108,
+      "sha256": "8907d16c3b938b0dca3c715442a334026023af53fe2e2302abbf5c726e59b1f0"
+    },
+    {
+      "file": "spike/include/xr/types.hpp",
+      "lines": 60,
+      "sha256": "1a2eaca5505f36452cc132f943424926cfec0242d4cc10daaba8595ae154bf18"
+    },
+    {
+      "file": "spike/src/stereo_gl.hpp",
+      "lines": 70,
+      "sha256": "22cb885488e96507c2fd787fbffd0ba00bb03dd7283e4c6b145c66d71f335a97"
+    },
+    {
+      "file": "spike/src/video.cpp",
+      "lines": 183,
+      "sha256": "623a3e190086f1d6b9c5bb8434c11481700b14d48ea8170936e83fcd826a0fcf"
+    },
+    {
+      "file": "spike/src/video_gl.cpp",
+      "lines": 160,
+      "sha256": "b8efe29417832146fae3ab91bed9f74df4dc02ca42d9067b8f3c145cd59545dc"
+    },
+    {
+      "file": "spike/src/video_gl.hpp",
+      "lines": 45,
+      "sha256": "be22f92c3269f77c75dff6c3589951331b47bf52a8b75af750723610e137b0ea"
+    },
+    {
+      "file": "spike/src/video_ipc.cpp",
+      "lines": 101,
+      "sha256": "420395b070ff19f1e806aa92c2c17c648e8e2ec64d87bde78768fdffa1cbb8a4"
+    },
+    {
+      "file": "spike/src/video_ipc.hpp",
+      "lines": 8,
+      "sha256": "5ffe0103cc7c3026c737c454585b7381012733e8ac806a7b91243aa1e04b00ce"
+    },
+    {
+      "file": "spike/src/video_mode.cpp",
+      "lines": 113,
+      "sha256": "67598c1f7427e84836554071b736183e6c2d3e9cf8db99c9dab2ac90de3a30ed"
+    },
+    {
+      "file": "spike/src/video_mode.hpp",
+      "lines": 67,
+      "sha256": "bcc0df92c61d96f22cbe94ce3a6f44417aca8eb19f861929b597f7c2b5113e97"
+    },
+    {
+      "file": "spike/src/video_player.cpp",
+      "lines": 506,
+      "sha256": "50e69cbcddda51f5e3a43c8af3617edddce35c3b5bb41e7214c9a1252b6e4d6b"
+    },
+    {
+      "file": "spike/src/video_player.hpp",
+      "lines": 59,
+      "sha256": "6dc999b19d033cc80580e72777380399f866e5ea570bdd3c7b95944de2f27731"
+    },
+    {
+      "file": "spike/src/view.cpp",
+      "lines": 783,
+      "sha256": "aa52e0b21bb26c97ddf35c75e43bc669a564299850a9e287d67f0983b3ae7658"
+    },
+    {
+      "file": "spike/src/wayland.cpp",
+      "lines": 1739,
+      "sha256": "654707d6f037f600a06a7f53137c47037ef8796716bb95c100fc98fe3bd493b9"
+    },
+    {
+      "file": "spike/src/binds_panel.cpp",
+      "lines": 267,
+      "sha256": "971c07efe559d211dd5502cea1716d70f1ea8d28c8bce3c0f44319d6563aadef"
+    },
+    {
+      "file": "spike/src/capture.cpp",
+      "lines": 149,
+      "sha256": "e431e0fdbf73942bbb3e0c532b5c03c2cfb654d7b2e5aaefb71cbc3a265c4f23"
+    },
+    {
+      "file": "spike/src/depth_feed.cpp",
+      "lines": 179,
+      "sha256": "990d60ef6df7ff453da1b7f138d38fd0a8058fdc003694c98c9e940bc54e2412"
+    },
+    {
+      "file": "spike/src/depth_feed.hpp",
+      "lines": 43,
+      "sha256": "ea208a9be86c1992e6815c5de0462916daed0b72b6705ea097a76d684aac5b62"
+    },
+    {
+      "file": "spike/src/depth_link.cpp",
+      "lines": 145,
+      "sha256": "227065befd39c5fd0deab8125f6f15afff74d0a24837a4b590130fd1ce5887c6"
+    },
+    {
+      "file": "spike/src/depth_link.hpp",
+      "lines": 84,
+      "sha256": "35e65e9347d604e86f651c6a65aa13e0044178373c1432bf645743e8203c0383"
+    },
+    {
+      "file": "spike/src/dmabuf.cpp",
+      "lines": 68,
+      "sha256": "219cbd4e1369de8b79d6cf5d63a47315ef3e54503d7ebfc21c156393692b604b"
+    },
+    {
+      "file": "spike/src/dmabuf.hpp",
+      "lines": 35,
+      "sha256": "110344ae107e1b00f773db5e349bb0be5d0a188efda4da2e1cd96f75255e63a2"
+    },
+    {
+      "file": "spike/src/environment.cpp",
+      "lines": 45,
+      "sha256": "78957b4dcc5d3ea6132797fb1807ba37be8146ebbb0cdf81627c804e1bbc5dcf"
+    },
+    {
+      "file": "spike/src/environment_gl.cpp",
+      "lines": 202,
+      "sha256": "67718a9ce79014d0345fb2e79f94a569a135d8aa4aecdb4c2cead440bbd29c7d"
+    },
+    {
+      "file": "spike/src/environment_gl.hpp",
+      "lines": 32,
+      "sha256": "04c21e92442c96733a204104f2c1f079deeb7a0ea52653fa1f2c993e8d33f361"
+    },
+    {
+      "file": "spike/src/gl.cpp",
+      "lines": 1056,
+      "sha256": "6c66f0bc2b142d2585d16a7abdb7d3b45ec5778bc102a434c8869a8229af4c2c"
+    },
+    {
+      "file": "spike/src/gl.hpp",
+      "lines": 137,
+      "sha256": "5bbadffb63970fb33187ba9416a41c0d25cf2f29f45dede7d64a4f1c2086845c"
+    },
+    {
+      "file": "spike/src/glass.cpp",
+      "lines": 724,
+      "sha256": "206ae49fe89d5e091374dd28577d1ece6b93e3dad2d052d8f971354f6299d207"
+    },
+    {
+      "file": "spike/src/glass_theme.cpp",
+      "lines": 18,
+      "sha256": "2a7c661cb376bcaec97ff8252222bef44a13d7224908a7a81f10fff2566aacc7"
+    },
+    {
+      "file": "spike/src/hud.cpp",
+      "lines": 746,
+      "sha256": "191eb9a39616325912bc78037d12a80755a0b2e99ec423f5386479570bc7c123"
+    },
+    {
+      "file": "spike/src/hud_font.cpp",
+      "lines": 160,
+      "sha256": "72ba1004733ba7532d47b333f643e8de42ada8a2b26d796a9ce9afba4a2123af"
+    },
+    {
+      "file": "spike/src/hud_gl.cpp",
+      "lines": 84,
+      "sha256": "c33ff6882320e9a7e5f6f481dec22fa56df1f27fa3756382b7e3245cebcdc1bc"
+    },
+    {
+      "file": "spike/src/hud_gl.hpp",
+      "lines": 28,
+      "sha256": "4d9de5a12e28261d0abd2553446c89e4598e969e682f1b00ee9c8ed2c1f08580"
+    },
+    {
+      "file": "spike/src/ipc.cpp",
+      "lines": 656,
+      "sha256": "eeae7eb3c2089b25889f622e6c21e0ad4fdf8268bd888e4bb2b74b14f3c8b8c4"
+    },
+    {
+      "file": "spike/src/main.cpp",
+      "lines": 316,
+      "sha256": "525b24996403f04942d7910ce156ff6d7080287f6264e25b88969f2f3fb8f070"
+    },
+    {
+      "file": "spike/src/material.cpp",
+      "lines": 136,
+      "sha256": "4521c0c740128fe428f11862ce9c8d541afa5cd9102783fdf596340da7e9a059"
+    },
+    {
+      "file": "spike/src/material_draw.cpp",
+      "lines": 149,
+      "sha256": "6069b346824f253cfc3cd8a8d9f8f1b558ebc5792c5f4b4b06b236dddff2af06"
+    },
+    {
+      "file": "spike/src/metrics.cpp",
+      "lines": 123,
+      "sha256": "47d4dedab31bb44ee8c313d102498069bf3e43dd73418b036ed45b7c88705359"
+    },
+    {
+      "file": "spike/src/pose.cpp",
+      "lines": 368,
+      "sha256": "cb713a43e971a34aaa0e58fa2e1edca1dc85985ca77ad54445649fafa296b08b"
+    },
+    {
+      "file": "spike/src/predict.cpp",
+      "lines": 211,
+      "sha256": "6c5ab442dbf27f53421ec9b03f2e99a4bc65c0d8448d028fd4032763849537d6"
+    },
+    {
+      "file": "spike/src/presentation.cpp",
+      "lines": 64,
+      "sha256": "92fdee784ff3de0fd56004687b241762f45e8a419b25797717444a194a45d2d4"
+    },
+    {
+      "file": "spike/src/stereo.cpp",
+      "lines": 261,
+      "sha256": "2c738135d23bb42a75db210f12032dbb0316716cb3fdc2799ca679738af54d1c"
+    },
+    {
+      "file": "spike/src/stereo_gl.cpp",
+      "lines": 321,
+      "sha256": "beee2a16c87cae5eee2ed0e7cfbbefb5f7ed3575af719ec02164ff27f9499187"
+    }
+  ]
+}
