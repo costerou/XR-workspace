@@ -918,18 +918,28 @@ treats an id at or below the last as a replay. So a handler must not build one f
 
 **A bad frame costs that frame.** `xr::ControlStream` (ipc.hpp) is the renderer's read loop. A frame it refuses has no effect
 and does not move the replay floor, whatever is wrong with it: out of order, malformed, someone else's run, an unknown op,
-one with no end. It logs `control: refused frame ID (OP): CODE, N so far` (the first 20, then every 1000th, never the
-payload) and the exit report's `control_stream` counts it. A refused `video` frame also gives up a waiting descriptor: only
-its own `open` would take it, and left there the next `open` would play this file. The session ends only when the socket
-really closes: `control: supervisor channel closed`.
+one with no end. It logs `control: refused frame ID (OP): CODE: WHY (N so far): FRAME` (the first 20, then every 1000th) and
+the exit report's `control_stream` counts it. CODE and WHY are exact: `control_replay` says `request id 6 is not above 8`,
+`control_wrong_run` another run's identity, `invalid_control` says `bad framing`, `bad envelope`, `not JSON`, `unknown op` or
+`bad OP payload`, and `control_overflow` no newline in 64 KiB. FRAME is `redacted_frame`, its first 200 bytes: numbers and the
+protocol's own words stay, every other string is `***`, and what is not JSON loses every letter and digit, as frames carry
+video titles and the bind panel's text. A refused `video` frame also gives up a waiting descriptor: only its own `open` would
+take it, and left there the next `open` would play this file. The session ends only when the socket really closes:
+`control: supervisor channel closed (EOF)`, `(recv: ...)` or `(heartbeat: ...)`.
 
 **Tests do not get that mercy.** `--control-errors fatal` restores the old rule and `capture_e2e_bench` passes it unless told
 otherwise, and `--check` also fails on any refusal in the exit report, so every `capture_e2e_*` proves the renderer took
 everything it was sent. `capture_e2e_bad_control` runs the real renderer as it ships through each kind of bad frame, and
-`capture_e2e_bad_control_fatal` proves the strict rule does stop it. `test_control_wire.py` puts the real supervisor's frames
-through the renderer's own `ControlStream` (ctest `control_wire`), for the scenarios and for a random walk over every op
-whose reach `test_the_walk_gets_everywhere` checks. The `frames()` helpers of the Python suites check the ids too
-(`control_wire.in_order`).
+`capture_e2e_bad_control_fatal` proves the strict rule does stop it, and `capture_e2e_control_closed` the one way left to end
+a session. `test_control_wire.py` puts the real supervisor's frames through the renderer's own `ControlStream` (ctest
+`control_wire`), for the scenarios and for a random walk over every op whose reach `test_the_walk_gets_everywhere` checks.
+`test_control_panel_fuzz.py` does it for the placement panel: each frame builder at its bounds (whatever Python lets through,
+the renderer takes; skipped in a plain Python run, which has no decoder), real clicks on its sliders, lists and buttons on 1 to
+4 desktops, every ordered pair of its actions from each state a panel can be in, and every id taken on the supervisor's thread
+with the real workers running. The `frames()` helpers of the Python suites check the ids too (`control_wire.in_order`).
+That search found one mismatch, the order of R's frames. Python and C++ agree on everything the panel sends.
+
+`ignorable_control_error` still lists only the display-only payloads it always did.
 
 **A bad key costs that key.** The run's handlers share the supervisor's loop: a key, a Hyprland event, a renderer status line,
 `poll`. `Supervisor._contained` catches what one raises, so a bug costs that call. The watchdog's own work does not go
@@ -2207,8 +2217,8 @@ reading the source, so a wrong reading would pass there: the glasses steps W1–
 monitor rule and every place its reasons reach. Their compositor is a double, and every config they edit is in a scratch
 directory: `monitor_rules` only touches the file a client names, and no double names the real one.
 
-`test_control_wire.py` and `test_supervisor_faults.py` (tests/native_spike) cover [One bad frame, one bad key](#one-bad-frame-one-bad-key), with ctest
-`control_wire` and `capture_e2e_bad_control*`.
+`test_control_wire.py`, `test_control_panel_fuzz.py` and `test_supervisor_faults.py` (tests/native_spike) cover [One bad frame, one bad key](#one-bad-frame-one-bad-key),
+with ctest `control_wire`, `capture_e2e_bad_control*` and `capture_e2e_control_closed`.
 
 Incident reports add four files in `tests/xr_controller`: `test_incident_detect.py` (every detector and its false
 positives, with the real kernel, driver and unit lines of 2026-11-03), `test_incident_report.py` (redaction, the guess, the
