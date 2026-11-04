@@ -67,6 +67,7 @@ class Sources:
     def hyprland_pid(self, instance): return self.hypr_pid
     def alive(self, pid): return self.hypr_up if pid == self.hypr_pid else None
     def driver_alive(self): return self.driver_up
+    def tracking_driver(self): return 'luma'
     def source(self): return dict(sha='13c8d5e' + '0' * 33, dirty=False)
 
     def core_dumps(self, since, exes, pids):
@@ -830,6 +831,22 @@ class HostSourcesTests(unittest.TestCase):
         self.assertEqual(self.host.driver_read(offset), ('', 4))
         with self.driver_log.open('a') as stream: stream.write('new\n')
         self.assertEqual(self.host.driver_read(offset), ('new\n', 8))
+
+    def test_it_follows_the_driver_that_is_running(self):
+        from tools.native_spike import tracking
+        xr, luma = self.root / 'xr.log', self.root / 'luma.log'
+        xr.write_text('xrdriver old\n'); luma.write_text('luma old old old old\n')
+        host = HostSources(self.root, self.root)
+        chosen = [xr]
+        with mock.patch.object(tracking, 'log_path', side_effect=lambda runtime: chosen[0]):
+            offset = host.driver_start()
+            self.assertEqual(host.driver_read(offset), ('', offset))
+            chosen[0] = luma  # the start swapped drivers: nothing old of its log, and the old offset means nothing there
+            text, offset = host.driver_read(offset)
+            self.assertEqual((text, offset), ('', luma.stat().st_size))
+            with luma.open('a') as stream: stream.write('luma: disconnected reason=gone\n')
+            self.assertEqual(host.driver_read(offset)[0], 'luma: disconnected reason=gone\n')
+            self.assertEqual(host.driver_tail(1), ['luma: disconnected reason=gone'])
 
     def test_a_driver_log_that_shrank_starts_over(self):
         self.driver_log.write_text('short\n')

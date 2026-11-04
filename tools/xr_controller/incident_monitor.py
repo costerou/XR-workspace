@@ -73,7 +73,8 @@ class HostSources:
         self.runtime, self.state_dir = Path(runtime), Path(state_dir)
         self.repo = Path(repo) if repo else Path(__file__).resolve().parents[2]
         self.sys, self.proc = Path(sys_root), Path(proc_root)
-        self.driver_log = Path(driver_log) if driver_log else tracking.DRIVER_LOG
+        self.driver_log = Path(driver_log) if driver_log else None  # else whichever driver is running: _driver_path
+        self._reading = None  # the log the last driver_read's offset belongs to
         self._exec = run
 
     def _run(self, argv, timeout=5, env=None):
@@ -126,11 +127,15 @@ class HostSources:
         done = self._run(['journalctl', '--user', '-u', unit, '-n', str(lines), '--no-pager', '-o', 'short-iso'])
         return [line for line in done.stdout.splitlines() if not line.startswith('-- ')] if done is not None else []
 
+    def _driver_path(self):
+        return self.driver_log or tracking.log_path(self.runtime)
+
     def _driver_file(self):
-        try: return os.fdopen(os.open(self.driver_log, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC), 'rb')
+        try: return os.fdopen(os.open(self._driver_path(), os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC), 'rb')
         except OSError: return None
 
     def driver_start(self):
+        self._reading = self._driver_path()
         stream = self._driver_file()
         if stream is None: return 0
         with stream: return os.fstat(stream.fileno()).st_size
@@ -139,7 +144,11 @@ class HostSources:
         stream = self._driver_file()
         if stream is None: return '', 0
         with stream:
-            if os.fstat(stream.fileno()).st_size < offset: offset = 0  # the driver started a new log
+            size = os.fstat(stream.fileno()).st_size
+            path = self._driver_path()
+            if self._reading is not None and path != self._reading: offset = size  # the start changed driver: its log, from here
+            self._reading = path
+            if size < offset: offset = 0  # the driver started a new log
             stream.seek(offset)
             data = stream.read(1 << 20)
         return data.decode('utf-8', errors='replace'), offset + len(data)
@@ -182,6 +191,8 @@ class HostSources:
         except OSError: return False
 
     def driver_alive(self): return tracking.driver_alive(self.runtime)
+
+    def tracking_driver(self): return tracking.active_driver(self.runtime)
 
     def core_dumps(self, since, exes, pids):
         """The core dumps of `exes` or `pids` since then: which, what signal, the backtrace's text. Never the core itself, which
@@ -427,7 +438,7 @@ class IncidentMonitor:
         kernel = self._safe(self.sources.kernel_around, episode.first - KERNEL_BEFORE_S, last + KERNEL_AFTER_S, default=[])
         return dict(consent=watch.consent, result=live.result, unit=live.unit or parse_unit_exit(run), source=self._safe(self.sources.source, default={}),
                     recovery=self._safe(self.sources.recovery, episode.run_id),
-                    cores=self._cores(episode), status=watch.last_status, mode=watch.mode_text(), expected_mode=watch.expected_mode_text(), drm=watch.drm,
+                    cores=self._cores(episode), tracking_driver=self._safe(self.sources.tracking_driver), status=watch.last_status, mode=watch.mode_text(), expected_mode=watch.expected_mode_text(), drm=watch.drm,
                     metrics=exit_metrics(run), suppressed=suppressed,
                     logs=dict(run=run, kernel=relevant_kernel(kernel, live.kernel.ports),
                               controller=self._safe(self.sources.journal, CONTROLLER_UNIT, LOG_LINES, default=[]),

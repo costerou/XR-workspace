@@ -8,17 +8,20 @@ import json
 import os
 from pathlib import Path
 import secrets
+import subprocess
 import sys
 
 from tools.native_spike import monitor_rules
 from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import TOKEN, private_dir, read_private_json
 from tools.native_spike.managed import run_managed
-from tools.native_spike.panel_consent import load_panel_consent
+from tools.native_spike.panel_consent import LUMA_PIN, load_panel_consent
 from tools.native_spike.profiles import ProfileStore, profiles_path
 from tools.xr_controller.install import load_installed, verify_pinned
 
 from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME as PLUGIN_NAME, ownership_plugin_count
+
+NOTIFY_SEND = '/usr/bin/notify-send'
 
 
 def _run_id(raw):
@@ -45,12 +48,20 @@ def _write_result(state_dir, name, result):
         os.close(fd)
 
 
+def _toast(body):
+    """A desktop notification, best-effort, and the same line in the run's journal. Never affects the run."""
+    print(f'xr-workspace: {body}', file=sys.stderr, flush=True)
+    try: subprocess.run([NOTIFY_SEND, '--app-name=XR Workspace', 'XR Workspace', body], stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+    except (OSError, subprocess.SubprocessError): pass
+
+
 def execute(consent_path, data_home, progress=None):
     result = {'run_id': None, 'phase': 'verify', 'complete': False,
               'renderer_returncode': None, 'remaining': None, 'error': None}
     errors, client, plugin, attempted = [], None, None, False
     managed_started, run = False, None
-    runtime, consent = None, None
+    runtime, consent, watch = None, None, None
     try:
         # The consent names its own scope; the second read re-checks it against the first.
         raw = read_private_json(consent_path)
@@ -59,8 +70,9 @@ def execute(consent_path, data_home, progress=None):
         consent = load_panel_consent(consent_path, raw.get('instance'), raw.get('output'))
         if consent['run_id'] != result['run_id']: raise ValueError('consent changed while reading')
         installed = load_installed(data_home)
-        for key in ('plugin', 'renderer'):
-            if consent[key] != installed[key]: raise ValueError(f'consent {key} is not the pinned install')
+        for key in ('plugin', 'renderer', LUMA_PIN):
+            if key == LUMA_PIN and key not in consent: continue
+            if consent[key] != installed.get(key): raise ValueError(f'consent {key} is not the pinned install')
             verify_pinned(installed[key])
         plugin = installed['plugin']['path']
         if progress: progress(result['run_id'], 'verify')
@@ -69,11 +81,20 @@ def execute(consent_path, data_home, progress=None):
         runtime = Path(os.environ['XDG_RUNTIME_DIR'])
         client = HyprlandClient(consent['instance'], runtime)
         monitor_rules.refuse_start(client)  # before the wait for tracking: up to 120 seconds to hear nothing can start
-        if consent['tracking'] == 'xrlinuxdriver':
+        if consent['tracking'] is not False:
             from tools.native_spike import tracking
             result['phase'] = 'tracking'
             if progress: progress(result['run_id'], 'tracking')
-            tracking.ensure_ready(runtime)
+            if consent['tracking'] == tracking.LUMA:
+                ready = tracking.ensure_ready_luma(runtime, installed[LUMA_PIN]['path'])
+                if ready.get('fallback'):  # the setting stays: the next start tries the Luma driver again
+                    result['tracking_fallback'] = ready['fallback']
+                    _toast(f"The XR Luma driver could not start head tracking ({ready['fallback']}). Using XRLinuxDriver for this session.")
+                else:
+                    watch = tracking.LumaWatch(runtime, installed[LUMA_PIN]['path'], _toast)
+                    watch.start()
+            else:
+                tracking.ensure_ready(runtime)
         result['phase'] = 'plugin'
         if progress: progress(result['run_id'], 'plugin')
         # Other plugins (e.g. Omarchy's hyprbars) may stay loaded; only a broker of ours already present blocks.
@@ -98,6 +119,7 @@ def execute(consent_path, data_home, progress=None):
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)
     finally:
+        if watch is not None: watch.finish()
         # A saved broker epoch is required for explicit recovery. A return/exception
         # from run_managed does not by itself prove that recovery completed.
         preserve = managed_started and (

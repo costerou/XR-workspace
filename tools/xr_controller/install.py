@@ -9,6 +9,7 @@ import stat
 import tempfile
 
 RENDERER, PLUGIN = 'xr-native-spike', 'libxr-ownership.so'
+LUMA_DRIVER, LUMA_KEY = 'xr-luma-driver', 'luma_driver'
 _HEX = re.compile(r'[0-9a-f]{64}')
 
 
@@ -35,21 +36,32 @@ def _atomic_write(path, data, mode):
         Path(tmp).unlink(missing_ok=True); raise
 
 
+def _luma_output(build_dir):
+    """The built driver, if this build has one (XR_ENABLE_LUMA_DRIVER): beside the renderer or in its own build folder."""
+    for path in (build_dir / LUMA_DRIVER, build_dir / 'driver' / LUMA_DRIVER):
+        if path.is_file(): return path
+    return None
+
+
 def install(build_dir, data_home):
     build_dir = Path(build_dir)
+    sources = {'renderer': build_dir / RENDERER, 'plugin': build_dir / PLUGIN}
+    luma = _luma_output(build_dir)
+    if luma: sources[LUMA_KEY] = luma  # optional: without it the panel just offers XRLinuxDriver
     try:
-        shas = {'renderer': _sha(build_dir / RENDERER), 'plugin': _sha(build_dir / PLUGIN)}
+        shas = {key: _sha(path) for key, path in sources.items()}
     except OSError as e:
         raise ValueError(f'build output unreadable: {e}') from None
-    combined = hashlib.sha256((shas['renderer'] + shas['plugin']).encode('ascii')).hexdigest()[:12]
+    # The Luma driver joins the hash, so a new driver alone gets its own folder and a running session's pins stay true.
+    combined = hashlib.sha256(''.join(shas.values()).encode('ascii')).hexdigest()[:12]
     root = _root(data_home)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     (root / 'bin').mkdir(mode=0o700, exist_ok=True)
     target = root / 'bin' / combined
     target.mkdir(mode=0o700, exist_ok=True)
     entry = {}
-    for key, name in (('renderer', RENDERER), ('plugin', PLUGIN)):
-        dest = target / name
+    for key, source in sources.items():
+        dest = target / source.name
         entry[key] = {'path': str(dest), 'sha256': shas[key]}
         try:
             verify_pinned(entry[key]); continue  # identical bytes already pinned
@@ -57,7 +69,7 @@ def install(build_dir, data_home):
             pass
         fd, tmp = tempfile.mkstemp(dir=target, prefix='.tmp-')
         try:
-            with os.fdopen(fd, 'wb') as out, open(build_dir / name, 'rb') as src:
+            with os.fdopen(fd, 'wb') as out, open(source, 'rb') as src:
                 shutil.copyfileobj(src, out); out.flush(); os.fsync(out.fileno())
             os.chmod(tmp, 0o500)
             if _sha(tmp) != shas[key]: raise ValueError('build output changed during install')
@@ -83,7 +95,7 @@ def load_installed(data_home):
         data = json.loads((root / 'installed.json').read_text())
     except (OSError, ValueError) as e:
         raise ValueError(f'installed.json unreadable: {e}') from None
-    if type(data) is not dict or set(data) != {'plugin', 'renderer'}: raise ValueError('malformed installed.json')
+    if type(data) is not dict or set(data) - {LUMA_KEY} != {'plugin', 'renderer'}: raise ValueError('malformed installed.json')
     for entry in data.values(): _check_entry(entry, root / 'bin')
     return data
 

@@ -14,6 +14,19 @@ class ProfileTests(unittest.TestCase):
         self.dir = Path(self.tmp.name) / 'cfg'
         self.path = self.dir / 'profiles.json'
 
+    def test_tracking_driver_defaults_to_xrlinuxdriver_and_keeps_a_valid_choice(self):
+        self.assertEqual(profiles.DEFAULT_PROFILE['tracking_driver'], 'xrdriver')
+        self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'xrdriver')  # nothing saved
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'beast': {'tracking': True}}}))
+        self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'xrdriver')  # saved before the setting
+        for bad in ('other', 1, None, ['luma']):
+            self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'beast': {'tracking_driver': bad}}}))
+            self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'xrdriver')
+        profiles.save_profile(self.path, 'beast', {**profiles.DEFAULT_PROFILE, 'tracking_driver': 'luma'})
+        self.assertEqual(profiles.load_profile(self.path, 'beast')['tracking_driver'], 'luma')
+        self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver'], 'xrdriver')  # per glasses
+
     def test_defaults_when_missing(self):
         for m in profiles.MODELS:
             self.assertEqual(profiles.load_profile(self.path, m), profiles.DEFAULT_PROFILE)
@@ -57,6 +70,7 @@ class ProfileTests(unittest.TestCase):
         bad = {**profiles.DEFAULT_PROFILE, 'desktops': [DEFAULT_DESKTOP, DEFAULT_DESKTOP, {'width': 3840, 'height': 1080, 'scale': 1.75}]}
         with self.assertRaises(ValueError): profiles.save_profile(self.path, 'beast', bad)
         with self.assertRaises(ValueError): profiles.save_profile(self.path, 'beast', {**profiles.DEFAULT_PROFILE, 'tracking': 1})
+        with self.assertRaises(ValueError): profiles.save_profile(self.path, 'beast', {**profiles.DEFAULT_PROFILE, 'tracking_driver': 'other'})
         self.assertFalse(self.path.exists())
 
     def test_atomic_mode_0600(self):

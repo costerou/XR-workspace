@@ -124,6 +124,16 @@ class PanelConsentTests(unittest.TestCase):
             build_consent(scope(desktops=[{'width': 3840, 'height': 1080, 'scale': 1.75}] * 3))
         with self.assertRaises(ValueError): build_consent(scope(tracking=True))
         with self.assertRaises(ValueError): build_consent(scope(tracking='other'))
+
+    def test_luma_scope_carries_its_pin_and_only_it_does(self):
+        pin = {'path': '/opt/x/xr-luma-driver', 'sha256': SHA}
+        consent = build_consent(scope(tracking='luma', luma_driver=pin))
+        self.assertEqual((consent['tracking'], consent['luma_driver']), ('luma', pin))
+        with self.assertRaises(ValueError): build_consent(scope(tracking='luma'))  # no pin
+        with self.assertRaises(ValueError): build_consent(scope(luma_driver=pin))  # XRLinuxDriver has none
+        with self.assertRaises(ValueError): build_consent(scope(tracking=False, luma_driver=pin))
+        with self.assertRaises(ValueError): build_consent(scope(tracking='luma', luma_driver={'path': 'relative', 'sha256': SHA}))
+        with self.assertRaises(ValueError): build_consent(scope(tracking='luma', luma_driver={'path': '/x', 'sha256': 'short'}))
         _, consent = self.written()
         for key, val in (('schema', True), ('schema', 2), ('capture', False), ('allow', ['headless-outputs'])):
             with self.assertRaises(ValueError): load_panel_consent(self.write_raw({**consent, key: val}), INSTANCE, 'DP-2')

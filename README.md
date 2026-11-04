@@ -12,7 +12,9 @@ It works with the VITURE **Luma Ultra** (tested in the glasses) and **Beast** (o
 
 - A computer running [Omarchy](https://omarchy.org) (it uses the Hyprland window manager).
 - VITURE Luma Ultra or Beast glasses, plugged in.
-- XRLinuxDriver (`xr-driver-git`). It reads the glasses' motion sensors so the desktops can react to your head.
+- XRLinuxDriver (`xr-driver-git`). It reads the glasses' motion sensors so the desktops can react to your head. Our own
+  XR Luma driver is being tested as a replacement: once a build with it is installed, *Startup options* offers it under
+  *Tracking driver*. If it fails to calibrate, a notification says so and XRLinuxDriver runs that session instead.
 - To build it: CMake, a C++ compiler, and Python 3.10 or newer.
 - Optional, for videos: `mpv` (playing), `ffmpeg` (web videos), `zenity` (the file picker), `wl-clipboard` and Chromium
   (the browser button).

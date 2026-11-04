@@ -9,11 +9,11 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
-from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE
+from tools.native_spike.panel_consent import build_consent, write_consent, load_panel_consent, LUMA_MODE, LUMA_PIN
 from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
-from tools.native_spike import environment
+from tools.native_spike import environment, tracking
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
@@ -40,7 +40,7 @@ class Controller:
         profile=self.store.load(o['model']) if o.get('model') else {}
         candidates=[m['name'] for m in monitors if pick_fallback([m],o.get('output'),None) is not None]
         return copy.deepcopy(dict(fallback=pick_fallback(monitors,o.get('output'),profile.get('fallback')),
-            fallback_candidates=candidates, pending=self.pending,
+            fallback_candidates=candidates, pending=self.pending, luma_available=LUMA_PIN in (o.get('installed') or {}),
             state=self.state, model=o.get('model'), output=o.get('output'), reason=self.error or self.last_failure or o.get('reason'),
             run_id=self.run.get('run_id') if self.run else None, journal=self.run.get('path') if self.run else None,
             capabilities=self.live.get('capabilities',list(USER_OPS)) if self.state=='running' else [],
@@ -160,6 +160,14 @@ class Controller:
         else: log(f'start: saved monitor setup not used: {reason}; three flat desktops instead')
         return setup['desktops']
 
+    def _tracking_scope(self,profile,luma):
+        """What this start's consent asks to run: False, or XRLinuxDriver, or the Luma driver if it is chosen and installed."""
+        if not profile['tracking']: return False
+        if profile['tracking_driver']!=tracking.LUMA: return 'xrlinuxdriver'
+        if luma: return tracking.LUMA
+        log('start: the XR Luma driver is chosen but not installed; offering XRLinuxDriver')
+        return 'xrlinuxdriver'
+
     def _consent(self,j):
         path=Path('/proc/self/fd')/str(self.consent_fd)/(j['run_id']+'.json')
         from tools.native_spike.ipc import read_private_json
@@ -229,9 +237,11 @@ class Controller:
             fallback=pick_fallback(o['monitors'],o['output'],p['fallback'])
             if not o['output'] or fallback in (None,'choose'): raise ValueError(o.get('reason') or 'choose a physical fallback output')
             if ownership_plugin_count(o.get('plugins') or []): raise ValueError('ownership plugin already loaded')
+            installed=dict(o['installed']); luma=installed.pop(LUMA_PIN,None)
             scope=dict(run_id=secrets.token_hex(16),instance=o['instance'],output=o['output'],recovery_output=fallback,model=o['model'],
-                tracking='xrlinuxdriver' if p['tracking'] else False,mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
-                desktops=self._startup_desktops(o['model'],p),**o['installed'])
+                tracking=self._tracking_scope(p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
+                desktops=self._startup_desktops(o['model'],p),**installed)
+            if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
             self.last_failure=None
@@ -256,6 +266,7 @@ class Controller:
                 for k,v in optional.items():
                     if not v: scope[k]=False
                     elif scope[k] is False: raise ValueError('cannot expand confirmed scope')
+                if scope['tracking'] is False: scope.pop(LUMA_PIN,None)
                 consent=build_consent(scope)
                 name=write_consent(self.consent_fd,consent)
                 self.run=dict(run_id=scope['run_id'])

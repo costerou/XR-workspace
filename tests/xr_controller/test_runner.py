@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -102,6 +103,84 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(progress, dict(run_id='run1',phase='tracking'))
         with mock.patch('tools.native_spike.tracking.ensure_ready',side_effect=waiting):
             self.assertEqual(self.main(),0)
+
+    def luma_consent(self):
+        build = Path(self.tmp.name) / 'build'
+        (build / 'xr-luma-driver').write_bytes(b'luma')
+        self.installed = install(build, self.data)
+        self.consent(tracking='luma', luma_driver=self.installed['luma_driver'])
+
+    def test_luma_runs_the_pinned_binary_before_plugin_or_renderer(self):
+        self.luma_consent()
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='luma')) as ready, \
+                mock.patch.object(runner, '_toast') as toast:
+            ready.side_effect = lambda runtime, path: self.assertEqual(self.log, []) or dict(driver='luma')
+            self.assertEqual(self.main(), 0)
+        ready.assert_called_once_with(self.runtime, self.installed['luma_driver']['path'])
+        toast.assert_not_called()
+        self.assertNotIn('tracking_fallback', self.result())
+        self.assertEqual(self.run_args['consent']['tracking'], 'luma')
+
+    def test_luma_failure_toasts_records_and_the_session_goes_on(self):
+        self.luma_consent()
+        ready = dict(driver='xrdriver', fallback='tracking driver did not calibrate in time')
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=ready), mock.patch.object(runner.subprocess, 'run') as run:
+            self.state.mkdir(mode=0o700, exist_ok=True)
+            code = self.main()
+        self.assertEqual(code, 0)
+        self.assertIn('run', self.log)
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[0], '/usr/bin/notify-send')
+        self.assertIn('did not calibrate', argv[-1]); self.assertIn('Using XRLinuxDriver', argv[-1])
+        data = json.loads((self.state / 'run1.result.json').read_text())
+        self.assertEqual(data['tracking_fallback'], ready['fallback'])
+
+    def test_a_luma_session_is_watched_until_it_ends(self):
+        self.luma_consent()
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='luma')), \
+                mock.patch('tools.native_spike.tracking.LumaWatch') as watch:
+            self.assertEqual(self.main(), 0)
+        watch.assert_called_once_with(self.runtime, self.installed['luma_driver']['path'], runner._toast)
+        watch.return_value.start.assert_called_once()
+        watch.return_value.finish.assert_called_once()
+
+    def test_the_watch_ends_when_the_session_fails_too(self):
+        self.luma_consent()
+        self.run_error = ValueError('renderer failed')
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='luma')), \
+                mock.patch('tools.native_spike.tracking.LumaWatch') as watch:
+            self.assertEqual(self.main(), 2)
+        watch.return_value.finish.assert_called_once()
+
+    def test_no_watch_after_a_fallback_or_on_xrlinuxdriver(self):
+        self.luma_consent()
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='xrdriver', fallback='x')), \
+                mock.patch('tools.native_spike.tracking.LumaWatch') as watch, mock.patch.object(runner, '_toast'):
+            self.assertEqual(self.main(), 0)
+        watch.assert_not_called()
+
+    def test_a_failed_toast_costs_nothing(self):
+        for fault in (OSError('no notify-send'), subprocess.TimeoutExpired('notify-send', 2)):
+            with mock.patch.object(runner.subprocess, 'run', side_effect=fault), contextlib.redirect_stderr(io.StringIO()) as err:
+                runner._toast('hello')
+            self.assertIn('hello', err.getvalue())
+
+    def test_both_drivers_failing_blocks_before_plugin_load(self):
+        self.luma_consent()
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', side_effect=ValueError('both failed')):
+            self.assertEqual(self.main(), 2)
+        self.assertEqual(self.log, [])
+        self.assertEqual((self.result()['phase'], self.result()['error']), ('tracking', 'both failed'))
+
+    def test_luma_pin_must_still_be_the_install(self):
+        self.luma_consent()
+        info = self.data / 'viture-workspace/installed.json'
+        pins = json.loads(info.read_text()); pins['luma_driver']['sha256'] = 'c' * 64
+        info.write_text(json.dumps(pins))
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma') as ready:
+            self.assertEqual(self.main(), 2)
+        ready.assert_not_called()
+        self.assertIn('consent luma_driver is not the pinned install', self.result()['error'])
 
     def test_tracking_failure_blocks_before_plugin_load(self):
         self.consent(tracking='xrlinuxdriver')

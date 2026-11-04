@@ -32,6 +32,7 @@ import sys
 import tempfile
 
 from . import view
+from .tracking import DRIVERS, XRDRIVER
 from .environment import environment
 from .quality import video_quality
 from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, legacy_placement, validate_desktop, validate_desktops,
@@ -42,7 +43,7 @@ MODELS = ('beast', 'luma-ultra', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
                    'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'rolls': [0] * 3, 'tracking': True,
-                   'mode_switch': True, 'fallback': None, 'previous_setup': None}
+                   'tracking_driver': XRDRIVER, 'mode_switch': True, 'fallback': None, 'previous_setup': None}
 
 # The monitor setup a start restores (module docstring), and the default it falls back to: three flat 1920x1080 desktops
 # at 100%, level. Ctrl+Alt+R (view.RESET_OP) resets a live run to the same.
@@ -177,6 +178,7 @@ def _clean(data):
     out['previous_setup'] = _previous(data.get('previous_setup'))
     for key in ('tracking', 'mode_switch'):
         out[key] = data[key] if type(data.get(key)) is bool else True
+    out['tracking_driver'] = data['tracking_driver'] if data.get('tracking_driver') in DRIVERS else XRDRIVER
     out['fallback'] = _fallback(data.get('fallback'))
     return out
 
@@ -208,6 +210,7 @@ def _check(profile):
     out = {**profile, 'desktops': desktops, 'placements': validate_placements(profile['placements'], len(desktops)),
            'rolls': rolls + [0] * (len(desktops) - len(rolls))}
     if any(type(profile[k]) is not bool for k in ('tracking', 'mode_switch')): raise ValueError('invalid profile')
+    if profile['tracking_driver'] not in DRIVERS: raise ValueError('invalid profile')
     if profile['fallback'] is not None: token(profile['fallback'])
     previous = profile['previous_setup']
     if previous is not None:

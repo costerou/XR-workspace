@@ -99,6 +99,12 @@ function desktopEdit(width, height, scale) {
     return {width:width, height:height, scale:scale};
 }
 
+// The consent's `tracking` (tools/native_spike/tracking.py SCOPES). The Luma scope covers the handover too: the click agrees to it.
+function trackingLine(tracking) {
+    if (tracking === "luma") return "Head tracking via the XR Luma driver, network blocked. If it does not calibrate, XRLinuxDriver takes over, also network blocked.";
+    return tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).";
+}
+
 function scopeLines(scope, action, rules) {
     if (!scope) return [];
     const lines = [];
@@ -117,7 +123,7 @@ function scopeLines(scope, action, rules) {
     (scope.desktops || []).forEach((d,i) => required("XR-" + (i+1) + ": " + d.width + " × " + d.height + " · " + d.scale*100 + "%"));
     required("In the glasses, a desktop's glass pill can make it ultrawide, add one (up to " + MAX_DESKTOPS + ") or remove it; its windows then return to " + scope.recovery_output + ".");
     required("Load the pinned ownership plugin for this session.");
-    lines.push({text:scope.tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).", optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
+    lines.push({text:trackingLine(scope.tracking), optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
     if (scope.mode_switch) {
         const m = scope.mode_switch;
         lines.push({text:"Switch " + scope.output + " to " + m.width + "×" + m.height + "@" + m.refresh_hz + " for this session only.", optional:true, key:"mode_switch"});

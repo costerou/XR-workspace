@@ -182,6 +182,23 @@ class RunWatchTests(unittest.TestCase):
         watch = healthy()
         self.assertEqual(run(watch, 4, start=20, status=dict(GOOD, presented_hz=None)) + run(watch, 20, start=24), [])
 
+    def test_the_luma_drivers_log_lines_are_signals(self):
+        from tools.xr_controller.incident_detect import DriverLog
+        log = DriverLog()
+        def seen(line): return [(s.at, s.kind) for s in log.feed(line + '\n', 5.0)]
+        self.assertEqual(seen('luma: disconnected reason=gone at=1700000000.250'), [(1700000000.25, 'usb-drop')])
+        self.assertEqual(seen('luma: stale ms=1000 at=1700000001.000'), [(1700000001.0, 'tracking-lost')])
+        self.assertEqual(seen('luma: calibrating at=1700000002.000'), [(1700000002.0, 'tracking-lost')])
+        self.assertEqual(seen('luma: error reason=already-running at=1700000003.000'), [(1700000003.0, 'tracking-lost')])
+        for quiet in ('luma: connected at=1.000', 'luma: calibrated restored=1 at=1.000', 'luma: stats samples=9 commands=1 at=1.000',
+                      'luma: fresh gap_ms=5 at=1.000', 'luma: reconnected gap_ms=900 calibration=kept at=1.000', 'luma: stopped reason=signal at=1.000'):
+            self.assertEqual(seen(quiet), [], quiet)
+        self.assertEqual(seen('luma: stale ms=1000'), [(5.0, 'tracking-lost')])  # no time on the line: when it was read
+
+    def test_a_luma_run_is_watched_like_any_tracked_run(self):
+        self.assertTrue(RunWatch(RUN, dict(CONSENT, tracking='luma'), 0.0).tracking)
+        self.assertFalse(RunWatch(RUN, UNTRACKED, 0.0).tracking)
+
     def test_an_untracked_static_desktop_presents_nothing_and_that_is_fine(self):
         # wayland.cpp frame_done: without head tracking the renderer draws only when something changes.
         self.assertEqual(run(RunWatch(RUN, UNTRACKED, 0.0), 120, status=dict(GOOD, presented_hz=None, tracking=None)), [])

@@ -55,6 +55,13 @@ class TrackingConsentTests(unittest.TestCase):
             _launch(Client, 'run', 'session', 'DP-2', wayland2, None, popen=spawn, pose_feed=True)
 
 
+class FeedScopeTests(unittest.TestCase):
+    def test_both_drivers_feed_the_renderer_and_every_scope_is_known(self):
+        # managed.run_managed turns the feed on for these; the panel consent accepts exactly these.
+        self.assertEqual(tracking.SCOPES, ('xrlinuxdriver', 'luma'))
+        self.assertEqual(tracking.DRIVERS, ('xrdriver', 'luma'))
+
+
 class RecenterTests(unittest.TestCase):
     def test_recenter_op_sends_recenter_frame_without_view_change(self):
         state = view.ViewState(['XR-1', 'XR-2'])
@@ -139,7 +146,7 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertFalse(tracking.status(self.runtime)['running'])
 
     def test_ensure_ready_reuses_only_calibrated_isolated_driver(self):
-        healthy = dict(running=True, network_isolated=True, calibrated=True)
+        healthy = dict(running=True, network_isolated=True, calibrated=True, driver='xrdriver', binary=None)
         for state in (healthy, dict(healthy, calibrated=False), dict(healthy, network_isolated=False), dict(running=False)):
             with self.subTest(state=state), patch.object(tracking, 'status', return_value=state), \
                     patch.object(tracking, 'start', return_value=healthy) as start, patch.object(tracking, 'stop') as stop:
@@ -147,7 +154,7 @@ class DriverLifecycleTests(unittest.TestCase):
                 if state == healthy:
                     start.assert_not_called(); stop.assert_not_called()
                 else:
-                    start.assert_called_once_with(self.runtime, timeout=120.0)
+                    start.assert_called_once_with(self.runtime, timeout=120.0, luma=None)
                     self.assertEqual(stop.call_count, int(state['running']))
 
     def test_start_status_stop_network_blocked(self):
@@ -186,7 +193,7 @@ class DriverLifecycleTests(unittest.TestCase):
         with patch.object(tracking, 'start') as start:
             ready = tracking.ensure_ready(self.runtime)
         start.assert_not_called()
-        self.assertEqual(ready, {'running': True, 'pid': child.pid, 'network_isolated': True, 'calibrated': True})
+        self.assertEqual(ready, {'running': True, 'pid': child.pid, 'network_isolated': True, 'calibrated': True, 'driver': 'xrdriver', 'binary': None})
 
 
 class NetworkIsolationCheckTests(unittest.TestCase):
