@@ -256,6 +256,18 @@ pill's sliders and keys); pressing and dragging on a desktop's content goes to t
 bumps anything. Super + drag is your window manager's as always: it moves or resizes a window, never a desktop, and
 bumps nothing. Press Super while you are dragging a desktop and the drag stops right there.
 
+Desktops get close before they bump. Side by side they stop about 2 px apart, and the highlight round the selected
+desktop goes under its neighbour instead of over it, so there it shows as a thin line. Above and below, a desktop keeps
+only the room its pill and its level bar really take: right above each other the two still fit in the gap and you can
+use both, and anywhere else the desktops come just as close as side by side. What bumps is each desktop as you see it,
+turned the way its level bar turned it, so two levelled desktops meet along their whole edge. Everything on a desktop
+grows with it, so on a desktop made bigger these gaps look bigger too, and positions go in steps of a tenth of a degree,
+which can add a few pixels. Two desktops raised above your eyes (or lowered below them) that you haven't levelled lean
+toward each other, because each one faces you: they meet at their top corners and the gap opens downward. Click the
+middle of each one's level bar and they stand upright. Turning or levelling a desktop never moves another one, even if
+a corner swings over it. Right next to a neighbour that side has no room left for its resize handle, so use another
+edge or a corner; a click on the neighbour's picture is always the neighbour's.
+
 The panel's **Place** section is the exception: Apply puts a desktop exactly where you set it, even over another one.
 While a desktop is maximized, a change there waits: a small notification says so, the panel keeps showing it, and it
 applies when you go back to the overview. If you stop XR first it is saved for the next start.
@@ -345,8 +357,9 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
 - **Move a desktop:** put the dot on the pill under a desktop. The pill lights up. Hold the left button and drag; the
   desktop follows like a window by its title bar, moving round you and facing you all the way. It snaps back into its
   slot if you drop it within half a degree of it. It never goes through another desktop as you see it: it bumps it
-  out of the way (see [Desktops bump each other out of the way](#placing-desktops); a small gap is kept, and the strip
-  with its pill counts as part of the desktop), and the bumped one stays where it ends up. However fast you move, it
+  out of the way (see [Desktops bump each other out of the way](#placing-desktops); side by side they stop about 2 px
+  apart, and above and below only the room the pill and the level bar take is kept), and the bumped one stays where it
+  ends up. However fast you move, it
   never jumps through one. To pass a neighbour without moving it, lift it clear of the row first, or carry it round
   behind you. A click that doesn't move opens the pill instead of moving anything.
 - **Resize a desktop:** every corner has a small cap in your theme's colour wrapped round it. Put the dot on a cap, or

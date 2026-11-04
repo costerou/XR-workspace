@@ -501,8 +501,8 @@ class PointerTests(Base):
         self.free()
         self.p.rolls = [1700, -900, 400, 0]
         self.key('menu_toggle')  # XR-1's panel (the selected desktop)
-        self.key('menu_inc')     # moved a little, so R has a placement to reset too
-        self.assertNotEqual(self.state.placements[0], FLAT)
+        self.key('menu_dec')     # moved a little, away from XR-2 (rolled 17 degrees a step toward it would bump it), so R
+        self.assertNotEqual(self.state.placements[0], FLAT)  # has a placement to reset too
         out = self.key('menu_reset')
         self.assertEqual(self.state.placements[0], FLAT)  # as before: flat in its slot
         self.assertEqual(last(out, 'roll')['roll'], [-300, -900, 400, 0])  # and level; the others keep theirs

@@ -243,15 +243,16 @@ class BelowTheBorderTests(unittest.TestCase):
                 self.assertLess(right, T1[0] + T1[2] - z)
 
     def test_a_desktops_footprint_still_holds_its_pill_zone(self):
-        # Bumping keeps desktops apart by footprint (orbit._outline): the zone must stay inside it at every size. Flat at
-        # its slot a surface point's height is its world height, so the outline's bottom edge can be read off directly.
+        # Bumping keeps desktops apart by footprint (orbit._outline and _strips): the pill as drawn must stay inside it at
+        # every size. The grab padding round it is not kept: a neighbour may come closer than that. Flat at its slot a
+        # surface point's height is its world height, so the footprint's bottom edge can be read off directly.
         x, y, w, h = fp.pill_rect(T1)
         for size in self.SIZES:
             p = {**DEFAULT_PLACEMENT, 'distance': size}
             with self.subTest(size=size):
-                outline = orbit._outline(G, T1, p)
-                zone = fp.place_point(G, T1, p, *fp.glass_to_desktop(T1, p, x + w / 2, y + h + fp.PILL_PAD_Y))
-                self.assertLessEqual(min(q[1] for q in outline), zone[1])
+                covered = orbit._outline(G, T1, p) + [q for strip in orbit._strips(G, T1, p) for q in strip]
+                drawn = fp.place_point(G, T1, p, *fp.glass_to_desktop(T1, p, x + w / 2, y + h))
+                self.assertLessEqual(min(q[1] for q in covered), drawn[1] + 1e-9)
 
 
 # --- hit testing ----------------------------------------------------------------------------------------------------

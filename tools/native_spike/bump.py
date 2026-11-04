@@ -4,9 +4,12 @@ where they were pushed (monitor-collision-bump, 2026-11-03). Pure maths, no I/O.
 Design:
   * What collides is what you see: each desktop's footprint (orbit.footprint), the directions from your eye that its
     true placed outline covers (orbit, distance and curvature included; a curved one by its convex hull), widened by
-    orbit.MARGIN_PX and by the strip under it holding its glass pill (orbit.PILL_ZONE_PX). Two desktops collide when
-    their footprints share a direction (apart: a separating great circle through an edge of either, the spherical form
-    of the separating-axis test; orbit.overlap for footprints too wide for it). Touching is allowed.
+    orbit.CLEARANCE_PX, so neighbours stop a couple of pixels apart (the highlight frame, on one desktop at a time and drawn
+    under every picture, needs no room), with the strips its level bar and pill really take above and below it, each
+    only as wide as the handle (bump-closer, 2026-11-03): right above each other a pill and a bar both fit, and past
+    them desktops come just as close. Two desktops collide when any part of one shares a direction with any part of the
+    other (apart: a separating great circle through an edge of either, the spherical form of the separating-axis test,
+    part by part; orbit.overlap for footprints too wide for it). Touching is allowed.
   * One desktop is the mover: a pill drag, a corner resize, or a slider or key of its open panel changes one desktop's
     placement (the settings panel's Apply does not bump: it applies exactly as given). It walks the straight path from
     where it is to where it was asked to go (x / y, distance and curvature together) in steps of at most STEP_TENTHS of
@@ -20,8 +23,8 @@ Design:
   * The layout changing settles (settle): a new overview layout, or a restored setup, can leave desktops overlapping
     with no mover to push them. Desktop by desktop, those to keep first, each one that covers a desktop already gone
     through goes to the nearest clear spot, straight along x or y; the rest stay exactly where they are. Once clear
-    nothing moves, so it never jitters. The row itself is no overlap (two desktops both flat in their slots, at spacing
-    0 only their frames touch), and a desktop with no clear spot anywhere stays where it is.
+    nothing moves, so it never jitters. The row itself is no overlap (two desktops both flat in their slots: at spacing
+    0 they touch, closer than a drag leaves them), and a desktop with no clear spot anywhere stays where it is.
   * Stable. A push is never longer than PUSH_REACH times the step's own travel (plus PUSH_SLACK), so a desktop is never
     flung across the room; a desktop keeps the way it was last pushed while that costs at most HYSTERESIS tenths more
     than the cheapest (no flip-flopping between sideways and up / down at a corner); and a pushed desktop never springs
@@ -38,8 +41,12 @@ Design:
     so they move out of the way together and never cross on screen.
   * Saved like any move. A pushed desktop is a placement like any other: it is in the placements the run's normal save
     path writes (ViewControl.flush, the debounce, at once on release), so it comes back with the layout.
-  * The levelling roll (free_pointer.py's level bar) is ignored here, as it was by the guard: a few degrees of roll
-    change nothing that matters.
+  * The levelling roll (free_pointer.py's level bar) is part of the footprint: what collides is the desktop as drawn. It
+    was ignored until bump-closer as "a few degrees", which is not little on a big desktop: at distance 31, 5.8 degrees
+    up, levelling takes four degrees of lean out of two neighbours, so unrolled their top corners met while on screen they were
+    100 px apart all the way down. A Pusher takes the rolls as they are when it starts. A roll is not a move: turning or
+    levelling a desktop pushes nothing, and a corner it swings over a neighbour is left, like an Apply's overlap, until the
+    next move of the two or layout change.
 """
 import math
 
@@ -70,12 +77,18 @@ def turn(a0, x, y):
 
 def apart(a, b):
     """True if footprints `a` and `b` share no direction (they may touch): orbit.overlap(a, b) is 0. Their cones first;
-    then a separating great circle through an edge of either (two convex spherical polygons in one hemisphere are apart
-    exactly when one exists); footprints too wide for that are judged by orbit.overlap, as the guard did."""
+    then, for each part of one against each part of the other (a desktop and its handles' strips), a separating great
+    circle through an edge of either (two convex spherical polygons in one hemisphere are apart exactly when one exists);
+    footprints too wide for that are judged by orbit.overlap, as the guard did."""
     theta = orbit._angle(a.centre, b.centre)
     if theta >= a.radius + b.radius: return True
     if a.vertices is None or b.vertices is None or theta + a.radius + b.radius >= math.pi:
         return orbit.overlap(a, b) <= orbit.AREA_EPS
+    return all(_separated(p, q) for p in (a,) + a.handles for q in (b,) + b.handles)
+
+
+def _separated(a, b):
+    """True if a great circle through an edge of either convex polygon has the other on its far side."""
     for p, q in ((a, b), (b, a)):
         for n in p.normals:
             if all(n[0] * v[0] + n[1] * v[1] + n[2] * v[2] <= _EPS for v in q.vertices): return True
@@ -103,9 +116,9 @@ class Pusher:
     whole drag, press to release, or one key, slider or panel change. It remembers which way each desktop was last
     pushed (HYSTERESIS), so a drag keeps one Pusher to its end. After each move(): `reached`, the mover's placement it
     got to (x unwrapped, in the frame of the move's `start`); `pushed`, the desktops that move pushed; `blocked`, True
-    if it stopped short of its target (no room)."""
-    def __init__(self, g, index):
-        self.g, self.index = g, index
+    if it stopped short of its target (no room). `rolls`: each desktop's levelling roll, 1/100 degree (none: all level)."""
+    def __init__(self, g, index, rolls=None):
+        self.g, self.index, self.rolls = g, index, list(rolls or ())
         self.memory = {}   # desktop -> index into DIRECTIONS it was last pushed along
         self.reached, self.pushed, self.blocked = None, (), False
         self.steps = 0     # diagnostics: walking steps taken by the last move()
@@ -119,8 +132,9 @@ class Pusher:
         f = self._shapes.get(key)
         if f is None:
             if len(self._shapes) > 256: self._shapes.clear()
+            roll = self.rolls[i] if i < len(self.rolls) else 0
             f = self._shapes[key] = orbit.footprint(self.g, self.g['tiles'][i], {'x': 0, 'y': 0, 'distance': distance,
-                                                                                   'curvature': curvature})
+                                                                                   'curvature': curvature, 'roll': roll})
         return f
 
     def _print(self, i, s):
@@ -345,14 +359,14 @@ class Pusher:
         return (sk[0] + dx * best[2], sk[1] + dy * best[2]) + sk[2:]
 
 
-def settle(g, placements, first=()):
+def settle(g, placements, first=(), rolls=None):
     """(placements, the desktops moved) with no two desktops overlapping, for a layout that changed under them: module
     docstring, the layout changing settles. `first`: the desktops to keep where they are ahead of the others (the rest in
-    order). Without a geometry with one slot per desktop, or alone: unchanged."""
+    order). `rolls`: as for a Pusher. Without a geometry with one slot per desktop, or alone: unchanged."""
     n = len(placements)
     out = [dict(p) for p in placements]
     if g is None or len(g['tiles']) != n or n < 2: return out, ()
-    pusher = Pusher(g, 0)
+    pusher = Pusher(g, 0, rolls)
     pusher._limit = {}
     state = [(p['x'], p['y'], p['distance'], p['curvature']) for p in placements]
     flat = [p == DEFAULT_PLACEMENT for p in placements]
@@ -389,8 +403,8 @@ def _wire(p):
     return {**p, 'x': orbit.wrap(int(p['x'])), 'y': int(p['y']), 'distance': int(p['distance']), 'curvature': int(p['curvature'])}
 
 
-def push(g, index, placements, target):
+def push(g, index, placements, target, rolls=None):
     """One edit with bumping (a key, a slider, an Apply): every desktop's placement after desktop `index` goes to
     `target` (x the short way round), and the Pusher that did it (its `pushed`, `blocked`, `reached`)."""
-    pusher = Pusher(g, index)
+    pusher = Pusher(g, index, rolls)
     return pusher.move(placements, target), pusher

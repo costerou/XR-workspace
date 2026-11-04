@@ -1121,7 +1121,7 @@ class ViewControl:
             return False
         i = changed[0]
         pusher = self._pusher
-        if not (keep and pusher is not None and pusher.index == i and pusher.g is g): pusher = bump.Pusher(g, i)
+        if not (keep and pusher is not None and pusher.index == i and pusher.g is g): pusher = bump.Pusher(g, i, self._rolls())
         self.state.placements = pusher.move(before, after[i])
         self._pusher = pusher if keep else None
         if not pusher.pushed: return False
@@ -1140,7 +1140,7 @@ class ViewControl:
         if g is None or getattr(op, 'drag', None) is not None or s.desktops_busy or getattr(self, 'reset', None) is not None:
             return b''
         self._settle_due = False
-        placements, moved = bump.settle(g, s.placements, ([s.menu_desktop] if s.menu_open else []) + [s.selected])
+        placements, moved = bump.settle(g, s.placements, ([s.menu_desktop] if s.menu_open else []) + [s.selected], self._rolls())
         if not moved: return b''
         s.placements = placements
         self.bumps += 1
@@ -1228,10 +1228,11 @@ class ViewControl:
             return (b''.join(frames) + out) or None
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
         level = self.state.menu_desktop if op == 'menu_reset' and self.state.menu_open else None
+        levelled = b''
+        if level is not None and self.overview_pointer is not None:  # R: its rotation back to level too, not only its placement.
+            levelled = self.overview_pointer.level(level)  # First: bumping counts the roll, and it should not push for one going away
         out += self._menu_update(lambda: self.state.apply_menu(op))
-        if level is not None and self.overview_pointer is not None:
-            out += self.overview_pointer.level(level)  # R: its rotation back to level too, not only its placement
-        return out or None
+        return (out + levelled) or None
 
     # --- the overview free pointer's pill clicks and sliders (free_pointer.OverviewPointer) ------------------------------
     def follow_focus(self):

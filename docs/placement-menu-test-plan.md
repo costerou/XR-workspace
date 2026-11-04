@@ -218,7 +218,7 @@ every desktop flat (Place tab: all zero, Distance 100) and press Ctrl+Alt+Down.
 | F6 | Bring the dot round XR-1's side (or push the mouse down past XR-1's bottom edge) onto the pill under XR-1 | That pill gets brighter. No corner cap lights up. |
 | F7 | Hold the left button on the pill and drag up, then down a long way, then left | Nothing moves for the first few pixels, then XR-1 follows with the pill staying under the dot, facing you all the way. It is not stopped one desktop height down or width left of its slot: it goes as far as the dot goes (in anchor mode on round you, see O8). |
 | F8 | Release | No panel opens (it was a drag, not a click). Place tab: Left/right and Down/up show the new values in degrees. The dot stays where it is. |
-| F9 | Drag XR-1's pill right toward XR-2 at the same height | XR-1 keeps following the dot and bumps XR-2 out of the way (and XR-3 after it), with a small gap kept between them (XR-1's pill strip counts as part of XR-1). Drag back: XR-2 and XR-3 stay where they were pushed. Lift it above the row first and it passes over without bumping. Dropped within half a degree of its slot it snaps in. See B1–B16. |
+| F9 | Drag XR-1's pill right toward XR-2 at the same height | XR-1 keeps following the dot and bumps XR-2 out of the way (and XR-3 after it), about 2 px apart. Drag back: XR-2 and XR-3 stay where they were pushed. Lift it above the row first and it passes over without bumping. Dropped within half a degree of its slot it snaps in. See B1–B25. |
 | F10 | Move the dot just outside XR-1's bottom-right corner | That corner's cap lights up and grows along both edges, and the dot shows two diagonal arrows. |
 | F11 | Drag the corner outward, then far inward | XR-1 grows and shrinks about its centre with the corner under the dot, keeping its shape. It stops at twice and at half its size. Place tab: Distance changes (bigger = lower). Growing bumps XR-2 out of the way; shrinking leaves it there. |
 | F12 | Move the dot down onto the middle of XR-2 | The normal cursor reappears on XR-2 where the dot was, the dot goes away, and XR-2 becomes the highlighted desktop. |
@@ -300,7 +300,7 @@ tab: all zero, Distance 100%), use anchor mode (Ctrl+Alt+V) unless a step says o
 | O8 | Keep dragging left past the edge of the view, to the end of the dot's reach, and release | Past the edge XR-1 speeds up smoothly, with no jump at the edge. At the end of the reach it is directly behind you. Turn round: it faces you. |
 | O9 | Drag XR-3's pill up past the top of the view, to the end of the reach, and release | XR-3 is straight overhead, facing down at you. |
 | O10 | **Re-grab.** Turn round to look at XR-1 behind you. Move the mouse left past the edge of the view, the way you dragged it, until XR-1's pill lights up. Hold the button and drag back right, then release near its slot | The pill lights up although you can't see the dot. XR-1 follows the drag back round to the row. Dropped within half a degree of its slot, it snaps in. XR-1's corners and the desktop itself never light up this way. |
-| O11 | **No overlap.** Drag XR-1's pill right toward XR-2 at the same height | XR-1 bumps XR-2 (and then XR-3) out of the way, with a small gap kept (XR-1's pill strip counts as part of XR-1). The desktops never cover each other as you see them. |
+| O11 | **No overlap.** Drag XR-1's pill right toward XR-2 at the same height | XR-1 bumps XR-2 (and then XR-3) out of the way, about 2 px apart. The desktops never cover each other as you see them. |
 | O12 | Lift XR-1 so that it is half above XR-2, then drag it right | XR-2 is pushed sideways ahead of it, steadily, never jumping or switching to being pushed down and back. Lift XR-1 almost clear: XR-2 is nudged down a little and XR-1 passes over. |
 | O13 | Bring XR-1 back beside XR-2 at the same height and flick the mouse fast far to the right | XR-2 (and XR-3) are pushed ahead of XR-1 all the way. XR-1 never jumps to XR-2's other side and never covers it. |
 | O14 | **Existing overlap.** Make XR-1 and XR-2 overlap with the settings panel of an older build, if you have one (with this build every way of moving bumps). Drag XR-1's pill left, then right | Left, away from XR-2, moves freely. Right pushes XR-2 so the overlap never gets deeper. It never gets stuck. |
@@ -326,7 +326,7 @@ an isolated VM or in the glasses.
 
 | # | Do | Expect |
 |---|----|--------|
-| B1 | In the overview, drag XR-2's pill slowly right into XR-3 | XR-3 slides away ahead of XR-2, in step with it, a small gap between them. No overlap at any moment, no jump. |
+| B1 | In the overview, drag XR-2's pill slowly right into XR-3 | XR-3 slides away ahead of XR-2, in step with it, about 2 px between them. No overlap at any moment, no jump. |
 | B2 | Keep dragging right, then back left to XR-2's slot, and release | XR-3 stays where it was pushed (no spring back). XR-2 snaps into its slot. |
 | B3 | Drag XR-3's pill left into XR-2 and on into XR-1 | XR-2 is pushed, and then pushes XR-1: all three move left together, in order. |
 | B4 | Lift XR-1 above the row, put it right over XR-2 and bring it down onto it | XR-2 is pushed down, not aside. |
@@ -342,6 +342,15 @@ an isolated VM or in the glasses.
 | B14 | In the overview, hold Super and drag from a pill, a corner and a window, with the left and the right button | A window moves or resizes as Hyprland does it (or nothing, off a window). No desktop moves or resizes and nothing is bumped. Then start a pill drag and press Super with the button still held: the drag stops there, the desktop no longer follows the mouse, and letting go does nothing. Super on its own still does what it always did (a tap, Super + a key, Super + drag). |
 | B15 | Leave the overlap from B9 in place and press Ctrl+Alt+[ or ] (spacing), or add a desktop | The desktops that overlap glide apart, the selected one staying put, the others the shortest way to a clear spot. Nothing moves when nothing overlaps. With the remembered layout: an old saved layout that overlaps comes apart the same way right after the start. |
 | B16 | Comfort | Note any judder, lag between the moved desktop and the ones it pushes, or a glide that feels too slow or too fast. |
+| B17 | With both desktops level with your eyes (Down/up 0°) and level, drag XR-1's pill right until it meets XR-2, and hold it there | The two come to within a few pixels, the same gap from top to bottom, before XR-2 starts to move. Holding still, nothing moves or shimmers. |
+| B18 | Do the same with both raised (Down/up about 6°) and not levelled | They lean toward each other: they meet at their top corners and the gap opens downward. |
+| B19 | Click the middle of each one's level bar, then bring them together again | They stand upright and meet along the whole seam, nearly the same gap from top to bottom. XR-2 only starts to move once they really touch: there is no wide gap left when it does. |
+| B20 | With the two touching, select each in turn | The highlight goes under the neighbour and shows as a thin line on that side, never over the neighbour's picture. It is whole on the other sides. |
+| B21 | Put XR-1 right above XR-2, the same size, and bring it down onto it | XR-2 starts to move while both XR-1's pill and XR-2's level bar are in full view. Click the pill: its panel opens. Click each of the bar's three segments: each answers. |
+| B22 | Move XR-1 a third of a desktop to one side and bring it down again | It comes closer than in B21: only the bar is kept. A desktop's corner that meets the bar's end slides off it, with no stop or jump. |
+| B23 | With two desktops touching, click and scroll along the seam on each side, near the top and bottom too | Each click and scroll goes to the window of the desktop the dot is on, right up to its edge. Resize one of them from another edge or a corner. |
+| B24 | With XR-3 right next to XR-2, grow XR-2 from the edge facing XR-3 and let go | XR-3 is pushed; XR-2 stays selected when you let go, even if the dot ends up on XR-3. Moving the dot then hands XR-3 the cursor. |
+| B25 | With two desktops touching, turn one with the level bar's left or right segment, then click its middle segment | Nothing else moves, even if a corner swings over the neighbour. Moving either one away is free; moving it further in pushes the neighbour. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 

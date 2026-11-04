@@ -134,8 +134,8 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     bars under them. Only what the dot is on or holds lights up. The bars hide with the pills. Every hit test and cursor
     mapping uses the rolled surface (orbit.place_point's 'roll'); a maximized desktop is drawn level by the renderer alone
     (view.hpp zoomed_placements), so `rolls` stay the overview's and nothing here changes while maximized, a press on a
-    bar cut off by a maximize included; the pill drag and bumping ignore the roll (a few degrees at most changes nothing
-    there).
+    bar cut off by a maximize included; the pill drag ignores the roll (a few degrees at most changes nothing there) and
+    bumping counts it (bump.py: what collides is the desktop as drawn).
   * Corner caps (glass.hpp corner_cap_rect): a quiet rounded L round each corner of every desktop, drawn with its bar, the
     resize corners made visible. Their press is the corner's resize zone (border_handle); the corner under the dot or held
     is the `resize_handle` frame, and only that cap lights up.
@@ -200,7 +200,7 @@ RESIZE_LOOKS = {'l': 'resize_ew', 'r': 'resize_ew', 't': 'resize_ns', 'b': 'resi
 # the padding around it that still grabs it; the zone also covers the gap and the border up to the desktop's bottom edge.
 PILL_SHARE, PILL_MIN, PILL_MAX, PILL_THICKNESS, PILL_GAP = 0.24, 64.0, 160.0, 14.0, 10.0
 PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
-BORDER_PX = orbit.MARGIN_PX  # view.hpp kBorderPx: the selected desktop's frame, tile px
+BORDER_PX = 6.0              # view.hpp kBorderPx: the selected desktop's frame, tile px
 # Expanded pill = placement panel (glass.hpp glass_panel and its layout, panel px from its top-left): the header strip
 # (the pill itself: drag to move, click to collapse), then one row per placement setting (geometry.PLACEMENT_KEYS order)
 # whose slider knob centre runs PANEL_KNOB_LO (low bound) .. PANEL_KNOB_HI (high bound).
@@ -735,7 +735,9 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
     dot's ray (orbit.pointer_ray, where the renderer draws the dot), so anything placed anywhere round you can be reached.
     Handles never cover content: a point on a desktop's own rectangle (deeper than the ENTER_PX sliver at its edge) is
     ('desktop', ...) unless the open panel, drawn over the desktops, is there. The resize border (border_handle), the
-    pill zone and the bars lie outside it."""
+    pill zone and the bars lie outside it, and where they reach over the picture of a desktop beside it that is the
+    neighbour's: bumping lets neighbours closer than these zones are wide (bump.py). Only the pill as drawn stays: glass is
+    drawn over the pictures. A desktop really in front of another (in_front_of) keeps its zones over the one behind."""
     if g is None or pointer is None: return None
     n = min(len(g['tiles']), len(placements))
     if type(open_) is int and 0 <= open_ < n:
@@ -746,11 +748,16 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
             if x <= q[0] < x + w and y <= q[1] < y + h: return panel_hit(q[0] - x, q[1] - y, open_, picker, resolution_picker, background_picker)
     order = front_order(g, placements)
     qs = {i: unproject(g, g['tiles'][i], placements[i], pointer) for i in order}
+    picture = next((i for i in order if qs[i] is not None and inside_by(g['tiles'][i], qs[i]) >= ENTER_PX), None)  # the one on top
     below = edge = None  # a corner, pill or desktop under the dot: it takes the press; the nearest edge band
     for i in order:
         q = qs[i]
         if q is None: continue
         tile = g['tiles'][i]
+        if picture is not None and picture != i and not in_front_of(g, placements, i, picture, q):  # beside it: only the glass shows
+            if not on_drawn_pill(tile, desktop_to_glass(tile, placements[i], q)): continue
+            below = ('pill', i)
+            break
         border = border_handle(tile, q)
         if border is not None and border[0] == 'corner': below = ('corner', i, border[1])
         elif on_pill(tile, placements[i], q): below = ('pill', i)
@@ -781,6 +788,22 @@ def on_pill(tile, p, q):
     gx, gy = desktop_to_glass(tile, p, q)
     px, py, pw, ph = pill_rect(tile)
     return px - PILL_PAD_X <= gx <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] and gy <= py + ph + PILL_PAD_Y
+
+
+def on_drawn_pill(tile, q):
+    """True if tile pixel `q` (None: missed) is on a desktop's pill as drawn, without the padding on_pill adds."""
+    if q is None: return False
+    px, py, pw, ph = pill_rect(tile)
+    return px <= q[0] <= px + pw and py <= q[1] <= py + ph
+
+
+def in_front_of(g, placements, i, j, q):
+    """True if desktop i really covers desktop j's picture at i's tile pixel `q`, just outside i: i's own edge next to q is on
+    that picture too. False if the two are only beside each other, however close: i's edge stops short of it."""
+    tile, other = g['tiles'][i], g['tiles'][j]
+    edge = (min(max(q[0], tile[0]), tile[0] + tile[2]), min(max(q[1], tile[1]), tile[1] + tile[3]))
+    on = unproject(g, other, placements[j], project(g, tile, placements[i], *edge))
+    return on is not None and inside_by(other, on) >= ENTER_PX
 
 
 def inside_by(tile, q):
@@ -1352,8 +1375,11 @@ class OverviewPointer:
             out += self._end_drag()  # (a release on a resize handle that resized nothing does nothing)
             if d is not None and self.mode == 'free' and self.pointer is not None:  # the drag kept the dot's look; it is over:
                 # What is under the dot now, the real cursor if that is content (a dropped window and a slider, whose panel
-                # is in use, leave the dot free until it next moves).
-                if d['kind'] in ('window', 'slider'): self.hover = self._hit()
+                # is in use, leave the dot free until it next moves; so does a resize that pushed a neighbour right up to the
+                # handle, which can leave the dot on that neighbour's picture: a resize never changes the selection).
+                h = self._hit()
+                if d['kind'] in ('window', 'slider') or (d['kind'] in RESIZE_DRAGS and h is not None and h[0] == 'desktop' and h[1] != d['index']):
+                    self.hover = h
                 else: out += self._settle()
         elif self.active() and self.mode == 'free' and not idle and self.pointer is not None:
             out += self._end_drag()  # a press during a drag: its release was lost; finish that one first
@@ -1540,7 +1566,7 @@ class OverviewPointer:
                 d['moved'] = True
                 self.moves += 1
             if 'orbit' not in d:  # the turn round you keeping the grabbed point under the dot, pushing what it meets (orbit.py)
-                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'])
+                d['orbit'] = orbit.PillDrag(self.geometry, d['index'], d['xy'], d['start'], self.rolls)
             placements = d['orbit'].follow(self.pointer, c.state.placements)
         if placements == c.state.placements: return b''
         if any(p != q for i, (p, q) in enumerate(zip(placements, c.state.placements)) if i != d['index']): self.bumps += 1
@@ -1552,7 +1578,7 @@ class OverviewPointer:
         """Every desktop's placement for resize drag `d` (any resize handle of the hit-zone contract: a corner; the edges
         too where they are handles) asking for `distance`: the desktop takes it, growing pushes the desktops it runs into
         out of its way and with no room left it stops growing (bump.py; one Pusher for the whole drag)."""
-        if 'bump' not in d: d['bump'] = bump.Pusher(self.geometry, d['index'])
+        if 'bump' not in d: d['bump'] = bump.Pusher(self.geometry, d['index'], self.rolls)
         return d['bump'].move(self.control.state.placements, {'distance': distance})
 
     def _end_drag(self):
