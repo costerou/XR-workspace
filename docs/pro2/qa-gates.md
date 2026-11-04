@@ -141,3 +141,11 @@ but do not repair the independent tracking entrypoint's incomplete-identity chec
 See qa-driver-review.md. Driver report now explicitly acknowledges preflight's
 runtime hotplug confinement limitation and reports 113 lifecycle tests passed;
 those are sibling results, distinct from QA's six-case rerun.
+
+
+Latest QA recheck supersedes prior QD1-open status: **QD1 CLOSED** at actual
+integrated head `40f1dd5de9b7b363a58eca30817cfe75784f6b2c`. Exact original
+missing-PID reproduction now rejects; seven provider tests passed (0.008s),
+including 18 incomplete/conflicting-identity entrypoint subcases with zero
+status/config/log/stop/spawn calls. See qa-driver-review.md for independent
+execution evidence. No live setup changes; hardware activation remains staged.
