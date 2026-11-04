@@ -1,0 +1,1654 @@
+2026-11-01T00:14:38.160242-04:00 host kernel: xhci_hcd 0000:10:00.0: xHCI Host Controller
+2026-11-01T00:14:38.160283-04:00 host kernel: xhci_hcd 0000:10:00.0: new USB bus registered, assigned bus number 1
+2026-11-01T00:14:38.160320-04:00 host kernel: xhci_hcd 0000:10:00.0: hcc params 0x0200ef81 hci version 0x110 quirks 0x0000000200000010
+2026-11-01T00:14:38.160357-04:00 host kernel: xhci_hcd 0000:10:00.0: xHCI Host Controller
+2026-11-01T00:14:38.160394-04:00 host kernel: xhci_hcd 0000:10:00.0: new USB bus registered, assigned bus number 2
+2026-11-01T00:14:38.160431-04:00 host kernel: xhci_hcd 0000:10:00.0: Host supports USB 3.1 Enhanced SuperSpeed
+2026-11-01T00:14:38.160477-04:00 host kernel: usb usb1: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 7.02
+2026-11-01T00:14:38.160517-04:00 host kernel: usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.160553-04:00 host kernel: usb usb1: Product: xHCI Host Controller
+2026-11-01T00:14:38.160587-04:00 host kernel: usb usb1: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.160620-04:00 host kernel: usb usb1: SerialNumber: REDACTED
+2026-11-01T00:14:38.160662-04:00 host kernel: hub 1-0:1.0: USB hub found
+2026-11-01T00:14:38.160703-04:00 host kernel: hub 1-0:1.0: 12 ports detected
+2026-11-01T00:14:38.160745-04:00 host kernel: usb usb2: We don't know the algorithms for LPM for this host, disabling LPM.
+2026-11-01T00:14:38.160786-04:00 host kernel: usb usb2: New USB device found, idVendor=1d6b, idProduct=0003, bcdDevice= 7.02
+2026-11-01T00:14:38.160822-04:00 host kernel: usb usb2: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.160856-04:00 host kernel: usb usb2: Product: xHCI Host Controller
+2026-11-01T00:14:38.160891-04:00 host kernel: usb usb2: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.160925-04:00 host kernel: usb usb2: SerialNumber: REDACTED
+2026-11-01T00:14:38.160967-04:00 host kernel: hub 2-0:1.0: USB hub found
+2026-11-01T00:14:38.161009-04:00 host kernel: hub 2-0:1.0: 6 ports detected
+2026-11-01T00:14:38.161044-04:00 host kernel: xhci_hcd 0000:12:00.3: xHCI Host Controller
+2026-11-01T00:14:38.161078-04:00 host kernel: xhci_hcd 0000:12:00.3: new USB bus registered, assigned bus number 3
+2026-11-01T00:14:38.161113-04:00 host kernel: xhci_hcd 0000:12:00.3: hcc params 0x0120ffc5 hci version 0x120 quirks 0x0000000200000010
+2026-11-01T00:14:38.161147-04:00 host kernel: xhci_hcd 0000:12:00.3: xHCI Host Controller
+2026-11-01T00:14:38.161181-04:00 host kernel: xhci_hcd 0000:12:00.3: new USB bus registered, assigned bus number 4
+2026-11-01T00:14:38.161215-04:00 host kernel: xhci_hcd 0000:12:00.3: Host supports USB 3.1 Enhanced SuperSpeed
+2026-11-01T00:14:38.161255-04:00 host kernel: usb usb3: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 7.02
+2026-11-01T00:14:38.161291-04:00 host kernel: usb usb3: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.161323-04:00 host kernel: usb usb3: Product: xHCI Host Controller
+2026-11-01T00:14:38.161354-04:00 host kernel: usb usb3: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.161383-04:00 host kernel: usb usb3: SerialNumber: REDACTED
+2026-11-01T00:14:38.161423-04:00 host kernel: hub 3-0:1.0: USB hub found
+2026-11-01T00:14:38.161462-04:00 host kernel: hub 3-0:1.0: 2 ports detected
+2026-11-01T00:14:38.161502-04:00 host kernel: usb usb4: We don't know the algorithms for LPM for this host, disabling LPM.
+2026-11-01T00:14:38.161541-04:00 host kernel: usb usb4: New USB device found, idVendor=1d6b, idProduct=0003, bcdDevice= 7.02
+2026-11-01T00:14:38.161573-04:00 host kernel: usb usb4: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.161604-04:00 host kernel: usb usb4: Product: xHCI Host Controller
+2026-11-01T00:14:38.161634-04:00 host kernel: usb usb4: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.161664-04:00 host kernel: usb usb4: SerialNumber: REDACTED
+2026-11-01T00:14:38.161705-04:00 host kernel: hub 4-0:1.0: USB hub found
+2026-11-01T00:14:38.161744-04:00 host kernel: hub 4-0:1.0: 2 ports detected
+2026-11-01T00:14:38.161777-04:00 host kernel: xhci_hcd 0000:12:00.4: xHCI Host Controller
+2026-11-01T00:14:38.161812-04:00 host kernel: xhci_hcd 0000:12:00.4: new USB bus registered, assigned bus number 5
+2026-11-01T00:14:38.161846-04:00 host kernel: xhci_hcd 0000:12:00.4: hcc params 0x0120ffc5 hci version 0x120 quirks 0x0000000200000010
+2026-11-01T00:14:38.161881-04:00 host kernel: xhci_hcd 0000:12:00.4: xHCI Host Controller
+2026-11-01T00:14:38.161931-04:00 host kernel: xhci_hcd 0000:12:00.4: new USB bus registered, assigned bus number 6
+2026-11-01T00:14:38.161987-04:00 host kernel: xhci_hcd 0000:12:00.4: Host supports USB 3.1 Enhanced SuperSpeed
+2026-11-01T00:14:38.162035-04:00 host kernel: usb usb5: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 7.02
+2026-11-01T00:14:38.162067-04:00 host kernel: usb usb5: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.162098-04:00 host kernel: usb usb5: Product: xHCI Host Controller
+2026-11-01T00:14:38.162128-04:00 host kernel: usb usb5: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.162159-04:00 host kernel: usb usb5: SerialNumber: REDACTED
+2026-11-01T00:14:38.162197-04:00 host kernel: hub 5-0:1.0: USB hub found
+2026-11-01T00:14:38.162234-04:00 host kernel: hub 5-0:1.0: 2 ports detected
+2026-11-01T00:14:38.162273-04:00 host kernel: usb usb6: We don't know the algorithms for LPM for this host, disabling LPM.
+2026-11-01T00:14:38.162310-04:00 host kernel: usb usb6: New USB device found, idVendor=1d6b, idProduct=0003, bcdDevice= 7.02
+2026-11-01T00:14:38.162346-04:00 host kernel: usb usb6: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.162377-04:00 host kernel: usb usb6: Product: xHCI Host Controller
+2026-11-01T00:14:38.162407-04:00 host kernel: usb usb6: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.162436-04:00 host kernel: usb usb6: SerialNumber: REDACTED
+2026-11-01T00:14:38.162476-04:00 host kernel: hub 6-0:1.0: USB hub found
+2026-11-01T00:14:38.162513-04:00 host kernel: hub 6-0:1.0: 2 ports detected
+2026-11-01T00:14:38.162546-04:00 host kernel: xhci_hcd 0000:13:00.0: xHCI Host Controller
+2026-11-01T00:14:38.162580-04:00 host kernel: xhci_hcd 0000:13:00.0: new USB bus registered, assigned bus number 7
+2026-11-01T00:14:38.162615-04:00 host kernel: xhci_hcd 0000:13:00.0: USB0 root hub has no ports
+2026-11-01T00:14:38.162648-04:00 host kernel: xhci_hcd 0000:13:00.0: hcc params 0x0110ffc5 hci version 0x120 quirks 0x0000000200000010
+2026-11-01T00:14:38.162688-04:00 host kernel: usb usb7: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 7.02
+2026-11-01T00:14:38.162721-04:00 host kernel: usb usb7: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+2026-11-01T00:14:38.162752-04:00 host kernel: usb usb7: Product: xHCI Host Controller
+2026-11-01T00:14:38.162781-04:00 host kernel: usb usb7: Manufacturer: Linux 7.2.8-9-omarchy xhci-hcd
+2026-11-01T00:14:38.162811-04:00 host kernel: usb usb7: SerialNumber: REDACTED
+2026-11-01T00:14:38.162849-04:00 host kernel: hub 7-0:1.0: USB hub found
+2026-11-01T00:14:38.162942-04:00 host kernel: hub 7-0:1.0: 1 port detected
+2026-11-01T00:14:38.163242-04:00 host kernel: usb 5-1: new full-speed USB device number 2 using xhci_hcd
+2026-11-01T00:14:38.163292-04:00 host kernel: usb 1-5: new high-speed USB device number 2 using xhci_hcd
+2026-11-01T00:14:38.163332-04:00 host kernel: usb 5-1: not running at top speed; connect to a high speed hub
+2026-11-01T00:14:38.163371-04:00 host kernel: usb 5-1: New USB device found, idVendor=1532, idProduct=0574, bcdDevice= 1.00
+2026-11-01T00:14:38.163405-04:00 host kernel: usb 5-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T00:14:38.163437-04:00 host kernel: usb 5-1: Product: Razer Barracuda X Chroma
+2026-11-01T00:14:38.163468-04:00 host kernel: usb 5-1: Manufacturer: MediaTek Inc
+2026-11-01T00:14:38.163501-04:00 host kernel: usb 5-1: SerialNumber: REDACTED
+2026-11-01T00:14:38.163606-04:00 host kernel: usb 1-5: New USB device found, idVendor=33e4, idProduct=5317, bcdDevice= 2.00
+2026-11-01T00:14:38.163642-04:00 host kernel: usb 1-5: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T00:14:38.163678-04:00 host kernel: usb 1-5: Product: G-Wolves HTS Ultra 8K Receiver-N
+2026-11-01T00:14:38.163712-04:00 host kernel: usb 1-5: Manufacturer: G-Wolves
+2026-11-01T00:14:38.163747-04:00 host kernel: usb 1-5: SerialNumber: REDACTED
+2026-11-01T00:14:38.163850-04:00 host kernel: usb 2-3: new SuperSpeed USB device number 2 using xhci_hcd
+2026-11-01T00:14:38.163956-04:00 host kernel: usb 2-3: New USB device found, idVendor=0846, idProduct=9060, bcdDevice= 1.00
+2026-11-01T00:14:38.163992-04:00 host kernel: usb 2-3: New USB device strings: Mfr=2, Product=3, SerialNumber=4
+2026-11-01T00:14:38.164028-04:00 host kernel: usb 2-3: Product: Wireless_Device
+2026-11-01T00:14:38.164063-04:00 host kernel: usb 2-3: Manufacturer: MediaTek Inc.
+2026-11-01T00:14:38.164098-04:00 host kernel: usb 2-3: SerialNumber: REDACTED
+2026-11-01T00:14:38.164201-04:00 host kernel: usb 1-6: new full-speed USB device number 3 using xhci_hcd
+2026-11-01T00:14:38.164250-04:00 host kernel: usb 1-6: New USB device found, idVendor=046d, idProduct=c349, bcdDevice=66.00
+2026-11-01T00:14:38.164286-04:00 host kernel: usb 1-6: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+2026-11-01T00:14:38.164322-04:00 host kernel: usb 1-6: Product: LogiG MKeyboard
+2026-11-01T00:14:38.164357-04:00 host kernel: usb 1-6: Manufacturer: Logitech
+2026-11-01T00:14:38.164399-04:00 host kernel: usb 2-4: new SuperSpeed USB device number 3 using xhci_hcd
+2026-11-01T00:14:38.164445-04:00 host kernel: usb 2-4: New USB device found, idVendor=0781, idProduct=5591, bcdDevice= 1.00
+2026-11-01T00:14:38.164481-04:00 host kernel: usb 2-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T00:14:38.164517-04:00 host kernel: usb 2-4: Product:  SanDisk 3.2Gen1
+2026-11-01T00:14:38.164552-04:00 host kernel: usb 2-4: Manufacturer:  USB
+2026-11-01T00:14:38.164586-04:00 host kernel: usb 2-4: SerialNumber: REDACTED
+2026-11-01T00:14:38.165335-04:00 host kernel: usb 1-7: new full-speed USB device number 4 using xhci_hcd
+2026-11-01T00:14:38.167042-04:00 host kernel: usb 1-7: New USB device found, idVendor=0bda, idProduct=b850, bcdDevice= 0.00
+2026-11-01T00:14:38.167080-04:00 host kernel: usb 1-7: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T00:14:38.167116-04:00 host kernel: usb 1-7: Product: Bluetooth Radio
+2026-11-01T00:14:38.167151-04:00 host kernel: usb 1-7: Manufacturer: Realtek
+2026-11-01T00:14:38.167186-04:00 host kernel: usb 1-7: SerialNumber: REDACTED
+2026-11-01T00:14:38.167230-04:00 host kernel: usb 1-10: new full-speed USB device number 5 using xhci_hcd
+2026-11-01T00:14:38.167576-04:00 host kernel: usb 1-10: New USB device found, idVendor=048d, idProduct=5702, bcdDevice= 0.01
+2026-11-01T00:14:38.167614-04:00 host kernel: usb 1-10: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+2026-11-01T00:14:38.167650-04:00 host kernel: usb 1-10: Product: ITE Device
+2026-11-01T00:14:38.167686-04:00 host kernel: usb 1-10: Manufacturer: ITE Tech. Inc.
+2026-11-01T00:14:38.171249-04:00 host kernel: usb 1-12: new high-speed USB device number 6 using xhci_hcd
+2026-11-01T00:14:38.171329-04:00 host kernel: usb 1-12: New USB device found, idVendor=1b1c, idProduct=0c3f, bcdDevice= 1.00
+2026-11-01T00:14:38.171366-04:00 host kernel: usb 1-12: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T00:14:38.171401-04:00 host kernel: usb 1-12: Product: iCUE LINK System Hub
+2026-11-01T00:14:38.171436-04:00 host kernel: usb 1-12: Manufacturer: Corsair
+2026-11-01T00:14:38.171471-04:00 host kernel: usb 1-12: SerialNumber: REDACTED
+2026-11-01T00:14:38.636875-04:00 host kernel: usb 2-3: reset SuperSpeed USB device number 2 using xhci_hcd
+2026-11-01T09:14:35.131458-05:00 host kernel: usb 2-4: USB disconnect, device number 3
+2026-11-01T09:14:38.413906-05:00 host kernel: usb 1-4: new full-speed USB device number 7 using xhci_hcd
+2026-11-01T09:14:38.739881-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-01T09:14:38.788878-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T09:14:38.789045-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-01T09:14:38.789095-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-01T09:14:38.789138-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-01T09:18:21.660868-05:00 host kernel: usb 1-4: USB disconnect, device number 7
+2026-11-01T09:18:55.699877-05:00 host kernel: usb 1-4: new full-speed USB device number 8 using xhci_hcd
+2026-11-01T09:18:56.023935-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-01T09:18:56.072874-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T09:18:56.073016-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-01T09:18:56.073063-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-01T09:18:56.073101-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-01T09:19:07.422456-05:00 host kernel: usb 1-4: USB disconnect, device number 8
+2026-11-01T09:19:07.709949-05:00 host kernel: usb 1-4: new full-speed USB device number 9 using xhci_hcd
+2026-11-01T09:19:08.034921-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-01T09:19:08.082885-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T09:19:08.082941-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-01T09:19:08.082959-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-01T09:19:08.082978-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-01T09:19:13.566530-05:00 host kernel: usb 1-4: USB disconnect, device number 9
+2026-11-01T09:19:13.851883-05:00 host kernel: usb 1-4: new full-speed USB device number 10 using xhci_hcd
+2026-11-01T09:19:14.177893-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-01T09:19:14.226890-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T09:19:14.227047-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-01T09:19:14.227114-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-01T09:19:14.227173-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-01T09:19:23.356251-05:00 host kernel: usb 1-4: USB disconnect, device number 10
+2026-11-01T09:20:41.690881-05:00 host kernel: usb 1-4: new full-speed USB device number 11 using xhci_hcd
+2026-11-01T09:20:42.017929-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-01T09:20:42.066879-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T09:20:42.067045-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-01T09:20:42.067091-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-01T09:20:42.067133-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-01T19:20:44.590878-05:00 host kernel: usb 1-2: new full-speed USB device number 12 using xhci_hcd
+2026-11-01T19:20:44.916875-05:00 host kernel: usb 1-2: New USB device found, idVendor=33e4, idProduct=5308, bcdDevice= 2.60
+2026-11-01T19:20:44.962884-05:00 host kernel: usb 1-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T19:20:44.963044-05:00 host kernel: usb 1-2: Product: G-Wolves HTS Ultra 8K Wireless Mouse-N
+2026-11-01T19:20:44.963097-05:00 host kernel: usb 1-2: Manufacturer: G-Wolves
+2026-11-01T19:20:44.963142-05:00 host kernel: usb 1-2: SerialNumber: REDACTED
+2026-11-01T19:20:47.474547-05:00 host kernel: usb 1-2: USB disconnect, device number 12
+2026-11-01T19:20:49.940878-05:00 host kernel: usb 1-2: new full-speed USB device number 13 using xhci_hcd
+2026-11-01T19:20:50.264919-05:00 host kernel: usb 1-2: New USB device found, idVendor=33e4, idProduct=5308, bcdDevice= 2.60
+2026-11-01T19:20:50.310875-05:00 host kernel: usb 1-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T19:20:50.311024-05:00 host kernel: usb 1-2: Product: G-Wolves HTS Ultra 8K Wireless Mouse-N
+2026-11-01T19:20:50.311073-05:00 host kernel: usb 1-2: Manufacturer: G-Wolves
+2026-11-01T19:20:50.311113-05:00 host kernel: usb 1-2: SerialNumber: REDACTED
+2026-11-01T20:16:07.104879-05:00 host kernel: usb 5-2: new high-speed USB device number 3 using xhci_hcd
+2026-11-01T20:16:07.228920-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-01T20:16:07.229884-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-01T20:16:07.230026-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-01T20:16:07.279880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-01T20:16:07.280090-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-01T20:16:07.627875-05:00 host kernel: usb 5-2.2: new high-speed USB device number 4 using xhci_hcd
+2026-11-01T20:16:07.716880-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-01T20:16:07.763881-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-01T20:16:07.764054-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-01T20:16:07.764112-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-01T20:16:07.764161-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-01T20:16:08.109918-05:00 host kernel: usb 5-2.3: new full-speed USB device number 5 using xhci_hcd
+2026-11-01T20:16:08.197883-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-01T20:16:08.215879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T20:16:08.216057-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-01T20:16:08.216143-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-01T20:16:08.216252-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-01T20:16:08.668885-05:00 host kernel: usb 5-2.1: new high-speed USB device number 6 using xhci_hcd
+2026-11-01T20:16:08.752944-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-01T20:16:08.754878-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-01T20:16:08.755069-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-01T20:16:08.755150-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-01T20:39:55.251435-05:00 host kernel: usb 1-2: USB disconnect, device number 13
+2026-11-01T22:24:03.759890-05:00 host kernel: usb 5-2: USB disconnect, device number 3
+2026-11-01T22:24:03.760296-05:00 host kernel: usb 5-2.1: USB disconnect, device number 6
+2026-11-01T22:24:03.765893-05:00 host kernel: usb 5-2.2: USB disconnect, device number 4
+2026-11-01T22:24:03.797889-05:00 host kernel: usb 5-2.3: USB disconnect, device number 5
+2026-11-01T22:24:18.233874-05:00 host kernel: usb 5-2: new high-speed USB device number 7 using xhci_hcd
+2026-11-01T22:24:18.358886-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-01T22:24:18.359876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-01T22:24:18.360045-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-01T22:24:18.422906-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-01T22:24:18.423063-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-01T22:24:18.767916-05:00 host kernel: usb 5-2.2: new high-speed USB device number 8 using xhci_hcd
+2026-11-01T22:24:18.861894-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-01T22:24:18.908873-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-01T22:24:18.908995-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-01T22:24:18.909041-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-01T22:24:18.909083-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-01T22:24:19.250874-05:00 host kernel: usb 5-2.3: new full-speed USB device number 9 using xhci_hcd
+2026-11-01T22:24:19.336885-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-01T22:24:19.354884-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T22:24:19.355068-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-01T22:24:19.355137-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-01T22:24:19.355197-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-01T22:24:19.809875-05:00 host kernel: usb 5-2.1: new high-speed USB device number 10 using xhci_hcd
+2026-11-01T22:24:19.894875-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-01T22:24:19.895873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-01T22:24:19.895974-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-01T22:24:19.896022-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-01T22:24:34.607877-05:00 host kernel: usb 5-2: USB disconnect, device number 7
+2026-11-01T22:24:34.608068-05:00 host kernel: usb 5-2.1: USB disconnect, device number 10
+2026-11-01T22:24:34.614884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 8
+2026-11-01T22:24:34.646888-05:00 host kernel: usb 5-2.3: USB disconnect, device number 9
+2026-11-01T22:37:32.948881-05:00 host kernel: usb 5-2: new high-speed USB device number 11 using xhci_hcd
+2026-11-01T22:37:33.071877-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-01T22:37:33.072874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-01T22:37:33.072987-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-01T22:37:33.109892-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-01T22:37:33.110039-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-01T22:37:33.458876-05:00 host kernel: usb 5-2.2: new high-speed USB device number 12 using xhci_hcd
+2026-11-01T22:37:33.549878-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-01T22:37:33.596878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-01T22:37:33.597041-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-01T22:37:33.597091-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-01T22:37:33.597138-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-01T22:37:33.938910-05:00 host kernel: usb 5-2.3: new full-speed USB device number 13 using xhci_hcd
+2026-11-01T22:37:34.024885-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-01T22:37:34.042883-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T22:37:34.043025-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-01T22:37:34.043073-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-01T22:37:34.043115-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-01T22:37:34.495876-05:00 host kernel: usb 5-2.1: new high-speed USB device number 14 using xhci_hcd
+2026-11-01T22:37:34.581907-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-01T22:37:34.582882-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-01T22:37:34.583015-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-01T22:37:34.583063-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-01T22:38:24.078874-05:00 host kernel: usb 5-2: USB disconnect, device number 11
+2026-11-01T22:38:24.079080-05:00 host kernel: usb 5-2.1: USB disconnect, device number 14
+2026-11-01T22:38:24.087874-05:00 host kernel: usb 5-2.2: USB disconnect, device number 12
+2026-11-01T22:38:24.119606-05:00 host kernel: usb 5-2.3: USB disconnect, device number 13
+2026-11-01T22:51:54.070902-05:00 host kernel: usb 5-2: new high-speed USB device number 15 using xhci_hcd
+2026-11-01T22:51:54.193883-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-01T22:51:54.194873-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-01T22:51:54.195013-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-01T22:51:54.230885-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-01T22:51:54.231040-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-01T22:51:54.575894-05:00 host kernel: usb 5-2.2: new high-speed USB device number 16 using xhci_hcd
+2026-11-01T22:51:54.668882-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-01T22:51:54.715884-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-01T22:51:54.716008-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-01T22:51:54.716059-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-01T22:51:54.716103-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-01T22:51:55.057889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 17 using xhci_hcd
+2026-11-01T22:51:55.145877-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-01T22:51:55.163885-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T22:51:55.164078-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-01T22:51:55.164148-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-01T22:51:55.164207-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-01T22:51:55.617878-05:00 host kernel: usb 5-2.1: new high-speed USB device number 18 using xhci_hcd
+2026-11-01T22:51:55.704952-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-01T22:51:55.706875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-01T22:51:55.707024-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-01T22:51:55.707077-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-01T23:01:16.272882-05:00 host kernel: usb 5-2: USB disconnect, device number 15
+2026-11-01T23:01:16.273218-05:00 host kernel: usb 5-2.1: USB disconnect, device number 18
+2026-11-01T23:01:16.299880-05:00 host kernel: usb 5-2.2: USB disconnect, device number 16
+2026-11-01T23:01:16.332132-05:00 host kernel: usb 5-2.3: USB disconnect, device number 17
+2026-11-01T23:01:16.612925-05:00 host kernel: usb 5-2: new high-speed USB device number 19 using xhci_hcd
+2026-11-01T23:01:16.735895-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-01T23:01:16.736876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-01T23:01:16.737033-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-01T23:01:16.780881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-01T23:01:16.781097-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-01T23:01:17.129880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 20 using xhci_hcd
+2026-11-01T23:01:17.216888-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-01T23:01:17.218871-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-01T23:01:17.218983-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-01T23:01:17.219033-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-01T23:01:17.366889-05:00 host kernel: usb 5-2.2: new high-speed USB device number 21 using xhci_hcd
+2026-11-01T23:01:17.460926-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-01T23:01:17.507888-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-01T23:01:17.508056-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-01T23:01:17.508102-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-01T23:01:17.508154-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-01T23:01:17.649887-05:00 host kernel: usb 5-2.3: new full-speed USB device number 22 using xhci_hcd
+2026-11-01T23:01:17.736722-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-01T23:01:17.754878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T23:01:17.755056-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-01T23:01:17.755133-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-01T23:01:17.755179-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-01T23:02:49.070880-05:00 host kernel: usb 5-2: USB disconnect, device number 19
+2026-11-01T23:02:49.071129-05:00 host kernel: usb 5-2.1: USB disconnect, device number 20
+2026-11-01T23:02:49.103879-05:00 host kernel: usb 5-2.2: USB disconnect, device number 21
+2026-11-01T23:02:49.135498-05:00 host kernel: usb 5-2.3: USB disconnect, device number 22
+2026-11-01T23:02:49.418892-05:00 host kernel: usb 5-2: new high-speed USB device number 23 using xhci_hcd
+2026-11-01T23:02:49.542876-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-01T23:02:49.543874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-01T23:02:49.543983-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-01T23:02:49.583878-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-01T23:02:49.584003-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-01T23:02:49.929879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 24 using xhci_hcd
+2026-11-01T23:02:50.013889-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-01T23:02:50.015883-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-01T23:02:50.016043-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-01T23:02:50.016104-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-01T23:02:50.170880-05:00 host kernel: usb 5-2.2: new high-speed USB device number 25 using xhci_hcd
+2026-11-01T23:02:50.264878-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-01T23:02:50.311894-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-01T23:02:50.312058-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-01T23:02:50.312110-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-01T23:02:50.312149-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-01T23:02:50.454883-05:00 host kernel: usb 5-2.3: new full-speed USB device number 26 using xhci_hcd
+2026-11-01T23:02:50.542888-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-01T23:02:50.560893-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-01T23:02:50.561047-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-01T23:02:50.561094-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-01T23:02:50.561135-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-01T23:03:17.737879-05:00 host kernel: usb 5-2: USB disconnect, device number 23
+2026-11-01T23:03:17.738132-05:00 host kernel: usb 5-2.1: USB disconnect, device number 24
+2026-11-01T23:03:17.744875-05:00 host kernel: usb 5-2.2: USB disconnect, device number 25
+2026-11-01T23:03:17.776555-05:00 host kernel: usb 5-2.3: USB disconnect, device number 26
+2026-11-02T00:58:02.237877-05:00 host kernel: usb 5-2: new high-speed USB device number 27 using xhci_hcd
+2026-11-02T00:58:02.360888-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T00:58:02.361897-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T00:58:02.362073-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T00:58:02.395879-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T00:58:02.396037-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T00:58:02.743904-05:00 host kernel: usb 5-2.2: new high-speed USB device number 28 using xhci_hcd
+2026-11-02T00:58:02.834896-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T00:58:02.881874-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T00:58:02.882020-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T00:58:02.882066-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T00:58:02.882105-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T00:58:03.223889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 29 using xhci_hcd
+2026-11-02T00:58:03.310890-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T00:58:03.328878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T00:58:03.329022-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T00:58:03.329067-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T00:58:03.329112-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T00:58:03.782892-05:00 host kernel: usb 5-2.1: new high-speed USB device number 30 using xhci_hcd
+2026-11-02T00:58:03.867941-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T00:58:03.868882-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T00:58:03.869007-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T00:58:03.869053-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T02:43:38.907878-05:00 host kernel: usb 5-2: USB disconnect, device number 27
+2026-11-02T02:43:38.908080-05:00 host kernel: usb 5-2.1: USB disconnect, device number 30
+2026-11-02T02:43:38.928877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 28
+2026-11-02T02:43:38.960226-05:00 host kernel: usb 5-2.3: USB disconnect, device number 29
+2026-11-02T07:38:05.457894-05:00 host kernel: usb 5-2: new high-speed USB device number 31 using xhci_hcd
+2026-11-02T07:38:05.580891-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T07:38:05.581883-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T07:38:05.582040-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T07:38:05.630894-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T07:38:05.631039-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T07:38:05.975887-05:00 host kernel: usb 5-2.2: new high-speed USB device number 32 using xhci_hcd
+2026-11-02T07:38:06.067932-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T07:38:06.114875-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T07:38:06.115014-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T07:38:06.115068-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T07:38:06.115111-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T07:38:06.458882-05:00 host kernel: usb 5-2.3: new full-speed USB device number 33 using xhci_hcd
+2026-11-02T07:38:06.545887-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T07:38:06.563881-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T07:38:06.564023-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T07:38:06.564071-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T07:38:06.564108-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T07:38:07.016924-05:00 host kernel: usb 5-2.1: new high-speed USB device number 34 using xhci_hcd
+2026-11-02T07:38:07.100883-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T07:38:07.102883-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T07:38:07.103035-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T07:38:07.103105-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T08:46:29.223888-05:00 host kernel: usb 5-2: USB disconnect, device number 31
+2026-11-02T08:46:29.224196-05:00 host kernel: usb 5-2.1: USB disconnect, device number 34
+2026-11-02T08:46:29.245874-05:00 host kernel: usb 5-2.2: USB disconnect, device number 32
+2026-11-02T08:46:29.276878-05:00 host kernel: usb 5-2.3: USB disconnect, device number 33
+2026-11-02T08:46:49.504892-05:00 host kernel: usb 5-2: new high-speed USB device number 36 using xhci_hcd
+2026-11-02T08:46:49.627878-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T08:46:49.628874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T08:46:49.629000-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T08:46:49.661882-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T08:46:49.662053-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T08:46:50.007888-05:00 host kernel: usb 5-2.2: new high-speed USB device number 37 using xhci_hcd
+2026-11-02T08:46:50.099875-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T08:46:50.146876-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T08:46:50.147028-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T08:46:50.147076-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T08:46:50.147119-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T08:46:50.483886-05:00 host kernel: usb 5-2: USB disconnect, device number 36
+2026-11-02T08:46:50.515883-05:00 host kernel: usb 5-2.3: new full-speed USB device number 38 using xhci_hcd
+2026-11-02T08:46:50.520875-05:00 host kernel: usb 5-2-port3: attempt power cycle
+2026-11-02T08:46:50.830904-05:00 host kernel: usb 5-2.2: USB disconnect, device number 37
+2026-11-02T08:46:52.728879-05:00 host kernel: usb 5-2: new high-speed USB device number 42 using xhci_hcd
+2026-11-02T08:46:52.852897-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T08:46:52.853891-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T08:46:52.854074-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T08:46:52.894884-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T08:46:52.895023-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T08:46:53.239894-05:00 host kernel: usb 5-2.2: new high-speed USB device number 43 using xhci_hcd
+2026-11-02T08:46:53.331889-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T08:46:53.378886-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T08:46:53.379056-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T08:46:53.379128-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T08:46:53.379186-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T08:46:53.749889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 44 using xhci_hcd
+2026-11-02T08:46:53.836889-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T08:46:53.854875-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T08:46:53.855004-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T08:46:53.855056-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T08:46:53.855097-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T08:46:54.312893-05:00 host kernel: usb 5-2.1: new high-speed USB device number 45 using xhci_hcd
+2026-11-02T08:46:54.396887-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T08:46:54.398875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T08:46:54.399021-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T08:46:54.399089-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T08:54:48.777890-05:00 host kernel: usb 5-2: USB disconnect, device number 42
+2026-11-02T08:54:48.778177-05:00 host kernel: usb 5-2.1: USB disconnect, device number 45
+2026-11-02T08:54:48.784885-05:00 host kernel: usb 5-2.2: USB disconnect, device number 43
+2026-11-02T08:54:48.816281-05:00 host kernel: usb 5-2.3: USB disconnect, device number 44
+2026-11-02T08:55:15.941889-05:00 host kernel: usb 5-2: new high-speed USB device number 46 using xhci_hcd
+2026-11-02T08:55:16.064885-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T08:55:16.065892-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T08:55:16.066037-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T08:55:16.113875-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T08:55:16.113986-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T08:55:16.464889-05:00 host kernel: usb 5-2.2: new high-speed USB device number 47 using xhci_hcd
+2026-11-02T08:55:16.555876-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T08:55:16.602933-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T08:55:16.603062-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T08:55:16.603109-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T08:55:16.603153-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T08:55:16.942878-05:00 host kernel: usb 5-2.3: new full-speed USB device number 48 using xhci_hcd
+2026-11-02T08:55:17.029877-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T08:55:17.047874-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T08:55:17.048013-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T08:55:17.048060-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T08:55:17.048103-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T08:55:17.501881-05:00 host kernel: usb 5-2.1: new high-speed USB device number 49 using xhci_hcd
+2026-11-02T08:55:17.585928-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T08:55:17.587884-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T08:55:17.588025-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T08:55:17.588091-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T09:34:52.968893-05:00 host kernel: usb 5-2: USB disconnect, device number 46
+2026-11-02T09:34:52.969184-05:00 host kernel: usb 5-2.1: USB disconnect, device number 49
+2026-11-02T09:34:52.975884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 47
+2026-11-02T09:34:53.005338-05:00 host kernel: usb 5-2.3: USB disconnect, device number 48
+2026-11-02T18:39:30.783890-05:00 host kernel: usb 5-2: new high-speed USB device number 50 using xhci_hcd
+2026-11-02T18:39:30.906895-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T18:39:30.907875-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T18:39:30.908061-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T18:39:30.969902-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T18:39:30.970010-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T18:39:31.319928-05:00 host kernel: usb 5-2.2: new high-speed USB device number 51 using xhci_hcd
+2026-11-02T18:39:31.411886-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T18:39:31.458880-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T18:39:31.458990-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T18:39:31.459039-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T18:39:31.459079-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T18:39:31.771884-05:00 host kernel: usb 5-2.3: new full-speed USB device number 52 using xhci_hcd
+2026-11-02T18:39:31.859883-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T18:39:31.877875-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T18:39:31.878062-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T18:39:31.878151-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T18:39:31.878208-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T18:39:32.323910-05:00 host kernel: usb 5-2.1: new high-speed USB device number 53 using xhci_hcd
+2026-11-02T18:39:32.409885-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T18:39:32.410875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T18:39:32.411311-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T18:39:32.411383-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T20:01:19.998892-05:00 host kernel: usb 5-2: USB disconnect, device number 50
+2026-11-02T20:01:20.001248-05:00 host kernel: usb 5-2.1: USB disconnect, device number 53
+2026-11-02T20:01:20.028884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 51
+2026-11-02T20:01:20.061879-05:00 host kernel: usb 5-2.3: USB disconnect, device number 52
+2026-11-02T20:01:20.805893-05:00 host kernel: usb 5-2: new high-speed USB device number 54 using xhci_hcd
+2026-11-02T20:01:20.930892-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T20:01:20.931874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T20:01:20.931921-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T20:01:20.988893-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T20:01:20.989179-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T20:01:21.337880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 55 using xhci_hcd
+2026-11-02T20:01:21.424892-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T20:01:21.426030-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T20:01:21.426219-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T20:01:21.426299-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T20:01:21.575883-05:00 host kernel: usb 5-2.2: new high-speed USB device number 56 using xhci_hcd
+2026-11-02T20:01:21.668883-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T20:01:21.715938-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T20:01:21.717728-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T20:01:21.717858-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T20:01:21.717938-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T20:01:21.859885-05:00 host kernel: usb 5-2.3: new full-speed USB device number 57 using xhci_hcd
+2026-11-02T20:01:21.947881-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T20:01:21.965919-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T20:01:21.966193-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T20:01:21.966277-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T20:01:21.966343-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T21:53:33.750881-05:00 host kernel: usb 5-2: USB disconnect, device number 54
+2026-11-02T21:53:33.751291-05:00 host kernel: usb 5-2.1: USB disconnect, device number 55
+2026-11-02T21:53:33.753876-05:00 host kernel: usb 5-2.2: USB disconnect, device number 56
+2026-11-02T21:53:33.785327-05:00 host kernel: usb 5-2.3: USB disconnect, device number 57
+2026-11-02T21:53:35.771123-05:00 host kernel: usb 5-2: new high-speed USB device number 58 using xhci_hcd
+2026-11-02T21:53:35.896880-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T21:53:35.897878-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T21:53:35.898060-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T21:53:35.961882-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T21:53:35.962124-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T21:53:36.313881-05:00 host kernel: usb 5-2.2: new high-speed USB device number 59 using xhci_hcd
+2026-11-02T21:53:36.406881-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T21:53:36.453891-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T21:53:36.454118-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T21:53:36.454180-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T21:53:36.454228-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T21:53:36.767889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 60 using xhci_hcd
+2026-11-02T21:53:36.856930-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T21:53:36.874881-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T21:53:36.875054-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T21:53:36.875106-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T21:53:36.875149-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T21:53:37.320889-05:00 host kernel: usb 5-2.1: new high-speed USB device number 61 using xhci_hcd
+2026-11-02T21:53:37.406887-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T21:53:37.407875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T21:53:37.408047-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T21:53:37.408124-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T21:53:45.258882-05:00 host kernel: usb 5-2: USB disconnect, device number 58
+2026-11-02T21:53:45.259101-05:00 host kernel: usb 5-2.1: USB disconnect, device number 61
+2026-11-02T21:53:45.273881-05:00 host kernel: usb 5-2.2: USB disconnect, device number 59
+2026-11-02T21:53:45.305490-05:00 host kernel: usb 5-2.3: USB disconnect, device number 60
+2026-11-02T21:53:50.514881-05:00 host kernel: usb 5-2: new high-speed USB device number 62 using xhci_hcd
+2026-11-02T21:53:50.638884-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T21:53:50.639876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T21:53:50.640038-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T21:53:50.681880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T21:53:50.682077-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T21:53:51.034882-05:00 host kernel: usb 5-2.2: new high-speed USB device number 63 using xhci_hcd
+2026-11-02T21:53:51.123889-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T21:53:51.170881-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T21:53:51.171080-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T21:53:51.171140-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T21:53:51.171187-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T21:53:51.512886-05:00 host kernel: usb 5-2.3: new full-speed USB device number 64 using xhci_hcd
+2026-11-02T21:53:51.601880-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T21:53:51.619879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T21:53:51.620083-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T21:53:51.620145-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T21:53:51.620187-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T21:53:52.071880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 65 using xhci_hcd
+2026-11-02T21:53:52.156878-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T21:53:52.157884-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T21:53:52.158046-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T21:53:52.158097-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T22:01:04.410882-05:00 host kernel: usb 5-2: USB disconnect, device number 62
+2026-11-02T22:01:04.449632-05:00 host kernel: usb 5-2.1: USB disconnect, device number 65
+2026-11-02T22:01:04.449722-05:00 host kernel: usb 5-2.2: USB disconnect, device number 63
+2026-11-02T22:01:04.459318-05:00 host kernel: usb 5-2.3: USB disconnect, device number 64
+2026-11-02T22:01:05.733880-05:00 host kernel: usb 5-2: new high-speed USB device number 66 using xhci_hcd
+2026-11-02T22:01:05.856881-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T22:01:05.857874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T22:01:05.858080-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T22:01:05.899877-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T22:01:05.900026-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T22:01:06.250884-05:00 host kernel: usb 5-2.2: new high-speed USB device number 67 using xhci_hcd
+2026-11-02T22:01:06.341886-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T22:01:06.388889-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T22:01:06.389093-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T22:01:06.389161-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T22:01:06.389223-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T22:01:06.730880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 68 using xhci_hcd
+2026-11-02T22:01:06.818882-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T22:01:06.836878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T22:01:06.837013-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T22:01:06.837062-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T22:01:06.837101-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T22:01:07.286889-05:00 host kernel: usb 5-2.1: new high-speed USB device number 69 using xhci_hcd
+2026-11-02T22:01:07.370926-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T22:01:07.372876-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T22:01:07.373029-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T22:01:07.373079-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T22:01:13.042889-05:00 host kernel: usb 5-2: USB disconnect, device number 66
+2026-11-02T22:01:13.043121-05:00 host kernel: usb 5-2.1: USB disconnect, device number 69
+2026-11-02T22:01:13.067879-05:00 host kernel: usb 5-2.2: USB disconnect, device number 67
+2026-11-02T22:01:13.099580-05:00 host kernel: usb 5-2.3: USB disconnect, device number 68
+2026-11-02T22:01:15.336880-05:00 host kernel: usb 5-2: new high-speed USB device number 70 using xhci_hcd
+2026-11-02T22:01:15.459879-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T22:01:15.460881-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T22:01:15.461005-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T22:01:15.499876-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T22:01:15.500039-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T22:01:15.850878-05:00 host kernel: usb 5-2.2: new high-speed USB device number 71 using xhci_hcd
+2026-11-02T22:01:15.940880-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T22:01:15.987908-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T22:01:15.988052-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T22:01:15.988110-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T22:01:15.988147-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T22:01:16.333924-05:00 host kernel: usb 5-2.3: new full-speed USB device number 72 using xhci_hcd
+2026-11-02T22:01:16.420881-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T22:01:16.438877-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T22:01:16.439034-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T22:01:16.439082-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T22:01:16.439121-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-02T22:01:16.887876-05:00 host kernel: usb 5-2.1: new high-speed USB device number 73 using xhci_hcd
+2026-11-02T22:01:16.973878-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T22:01:16.975876-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T22:01:16.976001-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T22:01:16.976053-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T22:42:31.271881-05:00 host kernel: usb 5-2: USB disconnect, device number 70
+2026-11-02T22:42:31.272256-05:00 host kernel: usb 5-2.1: USB disconnect, device number 73
+2026-11-02T22:42:31.288879-05:00 host kernel: usb 5-2.2: USB disconnect, device number 71
+2026-11-02T22:42:31.320481-05:00 host kernel: usb 5-2.3: USB disconnect, device number 72
+2026-11-02T22:42:31.603918-05:00 host kernel: usb 5-2: new high-speed USB device number 74 using xhci_hcd
+2026-11-02T22:42:31.728887-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-02T22:42:31.729885-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-02T22:42:31.730019-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-02T22:42:31.768878-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-02T22:42:31.770552-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-02T22:42:32.112879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 75 using xhci_hcd
+2026-11-02T22:42:32.199888-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-02T22:42:32.201873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-02T22:42:32.202039-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-02T22:42:32.202130-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-02T22:42:32.356879-05:00 host kernel: usb 5-2.2: new high-speed USB device number 76 using xhci_hcd
+2026-11-02T22:42:32.447879-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-02T22:42:32.494878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-02T22:42:32.495043-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-02T22:42:32.495095-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-02T22:42:32.495136-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-02T22:42:32.637880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 77 using xhci_hcd
+2026-11-02T22:42:32.723923-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-02T22:42:32.741878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-02T22:42:32.742038-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-02T22:42:32.742086-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-02T22:42:32.742126-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T00:00:14.623659-05:00 host kernel: usb 1-4: USB disconnect, device number 11
+2026-11-03T00:00:15.495920-05:00 host kernel: usb 1-4: new full-speed USB device number 14 using xhci_hcd
+2026-11-03T00:00:15.821914-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-03T00:00:15.870876-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T00:00:15.871043-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-03T00:00:15.871100-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-03T00:00:15.871142-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-03T01:21:47.843889-05:00 host kernel: usb 5-2: USB disconnect, device number 74
+2026-11-03T01:21:47.844264-05:00 host kernel: usb 5-2.1: USB disconnect, device number 75
+2026-11-03T01:21:47.850878-05:00 host kernel: usb 5-2.2: USB disconnect, device number 76
+2026-11-03T01:21:47.882630-05:00 host kernel: usb 5-2.3: USB disconnect, device number 77
+2026-11-03T01:22:42.564891-05:00 host kernel: usb 5-2: new high-speed USB device number 78 using xhci_hcd
+2026-11-03T01:22:42.689877-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=17.10
+2026-11-03T01:22:42.690872-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T01:22:42.690989-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T01:22:42.732880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T01:22:42.733054-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T01:22:43.080884-05:00 host kernel: usb 5-2.1: new high-speed USB device number 79 using xhci_hcd
+2026-11-03T01:22:43.204877-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=0c45, idProduct=6368, bcdDevice= 1.00
+2026-11-03T01:22:43.251914-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T01:22:43.252060-05:00 host kernel: usb 5-2.1: Product: USB 2.0 Camera
+2026-11-03T01:22:43.252113-05:00 host kernel: usb 5-2.1: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T01:22:43.252154-05:00 host kernel: usb 5-2.1: SerialNumber: REDACTED
+2026-11-03T01:22:43.415877-05:00 host kernel: usb 5-2.2: new full-speed USB device number 80 using xhci_hcd
+2026-11-03T01:22:43.501914-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T01:22:43.519874-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T01:22:43.520037-05:00 host kernel: usb 5-2.2: Product: VITURE Microphone
+2026-11-03T01:22:43.520089-05:00 host kernel: usb 5-2.2: Manufacturer: VITURE.
+2026-11-03T01:22:43.520134-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T01:22:43.855874-05:00 host kernel: usb 5-2.3: new high-speed USB device number 81 using xhci_hcd
+2026-11-03T01:22:43.942883-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1201, bcdDevice= 1.00
+2026-11-03T01:22:43.944883-05:00 host kernel: usb 5-2.3: config 1 has an invalid interface number: 5 but max is 4
+2026-11-03T01:22:43.944929-05:00 host kernel: usb 5-2.3: config 1 has no interface number 4
+2026-11-03T01:22:43.946883-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T01:22:43.947019-05:00 host kernel: usb 5-2.3: Product: VITURE Beast XR Glasses
+2026-11-03T01:22:43.947082-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE
+2026-11-03T01:22:43.947145-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T01:35:20.927881-05:00 host kernel: usb 5-2: USB disconnect, device number 78
+2026-11-03T01:35:20.928131-05:00 host kernel: usb 5-2.1: USB disconnect, device number 79
+2026-11-03T01:35:20.968777-05:00 host kernel: usb 5-2.2: USB disconnect, device number 80
+2026-11-03T01:35:21.000888-05:00 host kernel: usb 5-2.3: USB disconnect, device number 81
+2026-11-03T01:35:25.484881-05:00 host kernel: usb 5-2: new high-speed USB device number 82 using xhci_hcd
+2026-11-03T01:35:25.607878-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=17.10
+2026-11-03T01:35:25.608875-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T01:35:25.609079-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T01:35:25.673876-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T01:35:25.674011-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T01:35:26.023883-05:00 host kernel: usb 5-2.1: new high-speed USB device number 83 using xhci_hcd
+2026-11-03T01:35:26.147877-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=0c45, idProduct=6368, bcdDevice= 1.00
+2026-11-03T01:35:26.195876-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T01:35:26.196015-05:00 host kernel: usb 5-2.1: Product: USB 2.0 Camera
+2026-11-03T01:35:26.196060-05:00 host kernel: usb 5-2.1: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T01:35:26.196101-05:00 host kernel: usb 5-2.1: SerialNumber: REDACTED
+2026-11-03T01:35:26.354877-05:00 host kernel: usb 5-2.2: new full-speed USB device number 84 using xhci_hcd
+2026-11-03T01:35:26.443876-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T01:35:26.461878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T01:35:26.462063-05:00 host kernel: usb 5-2.2: Product: VITURE Microphone
+2026-11-03T01:35:26.462137-05:00 host kernel: usb 5-2.2: Manufacturer: VITURE.
+2026-11-03T01:35:26.462196-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T01:35:26.794877-05:00 host kernel: usb 5-2.3: new high-speed USB device number 85 using xhci_hcd
+2026-11-03T01:35:26.881877-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1201, bcdDevice= 1.00
+2026-11-03T01:35:26.883873-05:00 host kernel: usb 5-2.3: config 1 has an invalid interface number: 5 but max is 4
+2026-11-03T01:35:26.883915-05:00 host kernel: usb 5-2.3: config 1 has no interface number 4
+2026-11-03T01:35:26.885872-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T01:35:26.885999-05:00 host kernel: usb 5-2.3: Product: VITURE Beast XR Glasses
+2026-11-03T01:35:26.886048-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE
+2026-11-03T01:35:26.886090-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T01:35:30.506879-05:00 host kernel: usb 5-2: USB disconnect, device number 82
+2026-11-03T01:35:30.507084-05:00 host kernel: usb 5-2.1: USB disconnect, device number 83
+2026-11-03T01:35:30.537091-05:00 host kernel: usb 5-2.2: USB disconnect, device number 84
+2026-11-03T01:35:30.569408-05:00 host kernel: usb 5-2.3: USB disconnect, device number 85
+2026-11-03T05:57:23.189837-05:00 host kernel: usb 1-4: USB disconnect, device number 14
+2026-11-03T05:57:24.059888-05:00 host kernel: usb 1-4: new full-speed USB device number 15 using xhci_hcd
+2026-11-03T05:57:24.385889-05:00 host kernel: usb 1-4: New USB device found, idVendor=057e, idProduct=2009, bcdDevice= 2.00
+2026-11-03T05:57:24.433876-05:00 host kernel: usb 1-4: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T05:57:24.434077-05:00 host kernel: usb 1-4: Product: Pro Controller
+2026-11-03T05:57:24.434203-05:00 host kernel: usb 1-4: Manufacturer: Nintendo.Co.Ltd.
+2026-11-03T05:57:24.434288-05:00 host kernel: usb 1-4: SerialNumber: REDACTED
+2026-11-03T10:42:59.996879-05:00 host kernel: usb 5-2: new high-speed USB device number 86 using xhci_hcd
+2026-11-03T10:43:00.119888-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T10:43:00.120873-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T10:43:00.120990-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T10:43:00.161877-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T10:43:00.162038-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T10:43:00.512889-05:00 host kernel: usb 5-2.2: new high-speed USB device number 87 using xhci_hcd
+2026-11-03T10:43:00.603883-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T10:43:00.650883-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T10:43:00.651013-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T10:43:00.651062-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T10:43:00.651104-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T10:43:00.992881-05:00 host kernel: usb 5-2.3: new full-speed USB device number 88 using xhci_hcd
+2026-11-03T10:43:01.081888-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T10:43:01.099873-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T10:43:01.100015-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T10:43:01.100061-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T10:43:01.100107-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T10:43:01.548879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 89 using xhci_hcd
+2026-11-03T10:43:01.635877-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T10:43:01.636880-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T10:43:01.636993-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T10:43:01.637040-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T11:12:02.372882-05:00 host kernel: usb 5-2: USB disconnect, device number 86
+2026-11-03T11:12:02.373115-05:00 host kernel: usb 5-2.1: USB disconnect, device number 89
+2026-11-03T11:12:02.373877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 87
+2026-11-03T11:12:02.405425-05:00 host kernel: usb 5-2.3: USB disconnect, device number 88
+2026-11-03T11:12:02.686878-05:00 host kernel: usb 5-2: new high-speed USB device number 90 using xhci_hcd
+2026-11-03T11:12:02.810879-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T11:12:02.811873-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T11:12:02.812022-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T11:12:02.853879-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T11:12:02.854071-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T11:12:03.201879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 91 using xhci_hcd
+2026-11-03T11:12:03.288882-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T11:12:03.289878-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T11:12:03.290021-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T11:12:03.290070-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T11:12:03.441879-05:00 host kernel: usb 5-2.2: new high-speed USB device number 92 using xhci_hcd
+2026-11-03T11:12:03.527921-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T11:12:03.574889-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T11:12:03.575043-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T11:12:03.575103-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T11:12:03.575144-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T11:12:03.722879-05:00 host kernel: usb 5-2.3: new full-speed USB device number 93 using xhci_hcd
+2026-11-03T11:12:03.810928-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T11:12:03.828876-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T11:12:03.829069-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T11:12:03.829146-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T11:12:03.829207-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T11:12:15.299883-05:00 host kernel: usb 5-2: USB disconnect, device number 90
+2026-11-03T11:12:15.300105-05:00 host kernel: usb 5-2.1: USB disconnect, device number 91
+2026-11-03T11:12:15.301874-05:00 host kernel: usb 5-2.2: USB disconnect, device number 92
+2026-11-03T11:12:15.333894-05:00 host kernel: usb 5-2.3: USB disconnect, device number 93
+2026-11-03T11:12:16.824879-05:00 host kernel: usb 5-2: new high-speed USB device number 94 using xhci_hcd
+2026-11-03T11:12:16.948880-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T11:12:16.949876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T11:12:16.950026-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T11:12:16.998880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T11:12:16.999090-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T11:12:17.344882-05:00 host kernel: usb 5-2.2: new high-speed USB device number 95 using xhci_hcd
+2026-11-03T11:12:17.438878-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T11:12:17.485887-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T11:12:17.486044-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T11:12:17.486092-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T11:12:17.486182-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T11:12:17.831879-05:00 host kernel: usb 5-2.3: new full-speed USB device number 96 using xhci_hcd
+2026-11-03T11:12:17.918879-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T11:12:17.936875-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T11:12:17.937035-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T11:12:17.937082-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T11:12:17.937126-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T11:12:18.385880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 97 using xhci_hcd
+2026-11-03T11:12:18.471924-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T11:12:18.472872-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T11:12:18.472993-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T11:12:18.473059-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T11:26:51.325878-05:00 host kernel: usb 1-1: new high-speed USB device number 16 using xhci_hcd
+2026-11-03T11:26:51.525881-05:00 host kernel: usb 1-1: New USB device found, idVendor=05c6, idProduct=f000, bcdDevice= 5.04
+2026-11-03T11:26:51.549886-05:00 host kernel: usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T11:26:51.550060-05:00 host kernel: usb 1-1: Product: INAIR Pod
+2026-11-03T11:26:51.550113-05:00 host kernel: usb 1-1: Manufacturer: INAIR
+2026-11-03T11:26:51.550155-05:00 host kernel: usb 1-1: SerialNumber: REDACTED
+2026-11-03T12:36:52.193884-05:00 host kernel: usb 1-1: USB disconnect, device number 16
+2026-11-03T13:09:22.814881-05:00 host kernel: usb 5-2: USB disconnect, device number 94
+2026-11-03T13:09:22.819162-05:00 host kernel: usb 5-2.1: USB disconnect, device number 97
+2026-11-03T13:09:22.836884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 95
+2026-11-03T13:09:22.868907-05:00 host kernel: usb 5-2.3: USB disconnect, device number 96
+2026-11-03T13:09:30.538887-05:00 host kernel: usb 5-2: new high-speed USB device number 98 using xhci_hcd
+2026-11-03T13:09:30.663886-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T13:09:30.664881-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T13:09:30.665010-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T13:09:30.709887-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T13:09:30.710230-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T13:09:31.056895-05:00 host kernel: usb 5-2.2: new high-speed USB device number 99 using xhci_hcd
+2026-11-03T13:09:31.149885-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T13:09:31.196894-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T13:09:31.197284-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T13:09:31.197389-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T13:09:31.197473-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T13:09:31.538897-05:00 host kernel: usb 5-2.3: new full-speed USB device number 100 using xhci_hcd
+2026-11-03T13:09:31.625895-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T13:09:31.643903-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T13:09:31.644408-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T13:09:31.644567-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T13:09:31.644654-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T13:09:32.097882-05:00 host kernel: usb 5-2.1: new high-speed USB device number 101 using xhci_hcd
+2026-11-03T13:09:32.181932-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T13:09:32.183883-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T13:09:32.184018-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T13:09:32.184077-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T13:23:11.377881-05:00 host kernel: usb 5-2: USB disconnect, device number 98
+2026-11-03T13:23:11.378120-05:00 host kernel: usb 5-2.1: USB disconnect, device number 101
+2026-11-03T13:23:11.380884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 99
+2026-11-03T13:23:11.412516-05:00 host kernel: usb 5-2.3: USB disconnect, device number 100
+2026-11-03T13:23:13.927885-05:00 host kernel: usb 5-2: new high-speed USB device number 102 using xhci_hcd
+2026-11-03T13:23:14.052880-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T13:23:14.053877-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T13:23:14.054032-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T13:23:14.100880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T13:23:14.101075-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T13:23:14.449882-05:00 host kernel: usb 5-2.2: new high-speed USB device number 103 using xhci_hcd
+2026-11-03T13:23:14.544879-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T13:23:14.591878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T13:23:14.592063-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T13:23:14.592115-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T13:23:14.592151-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T13:23:14.930878-05:00 host kernel: usb 5-2.3: new full-speed USB device number 104 using xhci_hcd
+2026-11-03T13:23:15.018888-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T13:23:15.036876-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T13:23:15.037034-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T13:23:15.037121-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T13:23:15.037173-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T13:23:15.490882-05:00 host kernel: usb 5-2.1: new high-speed USB device number 105 using xhci_hcd
+2026-11-03T13:23:15.575947-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T13:23:15.577873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T13:23:15.578012-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T13:23:15.578062-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:05:10.624882-05:00 host kernel: usb 5-2: USB disconnect, device number 102
+2026-11-03T15:05:10.625304-05:00 host kernel: usb 5-2.1: USB disconnect, device number 105
+2026-11-03T15:05:10.656880-05:00 host kernel: usb 5-2.2: USB disconnect, device number 103
+2026-11-03T15:05:10.689385-05:00 host kernel: usb 5-2.3: USB disconnect, device number 104
+2026-11-03T15:05:10.972879-05:00 host kernel: usb 5-2: new high-speed USB device number 106 using xhci_hcd
+2026-11-03T15:05:11.097881-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:05:11.098873-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:05:11.099033-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:05:11.136881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:05:11.137082-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:05:11.487885-05:00 host kernel: usb 5-2.1: new high-speed USB device number 107 using xhci_hcd
+2026-11-03T15:05:11.573878-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:05:11.575879-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:05:11.576039-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:05:11.576117-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:05:11.725880-05:00 host kernel: usb 5-2.2: new high-speed USB device number 108 using xhci_hcd
+2026-11-03T15:05:11.817909-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:05:11.864879-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:05:11.865047-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:05:11.865097-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:05:11.865139-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:05:12.005875-05:00 host kernel: usb 5-2.3: new full-speed USB device number 109 using xhci_hcd
+2026-11-03T15:05:12.093927-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:05:12.111884-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:05:12.112037-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:05:12.112092-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:05:12.112135-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:05:33.132887-05:00 host kernel: usb 5-2: USB disconnect, device number 106
+2026-11-03T15:05:33.133089-05:00 host kernel: usb 5-2.1: USB disconnect, device number 107
+2026-11-03T15:05:33.153877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 108
+2026-11-03T15:05:33.185545-05:00 host kernel: usb 5-2.3: USB disconnect, device number 109
+2026-11-03T15:05:35.185880-05:00 host kernel: usb 5-2: new high-speed USB device number 110 using xhci_hcd
+2026-11-03T15:05:35.310882-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:05:35.311876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:05:35.312039-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:05:35.361878-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:05:35.362117-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:05:35.715882-05:00 host kernel: usb 5-2.2: new high-speed USB device number 111 using xhci_hcd
+2026-11-03T15:05:35.806882-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:05:35.853888-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:05:35.854065-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:05:35.854122-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:05:35.854161-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:05:36.196880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 112 using xhci_hcd
+2026-11-03T15:05:36.284880-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:05:36.302879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:05:36.303074-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:05:36.303127-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:05:36.303176-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:05:36.751887-05:00 host kernel: usb 5-2.1: new high-speed USB device number 113 using xhci_hcd
+2026-11-03T15:05:36.837957-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:05:36.839739-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:05:36.839862-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:05:36.839920-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:13:16.474880-05:00 host kernel: usb 5-2: USB disconnect, device number 110
+2026-11-03T15:13:16.476028-05:00 host kernel: usb 5-2.1: USB disconnect, device number 113
+2026-11-03T15:13:16.499874-05:00 host kernel: usb 5-2.2: USB disconnect, device number 111
+2026-11-03T15:13:16.531451-05:00 host kernel: usb 5-2.3: USB disconnect, device number 112
+2026-11-03T15:13:31.951883-05:00 host kernel: usb 5-2: new high-speed USB device number 114 using xhci_hcd
+2026-11-03T15:13:32.074878-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:13:32.075871-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:13:32.076022-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:13:32.115878-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:13:32.116061-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:13:32.464896-05:00 host kernel: usb 5-2.2: new high-speed USB device number 115 using xhci_hcd
+2026-11-03T15:13:32.555882-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:13:32.602881-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:13:32.603107-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:13:32.603165-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:13:32.603212-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:13:32.946880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 116 using xhci_hcd
+2026-11-03T15:13:33.033879-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:13:33.051888-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:13:33.052085-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:13:33.052149-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:13:33.052191-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:13:33.507884-05:00 host kernel: usb 5-2.1: new high-speed USB device number 117 using xhci_hcd
+2026-11-03T15:13:33.592922-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:13:33.593886-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:13:33.594101-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:13:33.594164-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:34:20.959883-05:00 host kernel: usb 5-2: USB disconnect, device number 114
+2026-11-03T15:34:20.960350-05:00 host kernel: usb 5-2.1: USB disconnect, device number 117
+2026-11-03T15:34:20.963877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 115
+2026-11-03T15:34:20.995462-05:00 host kernel: usb 5-2.3: USB disconnect, device number 116
+2026-11-03T15:34:21.278917-05:00 host kernel: usb 5-2: new high-speed USB device number 118 using xhci_hcd
+2026-11-03T15:34:21.403878-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:34:21.404872-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:34:21.405044-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:34:21.443876-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:34:21.444050-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:34:21.794881-05:00 host kernel: usb 5-2.1: new high-speed USB device number 119 using xhci_hcd
+2026-11-03T15:34:21.881879-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:34:21.882878-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:34:21.883156-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:34:21.883243-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:34:22.032882-05:00 host kernel: usb 5-2.2: new high-speed USB device number 120 using xhci_hcd
+2026-11-03T15:34:22.124918-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:34:22.171886-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:34:22.172120-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:34:22.172225-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:34:22.172368-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:34:22.314882-05:00 host kernel: usb 5-2.3: new full-speed USB device number 121 using xhci_hcd
+2026-11-03T15:34:22.403880-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:34:22.421879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:34:22.422083-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:34:22.422149-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:34:22.422193-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:34:25.499878-05:00 host kernel: usb 5-2: USB disconnect, device number 118
+2026-11-03T15:34:25.500092-05:00 host kernel: usb 5-2.1: USB disconnect, device number 119
+2026-11-03T15:34:25.507875-05:00 host kernel: usb 5-2.2: USB disconnect, device number 120
+2026-11-03T15:34:25.539397-05:00 host kernel: usb 5-2.3: USB disconnect, device number 121
+2026-11-03T15:34:29.796887-05:00 host kernel: usb 5-2: new high-speed USB device number 122 using xhci_hcd
+2026-11-03T15:34:29.919883-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:34:29.920875-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:34:29.921077-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:34:29.955881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:34:29.956081-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:34:30.304881-05:00 host kernel: usb 5-2.2: new high-speed USB device number 123 using xhci_hcd
+2026-11-03T15:34:30.396879-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:34:30.443884-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:34:30.444071-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:34:30.444146-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:34:30.444214-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:34:30.813879-05:00 host kernel: usb 5-2.3: new full-speed USB device number 124 using xhci_hcd
+2026-11-03T15:34:30.899890-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:34:30.917885-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:34:30.918082-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:34:30.918140-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:34:30.918181-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:34:31.374880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 125 using xhci_hcd
+2026-11-03T15:34:31.458922-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:34:31.460884-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:34:31.461057-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:34:31.461122-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:35:42.203888-05:00 host kernel: usb 5-2: USB disconnect, device number 122
+2026-11-03T15:35:42.204367-05:00 host kernel: usb 5-2.1: USB disconnect, device number 125
+2026-11-03T15:35:42.214879-05:00 host kernel: usb 5-2.2: USB disconnect, device number 123
+2026-11-03T15:35:42.246890-05:00 host kernel: usb 5-2.3: USB disconnect, device number 124
+2026-11-03T15:35:42.529952-05:00 host kernel: usb 5-2: new high-speed USB device number 126 using xhci_hcd
+2026-11-03T15:35:42.653883-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:35:42.654875-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:35:42.655075-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:35:42.694879-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:35:42.695116-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:35:43.040888-05:00 host kernel: usb 5-2.1: new high-speed USB device number 127 using xhci_hcd
+2026-11-03T15:35:43.125879-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:35:43.127884-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:35:43.128073-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:35:43.128155-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:35:43.281895-05:00 host kernel: usb 5-2.2: new high-speed USB device number 3 using xhci_hcd
+2026-11-03T15:35:43.375925-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:35:43.422883-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:35:43.423106-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:35:43.423166-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:35:43.423212-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:35:43.564886-05:00 host kernel: usb 5-2.3: new full-speed USB device number 4 using xhci_hcd
+2026-11-03T15:35:43.654889-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:35:43.672883-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:35:43.673200-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:35:43.673302-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:35:43.673384-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:36:00.400881-05:00 host kernel: usb 5-2: USB disconnect, device number 126
+2026-11-03T15:36:00.401153-05:00 host kernel: usb 5-2.1: USB disconnect, device number 127
+2026-11-03T15:36:00.423890-05:00 host kernel: usb 5-2.2: USB disconnect, device number 3
+2026-11-03T15:36:00.455217-05:00 host kernel: usb 5-2.3: USB disconnect, device number 4
+2026-11-03T15:36:03.164879-05:00 host kernel: usb 5-2: new high-speed USB device number 5 using xhci_hcd
+2026-11-03T15:36:03.290891-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:36:03.291874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:36:03.292070-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:36:03.335882-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:36:03.336085-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:36:03.679881-05:00 host kernel: usb 5-2.2: new high-speed USB device number 6 using xhci_hcd
+2026-11-03T15:36:03.773884-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:36:03.820881-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:36:03.821104-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:36:03.821192-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:36:03.821252-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:36:04.168879-05:00 host kernel: usb 5-2.3: new full-speed USB device number 7 using xhci_hcd
+2026-11-03T15:36:04.258884-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:36:04.276882-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:36:04.277065-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:36:04.277470-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:36:04.277526-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:36:04.722895-05:00 host kernel: usb 5-2.1: new high-speed USB device number 8 using xhci_hcd
+2026-11-03T15:36:04.808926-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:36:04.810875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:36:04.811344-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:36:04.811431-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:38:57.301891-05:00 host kernel: usb 5-2: USB disconnect, device number 5
+2026-11-03T15:38:57.302147-05:00 host kernel: usb 5-2.1: USB disconnect, device number 8
+2026-11-03T15:38:57.325881-05:00 host kernel: usb 5-2.2: USB disconnect, device number 6
+2026-11-03T15:38:57.357892-05:00 host kernel: usb 5-2.3: USB disconnect, device number 7
+2026-11-03T15:38:57.641883-05:00 host kernel: usb 5-2: new high-speed USB device number 9 using xhci_hcd
+2026-11-03T15:38:57.765879-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:38:57.766883-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:38:57.767013-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:38:57.805877-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:38:57.806044-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:38:58.153883-05:00 host kernel: usb 5-2.1: new high-speed USB device number 10 using xhci_hcd
+2026-11-03T15:38:58.239880-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:38:58.240884-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:38:58.241052-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:38:58.241142-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:38:58.393879-05:00 host kernel: usb 5-2.2: new high-speed USB device number 11 using xhci_hcd
+2026-11-03T15:38:58.484914-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:38:58.531882-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:38:58.532057-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:38:58.532110-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:38:58.532150-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:38:58.675877-05:00 host kernel: usb 5-2.3: new full-speed USB device number 12 using xhci_hcd
+2026-11-03T15:38:58.762918-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:38:58.780874-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:38:58.781028-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:38:58.781079-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:38:58.781118-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:39:02.151881-05:00 host kernel: usb 5-2: USB disconnect, device number 9
+2026-11-03T15:39:02.152112-05:00 host kernel: usb 5-2.1: USB disconnect, device number 10
+2026-11-03T15:39:02.157887-05:00 host kernel: usb 5-2.2: USB disconnect, device number 11
+2026-11-03T15:39:02.189880-05:00 host kernel: usb 5-2.3: USB disconnect, device number 12
+2026-11-03T15:39:04.480880-05:00 host kernel: usb 5-2: new high-speed USB device number 13 using xhci_hcd
+2026-11-03T15:39:04.603880-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:39:04.604876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:39:04.605051-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:39:04.654880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:39:04.655058-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:39:05.003444-05:00 host kernel: usb 5-2.2: new high-speed USB device number 14 using xhci_hcd
+2026-11-03T15:39:05.093931-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:39:05.140881-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:39:05.141074-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:39:05.141128-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:39:05.141169-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:39:05.487878-05:00 host kernel: usb 5-2.3: new full-speed USB device number 15 using xhci_hcd
+2026-11-03T15:39:05.574878-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:39:05.592877-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:39:05.593046-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:39:05.593100-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:39:05.593145-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:39:06.040880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 16 using xhci_hcd
+2026-11-03T15:39:06.125917-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:39:06.127879-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:39:06.128056-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:39:06.128114-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:39:16.784880-05:00 host kernel: usb 5-2: USB disconnect, device number 13
+2026-11-03T15:39:16.785102-05:00 host kernel: usb 5-2.1: USB disconnect, device number 16
+2026-11-03T15:39:16.814877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 14
+2026-11-03T15:39:16.847726-05:00 host kernel: usb 5-2.3: USB disconnect, device number 15
+2026-11-03T15:39:22.312881-05:00 host kernel: usb 5-2: new high-speed USB device number 17 using xhci_hcd
+2026-11-03T15:39:22.436880-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:39:22.437882-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:39:22.438003-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:39:22.478879-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:39:22.479032-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:39:22.824881-05:00 host kernel: usb 5-2.2: new high-speed USB device number 18 using xhci_hcd
+2026-11-03T15:39:22.918879-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:39:22.965879-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:39:22.966067-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:39:22.966123-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:39:22.966167-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:39:23.308881-05:00 host kernel: usb 5-2.3: new full-speed USB device number 19 using xhci_hcd
+2026-11-03T15:39:23.397891-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:39:23.415881-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:39:23.416127-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:39:23.416205-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:39:23.416264-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T15:39:23.866888-05:00 host kernel: usb 5-2.1: new high-speed USB device number 20 using xhci_hcd
+2026-11-03T15:39:23.954920-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:39:23.955882-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:39:23.955995-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:39:23.956044-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:41:03.729884-05:00 host kernel: usb 5-2: USB disconnect, device number 17
+2026-11-03T15:41:03.730178-05:00 host kernel: usb 5-2.1: USB disconnect, device number 20
+2026-11-03T15:41:03.732202-05:00 host kernel: usb 5-2.2: USB disconnect, device number 18
+2026-11-03T15:41:03.763882-05:00 host kernel: usb 5-2.3: USB disconnect, device number 19
+2026-11-03T15:41:04.991881-05:00 host kernel: usb 5-2: new high-speed USB device number 21 using xhci_hcd
+2026-11-03T15:41:05.115894-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T15:41:05.116877-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T15:41:05.118457-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T15:41:05.172885-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T15:41:05.173163-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T15:41:05.520888-05:00 host kernel: usb 5-2.1: new high-speed USB device number 22 using xhci_hcd
+2026-11-03T15:41:05.606893-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T15:41:05.609008-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T15:41:05.609827-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T15:41:05.609968-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T15:41:05.759894-05:00 host kernel: usb 5-2.2: new high-speed USB device number 23 using xhci_hcd
+2026-11-03T15:41:05.843956-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T15:41:05.891362-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T15:41:05.891598-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T15:41:05.891708-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T15:41:05.891823-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T15:41:06.042895-05:00 host kernel: usb 5-2.3: new full-speed USB device number 24 using xhci_hcd
+2026-11-03T15:41:06.131885-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T15:41:06.149913-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T15:41:06.150188-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T15:41:06.150310-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T15:41:06.150415-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T17:18:19.433890-05:00 host kernel: usb 5-2: USB disconnect, device number 21
+2026-11-03T17:18:19.434337-05:00 host kernel: usb 5-2.1: USB disconnect, device number 22
+2026-11-03T17:18:19.462889-05:00 host kernel: usb 5-2.2: USB disconnect, device number 23
+2026-11-03T17:18:19.494881-05:00 host kernel: usb 5-2.3: USB disconnect, device number 24
+2026-11-03T17:18:21.211880-05:00 host kernel: usb 5-2: new high-speed USB device number 25 using xhci_hcd
+2026-11-03T17:18:21.336891-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T17:18:21.337874-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T17:18:21.338011-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T17:18:21.383876-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T17:18:21.384119-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T17:18:21.728885-05:00 host kernel: usb 5-2.2: new high-speed USB device number 26 using xhci_hcd
+2026-11-03T17:18:21.820879-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T17:18:21.834880-05:00 host kernel: usb 5-2: USB disconnect, device number 25
+2026-11-03T17:18:26.975881-05:00 host kernel: usb 5-2.2: unable to read config index 0 descriptor/all
+2026-11-03T17:18:26.976022-05:00 host kernel: usb 5-2.2: can't read configurations, error -110
+2026-11-03T17:18:26.976062-05:00 host kernel: usb 5-2-port2: attempt power cycle
+2026-11-03T17:18:27.520893-05:00 host kernel: usb 5-2: new high-speed USB device number 30 using xhci_hcd
+2026-11-03T17:18:27.644894-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T17:18:27.645875-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T17:18:27.646031-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T17:18:27.687878-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T17:18:27.688068-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T17:18:28.033883-05:00 host kernel: usb 5-2.1: new high-speed USB device number 31 using xhci_hcd
+2026-11-03T17:18:28.120882-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T17:18:28.121882-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T17:18:28.122002-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T17:18:28.122054-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T17:18:28.276878-05:00 host kernel: usb 5-2.2: new high-speed USB device number 32 using xhci_hcd
+2026-11-03T17:18:28.364921-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T17:18:28.411884-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T17:18:28.412083-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T17:18:28.412140-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T17:18:28.412183-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T17:18:28.558879-05:00 host kernel: usb 5-2.3: new full-speed USB device number 33 using xhci_hcd
+2026-11-03T17:18:28.647880-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T17:18:28.665879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T17:18:28.666064-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T17:18:28.666113-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T17:18:28.666159-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T17:18:52.839884-05:00 host kernel: usb 5-2: USB disconnect, device number 30
+2026-11-03T17:18:52.840127-05:00 host kernel: usb 5-2.1: USB disconnect, device number 31
+2026-11-03T17:18:52.840150-05:00 host kernel: usb 5-2.2: USB disconnect, device number 32
+2026-11-03T17:18:52.872405-05:00 host kernel: usb 5-2.3: USB disconnect, device number 33
+2026-11-03T17:18:54.086881-05:00 host kernel: usb 5-2: new high-speed USB device number 34 using xhci_hcd
+2026-11-03T17:18:54.210878-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T17:18:54.211885-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T17:18:54.212063-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T17:18:54.248888-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T17:18:54.249094-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T17:18:54.591890-05:00 host kernel: usb 5-2.2: new high-speed USB device number 35 using xhci_hcd
+2026-11-03T17:18:54.684880-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T17:18:54.731889-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T17:18:54.732064-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T17:18:54.732116-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T17:18:54.732168-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T17:18:55.106880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 36 using xhci_hcd
+2026-11-03T17:18:55.195882-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T17:18:55.213879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T17:18:55.214065-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T17:18:55.214114-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T17:18:55.214155-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T17:18:55.671879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 37 using xhci_hcd
+2026-11-03T17:18:55.759972-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T17:18:55.760875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T17:18:55.761053-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T17:18:55.761109-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T17:42:33.528897-05:00 host kernel: usb 5-2: USB disconnect, device number 34
+2026-11-03T17:42:33.529431-05:00 host kernel: usb 5-2.1: USB disconnect, device number 37
+2026-11-03T17:42:33.533886-05:00 host kernel: usb 5-2.2: USB disconnect, device number 35
+2026-11-03T17:42:33.565539-05:00 host kernel: usb 5-2.3: USB disconnect, device number 36
+2026-11-03T17:42:33.847916-05:00 host kernel: usb 5-2: new high-speed USB device number 38 using xhci_hcd
+2026-11-03T17:42:33.972880-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T17:42:33.973881-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T17:42:33.973996-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T17:42:34.013889-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T17:42:34.014091-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T17:42:34.362889-05:00 host kernel: usb 5-2.1: new high-speed USB device number 39 using xhci_hcd
+2026-11-03T17:42:34.449884-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T17:42:34.450883-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T17:42:34.451016-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T17:42:34.451076-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T17:42:34.602946-05:00 host kernel: usb 5-2.2: new high-speed USB device number 40 using xhci_hcd
+2026-11-03T17:42:34.692882-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T17:42:34.739877-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T17:42:34.740053-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T17:42:34.740114-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T17:42:34.740157-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T17:42:34.885881-05:00 host kernel: usb 5-2.3: new full-speed USB device number 41 using xhci_hcd
+2026-11-03T17:42:34.972882-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T17:42:34.990890-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T17:42:34.991091-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T17:42:34.991156-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T17:42:34.991200-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T17:42:50.974879-05:00 host kernel: usb 5-2: USB disconnect, device number 38
+2026-11-03T17:42:50.975138-05:00 host kernel: usb 5-2.1: USB disconnect, device number 39
+2026-11-03T17:42:51.006891-05:00 host kernel: usb 5-2.2: USB disconnect, device number 40
+2026-11-03T17:42:51.038206-05:00 host kernel: usb 5-2.3: USB disconnect, device number 41
+2026-11-03T17:43:01.042893-05:00 host kernel: usb 5-2: new high-speed USB device number 42 using xhci_hcd
+2026-11-03T17:43:01.166889-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T17:43:01.167888-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T17:43:01.168011-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T17:43:01.214879-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T17:43:01.215126-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T17:43:01.561889-05:00 host kernel: usb 5-2.2: new high-speed USB device number 43 using xhci_hcd
+2026-11-03T17:43:01.653890-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T17:43:01.700878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T17:43:01.701135-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T17:43:01.701208-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T17:43:01.701271-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T17:43:02.049888-05:00 host kernel: usb 5-2.3: new full-speed USB device number 44 using xhci_hcd
+2026-11-03T17:43:02.137885-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T17:43:02.155892-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T17:43:02.156100-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T17:43:02.156153-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T17:43:02.156195-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T17:43:02.604880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 45 using xhci_hcd
+2026-11-03T17:43:02.691932-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T17:43:02.692884-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T17:43:02.693058-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T17:43:02.693124-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T19:18:33.150880-05:00 host kernel: usb 5-2: USB disconnect, device number 42
+2026-11-03T19:18:33.151666-05:00 host kernel: usb 5-2.1: USB disconnect, device number 45
+2026-11-03T19:18:33.155877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 43
+2026-11-03T19:18:33.187662-05:00 host kernel: usb 5-2.3: USB disconnect, device number 44
+2026-11-03T19:18:33.470915-05:00 host kernel: usb 5-2: new high-speed USB device number 46 using xhci_hcd
+2026-11-03T19:18:33.596886-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T19:18:33.597876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T19:18:33.598047-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T19:18:33.635881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T19:18:33.636096-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T19:18:33.983879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 47 using xhci_hcd
+2026-11-03T19:18:34.068554-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T19:18:34.069872-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T19:18:34.069991-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T19:18:34.070042-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T19:18:34.222928-05:00 host kernel: usb 5-2.2: new high-speed USB device number 48 using xhci_hcd
+2026-11-03T19:18:34.315879-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T19:18:34.362889-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T19:18:34.363066-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T19:18:34.363124-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T19:18:34.363174-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T19:18:34.504914-05:00 host kernel: usb 5-2.3: new full-speed USB device number 49 using xhci_hcd
+2026-11-03T19:18:34.591941-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T19:18:34.609888-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T19:18:34.610059-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T19:18:34.610110-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T19:18:34.610152-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T19:18:40.578888-05:00 host kernel: usb 5-2: USB disconnect, device number 46
+2026-11-03T19:18:40.579139-05:00 host kernel: usb 5-2.1: USB disconnect, device number 47
+2026-11-03T19:18:40.579874-05:00 host kernel: usb 5-2.2: USB disconnect, device number 48
+2026-11-03T19:18:40.611789-05:00 host kernel: usb 5-2.3: USB disconnect, device number 49
+2026-11-03T19:18:45.882880-05:00 host kernel: usb 5-2: new high-speed USB device number 50 using xhci_hcd
+2026-11-03T19:18:46.006891-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T19:18:46.007882-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T19:18:46.008039-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T19:18:46.051920-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T19:18:46.052874-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T19:18:46.401879-05:00 host kernel: usb 5-2.2: new high-speed USB device number 51 using xhci_hcd
+2026-11-03T19:18:46.492883-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T19:18:46.539878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T19:18:46.540047-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T19:18:46.540099-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T19:18:46.540146-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T19:18:46.884881-05:00 host kernel: usb 5-2.3: new full-speed USB device number 52 using xhci_hcd
+2026-11-03T19:18:46.971889-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T19:18:46.989894-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T19:18:46.990124-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T19:18:46.990197-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T19:18:46.990254-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T19:18:47.439884-05:00 host kernel: usb 5-2.1: new high-speed USB device number 53 using xhci_hcd
+2026-11-03T19:18:47.526934-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T19:18:47.528873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T19:18:47.528995-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T19:18:47.529045-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T20:02:21.248880-05:00 host kernel: usb 5-2: USB disconnect, device number 50
+2026-11-03T20:02:21.249654-05:00 host kernel: usb 5-2.1: USB disconnect, device number 53
+2026-11-03T20:02:21.257894-05:00 host kernel: usb 5-2.2: USB disconnect, device number 51
+2026-11-03T20:02:21.289822-05:00 host kernel: usb 5-2.3: USB disconnect, device number 52
+2026-11-03T20:02:21.570926-05:00 host kernel: usb 5-2: new high-speed USB device number 54 using xhci_hcd
+2026-11-03T20:02:21.694888-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T20:02:21.695878-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T20:02:21.696025-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T20:02:21.737879-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T20:02:21.738092-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T20:02:22.091880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 55 using xhci_hcd
+2026-11-03T20:02:22.177887-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T20:02:22.179875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T20:02:22.180035-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T20:02:22.180089-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T20:02:22.325887-05:00 host kernel: usb 5-2.2: new high-speed USB device number 56 using xhci_hcd
+2026-11-03T20:02:22.416884-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T20:02:22.463882-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T20:02:22.464077-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T20:02:22.464136-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T20:02:22.464180-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T20:02:22.607878-05:00 host kernel: usb 5-2.3: new full-speed USB device number 57 using xhci_hcd
+2026-11-03T20:02:22.693934-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T20:02:22.711880-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T20:02:22.712055-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T20:02:22.712112-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T20:02:22.712155-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T20:02:26.198911-05:00 host kernel: usb 5-2: USB disconnect, device number 54
+2026-11-03T20:02:26.199132-05:00 host kernel: usb 5-2.1: USB disconnect, device number 55
+2026-11-03T20:02:26.217879-05:00 host kernel: usb 5-2.2: USB disconnect, device number 56
+2026-11-03T20:02:26.249449-05:00 host kernel: usb 5-2.3: USB disconnect, device number 57
+2026-11-03T20:02:28.792892-05:00 host kernel: usb 5-2: new high-speed USB device number 58 using xhci_hcd
+2026-11-03T20:02:28.916885-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T20:02:28.917889-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T20:02:28.918086-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T20:02:28.969883-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T20:02:28.970098-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T20:02:29.323882-05:00 host kernel: usb 5-2.2: new high-speed USB device number 59 using xhci_hcd
+2026-11-03T20:02:29.416881-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T20:02:29.464880-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T20:02:29.465075-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T20:02:29.465131-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T20:02:29.465171-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T20:02:29.778889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 60 using xhci_hcd
+2026-11-03T20:02:29.865931-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T20:02:29.883875-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T20:02:29.884081-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T20:02:29.884163-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T20:02:29.884209-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T20:02:30.326881-05:00 host kernel: usb 5-2.1: new high-speed USB device number 61 using xhci_hcd
+2026-11-03T20:02:30.414925-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T20:02:30.416879-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T20:02:30.417061-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T20:02:30.417141-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T20:04:03.596880-05:00 host kernel: usb 5-2: USB disconnect, device number 58
+2026-11-03T20:04:03.597244-05:00 host kernel: usb 5-2.1: USB disconnect, device number 61
+2026-11-03T20:04:03.597299-05:00 host kernel: usb 5-2.2: USB disconnect, device number 59
+2026-11-03T20:04:03.629383-05:00 host kernel: usb 5-2.3: USB disconnect, device number 60
+2026-11-03T20:04:03.910880-05:00 host kernel: usb 5-2: new high-speed USB device number 62 using xhci_hcd
+2026-11-03T20:04:04.036892-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T20:04:04.037877-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T20:04:04.038283-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T20:04:04.077881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T20:04:04.078108-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T20:04:04.423881-05:00 host kernel: usb 5-2.1: new high-speed USB device number 63 using xhci_hcd
+2026-11-03T20:04:04.508890-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T20:04:04.510875-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T20:04:04.511066-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T20:04:04.516795-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T20:04:04.664885-05:00 host kernel: usb 5-2.2: new high-speed USB device number 64 using xhci_hcd
+2026-11-03T20:04:04.756927-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T20:04:04.803887-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T20:04:04.804070-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T20:04:04.804130-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T20:04:04.804176-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T20:04:04.947880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 65 using xhci_hcd
+2026-11-03T20:04:05.038923-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T20:04:05.056880-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T20:04:05.057046-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T20:04:05.057098-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T20:04:05.057138-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T20:04:13.983882-05:00 host kernel: usb 5-2: USB disconnect, device number 62
+2026-11-03T20:04:13.984172-05:00 host kernel: usb 5-2.1: USB disconnect, device number 63
+2026-11-03T20:04:13.997877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 64
+2026-11-03T20:04:14.029686-05:00 host kernel: usb 5-2.3: USB disconnect, device number 65
+2026-11-03T20:04:17.418962-05:00 host kernel: usb 5-2: new high-speed USB device number 66 using xhci_hcd
+2026-11-03T20:04:17.544936-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T20:04:17.545876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T20:04:17.546030-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T20:04:17.582881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T20:04:17.583129-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T20:04:17.929876-05:00 host kernel: usb 5-2.2: new high-speed USB device number 67 using xhci_hcd
+2026-11-03T20:04:18.023881-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T20:04:18.070883-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T20:04:18.071112-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T20:04:18.071221-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T20:04:18.071282-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T20:04:18.417922-05:00 host kernel: usb 5-2.3: new full-speed USB device number 68 using xhci_hcd
+2026-11-03T20:04:18.503882-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T20:04:18.521878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T20:04:18.522046-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T20:04:18.522095-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T20:04:18.522144-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T20:04:18.972886-05:00 host kernel: usb 5-2.1: new high-speed USB device number 69 using xhci_hcd
+2026-11-03T20:04:19.059937-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T20:04:19.061873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T20:04:19.062001-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T20:04:19.062056-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T20:06:12.325884-05:00 host kernel: usb 5-2: USB disconnect, device number 66
+2026-11-03T20:06:12.326139-05:00 host kernel: usb 5-2.1: USB disconnect, device number 69
+2026-11-03T20:06:12.338891-05:00 host kernel: usb 5-2.2: USB disconnect, device number 67
+2026-11-03T20:06:12.370377-05:00 host kernel: usb 5-2.3: USB disconnect, device number 68
+2026-11-03T20:06:12.653888-05:00 host kernel: usb 5-2: new high-speed USB device number 70 using xhci_hcd
+2026-11-03T20:06:12.777881-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T20:06:12.778881-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T20:06:12.779002-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T20:06:12.818881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T20:06:12.819070-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T20:06:13.170891-05:00 host kernel: usb 5-2.1: new high-speed USB device number 71 using xhci_hcd
+2026-11-03T20:06:13.257890-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T20:06:13.259885-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T20:06:13.260142-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T20:06:13.260218-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T20:06:13.406883-05:00 host kernel: usb 5-2.2: new high-speed USB device number 72 using xhci_hcd
+2026-11-03T20:06:13.500885-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T20:06:13.547877-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T20:06:13.548032-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T20:06:13.548082-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T20:06:13.548122-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T20:06:13.690923-05:00 host kernel: usb 5-2.3: new full-speed USB device number 73 using xhci_hcd
+2026-11-03T20:06:13.777879-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T20:06:13.795874-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T20:06:13.796018-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T20:06:13.796070-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T20:06:13.796125-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T20:27:25.268886-05:00 host kernel: usb 5-2: USB disconnect, device number 70
+2026-11-03T20:27:25.269131-05:00 host kernel: usb 5-2.1: USB disconnect, device number 71
+2026-11-03T20:27:25.279884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 72
+2026-11-03T20:27:25.311273-05:00 host kernel: usb 5-2.3: USB disconnect, device number 73
+2026-11-03T20:27:29.642879-05:00 host kernel: usb 5-2: new high-speed USB device number 74 using xhci_hcd
+2026-11-03T20:27:29.768879-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T20:27:29.769873-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T20:27:29.770024-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T20:27:29.823887-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T20:27:29.824067-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T20:27:30.167893-05:00 host kernel: usb 5-2.2: new high-speed USB device number 75 using xhci_hcd
+2026-11-03T20:27:30.258891-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T20:27:30.305885-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T20:27:30.306075-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T20:27:30.306149-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T20:27:30.306208-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T20:27:30.653875-05:00 host kernel: usb 5-2.3: new full-speed USB device number 76 using xhci_hcd
+2026-11-03T20:27:30.739878-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T20:27:30.757877-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T20:27:30.758027-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T20:27:30.758083-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T20:27:30.758123-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T20:27:31.210881-05:00 host kernel: usb 5-2.1: new high-speed USB device number 77 using xhci_hcd
+2026-11-03T20:27:31.296916-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T20:27:31.297874-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T20:27:31.297990-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T20:27:31.298039-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T22:59:51.362892-05:00 host kernel: usb 5-2: USB disconnect, device number 74
+2026-11-03T22:59:51.363323-05:00 host kernel: usb 5-2.1: USB disconnect, device number 77
+2026-11-03T22:59:51.375889-05:00 host kernel: usb 5-2.2: USB disconnect, device number 75
+2026-11-03T22:59:51.409734-05:00 host kernel: usb 5-2.3: USB disconnect, device number 76
+2026-11-03T22:59:51.689883-05:00 host kernel: usb 5-2: new high-speed USB device number 78 using xhci_hcd
+2026-11-03T22:59:51.815882-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T22:59:51.816876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T22:59:51.817067-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T22:59:51.855881-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T22:59:51.856874-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T22:59:52.200879-05:00 host kernel: usb 5-2.1: new high-speed USB device number 79 using xhci_hcd
+2026-11-03T22:59:52.286892-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T22:59:52.287886-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T22:59:52.288042-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T22:59:52.288101-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T22:59:52.444942-05:00 host kernel: usb 5-2.2: new high-speed USB device number 80 using xhci_hcd
+2026-11-03T22:59:52.536936-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T22:59:52.583880-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T22:59:52.584057-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T22:59:52.584110-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T22:59:52.584151-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T22:59:52.726891-05:00 host kernel: usb 5-2.3: new full-speed USB device number 81 using xhci_hcd
+2026-11-03T22:59:52.814940-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T22:59:52.832884-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T22:59:52.833120-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T22:59:52.833197-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T22:59:52.833273-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T23:00:08.993886-05:00 host kernel: usb 5-2: USB disconnect, device number 78
+2026-11-03T23:00:08.994138-05:00 host kernel: usb 5-2.1: USB disconnect, device number 79
+2026-11-03T23:00:09.008878-05:00 host kernel: usb 5-2.2: USB disconnect, device number 80
+2026-11-03T23:00:09.040537-05:00 host kernel: usb 5-2.3: USB disconnect, device number 81
+2026-11-03T23:00:10.603880-05:00 host kernel: usb 5-2: new high-speed USB device number 82 using xhci_hcd
+2026-11-03T23:00:10.726882-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T23:00:10.727881-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T23:00:10.728070-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T23:00:10.768923-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T23:00:10.769159-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T23:00:11.121880-05:00 host kernel: usb 5-2.2: new high-speed USB device number 83 using xhci_hcd
+2026-11-03T23:00:11.213884-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T23:00:11.260888-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T23:00:11.261057-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T23:00:11.261113-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T23:00:11.261155-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T23:00:11.603881-05:00 host kernel: usb 5-2.3: new full-speed USB device number 84 using xhci_hcd
+2026-11-03T23:00:11.691881-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T23:00:11.709880-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T23:00:11.710058-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T23:00:11.710112-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T23:00:11.710157-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T23:00:12.158880-05:00 host kernel: usb 5-2.1: new high-speed USB device number 85 using xhci_hcd
+2026-11-03T23:00:12.243930-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T23:00:12.245877-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T23:00:12.246030-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T23:00:12.246081-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T23:01:56.448888-05:00 host kernel: usb 5-2: USB disconnect, device number 82
+2026-11-03T23:01:56.449127-05:00 host kernel: usb 5-2.1: USB disconnect, device number 85
+2026-11-03T23:01:56.468884-05:00 host kernel: usb 5-2.2: USB disconnect, device number 83
+2026-11-03T23:01:56.500886-05:00 host kernel: usb 5-2.3: USB disconnect, device number 84
+2026-11-03T23:01:56.782878-05:00 host kernel: usb 5-2: new high-speed USB device number 86 using xhci_hcd
+2026-11-03T23:01:56.905878-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T23:01:56.906882-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T23:01:56.906989-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T23:01:56.949880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T23:01:56.950052-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T23:01:57.297888-05:00 host kernel: usb 5-2.1: new high-speed USB device number 87 using xhci_hcd
+2026-11-03T23:01:57.381880-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T23:01:57.383873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T23:01:57.383996-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T23:01:57.384065-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T23:01:57.536885-05:00 host kernel: usb 5-2.2: new high-speed USB device number 88 using xhci_hcd
+2026-11-03T23:01:57.629876-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T23:01:57.676878-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T23:01:57.677048-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T23:01:57.677099-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T23:01:57.677140-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T23:01:57.818880-05:00 host kernel: usb 5-2.3: new full-speed USB device number 89 using xhci_hcd
+2026-11-03T23:01:57.904919-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T23:01:57.922878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T23:01:57.923045-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T23:01:57.923095-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T23:01:57.923134-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T23:02:00.108878-05:00 host kernel: usb 5-2: USB disconnect, device number 86
+2026-11-03T23:02:00.109082-05:00 host kernel: usb 5-2.1: USB disconnect, device number 87
+2026-11-03T23:02:00.117887-05:00 host kernel: usb 5-2.2: USB disconnect, device number 88
+2026-11-03T23:02:00.149142-05:00 host kernel: usb 5-2.3: USB disconnect, device number 89
+2026-11-03T23:03:54.344395-05:00 host kernel: usb 1-4: USB disconnect, device number 15
+2026-11-03T23:07:00.813880-05:00 host kernel: usb 5-2: new high-speed USB device number 90 using xhci_hcd
+2026-11-03T23:07:00.939889-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T23:07:00.940888-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T23:07:00.941034-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T23:07:00.993880-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T23:07:00.994068-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T23:07:01.346880-05:00 host kernel: usb 5-2.2: new high-speed USB device number 91 using xhci_hcd
+2026-11-03T23:07:01.438881-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T23:07:01.485877-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T23:07:01.486075-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T23:07:01.486141-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T23:07:01.486205-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T23:07:01.826889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 92 using xhci_hcd
+2026-11-03T23:07:01.916879-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T23:07:01.934879-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T23:07:01.935052-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T23:07:01.935103-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T23:07:01.935144-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T23:07:02.384878-05:00 host kernel: usb 5-2.1: new high-speed USB device number 93 using xhci_hcd
+2026-11-03T23:07:02.472924-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T23:07:02.474873-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T23:07:02.475098-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T23:07:02.475203-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T23:13:30.875883-05:00 host kernel: usb 5-2: USB disconnect, device number 90
+2026-11-03T23:13:30.876154-05:00 host kernel: usb 5-2.1: USB disconnect, device number 93
+2026-11-03T23:13:30.896887-05:00 host kernel: usb 5-2.2: USB disconnect, device number 91
+2026-11-03T23:13:30.928399-05:00 host kernel: usb 5-2.3: USB disconnect, device number 92
+2026-11-03T23:13:40.126880-05:00 host kernel: usb 5-2: new high-speed USB device number 94 using xhci_hcd
+2026-11-03T23:13:40.251890-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T23:13:40.252876-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T23:13:40.253037-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T23:13:40.305884-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T23:13:40.306103-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T23:13:40.657888-05:00 host kernel: usb 5-2.2: new high-speed USB device number 95 using xhci_hcd
+2026-11-03T23:13:40.747880-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T23:13:40.794882-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T23:13:40.795053-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T23:13:40.795104-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T23:13:40.795145-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T23:13:41.135876-05:00 host kernel: usb 5-2.3: new full-speed USB device number 96 using xhci_hcd
+2026-11-03T23:13:41.223879-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T23:13:41.241878-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T23:13:41.242060-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T23:13:41.242114-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T23:13:41.242155-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T23:13:41.691882-05:00 host kernel: usb 5-2.1: new high-speed USB device number 97 using xhci_hcd
+2026-11-03T23:13:41.777918-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T23:13:41.779885-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T23:13:41.780038-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T23:13:41.780127-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
+2026-11-03T23:15:02.470880-05:00 host kernel: usb 5-2: USB disconnect, device number 94
+2026-11-03T23:15:02.471091-05:00 host kernel: usb 5-2.1: USB disconnect, device number 97
+2026-11-03T23:15:02.483877-05:00 host kernel: usb 5-2.2: USB disconnect, device number 95
+2026-11-03T23:15:02.515878-05:00 host kernel: usb 5-2.3: USB disconnect, device number 96
+2026-11-03T23:18:24.487880-05:00 host kernel: usb 5-2: new high-speed USB device number 98 using xhci_hcd
+2026-11-03T23:18:24.610886-05:00 host kernel: usb 5-2: New USB device found, idVendor=1a86, idProduct=8091, bcdDevice=13.10
+2026-11-03T23:18:24.611883-05:00 host kernel: usb 5-2: New USB device strings: Mfr=0, Product=2, SerialNumber=0
+2026-11-03T23:18:24.612023-05:00 host kernel: usb 5-2: Product: USB HUB
+2026-11-03T23:18:24.668884-05:00 host kernel: hub 5-2:1.0: USB hub found
+2026-11-03T23:18:24.669022-05:00 host kernel: hub 5-2:1.0: 4 ports detected
+2026-11-03T23:18:25.017881-05:00 host kernel: usb 5-2.2: new high-speed USB device number 99 using xhci_hcd
+2026-11-03T23:18:25.107885-05:00 host kernel: usb 5-2.2: New USB device found, idVendor=0c45, idProduct=636b, bcdDevice= 1.01
+2026-11-03T23:18:25.154883-05:00 host kernel: usb 5-2.2: New USB device strings: Mfr=2, Product=1, SerialNumber=3
+2026-11-03T23:18:25.155091-05:00 host kernel: usb 5-2.2: Product: USB 2.0 Camera
+2026-11-03T23:18:25.155160-05:00 host kernel: usb 5-2.2: Manufacturer: Sonix Technology Co., Ltd.
+2026-11-03T23:18:25.155218-05:00 host kernel: usb 5-2.2: SerialNumber: REDACTED
+2026-11-03T23:18:25.471889-05:00 host kernel: usb 5-2.3: new full-speed USB device number 100 using xhci_hcd
+2026-11-03T23:18:25.561881-05:00 host kernel: usb 5-2.3: New USB device found, idVendor=35ca, idProduct=1102, bcdDevice= 1.01
+2026-11-03T23:18:25.579884-05:00 host kernel: usb 5-2.3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+2026-11-03T23:18:25.580038-05:00 host kernel: usb 5-2.3: Product: VITURE Microphone
+2026-11-03T23:18:25.580090-05:00 host kernel: usb 5-2.3: Manufacturer: VITURE.
+2026-11-03T23:18:25.580129-05:00 host kernel: usb 5-2.3: SerialNumber: REDACTED
+2026-11-03T23:18:26.022881-05:00 host kernel: usb 5-2.1: new high-speed USB device number 101 using xhci_hcd
+2026-11-03T23:18:26.108912-05:00 host kernel: usb 5-2.1: New USB device found, idVendor=35ca, idProduct=1104, bcdDevice= 0.01
+2026-11-03T23:18:26.110874-05:00 host kernel: usb 5-2.1: New USB device strings: Mfr=16, Product=32, SerialNumber=0
+2026-11-03T23:18:26.111009-05:00 host kernel: usb 5-2.1: Product: VITURE Luma Ultra XR GLASSES
+2026-11-03T23:18:26.111059-05:00 host kernel: usb 5-2.1: Manufacturer: VITURE Luma Ultra
