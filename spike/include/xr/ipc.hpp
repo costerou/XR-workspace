@@ -14,7 +14,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
-                       overview_pointer, roll, desktops, environment, binds };
+                       overview_pointer, roll, desktops, environment, binds, edge_pan };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -24,10 +24,14 @@ struct SelectPayload { OutputId output_id; };
 // Optional `center` (bool, default false): this change of `selected` is a cursor switch (the cursor pushed past an edge,
 // tools/native_spike/unified_cursor.py); in anchor mode the switch lands with the target centred in view (view.hpp).
 // Optional `cut` (bool, default false): zoomed in, the new desktop is shown at once, with no zoom out / turn / zoom in and
-// no turn of the view. The controller sends it only for an anchor-mode cursor switch with its animation off
-// (view.py ViewControl.cursor_switch_flags), so the view stays wherever the head looks.
+// no turn of the view: every switch between maximized desktops but a hand's push (view.py ViewControl.cursor_switch_flags).
+// Optional `pan` (bool, default false): the edge pan under way (`edge_pan` below) reached this desktop: it lands there.
 struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; bool prediction = false;
-                     bool typing = false; bool center = false; bool cut = false; };
+                     bool typing = false; bool center = false; bool cut = false; bool pan = false; };
+// The hand's pan past a maximized desktop's edge (tools/native_spike/edge_pan.py, view.hpp EdgePan), display only:
+// {"active":bool,"from":int,"to":int,"side":"right"|"left"|"up"|"down","exit":n,"entry":n,"peek":n,"cross":n,"turn":n,"zoom":n}, each n an
+// integer 0..10000 (1 = 10000; `turn` is a share of half a turn), or {"active":false} alone. Malformed: dropped, the session goes on.
+constexpr const char* kInvalidEdgePanCode = "invalid_edge_pan";
 // Theme accent for the highlight border/glow: {"border":[r,g,b]}, each 0..255.
 struct StylePayload { std::uint8_t r = 0, g = 0, b = 0; };
 // Keyboard help card: {"visible":bool,"rows":[[keys,action],...]}; at most kMaxHelpRows rows,
@@ -158,7 +162,7 @@ constexpr const char* kInvalidBindsCode = "invalid_binds";
 // kBrightnessMin..kBrightnessMax. Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
 constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
 struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightness = 100; };  // background: index into kBackgrounds
-using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
+using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
                                     EnvironmentPayload, BindPanelState>;
 struct ControlMessage {

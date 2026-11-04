@@ -202,6 +202,9 @@ int main(int argc, char** argv) {
                             presentation.set_overview_pointer(p->visible, p->x, p->y, p->held, p->directed, p->az, p->el,
                                                              p->drag ? p->ghost_w : 0, p->drag ? p->ghost_h : 0, p->drag ? p->target : -1, p->look);
                     }
+                    else if (m->op == xr::ControlOp::edge_pan) {  // display only; malformed ones were dropped above
+                        if (const auto* p = std::get_if<xr::EdgePan>(&m->payload)) presentation.set_edge_pan(*p);
+                    }
                     else if (m->op == xr::ControlOp::roll) {  // display and levelling roll; malformed ones were dropped above
                         if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
                             presentation.set_roll(r->roll, r->bars, r->hover, r->side, r->active);
@@ -227,7 +230,7 @@ int main(int argc, char** argv) {
                     }
                     else if (m->op == xr::ControlOp::view) {
                         const auto& v = std::get<xr::ViewPayload>(m->payload);
-                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing, v.center, v.cut);
+                        presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing, v.center, v.cut, v.pan);
                     }
                 }
             }

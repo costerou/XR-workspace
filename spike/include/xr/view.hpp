@@ -205,6 +205,29 @@ std::string overview_geometry_json(std::span<const FRect> tiles, std::uint32_t w
 
 // How long the view's own changes take: zoom, spacing (ViewAnimator) and a desktop's shape (SizeEase), all with smoothstep.
 constexpr float kViewEaseMs = 220.f;
+// The edge pan (tools/native_spike/edge_pan.py, the `edge_pan` frame, ipc.hpp): maximized, the hand pushing the cursor past
+// `side` of desktop `from` toward `to`. All of it is the supervisor's measure of the hand; this side only draws it.
+//   turn   radians the view has turned toward `to`, 1:1 with the hand from start to end of the pan.
+//   peek   0..1: the first stretch of the push. The zoom falls toward `zoom` and the dot rides the desktop's edge.
+//   cross  0..1: the rest. The dot leaves the edge at exit point E (`exit` along `side` of `from`, drawn at zoom `zoom`) along the
+//          great circle to entry point P (`entry` along the opposite edge of `to`, in its placed overview position), at the
+//          rate it had on the desktop. The zoom goes on down to 0, which is where the landing can move on to `to`.
+// `zoom` is as far as this pair needs (edge_pan.py pan_zoom). side: 0 right, 1 left, 2 up, 3 down.
+struct EdgePan { bool active = false; std::uint32_t from = 0, to = 0; std::uint8_t side = 0; float exit = 0, entry = 0, peek = 0, cross = 0, turn = 0, zoom = 0; };
+constexpr float kPanEaseMs = 30.f;      // time constant taking the hand's ~250 Hz samples to the display's frames
+constexpr float kPanAxisMinRad = 0.1f;
+constexpr float kPanStaleMs = 2000.f;   // no frame for this long (the supervisor stopped): the view goes back to the desktop
+// The pixel `f` (0..1, left / top first) along `side` of `tile`.
+std::array<float, 2> edge_point(const FRect& tile, std::uint8_t side, float f);
+// The dot's way across (canvas frame, unit vectors): `from` E, `to` P, `angle` how far apart, radians, and `axis` the unit axis the
+// view turns about: the one turning E to P the short way. When those two are closer than kPanAxisMinRad (a row's gap) it is
+// the one from the same point of the desktop's far edge to P, which runs the same way and is well defined.
+// nullopt if an index is out of range, the canvas is empty or E and P oppose.
+struct EdgePanPath { Vec3 from, to, axis; float angle = 0; };
+std::optional<EdgePanPath> edge_pan_path(const Canvas& canvas, std::span<const Size> sources, float spacing, std::span<const FRect> overview,
+                                         std::span<const Placement> placements, const EdgePan& pan);
+// The unit direction `cross` of the way from `start` to the path's P, along the great circle.
+Vec3 edge_pan_dot(const EdgePanPath& path, const Vec3& start, float cross);
 // One desktop's size as the layout draws it. When its output is resized live to a new shape (a glass pill's Resolution
 // dropdown or Ultrawide) the frame at the new size appears at once, in a tile whose aspect eases to the new one, so
 // the tile widens or narrows smoothly and, every layout being computed from these sizes, its neighbours slide along with
@@ -238,19 +261,32 @@ private:
 // A centred switch (set_target's `center`: the cursor pushed past an edge, tools/native_spike/unified_cursor.py) animates
 // the same, but in anchor mode its turn starts from the direction at the centre of the view when it began rather than from
 // the desktop being left, so it pans straight to the target and lands with the target centred in view (wayland.cpp).
-// A cut (set_target's `cut`: an anchor-mode cursor switch with its animation off) zoomed in skips all three: the target is
-// shown at once, fully zoomed in at its placement, the view never turned; any switch or turn in flight is dropped
+// A cut (set_target's `cut`: every switch between maximized desktops but a hand's push) zoomed in skips all three: the target
+// is shown at once, fully zoomed in at its placement, the view never turned; any switch, turn or pan in flight is dropped
 // unlanded (nothing to hand over to the room). Spacing still eases.
+// An edge pan (set_pan, EdgePan below) is the hand's: while maximized, the cursor pushed past an edge draws the zoom out and
+// the view's turn from the supervisor's frames, and pulling back undoes them. They are eased by kPanEaseMs so the pointer's
+// sample rate does not show, and the zoom moves no faster than the whole range in duration_ms. switching() is true for all
+// of it, so nothing of the overview's (pills, the dot's own frames) shows. set_target's `pan` lands one that reached its
+// target: phases 2 and 3 above from where the hand left it (phase 1 too if the zoom has not got to 0), about 0.52 s, 0.74 s at
+// most. `pan` with no pan under way is a cut. A cut or a return to the overview drops a pan where it is.
 class ViewAnimator {
 public:
     // A switch that landed: {from, to}; `centred` with the serial() of the centred switch (its turn's start direction).
     struct LandedTurn { std::uint32_t from = 0, to = 0; bool centred = false; std::uint32_t serial = 0; };
     explicit ViewAnimator(float duration_ms = kViewEaseMs, float turn_ms = 300.f) : duration_(duration_ms), turn_(turn_ms) {}
     void set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center = false,
-                    bool cut = false);
+                    bool cut = false, bool pan = false);
+    // A frame of the hand's pan. Ignored unless maximized at rest on p.from, or that pan is under way.
+    void set_pan(const EdgePan& p, double now_ms);
+    bool pan_active() const { return pan_on_; }      // under way, easing back, or landing
+    bool pan_landing() const { return pan_landing_; }
+    const EdgePan& pan() const { return pan_; }
+    float pan_cross() const { return pan_cross_; }   // eased EdgePan::cross
+    float pan_turn() const { return pan_turn_; }     // eased EdgePan::turn
     void advance(double now_ms);
-    bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active; }
-    bool switching() const { return switch_.active; }
+    bool animating() const { return t_ < 1.f || spacing_t_ < 1.f || look_t_ < 1.f || switch_.active || pan_on_; }
+    bool switching() const { return switch_.active || pan_on_; }
     float zoom() const;      // eased current zoom in [0,1]
     float position() const { return float(shown_); }  // the desktop the zoom is on (the one being left in phase 1)
     std::uint32_t focus() const { return shown_; }
@@ -277,7 +313,13 @@ public:
     std::uint32_t selected() const { return to_selected_; }
 private:
     void start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center);
+    void step_pan(double now_ms);
+    void end_pan() { pan_on_ = pan_landing_ = false; pan_ = {}; pan_peek_ = pan_cross_ = pan_turn_ = 0; pan_zoom_ = 1; }
     float duration_, turn_;
+    EdgePan pan_{};
+    bool pan_on_ = false, pan_landing_ = false;
+    float pan_peek_ = 0, pan_cross_ = 0, pan_turn_ = 0, pan_zoom_ = 1;
+    double pan_ms_ = 0, pan_seen_ms_ = 0;
     double start_ms_ = 0, spacing_start_ms_ = 0, look_start_ms_ = 0;
     float t_ = 1.f, spacing_t_ = 1.f, look_t_ = 1.f;
     float from_zoom_ = 0, to_zoom_ = 0, from_spacing_ = 40, to_spacing_ = 40, from_look_ = 0, from_turn_ = 0;

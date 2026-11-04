@@ -281,6 +281,11 @@ Quat aim_rotation(float az, float el) {
     // y left, z up) that is a pitch of el about +y after a yaw of az about +z.
     return quat_mul(Quat{0, std::sin(el / 2), 0, std::cos(el / 2)}, Quat{0, 0, std::sin(az / 2), std::cos(az / 2)});
 }
+Quat aim_turned(Quat aim, const std::array<float, 3>& axis, float angle) {
+    const auto a = xr::apply(transpose(kDriverToGl), axis);  // into the driver frame
+    const float s = std::sin(-angle / 2);
+    return quat_normalized(quat_mul(aim, Quat{a[0] * s, a[1] * s, a[2] * s, std::cos(-angle / 2)})).value_or(aim);
+}
 Quat ModeController::target(Quat head) const {
     if (holding_) return held_;
     switch (mode_) {

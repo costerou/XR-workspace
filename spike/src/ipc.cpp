@@ -4,6 +4,7 @@
 #include "video_ipc.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <set>
 #include <stdexcept>
@@ -59,6 +60,30 @@ bool brightness_percent(const Json& v, std::uint16_t& out) {
     if (n < kBrightnessMin || n > kBrightnessMax) return false;
     out = std::uint16_t(n);
     return true;
+}
+bool edge_pan(const Json& p, EdgePan& out) {
+    if (!p.is_object() || !p.contains("active") || !p["active"].is_boolean()) return false;
+    out.active = p["active"].get<bool>();
+    if (!out.active) return p.size() == 1;
+    if (p.size() != 10) return false;
+    for (const char* key : {"from", "to"})
+        if (!p.contains(key) || !p[key].is_number_unsigned() || p[key].get<std::uint64_t>() >= kMaxDesktops) return false;
+    out.from = p["from"].get<std::uint32_t>(); out.to = p["to"].get<std::uint32_t>();
+    if (!p.contains("side") || !p["side"].is_string()) return false;
+    const auto& side = p["side"].get_ref<const std::string&>();
+    const char* const sides[] = {"right", "left", "up", "down"};
+    const auto* found = std::find(std::begin(sides), std::end(sides), side);
+    if (found == std::end(sides)) return false;
+    out.side = std::uint8_t(found - std::begin(sides));
+    auto fraction = [&](const char* key, float& v) {
+        if (!p.contains(key) || !p[key].is_number_unsigned() || p[key].get<std::uint64_t>() > 10000) return false;
+        v = float(p[key].get<std::uint64_t>()) / 10000.f;
+        return true;
+    };
+    if (!fraction("turn", out.turn)) return false;
+    out.turn *= float(M_PI);  // the wire's is a share of half a turn
+    return fraction("exit", out.exit) && fraction("entry", out.entry) && fraction("peek", out.peek) && fraction("cross", out.cross) &&
+           fraction("zoom", out.zoom);
 }
 bool overview_pointer(const Json& p, OverviewPointerPayload& out) {
     const bool directed = p.is_object() && (p.contains("az") || p.contains("el"));
@@ -358,6 +383,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "desktops") op = ControlOp::desktops;
         else if (name == "environment") op = ControlOp::environment;
         else if (name == "binds") op = ControlOp::binds;
+        else if (name == "edge_pan") op = ControlOp::edge_pan;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -369,9 +395,9 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             payload = SelectPayload{j["payload"]["output_id"].get<std::string>()};
         } else if (op == ControlOp::view) {
             const auto& p = j["payload"];
-            const bool has_center = p.contains("center"), has_cut = p.contains("cut");
-            if (p.size() != 7u + has_center + has_cut || (has_center && !p["center"].is_boolean()) ||
-                (has_cut && !p["cut"].is_boolean()) || !p.contains("typing") || !p["typing"].is_boolean() ||
+            const bool has_center = p.contains("center"), has_cut = p.contains("cut"), has_pan = p.contains("pan");
+            if (p.size() != 7u + has_center + has_cut + has_pan || (has_center && !p["center"].is_boolean()) ||
+                (has_cut && !p["cut"].is_boolean()) || (has_pan && !p["pan"].is_boolean()) || !p.contains("typing") || !p["typing"].is_boolean() ||
                 !p.contains("prediction") || !p["prediction"].is_boolean() || !p.contains("zoomed") || !p.contains("selected") || !p.contains("spacing") || !p.contains("mode") ||
                 !p.contains("cursor_follow") || !p["cursor_follow"].is_boolean() || !p["zoomed"].is_boolean() || !p["selected"].is_number_unsigned() || !p["spacing"].is_number_unsigned() || !p["mode"].is_string() ||
                 p["selected"].get<std::uint64_t>() >= kMaxDesktops || p["spacing"].get<std::uint64_t>() > 400) return invalid();
@@ -380,7 +406,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             if (mode == "anchor") m = 0; else if (mode == "locked") m = 1; else if (mode == "follow") m = 2; else return invalid();
             payload = ViewPayload{p["zoomed"].get<bool>(), p["selected"].get<std::uint32_t>(), p["spacing"].get<std::uint32_t>(), m,
                                   p["cursor_follow"].get<bool>(), p["prediction"].get<bool>(), p["typing"].get<bool>(),
-                                  has_center && p["center"].get<bool>(), has_cut && p["cut"].get<bool>()};
+                                  has_center && p["center"].get<bool>(), has_cut && p["cut"].get<bool>(), has_pan && p["pan"].get<bool>()};
         } else if (op == ControlOp::style) {
             const auto& p = j["payload"];
             if (p.size() != 1 || !p.contains("border") || !p["border"].is_array() || p["border"].size() != 3) return invalid();
@@ -452,6 +478,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             OverviewPointerPayload pointer;
             if (!overview_pointer(j["payload"], pointer)) return Error{kInvalidOverviewPointerCode, "Ignored malformed overview_pointer payload"};
             payload = pointer;
+        } else if (op == ControlOp::edge_pan) {
+            EdgePan pan;
+            if (!edge_pan(j["payload"], pan)) return Error{kInvalidEdgePanCode, "Ignored malformed edge_pan payload"};
+            payload = pan;
         } else if (op == ControlOp::roll) {
             RollPayload r;
             if (!roll(j["payload"], r)) return Error{kInvalidRollCode, "Ignored malformed roll payload"};

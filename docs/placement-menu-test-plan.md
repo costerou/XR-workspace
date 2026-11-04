@@ -654,6 +654,33 @@ between sessions treats floating windows and scrolling columns.
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
+## The push past an edge: automated coverage and glasses test script
+
+Automated, offline only: `tests/native_spike/test_edge_pan.py`, `test_directional_switch.py` and the ctests `view`, `focus_center`,
+`ipc` and `placement_contract`. None of it has run in the glasses, and the feel can only be judged there. Needs the renderer and
+Python from the same build, three desktops at least, and head tracking on.
+
+| # | Do | Expect |
+|---|----|--------|
+| P1 | Maximize a desktop with a neighbour to its right. Push the mouse past the right edge slowly and keep going | Nothing for the first moment. Then the picture zooms out as you push, a dot takes over from the pointer and the view turns right with your hand, faster if you push faster. When the dot reaches the next desktop it settles in smoothly and fills the view. |
+| P2 | The same, leaving about a third of the way down the edge | The mouse comes in on the new desktop's left edge at about that height, not its middle. |
+| P3 | Push part way, then pull the mouse back | The view comes back with your hand, zooms in, and you are on the same desktop with the mouse at the edge. |
+| P4 | Push part way and stop moving | After about half a second the view goes back to the desktop. |
+| P5 | Flick the mouse hard past the edge | No jerk: the zoom eases and it lands in under a second. |
+| P6 | Push straight back the other way, several times, quickly | Each one finishes cleanly. A push during a landing does nothing, and pushing on afterwards starts a new one. |
+| P7 | Lift a desktop straight above the maximized one in the overview, maximize again, push up. Then down from it | The view sweeps up, then down, and the mouse comes in at the bottom, then the top. |
+| P8 | Put a desktop up and to the right at an angle. Push right from the top of the edge, then from the bottom | From the top it goes; from the bottom, if it is more than 45° off from there, nothing moves and the mouse stops at the edge. |
+| P9 | With nothing placed that way, push past an edge | The mouse stops at the edge. No zoom, no dot, no switch. |
+| P10 | Put a desktop far round to your right, near behind you. Push right | The view sweeps right the whole way round, never left. Pushing left does nothing unless something is that way. |
+| P11 | Do P1 in locked (Ctrl+Alt+V), head still, then turned | It lands locked to your view. In follow it lands and eases in front of you. |
+| P12 | Press Ctrl+Alt+Right, use the panel, send with Ctrl+Alt+G, switch in the overview, in typing mode | All instant: no zoom, no turn, no dot. |
+| P13 | On a scrolling-layout workspace with columns past the edge, push right | The columns scroll first; only then does the pan start. |
+| P14 | During a push part way across, press Ctrl+Alt+Down, then repeat with Ctrl+Alt+Right | Un-maximizes from where it is with no jump; the key is an instant cut. |
+
+Say how much mouse travel feels right: a row neighbour takes about a fifth of a desktop's width of mouse past the edge, and a
+desktop far round you several desktop widths, as the view turns at the mouse's speed.
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
 ## Recovery past a monitor rule: automated coverage and test script
 
 Automated, offline only: `tests/native_spike/test_leftover_rule.py`, `tests/xr_controller/test_recovery_report.py` and the

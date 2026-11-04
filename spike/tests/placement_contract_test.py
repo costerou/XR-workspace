@@ -9,7 +9,7 @@ import sys
 
 dump, root = sys.argv[1], sys.argv[2]
 sys.path.insert(0, root)
-from tools.native_spike import free_pointer as fp, orbit  # noqa: E402
+from tools.native_spike import edge_pan, free_pointer as fp, orbit  # noqa: E402
 
 ABS, REL = 2e-4, 1e-4  # the renderer computes in float
 KEYS = ('x', 'y', 'distance', 'curvature')  # every desktop always faces you: no yaw / pitch / roll
@@ -46,5 +46,17 @@ xs, ys = {c['placement']['x'] for c in cases}, {c['placement']['y'] for c in cas
 assert {0, orbit.X_LIMIT, -orbit.X_LIMIT} <= xs and {0, orbit.Y_LIMIT} <= ys and min(ys) < 0, (sorted(xs), sorted(ys))
 assert behind > 0 and turned > 0 and rolled > 0
 assert glass > 0 and 10 in {c['placement']['distance'] for c in cases}
+# The edge pan's two ends: edge_pan.py measures the hand's way on what the renderer draws (view.hpp edge_pan_path).
+pans = data['pans']
+assert len(pans) >= 100, len(pans)
+for case in pans:
+    w, h, hw, hh = case['canvas']
+    g = {'w': w, 'h': h, 'half': (hw, hh), 'tiles': [tuple(t) for t in case['tiles']]}
+    tile, q = edge_pan.drawn_home(g, g['tiles'][0], case['placements'][0], case['zoom'])
+    e = edge_pan.point(g, tile, q, case['side'], case['exit'])
+    p = edge_pan.point(g, g['tiles'][2], case['placements'][2], edge_pan.OPPOSITE[case['side']], case['entry'])
+    for got, want in ((e, case['e']), (p, case['p'])):
+        assert all(abs(a - b) <= 1e-3 for a, b in zip(got, want)), (case, got, want)
+print(f"edge pan contract: {len(pans)} pans match")
 print(f"placement contract: {points} points and {glass} glass points on {len(cases)} placed desktops match (worst error {worst:.1e}, "
       f"{behind} behind you, {turned} turned to face you at their slot, {rolled} rolled level)")

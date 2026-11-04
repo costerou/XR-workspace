@@ -6,6 +6,7 @@
 #define CHECK(x) do { if (!(x)) throw std::runtime_error(#x); } while (0)
 using namespace xr;
 bool near(float a, float b, float eps = 0.5f) { return std::fabs(a - b) <= eps; }
+float lerp_check(float a, float b, float t) { return a + (b - a) * t; }
 bool same(const FRect& r, FRect e) { return near(r.x, e.x, 1e-3f) && near(r.y, e.y, 1e-3f) && near(r.width, e.width, 1e-3f) && near(r.height, e.height, 1e-3f); }
 
 // Ctrl+Alt+R's tiles (TileEase): the same layouts the renderer draws, through a remove, a new aspect and an add.
@@ -160,7 +161,188 @@ void every_desktop_tests() {
     }
 }
 
+// The hand's pan past a maximized desktop's edge (view.hpp EdgePan, tools/native_spike/edge_pan.py).
+namespace {
+EdgePan pan_frame(float peek, float cross = 0, float turn = 0, float zoom = 0.2f, std::uint32_t from = 0, std::uint32_t to = 1) {
+    EdgePan p; p.active = true; p.from = from; p.to = to; p.exit = 0.3f; p.entry = 0.3f; p.peek = peek; p.cross = cross; p.turn = turn; p.zoom = zoom;
+    return p;
+}
+ViewAnimator maximized_on(std::uint32_t desktop) {
+    ViewAnimator v; v.set_target(false, desktop, 40, 0); v.set_target(true, desktop, 40, 0); v.advance(1000);
+    CHECK(v.zoom() == 1 && !v.animating() && v.focus() == desktop);
+    return v;
+}
+}
+void edge_pan_tests() {
+    {  // The hand draws it: the zoom falls with the peek and comes back with it, the desktop never changes.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1), 1000);
+        CHECK(v.pan_active() && v.switching() && v.animating());
+        for (double t = 1000; t < 1600; t += 8) v.advance(t);
+        CHECK(near(v.zoom(), 0.2f, 1e-3f) && v.focus() == 0 && v.selected() == 0);
+        v.set_pan(pan_frame(0.5f, 0, 0.1f), 1600);
+        for (double t = 1600; t < 2100; t += 8) v.advance(t);
+        CHECK(near(v.zoom(), lerp_check(1.f, 0.2f, smoothstep(0.5f)), 1e-2f));
+        CHECK(near(v.pan_turn(), 0.1f, 1e-2f));
+        v.set_pan(EdgePan{}, 2100);  // pulled back
+        double last = v.zoom();
+        for (double t = 2100; t < 2800; t += 8) { v.advance(t); CHECK(v.zoom() >= last - 1e-5); last = v.zoom(); }
+        CHECK(v.zoom() == 1 && !v.pan_active() && !v.switching() && !v.animating() && v.focus() == 0);
+        CHECK(v.take_landed_turns().empty());
+    }
+    {  // The crossing takes the zoom on to 0; a jump of the hand reaches the screen eased, at most the whole zoom in kViewEaseMs.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1, 1, 0.3f), 1000);
+        float was = v.zoom();
+        for (double t = 1008; t < 1100; t += 8) { v.advance(t); CHECK(was - v.zoom() <= 8 / kViewEaseMs + 1e-4f); was = v.zoom(); }
+        CHECK(v.zoom() > 0.4f);
+        for (double t = 1100; t < 1800; t += 8) v.advance(t);
+        CHECK(v.zoom() == 0 && near(v.pan_cross(), 1, 1e-3f) && near(v.pan_turn(), 0.3f, 1e-3f));
+    }
+    {  // Landing from the end of the way: the turn and the zoom in, about 0.52 s, no jump in zoom, on the target at the end.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1, 1, 0.3f), 1000);
+        for (double t = 1000; t < 1800; t += 8) v.advance(t);
+        CHECK(v.zoom() == 0);
+        v.set_target(true, 1, 40, 1800, false, false, true);
+        CHECK(v.pan_landing() && v.selected() == 1 && v.switching());
+        float z = v.zoom(), turned = 0;
+        double landed = 0;
+        for (double t = 1804; t < 2600; t += 4) {
+            v.advance(t);
+            CHECK(std::fabs(v.zoom() - z) < 0.04f);
+            z = v.zoom();
+            if (v.pan_landing()) { CHECK(v.turn() >= turned); turned = v.turn(); }
+            if (!v.pan_landing() && !landed) landed = t;
+        }
+        CHECK(landed >= 1800 + 500 && landed <= 1800 + 540);
+        CHECK(v.zoom() == 1 && v.focus() == 1 && !v.pan_active() && !v.animating());
+    }
+    {  // A flick: the hand arrives before the zoom has come down. Still whole, and within the 0.74 s that the cooldown covers.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1, 1, 0.3f), 1000);
+        v.advance(1016);
+        v.set_target(true, 1, 40, 1016, false, false, true);
+        double landed = 0;
+        for (double t = 1020; t < 2000 && !landed; t += 4) { v.advance(t); if (!v.pan_landing()) landed = t; }
+        CHECK(landed && landed - 1016 <= 745);
+        CHECK(v.focus() == 1 && v.zoom() == 1);
+    }
+    {  // A key during a pan is a cut: straight there, the pan gone.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1), 1000);
+        for (double t = 1000; t < 1300; t += 8) v.advance(t);
+        v.set_target(true, 2, 40, 1300, false, true);
+        CHECK(!v.pan_active() && v.zoom() == 1 && v.focus() == 2 && !v.switching());
+    }
+    {  // Un-maximized during a pan: the zoom carries on from where the pan had it.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1), 1000);
+        for (double t = 1000; t < 1300; t += 8) v.advance(t);
+        const float z = v.zoom();
+        v.set_target(false, 0, 40, 1300);
+        CHECK(!v.pan_active() && near(v.zoom(), z, 1e-4f));
+        v.advance(1700);
+        CHECK(v.zoom() == 0);
+    }
+    {  // Frames that do not fit are ignored: the overview, another desktop, mid switch; an unchanged view frame changes nothing.
+        ViewAnimator o; o.set_target(false, 0, 40, 0); o.advance(500);
+        o.set_pan(pan_frame(1), 500);
+        CHECK(!o.pan_active());
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1, 0, 0, 0.2f, 1, 2), 1000);
+        CHECK(!v.pan_active());
+        v.set_pan(pan_frame(1), 1000);
+        v.set_target(true, 0, 40, 1050);
+        CHECK(v.pan_active());
+    }
+    {  // `pan` with no pan under way is a cut, and an end of pan after the landing is nothing.
+        auto v = maximized_on(0);
+        v.set_target(true, 1, 40, 1000, false, false, true);
+        CHECK(v.zoom() == 1 && v.focus() == 1 && !v.switching());
+        v.set_pan(EdgePan{}, 1010);
+        CHECK(!v.pan_active());
+    }
+    {  // The supervisor stopped mid-pan: the view does not stay turned.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1, 0, 0.2f), 1000);
+        for (double t = 1000; t < 1000 + double(kPanStaleMs) + 900; t += 16) v.advance(t);
+        CHECK(!v.pan_active() && v.zoom() == 1);
+    }
+    {  // Rapid pushes: a new pan takes over from the eased-back one with no jump; none can start while one lands.
+        auto v = maximized_on(0);
+        v.set_pan(pan_frame(1, 0, 0.2f), 1000);
+        for (double t = 1000; t < 1200; t += 8) v.advance(t);
+        v.set_pan(EdgePan{}, 1200);
+        v.advance(1216);
+        const float z = v.zoom();
+        auto other = pan_frame(0.5f, 0, 0.05f, 0.2f, 0, 2);
+        v.set_pan(other, 1216);
+        CHECK(near(v.zoom(), z, 1e-4f) && v.pan().to == 2);
+        for (double t = 1216; t < 1600; t += 8) v.advance(t);
+        v.set_pan(pan_frame(1, 1, 0.2f, 0.2f, 0, 2), 1600);
+        for (double t = 1600; t < 2200; t += 8) v.advance(t);
+        v.set_target(true, 2, 40, 2200, false, false, true);
+        v.set_pan(pan_frame(1, 0, 0.1f, 0.2f, 2, 1), 2210);
+        CHECK(v.pan_landing() && v.pan().to == 2);
+    }
+    // The way across, in every direction, on three desktops: left, middle, right. Unit vectors.
+    const Size sizes[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
+    const Canvas c{1920, 1200, 0.42f, 0.27f};
+    const auto overview = overview_layout(sizes, 1920, 1200, 40);
+    const auto rad = [](float deg) { return deg * float(M_PI) / 180.f; };
+    const auto way = [&](std::span<const Placement> placed, std::uint32_t from, std::uint32_t to, std::uint8_t side) {
+        auto p = pan_frame(1, 0, 0, 0, from, to); p.side = side; p.exit = p.entry = 0.5f;
+        return edge_pan_path(c, sizes, 40, overview, placed, p);
+    };
+    const auto dir_of = [](const Vec3& v) { return std::array<float, 2>{std::atan2(v.x, -v.z), std::atan2(v.y, std::hypot(v.x, v.z))}; };
+    {  // Right and left along a row. The gap is tiny, so the axis comes from the far edge: the same way.
+        const std::vector<Placement> flat(3);
+        const auto r = way(flat, 0, 1, 0), l = way(flat, 1, 0, 1);
+        CHECK(r && l && r->angle < kPanAxisMinRad);
+        CHECK(near(r->axis.y, -1, 1e-3f));  // turning right: about -y
+        CHECK(near(l->axis.y, 1, 1e-3f));
+        const auto r2 = way(flat, 1, 2, 0);
+        CHECK(r2 && near(r2->axis.y, -1, 1e-3f));
+    }
+    {  // Up and down, to a desktop lifted over its slot; a diagonal between them; far round behind you, the way of the push.
+        const std::vector<Placement> up{{}, {rad(-8), rad(40), 1, 0, 0}, {rad(90), 0, 1, 0, 0}};
+        const auto u = way(up, 0, 1, 2);
+        CHECK(u && u->angle >= kPanAxisMinRad && dir_of(u->to)[1] > dir_of(u->from)[1]);
+        const std::vector<Placement> behind{{}, {rad(150), 0, 1, 0, 0}, {rad(-160), 0, 1, 0, 0}};
+        const auto b = way(behind, 0, 1, 0), bl = way(behind, 0, 2, 1);
+        CHECK(b && b->axis.y < -0.9f);      // right: the desktop far round to the right
+        CHECK(bl && bl->axis.y > 0.9f);     // left: the one far round to the left
+        const std::vector<Placement> diag{{}, {rad(30), rad(20), 1, 0, 0}, {}};
+        const auto d = way(diag, 0, 1, 0);
+        CHECK(d && d->axis.y < 0 && d->axis.x > 0);  // right and up
+    }
+    {  // The dot goes straight from E to P, each share of the way that share of the angle.
+        const std::vector<Placement> far{{}, {rad(60), 0, 1, 0, 0}, {}};
+        const auto w = way(far, 0, 1, 0);
+        CHECK(w && w->angle > 0.5f);
+        const Vec3 start = edge_pan_dot(*w, w->from, 0), end = edge_pan_dot(*w, w->from, 1);
+        CHECK(near(start.x, w->from.x, 1e-4f) && near(end.x, w->to.x, 1e-6f));
+        for (const float s : {0.25f, 0.5f, 0.9f}) {
+            const Vec3 q = edge_pan_dot(*w, w->from, s);
+            const float a = std::acos(std::clamp(q.x * w->from.x + q.y * w->from.y + q.z * w->from.z, -1.f, 1.f));
+            CHECK(near(a, w->angle * s, 2e-3f));
+            CHECK(std::fabs(q.x * w->axis.x + q.y * w->axis.y + q.z * w->axis.z) < 2e-3f);
+        }
+    }
+    {  // Edges, and what cannot be drawn.
+        const FRect t{10, 20, 100, 50};
+        const auto a = edge_point(t, 0, 0.3f), b = edge_point(t, 1, 0.3f), u = edge_point(t, 2, 0.3f), d = edge_point(t, 3, 2.f);
+        CHECK(near(a[0], 110, 1e-3f) && near(a[1], 35, 1e-3f) && near(b[0], 10, 1e-3f) && near(u[0], 40, 1e-3f) && near(u[1], 20, 1e-3f));
+        CHECK(near(d[0], 110, 1e-3f) && near(d[1], 70, 1e-3f));
+        const std::vector<Placement> flat(3);
+        CHECK(!way(flat, 0, 0, 0) && !way(flat, 0, 7, 0));
+    }
+    std::cout << "edge pan passed\n";
+}
+
 int main() {
+    edge_pan_tests();
     tile_ease_tests();
     every_desktop_tests();
     const Size eq[] = {{1920, 1080}, {1920, 1080}, {1920, 1080}};
