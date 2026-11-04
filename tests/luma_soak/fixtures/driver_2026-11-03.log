@@ -1,0 +1,1883 @@
+2026-11-03 00:01:37.929 Project version: 2.11.9
+2026-11-03 00:01:37.929 Driver has been re-enabled
+2026-11-03 00:01:37.929 Output mode has been changed to 'external_only'
+2026-11-03 00:01:37.929 Metrics have been disabled
+2026-11-03 00:01:37.929 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:01:42.929 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:01:47.929 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:01:52.929 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:01:57.929 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:02:02.929 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:02:07.929 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 00:02:07.930 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 00:02:07.930 Starting up XR driver
+2026-11-03 00:02:07.930 Waiting for glasses
+2026-11-03 00:02:07.934 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:175663153153	[PID:1709542][TID:1709932]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:175663362692	[PID:1709542][TID:1709932]	remain sync data transfer :15872 15872
+[CARINA][TIME]:175663368726	[PID:1709542][TID:1709932]	init open_vst_str: off
+2026-11-03 00:02:09.388 Device connected, redirecting input to external_only...
+2026-11-03 00:02:09.388 Waiting on device calibration
+2026-11-03 00:02:09.388 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 00:02:21.000 Device calibration complete
+2026-11-03 00:02:21.001 Centering screen
+2026-11-03 00:34:26.223 Project version: 2.11.9
+2026-11-03 00:34:26.223 Driver has been re-enabled
+2026-11-03 00:34:26.223 Output mode has been changed to 'external_only'
+2026-11-03 00:34:26.223 Metrics have been disabled
+2026-11-03 00:34:26.223 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:34:31.223 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:34:36.223 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:34:41.223 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:34:46.223 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:34:51.223 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 00:34:56.224 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 00:34:56.224 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 00:34:56.224 Starting up XR driver
+2026-11-03 00:34:56.224 Waiting for glasses
+2026-11-03 00:34:56.228 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:177631466214	[PID:1805865][TID:1806123]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:177631674584	[PID:1805865][TID:1806123]	remain sync data transfer :15872 15872
+[CARINA][TIME]:177631680490	[PID:1805865][TID:1806123]	init open_vst_str: off
+2026-11-03 00:34:57.699 Device connected, redirecting input to external_only...
+2026-11-03 00:34:57.700 Waiting on device calibration
+2026-11-03 00:34:57.700 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 00:35:09.000 Device calibration complete
+2026-11-03 00:35:09.001 Centering screen
+2026-11-03 01:12:06.442 Project version: 2.11.9
+2026-11-03 01:12:06.442 Driver has been re-enabled
+2026-11-03 01:12:06.442 Output mode has been changed to 'external_only'
+2026-11-03 01:12:06.442 Metrics have been disabled
+2026-11-03 01:12:06.442 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:12:11.442 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:12:16.442 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:12:21.442 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:12:26.443 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:12:31.443 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:12:36.443 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 01:12:36.443 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 01:12:36.443 Starting up XR driver
+2026-11-03 01:12:36.443 Waiting for glasses
+2026-11-03 01:12:36.447 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:179891708465	[PID:1903766][TID:1903968]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:179891916294	[PID:1903766][TID:1903968]	remain sync data transfer :15872 15872
+[CARINA][TIME]:179891922139	[PID:1903766][TID:1903968]	init open_vst_str: off
+2026-11-03 01:12:37.941 Device connected, redirecting input to external_only...
+2026-11-03 01:12:37.941 Waiting on device calibration
+2026-11-03 01:12:37.941 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 01:12:49.000 Device calibration complete
+2026-11-03 01:12:49.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+2026-11-03 01:23:14.521 Project version: 2.11.9
+2026-11-03 01:23:14.521 Driver has been re-enabled
+2026-11-03 01:23:14.521 Output mode has been changed to 'external_only'
+2026-11-03 01:23:14.521 Metrics have been disabled
+2026-11-03 01:23:14.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:23:19.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:23:24.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:23:29.522 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:23:34.522 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:23:39.522 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 01:23:44.522 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 01:23:44.522 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 01:23:44.522 Starting up XR driver
+2026-11-03 01:23:44.522 Waiting for glasses
+2026-11-03 01:23:44.527 Found device with vendor ID 0x35ca and product ID 0x1201
+[E][libglasses] open_imu execute_usb_command_with_response returned -3
+2026-11-03 01:23:45.538 [ERROR] VITURE: open_imu failed at 1000Hz (-3: USB execution error)
+2026-11-03 01:23:45.545 Device connected, redirecting input to external_only...
+2026-11-03 01:23:45.546 Waiting on device calibration
+2026-11-03 01:23:45.546 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 01:24:01.000 Device calibration complete
+2026-11-03 01:24:01.002 Centering screen
+2026-11-03 10:45:00.848 Project version: 2.11.9
+2026-11-03 10:45:00.848 Driver has been re-enabled
+2026-11-03 10:45:00.848 Output mode has been changed to 'external_only'
+2026-11-03 10:45:00.848 Metrics have been disabled
+2026-11-03 10:45:00.849 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 10:45:05.849 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 10:45:10.849 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 10:45:15.849 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 10:45:20.849 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 10:45:25.849 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 10:45:30.849 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 10:45:30.849 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 10:45:30.849 Starting up XR driver
+2026-11-03 10:45:30.849 Waiting for glasses
+2026-11-03 10:45:30.854 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:214266114217	[PID:2201367][TID:2205789]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:214266522361	[PID:2201367][TID:2205789]	do sync data transfer :-7 512 0
+[CARINA][TIME]:214266528626	[PID:2201367][TID:2205789]	init open_vst_str: off
+2026-11-03 10:45:32.547 Device connected, redirecting input to external_only...
+2026-11-03 10:45:32.548 Waiting on device calibration
+2026-11-03 10:45:32.548 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 10:45:44.000 Device calibration complete
+2026-11-03 10:45:44.001 Centering screen
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+2026-11-03 11:12:03.373 Waiting for glasses
+2026-11-03 11:33:08.858 Project version: 2.11.9
+2026-11-03 11:33:08.858 Driver has been re-enabled
+2026-11-03 11:33:08.858 Output mode has been changed to 'external_only'
+2026-11-03 11:33:08.858 Metrics have been disabled
+2026-11-03 11:33:08.858 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 11:33:13.858 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 11:33:18.859 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 11:33:23.859 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 11:33:28.859 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 11:33:33.859 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 11:33:38.859 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 11:33:38.859 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 11:33:38.859 Starting up XR driver
+2026-11-03 11:33:38.859 Waiting for glasses
+2026-11-03 11:33:38.864 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:217154163308	[PID:2322179][TID:2322483]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:217154573956	[PID:2322179][TID:2322483]	do sync data transfer :-7 512 0
+[CARINA][TIME]:217154580992	[PID:2322179][TID:2322483]	init open_vst_str: off
+2026-11-03 11:33:40.600 Device connected, redirecting input to external_only...
+2026-11-03 11:33:40.601 Waiting on device calibration
+2026-11-03 11:33:40.601 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 11:33:52.000 Device calibration complete
+2026-11-03 11:33:52.001 Centering screen
+2026-11-03 12:26:15.786 Project version: 2.11.9
+2026-11-03 12:26:15.786 Driver has been re-enabled
+2026-11-03 12:26:15.786 Output mode has been changed to 'external_only'
+2026-11-03 12:26:15.786 Metrics have been disabled
+2026-11-03 12:26:15.786 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 12:26:20.786 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 12:26:25.786 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 12:26:30.786 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 12:26:35.787 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 12:26:40.787 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 12:26:45.787 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 12:26:45.787 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 12:26:45.787 Starting up XR driver
+2026-11-03 12:26:45.787 Waiting for glasses
+2026-11-03 12:26:45.791 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:220341029589	[PID:2488576][TID:2488760]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:220341237663	[PID:2488576][TID:2488760]	remain sync data transfer :15872 15872
+[CARINA][TIME]:220341243887	[PID:2488576][TID:2488760]	init open_vst_str: off
+[E][libglasses] m_StateCallback is not initialized
+2026-11-03 12:26:47.264 Device connected, redirecting input to external_only...
+2026-11-03 12:26:47.264 Waiting on device calibration
+2026-11-03 12:26:47.264 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 12:26:59.000 Device calibration complete
+2026-11-03 12:26:59.001 Centering screen
+[E][libglasses] m_StateCallback is not initialized
+2026-11-03 13:15:58.720 Project version: 2.11.9
+2026-11-03 13:15:58.720 Driver has been re-enabled
+2026-11-03 13:15:58.720 Output mode has been changed to 'external_only'
+2026-11-03 13:15:58.720 Metrics have been disabled
+2026-11-03 13:15:58.720 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:16:03.720 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:16:08.721 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:16:13.721 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:16:18.721 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:16:23.721 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:16:28.721 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:16:28.721 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:16:28.721 Starting up XR driver
+2026-11-03 13:16:28.721 Waiting for glasses
+2026-11-03 13:16:28.725 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:223323964396	[PID:2769930][TID:2770334]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:223324372484	[PID:2769930][TID:2770334]	do sync data transfer :-7 512 0
+[CARINA][TIME]:223324378799	[PID:2769930][TID:2770334]	init open_vst_str: off
+2026-11-03 13:16:30.398 Device connected, redirecting input to external_only...
+2026-11-03 13:16:30.398 Waiting on device calibration
+2026-11-03 13:16:30.398 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:16:42.000 Device calibration complete
+2026-11-03 13:16:42.001 Centering screen
+2026-11-03 13:19:29.852 Project version: 2.11.9
+2026-11-03 13:19:29.852 Driver has been re-enabled
+2026-11-03 13:19:29.852 Output mode has been changed to 'external_only'
+2026-11-03 13:19:29.852 Metrics have been disabled
+2026-11-03 13:19:29.852 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:19:34.852 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:19:39.852 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:19:44.852 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:19:49.852 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:19:54.852 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:19:59.852 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:19:59.852 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:19:59.853 Starting up XR driver
+2026-11-03 13:19:59.853 Waiting for glasses
+2026-11-03 13:19:59.857 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:223535071789	[PID:2782309][TID:2783324]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:223535279709	[PID:2782309][TID:2783324]	remain sync data transfer :15872 15872
+[CARINA][TIME]:223535286187	[PID:2782309][TID:2783324]	init open_vst_str: off
+2026-11-03 13:20:01.306 Device connected, redirecting input to external_only...
+2026-11-03 13:20:01.306 Waiting on device calibration
+2026-11-03 13:20:01.306 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:20:13.000 Device calibration complete
+2026-11-03 13:20:13.001 Centering screen
+2026-11-03 13:29:07.840 Project version: 2.11.9
+2026-11-03 13:29:07.840 Driver has been re-enabled
+2026-11-03 13:29:07.840 Output mode has been changed to 'external_only'
+2026-11-03 13:29:07.840 Metrics have been disabled
+2026-11-03 13:29:07.840 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:29:12.840 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:29:17.840 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:29:22.840 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:29:27.841 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:29:32.841 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 13:29:37.841 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:29:37.841 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:29:37.841 Starting up XR driver
+2026-11-03 13:29:37.841 Waiting for glasses
+2026-11-03 13:29:37.845 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:224113074829	[PID:2822000][TID:2823245]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:224113482880	[PID:2822000][TID:2823245]	do sync data transfer :-7 512 0
+[CARINA][TIME]:224113489120	[PID:2822000][TID:2823245]	init open_vst_str: off
+2026-11-03 13:29:39.508 Device connected, redirecting input to external_only...
+2026-11-03 13:29:39.508 Waiting on device calibration
+2026-11-03 13:29:39.508 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 13:29:51.000 Device calibration complete
+2026-11-03 13:29:51.001 Centering screen
+2026-11-03 14:29:24.673 Project version: 2.11.9
+2026-11-03 14:29:24.673 Driver has been re-enabled
+2026-11-03 14:29:24.673 Output mode has been changed to 'external_only'
+2026-11-03 14:29:24.673 Metrics have been disabled
+2026-11-03 14:29:24.673 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:29:29.673 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:29:34.674 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:29:39.674 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:29:44.674 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:29:49.674 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:29:54.674 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 14:29:54.674 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 14:29:54.674 Starting up XR driver
+2026-11-03 14:29:54.674 Waiting for glasses
+2026-11-03 14:29:54.679 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:227729919592	[PID:3057284][TID:3058286]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:227730128888	[PID:3057284][TID:3058286]	remain sync data transfer :15872 15872
+[CARINA][TIME]:227730135494	[PID:3057284][TID:3058286]	init open_vst_str: off
+2026-11-03 14:29:56.155 Device connected, redirecting input to external_only...
+2026-11-03 14:29:56.155 Waiting on device calibration
+2026-11-03 14:29:56.155 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 14:30:08.000 Device calibration complete
+2026-11-03 14:30:08.001 Centering screen
+2026-11-03 14:59:08.661 Project version: 2.11.9
+2026-11-03 14:59:08.661 Driver has been re-enabled
+2026-11-03 14:59:08.661 Output mode has been changed to 'external_only'
+2026-11-03 14:59:08.661 Metrics have been disabled
+2026-11-03 14:59:08.661 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:59:13.661 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:59:18.661 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:59:23.661 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:59:28.662 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:59:33.662 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 14:59:38.662 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 14:59:38.662 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 14:59:38.662 Starting up XR driver
+2026-11-03 14:59:38.662 Waiting for glasses
+2026-11-03 14:59:38.666 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:229513908106	[PID:3193519][TID:3195049]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:229514116192	[PID:3193519][TID:3195049]	remain sync data transfer :15872 15872
+[CARINA][TIME]:229514122353	[PID:3193519][TID:3195049]	init open_vst_str: off
+2026-11-03 14:59:40.141 Device connected, redirecting input to external_only...
+2026-11-03 14:59:40.141 Waiting on device calibration
+2026-11-03 14:59:40.141 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 14:59:52.000 Device calibration complete
+2026-11-03 14:59:52.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:05:12.228 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:05:15.231 Device connected, redirecting input to external_only...
+2026-11-03 15:05:15.231 Waiting on device calibration
+2026-11-03 15:05:15.231 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:05:21.083 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:05:24.086 Device connected, redirecting input to external_only...
+2026-11-03 15:05:24.086 Waiting on device calibration
+2026-11-03 15:05:24.086 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:05:30.083 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:05:33.086 Device connected, redirecting input to external_only...
+2026-11-03 15:05:33.087 Waiting on device calibration
+2026-11-03 15:05:33.087 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:08:23.431 Project version: 2.11.9
+2026-11-03 15:08:23.431 Driver has been re-enabled
+2026-11-03 15:08:23.431 Output mode has been changed to 'external_only'
+2026-11-03 15:08:23.431 Metrics have been disabled
+2026-11-03 15:08:23.431 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:08:28.431 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:08:33.431 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:08:38.431 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:08:43.432 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:08:48.432 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:08:53.432 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:08:53.432 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:08:53.432 Starting up XR driver
+2026-11-03 15:08:53.432 Waiting for glasses
+2026-11-03 15:08:53.440 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:230068677789	[PID:3249256][TID:3250772]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:230069085914	[PID:3249256][TID:3250772]	do sync data transfer :-7 512 0
+[CARINA][TIME]:230069092384	[PID:3249256][TID:3250772]	init open_vst_str: off
+2026-11-03 15:08:55.113 Device connected, redirecting input to external_only...
+2026-11-03 15:08:55.114 Waiting on device calibration
+2026-11-03 15:08:55.114 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:09:07.000 Device calibration complete
+2026-11-03 15:09:07.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+2026-11-03 15:14:06.984 Project version: 2.11.9
+2026-11-03 15:14:06.984 Driver has been re-enabled
+2026-11-03 15:14:06.984 Output mode has been changed to 'external_only'
+2026-11-03 15:14:06.984 Metrics have been disabled
+2026-11-03 15:14:06.984 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:14:11.984 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:14:16.984 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:14:21.984 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:14:26.984 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:14:31.984 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:14:36.984 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:14:36.984 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:14:36.984 Starting up XR driver
+2026-11-03 15:14:36.985 Waiting for glasses
+2026-11-03 15:14:36.989 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:230412210789	[PID:3285877][TID:3287392]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:230412629351	[PID:3285877][TID:3287392]	do sync data transfer :-7 512 0
+[CARINA][TIME]:230412644252	[PID:3285877][TID:3287392]	init open_vst_str: off
+2026-11-03 15:14:38.670 Device connected, redirecting input to external_only...
+2026-11-03 15:14:38.670 Waiting on device calibration
+2026-11-03 15:14:38.670 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:14:50.000 Device calibration complete
+2026-11-03 15:14:50.001 Centering screen
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:34:22.814 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:34:25.819 Device connected, redirecting input to external_only...
+2026-11-03 15:34:25.819 Waiting on device calibration
+2026-11-03 15:34:25.819 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:34:37.520 Project version: 2.11.9
+2026-11-03 15:34:37.520 Driver has been re-enabled
+2026-11-03 15:34:37.520 Output mode has been changed to 'external_only'
+2026-11-03 15:34:37.520 Metrics have been disabled
+2026-11-03 15:34:37.520 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:34:42.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:34:47.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:34:52.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:34:57.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:35:02.521 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:35:07.521 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:35:07.521 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:35:07.521 Starting up XR driver
+2026-11-03 15:35:07.522 Waiting for glasses
+2026-11-03 15:35:07.526 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:231642757190	[PID:3439455][TID:3441676]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:231643165487	[PID:3439455][TID:3441676]	do sync data transfer :-7 512 0
+[CARINA][TIME]:231643171905	[PID:3439455][TID:3441676]	init open_vst_str: off
+2026-11-03 15:35:09.191 Device connected, redirecting input to external_only...
+2026-11-03 15:35:09.191 Waiting on device calibration
+2026-11-03 15:35:09.191 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:35:21.000 Device calibration complete
+2026-11-03 15:35:21.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:35:43.634 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:35:46.638 Device connected, redirecting input to external_only...
+2026-11-03 15:35:46.638 Waiting on device calibration
+2026-11-03 15:35:46.638 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:35:52.598 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:35:55.602 Device connected, redirecting input to external_only...
+2026-11-03 15:35:55.602 Waiting on device calibration
+2026-11-03 15:35:55.602 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+2026-11-03 15:36:11.101 Project version: 2.11.9
+2026-11-03 15:36:11.101 Driver has been re-enabled
+2026-11-03 15:36:11.101 Output mode has been changed to 'external_only'
+2026-11-03 15:36:11.101 Metrics have been disabled
+2026-11-03 15:36:11.101 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:36:16.101 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:36:21.101 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:36:26.101 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:36:31.101 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:36:36.102 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 15:36:41.102 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:36:41.102 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:36:41.102 Starting up XR driver
+2026-11-03 15:36:41.102 Waiting for glasses
+2026-11-03 15:36:41.106 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:231736336013	[PID:3465560][TID:3469001]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:231736744042	[PID:3465560][TID:3469001]	do sync data transfer :-7 512 0
+[CARINA][TIME]:231736750602	[PID:3465560][TID:3469001]	init open_vst_str: off
+2026-11-03 15:36:42.771 Device connected, redirecting input to external_only...
+2026-11-03 15:36:42.771 Waiting on device calibration
+2026-11-03 15:36:42.771 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 15:36:54.000 Device calibration complete
+2026-11-03 15:36:54.001 Centering screen
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:38:59.352 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 15:39:02.355 Device connected, redirecting input to external_only...
+2026-11-03 15:39:02.355 Waiting on device calibration
+2026-11-03 15:39:02.355 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:02:48.208 Project version: 2.11.9
+2026-11-03 17:02:48.208 Driver has been re-enabled
+2026-11-03 17:02:48.208 Output mode has been changed to 'external_only'
+2026-11-03 17:02:48.208 Metrics have been disabled
+2026-11-03 17:02:48.208 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:02:53.208 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:02:58.209 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:03:03.209 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:03:08.209 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:03:13.209 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:03:18.209 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:03:18.209 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:03:18.209 Starting up XR driver
+2026-11-03 17:03:18.209 Waiting for glasses
+2026-11-03 17:03:18.214 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:236933454036	[PID:3907978][TID:3909307]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:236933861828	[PID:3907978][TID:3909307]	do sync data transfer :-7 512 0
+[CARINA][TIME]:236933868536	[PID:3907978][TID:3909307]	init open_vst_str: off
+2026-11-03 17:03:19.887 Device connected, redirecting input to external_only...
+2026-11-03 17:03:19.888 Waiting on device calibration
+2026-11-03 17:03:19.888 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:03:31.000 Device calibration complete
+2026-11-03 17:03:31.001 Centering screen
+2026-11-03 17:18:44.005 Project version: 2.11.9
+2026-11-03 17:18:44.005 Driver has been re-enabled
+2026-11-03 17:18:44.005 Output mode has been changed to 'external_only'
+2026-11-03 17:18:44.005 Metrics have been disabled
+2026-11-03 17:18:44.005 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:18:49.005 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:18:54.005 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:18:59.005 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:04.005 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:09.006 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:14.006 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:19:14.006 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:19:14.006 Starting up XR driver
+2026-11-03 17:19:14.006 Waiting for glasses
+2026-11-03 17:19:14.010 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:237889232701	[PID:3955791][TID:3957755]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:237889640895	[PID:3955791][TID:3957755]	do sync data transfer :-7 512 0
+[CARINA][TIME]:237889647060	[PID:3955791][TID:3957755]	init open_vst_str: off
+2026-11-03 17:19:15.666 Device connected, redirecting input to external_only...
+2026-11-03 17:19:15.667 Waiting on device calibration
+2026-11-03 17:19:15.667 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:19:31.107 Project version: 2.11.9
+2026-11-03 17:19:31.107 Driver has been re-enabled
+2026-11-03 17:19:31.107 Output mode has been changed to 'external_only'
+2026-11-03 17:19:31.107 Metrics have been disabled
+2026-11-03 17:19:31.107 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:36.107 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:41.107 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:46.107 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:51.107 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:19:56.107 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:20:01.107 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:20:01.108 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:20:01.108 Starting up XR driver
+2026-11-03 17:20:01.108 Waiting for glasses
+2026-11-03 17:20:01.112 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:237936326540	[PID:3958194][TID:3958993]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:237936534939	[PID:3958194][TID:3958993]	remain sync data transfer :15872 15872
+[CARINA][TIME]:237936540842	[PID:3958194][TID:3958993]	init open_vst_str: off
+2026-11-03 17:20:02.561 Device connected, redirecting input to external_only...
+2026-11-03 17:20:02.561 Waiting on device calibration
+2026-11-03 17:20:02.561 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:20:14.000 Device calibration complete
+2026-11-03 17:20:14.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 17:42:34.711 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 17:42:37.714 Device connected, redirecting input to external_only...
+2026-11-03 17:42:37.714 Waiting on device calibration
+2026-11-03 17:42:37.714 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 17:42:43.641 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 17:42:46.645 Device connected, redirecting input to external_only...
+2026-11-03 17:42:46.645 Waiting on device calibration
+2026-11-03 17:42:46.645 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 17:43:10.743 Project version: 2.11.9
+2026-11-03 17:43:10.743 Driver has been re-enabled
+2026-11-03 17:43:10.743 Output mode has been changed to 'external_only'
+2026-11-03 17:43:10.743 Metrics have been disabled
+2026-11-03 17:43:10.743 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:43:15.743 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:43:20.744 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:43:25.744 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:43:30.744 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:43:35.744 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 17:43:40.744 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:43:40.744 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:43:40.744 Starting up XR driver
+2026-11-03 17:43:40.744 Waiting for glasses
+2026-11-03 17:43:40.748 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:239356010289	[PID:4048617][TID:4050430]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:239356420210	[PID:4048617][TID:4050430]	do sync data transfer :-7 512 0
+[CARINA][TIME]:239356451811	[PID:4048617][TID:4050430]	init open_vst_str: off
+2026-11-03 17:43:42.471 Device connected, redirecting input to external_only...
+2026-11-03 17:43:42.472 Waiting on device calibration
+2026-11-03 17:43:42.472 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 17:43:54.000 Device calibration complete
+2026-11-03 17:43:54.001 Centering screen
+2026-11-03 18:07:05.038 Project version: 2.11.9
+2026-11-03 18:07:05.038 Driver has been re-enabled
+2026-11-03 18:07:05.038 Output mode has been changed to 'external_only'
+2026-11-03 18:07:05.038 Metrics have been disabled
+2026-11-03 18:07:05.038 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 18:07:10.038 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 18:07:15.038 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 18:07:20.039 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 18:07:25.039 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 18:07:30.039 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 18:07:35.039 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 18:07:35.039 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 18:07:35.039 Starting up XR driver
+2026-11-03 18:07:35.039 Waiting for glasses
+2026-11-03 18:07:35.045 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:240790303501	[PID:4157319][TID:4158722]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:240790511792	[PID:4157319][TID:4158722]	remain sync data transfer :15872 15872
+[CARINA][TIME]:240790517710	[PID:4157319][TID:4158722]	init open_vst_str: off
+[E][libglasses] m_StateCallback is not initialized
+2026-11-03 18:07:36.537 Device connected, redirecting input to external_only...
+2026-11-03 18:07:36.537 Waiting on device calibration
+2026-11-03 18:07:36.537 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 18:07:48.000 Device calibration complete
+2026-11-03 18:07:48.001 Centering screen
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 19:18:34.855 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 19:18:37.860 Device connected, redirecting input to external_only...
+2026-11-03 19:18:37.860 Waiting on device calibration
+2026-11-03 19:18:37.860 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+2026-11-03 19:39:19.561 Project version: 2.11.9
+2026-11-03 19:39:19.561 Driver has been re-enabled
+2026-11-03 19:39:19.561 Output mode has been changed to 'external_only'
+2026-11-03 19:39:19.561 Metrics have been disabled
+2026-11-03 19:39:19.561 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 19:39:24.561 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 19:39:29.561 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 19:39:34.562 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 19:39:39.562 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 19:39:44.562 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 19:39:49.562 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 19:39:49.562 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 19:39:49.562 Starting up XR driver
+2026-11-03 19:39:49.562 Waiting for glasses
+2026-11-03 19:39:49.566 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:246324806195	[PID:305375][TID:305939]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:246325214797	[PID:305375][TID:305939]	do sync data transfer :-7 512 0
+[CARINA][TIME]:246325220923	[PID:305375][TID:305939]	init open_vst_str: off
+2026-11-03 19:39:51.242 Device connected, redirecting input to external_only...
+2026-11-03 19:39:51.242 Waiting on device calibration
+2026-11-03 19:39:51.242 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 19:40:03.000 Device calibration complete
+2026-11-03 19:40:03.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:02:23.112 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:02:26.118 Device connected, redirecting input to external_only...
+2026-11-03 20:02:26.118 Waiting on device calibration
+2026-11-03 20:02:26.118 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:03:01.300 Project version: 2.11.9
+2026-11-03 20:03:01.300 Driver has been re-enabled
+2026-11-03 20:03:01.300 Output mode has been changed to 'external_only'
+2026-11-03 20:03:01.300 Metrics have been disabled
+2026-11-03 20:03:01.300 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:03:06.300 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:03:11.300 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:03:16.300 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:03:21.301 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:03:26.301 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:03:31.301 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:03:31.301 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:03:31.301 Starting up XR driver
+2026-11-03 20:03:31.301 Waiting for glasses
+2026-11-03 20:03:31.305 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:247746537393	[PID:427075][TID:429198]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:247746945699	[PID:427075][TID:429198]	do sync data transfer :-7 512 0
+[CARINA][TIME]:247746952172	[PID:427075][TID:429198]	init open_vst_str: off
+2026-11-03 20:03:33.041 Device connected, redirecting input to external_only...
+2026-11-03 20:03:33.042 Waiting on device calibration
+2026-11-03 20:03:33.042 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:03:44.000 Device calibration complete
+2026-11-03 20:03:44.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:04:05.422 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:04:08.426 Device connected, redirecting input to external_only...
+2026-11-03 20:04:08.426 Waiting on device calibration
+2026-11-03 20:04:08.426 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:04:14.375 Retrying driver connection in 1 second
+2026-11-03 20:05:22.834 Project version: 2.11.9
+2026-11-03 20:05:22.834 Driver has been re-enabled
+2026-11-03 20:05:22.834 Output mode has been changed to 'external_only'
+2026-11-03 20:05:22.834 Metrics have been disabled
+2026-11-03 20:05:22.834 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:05:27.834 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:05:32.834 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:05:37.834 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:05:42.834 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:05:47.834 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:05:52.834 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:05:52.834 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:05:52.834 Starting up XR driver
+2026-11-03 20:05:52.835 Waiting for glasses
+2026-11-03 20:05:52.839 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:247888064514	[PID:442402][TID:444904]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:247888473063	[PID:442402][TID:444904]	do sync data transfer :-7 512 0
+[CARINA][TIME]:247888479857	[PID:442402][TID:444904]	init open_vst_str: off
+2026-11-03 20:05:54.500 Device connected, redirecting input to external_only...
+2026-11-03 20:05:54.501 Waiting on device calibration
+2026-11-03 20:05:54.501 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:06:06.000 Device calibration complete
+2026-11-03 20:06:06.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:06:13.925 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:06:16.929 Device connected, redirecting input to external_only...
+2026-11-03 20:06:16.929 Waiting on device calibration
+2026-11-03 20:06:16.929 [ERROR] No hardwareId found, not retrieving license
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 20:06:22.885 Retrying driver connection in 1 second
+2026-11-03 20:06:28.700 Project version: 2.11.9
+2026-11-03 20:06:28.700 Driver has been re-enabled
+2026-11-03 20:06:28.700 Output mode has been changed to 'external_only'
+2026-11-03 20:06:28.700 Metrics have been disabled
+2026-11-03 20:06:28.700 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:06:33.700 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:06:38.700 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:06:43.701 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:06:48.701 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:06:53.701 [ERROR] Failed to get hardwareId, retrying in 5 seconds
+2026-11-03 20:06:58.701 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:06:58.701 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:06:58.701 Starting up XR driver
+2026-11-03 20:06:58.701 Waiting for glasses
+2026-11-03 20:06:58.705 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:247953920725	[PID:456970][TID:458593]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:247954328336	[PID:456970][TID:458593]	do sync data transfer :-7 512 0
+[CARINA][TIME]:247954335021	[PID:456970][TID:458593]	init open_vst_str: off
+2026-11-03 20:07:00.355 Device connected, redirecting input to external_only...
+2026-11-03 20:07:00.355 Waiting on device calibration
+2026-11-03 20:07:00.355 [ERROR] No hardwareId found, not retrieving license
+2026-11-03 20:07:12.000 Device calibration complete
+2026-11-03 20:07:12.001 Centering screen
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+2026-11-03 20:43:36.376 Project version: 2.11.9
+2026-11-03 20:43:36.376 Driver has been re-enabled
+2026-11-03 20:43:36.376 Output mode has been changed to 'external_only'
+2026-11-03 20:43:36.376 Metrics have been disabled
+2026-11-03 20:43:36.376 Using hardware id REDACTED
+2026-11-03 20:43:36.377 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 20:43:36.377 [ERROR] Error opening file (/?0?jU): 2
+2026-11-03 20:43:36.377 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 20:43:36.377 [ERROR] Error opening file (??0?jU): 2
+2026-11-03 20:43:36.377 Starting up XR driver
+2026-11-03 20:43:36.377 Waiting for glasses
+2026-11-03 20:43:36.381 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:250151619459	[PID:634321][TID:634333]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:250152027448	[PID:634321][TID:634333]	do sync data transfer :-7 512 0
+[CARINA][TIME]:250152033649	[PID:634321][TID:634333]	init open_vst_str: off
+2026-11-03 20:43:38.053 Device connected, redirecting input to external_only...
+2026-11-03 20:43:38.054 Waiting on device calibration
+2026-11-03 20:43:38.054 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 20:43:38.054 [ERROR] Error opening file (G???K?): 2
+2026-11-03 20:43:50.000 Device calibration complete
+2026-11-03 20:43:50.001 Centering screen
+2026-11-03 22:23:23.412 Project version: 2.11.9
+2026-11-03 22:23:23.413 Driver has been re-enabled
+2026-11-03 22:23:23.413 Output mode has been changed to 'external_only'
+2026-11-03 22:23:23.413 Metrics have been disabled
+2026-11-03 22:23:23.413 Using hardware id REDACTED
+2026-11-03 22:23:23.414 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 22:23:23.414 [ERROR] Error opening file (h??IV): 2
+2026-11-03 22:23:23.414 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 22:23:23.414 [ERROR] Error opening file (???IV): 2
+2026-11-03 22:23:23.414 Starting up XR driver
+2026-11-03 22:23:23.414 Waiting for glasses
+2026-11-03 22:23:23.419 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:256138658318	[PID:932606][TID:932630]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:256138865825	[PID:932606][TID:932630]	remain sync data transfer :15872 15872
+[CARINA][TIME]:256138871647	[PID:932606][TID:932630]	init open_vst_str: off
+[E][libglasses] m_StateCallback is not initialized
+[E][libglasses] m_StateCallback is not initialized
+2026-11-03 22:25:54.070 Project version: 2.11.9
+2026-11-03 22:25:54.070 Driver has been re-enabled
+2026-11-03 22:25:54.070 Output mode has been changed to 'external_only'
+2026-11-03 22:25:54.070 Metrics have been disabled
+2026-11-03 22:25:54.070 Using hardware id REDACTED
+2026-11-03 22:25:54.071 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 22:25:54.071 [ERROR] Error opening file (??|?bU): 2
+2026-11-03 22:25:54.072 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 22:25:54.072 [ERROR] Error opening file ( ?|?bU): 2
+2026-11-03 22:25:54.072 Starting up XR driver
+2026-11-03 22:25:54.072 Waiting for glasses
+2026-11-03 22:25:54.076 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:256289315869	[PID:944677][TID:944689]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:256289527038	[PID:944677][TID:944689]	remain sync data transfer :15872 15872
+[CARINA][TIME]:256289534685	[PID:944677][TID:944689]	init open_vst_str: off
+2026-11-03 22:25:55.554 Device connected, redirecting input to external_only...
+2026-11-03 22:25:55.554 Waiting on device calibration
+2026-11-03 22:25:55.554 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 22:25:55.554 [ERROR] Error opening file (GUr`??): 2
+2026-11-03 22:26:07.000 Device calibration complete
+2026-11-03 22:26:07.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 22:59:52.739 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 22:59:55.743 Device connected, redirecting input to external_only...
+2026-11-03 22:59:55.743 Waiting on device calibration
+2026-11-03 22:59:55.743 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 22:59:55.743 [ERROR] Error opening file (GUr`??): 2
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 23:00:01.403 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 23:00:04.407 Device connected, redirecting input to external_only...
+2026-11-03 23:00:04.407 Waiting on device calibration
+2026-11-03 23:00:04.407 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:00:04.407 [ERROR] Error opening file (	?A`??): 2
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+2026-11-03 23:00:28.097 Project version: 2.11.9
+2026-11-03 23:00:28.097 Driver has been re-enabled
+2026-11-03 23:00:28.097 Output mode has been changed to 'external_only'
+2026-11-03 23:00:28.097 Metrics have been disabled
+2026-11-03 23:00:28.098 Using hardware id REDACTED
+2026-11-03 23:00:28.098 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:00:28.098 [ERROR] Error opening file ("??K?U): 2
+2026-11-03 23:00:28.099 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:00:28.099 [ERROR] Error opening file (?K?U): 2
+2026-11-03 23:00:28.099 Starting up XR driver
+2026-11-03 23:00:28.099 Waiting for glasses
+2026-11-03 23:00:28.103 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:258363337436	[PID:1049478][TID:1049490]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:258363748201	[PID:1049478][TID:1049490]	do sync data transfer :-7 512 0
+[CARINA][TIME]:258363756337	[PID:1049478][TID:1049490]	init open_vst_str: off
+2026-11-03 23:00:29.776 Device connected, redirecting input to external_only...
+2026-11-03 23:00:29.776 Waiting on device calibration
+2026-11-03 23:00:29.776 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:00:29.776 [ERROR] Error opening file (????i?): 2
+2026-11-03 23:00:41.000 Device calibration complete
+2026-11-03 23:00:41.001 Centering screen
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+[E][libglasses] get_display_mode execute_usb_command_with_response returned -7
+2026-11-03 23:01:58.272 Retrying driver connection in 1 second
+[E][libglasses] Failed to send USB command - MsgID: 0x0007, error code: -1
+2026-11-03 23:28:04.436 Project version: 2.11.9
+2026-11-03 23:28:04.436 Driver has been re-enabled
+2026-11-03 23:28:04.436 Output mode has been changed to 'external_only'
+2026-11-03 23:28:04.436 Metrics have been disabled
+2026-11-03 23:28:04.437 Using hardware id REDACTED
+2026-11-03 23:28:04.438 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:28:04.438 [ERROR] Error opening file (????PV): 2
+2026-11-03 23:28:04.438 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:28:04.438 [ERROR] Error opening file (6???PV): 2
+2026-11-03 23:28:04.438 Starting up XR driver
+2026-11-03 23:28:04.438 Waiting for glasses
+2026-11-03 23:28:04.442 Found device with vendor ID 0x35ca and product ID 0x1104
+[I][libglasses] ReceiveQueue worker thread started.
+[I][libglasses] SendQueue started.
+[I][libglasses] TaskManager initialized with dual-thread model.
+[I][libglasses] UsbProtocolController: Creating V1 protocol instances for Gen1/Carina device
+[I][libglasses] UsbProtocolController created with protocol version: V1
+[CARINA][TIME]:260019683055	[PID:1169493][TID:1169505]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:260020091614	[PID:1169493][TID:1169505]	do sync data transfer :-7 512 0
+[CARINA][TIME]:260020098612	[PID:1169493][TID:1169505]	init open_vst_str: off
+[I][libglasses] CarinaDeviceProvider initialized (6DOF=true)
+[I][libglasses] ProtocolController started with monitoring thread
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] USB response monitoring thread started
+[I][libglasses] SendQueue: Executing (sync) Task ID: 0
+[I][libglasses] SendQueue: Popped Task ID: 0. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 0.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x100B, PayloadLen: 1, DataLen: 13, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x100B, PayloadLen: 1, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 0, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x100B
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x100B with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x100B
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x100B
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x100B
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 0.
+[I][libglasses] SendQueue: Finished (sync) Task ID: 0, success: true
+[I][libglasses] USB command executed synchronously with msgId: 0x100B
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] xr_device_provider_initialize: enabled status report for Carina device
+[I][libglasses] CarinaDeviceProvider started
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 1
+[I][libglasses] SendQueue: Popped Task ID: 1. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 1.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 1, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 1.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 1, success: true
+[I][libglasses] ------------------------------end--------------------------------
+2026-11-03 23:28:06.118 Device connected, redirecting input to external_only...
+2026-11-03 23:28:06.118 Waiting on device calibration
+2026-11-03 23:28:06.119 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:28:06.119 [ERROR] Error opening file (CU): 2
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 2
+[I][libglasses] SendQueue: Popped Task ID: 2. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 2.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 2, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 2.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 2, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 3
+[I][libglasses] SendQueue: Popped Task ID: 3. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 3.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 3, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 3.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 3, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 4
+[I][libglasses] SendQueue: Popped Task ID: 4. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 4.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 4, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 4.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 4, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 5
+[I][libglasses] SendQueue: Popped Task ID: 5. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 5.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 5, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 5.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 5, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 6
+[I][libglasses] SendQueue: Popped Task ID: 6. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 6.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 6, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 6.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 6, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 7
+[I][libglasses] SendQueue: Popped Task ID: 7. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 7.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 7, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 7.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 7, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 8
+[I][libglasses] SendQueue: Popped Task ID: 8. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 8.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 8, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 8.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 8, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 9
+[I][libglasses] SendQueue: Popped Task ID: 9. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 9.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 9, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 9.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 9, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 10
+[I][libglasses] SendQueue: Popped Task ID: 10. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 10.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 10, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 10.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 10, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 11
+[I][libglasses] SendQueue: Popped Task ID: 11. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 11.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 11, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 11.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 11, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 12
+[I][libglasses] SendQueue: Popped Task ID: 12. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 12.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 12, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 12.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 12, success: true
+[I][libglasses] ------------------------------end--------------------------------
+2026-11-03 23:28:17.000 Device calibration complete
+2026-11-03 23:28:17.001 Centering screen
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 13
+[I][libglasses] SendQueue: Popped Task ID: 13. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 13.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 13, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 13.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 13, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 14
+[I][libglasses] SendQueue: Popped Task ID: 14. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 14.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 14, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 14.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 14, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 15
+[I][libglasses] SendQueue: Popped Task ID: 15. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 15.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 15, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 15.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 15, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 16
+[I][libglasses] SendQueue: Popped Task ID: 16. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 16.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 16, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 16.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 16, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 17
+[I][libglasses] SendQueue: Popped Task ID: 17. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 17.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 17, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 17.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 17, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 18
+[I][libglasses] SendQueue: Popped Task ID: 18. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 18.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 18, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 18.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 18, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 19
+[I][libglasses] SendQueue: Popped Task ID: 19. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 19.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 19, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 19.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 19, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 20
+[I][libglasses] SendQueue: Popped Task ID: 20. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 20.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 20, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 20.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 20, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 21
+[I][libglasses] SendQueue: Popped Task ID: 21. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 21.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 21, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 21.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 21, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 22
+[I][libglasses] SendQueue: Popped Task ID: 22. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 22.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 22, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 22.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 22, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 23
+[I][libglasses] SendQueue: Popped Task ID: 23. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 23.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 23, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 23.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 23, success: true
+[I][libglasses] ------------------------------end--------------------------------
+2026-11-03 23:28:51.775 Project version: 2.11.9
+2026-11-03 23:28:51.775 Driver has been re-enabled
+2026-11-03 23:28:51.775 Output mode has been changed to 'external_only'
+2026-11-03 23:28:51.775 Metrics have been disabled
+2026-11-03 23:28:51.775 Using hardware id REDACTED
+2026-11-03 23:28:51.776 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:28:51.776 [ERROR] Error opening file (=?F?mU): 2
+2026-11-03 23:28:51.776 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:28:51.776 [ERROR] Error opening file (??F?mU): 2
+2026-11-03 23:28:51.776 Starting up XR driver
+2026-11-03 23:28:51.776 Waiting for glasses
+2026-11-03 23:28:51.781 Found device with vendor ID 0x35ca and product ID 0x1104
+[I][libglasses] ReceiveQueue worker thread started.
+[I][libglasses] SendQueue started.
+[I][libglasses] TaskManager initialized with dual-thread model.
+[I][libglasses] UsbProtocolController: Creating V1 protocol instances for Gen1/Carina device
+[I][libglasses] UsbProtocolController created with protocol version: V1
+[shim] set_dof_type_carina(3) = 0
+[CARINA][TIME]:260066996359	[PID:1174617][TID:1174629]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:260067204307	[PID:1174617][TID:1174629]	remain sync data transfer :15872 15872
+[CARINA][TIME]:260067210562	[PID:1174617][TID:1174629]	init open_vst_str: off
+[I][libglasses] CarinaDeviceProvider initialized (6DOF=false)
+[I][libglasses] ProtocolController started with monitoring thread
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync) Task ID: 0
+[I][libglasses] USB response monitoring thread started
+[I][libglasses] SendQueue: Popped Task ID: 0. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 0.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x100B, PayloadLen: 1, DataLen: 13, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x100B, PayloadLen: 1, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 0, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x100B
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x100B with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x100B
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x100B
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x100B
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 0.
+[I][libglasses] SendQueue: Finished (sync) Task ID: 0, success: true
+[I][libglasses] USB command executed synchronously with msgId: 0x100B
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] xr_device_provider_initialize: enabled status report for Carina device
+[I][libglasses] CarinaDeviceProvider started
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 1
+[I][libglasses] SendQueue: Popped Task ID: 1. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 1.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 1, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 1.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 1, success: true
+[I][libglasses] ------------------------------end--------------------------------
+2026-11-03 23:28:53.230 Device connected, redirecting input to external_only...
+2026-11-03 23:28:53.230 Waiting on device calibration
+2026-11-03 23:28:53.230 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:28:53.230 [ERROR] Error opening file (C?T?q?): 2
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 2
+[I][libglasses] SendQueue: Popped Task ID: 2. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 2.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 2, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 2.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 2, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 3
+[I][libglasses] SendQueue: Popped Task ID: 3. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 3.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 3, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 3.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 3, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 4
+[I][libglasses] SendQueue: Popped Task ID: 4. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 4.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 4, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 4.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 4, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 5
+[I][libglasses] SendQueue: Popped Task ID: 5. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 5.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 5, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 5.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 5, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 6
+[I][libglasses] SendQueue: Popped Task ID: 6. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 6.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 6, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 6.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 6, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 7
+[I][libglasses] SendQueue: Popped Task ID: 7. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 7.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 7, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 7.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 7, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 8
+[I][libglasses] SendQueue: Popped Task ID: 8. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 8.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 8, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 8.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 8, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 9
+[I][libglasses] SendQueue: Popped Task ID: 9. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 9.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 9, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 9.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 9, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 10
+[I][libglasses] SendQueue: Popped Task ID: 10. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 10.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 10, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 10.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 10, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 11
+[I][libglasses] SendQueue: Popped Task ID: 11. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 11.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 11, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 11.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 11, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 12
+[I][libglasses] SendQueue: Popped Task ID: 12. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 12.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 12, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 12.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 12, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 13
+[I][libglasses] SendQueue: Popped Task ID: 13. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 13.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 13, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 13.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 13, success: true
+[I][libglasses] ------------------------------end--------------------------------
+2026-11-03 23:29:05.000 Device calibration complete
+2026-11-03 23:29:05.001 Centering screen
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 14
+[I][libglasses] SendQueue: Popped Task ID: 14. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 14.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 14, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 14.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 14, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 15
+[I][libglasses] SendQueue: Popped Task ID: 15. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 15.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 15, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 15.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 15, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 16
+[I][libglasses] SendQueue: Popped Task ID: 16. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 16.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 16, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 16.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 16, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 17
+[I][libglasses] SendQueue: Popped Task ID: 17. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 17.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 17, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 17.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 17, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 18
+[I][libglasses] SendQueue: Popped Task ID: 18. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 18.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 18, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 18.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 18, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 19
+[I][libglasses] SendQueue: Popped Task ID: 19. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 19.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 19, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 19.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 19, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 20
+[I][libglasses] SendQueue: Popped Task ID: 20. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 20.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 20, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 20.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 20, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 21
+[I][libglasses] SendQueue: Popped Task ID: 21. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 21.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 21, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 21.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 21, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 22
+[I][libglasses] SendQueue: Popped Task ID: 22. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 22.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 22, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 22.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 22, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 23
+[I][libglasses] SendQueue: Popped Task ID: 23. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 23.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 23, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 23.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 23, success: true
+[I][libglasses] ------------------------------end--------------------------------
+[I][libglasses] ------------------------------start--------------------------------
+[I][libglasses] SendQueue: Executing (sync with response) Task ID: 24
+[I][libglasses] SendQueue: Popped Task ID: 24. Preparing to execute work.
+[I][libglasses] SendQueue: Executing work for Task ID: 24.
+[I][libglasses] UsbProtocolBuilder: Built command - MsgID: 0x0007, PayloadLen: 0, DataLen: 12, PacketLen: 512
+[I][libglasses] CarinaDeviceProvider::SendData >>> send_custom_data begin (len=512)
+[I][libglasses] CarinaDeviceProvider::SendData <<< send_custom_data end (ret=0)
+[I][libglasses] USB command sent successfully - MsgID: 0x0007, PayloadLen: 0, PacketLen: 512
+[I][libglasses] SendQueue: work() returned for Task ID: 24, waiting for ACK.
+[I][libglasses] UsbProtocolController: Processing V1 regular response - MsgID: 0x0007
+[I][libglasses] TaskManager: Posting ACK for Msg ID: 0x0007 with Status Code: 0
+[I][libglasses] UsbProtocolController: V1 response processed and ACK posted for msgId: 0x0007
+[I][libglasses] ReceiveQueue: Processing ACK for Msg ID: 0x0007
+[I][libglasses] SendQueue: Correct ACK received - MsgID: 0x0007
+[I][libglasses] SendQueue: ACK received or stop signal for Task ID: 24.
+[I][libglasses] SendQueue: Finished (sync with response) Task ID: 24, success: true
+[I][libglasses] ------------------------------end--------------------------------
+2026-11-03 23:29:58.102 Project version: 2.11.9
+2026-11-03 23:29:58.102 Driver has been re-enabled
+2026-11-03 23:29:58.102 Output mode has been changed to 'external_only'
+2026-11-03 23:29:58.102 Metrics have been disabled
+2026-11-03 23:29:58.103 Using hardware id REDACTED
+2026-11-03 23:29:58.104 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:29:58.104 [ERROR] Error opening file (?q?.?U): 2
+2026-11-03 23:29:58.104 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:29:58.104 [ERROR] Error opening file (<q?.?U): 2
+2026-11-03 23:29:58.104 Starting up XR driver
+2026-11-03 23:29:58.104 Waiting for glasses
+2026-11-03 23:29:58.108 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:260133322633	[PID:1178599][TID:1178611]	get exp flag status: Host Command Invalid
+[CARINA][TIME]:260133531389	[PID:1178599][TID:1178611]	remain sync data transfer :15872 15872
+[CARINA][TIME]:260133537244	[PID:1178599][TID:1178611]	init open_vst_str: off
+2026-11-03 23:29:59.557 Device connected, redirecting input to external_only...
+2026-11-03 23:29:59.557 Waiting on device calibration
+2026-11-03 23:29:59.557 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:29:59.557 [ERROR] Error opening file (??????): 2
+2026-11-03 23:30:11.000 Device calibration complete
+2026-11-03 23:30:11.001 Centering screen
+2026-11-03 23:33:03.482 Project version: 2.11.9
+2026-11-03 23:33:03.482 Driver has been re-enabled
+2026-11-03 23:33:03.482 Output mode has been changed to 'external_only'
+2026-11-03 23:33:03.482 Metrics have been disabled
+2026-11-03 23:33:03.483 Using hardware id REDACTED
+2026-11-03 23:33:03.484 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:03.484 [ERROR] Error opening file (?~DMZU): 2
+2026-11-03 23:33:03.484 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:03.484 [ERROR] Error opening file (?~DMZU): 2
+2026-11-03 23:33:03.484 Starting up XR driver
+2026-11-03 23:33:03.484 Waiting for glasses
+2026-11-03 23:33:03.488 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:107499780	[PID:42634][TID:42647]	Cannot open device, may not connect
+[CARINA][TIME]:107499790	[PID:42634][TID:42647]	jcx start failed[35ca,1104]
+[E][libglasses] Failed to send USB command - MsgID: 0x100B, error code: -1
+2026-11-03 23:33:03.502 [ERROR] Segmentation fault occurred
+/usr/bin/xrDriver(+0x12c76) [0x555ef67dec76]
+/usr/lib/libc.so.6(+0x3e6f0) [0x7ffb9d23e6f0]
+/usr/lib/xr-driver/libcarina_vio.so(carina_a1088_read_custom_data+0x68) [0x7ffb8217c6c8]
+/usr/lib/xr-driver/libglasses.so(+0x488e4) [0x7ffb9d5dc8e4]
+/usr/lib/xr-driver/libglasses.so(+0x4b14f) [0x7ffb9d5df14f]
+/usr/lib/libstdc++.so.6(+0xea859) [0x7ffb9ceea859]
+/usr/lib/libc.so.6(+0x98042) [0x7ffb9d298042]
+/usr/lib/libc.so.6(+0x12072c) [0x7ffb9d32072c]
+2026-11-03 23:33:13.921 Project version: 2.11.9
+2026-11-03 23:33:13.921 Driver has been re-enabled
+2026-11-03 23:33:13.921 Output mode has been changed to 'external_only'
+2026-11-03 23:33:13.921 Metrics have been disabled
+2026-11-03 23:33:13.921 Using hardware id REDACTED
+2026-11-03 23:33:13.922 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:13.922 [ERROR] Error opening file (??q??V): 2
+2026-11-03 23:33:13.922 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:13.922 [ERROR] Error opening file (??q??V): 2
+2026-11-03 23:33:13.922 Starting up XR driver
+2026-11-03 23:33:13.922 Waiting for glasses
+2026-11-03 23:33:13.926 Found device with vendor ID 0x35ca and product ID 0x1104
+[shim] set_dof_type_carina(3) = 0
+[CARINA][TIME]:117935386	[PID:43068][TID:43081]	Cannot open device, may not connect
+[CARINA][TIME]:117935396	[PID:43068][TID:43081]	jcx start failed[35ca,1104]
+[E][libglasses] Failed to send USB command - MsgID: 0x100B, error code: -1
+2026-11-03 23:33:13.937 [ERROR] Segmentation fault occurred
+/usr/bin/xrDriver(+0x12c76) [0x56107cd05c76]
+/usr/lib/libc.so.6(+0x3e6f0) [0x7f299643e6f0]
+/usr/lib/xr-driver/libcarina_vio.so(carina_a1088_read_custom_data+0x68) [0x7f297a17c6c8]
+/usr/lib/xr-driver/libglasses.so(+0x488e4) [0x7f29967dc8e4]
+/usr/lib/xr-driver/libglasses.so(+0x4b14f) [0x7f29967df14f]
+/usr/lib/libstdc++.so.6(+0xea859) [0x7f29960ea859]
+/usr/lib/libc.so.6(+0x98042) [0x7f2996498042]
+/usr/lib/libc.so.6(+0x12072c) [0x7f299652072c]
+2026-11-03 23:33:29.887 Project version: 2.11.9
+2026-11-03 23:33:29.887 Driver has been re-enabled
+2026-11-03 23:33:29.887 Output mode has been changed to 'external_only'
+2026-11-03 23:33:29.887 Metrics have been disabled
+2026-11-03 23:33:29.887 Using hardware id REDACTED
+2026-11-03 23:33:29.888 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:29.888 [ERROR] Error opening file (9?r#?U): 2
+2026-11-03 23:33:29.888 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:29.888 [ERROR] Error opening file (??r#?U): 2
+2026-11-03 23:33:29.889 Starting up XR driver
+2026-11-03 23:33:29.889 Waiting for glasses
+2026-11-03 23:33:29.893 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:133902279	[PID:44253][TID:44265]	Cannot open device, may not connect
+[CARINA][TIME]:133902293	[PID:44253][TID:44265]	jcx start failed[35ca,1104]
+2026-11-03 23:33:29.904 [ERROR] Segmentation fault occurred
+[E][libglasses] Failed to send USB command - MsgID: 0x100B, error code: -1
+/usr/bin/xrDriver(+0x12c76) [0x558b70d3cc76]
+/usr/lib/libc.so.6(+0x3e6f0) [0x7f4ed5e3e6f0]
+/usr/lib/xr-driver/libcarina_vio.so(carina_a1088_read_custom_data+0x68) [0x7f4eba17c6c8]
+/usr/lib/xr-driver/libglasses.so(+0x488e4) [0x7f4ed61dc8e4]
+/usr/lib/xr-driver/libglasses.so(+0x4b14f) [0x7f4ed61df14f]
+/usr/lib/libstdc++.so.6(+0xea859) [0x7f4ed5aea859]
+/usr/lib/libc.so.6(+0x98042) [0x7f4ed5e98042]
+/usr/lib/libc.so.6(+0x12072c) [0x7f4ed5f2072c]
+2026-11-03 23:33:30.945 Project version: 2.11.9
+2026-11-03 23:33:30.945 Driver has been re-enabled
+2026-11-03 23:33:30.945 Output mode has been changed to 'external_only'
+2026-11-03 23:33:30.945 Metrics have been disabled
+2026-11-03 23:33:30.946 Using hardware id REDACTED
+2026-11-03 23:33:30.947 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:30.947 [ERROR] Error opening file (G\?I?U): 2
+2026-11-03 23:33:30.947 [ERROR] curl_easy_perform() failed: Could not resolve hostname
+2026-11-03 23:33:30.947 [ERROR] Error opening file (?\?I?U): 2
+2026-11-03 23:33:30.947 Starting up XR driver
+2026-11-03 23:33:30.947 Waiting for glasses
+2026-11-03 23:33:30.951 Found device with vendor ID 0x35ca and product ID 0x1104
+[CARINA][TIME]:134960723	[PID:44750][TID:44763]	Cannot open device, may not connect
+[CARINA][TIME]:134960734	[PID:44750][TID:44763]	jcx start failed[35ca,1104]
+2026-11-03 23:33:30.963 [ERROR] Segmentation fault occurred
+/usr/bin/xrDriver(+0x12c76) [0x55c60f353c76]
+/usr/lib/libc.so.6(+0x3e6f0) [0x7f932aa3e6f0]
+/usr/lib/xr-driver/libcarina_vio.so(carina_a1088_read_custom_data+0x68) [0x7f930e17c6c8]
+/usr/lib/xr-driver/libglasses.so(+0x488e4) [0x7f932addc8e4]
+/usr/lib/xr-driver/libglasses.so(+0x4b14f) [0x7f932addf14f]
+/usr/lib/libstdc++.so.6(+0xea859) [0x7f932a6ea859]
+/usr/lib/libc.so.6(+0x98042) [0x7f932aa98042]
+/usr/lib/libc.so.6(+0x12072c) [0x7f932ab2072c]
+[E][libglasses] Failed to send USB command - MsgID: 0x100B, error code: -1
