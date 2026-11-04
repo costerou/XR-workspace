@@ -1,0 +1,29 @@
+EE
+======================================================================
+ERROR: test_pro2_rejected_before_any_client_operation (test_managed_boundary.ManagedBoundary.test_pro2_rejected_before_any_client_operation) (entry='run_managed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2/test_managed_boundary.py", line 13, in test_pro2_rejected_before_any_client_operation
+    getattr(managed, entry)(client, {'model': 'pro2'}, Path('/nonexistent/pro2'))
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tools/native_spike/managed.py", line 114, in run_managed
+    session = client.verified_session()['id']
+              ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+TypeError: 'Mock' object is not subscriptable
+
+======================================================================
+ERROR: test_pro2_rejected_before_any_client_operation (test_managed_boundary.ManagedBoundary.test_pro2_rejected_before_any_client_operation) (entry='recover_managed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2/test_managed_boundary.py", line 13, in test_pro2_rejected_before_any_client_operation
+    getattr(managed, entry)(client, {'model': 'pro2'}, Path('/nonexistent/pro2'))
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tools/native_spike/managed.py", line 37, in recover_managed
+    canonical = client.runtime_dir / 'xr-workspace-spike' / token(consent['run_id']) / 'journal.json'
+                ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for /: 'Mock' and 'str'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=2)
