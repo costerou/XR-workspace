@@ -10,6 +10,7 @@
 #include <csignal>
 #include <cstdio>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -163,6 +164,36 @@ void shm_survives_a_killed_writer() {
     w2->publish(fresh);
     CHECK(r->read(t));  // the reader from before the crash keeps working, without reopening
     CHECK(t.w[0] == 0xABCDEF && t.w[5] == 0xABCDEF);
+}
+// Killed between the two sequence stores: the next writer must repair it, or every later publish would leave it odd and no reader
+// would ever read again. Forced here, because a real kill lands in that window only some of the time.
+void shm_new_writer_repairs_a_sequence_left_odd() {
+    const auto name = shm_name("odd");
+    Unlink guard{name};
+    std::string why;
+    {
+        auto w = SeqlockWriter<Torn>::create(name, why);
+        CHECK(w.has_value());
+        Torn t; t.w.fill(1);
+        w->publish(t);
+    }
+    const int fd = shm_open(name.c_str(), O_RDWR, 0);
+    CHECK(fd >= 0);
+    void* base = mmap(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    CHECK(base != MAP_FAILED);
+    close(fd);
+    auto* seq = reinterpret_cast<std::atomic<std::uint64_t>*>(static_cast<char*>(base) + ShmMapping::kSlotOffset);
+    CHECK(seq->load() == 2);  // one publish: the layout this test pokes at is the real one
+    seq->store(3);
+    munmap(base, 4096);
+    auto w = SeqlockWriter<Torn>::create(name, why);
+    CHECK(w.has_value());
+    Torn t; t.w.fill(9);
+    w->publish(t);
+    auto r = SeqlockReader<Torn>::open(name, why);
+    CHECK(r.has_value());
+    Torn out;
+    CHECK(r->read(out) && out.w[0] == 9);
 }
 void shm_refuses_a_second_writer() {
     const auto name = shm_name("two");
@@ -485,6 +516,20 @@ void pipeline_stop_drains_the_ring() {
     p.stop();  // the source is long done or nearly; nothing it produced may vanish
     CHECK(sink.seen.load() == p.stats().items_read);
 }
+// The narrow case: the last item lands just after fusion found the ring empty, and the reader finishes at once. Many short runs, so
+// fusion's check keeps landing in that window.
+void pipeline_stop_never_strands_the_last_item() {
+    for (int run = 0; run < 3000; ++run) {
+        Pipeline<Numbered> p;
+        CountingSource src; src.end = 1 + std::uint64_t(run % 3);
+        OrderSink sink;
+        std::string why;
+        CHECK(p.start(src, sink, {}, why));
+        while (p.stats().items_read < src.end) std::this_thread::yield();
+        p.stop();
+        CHECK(sink.seen.load() == src.end);
+    }
+}
 void pipeline_inline_mode_publishes_on_the_reader_thread() {
     Pipeline<Numbered> p;
     CountingSource src; src.end = 1000;
@@ -608,7 +653,7 @@ int main() {
 #define T(x) {#x, x}
         T(ring_holds_exactly_capacity_and_wraps), T(ring_keeps_order_across_threads), T(parker_loses_no_wakeups),
         T(parker_wait_times_out_without_a_notify), T(seqlock_empty_slot_reads_nothing), T(seqlock_never_tears),
-        T(seqlock_gives_up_on_a_dead_writer), T(shm_survives_a_killed_writer), T(shm_refuses_a_second_writer),
+        T(seqlock_gives_up_on_a_dead_writer), T(shm_survives_a_killed_writer), T(shm_new_writer_repairs_a_sequence_left_odd), T(shm_refuses_a_second_writer),
         T(shm_reader_refuses_a_different_layout), T(shm_writer_replaces_a_different_layout), T(shm_reader_of_nothing_says_why),
         T(shm_is_private_to_the_user), T(pose_record_layout_is_fixed), T(policy_uses_fifo_when_permitted),
         T(policy_reports_the_priority_a_limit_allowed), T(policy_falls_back_to_nice), T(policy_survives_having_no_privilege_at_all),
@@ -618,7 +663,7 @@ int main() {
         T(setup_commands_grant_what_the_defaults_ask), T(memory_lock_only_under_a_limit_it_cannot_hit),
         T(clocks_are_raw_and_convertible), T(histogram_percentiles_are_within_three_percent),
         T(histogram_shows_a_lone_spike_in_max_not_in_p99), T(histogram_small_and_huge_values_stay_in_range), T(histogram_empty_reads_zero),
-        T(pipeline_ring_publishes_every_item_in_order), T(pipeline_stop_drains_the_ring), T(pipeline_inline_mode_publishes_on_the_reader_thread),
+        T(pipeline_ring_publishes_every_item_in_order), T(pipeline_stop_drains_the_ring), T(pipeline_stop_never_strands_the_last_item), T(pipeline_inline_mode_publishes_on_the_reader_thread),
         T(pipeline_ring_uses_a_separate_fusion_thread), T(pipeline_full_ring_counts_overruns_and_never_blocks_the_reader),
         T(pipeline_idle_source_is_stoppable), T(pipeline_reports_its_thread_policies), T(pipeline_restarts_after_stop), T(hot_path_never_allocates),
 #undef T

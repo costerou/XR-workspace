@@ -408,6 +408,8 @@ private:
         p.thread_ready();
         Item item{};
         for (;;) {
+            // Read before draining: once the reader is done nothing more arrives, so this drain gets everything.
+            const bool done = p.reader_done_.load(std::memory_order_acquire);
             std::uint64_t drained = 0;
             while (p.ring_.try_pop(item)) {
                 sink(item);
@@ -415,7 +417,7 @@ private:
                 ++drained;
             }
             if (drained > p.backlog_.load(std::memory_order_relaxed)) p.backlog_.store(drained, std::memory_order_relaxed);
-            if (p.reader_done_.load(std::memory_order_acquire) && p.ring_.empty()) return;
+            if (done) return;
             bump(p.sleeps_);
             p.parker_.wait([&] { return !p.ring_.empty() || p.reader_done_.load(std::memory_order_acquire); }, p.options_.fusion_wait_ms);
         }
