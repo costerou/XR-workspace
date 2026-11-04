@@ -13,11 +13,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--build',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
-    args=p.parse_args();build=args.build.resolve();output=args.output.resolve()
+    p.add_argument('--source-root',type=Path,default=ROOT,help='native source checkout matching built libraries')
+    args=p.parse_args();build=args.build.resolve();output=args.output.resolve();native=args.source_root.resolve()
     link=shlex.split((build/'CMakeFiles/video_readback_test.dir/link.txt').read_text())
     with tempfile.TemporaryDirectory(prefix='xr-qa-native-report-') as temp:
         obj=Path(temp)/'report.o'
-        compile=[link[0],'-std=c++20','-I'+str(ROOT/'spike/include'),'-I'+str(ROOT/'spike/src'),
+        compile=[link[0],'-std=c++20','-I'+str(native/'spike/include'),'-I'+str(native/'spike/src'),
                  '-c',str(ROOT/'tools/xr_options_evidence/native_report.cpp'),'-o',str(obj)]
         subprocess.run(compile,check=True,timeout=60)
         replaced=False
