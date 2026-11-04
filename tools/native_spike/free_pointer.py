@@ -344,6 +344,18 @@ def level_bar_rect(tile):
     return (tile[0] + (tile[2] - w) / 2, tile[1] - LEVEL_BAR_GAP * s - h, w, h)
 
 
+def maximize_rect(tile):
+    s = level_bar_scale(tile)
+    x, y, _, _ = level_bar_rect(tile)
+    return x - 38*s, y, 26*s, 26*s
+
+def maximize_hit(tile, q):
+    from .options_geometry import inside
+    x,y,w,h = maximize_rect(tile)
+    pad = 4*level_bar_scale(tile)
+    return w > 0 and inside((x-pad,y-pad,w+2*pad,h+2*pad), q)
+
+
 def level_bar_segment(tile, q):
     """The segment (LEVEL_SEGMENTS) at tile point `q` (None: missed), or None (glass.hpp level_bar_segment): the drawn bar
     padded by LEVEL_BAR_PAD, split at its thirds, the padding belonging to the segment it borders. Where it overlaps a
@@ -823,6 +835,7 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
     if below is not None: return edge if edge is not None else below
     for i in order:
         if icons is None or i >= len(icons) or icons[i] != 'bar': continue
+        if maximize_hit(g['tiles'][i], qs[i]): return ('maximize', i)
         part = immersive_part(g['tiles'][i], qs[i])  # shows with the bar, under the same rules; asked first: see immersive_part
         if part is not None: return ('immersive', i, part)
         segment = level_bar_segment(g['tiles'][i], qs[i])
@@ -837,7 +850,7 @@ def on_pill(tile, p, q):
     if q is None: return False
     gx, gy = desktop_to_glass(tile, p, q)
     px, py, pw, ph = pill_rect(tile)
-    return px - PILL_PAD_X <= gx <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] and gy <= py + ph + PILL_PAD_Y
+    return px - PILL_PAD_X <= gx <= px + pw + min(PILL_PAD_X, 6) and tile[1] + tile[3] <= q[1] and gy <= py + ph + PILL_PAD_Y
 
 
 def on_drawn_pill(tile, q):
@@ -1191,10 +1204,37 @@ class OverviewPointer:
 
     def _hit(self):
         """hit(), with the help card on top of everything while it is open."""
-        return self._on_help() or hit(self.geometry, self._rolled(), self.pointer, self._open(), icons=self._icons(),
+        return self._on_help() or self._options_hit() or hit(self.geometry, self._rolled(), self.pointer, self._open(), icons=self._icons(),
                                       picker=bool(getattr(self.control.state, 'scale_picker', False)),
                                       resolution_picker=bool(getattr(self.control.state, 'resolution_picker', False)),
                                       background_picker=bool(getattr(self.control.state, 'background_picker', False)))
+
+    def _options_hit(self):
+        from . import options_geometry as og
+        g = self.geometry
+        if g is None or self.pointer is None: return None
+        menu = getattr(self.control, 'options', None)
+        d = menu.snapshot() if menu is not None else None
+        placements = self._rolled()
+        if d and d['open'] and d['monitor'] in self.control.state.names:
+            i = self.control.state.names.index(d['monitor'])
+            if i < len(g['tiles']):
+                tile = g['tiles'][i]
+                p = menu.capture['placement'] if menu.capture else placements[i]
+                q = desktop_to_glass(tile, p, unproject(g, tile, p, self.pointer))
+                r = og.panel_rect(tile, pill_rect(tile))
+                if og.inside(r, q): return ('options_panel', i, q[0]-r[0], q[1]-r[1])
+        for i in front_order(g, placements):
+            tile = g['tiles'][i]
+            q = desktop_to_glass(tile, placements[i], unproject(g, tile, placements[i], self.pointer))
+            if og.gear_hit(pill_rect(tile), q): return ('options_gear', i)
+        return None
+
+    def options_wheel(self, delta):
+        """Outer wheel subscription must pass through when False is returned."""
+        h = self._options_hit()
+        if h is None or h[0] != 'options_panel': return False, b''
+        return True, self.control.options_intent('options_scroll', delta=min(max(int(delta), -4096),4096))
 
     def _on_help(self, margin=0.0):
         """help_hit for the dot: the card is reported on the overview's plane, so the dot's ray is met there."""
@@ -1430,6 +1470,22 @@ class OverviewPointer:
                 self.drag = None  # maximized since the press: a maximized desktop is level, so no turn lands behind it
             d = self.drag
             out += self._apply_drag()
+            if d is not None and d['kind'] == 'options_range':
+                menu = self.control.options
+                if menu.capture is d:
+                    q = desktop_to_glass(d['tile'], d['placement'], unproject(self.geometry,d['tile'],d['placement'],self.pointer))
+                    if q is not None:
+                        from . import options_geometry as og
+                        x = q[0]-og.panel_rect(d['tile'],pill_rect(d['tile']))[0]
+                        r = d['row']
+                        value=r['minimum']+min(max((x-og.PAD)/(og.W-2*og.PAD),0),1)*(r['maximum']-r['minimum'])
+                        if r['step']>0: value=r['minimum']+round((value-r['minimum'])/r['step'])*r['step']
+                        out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=min(max(value,r['minimum']),r['maximum']))
+                    menu.capture=None
+                self.drag=None
+            if d is not None and d['kind'] == 'maximize':
+                self.drag = None
+                out += self.control.maximize_monitor(d['monitor'])
             if d is not None and d['kind'] == 'pill' and not d['moved']:  # a click, not a drag: expand / collapse
                 if self._open() == d['open_at_press']:
                     self.drag = None
@@ -1463,6 +1519,38 @@ class OverviewPointer:
                 self.help_clicks += 1
                 if h[1] != 'card': out += self.control.help_turn(-1 if h[1] == 'prev' else 1)
                 return (out + self._frames(False)) or None
+            if h is not None and h[0] == 'options_gear':
+                return self.control.options_intent('options_open', monitor=self.control.state.names[h[1]])
+            if h is not None and h[0] == 'options_panel':
+                from . import options_geometry as og
+                menu = self.control.options
+                menu.focused = True
+                d = menu.snapshot()
+                row = og.row_at(h[2], h[3], d['scroll'], len(d['rows']))
+                if h[3] < 44:
+                    if h[2] >= 530: out += self.control.options_intent('options_close')
+                    elif 350 <= h[2] < 440: out += self.control.options_intent('options_scope', scope='workspace' if d['scope']=='monitor' else 'monitor')
+                    elif 440 <= h[2] < 530:
+                        from .options_menu import CATEGORIES
+                        out += self.control.options_intent('options_category', category=CATEGORIES[(CATEGORIES.index(d['category'])//4*4+4)%len(CATEGORIES)])
+                elif 44 <= h[3] < 80:
+                    from .options_menu import CATEGORIES
+                    n = CATEGORIES.index(d['category'])//4*4 + int((h[2]-16)//142)
+                    if h[2]>=16 and 0 <= n < len(CATEGORIES): out += self.control.options_intent('options_category', category=CATEGORIES[n])
+                elif row is not None:
+                    out += self.control.options_intent('options_focus', focus=row)
+                    r = d['rows'][row]
+                    if r['kind']=='range' and all(k in r for k in ('minimum','maximum','step')):
+                        i = h[1]
+                        self.drag = dict(kind='options_range', index=i, start=self.pointer, tile=self._tile(i),
+                                         placement=dict(self._rolled()[i]), row=dict(r), monitor=d['monitor'],
+                                         scope=d['scope'], revision=d['revision'])
+                        menu.capture=self.drag
+                    else: out += self.control.options_activate(row)
+                return out + self.control._options_frame()
+            if h is not None and h[0] == 'maximize':
+                self.drag = {'kind': 'maximize', 'monitor': self.control.state.names[h[1]], 'index': h[1], 'start': self.pointer}
+                return out
             own = open_ is not None and h is not None and h[1] == open_ and h[0] in PANEL_KINDS
             if own: self.control.panel_keys_on()  # the panel is in use: its keys are back if a window had them
             if open_ is not None and not own and not (h is not None and h[0] == 'desktop'):
@@ -1613,6 +1701,7 @@ class OverviewPointer:
         d = self.drag
         if d is None or self.pointer is None: return b''
         c = self.control
+        if d['kind'] in ('maximize', 'options_range'): return b''
         if d['kind'] == 'slider':
             # Measured on the panel as it was at the press, where the renderer keeps drawing it until the release (the
             # frame's `surface`): a setting that moves its own desktop would otherwise move the panel and chase itself.
@@ -1671,6 +1760,7 @@ class OverviewPointer:
         d = self.drag
         if d is None: return b''
         self.drag = None
+        if d['kind']=='options_range': self.control.options.capture=None
         out = self.control.pill_release() if d['kind'] == 'slider' else b''
         self.control.flush()  # saved at once on release (no-op if nothing changed)
         return out
