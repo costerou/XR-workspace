@@ -741,15 +741,6 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
     return edge
 
 
-def in_front_of(g, placements, i, j, q):
-    """True if desktop i really covers desktop j's picture at i's tile pixel `q`, just outside i: i's own edge next to q is on
-    that picture too. False if the two are only beside each other, however close: i's edge stops short of it."""
-    tile, other = g['tiles'][i], g['tiles'][j]
-    edge = (min(max(q[0], tile[0]), tile[0] + tile[2]), min(max(q[1], tile[1]), tile[1] + tile[3]))
-    on = unproject(g, other, placements[j], project(g, tile, placements[i], *edge))
-    return on is not None and inside_by(other, on) >= ENTER_PX
-
-
 def on_pill(tile, q):
     """True if tile pixel `q` (None: missed) is in a desktop's pill zone: the pill padded by PILL_PAD_X / PILL_PAD_Y,
     plus the gap up to the desktop's bottom edge."""
@@ -763,6 +754,15 @@ def on_drawn_pill(tile, q):
     if q is None: return False
     px, py, pw, ph = pill_rect(tile)
     return px <= q[0] <= px + pw and py <= q[1] <= py + ph
+
+
+def in_front_of(g, placements, i, j, q):
+    """True if desktop i really covers desktop j's picture at i's tile pixel `q`, just outside i: i's own edge next to q is on
+    that picture too. False if the two are only beside each other, however close: i's edge stops short of it."""
+    tile, other = g['tiles'][i], g['tiles'][j]
+    edge = (min(max(q[0], tile[0]), tile[0] + tile[2]), min(max(q[1], tile[1]), tile[1] + tile[3]))
+    on = unproject(g, other, placements[j], project(g, tile, placements[i], *edge))
+    return on is not None and inside_by(other, on) >= ENTER_PX
 
 
 def inside_by(tile, q):
