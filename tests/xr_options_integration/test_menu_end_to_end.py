@@ -233,3 +233,73 @@ def test_c1_background_toggle_and_recenter_are_not_inert(tmp_path):
     frames=[json.loads(line) for line in d.wire.splitlines()]
     assert any(frame['op']=='recenter' for frame in frames)
     d.native();d.teardown()
+
+
+@pytest.mark.parametrize('op,target',[('send_glasses_1',31),('send_glasses_2',41),('send_glasses_3',51),('send_glasses_4',61),('send_back',1)])
+@pytest.mark.parametrize('obey',[True,False])
+def test_c1_each_numbered_send_and_back_verifies_actual_target(op,target,obey):
+    from test_release_owner_callbacks import Backend
+    from tools.native_spike.send import WindowSender
+    backend=Backend(obey)
+    for name,workspace in [('XR-2',41),('XR-4',61)]:
+        backend.monitors.append(dict(id=len(backend.monitors),name=name,activeWorkspace=dict(id=workspace,name=str(workspace))))
+    if op=='send_back':backend.window.update(monitor=3,workspace=dict(id=51))
+    c=view.ViewControl(view.ViewState(['XR-1','XR-2','XR-3','XR-4']),'run','session',lambda n:None,None,None)
+    owner=c.sender=WindowSender(backend,c.state.names,'DP-1',notify=None)
+    d=MenuDriver(c)
+    try:
+        d.enter('XR-3','workspace' if op=='send_back' else 'monitor','windows');d.focus(op);d.key('Return')
+        for thread in owner._threads:thread.join(2);assert not thread.is_alive()
+        d.add(c.poll());d.native()
+        expected=target if obey else (51 if op=='send_back' else 1)
+        assert backend.window['workspace']['id']==expected
+        assert c.options.snapshot()['status']==('applied' if obey else 'error'),c.options.snapshot()
+        d.teardown()
+    finally:owner.close()
+
+
+@pytest.mark.parametrize('count,id,category,scope',[(1,'remove_monitor','output','monitor'),(4,'add_monitor','layout','workspace')])
+def test_c1_output_limits_disabled_and_cannot_be_activated(count,id,category,scope):
+    import unittest
+    from test_desktops import Run,D169
+    cleanup=unittest.TestCase();run=Run(cleanup,[D169]*count)
+    c=view.ViewControl(view.ViewState(run.manager.names()),'run','session',lambda n:None,None,None)
+    c.desktops=run.manager;c.state.sizes=run.manager.desktops();d=MenuDriver(c)
+    try:
+        d.enter(c.state.names[-1],scope,category)
+        index=next(i for i,r in enumerate(c.options.snapshot()['rows']) if r['id']==id)
+        assert not c.options.snapshot()['rows'][index]['enabled']
+        before=copy.deepcopy(run.manager.specs)
+        d.intent('options_focus',focus=index);d.key('Return')
+        assert run.manager.specs==before and not c.state.desktops_busy
+        assert c.options.snapshot()['status']!='applied'
+        d.native();d.teardown()
+    finally:run.manager.close();cleanup.doCleanups()
+
+
+def test_c1_reset_has_distinct_confirmation_and_authoritative_no_step_completion():
+    import test_layout_reset as legacy_reset
+    f=legacy_reset.ResetTests();f.setUp()
+    try:
+        f.start([legacy_reset.D169]*3,[legacy_reset.FLAT]*3,[0]*3)
+        c=f.c;d=MenuDriver(c);d.enter('XR-3','workspace','layout');d.focus('layout_reset');d.key('Return')
+        assert c.options.confirmation is not None and c.reset is None
+        label=c.options.snapshot()['rows'][0]['label'].lower()
+        assert 'migration' in label and 'physical fallback' not in label
+        d.focus('confirmation.apply');d.key('Return')
+        for delta in (0,.6,1.2,2):
+            f.now=100+delta;d.add(c.poll(f.now))
+        assert c.reset is None
+        assert c.state.names==['XR-1','XR-2','XR-3']
+        assert c.options.snapshot()['status'] in ('pending','applied'),c.options.snapshot()
+        d.native();d.teardown()
+    finally:f.doCleanups()
+
+
+def test_c1_stop_requires_confirmation_and_uses_existing_unwind():
+    c=view.ViewControl(view.ViewState(['XR-1']),'run','session',lambda n:None,None,None)
+    d=MenuDriver(c);d.enter('XR-1','workspace','session');d.focus('stop');d.key('Return')
+    assert c.options.confirmation is not None
+    d.focus('confirmation.apply')
+    with pytest.raises(KeyboardInterrupt):d.key('Return')
+    d.native();d.teardown()
