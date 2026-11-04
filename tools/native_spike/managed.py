@@ -126,7 +126,7 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
 
 
 def run_pro2_test_managed(client,consent,runtime,*,test_scope,desktops=None,store=None,renderer=None,faults=None):
-    from tools.xr_controller.pro2_test import TestScope
+    from tools.pro2_runtime.scope import TestScope
     if not isinstance(test_scope,TestScope) or consent.get('model')!='pro2' or consent.get('mode_switch') is not False or consent.get('sbs_mode'):
         raise ValueError('explicit Pro2 supervised test scope required')
     test_scope.healthy()
@@ -469,7 +469,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         def make_guard(live):
             base=ManagedGuard(broker,output,live)
             if pro2_scope is not None:
-                from tools.xr_controller.pro2_test import ScopedGuard
+                from tools.pro2_runtime.scope import ScopedGuard
                 return ScopedGuard(base,pro2_scope)
             return base
         if guard is None:
@@ -479,7 +479,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                 manager = DesktopManager(broker, journal, specs, guard_factory=make_guard,
                                          windows=client if hasattr(client, 'fit_windows') else None)
         if pro2_scope is not None:
-            from tools.xr_controller.pro2_test import ScopedGuard
+            from tools.pro2_runtime.scope import ScopedGuard
             guard=ScopedGuard(guard,pro2_scope)
         guard()
         if adopt and capture and hasattr(client, 'adopt_windows'):

@@ -1,0 +1,15 @@
+test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli) ... FAIL
+
+======================================================================
+FAIL: test_real_packaged_cli (test_cli.FullCliTests.test_real_packaged_cli)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/tests/pro2_cli/test_cli.py", line 45, in test_real_packaged_cli
+    self.assertEqual(result.returncode,0,debug)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 0 : {'returncode': 2, 'report': {'complete': False, 'errors': ['explicit Pro2 supervised test scope required'], 'run': None, 'run_id': 'genuine-cli'}, 'stages': [None, None, 'plugin-load', None, None, None, 'eval', None, None, 'plugin-unload'], 'stderr': '', 'wire_errors': []}
+
+----------------------------------------------------------------------
+Ran 1 test in 2.138s
+
+FAILED (failures=1)

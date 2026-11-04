@@ -1,6 +1,5 @@
 """Explicit bounded Pro2 supervised-test controller. Normal panel starts stay blocked."""
 import argparse
-from dataclasses import dataclass
 import json
 import os
 import signal
@@ -14,24 +13,7 @@ from tools.native_spike.geometry import validate_desktops
 from tools.native_spike.supervisor import CAPTURE_SCOPE
 from tools.pro2_runtime.launch import RuntimeSession,validate_projection,verify_manifest
 
-@dataclass
-class TestScope:
-    prefix:str
-    projection:float
-    health_path:str
-    nonce:str
-    def healthy(self):
-        validate_projection(self.projection,True)
-        data=read_private_json(Path(self.health_path))
-        age=time.monotonic()-data['monotonic']
-        if data.get('nonce')!=self.nonce or data.get('ready') is not True or not 0<=age<=.5:
-            raise ValueError('Pro2 supervised provider stale/unready')
-
-@dataclass
-class ScopedGuard:
-    base:object
-    scope:TestScope
-    def __call__(self):self.scope.healthy();self.base()
+from tools.pro2_runtime.scope import TestScope,ScopedGuard,BundleClient
 
 
 def validate(data):
@@ -46,15 +28,6 @@ def validate(data):
     if type(data['seconds']) is not int or not 1<=data['seconds']<=300:raise ValueError('bounded seconds required')
     return {**data,'desktops':validate_desktops(data['desktops'])}
 
-
-class BundleClient(HyprlandClient):
-    def __init__(self,instance,runtime,root,manifest):
-        super().__init__(instance,runtime);self.bundle_root=root;self.bundle_manifest=manifest
-    def _plugin_command(self,verb,path,data_home=None,recovery_pin=None):
-        from tools.pro2_runtime.launch import validate_bundle_plugin
-        if verb not in ('load','unload'):raise ValueError('supervised plugin verb required')
-        validate_bundle_plugin(self.bundle_root,self.bundle_manifest,path)
-        if self._request(f'/plugin {verb} {path}').decode().strip()!='ok':raise ValueError('supervised plugin command rejected')
 
 
 def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_factory=RuntimeSession,run=None):
