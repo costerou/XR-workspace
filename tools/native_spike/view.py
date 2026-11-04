@@ -131,6 +131,7 @@ from . import environment as _environment
 from . import quality as _quality
 from .environment import BRIGHTNESS_FIELD, SET_OP as ENVIRONMENT_SET_OP, TOGGLE_BIND as ENVIRONMENT_BIND, TOGGLE_OP as ENVIRONMENT_OP
 from .geometry import MAX_DESKTOPS
+from .ownership import CURSOR_EVENT, CURSOR_NAME
 from .privacy import PRIVACY_BIND, PRIVACY_OP
 from .send import SEND_OPS
 
@@ -1887,8 +1888,9 @@ class ViewControl:
         return self._placement_frame() + (self._menu_frame() if self.state.menu_open else b'')
 
     def on_events(self, data):
-        """Hyprland socket2 bytes: a config reload re-applies the run's binds and style, and a window change has the window
-        memory read Hyprland again (window_memory.py). Monitor focus never switches the view (cursor follow was removed)."""
+        """Hyprland socket2 bytes: a config reload re-applies the run's binds and style, a window change has the window
+        memory read Hyprland again (window_memory.py), and the ownership plugin's `xrcursor` says the cursor an app asks for
+        changed (OverviewPointer.push_shape). Monitor focus never switches the view (cursor follow was removed)."""
         self._event_buffer += data
         if len(self._event_buffer) > 65536: self._event_buffer = self._event_buffer[-4096:]  # bounded; resync on newline
         *lines, self._event_buffer = self._event_buffer.split(b'\n')
@@ -1897,6 +1899,9 @@ class ViewControl:
             text = line.decode('utf-8', errors='replace')
             if CONFIGRELOADED.match(text): reloaded = True
             elif WINDOW_EVENT.match(text): moved = True
+            elif text.startswith(CURSOR_EVENT) and self.overview_pointer is not None:
+                name = text[len(CURSOR_EVENT):]
+                if not name or CURSOR_NAME.fullmatch(name): self.overview_pointer.push_shape(name or None)
         if moved and self.windows is not None: self.windows.mark()
         if reloaded:
             self.reloads += 1

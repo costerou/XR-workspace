@@ -91,6 +91,7 @@ struct Options {
     // GL modes only: CPU composition has no zoom (always side_by_side). There is no pose feed, so no aim (set_aim runs only
     // when tracked) and the desktop fills the view from where it sits: SHM frames are stamped whole, as a dmabuf clear is.
     int maximize = 0;
+    bool pointer_look = false;  // flip the dot and the Serif Beam and count the frames each flip takes to land
 };
 constexpr double kChurnMs = 150;
 constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
@@ -295,6 +296,21 @@ struct Server {
     std::uint64_t commits = 0, latched = 0, presented_fb = 0, discarded_fb = 0, callbacks = 0, missed_ticks = 0;
     std::array<std::uint64_t, xr::kMaxDesktops> captured_frames{}, shown_frames{};
     Stamps last_shown{};
+    // --pointer-look: the dot sits just right of the middle of the first desktop, so the disc covers that pixel and the Serif
+    // Beam's stem does not. look_sent: when the last flip went out and what had landed by then; look_frames[n]: flips that
+    // first showed n frames later. A buffer already committed at the flip counts as frame 1, so 2 is "the very next draw".
+    bool look_beam = false, look_waiting = false, look_at_least_one = false;
+    std::int64_t look_sent_ns = 0;
+    std::uint64_t look_sent_latched = 0;
+    std::array<std::uint64_t, 8> look_frames{};
+    void account_look(const Stamps& got, std::uint64_t serial) {
+        const std::uint32_t px = got[0];
+        const std::uint32_t r = (px >> 16) & 255, g = (px >> 8) & 255, b = px & 255;
+        const bool disc = r == g && g == b && r > 0;  // the dot's grey; a capture stamp is coloured
+        if (!look_waiting || disc == look_beam) return;
+        look_waiting = false;
+        ++look_frames[std::min<std::size_t>(serial - look_sent_latched, look_frames.size() - 1)];
+    }
     // --maximize: once the zoom has landed (maximized_ns), frames with each desktop's frame in the middle, and with none.
     std::int64_t maximized_ns = 0;
     std::array<std::uint64_t, xr::kMaxDesktops> centre_frames{};
@@ -676,12 +692,18 @@ void vblank(std::int64_t t) {
             // The buffer shown until now has long finished rendering: read it before it goes back to the client, so the
             // readback never waits on the renderer's GPU work (a compositor samples without such a stall too).
             Stamps got{};
-            if (s->shown.r && s->shown_unread && g->read_stamps(s->shown.r, got)) g->account_shown(got, s->shown_ns, g->capture_to_present_ms, true);
+            if (s->shown.r && s->shown_unread && g->read_stamps(s->shown.r, got)) {
+                g->account_shown(got, s->shown_ns, g->capture_to_present_ms, true);
+                if (g->opt.pointer_look && g->measuring) g->account_look(got, g->latched);  // not counted yet: `latched` is this buffer's
+            }
             s->shown_unread = false;
             if (s->shown.r && s->shown.r != s->commit_buf.r) wl_buffer_send_release(s->shown.r);
             s->shown.set(s->commit_buf.r); s->shown_ns = t;
             if (g->measuring) ++g->latched;
-            if (s->commit_stamps_valid) g->account_shown(s->commit_stamps, t, g->capture_to_present_ms, true);
+            if (s->commit_stamps_valid) {  // SHM output (the software renderer): already read, at its commit
+                g->account_shown(s->commit_stamps, t, g->capture_to_present_ms, true);
+                if (g->opt.pointer_look && g->measuring) g->account_look(s->commit_stamps, g->latched);
+            }
             else s->shown_unread = true;
         }
         s->commit_buf.reset(); s->commit_has_buffer = false; s->commit_stamps_valid = false;
@@ -830,7 +852,7 @@ void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--check]\n");
+                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--pointer-look] [--check]\n");
 }
 }  // namespace
 
@@ -855,6 +877,7 @@ int main(int argc, char** argv) {
         else if (a == "--open-panel") opt.open_panel = true;
         else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
         else if (a == "--maximize") opt.maximize = std::stoi(next());
+        else if (a == "--pointer-look") opt.pointer_look = true;
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
@@ -1039,8 +1062,17 @@ int main(int argc, char** argv) {
     const int churn_fd = capture && !opt.churn.empty() ? make_timer(1000.0 / kChurnMs, 0.5) : -1;
     pollfd fds[6] = {{wl_event_loop_get_fd(wl_display_get_event_loop(server.display)), POLLIN, 0}, {vblank_fd, POLLIN, 0},
                      {capture_fd, POLLIN, 0}, {control[0], POLLIN, 0}, {status[0], POLLIN, 0}, {churn_fd, POLLIN, 0}};
+    std::int64_t next_look = 0;
     for (;;) {
         const std::int64_t t = now_ns();
+        if (opt.pointer_look && server.measuring && t >= next_look && !server.tiles.empty() && !server.look_waiting) {
+            const auto& tile = server.tiles[0];
+            server.look_beam = !server.look_beam;
+            send_frame(next_request++, "overview_pointer", "{\"visible\":true,\"x\":" + std::to_string(tile.x + tile.width / 2 + 4) +
+                       ",\"y\":" + std::to_string(tile.y + tile.height / 2) + ",\"held\":false" + (server.look_beam ? ",\"look\":\"text\"" : "") + "}");
+            server.look_sent_ns = t; server.look_sent_latched = server.latched; server.look_waiting = true;
+            next_look = t + 40'000'000;
+        }
         if (!server.measuring && t >= measure_at && !stop_sent) {
             drain();
             server.measuring = true; measured_pid = renderer_pid(pid, opt.renderer);
@@ -1103,6 +1135,7 @@ int main(int argc, char** argv) {
         for (int i = 0; i < opt.outputs; ++i) { cap += server.captured_frames[std::size_t(i)]; shown += server.shown_frames[std::size_t(i)]; }
         out["captured_frames_per_s"] = std::round(double(cap) / secs * 10) / 10;
         out["shown_capture_frames_per_s"] = std::round(double(shown) / secs * 10) / 10;
+        if (opt.pointer_look) out["pointer_look_frames"] = server.look_frames;
         if (opt.maximize) { out["maximize"] = opt.maximize; out["centre_frames"] = server.centre_frames; out["centre_none"] = server.centre_none; }
         out["readback_failures"] = server.readback_failures;
         out["blank_frames"] = server.blank_frames;
@@ -1180,6 +1213,12 @@ int main(int argc, char** argv) {
         if (capture && last_status.value("capture_failure_run", 0) >= 30) fail("a healthy run looks like a stuck capture");
         if (opt.tracking && !(last_status.contains("tracking") && last_status["tracking"].is_boolean())) fail("a tracked run's status does not say if it is tracking");
         if (!opt.tracking && last_status.contains("tracking")) fail("an untracked run's status mentions tracking");
+        if (opt.pointer_look) {  // [0] and [1] are the buffers that were on their way; a flip is in the first draw after them
+            std::uint64_t landed = 0, late = 0;
+            for (std::size_t i = 0; i < server.look_frames.size(); ++i) { landed += server.look_frames[i]; if (i > 2) late += server.look_frames[i]; }
+            if (landed < 8) fail("too few dot and beam flips landed");
+            if (late) fail("a dot or beam flip took more than the next draw to land");
+        }
         if (opt.maximize) {  // the gap between the desktops crosses the middle while the zoom runs, so only after it landed
             const auto want = std::size_t(opt.maximize - 1);
             if (!server.centre_frames[want]) fail("the maximized desktop never reached the middle of the view");

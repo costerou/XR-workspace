@@ -11,7 +11,7 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G42), the free
-pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20), the text cursor script (C1–C17) or the
+pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20), the text cursor script (C1–C23) or the
 window memory script (W1–W19) has run in an isolated VM or been tried in the glasses.
 
 ## Placement pills: automated coverage
@@ -590,8 +590,8 @@ supervisor installed together. Have foot, a Chromium or Electron window with a p
 | --- | --- | --- |
 | C1 | In the overview move the dot over a paragraph in the Chromium window | The dot becomes a thin grey I-beam with a small serif at each end and a black ring, with no theme colour. It is about as tall as three lines of text there. |
 | C2 | Hold the beam on one letter and click | The click lands in the middle of the beam: the caret or the selection starts where the beam's middle was. |
-| C3 | Sweep the beam slowly down across several lines of text | No flicker between the beam and the dot in the gaps between lines. |
-| C4 | Move off the text onto an empty part of the page or a toolbar, and stop | The dot comes back a moment later, about a tenth of a second, and no slower. |
+| C3 | Sweep the beam down across several lines of text, at an ordinary speed | At most one short flash of the dot, in the first gap, then the beam stays steady. Note how it looks: the filter has lost its fixed hold (see C18). |
+| C4 | Move off the text onto an empty part of the page or a toolbar, and stop | The dot comes back at once, with no pause you can see. |
 | C5 | Hover a link | The plain dot: a link is not a text cursor. |
 | C6 | Repeat C1 to C4 in the GTK app's text field and the Qt app's text field | The same in both. If either keeps the dot, note which app. |
 | C7 | Hover foot: over text, then blank cells | The beam over both: foot asks for it across the window. Inside tmux or vim with mouse mode on, the plain dot. |
@@ -605,6 +605,12 @@ supervisor installed together. Have foot, a Chromium or Electron window with a p
 | C15 | Hold Super and drag a window with the beam on text | The drag's own arrows, no beam, and the plain dot or the beam, as the window under it says, once you let go. |
 | C16 | Move the beam slowly across a paragraph with your head moving and with your head tilted | Note whether the 2 px stem crawls, shimmers or looks stepped. It has no anti-aliasing, as the dot has none. |
 | C17 | Look at the beam over dark text on a light window and light text on a dark one | Both read clearly, and it is no brighter than the dot. Note whether it hides the letter you are pointing at. |
+| C18 | Sweep slowly down a page with wide gaps, such as between paragraphs | The dot shows in a gap wide enough to see it, and that looks like the right answer, not a flicker. If it looks like a flicker, note the app and the speed: `TEXT_BOUNCE_S` is the setting. |
+| C19 | Move quickly on and off a word several times | Beam and dot follow the hand with no lag you can see, each way. |
+| C20 | Leave text straight after sweeping down several lines | The dot comes back within about a twentieth of a second. |
+| C21 | Hover a text field that changes the cursor by itself, or wait over a page that is loading | The look follows with no cursor motion. |
+| C22 | First, with text under a desktop's dot: in a terminal run `socat -u UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock - \| grep xrcursor`, then hover on and off text a few times | One `xrcursor>>text` and one `xrcursor>>default` (or `left_ptr`) line per change, none while the mouse is on the physical monitor. This is the only proof the plugin's hooks work on real Hyprland. No lines at all: the hooks did not take, and the beam still works from the faster reads, with up to 9 ms more delay. |
+| C23 | Scroll a page of text under a still beam until a gap, a link or a picture is under it | The look follows what the app asks for. Note if the app only answers on the next mouse motion: that is the app's. |
 
 Then note anything that looks wrong: an app whose text keeps the dot, a beam that stays too long or goes too soon, and how the
 beam feels against the size of the text.

@@ -1,7 +1,8 @@
 """The overview's text cursor (Cody's pick, 2026-11-03: the Serif Beam): where the app under the dot asks for a text cursor,
 the dot's look is `text` and the renderer draws the beam instead of the dot. The shape's name comes through the ownership
 broker (`cursor_shape`, read-only), the sampler thread asks while the dot is on a desktop's content, and everything here
-ends in the `overview_pointer` frame's `look`.
+ends in the `overview_pointer` frame's `look`. While the plugin pushes each change on socket2 (`xrcursor`), that line does the
+work and the reads only check it.
 
 Offline only: fake clocks, fake compositor clients and the real C++ validators when the ownership build is present. Nothing
 here has watched a real app ask for a cursor, or been seen in the glasses.
@@ -10,6 +11,7 @@ import json
 from pathlib import Path
 import select
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -23,6 +25,7 @@ from test_free_pointer import BIND_ARGS, G, MONITORS, NAMES, OUTPUTS, T0, X1, X2
 from test_unified_cursor import MID1, FakeUnifiedClient, UnifiedBase
 
 FIXTURES = Path(__file__).with_name('fixtures')
+BENCH_LOCAL = Path('/tmp').is_dir()
 ROOT = Path(__file__).resolve().parents[2]
 BINARY = next((p for p in (ROOT / 'build/release/ownership_test', ROOT / 'build/native-spike/ownership_test') if p.is_file()), None)
 # Every name of wp_cursor_shape_device_v1 as Hyprland keeps it (src/helpers/CursorShapes.hpp at efb5099), and its own.
@@ -57,35 +60,66 @@ class HoldTests(unittest.TestCase):
         self.assertFalse(h.step(False, 0.0))
         self.assertTrue(h.step(True, 0.0))
 
-    def test_it_goes_about_a_tenth_of_a_second_after_the_text_stops(self):
-        self.assertAlmostEqual(fp.TEXT_HOLD_S, 0.1)
+    def test_it_goes_at_once_when_the_text_stops(self):
         h = fp.TextHold()
         h.step(True, 1.0)
-        self.assertTrue(h.step(False, 2.0))      # the first read without text starts it
-        self.assertTrue(h.step(False, 2.099))
-        self.assertFalse(h.step(False, 2.1))
+        self.assertFalse(h.step(False, 2.0))
         self.assertFalse(h.step(False, 3.0))
 
-    def test_a_gap_between_lines_does_not_flicker(self):
+    def test_the_filter_is_a_few_tens_of_milliseconds(self):
+        self.assertLessEqual(fp.TEXT_BOUNCE_S, 0.08)
+        self.assertLess(fp.TEXT_BOUNCE_S, fp.TEXT_SWEEP_S)
+        self.assertLessEqual(fp.TEXT_SWEEP_S, 0.5)
+
+    def test_only_the_first_gap_of_a_sweep_can_show_the_dot(self):
         h = fp.TextHold()
         now, shown = 1.0, []
-        for text in (True, False, False, True, False, True, True, False, False, True):  # 30 ms apart, line after line
-            shown.append(h.step(text, now)); now += 0.03
-        self.assertEqual(shown, [True] * 10)
+        for text in (True, False, False, True, False, True, True, False, False, True):  # 20 ms apart, line after line
+            shown.append(h.step(text, now)); now += 0.02
+        self.assertEqual(shown, [True, False, False, True, True, True, True, True, True, True])
 
-    def test_each_gap_gets_the_whole_hold(self):
+    def test_a_leave_in_a_sweep_waits_the_filter_and_no_longer(self):
         h = fp.TextHold()
-        h.step(True, 1.0); h.step(False, 1.05); h.step(True, 1.1)
+        h.step(True, 1.0); h.step(False, 1.01); h.step(True, 1.03)  # a gap
         self.assertTrue(h.step(False, 1.2))
-        self.assertTrue(h.step(False, 1.29))
+        self.assertTrue(h.step(False, 1.2 + fp.TEXT_BOUNCE_S - 0.001))
+        self.assertFalse(h.step(False, 1.2 + fp.TEXT_BOUNCE_S))
+
+    def test_each_gap_of_a_sweep_keeps_the_sweep_going(self):
+        h = fp.TextHold()
+        h.step(True, 1.0); h.step(False, 1.01); h.step(True, 1.03)
+        now = 1.03
+        for _ in range(30):  # far longer than one TEXT_SWEEP_S
+            now += fp.TEXT_SWEEP_S * 0.9
+            self.assertTrue(h.step(False, now))
+            now += fp.TEXT_BOUNCE_S * 0.5
+            self.assertTrue(h.step(True, now))
+
+    def test_the_sweep_ends_and_leaving_is_at_once_again(self):
+        h = fp.TextHold()
+        h.step(True, 1.0); h.step(False, 1.01); h.step(True, 1.03)
+        self.assertFalse(h.step(False, 1.03 + fp.TEXT_SWEEP_S))
+
+    def test_a_slow_gap_is_no_bounce(self):
+        h = fp.TextHold()
+        h.step(True, 1.0); h.step(False, 1.1)
+        h.step(True, 1.1 + fp.TEXT_BOUNCE_S + 0.001)   # the dot was there long enough to be seen as the right answer
         self.assertFalse(h.step(False, 1.3))
 
     def test_clear_drops_it_at_once(self):
         h = fp.TextHold()
-        h.step(True, 1.0); h.step(False, 1.01)
+        h.step(True, 1.0); h.step(False, 1.01); h.step(True, 1.02); h.step(False, 1.03)  # in a sweep, waiting
+        self.assertTrue(h.on)
         h.clear()
         self.assertFalse(h.on)
-        self.assertFalse(h.step(False, 1.02))
+        self.assertFalse(h.step(False, 1.04))
+
+    def test_clear_ends_the_sweep_too(self):
+        h = fp.TextHold()
+        h.step(True, 1.0); h.step(False, 1.01); h.step(True, 1.02)
+        h.clear()
+        h.step(True, 1.03)
+        self.assertFalse(h.step(False, 1.04))
 
 
 class LookTests(UnifiedBase):
@@ -113,26 +147,22 @@ class LookTests(UnifiedBase):
         self.on_content()
         self.assertEqual(last(self.shape('vertical-text'), 'overview_pointer')['look'], 'text')
 
-    def test_it_goes_back_to_the_dot_after_the_hold_and_only_then(self):
+    def test_it_goes_back_to_the_dot_on_the_tick_the_app_stops_asking(self):
         plain = self.on_content()
         self.shape('text')
-        self.assertEqual(self.shape('left_ptr', advance=0.0), [])  # held: no frame at all
-        self.assertEqual(self.shape('left_ptr', advance=0.05), [])
-        self.assertEqual(self.shape('left_ptr', advance=0.049), [])
-        self.assertEqual(self.look(), 'text')
-        out = self.shape('left_ptr', advance=0.002)
+        out = self.shape('left_ptr', advance=0.0)
         self.assertEqual(last(out, 'overview_pointer'), plain)
 
-    def test_a_moving_dot_keeps_the_beam_with_no_look_frame_between_lines(self):
+    def test_a_sweep_down_the_lines_shows_the_dot_once_at_most(self):
         self.on_content()
         self.shape('text')
         looks = []
-        for i, name in enumerate(('default', 'text', 'default', 'default', 'text', 'default', 'text')):  # line, gap, line ...
-            self.clock.now += 0.03
+        for i, name in enumerate(('default', 'text', 'default', 'text', 'default', 'text', 'default', 'text')):  # gap, line ...
+            self.clock.now += 0.02
             self.p.feed_shape(name)
             looks += [f['payload'].get('look') for f in self.at(X1 + 900, 500 + i, advance=0.0, ops=('overview_pointer',))]
-        self.assertTrue(looks)
-        self.assertEqual(set(looks), {'text'})
+        self.assertEqual(looks[:2], [None, 'text'])  # the first gap
+        self.assertEqual(set(looks[2:]), {'text'})
 
     def test_a_failed_read_is_the_plain_dot(self):
         plain = self.on_content()
@@ -309,20 +339,21 @@ class LookTests(UnifiedBase):
         self.p.mode, self.p.hover = 'free', ('pill', 0)
         self.assertEqual(self.p._look(), 'move')
 
-    def test_the_hold_wakes_the_loop_at_every_read_so_it_ends_on_time(self):
+    def test_a_leaves_wait_wakes_the_loop_at_every_read_so_it_ends_on_time(self):
         self.on_content()
         self.shape('text')
-        self.p.feed_shape('text')
+        self.shape('default', advance=0.0)
+        self.shape('text', advance=0.01)        # a gap: leaves wait now
         self.p.feed_shape('default')            # a change wakes it
         self.assertTrue(self.woken())
         frames(self.control.poll())
         self.assertIsNotNone(self.p.text_hold.until)
-        self.p.feed_shape('default')            # no change, but the hold is running
+        self.p.feed_shape('default')            # no change, but the leave is waiting
         self.assertTrue(self.woken())
-        self.clock.now += fp.TEXT_HOLD_S
+        self.clock.now += fp.TEXT_BOUNCE_S
         frames(self.control.poll())
         self.assertIsNone(self.p.text_hold.until)
-        self.p.feed_shape('default')            # no hold, no change: nothing to do
+        self.p.feed_shape('default')            # no wait, no change: nothing to do
         self.assertFalse(self.woken())
 
     def woken(self):
@@ -395,14 +426,37 @@ class SamplerTests(unittest.TestCase):
         while time.monotonic() < deadline:
             self.control.poll(); time.sleep(0.003)
 
-    def test_on_content_it_asks_about_30_times_a_second_and_the_frame_follows(self):
+    def test_on_content_with_no_push_it_asks_up_to_120_times_a_second_and_the_frame_follows(self):
         reads = FakeReads()
         self.start(reads)
         self.assertTrue(self.wait(lambda: self.p.sent.get('look') == 'text'))
         before = reads.calls
         self.run_for(0.5)
-        self.assertGreaterEqual(reads.calls - before, 9)   # a loaded machine reads less often, never more
-        self.assertLessEqual(reads.calls - before, 17)
+        self.assertGreaterEqual(reads.calls - before, 20)  # a loaded machine reads less often, never more
+        self.assertLessEqual(reads.calls - before, 62)
+
+    def test_while_pushes_arrive_it_only_checks(self):
+        reads = FakeReads()
+        self.start(reads)
+        self.assertTrue(self.wait(lambda: self.p.sent.get('look') == 'text'))
+        self.p.push_shape('text')
+        before = reads.calls
+        self.run_for(0.6)
+        self.assertLessEqual(reads.calls - before, 4)      # 2 or 3, plus the one in flight
+        self.assertGreaterEqual(reads.calls - before, 1)   # the check is still there
+
+    def test_a_read_that_disagrees_with_the_last_push_brings_the_fast_reads_back(self):
+        reads = FakeReads(['text'])
+        self.start(reads)
+        self.assertTrue(self.wait(lambda: self.p.sent.get('look') == 'text'))
+        self.p.push_shape('default')                       # and now the app says text: a push went missing
+        self.assertTrue(self.wait(lambda: not self.p.shape_pushed))
+        self.assertTrue(self.wait(lambda: self.p.sent.get('look') == 'text'))
+        before = reads.calls
+        self.run_for(0.3)
+        self.assertGreaterEqual(reads.calls - before, 10)
+        self.p.push_shape('text')                          # pushes are back
+        self.assertTrue(self.p.shape_pushed)
 
     def test_off_the_content_it_does_not_ask(self):
         reads = FakeReads()
@@ -471,6 +525,11 @@ class SamplerTests(unittest.TestCase):
         self.assertTrue(self.wait(lambda: self.p.mode == 'desktop'))
         self.run_for(0.1)
         self.assertIsNone(self.p.sent.get('look'))
+        self.assertFalse(self.p.shape_wired)            # and no push counts either
+
+    def test_a_reader_is_what_lets_pushes_in(self):
+        self.start(FakeReads())
+        self.assertTrue(self.p.shape_wired)
 
     def test_the_first_read_waits_for_the_app_to_see_the_warp(self):
         reads = FakeReads()
@@ -485,6 +544,156 @@ class SamplerTests(unittest.TestCase):
         sampler._shape_due = 0.0
         sampler._read_shape()
         self.assertEqual(reads.calls, 1)
+
+    def test_after_a_warp_the_read_is_not_put_off_by_the_check(self):
+        reads = FakeReads()
+        sampler = uc.UnifiedSampler(FakeUnifiedClient(cursor=MID1), NAMES, self.p, BIND_ARGS, cursor_shape=reads)
+        self.p.mode, self.p.outputs, sampler.applied = 'desktop', OUTPUTS, 3
+        self.p.push_shape('text')
+        sampler._read_shape()
+        self.assertEqual(reads.calls, 1)
+        self.p._sync = 4                  # a warp, at once after that read
+        sampler._read_shape()
+        sampler.applied = 4
+        sampler._shape_due = 0.0          # the app has had its time, far inside SHAPE_CHECK_S of the last read
+        sampler._read_shape()
+        self.assertEqual(reads.calls, 2)
+
+    def test_when_the_gate_opens_the_read_is_not_put_off_by_the_check(self):
+        reads = FakeReads()
+        sampler = uc.UnifiedSampler(FakeUnifiedClient(cursor=MID1), NAMES, self.p, BIND_ARGS, cursor_shape=reads)
+        self.p.mode, self.p.outputs, sampler.applied = 'desktop', OUTPUTS, 3
+        self.p.push_shape('text')
+        sampler._read_shape()
+        self.assertEqual(reads.calls, 1)
+        self.p.shape_gated = True         # a handle, or a drag: no push will say the cursor is still text afterwards
+        sampler._read_shape()             # the gate shut: every SHAPE_S
+        self.assertEqual(reads.calls, 1)  # not this instant
+        sampler._shape_read = 0.0
+        sampler._read_shape()
+        self.assertEqual(reads.calls, 2)
+        self.p.shape_gated = False        # open again, and a read taken while it was shut says nothing of now
+        sampler._shape_read = time.monotonic() - fp.SHAPE_S
+        sampler._read_shape()
+        self.assertEqual(reads.calls, 3)
+        sampler._shape_read = time.monotonic() - fp.SHAPE_S
+        sampler._read_shape()
+        self.assertEqual(reads.calls, 3)  # that one done, it only checks again
+
+
+class PushTests(PointerBase):
+    """The plugin's `xrcursor` line on socket2 to the frame, with no sampler and no cursor motion."""
+    def setUp(self):
+        super().setUp()
+        self.p.shape_wired = True
+        self.at(X1 + 900, 500)
+        self.p._applied = self.p._sync
+
+    def event(self, *lines):
+        return (self.control.on_events(b''.join(line + b'\n' for line in lines)) or b'') + (self.control.poll() or b'')
+
+    def look(self):
+        return self.p.sent.get('look')
+
+    def test_the_line_is_the_frame_on_the_same_pass_of_the_loop(self):
+        self.assertEqual(last(frames(self.event(b'xrcursor>>text'), ('overview_pointer',)), 'overview_pointer')['look'], 'text')
+        self.assertNotIn('look', last(frames(self.event(b'xrcursor>>default'), ('overview_pointer',)), 'overview_pointer'))
+
+    def test_every_text_name_and_no_name(self):
+        for name in (b'xterm', b'ibeam', b'vertical-text'):
+            self.clock.now += fp.TEXT_SWEEP_S  # each its own, not a sweep
+            self.event(b'xrcursor>>' + name)
+            self.assertEqual(self.look(), 'text')
+            self.event(b'xrcursor>>')       # a picture, or off the run's outputs
+            self.assertIsNone(self.look())
+
+    def test_a_split_read_and_a_line_among_others(self):
+        self.control.on_events(b'activewindow>>a,b\nxrcur')
+        self.control.on_events(b'sor>>text\nworkspace>>3\n')
+        self.control.poll()
+        self.assertEqual(self.look(), 'text')
+
+    def test_the_last_word_of_a_burst_stands(self):
+        self.event(b'xrcursor>>text', b'xrcursor>>default', b'xrcursor>>xterm')
+        self.assertEqual(self.look(), 'text')
+
+    def test_anything_but_a_plain_word_is_dropped(self):
+        self.event(b'xrcursor>>text')
+        for line in (b'xrcursor>>te xt', b'xrcursor>>-text', b'xrcursor>>text>>x', b'xrcursor>>' + b'a' * 65, b'xrcursor>>te\xc3\xa9',
+                     b'xrcursor2>>default', b'xrcursor>default', b' xrcursor>>default'):
+            self.event(line)
+            self.assertEqual(self.look(), 'text', line)
+        self.assertEqual(self.p._shape_serial, 1)
+
+    def test_a_run_with_no_read_takes_no_push(self):
+        self.p.shape_wired = False
+        self.event(b'xrcursor>>text')
+        self.assertIsNone(self.look())
+        self.assertFalse(self.p.shape_pushed)
+
+    def test_no_pointer_no_harm(self):
+        self.control.overview_pointer = None
+        self.assertEqual(self.control.on_events(b'xrcursor>>text\n') or b'', b'')
+
+    def test_a_push_from_before_the_warp_is_only_proof_of_life(self):
+        self.p._sync = self.p._applied + 1
+        self.control.on_events(b'xrcursor>>text\n')
+        self.assertFalse(self.p._shape_text)
+        self.assertTrue(self.p.shape_pushed)
+
+    def test_the_gate_wins_over_a_push(self):
+        with mock.patch.object(self.p, '_text_allowed', return_value=False):
+            self.event(b'xrcursor>>text')
+        self.assertFalse(self.p.text_hold.on)
+        self.assertTrue(self.p.shape_gated)
+        self.control.poll()
+        self.assertFalse(self.p.shape_gated)
+        self.assertIsNone(self.look())      # a word from behind the gate counts for nothing: a fresh read decides
+
+    def test_a_read_a_push_overtook_counts_for_nothing(self):
+        self.event(b'xrcursor>>text')
+        serial = self.p.shape_serial()
+        self.event(b'xrcursor>>default')
+        self.p.feed_shape('text', serial)   # asked before the change, answered after it
+        self.control.poll()
+        self.assertIsNone(self.look())
+        self.assertTrue(self.p.shape_pushed)
+
+    def test_a_read_after_it_stands(self):
+        self.event(b'xrcursor>>default')
+        self.p.feed_shape('text', self.p.shape_serial())
+        self.control.poll()
+        self.assertEqual(self.look(), 'text')
+        self.assertFalse(self.p.shape_pushed)
+
+
+class SourceContractTests(unittest.TestCase):
+    def test_the_event_is_the_plugins(self):
+        source = (ROOT / 'spike/ownership/plugin.cpp').read_text()
+        self.assertEqual(ownership.CURSOR_EVENT, 'xrcursor>>')
+        self.assertIn('SHyprIPCEvent{"xrcursor",shape}', source)
+
+    def test_the_hooks_run_the_original_first_and_keep_its_arguments(self):
+        source = (ROOT / 'spike/ownership/plugin.cpp').read_text()
+        for name, call in (('hookedCursorName', '(renderer,name,force);'), ('hookedCursorSurface', 'renderer,std::move(surface),hotspotX,hotspotY,force);')):
+            body = source[source.index(f'void {name}('):]
+            body = body[:body.index('\n}\n')]
+            self.assertLess(body.index(call), body.index('cursorChanged();'), name)
+
+    def test_the_hooks_are_taken_out_on_unload_before_the_broker_goes(self):
+        source = (ROOT / 'spike/ownership/plugin.cpp').read_text()
+        body = source[source.index('PLUGIN_EXIT()'):]
+        self.assertLess(body.index('unhook(pluginHandle,cursorNameHook)'), body.index('broker.reset()'))
+        self.assertLess(body.index('unhook(pluginHandle,cursorSurfaceHook)'), body.index('broker.reset()'))
+
+    @unittest.skipUnless(BENCH_LOCAL, 'needs a local socket directory')
+    def test_through_real_sockets_it_follows_both_ways_with_no_hold(self):
+        out = subprocess.run([sys.executable, str(Path(__file__).with_name('beam_latency_bench.py')), '--push', '--cycles', '6',
+                              '--cpu-seconds', '0', '--json'], capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr[-2000:])
+        report = json.loads(out.stdout)
+        self.assertLess(report['enter']['median_ms'], 30)  # a busy machine is slower, a poll behind is not this
+        self.assertLess(report['leave']['median_ms'], 30)  # the 100 ms hold is gone
 
 
 class Transport:

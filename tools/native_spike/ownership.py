@@ -2,7 +2,8 @@
 
 No plugin loading, name-based deletion, raw-command forwarding or epoch adoption.
 Unknown UUIDs are unproven even after a fresh hello (including supervisor restart).
-One read beside the lifecycle: the name of the cursor the app under the pointer asked for (cursor_reader).
+One read beside the lifecycle: the name of the cursor the app under the pointer asked for (cursor_reader). The plugin also
+announces each change of it on Hyprland's event socket (CURSOR_EVENT, view.ViewControl.on_events); the read stays the truth.
 """
 import copy
 import json
@@ -15,6 +16,7 @@ from .ipc import strict_json, token
 # A requested cursor's name, as spike/ownership/registry.cpp cursorShapeName lets it out (the reply's empty name: none).
 CURSOR_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')
 CURSOR_TIMEOUT = 0.25  # seconds, as the sampler's own cursor reads
+CURSOR_EVENT = 'xrcursor>>'  # socket2 line, then the same name or nothing (spike/ownership/plugin.cpp cursorChanged)
 
 
 # The step of its removal the broker stopped at (Registry::remove, the reply's `blocked`), in plain words. A plugin older

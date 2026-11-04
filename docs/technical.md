@@ -1051,16 +1051,30 @@ still for the whole overview and let no click or wheel reach a window.
   no isolated form. While the pointer is on one of the run's own live XR outputs it returns
   `g_pHyprRenderer->m_lastCursorData.name`, one plain word (`registry.cpp cursorShapeName`: 1 to 64 of `A-Za-z0-9_.-`) or
   nothing; anywhere else, or for a cursor given as a picture (`wl_pointer.set_cursor`, which has no name), it returns
-  nothing. It adds no hook, listener or state. `m_cursorSurfaceInfo.name` was not used: it goes stale over empty desktop and
-  window borders. The sampler asks only in desktop mode with the handles on, every 33 ms
-  (`SHAPE_S`, through `ownership.cursor_reader`: a copy of the client with its own request ids, bounded at 0.25 s), and not
-  until it has applied the pointer's last warp and the app has had 33 ms to answer it. That read skips the client's
-  session proof, which the transport's peer check and the run's guard already cover, and it only changes how the dot looks.
-  A refused or failed read is the plain dot, and the next one waits a second. The loop turns the answer into the frame's
-  `look` (`TextHold`, `_step_text`): on at once, off `TEXT_HOLD_S` (100 ms) after the app stops asking, so the beam goes
-  between 100 and about 133 ms after the change is seen. The gate (`_text_allowed`) needs desktop mode, `zone_of(hit)` =
+  nothing. `m_cursorSurfaceInfo.name` was not used: it goes stale over empty desktop and window borders.
+  **The push** (`text-cursor-snappier`, 2026-11-03, after Cody asked for a quicker change in the glasses): every change of
+  that name goes through `IHyprRenderer::setCursorFromName` or `setCursorSurface`, so the plugin hooks those two, runs the
+  original unchanged with the same arguments, and then only looks (`Broker::cursorChanged`). If what `cursor_shape` would
+  answer for a schema-1 run has changed, it writes `xrcursor>>name` to Hyprland's event socket (socket2; the name is as
+  `cursor_shape` gives it, empty for none), which the supervisor's loop already selects on (`ViewControl.on_events`,
+  `OverviewPointer.push_shape`). `CursorNotice` says each change once and at most 240 times a second, so an app flipping
+  its cursor cannot fill Hyprland's 64-event queue, which would drop its slowest listener. Mid-lifecycle (`busy`) nothing is
+  said. Those hooks are the plugin's only state or code path beside the op: both are taken or neither, and they come out on
+  unload before the broker goes. On socket2 the line is visible to any listener of the same user, and it is only a cursor name.
+  **The reads** stay, because a push can be lost and because a cursor that did not change sends none. The sampler asks only in
+  desktop mode with the handles on (through `ownership.cursor_reader`: a copy of the client with its own request ids, bounded
+  at 0.25 s), and not until it has applied the pointer's last warp and the app has had `SHAPE_SETTLE_S` (33 ms) to answer it.
+  With no push it asks every `SHAPE_S` (8.3 ms: an older plugin, or a hook that failed), and once pushes arrive every
+  `SHAPE_CHECK_S` (250 ms), which only checks them. A read that disagrees with the last push brings the 8.3 ms back until the
+  next push; a read a push overtook is dropped (`shape_serial`); after a warp, or when the gate opens, the next read is not
+  put off. That read skips the client's session proof, which the transport's peer check and the run's guard already cover,
+  and it only changes how the dot looks. A refused or failed read is the plain dot, and the next one waits a second.
+  **The flicker filter:** the loop turns the word into the frame's `look` (`TextHold`, `_step_text`): on at once and off at
+  once. Text that comes back within `TEXT_BOUNCE_S` (60 ms) of going is the gap between two lines, and for `TEXT_SWEEP_S`
+  (400 ms) after that each leave waits `TEXT_BOUNCE_S`, so a sweep down a page shows the dot in its first gap at most. The
+  renderer needed no change: it reads the look just before each draw. The gate (`_text_allowed`) needs desktop mode, `zone_of(hit)` =
   `content`, nothing held by the run, no Super drag and the handles on, and when it shuts the beam goes at once with no
-  hold. So a handle always wins, and it is off in typing mode, maximized, during a video and with the key bind panel,
+  wait. So a handle always wins, and it is off in typing mode, maximized, during a video and with the key bind panel,
   as the pills are. A button held on a window keeps the beam, at the held level. The frame's `x`, `y`, `az` and `el` do
   not change, so what a click hits does not either. The renderer (`view.hpp PointerLook::text`, `direction_marks`) draws
   it with the marks' two passes, black grown by the ring and then the dot's grey, with no anti-aliasing, and `gl.cpp` draws
@@ -1902,12 +1916,33 @@ and the generated Lua in a real interpreter when one is installed) and checks in
 (`resize_settles`) and, on the GPU paths, its new shape to ease (`shape_eases`), and `capture_e2e_churn_bounce_*` that a
 reload's bounce does neither.
 
-The text cursor adds `tests/native_spike/test_text_cursor.py` (the text names and every other shape, the hold, handles
-first, overview only, the sampler's reads and their back-off, the broker client's strict reply checks, the run's wiring,
+The text cursor adds `tests/native_spike/test_text_cursor.py` (the text names and every other shape, the flicker filter, the
+push from the socket2 line to the frame, handles first, overview only, the sampler's reads and their back-off, the broker
+client's strict reply checks, the run's wiring,
 and contract tests: the request through `ownership_test --validate`, and `fixtures/cursor_shape_names.json` through both
 sides' name rules), and checks in the `free_pointer`, `gl_frame`, `ownership`, `ownership_pair_wire` and
 `ownership_pair_boundary` ctests. `spike/tests/pointer_raster.hpp` is the CPU mirror of the dot's flat fill that the first two
-share, and `fixtures/serif_beam_shape.json` holds the mockup's triangles.
+share, and `fixtures/serif_beam_shape.json` holds the mockup's triangles. `ownership_pair_boundary` runs the plugin's real
+`cursorChanged` against stand-ins, and `capture_e2e_pointer_look_gl-shm` flips the look on the real renderer and reads the
+pixels back: every flip lands in the first draw after it.
+
+How long the beam takes, from the compositor holding the new name to the frame reaching the renderer's socket, is measured by
+`tests/native_spike/beam_latency_bench.py` (the real supervisor loop, sampler, socket client and broker client, a fake
+compositor and a fake renderer in their own processes; `--tree` runs another checkout's `tools/`, so a before and after
+compare). On the desktop, 2026-11-03, 150 changes each way, milliseconds, median / worst:
+
+| | Entering text | Leaving text | Reads a second | Supervisor CPU, one core (still / moving) |
+| --- | --- | --- | --- | --- |
+| Before: 30 reads a second, 100 ms hold | 17 / 37 | 118 / 141 | 30 | 3.6% / 5.4% |
+| With the push | 0.18 / 0.43 | 0.16 / 0.50 | 4 | 3.4% / 5.6% |
+| Without it: 120 reads a second | 4.5 / 9.5 | 4.7 / 9.0 | 117 | 4.3% / 6.2% |
+| No reads at all, for scale | | | 0 | 3.4% / 5.8% |
+
+Each answer costs the compositor's main thread about 47 µs (`parse_request` and the reply, timed on their own): 0.14% of it at
+30 reads a second, 0.02% at 4 and 0.55% at 117. The harness's sweep (30 lines of 60 ms) shows the dot once with gaps of 20 or
+50 ms, 30 times with gaps of 80 ms, which the old hold covered, and leaving straight after a sweep takes 60 ms. What comes
+before and after this: the app's own answer to the pointer, which nothing here changes, and the renderer's next frame. No real
+app, compositor or glasses took part in these numbers.
 
 Window memory adds `tests/native_spike/test_window_memory.py` (capture, the file, matching, the plan, the tracker: debounce,
 off-loop reads, the last capture, an empty capture, a start, parking and coming home, the view's events and Super drags),
