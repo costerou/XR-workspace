@@ -1,4 +1,5 @@
 """Bounded parent-supervised Pro2 runtime launcher. No normal tracking entry point."""
+from contextlib import ExitStack
 import hashlib
 import json
 import math
@@ -48,7 +49,9 @@ def competing(exclude=()):
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit() or int(proc.name) in exclude:continue
         try:
-            if proc.stat().st_uid==os.getuid() and (proc/'comm').read_text().strip() in names:return True
+            if proc.stat().st_uid==os.getuid():
+                if (proc/'comm').read_text().strip() in names:return True
+                if 'libglasses.so' in (proc/'maps').read_text():return True
         except OSError:continue
     return False
 
@@ -62,23 +65,27 @@ class RuntimeSession:
         self.prefix=str(self.directory/'pose_');self.child=None;self.events=[];self.ready=False;self.done=None;self.buffer=b''
         self.status=None;self.started=None;self.log=None
         self.nonce=secrets.token_hex(16);self.health_path=self.directory/'health.json';self.thread=None;self.stop_monitor=threading.Event();self.lock=threading.RLock();self.failure=None
+    def command(self,exe,sdk,write):
+        return ['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds)]
     def start(self):
         admit(inventory())
         if competing():raise ValueError('competing provider; parent must establish exclusive topology')
-        sdk=pinned_fd(LIBRARY,SHA256);exe=pinned_fd(self.root/'bin/pro2-sdk-bridge',self.manifest['files']['bin/pro2-sdk-bridge'])
-        read,write=os.pipe();self.status=read;os.set_blocking(read,False)
-        self.log=open(self.directory/'sdk.private.log','xb');os.chmod(self.directory/'sdk.private.log',0o600)
         try:
-            command=['unshare','-Urn','--',f'/proc/self/fd/{exe}','--supervised-pro2-test','--sdk-fd',str(sdk),'--status-fd',str(write),'--prefix',self.prefix,'--projection',str(self.projection),'--seconds',str(self.seconds)]
-            self.child=subprocess.Popen(command,pass_fds=(sdk,exe,write),stdin=subprocess.DEVNULL,stdout=self.log,stderr=self.log,start_new_session=True)
-            self.started=time.monotonic()
-        finally:
-            for fd in (sdk,exe,write):os.close(fd)
+            with ExitStack() as resources:
+                sdk=pinned_fd(LIBRARY,SHA256);resources.callback(os.close,sdk)
+                exe=pinned_fd(self.root/'bin/pro2-sdk-bridge',self.manifest['files']['bin/pro2-sdk-bridge']);resources.callback(os.close,exe)
+                read,write=os.pipe();self.status=read;os.set_blocking(read,False);resources.callback(os.close,write)
+                self.log=open(self.directory/'sdk.private.log','xb');os.chmod(self.directory/'sdk.private.log',0o600)
+                self.child=subprocess.Popen(self.command(exe,sdk,write),pass_fds=(sdk,exe,write),stdin=subprocess.DEVNULL,stdout=self.log,stderr=self.log,start_new_session=True)
+                self.started=time.monotonic()
+        except BaseException:
+            self.close();raise
         try:
             deadline=time.monotonic()+10
             while time.monotonic()<deadline:
                 self.poll()
                 if self.ready:
+                    self.healthy()
                     self.write_health(True)
                     self.thread=threading.Thread(target=self.monitor,daemon=True);self.thread.start()
                     return self
