@@ -149,7 +149,7 @@ public:
     void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<bool, kMaxDesktops>& bars, std::int32_t hover,
                   std::int8_t side, bool active);
     // How far each desktop is from level as you see it, without its levelling roll (view.hpp desktop_tilt against the
-    // world's up from the pose feed): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a
+    // world's up, PoseState::reference): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a
     // degree (counter-clockwise positive), or null where it cannot be measured (no head tracking, not in anchor mode or
     // still blending into it, a VR video, a desktop seen from straight below or above). When it changed, at most every
     // kRollGeometryMs (a null line at once). GPU composition only.

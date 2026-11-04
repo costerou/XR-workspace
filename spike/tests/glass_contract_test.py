@@ -14,7 +14,7 @@ data = json.loads(subprocess.run([dump], check=True, capture_output=True, text=T
 c = data['constants']
 c_cap = data['cap']
 mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': fp.PILL_MAX, 'pill_h': fp.PILL_THICKNESS,
-          'pill_gap': fp.PILL_GAP, 'panel_w': fp.PANEL_W, 'panel_h': fp.PANEL_H, 'header_h': fp.PANEL_HEADER_H,
+          'pill_gap': fp.PILL_GAP, 'border': fp.BORDER_PX, 'panel_w': fp.PANEL_W, 'panel_h': fp.PANEL_H, 'header_h': fp.PANEL_HEADER_H,
           'rows_top': fp.PANEL_ROWS_TOP, 'row_h': fp.PANEL_ROW_H, 'knob_lo': fp.PANEL_KNOB_LO, 'knob_hi': fp.PANEL_KNOB_HI,
           'bar_w': fp.LEVEL_BAR_W, 'bar_h': fp.LEVEL_BAR_H, 'bar_gap': fp.LEVEL_BAR_GAP, 'bar_pad': fp.LEVEL_BAR_PAD,
           'bar_share': fp.LEVEL_BAR_SHARE, 'bar_min_w': fp.LEVEL_BAR_MIN_W, 'edge_clear': fp.LEVEL_EDGE_CLEAR,

@@ -587,6 +587,13 @@ class WireTests(unittest.TestCase):
                                                              'payload': {}}) + '\n').encode())['op'], op)
         self.assertEqual({op for _, op in view.MENU_BINDS} & set(view.MENU_DESKTOP_OPS), set(view.MENU_DESKTOP_OPS))
 
+    def test_the_remove_key_leaves_bare_delete_to_the_desktop(self):
+        """Bare Delete can be the desktop's (push-to-talk): both binds would run, and collapsing the panel removes its binds,
+        and Keybind:remove() takes every bind on the same modifiers and key with them."""
+        from tools.native_spike import bind_check
+        self.assertEqual(bind_check.clashes([('desktop', 'bind', 'Delete')]), [])
+        self.assertIn(('SHIFT + Delete', 'menu_delete'), view.MENU_BINDS)
+
     def test_send_to_a_fourth_desktop(self):
         from tools.native_spike import send
         self.assertEqual(send.target_for('send_glasses_4', ['XR-1', 'XR-4'], 'XR-1', 'DP-1'), 'XR-4')

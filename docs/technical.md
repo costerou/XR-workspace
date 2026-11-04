@@ -49,7 +49,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 - `omarchy-plugin/cody.viture-workspace/` is the Quickshell panel and bar widget. It is a thin client of the controller socket.
 - `tools/xr_probe/` is the original read-only host diagnostic (see below).
 
-Head tracking comes from XRLinuxDriver (`/usr/bin/xrDriver`), run in an unprivileged network namespace in `external_only` mode so it cannot reach the network or move the mouse.
+Head tracking comes from XRLinuxDriver (`/usr/bin/xrDriver`), run in unprivileged namespaces in `external_only` mode so it cannot reach the network or move the mouse ([how it is kept offline](#how-the-tracking-driver-is-kept-offline)).
 
 ## Build and install
 
@@ -387,8 +387,9 @@ faint average of its lines, under half a level at 100%, reaches one level at 200
 drag applies live and saves on release.
 
 *World-locked, always.* The renderer gives the pass `environment_view(relative, reference)`: the head pose, prediction
-included, relative to the recentre reference turned to level. It takes only the reference's heading about gravity (the pose
-feed's z axis), so a recentre with the head tipped leaves the floor flat. The desktops' `view` and the mode controller's anchor
+included, relative to the recentre reference turned to level. It takes only the reference's heading about the world's up (not
+the pose feed's z axis, which is no such thing: [Level bar and corner caps](#level-bar-and-corner-caps)), so a recentre with
+the head tipped leaves the floor flat. The desktops' `view` and the mode controller's anchor
 are never involved, so anchor, follow, locked and a maximized desktop all see the same room. A recentre turns it to the new
 heading, as it does the desktops.
 
@@ -574,6 +575,47 @@ for calibration. It refuses to compete with an XRLinuxDriver it did not start. F
 python -m tools.native_spike tracking start   # also: status, stop
 ```
 
+### How the tracking driver is kept offline
+
+The driver starts inside its own unprivileged user, network and mount namespaces (`tracking._driver_argv`). The network
+namespace holds `lo` and nothing else, and `lo` stays down with no routes, so nothing the driver sends can leave.
+`status` reports `network_isolated` only while the driver has its own namespace with `lo` as its only interface, and
+`start` stops a driver that fails that check. The driver runs as you with no capabilities, and the namespace belongs to
+its parent, so it cannot change any of this.
+
+Three things here are easy to get wrong:
+
+- **The 30 s wait.** The driver hashes a MAC into a hardware id and retries for 30 s if it finds none (`src/system.c`),
+  which cost every start 30 s. `lo` now carries a made-up MAC (`02:00:00:00:00:01`) and an IPv4 address, because the
+  driver only looks at interfaces that have one. The id is the same on every machine and says nothing about this one.
+- **A network namespace does not stop name lookups.** With an id, the driver tries its licence server at every start
+  and connect. No route reaches it, but the lookup would: glibc asks systemd-resolved through
+  `/run/systemd/resolve/io.systemd.Resolve`, which is a file, and resolved sends the query out from the host. So a tmpfs
+  in the mount namespace covers that directory, and the MAC is only set once that has worked. If any step fails, the
+  driver has no id, never tries, and starts 30 s later, as it always did.
+- **The address is not 127.0.0.1.** With resolved hidden, lookups fall back to a nameserver at 127.0.0.1. An address on
+  a down interface swallows traffic instead of refusing it, so each of the three attempts would use up curl's 15 s. With
+  192.0.2.1 from the documentation range, 127.0.0.1 has no route and the attempt fails at once.
+
+Every licence attempt leaves two lines in `driver.log`, "Could not resolve hostname" and "Error opening file". They are
+expected. The second prints a few garbage bytes, because the driver logs a string it has just freed, which is why
+`status` slices the log as bytes. Calibration stays: the Luma Ultra's 11 to 12 s is a fixed wait compiled into the driver
+(`viture_calibration_wait_s`, 10 s, compared in whole seconds), with no config key.
+
+Status: tested offline (`tests/native_spike/test_tracking.py`, which runs the real namespaces with a probe in the
+driver's place) and with the real driver in a sandbox with no USB devices and a fake resolved socket. There the wait
+before "Starting up XR driver" went from 30.0 s to 1 ms, and resolved saw nothing; without the tmpfs it saw four lookups
+of the licence server. Not yet tried on the glasses. The 19:39 start on 2026-11-03 took 43.5 s from the run starting to
+calibration, so expect about 13.5 s.
+
+| Step | Do this | Pass when |
+| --- | --- | --- |
+| T1 | Start XR with *Head tracking* ticked, glasses still | The tracking step ends in about 15 s, not about 45 s |
+| T2 | Look around, then press Ctrl+Alt+Space | Tracking follows your head and recentring works, as before |
+| T3 | Run `python -m tools.native_spike tracking status` | `network_isolated` and `calibrated` are both true |
+| T4 | Read the end of `~/.local/state/xr_driver/driver.log` | "Using hardware id c27c02f2…" and "Could not resolve hostname"; no "Failed to get hardwareId" |
+| T5 | Stop XR, then start it again | The same again, and the desktop comes back as usual |
+
 ### CLI recovery
 
 If the panel reports "Needs CLI recovery" (for example several unfinished runs), recover each run's journal with the
@@ -706,7 +748,7 @@ Entering a desktop (`unified_cursor.enter_desktop_lua`, one eval) focuses its mo
 under the dot, then installs the left button's non-consuming binds. The focus makes the keyboard go to that monitor's
 focused window whatever the focus-follows-mouse setting; the warp after it puts the cursor back under the dot (a
 monitor focus alone moves the cursor to that monitor's last window) and, with focus-follows-mouse, focuses the window
-under the dot. The pointer binds no key. An open placement pill's modal keys (arrows, Tab, R, U, N, Delete, Esc) would
+under the dot. The pointer binds no key. An open placement pill's modal keys (arrows, Tab, R, U, N, Shift+Delete, Esc) would
 take typing meant for a window, so a left press on a window (desktop mode) takes them off the keyboard
 (`ViewControl.desktop_press`). The pill stays open, on that desktop, and a press on the panel or its pill brings its keys back.
 Window drag (hold a window to lift it onto another desktop) is off (`OverviewPointer.window_drag = False`): it took
@@ -757,6 +799,13 @@ The size has limits and is saved like the other placements:
   open placement pill show the new Distance. For example, 1.5× bigger is Distance 67.
 - A resize never changes the glass pill's (or its open panel's) size: it moves with the desktop's bottom edge and stays
   the same size on screen (`view.hpp glass_to_desktop`, mirrored by `free_pointer.glass_to_desktop` for hit testing).
+  It stays 4 px, as seen, under the selected desktop's border. The border is tile px, so it grows with the desktop (60 px
+  at ten times the size), which is why glass hangs from the border's outer edge rather than the desktop's bottom edge:
+  from there the gap is the same at every size, and nothing else changes at the default size. Every desktop's glass
+  hangs there, selected or not, so selecting a desktop never moves its pill: a bigger desktop that isn't selected shows
+  the empty strip where its border would be. The pill's grab zone runs up to the desktop's bottom edge over that strip
+  and stops there (`free_pointer.on_pill`), and beside it the edge still resizes. While a slider is held the open panel
+  stays on its press-time surface, so a dragged Distance moves the desktop's border past it until you let go.
 - It is saved to the glasses model's profile half a second after the last change and again on release, so it carries
   over to the next session.
 - Growing pushes the desktops round it out of its way ([Bumping](#bumping-desktops-out-of-the-way)); with no room left
@@ -1315,10 +1364,44 @@ after a desktop change, an edit applies as given. Everything here is covered by 
 Every desktop faces you, upright in the canvas frame. That frame is the head's orientation at the last recentre, so a
 recentre with the head tipped to one side leaves every desktop rolled as you see it, and a pitched one leaves desktops
 turned off to the side rolled. In anchor mode, while head tracking runs and no mode blend is in progress, the renderer
-measures each desktop's roll from level (`view.hpp desktop_tilt`: the world's up from the pose feed, `pose.hpp
-canvas_up`, projected onto the desktop at its centre) and reports it on the status socket as
-`{"roll_geometry":{"tilt":[t,...]}}` (hundredths of a degree, counter-clockwise positive, `null` where it is not
-measured; on change, at most every 100 ms). The tilt leaves out the levelling roll, so the supervisor owns that alone.
+measures each desktop's roll from level (`view.hpp desktop_tilt`: the world's up, `pose.hpp canvas_up`, projected onto the
+desktop at its centre) and reports it on the status socket as `{"roll_geometry":{"tilt":[t,...]}}` (hundredths of a degree,
+counter-clockwise positive, `null` where it is not measured; on change, at most every 100 ms). The tilt leaves out the
+levelling roll, so the supervisor owns that alone.
+
+**The world's up is estimated, because the pose feed has no gravity in it.** XRLinuxDriver publishes the head's pose
+relative to the one it captured as calibration finished (`src/driver.c driver_handle_pose`: `conj(reference) * pose`), about
+45 s after XR starts here. The Carina's own pose is gravity-anchored, but that frame stops at the driver; what reaches us has
+the glasses' up at that moment for its z, wherever they were. Until 2026-11-03 the feed's z was taken for gravity. Worn
+straight at the start that was right, which is why nobody saw it: with the glasses set down upside down until calibration
+finished, the feed's z was 165° from the worn glasses' up, so every desktop measured about -165°, the roll that cancels that
+hit the 90° bound, and the middle segment turned the desktop 90° counter-clockwise. (Cody's run of 2026-11-03: the driver log
+shows `Centering screen` at 19:40:03, and the live feed's z read 163 to 168° from the glasses' up for 40 s of wear.)
+
+`PoseState::up_` now holds the world's up in the feed's frame, and `PoseState::reference` gives the recentre reference turned
+into a frame where it is z, so `canvas_up` and the background's floor (`environment_view`), the two things that needed it,
+are right with no change of their own. Two facts about a head carry it:
+
+- At a recentre the glasses are on your head, so up is within 45° of the head's own up. It stays if it is: a tipped recentre
+  is what the bar is for, and up lives in the feed's frame, which a recentre does not move. If not, the feed's z takes over
+  if that is within reach (exact for glasses worn straight at the start), else the head's own up, which has the head's
+  pitch in it.
+- A head is held straight on average, so whichever way it turns, its left-right axis stays level. A small Kalman filter on
+  that one measurement (`learn_up`) corrects a reference that only looked right, and learns pitch as soon as the head has
+  turned a little. It is not an average of the head's own up, which would take on the pitch of whatever you look at.
+
+Replayed through `PoseState`, 3 minutes of Cody's real head motion read from the live feed gave a head roll against the
+estimate of -0.4° mean, 1.8° rms (a head is indeed straight on average); gaze elevation averaged -10°, which an average of
+the head's up would have taken for level. Starts 45 and 90 s apart ended within 2° of each other, and a start on the right
+answer wandered at most 1.9°. The next run, calibrated with the glasses on (20:07:12), had the feed's z 13° from the glasses'
+up: how far off it is really is a matter of where they were at that moment.
+
+Limits, all of them from having no gravity reading. A head held tipped for minutes comes to count as level, which is at
+least level as you see it. Glasses further than 60° from up teach nothing, so setting them down does no harm. A start
+somewhere the feed's z only looks right (in a hand, 30° off) is that wrong until the head has shown it up, about half a
+minute of normal use; a start on the head alone is up to about 6° off for its first half minute. The exact answer would take
+the driver publishing its reference or its absolute pose, which it does not, or the VITURE SDK, whose licence is not
+accepted here.
 
 `free_pointer.OverviewPointer` keeps a levelling roll per desktop (not part of the wire placement; since 2026-11-03 saved
 in the profile's `rolls` with the monitor setup and restored at start, see

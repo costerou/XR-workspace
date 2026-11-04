@@ -10,7 +10,7 @@ that sat above each desktop. The menu card's script (steps 1–36), its integrat
 its tests `placement_menu_style` and `menu_geometry_contract` went with the card. They are in git history before
 `feature/glass-pills`.
 
-Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
+Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G42), the free
 pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20) or the window memory script
 (W1–W19) has run in an isolated VM or been tried in the glasses.
 
@@ -18,8 +18,12 @@ pointer script (F1–F22), the round-you script (O1–O19), the level bar script
 
 Renderer (ctest, offline):
 
+- `spike/tests/pill_border_render_test.cpp` (`pill_border_render`): the real compositor's pixels, the border alone and the
+  glass alone on a black desktop, in 277 scenes (sizes from half to ten times, flat, curved, rolled, on its side, turned
+  round you, along the morph, open, the last moment of a zoom): no glass pixel on the border, and the same gap to it.
 - `spike/tests/glass_test.cpp` (`glass`): the pill's geometry (centred 10 px under the desktop, 24% of its width within
-  64–160 px, never wider than the desktop, 14 px tall); the panel (480×220, four rows) sharing the pill's top and
+  64–160 px, never wider than the desktop, 14 px tall), 4 px as seen under the selected desktop's border at every size
+  and clear of the corner caps; the panel (480×220, four rows) sharing the pill's top and
   centre; the morph between them; the panel layout (rows under the 42 px header, sliders between the label and value
   columns, footer inside); every look state (idle, hover, drag, pill to panel) at or under 191/255 and premultiplied,
   with any accent; the panel content (readable but under the cap, the selected row's band, a knob at a field's bounds
@@ -168,6 +172,10 @@ that moves out of view. Then press Ctrl+Alt+Down.
 | G36 | Switch the Omarchy theme with a pill open, then press an arrow and click a slider. Repeat with a pale (Lumon), a saturated (Matte Black) and a deep blue (Catppuccin Latte) theme | Both still work (the binds were reinstalled). The open panel, its selected-row band, slider tracks and handles and its buttons, the other pills, the level bars and corner caps, the highlight border and the glow all change to the new theme colour together; the panel text stays readable. In every theme the pills read as solid pills in that colour, as light or dark as the border colour (Lumon pale, Vantablack mid grey, White darker grey), and nothing is glaring. No restart: the running session recolours, and the run's final status shows `theme.updates` counting each switch. |
 | G37 | With a pill open, play a VR video (Ctrl+Alt+O), then press Esc | The panel closes when the video opens. No pills or dot during the video, and Ctrl+Alt+L does nothing. Back on the desktops, the pills are back and none is open. |
 | G38 | Press Ctrl+Alt+M in a terminal, with and without a pill open. Then stop the session with a pill open (and once in the middle of a slider drag) | Ctrl+Alt+M reaches the terminal and nothing happens in the glasses. After the stop, windows return to the physical output, the cursor is visible and clicks work. `profiles.json` is still mode 0600 and holds the placements. |
+| G39 | **Under the border.** Select XR-2, then drag one of its corners outward until it is about twice its size. Watch the pill under it the whole way | The pill never touches the coloured border. It stays a small, even gap below the border and the same size all the way, while the border itself gets thicker. Shrink it back: the same. |
+| G40 | Open XR-2's pill and set Distance to about 50. While you hold the slider the panel stays where it is under the dot, and the desktop grows past it. Let go, and press Esc | When you let go the panel goes back under the border, clear of it. Closed, the pill is back just below the border. It opens and closes without touching the border. |
+| G41 | Make XR-2 ultrawide, then curve it with the Curvature slider, then roll it with its level bar. Look at the pill after each | The pill stays below the border, following its curve and tilt, with the same small gap. |
+| G42 | With a big desktop, select another one, so the big one has no border. Then press the pill, and press beside it just under the desktop | The pill does not move when the selection changes, so it sits a little further under the unselected desktop's edge. The pill drags the desktop from anywhere between it and the desktop's bottom edge. Beside the pill, the bottom edge resizes. Over the desktop itself the click goes to its windows. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
@@ -436,8 +444,8 @@ focus; say so if the typing lands anywhere but the desktop you are looking at.
 | X6 | Press Ctrl+Alt+V, turn your head, press Ctrl+Alt+V again | Locked and follow both stay on XR-4. Neither jumps to XR-3. |
 | X7 | Press Ctrl+Alt+Down, then maximize XR-1, XR-2 and XR-3 in turn (select with Ctrl+Alt+Left / Right, Ctrl+Alt+Up, then Ctrl+Alt+Down), typing on each | Each shows itself, and the typing lands on the desktop you see. |
 | X8 | Click on XR-4, then press Ctrl+Alt+Up | The click selects XR-4 and stays in the overview. The key maximizes XR-4. |
-| X9 | Press Ctrl+Alt+Down, then with the keys only (the dot would select the desktop it moves onto): Ctrl+Alt+L for XR-4's pill, Shift+Tab twice to XR-2's, Delete twice, Esc, Ctrl+Alt+Up | XR-2 is gone. XR-4 stays selected and maximizes, with focus on it. |
-| X10 | Press Ctrl+Alt+Down, Ctrl+Alt+L for XR-4's pill, Delete twice, then Ctrl+Alt+Up | XR-3 becomes the selected desktop, with the highlight on it, and maximizes. |
+| X9 | Press Ctrl+Alt+Down, then with the keys only (the dot would select the desktop it moves onto): Ctrl+Alt+L for XR-4's pill, Shift+Tab twice to XR-2's, Shift+Delete twice, Esc, Ctrl+Alt+Up | XR-2 is gone. XR-4 stays selected and maximizes, with focus on it. |
+| X10 | Press Ctrl+Alt+Down, Ctrl+Alt+L for XR-4's pill, Shift+Delete twice, then Ctrl+Alt+Up | XR-3 becomes the selected desktop, with the highlight on it, and maximizes. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
 
@@ -452,6 +460,12 @@ levels the desktop and moves nothing else. See [Level bar and corner caps](techn
 
 Automated (offline):
 
+- ctest `level_frame`: what level is measured against, with the feed as the driver publishes it (relative to wherever the
+  glasses were as calibration finished, including the numbers read from the live feed on 2026-11-03): tilts against true
+  gravity for a reference upside down, on one arm or hanging; a tipped or pitched recentre; a good frame exact from the first
+  sample; a reference that only looks right; ten minutes of use; glasses put down; the background's floor.
+- ctest `level_contract`: the bar pressed through `OverviewPointer` with those tilts: middle and turn segments, R on an open
+  panel, a drag through the detent, and a maximize after a level.
 - ctest `roll_level`: the roll about the line of sight, the tilt from level, gravity after a tipped recentre; the bar's size,
   place, thirds and hit region; bar and caps keeping their share of the desktop through resize, move, curvature and roll;
   every atlas pixel premultiplied and under the cap, a clear gutter round each cell, only the hot segment changed against
@@ -498,6 +512,9 @@ Glasses script (in the overview, unless a step says otherwise):
 | H18 | Leave the mouse alone for 30 s | The bars and caps hide with the pills, and come back on the next mouse move. |
 | H19 | Roll XR-2 about 20° with its bar and drag its pill aside. Open its pill (Ctrl+Alt+L) and press R. Repeat after a recentre with your head tipped, so it looks rolled before you start | R puts it back flat in its slot and level: upright to gravity after the tipped recentre, not just unrolled. The footer reads "R reset" and the help card's Ctrl+Alt+L row "Placement pill; R in it resets, levels". |
 | H20 | Move the dot slowly up from XR-2's top edge, under the middle of its bar | Right at the edge (the first few pixels) the dot shows the edge's up-down arrows and the bar does not light up; from about 8 px out it does. |
+| H21 | Before starting XR, set the glasses down upside down (or on one arm) and leave them there until the picture would appear, about a minute. Put them on, recentre (Ctrl+Alt+Space) looking straight ahead, wait a few seconds and click the middle of each desktop's bar | Every desktop stays within a few degrees of where it was, and looks level. None turns on its side. |
+| H22 | Same start. With Background on Grid, look around | The floor is below you and the sky above, not upside down or leaning. It may settle by a degree or two in the first half minute. |
+| H23 | Same start. After a minute of normal use, recentre with your head tipped to one side, straighten up, and click each bar's middle | Each desktop goes straight to level, with no wait. |
 
 ## Maximized desktops sit level: automated coverage and glasses test script
 

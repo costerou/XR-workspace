@@ -234,7 +234,7 @@ class FocusAndKeyboardTests(Base):
     def test_a_click_into_a_window_keeps_an_open_pill_and_releases_its_keys(self):
         calls = []
         self.control.menu_binds = calls.append
-        self.control.pill_click(0)  # XR-1's pill open: arrows, Tab, R, U, N, Delete, Esc are its keys now
+        self.control.pill_click(0)  # XR-1's pill open: arrows, Tab, R, U, N, Shift+Delete, Esc are its keys now
         self.free()
         self.aim(1, centre(T1))
         self.at(*self.p.want[2])

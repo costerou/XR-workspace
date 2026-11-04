@@ -17,7 +17,8 @@
 //
 // Always world-locked: it turns with the head pose in every viewing mode (anchor, follow, locked) and while maximized, so
 // you can look round it whatever the desktops do. Its frame is the recentre reference turned to level: the reference's
-// heading about gravity (the pose feed's z axis), so the floor stays flat even if you recentred with your head tipped.
+// heading about the world's up (PoseState::reference is level), so the floor stays flat even if you recentred with your
+// head tipped.
 //
 // The glasses. Black is see-through on their micro-OLED panels: the sky and the floor between the lines stay black at any
 // brightness (it multiplies), and nothing passes the 191/255 cap (hud.hpp kCardMaxLevel, material.hpp kMdOledLevel). The
@@ -72,7 +73,7 @@ MdRgb environment_line_color(MdRgb accent);
 // `head_relative` (driver frame, relative to the recentre reference, prediction included) and the recentre `reference`
 // itself (PoseState::reference; nullopt before the first sample: the reference is taken as level).
 Mat3 environment_view(Quat head_relative, const std::optional<Quat>& reference);
-// The reference's heading only: its turn about the driver's z (gravity) axis.
+// The reference's heading only: its turn about z, the world's up.
 Quat heading(Quat q);
 
 // The fade between None and a background, on the renderer's monotonic clock (ms).

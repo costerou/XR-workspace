@@ -80,7 +80,9 @@ the canvas plane, an off-centre one turns toward you about its centre. While zoo
 row slot and the zoomed desktop comes flat in front of you (`zoomed_placement`).
 
 - Geometry, in canvas px on the desktop's own surface (it faces you with its desktop; a curved desktop curves its
-  pill): the pill is 24% of the desktop's width (64–160 px) by 14 px, centred 10 px under it. The panel is 480×220 with
+  pill): the pill is 24% of the desktop's width (64–160 px) by 14 px, centred 10 px under it, which is 4 px under the
+  selected desktop's 6 px border. A resize keeps that 4 px as seen, because the border grows with the desktop and the pill
+  does not (`view.hpp glass_to_desktop`). The panel is 480×220 with
   18 px corners, centred under the desktop with its top at the pill's top. Its 42 px top strip is still the pill (drag
   to move, click to collapse); below it, one 34 px row per field (Left / right, Down / up, Distance, Curvature) with
   label, slider and value, then a key-hint footer.

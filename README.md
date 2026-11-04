@@ -299,7 +299,7 @@ With a pill open:
 | R | Reset this desktop to flat |
 | U | Ultrawide on or off for this desktop |
 | N | Add a new desktop |
-| Delete | Remove this desktop (press twice) |
+| Shift+Delete | Remove this desktop (press twice) |
 | Esc | Close the pill |
 | Ctrl+Alt+L | Close the pill |
 
@@ -313,7 +313,7 @@ pushing aside whatever is there now.
 with your head level, key hints included, and ease back down when it closes. A background stays where it is. **The open pill
 follows the selected desktop:** select another desktop in the overview (Ctrl+Alt+Left / Right, the dot moving onto it, or a click
 on it) and its pill opens as the old one closes. If no pill is open, selecting a desktop opens nothing. A click into a window keeps
-the pill open, but its plain keys (arrows, Tab, R, U, N, Delete, Esc) go back to the window so you can type. Click the panel to
+the pill open, but its keys (arrows, Tab, R, U, N, Shift+Delete, Esc) go back to the window so you can type. Click the panel to
 get them back.
 
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
@@ -354,7 +354,7 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   The handles are outside the desktop, so a window's corner, like its close
   button, stays the window's. Pushing the mouse against a desktop's edge from inside lands on that handle. Drag outward
   to make it bigger and inward to make it smaller. It can go from half to ten times its normal size (far bigger than your
-  field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size.
+  field of view; past the edge of the view the drag speeds up), and it keeps its shape. Its pill stays the same size and stays just below the desktop's border.
   Growing bumps the desktops around it out of the way, on every side; shrinking leaves them where they are.
 - **Level or roll a desktop** (new 3 November 2026, not yet tried in the glasses): every desktop in the overview has a
   level bar, a capsule above its top edge in your theme's colour, like the pill below it. It has three parts, and only
@@ -498,7 +498,7 @@ a web video you choose to play.
 Yes, from 1 to 4, in the glasses (new, not yet tried in the glasses). Open a desktop's glass pill: under its sliders are
 **Ultrawide** (switches that desktop between 16:9 and 21:9 at the same height), **Add new** (a new desktop the size of
 that one, named with the lowest free number up to XR-4) and **Remove** (press it twice; that desktop's windows move to
-your normal monitor, as Stop would move them). The keys U, N and Delete do the same while the pill is open. The next
+your normal monitor, as Stop would move them). The keys U, N and Shift+Delete do the same while the pill is open. The next
 session starts with the same desktops; Ctrl+Alt+R goes back to three. Above those buttons, **Resolution** sets that
 desktop's resolution (16:9, 16:10 and ultrawide sizes, from 1280x720 to 5120x1440) and **Scale** its scale, from 100% to
 300% (steps that would not give whole pixels are greyed out). Both apply at once, without restarting XR, and the next

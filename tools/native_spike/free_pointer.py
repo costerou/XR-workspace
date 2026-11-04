@@ -39,8 +39,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
     ctest `glass_contract` compares them): a glass pill (a Material Design 3 tonal capsule) sits PILL_GAP under every desktop, on that desktop's own
     surface. One at a time expands into the desktop's placement panel (PANEL_W x PANEL_H, centred under the desktop, its
     top where the pill's is): a header strip (the pill itself) and one slider row per placement setting. Glass keeps one
-    size whatever the desktop's: a resize moves it with the desktop's bottom edge but never scales it (glass_to_desktop,
-    view.hpp glass_mesh); pill_rect / panel_rect are glass px. The state is
+    size whatever the desktop's: a resize moves it with the desktop's bottom edge but never scales it, and it hangs from
+    the outer edge of the selected desktop's border, which does grow, so it stays one gap under that border at every size
+    (glass_to_desktop, view.hpp glass_mesh); pill_rect / panel_rect are glass px. The state is
     view.ViewState's menu_open / menu_desktop; Ctrl+Alt+L and the panel's modal keys drive the same state (view.py).
   * Clicks in free mode, tested front to back (hit): the open panel first (it is drawn on top), then each desktop's
     corners outside it (they win over its pill), its pill zone (the pill padded by PILL_PAD_X / PILL_PAD_Y, plus the gap
@@ -116,8 +117,9 @@ Design (feature/overview-free-pointer, 2026-11-02; glass pills, feature/glass-pi
   * Level bar (glass.hpp level_bar_scale / level_bar_rect / level_bar_segment, mirrored here with the LEVEL_* constants; the
     `glass_contract` ctest compares them; arrow brackets round the top corners until 2026-11-03, Cody's pick of the handle
     mockups): in anchor mode the renderer reports how far each desktop is from level as you see it, gravity from the head
-    tracker (`roll_geometry`, view.hpp desktop_tilt; a recentre with your head tilted, or a pitched one seen off to the side,
-    leaves desktops rolled). This class owns each desktop's levelling roll (`rolls`, hundredths of a degree, saved with the
+    tracker (`roll_geometry`, view.hpp desktop_tilt; the driver publishes no gravity, so it is estimated from the head,
+    pose.hpp PoseState::up_; a recentre with your head tilted, or a pitched one seen off to the side, leaves desktops
+    rolled). This class owns each desktop's levelling roll (`rolls`, hundredths of a degree, saved with the
     layout) and sends it with the bars (the wire's `icons`) in the `roll` frame. Every desktop shows one in the overview,
     level or not, measured or not: a segmented capsule LEVEL_BAR_GAP above its top edge, the pill's counterpart, all in tile
     px on the desktop's surface, so it moves, scales and rolls with the desktop (a resize keeps it the same share of the
@@ -194,10 +196,11 @@ SHAPE_S = 1 / 30          # desktop mode: how often the sampler asks what cursor
 SHAPE_RETRY_S = 1.0       # after a failed read
 RESIZE_LOOKS = {'l': 'resize_ew', 'r': 'resize_ew', 't': 'resize_ns', 'b': 'resize_ns',
                 'tl': 'resize_nwse', 'br': 'resize_nwse', 'tr': 'resize_nesw', 'bl': 'resize_nesw'}
-# Glass pill (glass.hpp glass_pill: share of the desktop's width clamped to px, height, gap under the desktop) and the
-# padding around it that still grabs it; the zone also covers the gap up to the desktop's bottom edge.
+# Glass pill (glass.hpp glass_pill: share of the desktop's width clamped to px, height, gap under the desktop as laid out) and
+# the padding around it that still grabs it; the zone also covers the gap and the border up to the desktop's bottom edge.
 PILL_SHARE, PILL_MIN, PILL_MAX, PILL_THICKNESS, PILL_GAP = 0.24, 64.0, 160.0, 14.0, 10.0
 PILL_PAD_X, PILL_PAD_Y = 10.0, 10.0
+BORDER_PX = orbit.MARGIN_PX  # view.hpp kBorderPx: the selected desktop's frame, tile px
 # Expanded pill = placement panel (glass.hpp glass_panel and its layout, panel px from its top-left): the header strip
 # (the pill itself: drag to move, click to collapse), then one row per placement setting (geometry.PLACEMENT_KEYS order)
 # whose slider knob centre runs PANEL_KNOB_LO (low bound) .. PANEL_KNOB_HI (high bound).
@@ -575,11 +578,17 @@ def look_for(h):
     return {'move': 'move', 'rotate': 'rotate'}.get(zone)
 
 
+def glass_anchor(tile):
+    """What glass hangs from (spike/src/view.cpp glass_anchor): the middle of the border's outer edge under the desktop."""
+    return (tile[0] + tile[2] / 2, tile[1] + tile[3] + BORDER_PX)
+
+
 def glass_to_desktop(tile, p, gx, gy):
     """Glass px (pill_rect / panel_rect) -> the desktop surface px it is drawn at (spike/src/view.cpp glass_to_desktop):
-    scaled by the desktop's distance about its bottom-centre, so the glass keeps its size however big the desktop is."""
+    scaled by the desktop's distance about glass_anchor, so the glass keeps its size however big the desktop is, and one
+    gap to the border, which grows with the desktop."""
     k = p['distance'] / 100 if p['distance'] > 0 else 1.0
-    ax, ay = tile[0] + tile[2] / 2, tile[1] + tile[3]
+    ax, ay = glass_anchor(tile)
     return (ax + (gx - ax) * k, ay + (gy - ay) * k)
 
 
@@ -587,7 +596,7 @@ def desktop_to_glass(tile, p, q):
     """The inverse of glass_to_desktop for desktop surface px `q` (None stays None)."""
     if q is None: return None
     k = p['distance'] / 100 if p['distance'] > 0 else 1.0
-    ax, ay = tile[0] + tile[2] / 2, tile[1] + tile[3]
+    ax, ay = glass_anchor(tile)
     return (ax + (q[0] - ax) / k, ay + (q[1] - ay) / k)
 
 
@@ -744,7 +753,7 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
         tile = g['tiles'][i]
         border = border_handle(tile, q)
         if border is not None and border[0] == 'corner': below = ('corner', i, border[1])
-        elif on_pill(tile, desktop_to_glass(tile, placements[i], q)): below = ('pill', i)
+        elif on_pill(tile, placements[i], q): below = ('pill', i)
         elif border is not None:
             if edge is None: edge = ('edge', i, border[1])  # the nearest edge's band; desktops behind it still count
             continue
@@ -764,12 +773,14 @@ def hit(g, placements, pointer, open_=None, icons=None, picker=False, resolution
     return edge
 
 
-def on_pill(tile, q):
-    """True if tile pixel `q` (None: missed) is in a desktop's pill zone: the pill padded by PILL_PAD_X / PILL_PAD_Y,
-    plus the gap up to the desktop's bottom edge."""
+def on_pill(tile, p, q):
+    """True if tile pixel `q` of a desktop at placement `p` (None: missed) is in its pill zone: the pill padded by
+    PILL_PAD_X / PILL_PAD_Y, glass px, plus the gap and the border up to the desktop's bottom edge. That edge is the
+    desktop's own, so it is measured on the surface: the zone stops there at every size and never takes the content."""
     if q is None: return False
+    gx, gy = desktop_to_glass(tile, p, q)
     px, py, pw, ph = pill_rect(tile)
-    return px - PILL_PAD_X <= q[0] <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] <= py + ph + PILL_PAD_Y
+    return px - PILL_PAD_X <= gx <= px + pw + PILL_PAD_X and tile[1] + tile[3] <= q[1] and gy <= py + ph + PILL_PAD_Y
 
 
 def inside_by(tile, q):
