@@ -133,6 +133,8 @@ public:
     // plus the panel's desktop row (hud.hpp PlacementMenuState).
     // `surface` (open only): while the supervisor holds one of the panel's sliders, the placement the panel is drawn on
     // (its desktop's at the press; the desktop itself follows set_placements). Empty: the desktop's live placement.
+    std::optional<std::string> take_owner_readback(double now_ms);
+    void resend_owner_readback();
     std::optional<std::string> take_maximize_geometry();
     void resend_maximize_geometry();
     void set_options_menu(const struct OptionsMenuState& state);

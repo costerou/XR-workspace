@@ -1107,6 +1107,8 @@ int main(int argc, char** argv) {
     };
     constexpr int kBadControlFrames = 9;
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
+    std::uint64_t owner_lines=0,refused_lines=0;bool owner_ready=false,owner_oversize=false;
+    nlohmann::json last_owner;
     nlohmann::json last_status;  // the newest measured status (not the geometry lines the same socket carries)
     std::string stderr_text;
     // --feed-drop: the renderer's status through the drop, in order.
@@ -1122,7 +1124,7 @@ int main(int argc, char** argv) {
     bool stop_sent = false;
     std::int64_t stop_deadline = 0;
     auto drain = [&] {
-        char buf[4096];
+        char buf[16384];
         for (ssize_t n; (n = ::recv(control[0], buf, sizeof buf, MSG_DONTWAIT)) > 0;)
             for (ssize_t i = 0; i < n; ++i) heartbeats += buf[i] == 'H';
         for (ssize_t n; (n = ::recv(status[0], buf, sizeof buf, MSG_DONTWAIT)) > 0;) {
@@ -1140,7 +1142,9 @@ int main(int argc, char** argv) {
             }
             try {
                 auto j = nlohmann::json::parse(line);
-                if (j.is_object() && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry") && !j.contains("maximize_geometry") && !j.contains("control_applied")) {
+                if(j.contains("owner_readback")){++owner_lines;owner_oversize|=std::size_t(n)>16384;last_owner=j["owner_readback"];for(const auto& o:last_owner["outputs"])owner_ready|=o.value("ready",false);}
+                if(j.contains("control_refused"))++refused_lines;
+                if (j.is_object() && !j.contains("owner_readback") && !j.contains("control_refused") && !j.contains("overview_geometry") && !j.contains("roll_geometry") && !j.contains("help_geometry") && !j.contains("maximize_geometry") && !j.contains("control_applied")) {
                     if (j.contains("tracking") && j["tracking"].is_boolean()) {
                         const bool on = j["tracking"].get<bool>();
                         if (on && status_lost) status_resumed = true;
@@ -1305,6 +1309,7 @@ int main(int argc, char** argv) {
     if (shim_loaded && counters) out["allocations_per_s"] = std::round(double(mallocs1 - mallocs0) / secs * 10) / 10;
     out["status_datagrams"] = status_lines; out["overview_geometry_lines"] = geometry_lines;
     if (opt.immersive) { out["depth_inputs"] = depth_inputs; out["depth_lit"] = depth_lit; out["depth_maps_sent"] = depth_maps_sent; out["engine_dead"] = engine_dead; }
+    out["owner_readback_datagrams"]=owner_lines;out["control_refused_datagrams"]=refused_lines;out["owner_readback"]=last_owner;
     out["last_status"] = last_status;
     // The renderer's own exit reports (timing JSON, capture JSON with path/fallback), bounded.
     std::istringstream lines(stderr_text); std::string line; std::vector<nlohmann::json> reports; std::vector<std::string> other;
@@ -1426,6 +1431,18 @@ int main(int argc, char** argv) {
         if (capture && !opt.maximize && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
         // What the incident monitor reads while a session runs (incident_detect.py). The status needs a frame to measure.
         if (capture && !last_status.is_object()) fail("no status datagram");
+        if(capture && !opt.video_loss && !opt.close_control){
+          if(owner_lines==0||!last_owner.is_object())fail("no separate owner_readback datagram");
+          if(owner_oversize)fail("owner_readback exceeded 16KiB");
+          if(last_status.contains("owner_readback")||last_status.contains("control_refused"))fail("owner datagram replaced measured status");
+          if(!owner_ready)fail("owner readback never observed a ready captured texture");
+          if(last_owner.is_object() && opt.churn.empty())for(const auto& report:reports)if(report.value("kind","")=="managed_output_capture"){
+            const auto& actual=report["outputs"];const auto& observed=last_owner["outputs"];
+            if(actual.size()!=observed.size())fail("owner output identity count differs from actual capture");
+            for(std::size_t i=0;i<std::min(actual.size(),observed.size());++i)if(actual[i]["name"]!=observed[i]["name"]||actual[i]["width"]!=observed[i]["width"]||actual[i]["height"]!=observed[i]["height"])fail("owner output name/size differs from actual capture");
+          }
+          if(opt.bad_control && refused_lines==0)fail("missing bounded native refusal datagrams");
+        }
         // A resize fails a capture or two, each ended by the next frame; only a stuck capture keeps failing (CAPTURE_STUCK there).
         if (capture && !(last_status.contains("capture_failure_run") && last_status["capture_failure_run"].is_number_unsigned())) fail("status has no count of consecutive capture failures");
         if (capture && opt.churn.empty() && last_status.value("capture_failure_run", 0) != 0) fail("a healthy run is failing captures");

@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
 #include <sys/stat.h>
@@ -246,6 +247,8 @@ int main(int argc, char** argv) {
         }
     },
                              [&](const xr::ControlRefusal& r) {
+        if(status_fd>=0){const std::string line=nlohmann::json{{"control_refused",{{"request_id",r.request_id},{"op",r.op.substr(0,64)},{"detail",r.error.detail.substr(0,256)}}}}.dump()+"\n";(void)send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT);}
+
         if (++refusals <= 20 || refusals % 1000 == 0)  // bounded: a supervisor that keeps doing this must not fill the journal
             std::cerr << "control: refused frame " << r.request_id << " (" << (r.op.empty() ? "unreadable" : r.op) << "): " << r.error.code
                       << ": " << r.error.detail << " (" << refusals << " so far): " << r.frame << '\n';
@@ -303,6 +306,11 @@ int main(int argc, char** argv) {
         if(status_fd>=0)if(const auto geometry=presentation.take_maximize_geometry()){
             const auto line=*geometry+"\n";
             if(send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT)!=ssize_t(line.size()))presentation.resend_maximize_geometry();
+        }
+        if(status_fd>=0){timespec ts{};clock_gettime(CLOCK_MONOTONIC,&ts);
+            if(const auto snapshot=presentation.take_owner_readback(double(ts.tv_sec)*1000+double(ts.tv_nsec)/1e6)){
+              const auto line=*snapshot+"\n";if(send(status_fd,line.data(),line.size(),MSG_NOSIGNAL|MSG_DONTWAIT)!=ssize_t(line.size()))presentation.resend_owner_readback();
+            }
         }
         const auto now = std::chrono::steady_clock::now();
         if (status_fd >= 0 && now >= next_status) {

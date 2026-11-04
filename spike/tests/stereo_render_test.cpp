@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 // Global immersive 3D on a surfaceless EGL context (no display, window or compositor), through the real GlCompositor:
 //  1. the guide map pass and the warp against their CPU mirrors (xr/stereo.hpp), on the fake depth source; NaN depth stays finite;
 //  2. golden images of the side-by-side frame (tests/golden, tolerance for different GPUs);
@@ -374,6 +375,7 @@ void whole_view() {
     gl->set_glass({});
     const std::vector<PlaneF> depth{{}, fake::flat_depth(320, 256, 0.9f), {}};
     settle(*gl, scene.tiles, scene.placements, depth);
+    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["physical_sbs"]==true);CHECK(observed["available"]==true);CHECK(observed["desktops"][1]["depth_ready"]==true);CHECK(observed["desktops"][1]["drawing"]==true);CHECK(observed["desktops"][1]["gain"].get<float>()>0);CHECK(observed["depth_updates"].get<unsigned>()>0);CHECK(observed["params"]["strength"]==set.params.strength);}
     sbs = read(0, 0, 2 * W, H); left = half(sbs, 0); right = half(sbs, 1);
     const auto dot_centre = [](const Image& im) {  // the dot: the only neutral grey with a black ring in this frame
         double sum = 0; int n = 0;
@@ -397,11 +399,13 @@ void whole_view() {
     set.desktops = {true, false, true};
     gl->set_stereo(set);
     settle(*gl, scene.tiles, scene.placements, depth);
+    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["physical_sbs"]==true);CHECK(observed["available"]==true);CHECK(observed["desktops"][1]["depth_ready"]==true);CHECK(observed["desktops"][1]["drawing"]==true);CHECK(observed["desktops"][1]["gain"].get<float>()>0);CHECK(observed["depth_updates"].get<unsigned>()>0);CHECK(observed["params"]["strength"]==set.params.strength);}
     sbs = read(0, 0, 2 * W, H); left = half(sbs, 0); right = half(sbs, 1);
     CHECK(std::fabs(match(left, right, 640, 330, 8, 44)) < 0.6f);
     set.desktops.clear();
     gl->set_stereo(set);
     settle(*gl, scene.tiles, scene.placements, depth);
+    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["physical_sbs"]==true);CHECK(observed["available"]==true);CHECK(observed["desktops"][1]["depth_ready"]==true);CHECK(observed["desktops"][1]["drawing"]==true);CHECK(observed["desktops"][1]["gain"].get<float>()>0);CHECK(observed["depth_updates"].get<unsigned>()>0);CHECK(observed["params"]["strength"]==set.params.strength);}
     sbs = read(0, 0, 2 * W, H); left = half(sbs, 0); right = half(sbs, 1);
     CHECK(std::fabs(match(left, right, 640, 330, 8, 44) - surface) < 1.2f);
     std::this_thread::sleep_for(std::chrono::milliseconds(int(kStereoStaleMs) + 20));
@@ -437,11 +441,13 @@ void whole_view() {
     const float e = image_error(after, mono);
     std::printf("2D after 3D: %.0f/255 from the first 2D frame\n", double(e));
     CHECK(e == 0);
+    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["physical_sbs"]==false);CHECK(observed["enabled"]==false);for(const auto& d:observed["desktops"])CHECK(d["drawing"]==false);}
     // A buffer that is not 3:1 stays 2D even with 3D on (the glasses were not switched).
     set.enabled = true;
     gl->set_stereo(set);
     draw(scene);
     CHECK(image_error(read(0, 0, W, H), mono) == 0);
+    {auto observed=nlohmann::json::parse(gl->stereo_readback());CHECK(observed["enabled"]==true);CHECK(observed["physical_sbs"]==false);for(const auto& d:observed["desktops"])CHECK(d["drawing"]==false);}
     set.enabled = false; gl->set_stereo(set);
     const auto report = gl->report();
     CHECK(report.find("\"stereo\":{\"available\":true") != std::string::npos);
