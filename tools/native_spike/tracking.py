@@ -248,6 +248,34 @@ def _glasses_nodes():
     return nodes
 
 
+class UnsupportedTrackingProvider(ValueError):
+    """No approved provider for this attached model; never eligible for fallback."""
+
+
+def _check_provider_compatibility():
+    """Passive provider safety gate, separate from model/profile detection.
+
+    Installed xrDriver names Pro 2 but applies an unverified coordinate conversion
+    and -8.5 degree correction. No provider is approved for it yet. Reject PID
+    or product evidence, including conflicts, before reusing or starting a driver.
+    Never open usbfs/hidraw here. Other models retain their existing behavior.
+    """
+    for device in SYS_USB.glob('*'):
+        try:
+            vendor = (device / 'idVendor').read_text().strip().lower()
+            if vendor != '35ca': continue
+            product_id = (device / 'idProduct').read_text().strip().lower()
+        except OSError:
+            continue
+        try: product = (device / 'product').read_text().strip()
+        except OSError: product = ''
+        if product_id == '1301' or product == 'VITURE PRO 2 XR Glasses':
+            raise UnsupportedTrackingProvider(
+                'VITURE PRO 2 XR Glasses (35ca:1301): tracking provider not approved; '
+                'installed SDK coordinate conversion and pitch correction need verification. '
+                'Head tracking is blocked; do not use the Luma provider or fallback.')
+
+
 def _check_usb_access():
     """Refuse before the driver crashes on a node we may not open. Sysfs and access(2) only: this never opens the device,
     so it sends nothing to the glasses. Glasses that are not attached are left to the driver, which waits for them."""
@@ -317,6 +345,7 @@ def ensure_ready(runtime, timeout=120.0, luma=None, binary=None):
     Only the PID/start-tick recorded by this app can be stopped. A separate
     driver is never killed; start() refuses to compete with it.
     """
+    _check_provider_compatibility()
     now = status(runtime)
     target = luma or binary or DRIVER
     wanted = lambda: now['network_isolated'] and now['driver'] == (LUMA if luma else XRDRIVER) and now['binary'] == target
@@ -342,7 +371,9 @@ def ensure_ready_luma(runtime, luma):
 
     Only a failure hands over. A cancel (KeyboardInterrupt, the panel's Stop) goes straight through.
     """
+    _check_provider_compatibility()
     try: return ensure_ready(runtime, timeout=LUMA_TIMEOUT, luma=luma)
+    except UnsupportedTrackingProvider: raise
     except (OSError, ValueError) as exc: reason = str(exc) or type(exc).__name__
     try: return {**ensure_ready(runtime, timeout=FALLBACK_TIMEOUT), 'fallback': reason}
     except (OSError, ValueError) as exc:
@@ -352,6 +383,7 @@ def ensure_ready_luma(runtime, luma):
 def start(runtime, timeout=120.0, luma=None, binary=None):
     """Start XRLinuxDriver (`binary`, default the standard one), or with `luma` (the pinned binary's path) the Luma driver,
     and wait for it to calibrate."""
+    _check_provider_compatibility()
     if _ours(_read_state(runtime)): raise ValueError('tracking already running')
     if luma is None: _check_config()
     if _other_drivers(): raise ValueError('another head tracking driver is running; refusing to compete for the glasses')
