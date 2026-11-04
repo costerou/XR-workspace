@@ -70,12 +70,22 @@ struct TransportConfig {
     // is read at once and read() says which one a packet came from; out_endpoint 0 means no writes.
     std::vector<std::uint8_t> in_endpoints;
     std::uint8_t out_endpoint = 0;
-    std::size_t packet_size = 1024;  // Bytes per URB. Must be at least the endpoint's largest transfer.
-    int urbs_per_endpoint = 2;       // In flight per IN endpoint, so a packet never waits for us to resubmit.
+    // Upper limit per transfer. A URB is the endpoint's own packet size or this, whichever is smaller: USB
+    // ends a transfer on a short packet or a full buffer, so a bigger URB would hold back a frame of
+    // exactly one packet (the 512-byte data channel) until the next frame came. Longer messages arrive
+    // as one read() per packet.
+    std::size_t packet_size = 1024;
+    // In flight per IN endpoint. Packets keep landing while we are off the CPU: 4 URBs ride out a 2 ms
+    // stall on the 500 us endpoint 0x81. List only the endpoints in use: an idle bulk IN URB keeps
+    // the host controller polling that endpoint.
+    int urbs_per_endpoint = 4;
     std::size_t queue_frames = 256;  // Received packets held until read() takes them; the oldest goes first.
     int max_urb_errors = 8;          // Consecutive failed transfers on one endpoint before the link is reopened.
+    std::chrono::milliseconds urb_retry_delay{10};  // Wait after a failed transfer, doubling up to 16 times this.
 
-    std::chrono::milliseconds rescan_interval{100};  // Sysfs rescan period while disconnected.
+    // Sysfs rescan period while disconnected. One scan takes about 0.3 ms on this machine, so 25 ms is
+    // about 1% of a core, only while the glasses are gone.
+    std::chrono::milliseconds rescan_interval{25};
 
     std::filesystem::path sysfs_root = "/sys";
     std::filesystem::path dev_root = "/dev";
@@ -84,6 +94,7 @@ struct TransportConfig {
 struct EndpointInfo {
     std::uint8_t address = 0;
     bool bulk = false;  // Otherwise interrupt; control and isochronous endpoints are not usable here.
+    std::size_t max_packet = 0;  // Bytes, from wMaxPacketSize. 0 if sysfs did not say.
 };
 
 struct FoundDevice {
@@ -122,6 +133,10 @@ struct TransportEvent {
     std::string reason;             // Disconnected: what gave it away.
     std::uint64_t t_ns = 0;         // CLOCK_MONOTONIC.
     std::uint64_t downtime_ms = 0;  // Connected after a drop: how long the link was down.
+    // Disconnected: what led up to it, for working out why it dropped.
+    std::uint64_t ms_since_last_packet = 0;   // A stream that stopped before the drop reads high.
+    std::uint32_t consecutive_urb_errors = 0;  // On the worst endpoint.
+    int last_urb_status = 0;                   // Newest failed transfer this session (-EPROTO etc), 0 if none.
 };
 
 struct TransportStats {

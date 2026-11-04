@@ -101,7 +101,10 @@ std::vector<EndpointInfo> read_endpoints(const fs::path& interface_dir) {
         auto address = parse(name.substr(3), 16);
         std::string type = read_line(entry / "type");
         if (!address || (type != "Bulk" && type != "Interrupt")) continue;
-        endpoints.push_back({static_cast<std::uint8_t>(*address), type == "Bulk"});
+        // Bits 11-12 are extra transactions per microframe on high-bandwidth interrupt endpoints.
+        unsigned long raw = read_number(entry / "wMaxPacketSize", 16).value_or(0);
+        std::size_t max_packet = (raw & 0x7ff) * (1 + ((raw >> 11) & 3));
+        endpoints.push_back({static_cast<std::uint8_t>(*address), type == "Bulk", max_packet});
     }
     return endpoints;
 }
@@ -170,8 +173,11 @@ int Sys::poll(pollfd* fds, nfds_t count, int timeout_ms) { return ::poll(fds, co
 struct Transport::Impl {
     struct Urb {
         std::vector<std::uint8_t> buffer;
+        int length = 0;  // What an IN transfer asks for.
         std::uint8_t endpoint = 0;
-        bool busy = false;
+        bool busy = false;    // With the kernel.
+        bool parked = false;  // Failed: resubmits at retry_at.
+        Clock::time_point retry_at{};
         std::unique_ptr<usbdevfs_urb> urb = std::make_unique<usbdevfs_urb>();  // Own allocation: it ends in a flexible array.
     };
     struct Slot {
@@ -197,6 +203,9 @@ struct Transport::Impl {
 
     std::deque<Urb> urbs;  // Deque: the kernel keeps pointers to these.
     std::array<int, 256> endpoint_errors{};  // Consecutive failures, by endpoint: several URBs share one.
+    int parked = 0;
+    int last_urb_status = 0;
+    Clock::time_point last_packet{};
     Urb* out_urb = nullptr;
 
     // Received packets, preallocated so the hot path does not touch the heap.
@@ -260,8 +269,13 @@ struct Transport::Impl {
         u.endpoint = endpoint;
         u.buffer.resize(config.packet_size);
         bool bulk = false;
-        for (const EndpointInfo& e : found.endpoints)
-            if (e.address == endpoint) bulk = e.bulk;
+        std::size_t length = config.packet_size;
+        for (const EndpointInfo& e : found.endpoints) {
+            if (e.address != endpoint) continue;
+            bulk = e.bulk;
+            if (e.max_packet > 0) length = std::min(length, e.max_packet);
+        }
+        u.length = static_cast<int>(length);
         u.urb->type = bulk ? USBDEVFS_URB_TYPE_BULK : USBDEVFS_URB_TYPE_INTERRUPT;
         u.urb->endpoint = endpoint;
         u.urb->buffer = u.buffer.data();
@@ -289,7 +303,7 @@ struct Transport::Impl {
             for (int i = 0; i < config.urbs_per_endpoint; ++i) {
                 Urb& u = urbs.emplace_back();
                 prepare_urb(u, endpoint, found);
-                if (!submit(u, static_cast<int>(config.packet_size))) {
+                if (!submit(u, u.length)) {
                     int error = errno;
                     ++stats.open_failures;
                     return fail_open(std::string("URB submit failed: ") + std::strerror(error));
@@ -318,6 +332,8 @@ struct Transport::Impl {
             return false;
         }
         auto now = Clock::now();
+        last_packet = now;
+        last_urb_status = 0;
         TransportEvent event;
         event.kind = TransportEvent::Kind::Connected;
         event.backend = found->backend;
@@ -355,16 +371,21 @@ struct Transport::Impl {
         urbs.clear();
         out_urb = nullptr;
         endpoint_errors.fill(0);
+        parked = 0;
     }
 
     void lose_link(std::string reason) {
         Backend backend = current ? current->backend : Backend::Usbfs;
         std::string node = current ? current->node.string() : std::string();
+        const int errors_before = *std::max_element(endpoint_errors.begin(), endpoint_errors.end());
         teardown();
         current.reset();
         auto now = Clock::now();
         TransportEvent event;
         event.kind = TransportEvent::Kind::Disconnected;
+        event.consecutive_urb_errors = static_cast<std::uint32_t>(errors_before);
+        event.last_urb_status = last_urb_status;
+        event.ms_since_last_packet = static_cast<std::uint64_t>(std::chrono::duration_cast<milliseconds>(now - last_packet).count());
         event.backend = backend;
         event.node = std::move(node);
         event.reason = reason;
@@ -388,7 +409,8 @@ struct Transport::Impl {
         }
         std::size_t bytes = std::min(static_cast<std::size_t>(u.urb->actual_length), config.packet_size);
         std::memcpy(ring.data() + index * config.packet_size, u.buffer.data(), bytes);
-        slots[index] = {bytes, u.endpoint, now_ns()};
+        last_packet = Clock::now();
+        slots[index] = {bytes, u.endpoint, now_ns(last_packet)};
         ++count;
     }
 
@@ -416,17 +438,43 @@ struct Transport::Impl {
         }
         if (status != 0) {
             // A stall would take a CLEAR_HALT to fix, a control request we refuse to send. Reopen instead.
+            // Transfer errors often come just before a drop, so give the link room (usbhid backs off too).
             ++stats.urb_errors;
-            if (++endpoint_errors[u.endpoint] >= config.max_urb_errors) {
+            last_urb_status = status;
+            int& errors = endpoint_errors[u.endpoint];
+            if (++errors >= config.max_urb_errors) {
                 lost = "repeated transfer errors on endpoint " + hex(u.endpoint) + ": " + std::strerror(-status);
                 return;
             }
-        } else {
-            endpoint_errors[u.endpoint] = 0;
-            if (u.urb->actual_length > 0) enqueue(u);
+            u.parked = true;
+            u.retry_at = Clock::now() + config.urb_retry_delay * (1 << std::min(errors - 1, 4));
+            ++parked;
+            return;
         }
+        endpoint_errors[u.endpoint] = 0;
+        if (u.urb->actual_length > 0) enqueue(u);
         if (lost) return;
-        if (!submit(u, static_cast<int>(config.packet_size))) lost = std::string("URB resubmit failed: ") + std::strerror(errno);
+        if (!submit(u, u.length)) lost = std::string("URB resubmit failed: ") + std::strerror(errno);
+    }
+
+    void resubmit_due() {
+        if (parked == 0) return;
+        const auto now = Clock::now();
+        for (Urb& u : urbs) {
+            if (!u.parked || now < u.retry_at) continue;
+            u.parked = false;
+            --parked;
+            if (!lost && !submit(u, u.length)) lost = std::string("URB resubmit failed: ") + std::strerror(errno);
+        }
+        finish_reap();
+    }
+
+    // How long a poll may sleep before a parked URB is due.
+    Clock::time_point next_wake(Clock::time_point deadline) const {
+        if (parked == 0) return deadline;
+        for (const Urb& u : urbs)
+            if (u.parked) deadline = std::min(deadline, u.retry_at);
+        return deadline;
     }
 
     void reap_all() {
@@ -480,10 +528,11 @@ struct Transport::Impl {
         ssize_t n = sys->read(fd, buffer.data(), buffer.size());
         if (n > 0) {
             ++stats.packets;
+            last_packet = Clock::now();
             ReadResult result;
             result.status = IoStatus::Ok;
             result.bytes = static_cast<std::size_t>(n);
-            result.t_ns = now_ns();
+            result.t_ns = now_ns(last_packet);
             return result;
         }
         if (n < 0 && errno == EAGAIN) return std::nullopt;
@@ -507,8 +556,11 @@ struct Transport::Impl {
                 continue;
             }
 
+            resubmit_due();
+            if (fd < 0) continue;
+
             const bool hidraw = current && current->backend == Backend::Hidraw;
-            auto remaining = std::chrono::ceil<milliseconds>(deadline - Clock::now());
+            auto remaining = std::chrono::ceil<milliseconds>(next_wake(deadline) - Clock::now());
             pollfd fds[2] = {{fd, static_cast<short>(hidraw ? POLLIN : POLLOUT), 0}, {wake_fd, POLLIN, 0}};
             int ready = sys->poll(fds, 2, static_cast<int>(std::clamp<long long>(remaining.count(), 0, 1'000'000)));
             if (ready < 0) {
@@ -517,7 +569,10 @@ struct Transport::Impl {
                 continue;
             }
             if ((fds[1].revents & POLLIN) && drain_wake()) return {IoStatus::Interrupted};
-            if (ready == 0) return {IoStatus::Timeout};
+            if (ready == 0) {
+                if (Clock::now() >= deadline) return {IoStatus::Timeout};
+                continue;  // A parked URB is due; the caller's wait goes on.
+            }
 
             if (hidraw) {
                 // Removal with reports still queued shows POLLIN and POLLHUP together: read those first.
@@ -556,6 +611,8 @@ struct Transport::Impl {
 
     // One poll-and-reap. Packets that arrive go to the queue.
     void pump(int timeout_ms) {
+        resubmit_due();
+        if (fd < 0) return;
         pollfd p{fd, POLLOUT, 0};
         int ready = sys->poll(&p, 1, timeout_ms);
         if (ready < 0) {
@@ -590,7 +647,8 @@ struct Transport::Impl {
         while (out_urb->busy) {
             auto remaining = std::chrono::ceil<milliseconds>(deadline - Clock::now()).count();
             if (remaining <= 0) break;
-            pump(static_cast<int>(std::min<long long>(remaining, 1'000'000)));
+            auto wake = std::chrono::ceil<milliseconds>(next_wake(deadline) - Clock::now()).count();
+            pump(static_cast<int>(std::clamp<long long>(wake, 1, 1'000'000)));
             if (fd < 0) return IoStatus::Disconnected;
         }
         if (out_urb->busy) {
