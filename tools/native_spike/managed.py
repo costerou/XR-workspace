@@ -2,6 +2,9 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass
+# Up here, not where they are used: a run imports from the worktree, so a module first imported at Stop would be whatever an
+# install has checked out since the session started. Recovery needs nothing more from the disk once the run is up.
+from . import monitor_rules, privacy, restore, send
 from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
@@ -25,7 +28,9 @@ class ManagedGuard:
             self.broker.verify(self.broker.inspect(spec['id']), spec)
 
 
-def recover_managed(client, consent, path):
+def recover_managed(client, consent, path, clear_rules=()):
+    """Recovery from a run's journal. `clear_rules`: the desktops whose monitor rule a person agreed to have taken out
+    (monitor_rules.py)."""
     # Copies must never select a different owner lock or receive recovery writes
     # while leaving the canonical journal stale. Do not resolve symlink aliases:
     # the existing no-follow directory/file opens must continue to reject them.
@@ -34,38 +39,58 @@ def recover_managed(client, consent, path):
         raise OwnershipBlocked('managed recovery requires the canonical runtime journal')
     path = canonical
     session = client.verified_session()['id']
-    from .privacy import wake
-    wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
+    privacy.wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
         journal = Journal.open(path, consent['run_id'], session, existing_only=True)
         broker = OwnershipBrokerClient.from_journal(client, journal)
         if any(journal.broker[key] != consent[key] for key in ('instance', 'output', 'recovery_output')):
             raise OwnershipBlocked('consent does not match saved broker scope')
-        result = recover_restoring(client, journal, broker, consent['run_id'])
-    return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining}
+        result = recover_restoring(client, journal, broker, consent['run_id'], clear_rules=clear_rules)
+    return {'journal': str(journal.path), 'complete': result.complete, 'remaining': result.remaining, 'reasons': result.reasons}
 
 
-def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None):
+def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=None, *, clear_rules=()):
     """Recovery, preceded by the run's layout restore (restore.py) while its XR outputs still exist: the snapshot
     taken at start (`snapshot`, else the one saved in the state directory). The saved one goes once recovery completes;
-    an incomplete recovery keeps it, so the next attempt restores again."""
-    from . import restore
-    from .privacy import wake
+    an incomplete recovery keeps it, so the next attempt restores again. A monitor rule Omarchy wrote for one of the run's
+    desktops goes first for the desktops in `clear_rules`; any other is only named (monitor_rules.py). An incomplete result
+    says why (RecoveryResult.reasons); a complete one that leaves such a rule says so, as the next start needs it gone."""
     # Privacy mode (Ctrl+Alt+D) may have left the fallback DPMS-off: it comes back first, whatever ended the run.
     saved = getattr(journal, 'broker', None)
-    if isinstance(saved, dict): wake(client, saved.get('recovery_output'))
+    if isinstance(saved, dict): privacy.wake(client, saved.get('recovery_output'))
+    names = getattr(journal, 'output_names', list)()
+    agreed = [name for name in names if name in clear_rules]
+    unsolved = (monitor_rules.clear(client, agreed, notify=send.notify)
+                + monitor_rules.named(client, [name for name in names if name not in agreed]))
     if snapshot is None:
         try: snapshot = restore.load(run_id, layouts)
         except (OSError, ValueError): snapshot = None
     if snapshot is not None:
-        from .send import notify
-        restore.restore(client, snapshot, notify=notify)
+        restore.restore(client, snapshot, notify=send.notify)
     result = recover(journal, broker)
     if result.complete:
         try: restore.discard(run_id, layouts)
         except OSError: pass
+        for text in unsolved: send.notify(text)
+    else:
+        result.reasons = unsolved + _left_on(client, names) + result.reasons
     return result
+
+
+def _left_on(client, names):
+    """The windows still on `names` after a recovery that did not finish, for its reasons: each one's application class,
+    never its title. A failed read costs only this: the reasons already there stand."""
+    try:
+        monitors = {m.get('id'): m.get('name') for m in client.query('monitors')}
+        windows = [c for c in client.query('clients') if monitors.get(c.get('monitor')) in names and c.get('mapped') is not False]
+    except (OSError, ValueError, TypeError, AttributeError):
+        return []
+    def one(c):
+        space = c.get('workspace'); space = space.get('id') if isinstance(space, dict) else '?'
+        return (f"{c.get('class') or 'a window'} is still on {monitors[c['monitor']]}, workspace {space}"
+                f"{' (pinned: unpin it first)' if c.get('pinned') else ''}")
+    return [one(c) for c in windows[:8]]
 
 
 def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None):
@@ -358,5 +383,5 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
         # also reach this recovery; a storage error is fatal and is never retried.
         # The windows go back to their pre-XR layout first, while the XR outputs still exist (restore.py).
         result = recover_restoring(client, journal, broker, journal.run_id, snapshot, layouts)
-    return {'journal': str(journal.path), 'renderer_returncode': returncode,
-            'complete': result.complete, 'remaining': result.remaining, **({'stop_reason': report['stop_reason']} if report.get('stop_reason') else {})}
+    return {'journal': str(journal.path), 'renderer_returncode': returncode, 'complete': result.complete, 'remaining': result.remaining,
+            'reasons': result.reasons, **({'stop_reason': report['stop_reason']} if report.get('stop_reason') else {})}

@@ -35,6 +35,13 @@ bool disconnectRetiring(const M& source, const W& gap, Live live, Destroy destro
     source->m_activeWorkspace.reset();
     return destroy();
 }
+// A removal takes out the run's own monitor rule and no other. A rule of that name which is not ours is the user's (the
+// config wins wherever it names an output; Omarchy's per-monitor scale writes one for the focused monitor, an XR desktop
+// included: tools/native_spike/monitor_rules.py). It stays, and it stops nothing: the output is proven ours by its object.
+template<class Rules,class R,class Same>
+void eraseOwnRule(Rules& rules,const R& ours,Same same) {
+    std::erase_if(rules,[&](const auto& rule){return rule.m_name==ours.m_name && same(rule,ours);});
+}
 // The monitor rules a config reload must keep, decided just before it clears them (plugin.cpp hooks
 // CMonitorRuleManager::clear and re-adds these right after, before the config is parsed).
 // Pinned efb5099 reload(): clear every rule -> parse the config -> ensureMonitorStatus(), which modesets

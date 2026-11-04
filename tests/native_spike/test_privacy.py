@@ -246,10 +246,10 @@ class GuardAndRecoveryTests(unittest.TestCase):
     def test_recovery_turns_the_fallback_back_on_before_restoring(self):
         from tools.native_spike import managed
         client = Client(desk(dp1=False))
-        journal = mock.Mock(broker={'recovery_output': 'DP-1'})
+        journal = mock.Mock(broker={'recovery_output': 'DP-1'}, output_names=list)
         order = []
         with mock.patch('tools.native_spike.managed.recover', side_effect=lambda j, b: order.append('recover') or
-                        mock.Mock(complete=False)), mock.patch('tools.native_spike.restore.load', side_effect=OSError):
+                        mock.Mock(complete=False, reasons=[])), mock.patch('tools.native_spike.restore.load', side_effect=OSError):
             managed.recover_restoring(client, journal, None, 'run')
         self.assertEqual(client.calls, [('DP-1', True, None)])
         self.assertEqual(order, ['recover'])

@@ -193,17 +193,28 @@ std::string Registry::reshape(const std::string& s,const std::string& r,const Js
 }
 std::string Registry::remove(const std::string& s,const std::string& r,const std::string& id,const Handle& fallback) {
     Guard guard(busy); auto& e=lookup(s,r,id);
-    if(e.state=="dead") return backend.usable(fallback) && backend.reachable(e.object,fallback) ? "dead" : "blocked";
-    if(!e.object || !e.object->live || !backend.usable(fallback) || fallback==e.object) return "blocked";
-    if(!backend.evacuate(e.object,fallback) || !e.object->live || !backend.usable(fallback) ||
-       !backend.reachable(e.object,fallback)) return "blocked";
-    if(!backend.cleanup(e.object,e.spec) || !e.object->live || !backend.usable(fallback) ||
-       !backend.reachable(e.object,fallback)) return "blocked";
+    auto refused=[&](const char* step) { e.blocked=step; return std::string("blocked"); };
+    // What every step below still needs: the output, the fallback, and each window where a person can reach it.
+    auto holds=[&]() -> const char* {
+        if(!e.object->live || !backend.usable(fallback)) return "unavailable";
+        return backend.reachable(e.object,fallback) ? nullptr : "unreachable";
+    };
+    if(e.state=="dead") {
+        if(!backend.usable(fallback)) return refused("unavailable");
+        return backend.reachable(e.object,fallback) ? "dead" : refused("unreachable");
+    }
+    if(!e.object || !e.object->live || !backend.usable(fallback) || fallback==e.object) return refused("unavailable");
+    if(!backend.evacuate(e.object,fallback)) return refused("evacuate");
+    if(auto step=holds()) return refused(step);
+    if(!backend.cleanup(e.object,e.spec)) return refused("rule");
+    if(auto step=holds()) return refused(step);
     backend.destroy(e.object);
     // Once the output is gone, workspace references are never needed (the not-live
     // reachable() check only fails on workspaces still bound to the dead source).
     if(!e.object->live) backend.release(e.object);
-    if(e.object->live || !backend.usable(fallback) || !backend.reachable(e.object,fallback)) return "blocked";
+    if(e.object->live) return refused("destroy");
+    if(!backend.usable(fallback)) return refused("unavailable");
+    if(!backend.reachable(e.object,fallback)) return refused("unreachable");
     e.state="dead"; return e.state;
 }
 }

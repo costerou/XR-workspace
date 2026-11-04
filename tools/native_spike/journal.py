@@ -1,6 +1,6 @@
 """Write-ahead ownership journal and conservative readback-driven recovery."""
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import fcntl
 import json
 import os
@@ -28,6 +28,7 @@ class RecoveryBackend(Protocol):
 class RecoveryResult:
     complete: bool
     remaining: list[str]
+    reasons: list[str] = field(default_factory=list)  # one per record left: what stopped it, in plain words
 
 
 def validate_operation(op, run_id):
@@ -236,6 +237,11 @@ class Journal:
             if record["state"] != "confirmed": raise ValueError("output removal before its creation was confirmed")
             record["state"] = "done"; self._save()
 
+    def output_names(self) -> list:
+        """Every output this run created, removed since or not."""
+        with self.transaction():
+            return [r["operation"]["name"] for r in self.operations if r["operation"]["kind"] == "output"]
+
     def live_outputs(self) -> list:
         """Output records not yet removed: [{'id', 'name', 'index'}] in journal order."""
         with self.transaction():
@@ -273,7 +279,12 @@ def _undo(journal, hypr, op):
     return hypr.evacuate_remove(op["id"], op["name"]) is True
 
 
+def _label(op):
+    return op["name"] if op["kind"] == "output" else op["key"] if op["kind"] == "setting" else f"workspace {op['workspace']}"
+
+
 def recover(journal: Journal, hypr: RecoveryBackend) -> RecoveryResult:
+    reasons = []
     with journal.transaction():
         # Reverse mutation order; outputs last even if caller prepared out of order.
         records = list(reversed(journal.operations))
@@ -283,12 +294,15 @@ def recover(journal: Journal, hypr: RecoveryBackend) -> RecoveryResult:
             try:
                 done = _undo(journal, hypr, record["operation"])
                 if done: _session(journal, hypr)
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, ValueError, KeyError, TypeError) as exc:
                 # Preserve durable intent on disconnect, ambiguity, or failed readback.
+                reasons.append(f"{_label(record['operation'])}: {str(exc) or type(exc).__name__}")
                 continue
             if done:
                 record["state"] = "done"
                 # Storage failures are fatal, never disguised as successful recovery.
                 journal._save()
+            else:
+                reasons.append(f"{_label(record['operation'])}: {getattr(hypr, 'refusal', None) or 'the compositor did not confirm it'}")
         remaining = [r["id"] for r in journal.operations if r["state"] != "done"]
-        return RecoveryResult(not remaining, remaining)
+        return RecoveryResult(not remaining, remaining, reasons)

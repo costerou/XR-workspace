@@ -89,9 +89,10 @@ struct NativeModel : Backend {
    for(auto& w:workspaces) if(w->windows && w->m_monitor!=target) return false;
    return true;
  }
+ // The plugin's cleanup (ownership_offset_test runs the real one): only our own rule goes, a changed one is the user's.
  bool cleanup(const Handle&,const Json&) override {
-   if(!sameRule(expected,current)) return false;
-   erased=true; return true;
+   if(sameRule(expected,current)) erased=true;
+   return true;
  }
  bool destroy(const Handle& h) override {
    return disconnectRetiring(source,gap,[&]{return h->live;},[&]{
@@ -118,7 +119,8 @@ void transaction(const std::string& test) {
  if(test=="eotf") b.current.m_sdrEotf=1;
  if(test=="vrr" || test=="eotf") {
    CHECK(registry.inspect("s","r","id")=="invalid");
-   CHECK(registry.remove("s","r","id",b.fallback)=="blocked"); CHECK(!b.erased && b.destroyed==0);
+   // The rule is no longer ours, so it stays; the output is, so it goes. Reachability still decides that (below).
+   CHECK(registry.remove("s","r","id",b.fallback)=="dead"); CHECK(!b.erased && b.destroyed==1);
  } else {
    auto owned=b.owned;
    CHECK(registry.remove("s","r","id",b.fallback)=="dead");

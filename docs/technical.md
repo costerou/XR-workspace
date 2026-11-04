@@ -40,6 +40,7 @@ Every claim in this repo says whether it comes from offline tests, an isolated V
 | Window memory (`remember-window-placement`, 2026-11-03: when XR stops every window on an XR desktop is remembered, with its desktop, workspace, tile order, scrolling column, floating geometry and fullscreen state, in `window-memory.json` beside `profiles.json`; the next start puts each still-open window back after the remembered monitors exist; kept current through Super drags, parked and brought back when a removed desktop is added again in the run, untouched by Ctrl+Alt+R) | Offline tests only: `tests/native_spike/test_window_memory.py`, `test_window_memory_lua.py` (the generated evals in a real Lua interpreter, against a stand-in for Hyprland's API written from the 0.56.2 source) and `test_window_memory_run.py` (the real `_run_owned`, `ViewControl` and `DesktopManager` with a fake broker and compositor). `bind_check` loads the evals and each dispatcher call in the real `Hyprland --verify-config`. Not run against a live Hyprland, in an isolated VM or in the glasses. Glasses steps W1–W19 are in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Text cursor in the overview (Cody's pick of the mockups on branch `text-cursor-mockups`, 2026-11-03: the Serif Beam, option 1; the dot's look `text` where the app under it asks for a text cursor, on a desktop's content only; see [Over text](#the-unified-overview-cursor)) | Offline tests only: ctest `free_pointer` (the shape against the mockup's own triangles, `serif_beam_shape.json`, and a CPU mirror of the fill rule: 14 x 28 px with its ring, centred on the click point, a stem of 2 px), `gl_frame` (the GL frame against that mirror, pixel for pixel, at both grey levels, under the 191/255 cap), `ownership`, `ownership_pair_boundary` (the production broker and `cursorShape` bodies), `ownership_pair_wire`, and `tests/native_spike/test_text_cursor.py` (the names, the hold, handles first, overview only, the sampler, the reply's strict checks, and contract tests through the real C++ validators). A one-off comparison also found the real renderer's frames identical to the mockup tool's in all 108 pairs tried (three desktops, both greys, fractional head positions, tilted heads); that tool is not on this branch, so that comparison is not a ctest. The read costs about 40 µs in Hyprland (parse, name and reply, measured offline; 0.12% of a core at 30 a second). Not run in an isolated VM or in the glasses, and the plugin with `cursor_shape` has never been loaded: it compiles against the installed headers and every new symbol it needs is exported by the installed Hyprland and hyprutils, which is not a load test. Which app asks for what comes from toolkit source (FEASIBILITY.md on that branch), not from watching apps. Whether a 2 px stem crawls with the head moving, and how the beam reads over text at a third of a desktop's size, can only be judged in the glasses. The ownership plugin, renderer and supervisor must be installed together: an older renderer drops every frame with this look, and an older plugin leaves the plain dot with one refused read a second. It is a new plugin binary, so its earlier acceptance has to be repeated. |
 | Incident reports (`incident-reports`, 2026-11-03: the controller watches every run and writes one private report per incident to `~/.local/state/viture-workspace/incidents/`, with a desktop notification, a line in the panel and an optional `on-incident` hook; see [Incident reports](#incident-reports)) | Offline tests only: `tests/xr_controller/test_incident_detect.py`, `test_incident_report.py`, `test_incident_monitor.py`, `test_incident_wiring.py`, `tests/native_spike/test_supervisor.py` (`StopReasonTests`, the status fields), `test_runner.py`, the panel's `tst_model.qml`, ctest `capture_e2e_*` (the real renderer's new status fields, a resize never looking like a stuck capture), `capture_e2e_tracked`. Also replayed by hand, read-only, over the journals of the 48 runs of 2026-11-01 to 2026-11-03: every normal end stayed silent and all the USB-ended runs came out as `usb-drop`. That replay fed the classifier real logs; it was not the monitor running live. Not installed, not run in a live controller, in an isolated VM or in the glasses: no notification has reached a real desktop from it, and no live USB drop, crash or stall has gone through it. The status fields changed, so install the renderer and the Python supervisor together. |
+| Recovery past a monitor rule (`recover-incomplete-fix`, after run `4468c283` on 2026-11-03: Omarchy's scale control, used with XR-1 focused, left a rule naming XR-1 and the broker could then never remove that output; see [When a recovery cannot finish](#when-a-recovery-cannot-finish)) | Offline tests only: `tests/native_spike/test_leftover_rule.py` (the run's own journal shape through the real journal, broker client and `recover_managed` against a compositor double that blocks as the loaded plugin did, stop to finish), `tests/xr_controller/test_recovery_report.py` (`recover-run`, the panel's reason and confirm box, the incident report), ctest `ownership` (the step a refusal names) and `ownership_offset` (the plugin's real `cleanup`). Not run against a live Hyprland or in the glasses, so what the broker does on the real output is unobserved; the reload's effect on the rule comes from reading the pinned source. The plugin, Python controller and panel must be installed together. Steps R1 to R7 in [placement-menu-test-plan.md](placement-menu-test-plan.md). |
 | Not built yet | Head-direction focus. |
 
 ## How it fits together
@@ -623,6 +624,65 @@ If the panel reports "Needs CLI recovery" (for example several unfinished runs),
 supervisor CLI: `python -m tools.native_spike recover --journal JOURNAL --instance INSTANCE --output OUTPUT
 --consent-file CONSENT`. The panel shows the journal path.
 
+### When a recovery cannot finish
+
+Recovery never guesses: a step it cannot prove stays in the journal, and the run stays in `recovery-needed`. It now always
+says which step, and why (`journal.recover` collects a reason per record, `RecoveryResult.reasons`). The reasons appear in:
+
+- the output of `recover-run`, so in `journalctl --user -u 'viture-xr-*'`: one `recovery incomplete: remaining: <step ids>`
+  line, with the journal's unfinished records (none for a refusal before the journal was read), then one
+  `recovery incomplete: <reason>` line per reason. The CLI `recover`'s JSON has `remaining` and `reasons`;
+- `$XDG_STATE_HOME/viture-workspace/<run_id>.recovery.json` (0600, `remaining`, `reasons`), which a finished Recover removes;
+- the panel, under the Recover button, from that file (`Controller._recovery_reason`);
+- the incident report: the `recovery-failed` timeline entry, `cause.text` with `cause.remaining` and `cause.reasons` as lists
+  (every string in a report stops at 400 characters, so the sentence alone could lose some), the same in the report's
+  `recovery` field, and a section in the `.md`;
+- the run's result (`remaining`, `recovery`, and the `error` text) when the recovery at Stop fell short.
+
+A reason names the output and what stopped it: the broker's step (`blocked` in its reply: `unavailable`, `evacuate`,
+`unreachable`, `rule`, `destroy`; `ownership.REMOVAL_STEPS` has the words), whether the fallback can take windows, each
+window still on the output by application class, workspace and pinned state, and any line in `monitors.lua` naming it. A
+plugin from before 2026-11-04 gives no step, so its refusal reads "the ownership plugin refused to remove it".
+
+**A monitor rule naming XR-n.** Omarchy's per-monitor scale (`omarchy-hyprland-monitor-scaling`: the Monitor panel's scale,
+Super+/, Super+Alt+/) acts on the focused monitor, whichever it is, and leaves an audit line in
+`~/.local/state/omarchy/monitor-scaling.log`. On an XR desktop it replaces the broker's rule in Hyprland, then writes
+`hl.monitor({ output = "XR-1", mode = "preferred", position = "auto", scale = ... })` into `monitors.lua` and Hyprland
+reloads. The desktop drops to the headless default (1920x1080 at 60 Hz, placed automatically). The rest follows from
+three existing rules: a config rule wins over the broker's, by design; the broker refused to erase a same-name rule that
+was not its own, so its removal stopped at that step every time, after evacuating; and it refuses to create an output whose
+name has a rule, so no later start could work either. Each failed Recover moved the empty workspaces off XR-1 and left a new
+one behind (in run `4468c283`, 5 and 61 gave way to a new 2, and that to a new 5), which looks like progress and is not.
+
+Now the plugin's `cleanup` erases only its own rule (`lifecycle.hpp` `eraseOwnRule`), leaves the user's in place and goes
+on: the output is proven the run's by its object, and windows are proven reachable either way. That cannot help a plugin
+already loaded, and a plugin cannot be replaced while it holds a run, so the Python side covers that case. A run cannot
+start with such a rule, so one naming a run's output was written during the run. The panel's Recover takes it out
+(`monitor_rules.clear`) before asking the broker for anything: the one line only, atomically, with a copy beside the file
+(`monitors.lua.bak.xr-rule-<time>`), then a synchronous `/reload`, after which the old plugin finds no rule of that name
+(its "already gone" branch) and finishes.
+
+Only the panel's Recover edits the file, because its confirm box lists the line first, and only for the desktops it listed:
+the controller passes them on (`recover-run --clear-rule XR-1`), so `recover-run` without the flag edits nothing. A
+controller still running from before an install shows no such box and sends no flag. Stop and the CLI `recover` only name
+the line, and a start refuses with it before head tracking begins. A rule in any other form (a multi-line table, say) was
+written by hand and is only reported, with its line. Rules in files other than `monitors.lua` are not looked for. A run
+that survived until Stop with the fixed plugin finishes, leaves the line and says so in a notification.
+
+Scaling an XR desktop with Omarchy's control still ends or breaks that session: the config winning over the broker is
+unchanged. Use the glass pill's Scale.
+
+**The code changing under a session.** A checkout of the live worktree or an install can land while a session's plugin is
+loaded. Three things keep that safe. A run's plugin is its own pin, not `installed.json`: recovery has always used the
+consent's, and the runner's unload at Stop now does too (before, a mid-session install made a clean Stop end with
+`unload: plugin path must be the pinned install`, the plugin still loaded and a clean journal, so no Recover was on offer
+and every start refused). A run imports from the worktree as it goes, so `managed.py` imports what recovery needs at the
+top: nothing recovery uses at Stop is read from a tree that may have moved on. And a Recover started after an install is
+new code on an old session: it reads the old journal and consent as they stand, talks to the plugin that is loaded, gives no
+step if that plugin is too old to name one, and unloads only that plugin. `tests/native_spike/test_leftover_rule.py`
+(`CodeChangedUnderTheSession`) runs this on run `4468c283`'s journal, byte for byte. That run itself is not such a case:
+its Stop was at 21:09:41 and the checkout at 21:24:05 (21:16:00 is the merge commit's time, not the checkout's).
+
 ### Incident reports
 
 The controller service outlives runs, so it owns detection. `incident_monitor.py` is a thread in it: the tick hands over
@@ -667,8 +727,11 @@ Another Hyprland aborting: a core dump counts only for the live compositor's pid
 **A report** is `incidents/<UTC time>-<kind>.json` with a short `.md` beside it. The folder is 0700, the files 0600, each
 written atomically, the `.md` first so that a watcher of `.json` files finds both. Fields: `schema`, `id`, `kind`,
 `summary`, `created_at`, `first_signal_at`, `session` (`ended`, `stopped` or `kept-running`), `run_id`, `cause` (`text`,
-`confidence`), `timeline`, `versions` (controller `source_sha`, `source_dirty`, `bin`, renderer and plugin sha256),
-`glasses`, `display`, `renderer` (`returncode`, `signal`, `stop_reason`, `complete`, `phase`, `error`), `unit`, `metrics`
+`confidence`, and `remaining`, `reasons` when a recovery fell short), `timeline`, `versions` (controller `source_sha`, which is
+the code on disk when the report was written and can be newer than the run's: `bin` and the sha256s are the run's own pins,
+`source_dirty`, `bin`, renderer and plugin sha256),
+`glasses`, `display`, `renderer` (`returncode`, `signal`, `stop_reason`, `complete`, `phase`, `error`), `recovery` (`remaining`,
+`reasons`: see [When a recovery cannot finish](#when-a-recovery-cannot-finish)), `unit`, `metrics`
 (`last`, `exit_report`), `core_dumps` (`exe`, `signal`, the crashing thread's frames), `logs` (`run`, `controller`,
 `driver`, `kernel`; the last 200 lines of each, the kernel's filtered to the glasses' USB tree and the GPU),
 `suppressed_since_last`, `truncated`, `privacy`. The cap is 256 KB: the oldest lines of the biggest log go first.
@@ -1854,6 +1917,10 @@ Stop's restore and the next start round trips) and `test_window_memory_run.py` (
 capture, Ctrl+Alt+R and a pill's Remove and Add through the real `ViewControl` and `DesktopManager`). The stand-in is written from
 reading the source, so a wrong reading would pass there: the glasses steps W1–W19 are what check it.
 
+`test_leftover_rule.py` (tests/native_spike) and `test_recovery_report.py` (tests/xr_controller) cover a recovery past a
+monitor rule and every place its reasons reach. Their compositor is a double, and every config they edit is in a scratch
+directory: `monitor_rules` only touches the file a client names, and no double names the real one.
+
 Incident reports add four files in `tests/xr_controller`: `test_incident_detect.py` (every detector and its false
 positives, with the real kernel, driver and unit lines of 2026-11-03), `test_incident_report.py` (redaction, the guess, the
 size cap, atomic private files, the rate limit, and the hook against real scripts: no shell, a hung hook killed with its
@@ -1876,9 +1943,9 @@ Tests use synthetic collectors, fake sockets and temporary directories. They nev
 ## Safety boundaries
 
 - Nothing touches the glasses or the live desktop without explicit consent for that run.
-- Intent is journaled before any mutation, and actual state is read back before a step counts as confirmed. Recovery keeps ambiguous or user-modified resources and reports incomplete recovery instead of deleting them.
+- Intent is journaled before any mutation, and actual state is read back before a step counts as confirmed. Recovery keeps ambiguous or user-modified resources and reports incomplete recovery, and why, instead of deleting them. A monitor rule the user's config put in place of the broker's is such a resource: it stays, and the output it named, proven the run's own, still goes.
 - Capture is limited to the run's own `XR-n` outputs and stays in memory. There is no general desktop capture, input injection or vendor SDK.
-- Display-mode switches are runtime only. Saved monitor configuration is never edited.
+- Display-mode switches are runtime only. Saved monitor configuration is never edited, with one exception that needs a person's click: the panel's Recover takes out a one-line rule naming one of that run's own XR-n outputs, which only Omarchy's scale control writes and which stops both recovery and every later start. Its confirm box lists the line, only the desktops it listed are touched, and a copy of the file stays beside it (`tools/native_spike/monitor_rules.py`).
 - The send-window keys (Ctrl+Alt+G, 1-3, B) move only the focused window, by address, onto the active regular workspace
   of one of the run's XR outputs or of the run's physical fallback. That one Hyprland dispatch is allowlisted; pinned
   windows are refused, so recovery can always move the XR desktops' windows back.

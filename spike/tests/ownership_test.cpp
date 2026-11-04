@@ -44,6 +44,13 @@ struct NoReshape : Fake {
     bool reshape(const Handle& o,const Json& before,const Json& after) override { return Backend::reshape(o,before,after); }
 };
 Json spec(int index=0) { return {{"id", "uuid"+std::to_string(index)}, {"name","output"+std::to_string(index)}}; }
+// Which step a refused removal stopped at: what recovery tells a person (tools/native_spike/ownership.py REMOVAL_STEPS).
+std::string refusedAt(const std::function<void(Fake&)>& arrange) {
+    Fake f; Registry r(f); CHECK(r.create("s","r",spec())=="live");
+    arrange(f);
+    CHECK(r.remove("s","r","uuid0",f.fallback)=="blocked");
+    return r.entry("uuid0").blocked;
+}
 int main(int argc,char** argv) {
     if(argc==2 && std::string(argv[1])=="--validate") {
         std::string wire; char c;
@@ -56,6 +63,13 @@ int main(int argc,char** argv) {
         std::cout<<cursorShapeName(name);
         return 0;
     }
+    CHECK(refusedAt([](Fake& f){f.fallback->live=false;})=="unavailable");
+    CHECK(refusedAt([](Fake& f){f.pinned=true;})=="evacuate");
+    CHECK(refusedAt([](Fake& f){f.special=true;})=="evacuate");
+    CHECK(refusedAt([](Fake& f){f.dropFallback=true;})=="unavailable");
+    CHECK(refusedAt([](Fake& f){f.reach=false;})=="unreachable");
+    CHECK(refusedAt([](Fake& f){f.rule=false;})=="rule");
+    CHECK(refusedAt([](Fake& f){f.reachAfterDestroy=false;})=="unreachable");
     // A requested cursor's name, as the broker may report it: a plain word or nothing, never compositor-supplied text.
     for(const char* good:{"text","vertical-text","xterm","ibeam","left_ptr","default","nwse-resize","Text","e29285e634086352946a0e7090d73106","a"})
         CHECK(cursorShapeName(good)==good);
@@ -114,6 +128,7 @@ int main(int argc,char** argv) {
     CHECK(r.create("session","run",spec())=="dead"); CHECK(b.creates==3);
     b.reach=false;
     CHECK(r.remove("session","run","uuid0",b.fallback)=="blocked");
+    CHECK(!r.entry("uuid0").blocked.empty());  // a refusal always says where it stopped
     b.reach=true;
     // A removed slot is created again under a new id (a pill's Add after a Remove: the lowest free XR-n, desktops.py).
     // Regression (ultrawide-add-monitor, 2026-11-03): one ultrawide XR-1 left after removing XR-2 and XR-3, Add new

@@ -203,7 +203,7 @@ class BundleTests(unittest.TestCase):
     def test_everything_a_diagnosis_asks_for_is_there(self):
         b = self.bundle(status=dict(presented_hz=119.9, missed=2), metrics=dict(tracking=dict(lost_events=1)))
         for key in ('schema', 'id', 'kind', 'summary', 'created_at', 'first_signal_at', 'session', 'run_id', 'timeline', 'cause', 'versions', 'glasses',
-                    'display', 'renderer', 'unit', 'metrics', 'logs', 'core_dumps', 'suppressed_since_last', 'truncated'):
+                    'display', 'renderer', 'recovery', 'unit', 'metrics', 'logs', 'core_dumps', 'suppressed_since_last', 'truncated'):
             self.assertIn(key, b)
         self.assertEqual(b['kind'], 'usb-drop')
         self.assertEqual(b['run_id'], RUN)

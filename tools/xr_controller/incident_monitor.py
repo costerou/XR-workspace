@@ -94,6 +94,14 @@ class HostSources:
         except FileNotFoundError: return None
         return result if isinstance(result, dict) and result.get('run_id') == run_id else None
 
+    def recovery(self, run_id):
+        """What the last Recover of a run left (__main__.report_recovery): {'remaining': [step id], 'reasons': [text]}, or None."""
+        try: record = read_private_json(self.state_dir / f'{run_id}.recovery.json')
+        except FileNotFoundError: return None
+        if not isinstance(record, dict) or record.get('run_id') != run_id: return None
+        def texts(value): return [str(item) for item in value] if isinstance(value, list) else []
+        return dict(remaining=texts(record.get('remaining')), reasons=texts(record.get('reasons')))
+
     @staticmethod
     def _cursor(lines):
         for line in reversed(lines):
@@ -389,8 +397,11 @@ class IncidentMonitor:
         self.after[run_id] = state
         if before == 'starting' and state in STRANDED:
             at = o['at']
-            self.correlator.add(Signal(at, 'recovery-failed', 'controller', 'Recover ran, and the session still has unfinished work'), run_id,
-                                self._context(run_id, at), now=at)
+            reasons = (self._safe(self.sources.recovery, run_id) or {}).get('reasons')
+            detail = 'Recover ran, and the session still has unfinished work' + (': ' + '; '.join(reasons) if reasons else '')
+            context = self._context(run_id, at)
+            context.result = self._safe(self.sources.result, run_id)  # how the run itself ended, for the report's renderer section
+            self.correlator.add(Signal(at, 'recovery-failed', 'controller', detail), run_id, context, now=at)
             self.correlator.run_ended(run_id, at, 'ended')
 
     # --- reporting -----------------------------------------------------------------------------------------------------
@@ -415,6 +426,7 @@ class IncidentMonitor:
         last = max(episode.last, episode.ended_at or episode.last)
         kernel = self._safe(self.sources.kernel_around, episode.first - KERNEL_BEFORE_S, last + KERNEL_AFTER_S, default=[])
         return dict(consent=watch.consent, result=live.result, unit=live.unit or parse_unit_exit(run), source=self._safe(self.sources.source, default={}),
+                    recovery=self._safe(self.sources.recovery, episode.run_id),
                     cores=self._cores(episode), status=watch.last_status, mode=watch.mode_text(), expected_mode=watch.expected_mode_text(), drm=watch.drm,
                     metrics=exit_metrics(run), suppressed=suppressed,
                     logs=dict(run=run, kernel=relevant_kernel(kernel, live.kernel.ports),

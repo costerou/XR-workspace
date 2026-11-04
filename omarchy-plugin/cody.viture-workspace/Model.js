@@ -99,7 +99,7 @@ function desktopEdit(width, height, scale) {
     return {width:width, height:height, scale:scale};
 }
 
-function scopeLines(scope, action) {
+function scopeLines(scope, action, rules) {
     if (!scope) return [];
     const lines = [];
     function required(text) { lines.push({text:text, optional:false, key:""}); }
@@ -108,6 +108,8 @@ function scopeLines(scope, action) {
         // Desktops may have been added or removed in the glasses: the journal, not the start scope, lists the outputs.
         required("Remove this run's XR outputs (XR-1 to XR-" + MAX_DESKTOPS + ", whichever it still has).");
         required("Unload this run's ownership plugin.");
+        // tools/native_spike/monitor_rules.py: Omarchy's scale, used on an XR desktop, wrote these; a copy of the file is kept.
+        (rules || []).forEach(r => required("Take the " + r.name + " rule out of your Hyprland monitors.lua (line " + r.line + "). Omarchy's scale control added it, and a copy of the file is kept."));
         return lines;
     }
     required("Show on " + scope.model + " (" + scope.output + "). Windows return to " + scope.recovery_output + " on stop or failure.");

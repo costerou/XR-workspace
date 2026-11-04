@@ -278,6 +278,17 @@ class HyprlandClient:
     # '/plugin unload <abs path>', 'j/plugin list'); they MUST be confirmed against the VM's Hyprland before
     # any live use (Task 12). The JSON list has no path field, so readback is by plugin name.
     # Deliberately not part of the generic mutate allowlist.
+    @property
+    def monitors_config(self):
+        """The file Omarchy's monitor scale writes to (monitor_rules.py)."""
+        from .monitor_rules import config_path
+        return config_path()
+
+    def reload_config(self):
+        """Hyprland reads its config again. Returns once it has: the request runs the reload on the compositor's thread."""
+        reply = self._request('/reload').decode('utf-8', errors='replace').strip()
+        if reply != 'ok': raise ValueError('config reload rejected: ' + ''.join(c for c in reply[:160] if c.isprintable()))
+
     def plugins_loaded(self):
         raw = strict_json(self._request('j/plugin list'))
         if not isinstance(raw, list) or any(not isinstance(p, dict) or not isinstance(p.get('name'), str) for p in raw):

@@ -29,7 +29,7 @@ class FakeClient:
         self.log.append('plugins_loaded'); return list(self.loaded)
     def plugin_load(self, path, *, data_home=None):
         self.log.append(('plugin_load', path)); self.loaded.append('xr-ownership')
-    def plugin_unload(self, path, *, data_home=None):
+    def plugin_unload(self, path, *, data_home=None, recovery_pin=None):
         self.log.append(('plugin_unload', path))
         if 'xr-ownership' not in self.loaded: raise ValueError('plugin not loaded')
         if not self.unload_sticks: self.loaded.remove('xr-ownership')
@@ -85,7 +85,7 @@ class RunnerTests(unittest.TestCase):
         path = self.state / f'{name}.result.json'
         self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
         data = json.loads(path.read_text())
-        self.assertEqual(set(data) - {'stop_reason'}, RESULT_KEYS)  # only when the supervisor ended the renderer
+        self.assertEqual(set(data) - {'stop_reason', 'recovery'}, RESULT_KEYS)  # only when the supervisor ended the renderer, or recovery fell short
         return data
 
     def test_tracking_is_ready_before_plugin_or_renderer(self):
@@ -157,6 +157,75 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(self.client.loaded, ['xr-ownership'])
         self.assertFalse(any(isinstance(e,tuple) and e[0]=='plugin_unload' for e in self.log))
         self.assertIn('recovery',self.result()['error'])
+
+    def test_an_install_during_the_session_still_unloads_the_sessions_plugin(self):
+        """The run pinned its plugin at start and installed.json moved on: a clean Stop must not leave that plugin behind.
+        It would, with a clean journal: no Recover on offer, and every start refused with "plugin already loaded"."""
+        from tools.native_spike.hyprland import HyprlandClient
+        class Client(FakeClient):
+            plugin_unload, _plugin_command = HyprlandClient.plugin_unload, HyprlandClient._plugin_command
+            def _request(client, wire, timeout=None):
+                client.log.append(wire); client.loaded.remove('xr-ownership'); return b'ok'
+        self.client = Client(self.log)
+        self.consent()
+        session = dict(self.installed['plugin'])
+        next_build = Path(self.tmp.name) / 'next'; next_build.mkdir()
+        (next_build / 'xr-native-spike').write_bytes(b'renderer two'); (next_build / 'libxr-ownership.so').write_bytes(b'plugin two')
+        real = self.fake_run
+        def run_through_an_install(*a, **k):
+            install(next_build, self.data)
+            return real(*a, **k)
+        with mock.patch.object(self, 'fake_run', run_through_an_install):
+            self.assertEqual(self.main(), 0)
+        self.assertEqual(self.client.loaded, [])
+        self.assertIn(f"/plugin unload {session['path']}", self.log)
+        result = self.result()
+        self.assertEqual((result['phase'], result['error']), ('done', None))
+
+    def test_a_session_plugin_that_changed_on_disk_is_not_unloaded_on_trust(self):
+        from tools.native_spike.hyprland import HyprlandClient
+        class Client(FakeClient):
+            plugin_unload, _plugin_command = HyprlandClient.plugin_unload, HyprlandClient._plugin_command
+            def _request(client, wire, timeout=None): client.log.append(wire); return b'ok'
+        self.client = Client(self.log)
+        self.consent()
+        plugin = Path(self.installed['plugin']['path'])
+        real = self.fake_run
+        def tampered(*a, **k):
+            plugin.chmod(0o700); plugin.write_bytes(b'not what was pinned')
+            return real(*a, **k)
+        with mock.patch.object(self, 'fake_run', tampered):
+            self.assertEqual(self.main(), 2)
+        self.assertFalse(any(isinstance(e, str) and e.startswith('/plugin unload') for e in self.log))
+        self.assertIn('unload:', self.result()['error'])
+
+    def test_incomplete_recovery_says_why(self):
+        self.consent()
+        why = 'XR-1: the ownership plugin refused to remove it (state blocked)'
+        self.run_result = dict(self.run_result, complete=False, remaining=['XR-1'], reasons=[why])
+        self.assertEqual(self.main(), 2)
+        self.assertEqual(self.result()['recovery'], [why])
+        self.assertIn(why, self.result()['error'])
+
+    def test_a_config_rule_naming_a_desktop_blocks_a_start_before_the_plugin_with_its_line(self):
+        config = self.config / 'monitors.lua'
+        config.write_text('hl.monitor({ output = "", mode = "preferred" })\nhl.monitor({ output = "XR-1", mode = "preferred" })\n')
+        self.client.monitors_config = config
+        self.consent(tracking='xrlinuxdriver')
+        with mock.patch('tools.native_spike.tracking.ensure_ready') as tracking:
+            self.assertEqual(self.main(), 2)
+        tracking.assert_not_called()  # up to 120 seconds of calibration, to then hear this
+        self.assertEqual(self.log, [])
+        result = self.result()
+        self.assertEqual(result['phase'], 'plugin')
+        for word in ('monitors.lua', 'line 2', 'XR-1'): self.assertIn(word, result['error'])
+
+    def test_a_config_that_cannot_be_read_stops_nothing(self):
+        config = self.config / 'monitors.lua'
+        config.write_bytes(b'\xff\xfe not text')
+        self.client.monitors_config = config
+        self.consent()
+        self.assertEqual(self.main(), 0)
 
     def test_run_exception_with_journal_preserves_plugin(self):
         self.consent()

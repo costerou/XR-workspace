@@ -17,6 +17,16 @@ CURSOR_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')
 CURSOR_TIMEOUT = 0.25  # seconds, as the sampler's own cursor reads
 
 
+# The step of its removal the broker stopped at (Registry::remove, the reply's `blocked`), in plain words. A plugin older
+# than 2026-11-04 does not say.
+REMOVAL_STEPS = {
+    'unavailable': 'the ownership plugin no longer holds a live output for it, or the fallback monitor is not usable',
+    'evacuate': 'its windows and workspaces could not be moved off it (a pinned window, a special workspace, or a monitor gone)',
+    'unreachable': 'after the move, a window was still not reachable on a usable monitor',
+    'rule': 'its monitor rule could not be cleaned up',
+    'destroy': 'the output did not go away when it was destroyed'}
+
+
 def _brief(value, items=8, limit=300):
     """Bounded, single-line ASCII rendering of compositor-supplied readback for diagnostics."""
     if isinstance(value, list) and len(value) > items: value = value[:items] + [f'... {len(value) - items} more']
@@ -36,6 +46,7 @@ class OwnershipBrokerClient:
         self.epoch = None
         self.fallback = None
         self.request_id = 0
+        self.refusal = None  # why the last evacuate_remove did not remove its output, in plain words
 
     @classmethod
     def from_journal(cls, transport, journal):
@@ -125,7 +136,8 @@ class OwnershipBrokerClient:
 
     @staticmethod
     def _identity(result, identity):
-        if set(result) != {'id','name','state','physical','observation','fallback_usable'} or result['id'] != identity or result['physical'] is not False:
+        if (set(result) - {'blocked'} != {'id','name','state','physical','observation','fallback_usable'} or result['id'] != identity
+                or result['physical'] is not False or result.get('blocked', 'unavailable') not in REMOVAL_STEPS):
             raise OwnershipBlocked('unproven broker identity')
         token(result['name'])
         if result['state'] not in ('pending','failed','live','invalid','dead','blocked') or type(result['fallback_usable']) is not bool:
@@ -205,15 +217,28 @@ class OwnershipBrokerClient:
         if not isinstance(windows,list) or any(not isinstance(w,dict) or set(w) != {'workspace', 'pinned'} or type(w['workspace']) is not int or w['workspace'] not in ids or w['pinned'] is not False for w in windows):
             raise OwnershipBlocked(f"unsupported or unreachable mapped window: workspaces {sorted(ids)} observed {_brief(windows)}")
 
+    def _refused(self, reply):
+        """Why the broker's reply is not a proven removal, from what it says of the output now."""
+        said = [REMOVAL_STEPS.get(reply.get('blocked')) or f"the ownership plugin refused to remove it (state {reply['state']})"]
+        if reply['fallback_usable'] is not True:
+            said.append(f'{self.approved_physical} cannot take its windows: it is off, mirrored or unplugged')
+        return '; '.join(said)
+
     def evacuate_remove(self, output_id, output_name):
+        self.refusal = None
         observed = self.inspect(output_id)
         if observed['name'] != output_name: raise OwnershipBlocked('output name/UUID mismatch')
         reply = self._call('evacuate_remove', {'id':output_id, 'name':output_name, 'fallback':self.fallback})
         self._identity(reply, output_id)
-        if reply['name'] != output_name or reply['state'] != 'dead' or reply['observation'] is not None or reply['fallback_usable'] is not True: return False
+        if reply['name'] != output_name or reply['state'] != 'dead' or reply['observation'] is not None or reply['fallback_usable'] is not True:
+            self.refusal = self._refused(reply)
+            return False
         # Separate registry readback before the journal can become done.
         final = self.inspect(output_id)
-        return final['name'] == output_name and final['state'] == 'dead' and final['observation'] is None and final['fallback_usable'] is True
+        if final['name'] == output_name and final['state'] == 'dead' and final['observation'] is None and final['fallback_usable'] is True:
+            return True
+        self.refusal = self._refused(final)
+        return False
 
     def query(self, kind):
         if kind == 'session': return self.verified_session()

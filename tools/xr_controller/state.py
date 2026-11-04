@@ -120,6 +120,7 @@ class Controller:
             if self.state=='starting' and self.started is not None and self.clock()-self.started<5: return
             if self.state not in ('confirming','starting'): self._state('recovery-needed')
             elif self.state=='starting' and (self.started is None or self.clock()-self.started>=5): self._state('recovery-needed')
+            if self.state=='recovery-needed': self.error=self._recovery_reason(j['run_id'])
             return
         if self.run and self.units.alive(self.run['run_id']): return
         if self.run:
@@ -140,6 +141,14 @@ class Controller:
             self.error='runner exited before creating a journal'; self._state('failed'); return
         self.run=None
         if self.state!='confirming': self._state('idle' if o.get('model') else 'no-glasses')
+
+    def _recovery_reason(self,run_id):
+        """Why the last Recover of this run stopped (__main__.report_recovery), for the panel; None before a first one."""
+        from tools.native_spike.ipc import read_private_json
+        try: record=read_private_json(self.state_dir/(run_id+'.recovery.json'))
+        except (OSError,ValueError): return None
+        reasons=record.get('reasons') if isinstance(record,dict) and record.get('run_id')==run_id else None
+        return 'Recover could not finish. '+' '.join(map(str,reasons)) if reasons and isinstance(reasons,list) else None
 
     def _startup_desktops(self,model,profile):
         """The desktops this start creates: the last session's (count, resolution, scale; profiles.load_setup), or the
@@ -231,7 +240,10 @@ class Controller:
         if op=='begin_recover':
             if self.state!='recovery-needed': raise ValueError('busy or CLI recovery required')
             consent=self._consent(self.run)
-            self._state('confirming'); self.pending=dict(action='recover',scope=consent,scope_id=secrets.token_hex(16),journal=self.run['path'])
+            # A line Recover will take out of the user's monitors.lua is part of what the click agrees to (monitor_rules.py).
+            names={r.get('operation',{}).get('name') for r in self.run.get('operations',[])}
+            rules=[r for r in self.observed.get('config_rules',[]) if r['name'] in names and r['removable']]
+            self._state('confirming'); self.pending=dict(action='recover',scope=consent,scope_id=secrets.token_hex(16),journal=self.run['path'],rules=rules)
             return copy.deepcopy(self.pending)
         if op in ('confirm_start','confirm_recover'):
             self.tick()
@@ -249,7 +261,9 @@ class Controller:
                 self.run=dict(run_id=scope['run_id'])
             else: name=scope['run_id']+'.json'
             self._state('starting'); self.pending=None; self.started=self.clock()
-            try: self.spawn(action,str(self.state_dir/name),pending.get('journal'))
+            # Only the desktops the box listed: recover-run edits nothing else (monitor_rules.py).
+            rules=[r['name'] for r in pending.get('rules') or []]
+            try: self.spawn(action,str(self.state_dir/name),pending.get('journal'),*([rules] if rules else []))
             except Exception as exc:
                 self.error=str(exc); self._state('failed'); raise ValueError(self.error) from exc
             return
