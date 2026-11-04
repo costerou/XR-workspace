@@ -1,0 +1,137 @@
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 370917 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 371057 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 371273 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 371298 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 371127 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/cody/.t3/worktrees/viture-workspace/pro2-driver/tests/native_spike/test_tracking.py:63: ResourceWarning: unclosed <socket.socket fd=3, family=1, type=1, proto=0>
+  _, wayland2 = socket.socketpair()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/unittest/case.py:615: ResourceWarning: unclosed <socket.socket fd=5, family=1, type=1, proto=0>
+  result = method()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/unittest/case.py:615: ResourceWarning: unclosed <socket.socket fd=4, family=1, type=1, proto=0>
+  result = method()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 374943 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 374947 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 374954 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 374968 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 374988 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 374996 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375057 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375061 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375117 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375119 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375121 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375126 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375148 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375165 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375166 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375167 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375171 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375207 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375268 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375272 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375274 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375328 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375332 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375337 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375338 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375341 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375343 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375347 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375351 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375357 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+xr-workspace: the XR Luma driver crashed; restart 1 of 3
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375363 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+xr-workspace: the XR Luma driver crashed; restart 1 of 3
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375397 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+xr-workspace: the XR Luma driver crashed; restart 2 of 3
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375408 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+xr-workspace: the XR Luma driver crashed; restart 3 of 3
+/usr/lib/python3.14/subprocess.py:1139: ResourceWarning: subprocess 375410 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+xr-workspace: the XR Luma driver crashed; restart 1 of 3
+xr-workspace: the restart failed: startup crash
+----------------------------------------------------------------------
+Ran 113 tests in 47.616s
+
+OK
+{"running": false}

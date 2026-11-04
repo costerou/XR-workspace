@@ -91,7 +91,7 @@ class LumaLifecycle(unittest.TestCase):
         for p in (patch.object(tracking, 'LUMA_LOG', self.log), patch.object(tracking, 'DRIVER', str(self.xrdriver)),
                   patch.object(tracking, 'DRIVER_LOG', self.xr_log), patch.object(tracking, 'DRIVER_CONFIG', self.config),
                   patch.object(tracking, 'LUMA_FLAGS', self.flags), patch.object(tracking, '_other_drivers', return_value=[]),
-                  patch.object(tracking, '_check_usb_access')):
+                  patch.object(tracking, '_check_usb_access'), patch.object(tracking, 'SYS_USB', root / 'fake-sysfs')):
             p.start(); self.addCleanup(p.stop)
         self.addCleanup(self.nothing_left_running, root)
         self.addCleanup(lambda: tracking.stop(self.runtime))
@@ -443,7 +443,7 @@ class OtherDrivers(unittest.TestCase):
         self.named('/opt/xr-luma-driver')
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Path(tmp) / 'rt'; runtime.mkdir(mode=0o700)
-            with patch.object(tracking, 'LUMA_LOG', Path(tmp) / 'l.log'), patch.object(tracking.subprocess, 'Popen') as popen:
+            with patch.object(tracking, 'SYS_USB', Path(tmp) / 'fake-sysfs'), patch.object(tracking, 'LUMA_LOG', Path(tmp) / 'l.log'), patch.object(tracking.subprocess, 'Popen') as popen:
                 with self.assertRaisesRegex(ValueError, 'another head tracking driver'):
                     tracking.start(runtime, luma='/x/xr-luma-driver')
                 popen.assert_not_called()
