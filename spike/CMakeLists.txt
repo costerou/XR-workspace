@@ -539,3 +539,8 @@ if(XR_ENABLE_PRESENTATION)
     target_link_libraries(video_bench PRIVATE PkgConfig::MPV)
   endif()
 endif()
+
+option(XR_ENABLE_LUMA_DRIVER "Build our own Luma Ultra head-tracking driver" ON)
+if(XR_ENABLE_LUMA_DRIVER)
+  include(driver/cmake/fusion.cmake)
+endif()
