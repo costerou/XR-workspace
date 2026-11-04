@@ -39,3 +39,39 @@ Then add `--native-build /tmp/xr-options-qa-build` to the collector command. Its
 ctest allowlist selects only those five existing offline tests. Native captures
 remain the renderer worker's responsibility. The `maximize_rect(tile)` test uses
 that proposed supervisor helper name; reconcile naming with the lead at integration.
+
+V4 typed native report and actual Restore geometry
+------------------------------------------------
+
+Build the CPU serializer against the matching existing native build:
+
+```
+python tools/xr_options_evidence/build_native_report.py --build build/integration-release --output /tmp/xr-qa-native-report
+```
+
+This uses actual `VideoDefaults::report()` with sharp/deband requested. It creates
+no player, VideoMode, GL context, compositor or device. When source/build live in
+a different existing checkout, pass `--source-root /absolute/matching/checkout`.
+No CMake or production file is changed. The compiled executable prints actual
+native off-state JSON, including null applied properties.
+
+The integration suite requires these explicit CPU-native test artifacts:
+
+```
+CONTROL_WIRE_CHECK=/absolute/build/control_wire_check
+XR_RESTORE_GEOMETRY_BINARY=/absolute/build/restore_app_bound_test
+XR_NATIVE_REPORT_BINARY=/tmp/xr-qa-native-report
+```
+
+For `collect.py` use `--decoder`, `--restore-geometry`, and `--native-report` to set
+them. Missing artifacts fail the release gate, never silently skip it. Actual
+Restore meshes come from the production native serializer fixture, then traverse
+the real sampler/input path; no reachable mesh is invented in QA. The native
+report test traverses strict Supervisor status validation and real VideoControl
+completion. Stateful report fakes elsewhere assert schema acceptance immediately
+before exercising desired/applied/error predicates.
+
+Use the lead-owned `run_release.py` for final isolation and GPU-FD enforcement.
+`collect.py` remains an explicit offline evidence collector; it does not establish
+final release-equivalence by itself. A passing per-route JUnit record stays partial
+until its C1/preserved input, typed readback/failure and cleanup gates pass review.
