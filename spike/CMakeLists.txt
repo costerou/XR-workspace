@@ -340,6 +340,9 @@ if(XR_ENABLE_PRESENTATION)
   # The orbit placement (view.cpp place_point on wire units), renderer side to supervisor side (tools/native_spike/orbit.py mirrors it).
   add_executable(placement_geometry_dump tests/placement_geometry_dump.cpp)
   target_link_libraries(placement_geometry_dump PRIVATE xr_hud)
+  # What the edge pan draws, frame by frame, on the real animator and geometry, with no GL (tools/edge_pan_clips/motion.py reads it).
+  add_executable(edge_pan_trace tests/edge_pan_trace.cpp)
+  target_link_libraries(edge_pan_trace PRIVATE xr_view xr_pose)
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
     add_test(NAME glass_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/glass_contract_test.py"
@@ -414,7 +417,7 @@ if(XR_ENABLE_PRESENTATION)
   target_compile_options(pill_border_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   add_test(NAME pill_border_render COMMAND pill_border_render_test)
   set_tests_properties(pill_border_render PROPERTIES SKIP_RETURN_CODE 77)
-  foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump placement_geometry_dump)
+  foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump placement_geometry_dump edge_pan_trace)
     target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endforeach()
   add_test(NAME presentation COMMAND presentation_test)
