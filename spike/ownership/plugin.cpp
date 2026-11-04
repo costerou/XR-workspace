@@ -1,4 +1,5 @@
-// Opt-in lifecycle-only module. No renderer, capture, input or config-file access.
+// Opt-in output lifecycle module. It also reads, and never changes, the name of the cursor the app under the pointer asked
+// for (cursor_shape). No other renderer access; no capture, input or config-file access.
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/debug/HyprCtl.hpp>
@@ -10,6 +11,8 @@
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/config/shared/monitor/MonitorRuleManager.hpp>
+#include <hyprland/src/pointer/PointerManager.hpp>
+#include <hyprland/src/render/Renderer.hpp>
 #include <aquamarine/backend/Headless.hpp>
 #include <aquamarine/backend/DRM.hpp>
 #include <sys/stat.h>
@@ -285,6 +288,16 @@ public:
         }
         return true;
     }
+    // The cursor the app under the pointer asked for, by name, while the pointer is on one of `outputs` (the run's own live
+    // XR outputs); nothing elsewhere, or for a cursor given as a picture, which has no name. Only reads. Pinned efb5099:
+    // setCursorFromName and setCursorSurface keep m_lastCursorData.name current before they look at m_cursorHidden, so it
+    // holds while cursor.invisible hides the cursor; m_cursorSurfaceInfo.name goes stale over borders and empty desktop.
+    std::string cursorShape(const std::vector<Handle>& outputs) {
+        const auto at=Pointer::mgr()->position();
+        for(const auto& h:outputs) if(auto m=resolve(h); m && m->logicalBox().containsPoint(at))
+            return cursorShapeName(g_pHyprRenderer->m_lastCursorData.name);
+        return {};
+    }
     bool cleanup(const Handle& h,const Json&) override { return resolve(h) && eraseRule(*native(h)); }
     void release(const Handle& h) override {
         // Strong PHLWORKSPACE members kept evacuated managed workspaces and retirement
@@ -355,6 +368,11 @@ struct Broker {
                 auto& r=runs.at(run);
                 if(r.session!=session || r.name!=p["fallback_name"].get<std::string>() || !backend.usable(r.fallback)) throw std::runtime_error("run/fallback changed");
                 result={{"fallback",r.token},{"qualified",true}};
+            } else if(op=="cursor_shape") {
+                // Read-only (the sampler asks up to 30 times a second in the overview): no lifecycle step, no state kept.
+                if(j["epoch"]!=epoch || !runs.contains(run) || runs.at(run).session!=session || runs.at(run).isolated)
+                    throw std::runtime_error("epoch/run/session lost");
+                result={{"shape",backend.cursorShape(registry.liveOutputs(session,run))}};
             } else {
                 if(j["epoch"]!=epoch || !runs.contains(run) || runs.at(run).session!=session) throw std::runtime_error("epoch/run/session lost");
                 auto& r=runs.at(run); auto id=p["id"].get<std::string>(); std::string state;

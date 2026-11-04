@@ -4,7 +4,7 @@ import sys
 source = pathlib.Path(sys.argv[1]).read_text()
 methods = []
 for signature in ("    PHLMONITOR resolve(", "    Handle selectPairOutput(", "    PairObservation observePairOutput(",
-                  "    bool usable("):
+                  "    bool usable(", "    std::string cursorShape("):
     start = source.index(signature)
     opening = source.index("{", start)
     depth, end = 1, opening + 1

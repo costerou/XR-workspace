@@ -50,6 +50,52 @@ int main(int argc,char** argv) {
         while(wire.size()<=8192 && std::cin.get(c)) wire+=c;
         try { parse_request(wire); return 0; } catch(...) { return 2; }
     }
+    if(argc==2 && std::string(argv[1])=="--cursor-name") {  // the contract test: every fixture name, one per stdin read
+        std::string name; char c;
+        while(name.size()<=8192 && std::cin.get(c)) name+=c;
+        std::cout<<cursorShapeName(name);
+        return 0;
+    }
+    // A requested cursor's name, as the broker may report it: a plain word or nothing, never compositor-supplied text.
+    for(const char* good:{"text","vertical-text","xterm","ibeam","left_ptr","default","nwse-resize","Text","e29285e634086352946a0e7090d73106","a"})
+        CHECK(cursorShapeName(good)==good);
+    CHECK(cursorShapeName(std::string(64,'a'))==std::string(64,'a'));
+    for(const std::string& bad:{std::string(),std::string(65,'a'),std::string("te xt"),std::string("-text"),std::string("_text"),std::string(".text"),
+                                std::string("te\"xt"),std::string("te\nxt"),std::string("te/xt"),std::string("te\\xt"),std::string("t\xc3\xa9xt"),
+                                std::string("te\0xt",5),std::string("text "),std::string(" text")})
+        CHECK(cursorShapeName(bad).empty());
+    // The op's wire: schema 1, an empty payload, nothing else in it.
+    {
+        const Json read={{"schema",1},{"session","session"},{"run_id","run"},{"request_id",1},{"epoch","epoch"},{"op","cursor_shape"},{"payload",Json::object()}};
+        CHECK(parse_request("xrspike "+read.dump())["op"]=="cursor_shape");
+        auto refused=[&](Json j) { try { parse_request("xrspike "+j.dump()); return false; } catch(...) { return true; } };
+        for(auto payload:{Json{{"id","x"}},Json{{"shape","text"}},Json{{"mode","isolated-vm"}}}) { Json j=read; j["payload"]=payload; CHECK(refused(j)); }
+        { Json j=read; j["schema"]=2; CHECK(refused(j)); }
+        { Json j=read; j["schema"]=2; j["payload"]={{"mode","isolated-vm"}}; CHECK(refused(j)); }
+        { Json j=read; j["payload"]=Json::array(); CHECK(refused(j)); }
+        { Json j=read; j["extra"]=1; CHECK(refused(j)); }
+    }
+    // What it may read: this run's live outputs, no one else's, nothing failed, invalid or removed.
+    {
+        Fake b; Registry r(b);
+        CHECK(r.liveOutputs("session","run").empty());
+        CHECK(r.create("session","run",spec(0))=="live");
+        CHECK(r.create("session","run",spec(1))=="live");
+        CHECK(r.create("session","other",spec(2))=="live");
+        CHECK(r.liveOutputs("session","run")==(std::vector<Handle>{b.objects[0],b.objects[1]}));
+        CHECK(r.liveOutputs("session","other")==(std::vector<Handle>{b.objects[2]}));
+        CHECK(r.liveOutputs("elsewhere","run").empty());
+        CHECK(r.liveOutputs("session","nobody").empty());
+        b.objects[1]->live=false;                                     // gone from the compositor, not yet noticed
+        CHECK(r.liveOutputs("session","run")==(std::vector<Handle>{b.objects[0]}));
+        b.rule=false; CHECK(r.inspect("session","run","uuid0")=="invalid"); b.rule=true;  // no longer trusted
+        CHECK(r.liveOutputs("session","run").empty());
+        b.failAt=4; CHECK(r.create("session","run",spec(3))=="failed");
+        CHECK(r.liveOutputs("session","run").empty());
+        const int creates=b.creates,destroys=b.destroys,configured=b.configured;
+        (void)r.liveOutputs("session","other");                       // and reading changes nothing
+        CHECK(b.creates==creates && b.destroys==destroys && b.configured==configured);
+    }
     // Output scales (geometry.SCALES, the pill's Scale dropdown): quarter steps 1 .. 2, then 2.5 and 3; nothing between.
     for(double sc : {1.0,1.25,1.5,2.0,2.5,3.0}) CHECK(validDesktop(1920,1080,sc));
     CHECK(validDesktop(2800,1400,1.75) && !validDesktop(1920,1080,1.75) && !validDesktop(2560,1440,3.0));
