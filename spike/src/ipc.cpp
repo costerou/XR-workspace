@@ -28,7 +28,7 @@ bool options_menu(const Json& p, OptionsMenuState& out, const Json& session) {
  const auto monitor=p["monitor"].get<std::string>();
  if(monitor.size()<4 || monitor.substr(0,3)!="XR-" || monitor[3]=='0' || !std::all_of(monitor.begin()+3,monitor.end(),[](char c){return c>='0' && c<='9';}))return false;
  if(!one(p["scope"],{"monitor","workspace"}) || !one(p["category"],{"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"}) || !one(p["status"],{"idle","pending","applied","error"}))return false;
- if(!num(p["focus"],-1,63)||!num(p["scroll"],0,4096)||!num(p["revision"],0,4294967295.)||!str(p["message"],256)||!p["rows"].is_array()||p["rows"].size()>64)return false;
+ if(!num(p["focus"],-4,63)||!num(p["scroll"],0,4096)||!num(p["revision"],0,4294967295.)||!str(p["message"],256)||!p["rows"].is_array()||p["rows"].size()>64)return false;
  std::set<std::string> ids;
  for(auto r:p["rows"]) {
   if(!r.is_object())return false;

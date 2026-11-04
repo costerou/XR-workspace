@@ -9,8 +9,9 @@ import os
 
 
 def row(id, label, kind='action', value='', **extra):
-    return dict(id=id, label=label[:96], scope='workspace', kind=kind,
-                value=str(value)[:256], enabled=True, **extra)
+    def bounded(text, size): return str(text).encode('utf-8')[:size].decode('utf-8','ignore')
+    return dict(id=id, label=bounded(label,96), scope='workspace', kind=kind,
+                value=bounded(value,256), enabled=True, **extra)
 
 
 class NativeEditors:
@@ -24,14 +25,18 @@ class NativeEditors:
         self.page = 0
         self.entries = []
         self.text_input = None
+        self.text_field = None
 
     def open(self, kind):
         if kind not in ('file', 'url', 'keybinds'): raise ValueError('unknown child')
         self.kind, self.page, self.text = kind, 0, ''
+        self.text_field='editor.text' if kind=='url' else None
         if kind == 'keybinds':
             if self.control.keys is None: raise ValueError('keybind owner unavailable')
             return self.control.keys.open_panel()
-        if kind == 'file': self._scan()
+        if kind == 'file':
+            self.text=str(self.directory)
+            self._scan()
         return b''
 
     def _scan(self):
@@ -40,6 +45,7 @@ class NativeEditors:
             limited = [Path(item.path) for item in islice(entries,4097)]
         if len(limited)>4096: raise ValueError('Folder exceeds 4096 entries; enter a narrower folder path')
         self.entries = sorted(limited, key=lambda p: (not p.is_dir(), p.name.casefold()))
+        self.text=str(self.directory)
 
     def close(self):
         out = self.control.keys.close() if self.kind == 'keybinds' and self.control.keys else b''
@@ -52,7 +58,7 @@ class NativeEditors:
             return [row('editor.text', 'Video URL or page link', 'text', self.text),
                     row('editor.play', 'Play video'), row('editor.cancel', 'Cancel')]
         if self.kind == 'file':
-            out = [row('editor.path', 'Folder path', 'text', self.directory), row('editor.parent', 'Parent folder')]
+            out = [row('editor.path', 'Folder path', 'text', self.text), row('editor.parent', 'Parent folder')]
             for n, path in enumerate(self.entries[self.page*self.PAGE:(self.page+1)*self.PAGE]):
                 out.append(row(f'editor.file.{n}', ('Folder: ' if path.is_dir() else '') + path.name))
             return out + [row('editor.previous', 'Previous files'), row('editor.next', 'Next files'), row('editor.cancel', 'Cancel')]
@@ -94,6 +100,7 @@ class NativeEditors:
                 if not isinstance(value,str) or len(value.encode())>256 or not Path(value).is_absolute(): raise ValueError('absolute folder path required')
                 self.directory, self.page = Path(value).resolve(),0
                 self._scan()
+                self.text=str(self.directory)
             elif id == 'editor.parent': self.directory, self.page = self.directory.parent, 0; self._scan()
             elif id in ('editor.previous', 'editor.next'):
                 self.page = min(max(0, self.page + (1 if id.endswith('next') else -1)), max(0, (len(self.entries)-1)//self.PAGE))

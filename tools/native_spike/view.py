@@ -1128,9 +1128,14 @@ class ViewControl:
         if not self.options.keyboard_owned: return b''
         d = self.options.snapshot()
         editor = getattr(self, 'options_editor', None)
-        if editor is not None and editor.kind == 'url':
-            if key == 'BackSpace': editor.apply('editor.text', editor.text[:-1])
-            elif key == 'Return': self.options.output += editor.apply('editor.play') or b''
+        if editor is not None and editor.kind in ('url','file') and editor.text_field in ('editor.text','editor.path') and key not in ('Tab','Shift+Tab','Up','Down'):
+            if key == 'BackSpace': editor.text=editor.text[:-1]
+            elif key == 'Return':
+                try:
+                    self.options.output += editor.apply('editor.play' if editor.kind=='url' else 'editor.path',editor.text) or b''
+                    self.options.data.update(status='idle',message='')
+                except (ValueError,OSError) as exc:
+                    self.options.data.update(status='error',message=str(exc)[:256])
             elif key != 'Escape': return b''
             if key != 'Escape':
                 self.options.refresh()
@@ -1138,9 +1143,23 @@ class ViewControl:
         if key == 'Escape':
             self.options.escape()
             return self._options_frame()
-        if key in ('Up', 'Down', 'Tab'):
+        if key in ('Tab','Shift+Tab'):
+            if editor is not None: editor.text_field=None
+            order=list(range(-4,len(d['rows'])))
+            index=order.index(d['focus']) if d['focus'] in order else 0
+            return self.options_intent('options_focus',focus=order[(index+(-1 if key=='Shift+Tab' else 1))%len(order)])
+        if d['focus']<0 and key in ('Return','space','Left','Right'):
+            if d['focus']==-4:
+                return self.options_intent('options_scope',scope='workspace' if d['scope']=='monitor' else 'monitor')
+            if d['focus'] in (-3,-2):
+                from .options_menu import CATEGORIES
+                step=4 if d['focus']==-2 else (-1 if key=='Left' else 1)
+                return self.options_intent('options_category',category=CATEGORIES[(CATEGORIES.index(d['category'])+step)%len(CATEGORIES)])
+            if key in ('Return','space'): return self.options_intent('options_close')
+        if key in ('Up', 'Down'):
+            if editor is not None: editor.text_field=None
             step = -1 if key == 'Up' else 1
-            return self.options_intent('options_focus', focus=min(max(d['focus']+step, 0), len(d['rows'])-1))
+            return self.options_intent('options_focus', focus=min(max(d['focus']+step, -4), len(d['rows'])-1))
         if key in ('PageUp', 'PageDown'):
             return self.options_intent('options_scroll', delta=-304 if key == 'PageUp' else 304)
         if key in ('Left', 'Right') and 0 <= d['focus'] < len(d['rows']):
@@ -1152,9 +1171,13 @@ class ViewControl:
     def options_text(self, text):
         """Committed UTF-8 from the native key translator, while URL child owns input."""
         editor = getattr(self, 'options_editor', None)
-        if not self.options.keyboard_owned or editor is None or editor.kind != 'url': return b''
+        if not self.options.keyboard_owned or editor is None or editor.kind not in ('url','file'): return b''
+        if editor.text_field not in ('editor.path','editor.text'): return b''
         if not isinstance(text, str) or any(ord(c)<32 for c in text): return b''
-        try: editor.apply('editor.text', editor.text + text)
+        try:
+            updated=editor.text+text
+            if len(updated.encode())>256: raise ValueError('text too long')
+            editor.text=updated
         except ValueError: return b''
         self.options.last_input = self.clock()
         self.options.refresh()
@@ -1180,6 +1203,10 @@ class ViewControl:
         if not 0 <= index < len(d['rows']): return b''
         row = d['rows'][index]
         value = row['value']
+        if row['kind']=='text':
+            editor=getattr(self,'options_editor',None)
+            if editor is not None: editor.text_field=row['id']
+            return self._options_frame()
         if row['kind'] in ('choice', 'range'): return self.options_adjust(index, 1)
         if row['kind'] == 'toggle': value = value.lower() not in ('true', 'on', '1')
         return self.options_intent('options_activate', row_id=row['id'], monitor=d['monitor'],
@@ -2083,9 +2110,11 @@ class ViewControl:
             name = KEYCODES.get(payload.get('code'))
             aliases = {'up':'Up','down':'Down','left':'Left','right':'Right','Page_Up':'PageUp','Page_Down':'PageDown'}
             key = aliases.get(name, name)
-            if key in ('Escape','BackSpace','Return','space','Up','Down','Left','Right','Tab','PageUp','PageDown'):
+            if key=='Tab' and payload.get('mods',0)&1: key='Shift+Tab'
+            if key in ('Escape','BackSpace','Return','space','Up','Down','Left','Right','Tab','Shift+Tab','PageUp','PageDown'):
                 editor = getattr(self, 'options_editor', None)
-                if key != 'space' or editor is None or editor.kind != 'url': return self.options_key(key)
+                editing=editor is not None and (editor.kind=='url' or (editor.kind=='file' and editor.text_field=='editor.path'))
+                if key != 'space' or not editing: return self.options_key(key)
             translator = getattr(self, 'options_key_text', None)
             if translator is not None:
                 try: return self.options_text(translator(payload.get('mods'), payload.get('code')))

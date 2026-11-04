@@ -3,6 +3,12 @@ W, H = 600, 440
 HEADER_H, TABS_TOP, TABS_H = 44, 44, 36
 BODY_TOP, BODY_BOTTOM, ROW_H, PAD, FOOTER_TOP = 88, 392, 38, 16, 400
 GEAR_W, GEAR_H, GEAR_GAP, HIT_X, HIT_Y = 28, 14, 12, 4, 4
+TRACK_X0, TRACK_X1 = 300, 450
+
+def range_value(row, x):
+    value=row['minimum']+min(max((x-TRACK_X0)/(TRACK_X1-TRACK_X0),0),1)*(row['maximum']-row['minimum'])
+    if row['step']>0: value=row['minimum']+round((value-row['minimum'])/row['step'])*row['step']
+    return min(max(value,row['minimum']),row['maximum'])
 
 def panel_rect(tile, pill):
     return tile[0] + (tile[2] - W) / 2, pill[1], W, H

@@ -1635,8 +1635,7 @@ class OverviewPointer:
                         from . import options_geometry as og
                         x = q[0]-og.panel_rect(d['tile'],pill_rect(d['tile']))[0]
                         r = d['row']
-                        value=r['minimum']+min(max((x-og.PAD)/(og.W-2*og.PAD),0),1)*(r['maximum']-r['minimum'])
-                        if r['step']>0: value=r['minimum']+round((value-r['minimum'])/r['step'])*r['step']
+                        value=og.range_value(r,x)
                         out += self.control.options_intent('options_set',row_id=r['id'],monitor=d['monitor'],scope=d['scope'],revision=d['revision'],value=min(max(value,r['minimum']),r['maximum']))
                     menu.capture=None
                 self.drag=None
@@ -1698,6 +1697,9 @@ class OverviewPointer:
                     out += self.control.options_intent('options_focus', focus=row)
                     r = d['rows'][row]
                     if r['kind']=='range' and all(k in r for k in ('minimum','maximum','step')):
+                        from . import options_geometry as og
+                        if not og.TRACK_X0-5 <= h[2] <= og.TRACK_X1+5:
+                            return out + self.control._options_frame()
                         i = h[1]
                         self.drag = dict(kind='options_range', index=i, start=self.pointer, tile=self._tile(i),
                                          placement=dict(self._rolled()[i]), row=dict(r), monitor=d['monitor'],

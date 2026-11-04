@@ -38,7 +38,7 @@ def test_valid_signed_units_and_stable_output_gap():
 
 
 BAD = [('unknown', 1), ('open', 1), ('namespace', 'n'*65), ('monitor', 'XR-'+'1'*30),
-       ('scope', 'global'), ('category', 'unknown'), ('focus', -2), ('focus', 64),
+       ('scope', 'global'), ('category', 'unknown'), ('focus', -5), ('focus', 64),
        ('focus', True), ('scroll', -1), ('scroll', 4097), ('revision', -1),
        ('revision', 2**32), ('status', 'forwarded'), ('message', 'é'*129),
        ('rows', [{}]*65)]

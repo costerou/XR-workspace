@@ -114,7 +114,8 @@ class RuntimeText:
     def __call__(self, mods, code):
         import json
         editor = getattr(self.control, 'options_editor', None)
-        if editor is None or editor.kind != 'url': return ''
+        if editor is None or editor.kind not in ('url','file'): return ''
+        if editor.text_field not in ('editor.path','editor.text'): return ''
         if editor.text_input is None:
             devices = json.loads(self.client._request('j/devices'))
             keyboards = devices.get('keyboards', [])
@@ -122,7 +123,7 @@ class RuntimeText:
             if keyboard is None and len(keyboards) == 1: keyboard = keyboards[0]
             if keyboard is None: raise ValueError('Active compositor keyboard unavailable')
             editor.text_input = TextInput.from_names(keyboard)
-            editor.text_field = 'editor.text'
+            editor.text_field = 'editor.text' if editor.kind=='url' else 'editor.path'
             editor.text_group = keyboard.get('active_layout_index', 0)
         editor.text_input.hypr_modifiers(mods)
         action, text = editor.text_input.key(code)

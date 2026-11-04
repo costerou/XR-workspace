@@ -45,7 +45,7 @@ def validate_snapshot(value):
     if type(value['open']) is not bool: raise ValueError('invalid open')
     string(value['namespace'],64); monitor(value['monitor']); string(value['message'],256)
     if value['scope'] not in SCOPES or value['category'] not in CATEGORIES or value['status'] not in ('idle','pending','applied','error'): raise ValueError('invalid options enum')
-    integer(value['focus'],-1,63); integer(value['scroll'],0,4096); integer(value['revision'],0,2**32-1)
+    integer(value['focus'],-4,63); integer(value['scroll'],0,4096); integer(value['revision'],0,2**32-1)
     validate_rows(value['rows'])
     return copy.deepcopy(value)
 
@@ -56,7 +56,7 @@ def validate_intent(op, payload):
     if 'monitor' in payload: monitor(payload['monitor'])
     if 'scope' in payload and payload['scope'] not in SCOPES: raise ValueError('invalid scope')
     if 'category' in payload and payload['category'] not in CATEGORIES: raise ValueError('invalid category')
-    if 'focus' in payload: integer(payload['focus'],-1,63)
+    if 'focus' in payload: integer(payload['focus'],-4,63)
     if 'delta' in payload: integer(payload['delta'],-4096,4096)
     if 'revision' in payload: integer(payload['revision'],0,2**32-1)
     if 'row_id' in payload: string(payload['row_id'],64)
@@ -158,10 +158,14 @@ class OptionsMenu:
         if name=='options_close': self.close(); return True
         if name=='options_cancel': return self.escape()
         if name in ('options_scope','options_category'):
-            key=name[8:]; self.data[key]=fields[key]; self.data.update(focus=-1,scroll=0,status='idle'); self.pending=None; self.child=None; self._bump(); self.refresh(); return True
+            key=name[8:]; self.data[key]=fields[key]; self.data.update(focus=self.data['focus'] if self.data['focus']<0 else -3,scroll=0,status='idle'); self.pending=None; self.child=None; self._bump(); self.refresh(); return True
         if name=='options_focus':
             if fields['focus']>=len(self.data['rows']): return False
-            self.data['focus']=fields['focus']; self.focused=True; return True
+            self.data['focus']=fields['focus']; self.focused=True
+            if fields['focus']>=0:
+                top=fields['focus']*38
+                self.data['scroll']=min(max(self.data['scroll'],top+38-304),top)
+            return True
         if name=='options_scroll':
             self.data['scroll']=min(max(self.data['scroll']+fields['delta'],0),min(4096,max(0,len(self.data['rows'])*38-304))); return True
         if fields['revision']!=self.data['revision'] or fields['monitor']!=self.data['monitor'] or fields['monitor'] not in self.control.state.names or fields['scope']!=self.data['scope']: return False

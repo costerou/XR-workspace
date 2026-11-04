@@ -18,7 +18,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -31,7 +31,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "zoom_out",
@@ -47,7 +48,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -60,7 +61,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "prev",
@@ -76,7 +78,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -88,7 +90,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "next",
@@ -104,7 +107,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -116,7 +119,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "spacing_down",
@@ -132,7 +136,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -144,7 +148,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "spacing_up",
@@ -160,7 +165,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -172,7 +177,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "recenter",
@@ -188,7 +194,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -200,7 +206,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "layout_reset",
@@ -216,7 +223,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence. Two presses within 3 seconds; refuse during video/busy; backup previous_setup; preserve window memory.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -228,7 +235,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "mode_next",
@@ -244,7 +252,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -256,7 +264,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "prediction",
@@ -272,7 +281,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -284,7 +293,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "typing_toggle",
@@ -300,7 +310,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -313,7 +323,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "privacy_display",
@@ -329,7 +340,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence. DPMS fallback must wake on stop/recovery and stale helper.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -341,7 +352,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "environment_toggle",
@@ -357,7 +369,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -369,7 +381,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_toggle",
@@ -385,7 +398,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -398,7 +411,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: immersive_toggle"
     },
     {
       "id": "menu_toggle",
@@ -414,7 +428,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -427,7 +441,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_open",
@@ -443,7 +458,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -456,7 +471,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_paste",
@@ -472,7 +488,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -485,7 +501,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "playback_menu_toggle",
@@ -501,7 +518,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -513,7 +530,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "help",
@@ -529,7 +547,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -541,7 +559,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "binds_toggle",
@@ -557,7 +576,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -570,7 +589,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "help_prev",
@@ -586,7 +606,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -598,7 +618,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "help_next",
@@ -614,7 +635,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -626,7 +647,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "send_glasses",
@@ -642,7 +664,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -654,7 +676,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "send_glasses_1",
@@ -670,7 +693,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -682,7 +705,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "send_glasses_2",
@@ -698,7 +722,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -710,7 +734,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "send_glasses_3",
@@ -726,7 +751,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -738,7 +763,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "send_glasses_4",
@@ -754,7 +780,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -766,7 +792,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "send_back",
@@ -782,7 +809,7 @@
       "safety_dependency": "Active run; disabled in typing mode except typing_toggle; modal video/input routing takes precedence.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -794,7 +821,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "menu_field_prev",
@@ -810,7 +838,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -823,7 +851,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_field_next",
@@ -839,7 +868,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -852,7 +881,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_dec",
@@ -868,7 +898,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -881,7 +911,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_inc",
@@ -897,7 +928,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -910,7 +941,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_dec_big",
@@ -926,7 +958,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -939,7 +971,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_inc_big",
@@ -955,7 +988,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -968,7 +1001,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_desktop_next",
@@ -984,7 +1018,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -997,7 +1031,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_desktop_prev",
@@ -1013,7 +1048,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1026,7 +1061,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_reset",
@@ -1042,7 +1078,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1055,7 +1091,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "menu_back",
@@ -1071,7 +1108,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1084,7 +1121,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_ultrawide",
@@ -1100,7 +1138,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1113,7 +1151,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_add",
@@ -1129,7 +1168,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1142,7 +1181,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "menu_delete",
@@ -1158,7 +1198,7 @@
       "safety_dependency": "Placement panel open; release modal keys on close, typing mode, reload and stop; Remove arms twice.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1171,7 +1211,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing placement child -> ViewControl._on_menu"
     },
     {
       "id": "video_pause",
@@ -1187,7 +1228,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1200,7 +1241,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_seek_back",
@@ -1216,7 +1258,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1229,7 +1271,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_seek_fwd",
@@ -1245,7 +1288,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1258,7 +1301,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_seek_back_big",
@@ -1274,7 +1318,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1287,7 +1331,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_seek_fwd_big",
@@ -1303,7 +1348,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1316,7 +1361,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_format",
@@ -1332,7 +1378,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1345,7 +1391,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_up",
@@ -1361,7 +1408,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1374,7 +1421,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing VideoControl._on_video"
     },
     {
       "id": "video_down",
@@ -1390,7 +1438,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1403,7 +1451,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing VideoControl._on_video"
     },
     {
       "id": "video_exit",
@@ -1419,7 +1468,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1432,7 +1481,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_quality",
@@ -1448,7 +1498,7 @@
       "safety_dependency": "Video active and not typing; Escape closes quality menu first, then exits video; keys must be released at end.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1461,7 +1511,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_controls",
@@ -1477,7 +1528,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1490,7 +1541,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "stabilization",
@@ -1506,7 +1558,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1518,7 +1570,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_all",
@@ -1534,7 +1587,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1547,7 +1600,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_monitor",
@@ -1563,7 +1617,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1576,7 +1630,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_preset",
@@ -1592,7 +1647,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1605,7 +1660,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_strength_presets",
@@ -1621,7 +1677,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1634,7 +1690,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_strength",
@@ -1650,7 +1707,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1663,7 +1720,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_monitor_strength",
@@ -1679,7 +1737,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1692,7 +1750,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "immersive_plane",
@@ -1708,7 +1767,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1721,7 +1780,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "placement_x",
@@ -1737,7 +1797,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1750,7 +1810,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "placement_y",
@@ -1766,7 +1827,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1779,7 +1840,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "placement_distance",
@@ -1795,7 +1857,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1808,7 +1870,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "placement_curvature",
@@ -1824,7 +1887,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1837,7 +1900,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "placement_apply",
@@ -1853,7 +1917,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1866,7 +1930,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "placement_flat",
@@ -1882,7 +1947,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1895,7 +1960,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "mode_follow",
@@ -1911,7 +1977,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1924,7 +1990,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "mode_locked",
@@ -1940,7 +2007,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1953,7 +2020,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_browse",
@@ -1969,7 +2037,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -1982,7 +2050,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_play",
@@ -1998,7 +2067,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2011,7 +2080,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "video_paste_ui",
@@ -2027,7 +2097,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2040,7 +2110,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "resolution",
@@ -2056,7 +2127,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2068,7 +2139,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: desktops RESOLUTION"
     },
     {
       "id": "scale",
@@ -2084,7 +2156,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2096,7 +2168,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: desktops SCALE"
     },
     {
       "id": "ultrawide",
@@ -2112,7 +2185,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2124,7 +2197,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "add_monitor",
@@ -2140,7 +2214,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2152,7 +2226,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "remove_monitor",
@@ -2168,7 +2243,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2180,7 +2255,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "background",
@@ -2196,7 +2272,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2208,7 +2284,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "background_brightness",
@@ -2224,7 +2301,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2236,7 +2313,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "roll_ccw",
@@ -2252,7 +2330,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2265,7 +2343,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "roll_level",
@@ -2281,7 +2360,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2294,7 +2373,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "roll_cw",
@@ -2310,7 +2390,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2323,7 +2403,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "drag_move",
@@ -2339,7 +2420,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2352,7 +2433,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: placement + placement_menu.surface"
     },
     {
       "id": "drag_resize",
@@ -2368,7 +2450,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2381,7 +2463,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: placement distance"
     },
     {
       "id": "quality_filter",
@@ -2397,7 +2480,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2410,7 +2493,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "quality_deband",
@@ -2426,7 +2510,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2439,7 +2523,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "bind_change",
@@ -2455,7 +2540,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2468,7 +2553,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "NativeEditors keybinds -> BindControl.key"
     },
     {
       "id": "bind_reset",
@@ -2484,7 +2570,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2497,7 +2583,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "NativeEditors keybinds -> BindControl.key"
     },
     {
       "id": "bind_reset_all",
@@ -2513,7 +2600,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2526,7 +2613,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "NativeEditors keybinds -> BindControl.key"
     },
     {
       "id": "bind_cancel",
@@ -2542,7 +2630,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2555,7 +2643,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "NativeEditors keybinds -> BindControl.key"
     },
     {
       "id": "bind_navigation",
@@ -2571,7 +2660,7 @@
       "safety_dependency": "Conflict detection; modifier required; Escape reserved; triple Escape compositor escape; 90s watchdog; release submap on death/reload.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2584,7 +2673,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "NativeEditors keybinds -> BindControl.key"
     },
     {
       "id": "fallback",
@@ -2600,7 +2690,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2610,7 +2700,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "tracking",
@@ -2626,7 +2717,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2637,7 +2728,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "tracking_driver",
@@ -2653,7 +2745,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2664,7 +2756,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "mode_switch",
@@ -2680,7 +2773,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2690,7 +2783,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "startup_desktops",
@@ -2706,7 +2800,7 @@
       "safety_dependency": "Idle only; new consent for start; never expand running consent.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2716,7 +2810,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "stop",
@@ -2732,7 +2827,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2745,7 +2840,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "recover",
@@ -2761,7 +2857,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2772,7 +2868,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "start",
@@ -2788,7 +2885,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2798,7 +2895,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "confirm_start",
@@ -2814,7 +2912,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2824,7 +2922,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "confirm_recover",
@@ -2840,7 +2939,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2850,7 +2949,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "cancel",
@@ -2866,7 +2966,7 @@
       "safety_dependency": "Preserve run/session identity, journal recovery and exact scope_id; stale confirmation refused.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2876,7 +2976,8 @@
         "route_reachable",
         "scope_and_stable_identity",
         "owner_readback_or_truthful_failure"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "status",
@@ -2892,7 +2993,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2904,7 +3005,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "controller_restart",
@@ -2920,7 +3022,7 @@
       "safety_dependency": "Only shown disconnected; restart controller service is not restart renderer and not a substitute for recovery.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2933,7 +3035,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "close_external",
@@ -2949,7 +3052,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2961,7 +3064,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "immersive_connected_tail",
@@ -2977,7 +3081,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -2990,7 +3094,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: immersive_click / immersive_tail_click"
     },
     {
       "id": "select_pointer",
@@ -3006,7 +3111,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3018,7 +3123,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: select_desktop"
     },
     {
       "id": "edge_pan",
@@ -3034,7 +3140,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3046,7 +3152,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: edge_pan + switch_desktop"
     },
     {
       "id": "background_switch",
@@ -3062,7 +3169,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3074,7 +3181,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "options_apply"
     },
     {
       "id": "profile_remember",
@@ -3090,7 +3198,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3102,7 +3210,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing ViewControl.save_setup / profiles"
     },
     {
       "id": "plugin_restart",
@@ -3118,7 +3227,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3131,7 +3240,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing controller/plugin (external or pre-start)"
     },
     {
       "id": "resize_press",
@@ -3147,7 +3257,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3160,7 +3270,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: resize_press"
     },
     {
       "id": "resize_release",
@@ -3176,7 +3287,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3189,7 +3300,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: resize_release"
     },
     {
       "id": "resize_cancel",
@@ -3205,7 +3317,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3218,7 +3330,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: resize_cancel"
     },
     {
       "id": "super_left_press",
@@ -3234,7 +3347,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3247,7 +3360,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: super_left_press"
     },
     {
       "id": "super_right_press",
@@ -3263,7 +3377,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3276,7 +3390,8 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: super_right_press"
     },
     {
       "id": "super_release",
@@ -3292,7 +3407,7 @@
       "safety_dependency": "Active run; supervisor validates and acknowledges actual state.",
       "implementation_status": "pending_integration",
       "evidence": [],
-      "limitation": "Inventory route only; no options implementation acceptance claimed",
+      "limitation": "Route implemented or retained; full per-row native interaction, owner completion and recovery acceptance not established",
       "regression_candidates": [
         "tests/xr_options_integration/test_options_wire.py",
         "tests/xr_options_integration/test_adapter_boundary.py",
@@ -3305,14 +3420,20 @@
         "owner_readback_or_truthful_failure",
         "in_xr_input",
         "restart_cleanup"
-      ]
+      ],
+      "implementation_route": "existing pointer owner: super_release"
     }
   ],
   "gates": [
     {
       "id": "wire",
-      "status": "blocked",
-      "required_evidence": "Real C++ decoder accepts bounded options frames and isolates malformed frames"
+      "status": "verified",
+      "required_evidence": "Real C++ decoder accepts bounded options frames and isolates malformed frames",
+      "evidence": [
+        "build/integration-focused.log",
+        "build/final-python.log",
+        "spike/tests/options_menu_test.cpp"
+      ]
     },
     {
       "id": "input_geometry",
@@ -3337,7 +3458,8 @@
     {
       "id": "maximize_v2",
       "status": "blocked",
-      "required_evidence": "26s square left of level bar by 12s; pad4s gap4s; maximize/restore preserves modes and placements; never roll capture"
+      "required_evidence": "26s square left of level bar by 12s; pad4s gap4s; maximize/restore preserves modes and placements; never roll capture",
+      "limitation": "Above-desktop Restore cannot be reached from confined maximized app cursor; approved input extension decision pending"
     },
     {
       "id": "native_evidence",
@@ -3347,7 +3469,10 @@
   ],
   "limitations": [
     "Sibling acceptance report/validator read and validator tests passed; no integrated acceptance implied",
-    "No native capture or live hardware claim"
+    "No native capture or live hardware claim",
+    "External runtime editors remain enabled: options_runtime_complete is not advertised.",
+    "Some async action completion readback and complete per-row native acceptance remain unverified.",
+    "Native offline raster PNG/MP4 are not projected GPU or live glasses evidence."
   ],
   "contract": "B1+C1 v1 with approved maximize addendum v2",
   "inventory_sha256": "9a2f7944b7bbefbcd548b1517d09559efc19f5711c8bb20a26663f5aab26e7de"

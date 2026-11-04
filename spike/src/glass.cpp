@@ -523,13 +523,16 @@ HudImage render_options_panel(const OptionsMenuState& state,const HudFont* font)
  const auto& m=glass_theme_scheme({.45f,.65f,.8f});
  HudImage im{600,440,std::vector<std::uint8_t>(600*440*4,0)};
  md_fill_rounded(im,0,0,600,440,18,m.surface_container_high,1);
+ if(state.focus==-4)md_fill_rounded(im,346,4,440,40,6,m.secondary_container,1);
+ if(state.focus==-2)md_fill_rounded(im,440,4,530,40,6,m.secondary_container,1);
+ if(state.focus==-1)md_fill_rounded(im,530,4,594,40,6,m.secondary_container,1);
  text(im,font,state.scope=="monitor"?state.monitor:"Workspace / All monitors",18,true,16,22,m.on_surface);
  text(im,font,"Close",16,false,530,22,m.on_surface_variant);
  text(im,font,state.scope=="monitor"?"Workspace >":"< Monitor",14,false,350,22,m.on_surface_variant);
  const std::vector<std::string> tabs={"placement","output","3d","stabilization","layout","environment","view","video","input","keybinds","windows","privacy","help","session"};
  text(im,font,"Next >",14,false,446,22,m.on_surface_variant);
  auto at=std::find(tabs.begin(),tabs.end(),state.category);std::size_t start=at==tabs.end()?0:(std::size_t(at-tabs.begin())/4)*4;
- for(std::size_t i=start;i<std::min(start+4,tabs.size());++i){float x=16+float(i-start)*142;if(tabs[i]==state.category)md_fill_rounded(im,x,44,x+136,80,8,m.secondary_container,1);text(im,font,tabs[i],14,tabs[i]==state.category,x+6,62,m.on_surface);}
+ for(std::size_t i=start;i<std::min(start+4,tabs.size());++i){float x=16+float(i-start)*142;if(tabs[i]==state.category){md_fill_rounded(im,x,44,x+136,80,8,m.secondary_container,1);if(state.focus==-3)md_stroke_rounded(im,x,44,x+136,80,8,2,m.primary,1);}text(im,font,tabs[i],14,tabs[i]==state.category,x+6,62,m.on_surface);}
 
 
  HudImage body{600,304,std::vector<std::uint8_t>(600*304*4,0)};
@@ -539,8 +542,8 @@ HudImage render_options_panel(const OptionsMenuState& state,const HudFont* font)
   text(body,font,r.label,16,false,16,y+19,m.on_surface,r.enabled?1:.38f);
   if(r.kind=="range" && r.maximum>r.minimum){
     try {float t=float(std::clamp((std::stod(r.value)-r.minimum)/(r.maximum-r.minimum),0.,1.));
-     md_fill_rounded(body,300,y+28,450,y+32,2,m.primary,.24f);
-     md_disc(body,300+150*t,y+30,5,m.primary,r.enabled?1:.38f);
+     md_fill_rounded(body,kOptionsTrackX0,y+28,kOptionsTrackX1,y+32,2,m.primary,.24f);
+     md_disc(body,kOptionsTrackX0+(kOptionsTrackX1-kOptionsTrackX0)*t,y+30,5,m.primary,r.enabled?1:.38f);
     }catch(const std::exception&){} // value is presentation text; never execute or change it
   }
   if(r.kind=="toggle")md_stroke_rounded(body,302,y+9,336,y+29,10,2,m.primary,r.enabled?1:.38f);
