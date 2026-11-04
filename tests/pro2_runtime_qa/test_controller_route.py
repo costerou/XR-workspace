@@ -106,7 +106,7 @@ class ControllerRouteQA(unittest.TestCase):
                 self.assertEqual(kwargs['store'].model, 'pro2')
                 self.assertIn('pose_', kwargs['test_scope'].prefix)
                 kwargs['test_scope'].healthy()
-                return dict(complete=True)
+                return dict(complete=True, renderer_returncode=0)
             with self.fixture_context(root), patch.object(pro2_test.monitor_rules, 'refuse_start'):
                 bundle = self.make_bundle(root)
                 result = pro2_test.execute(self.consent(), bundle, root, client_factory=lambda *_: client,
@@ -195,6 +195,8 @@ class ControllerRouteQA(unittest.TestCase):
         from tools.native_spike import managed
         with tempfile.TemporaryDirectory(dir=self.build) as tmp:
             root = Path(tmp); client = Mock(); factory = Mock()
+            from tools.native_spike.hyprland import OWNERSHIP_PLUGIN_NAME
+            client.plugins_loaded.return_value = [OWNERSHIP_PLUGIN_NAME]
             with self.fixture_context(root):
                 bundle = self.make_bundle(root)
                 with patch.object(managed, 'recover_pro2_test_managed', return_value=dict(complete=True)):
@@ -203,3 +205,83 @@ class ControllerRouteQA(unittest.TestCase):
             self.assertTrue(result['complete'])
             factory.assert_not_called()
             client.plugin_unload.assert_called_once_with(str(bundle / 'bin/libxr-ownership.so'))
+
+
+    def test_popen_failure_closes_all_acquired_resources(self):
+        from tools.pro2_runtime import launch
+        with tempfile.TemporaryDirectory(dir=self.build) as tmp:
+            root = Path(tmp)
+            with self.fixture_context(root):
+                session = launch.RuntimeSession(self.make_bundle(root), root / 'run', 44.5, 1, True)
+                before = {n for n in os.listdir('/proc/self/fd') if os.path.exists('/proc/self/fd/' + n)}
+                with patch.object(launch.subprocess, 'Popen', side_effect=OSError('simulated spawn failure')):
+                    with self.assertRaises(OSError): session.start()
+                after = {n for n in os.listdir('/proc/self/fd') if os.path.exists('/proc/self/fd/' + n)}
+                self.assertEqual(before, after)
+                self.assertIsNone(session.status)
+                self.assertIsNone(session.log)
+                session.close()
+
+    def test_sdk_stdout_cannot_forge_status_readiness(self):
+        from tools.pro2_runtime import launch
+        with tempfile.TemporaryDirectory(dir=self.build) as tmp:
+            root = Path(tmp)
+            with self.fixture_context(root), patch.dict(os.environ, PRO2_QA_CASE='stdout_spoof'):
+                session = launch.RuntimeSession(self.make_bundle(root), root / 'run', 44.5, 1, True)
+                try:
+                    with self.assertRaises((ValueError, RuntimeError)): session.start()
+                    self.assertFalse(session.ready)
+                    self.assertFalse(any(event.get('event') == 'ready' for event in session.events))
+                    self.assertIn('SDK_PRIVATE_FIXTURE_ONLY', (session.directory / 'sdk.private.log').read_text())
+                    self.assertNotIn('SDK_PRIVATE_FIXTURE_ONLY', json.dumps(session.events))
+                finally:
+                    try: session.close()
+                    except RuntimeError: pass
+
+
+    def test_no_sbs_scope_reassert_close_and_video_close_never_use_buttons(self):
+        from tools.native_spike import immersive, video
+        client = Mock()
+        with patch.object(immersive, 'ButtonSbs') as buttons:
+            adapter = immersive.make_sbs(client, 'DP-2', {'sbs_mode': None})
+            self.assertIsInstance(adapter, immersive.NoDeviceSbs)
+            with self.assertRaises(immersive.SbsError): adapter.enter()
+            adapter.leave()
+            run = immersive.ImmersiveRun(Mock(), adapter)
+            run.reassert(); self.assertFalse(run.switching()); run.close(); run.close()
+            control = video.VideoControl(Mock(), threads=False)
+            control.close(); control.close()
+            buttons.assert_not_called()
+        self.assertFalse(client.mock_calls)
+
+    def test_renderer_arguments_scope_private_prefix_and_leave_legacy_unchanged(self):
+        import socket
+        import struct
+        from tools.xr_controller.pro2_test import TestScope
+        from tools.native_spike.supervisor import _launch
+        class Child:
+            def poll(self): return 0
+        with tempfile.TemporaryDirectory(dir=self.build) as tmp:
+            health = Path(tmp) / 'health'
+            health.write_text(json.dumps(dict(nonce='ok', ready=True, monotonic=time.monotonic())))
+            health.chmod(0o600)
+            scope = TestScope(str(Path(tmp) / 'pose_'), 44.5, str(health), 'ok')
+            for selected in (None, scope):
+                peer, wayland = socket.socketpair()
+                try:
+                    client = Mock(); client._peer = (*struct.unpack('3i', wayland.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)), 'unused')
+                    seen = []
+                    def spawn(argv, **kwargs): seen.append(argv); return Child()
+                    _launch(client, 'qa-run', 'offline', 'DP-2', wayland, None, popen=spawn,
+                            capture=['XR-1'], pose_feed=True, pro2_scope=selected)
+                    args = seen[0]
+                    self.assertIn('--pose-feed', args)
+                    if selected:
+                        self.assertEqual(args[args.index('--pro2-test-pose-prefix')+1], scope.prefix)
+                        self.assertEqual(args[args.index('--pro2-test-projection')+1], '44.5')
+                        self.assertNotIn('/tmp/shader_runtime_', args)
+                    else:
+                        self.assertNotIn('--pro2-test-pose-prefix', args)
+                        self.assertNotIn('--pro2-test-projection', args)
+                finally:
+                    peer.close(); wayland.close()
