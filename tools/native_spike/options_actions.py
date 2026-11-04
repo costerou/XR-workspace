@@ -128,7 +128,10 @@ def owner_callback(control, row_id, monitor, scope):
     menu=getattr(control,'options',None)
     if menu is None or not callable(getattr(menu,'begin_owner',None)): return None
     token=menu.begin_owner(row_id,monitor,scope)
-    return lambda success,detail: menu.finish_owner(token,success,detail)
+    def done(success,detail): return menu.finish_owner(token,success,detail)
+    done.options_token=token
+    done.retain_frames=lambda frames: menu.retain_owner_frames(token,frames)
+    return done
 
 
 def video_request(control, op, payload, row_id='video_open', monitor=None, scope='workspace'):

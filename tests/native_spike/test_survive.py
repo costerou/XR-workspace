@@ -322,10 +322,22 @@ class RestartedRendererTests(unittest.TestCase):
         self.assertIsNone(pointer.roll_sent); self.assertFalse(control.help_visible)
 
     def test_a_video_goes_with_the_old_renderer(self):
-        closed, restarted = [], []
-        control = types.SimpleNamespace(_close=lambda: closed.append(1), view=types.SimpleNamespace(renderer_restarted=lambda: restarted.append(1)))
-        video.VideoControl.renderer_restarted(control)
-        self.assertEqual((closed, restarted), ([1], [1]))
+        from test_video import ControlTests
+        fixture=ControlTests(); fixture.setUp()
+        try:
+            fixture.open()
+            completed=[]
+            fixture.v.on_message({'op':'video_pause','payload':{}},done=lambda *result:completed.append(result))
+            self.assertTrue(fixture.v._owner_pending)
+            fixture.v.renderer_restarted()
+            self.assertEqual(completed,[(False,'Renderer restarted')])
+            self.assertFalse(fixture.v.active)
+            self.assertFalse(fixture.view.video_active)
+            self.assertFalse(fixture.v._owner_pending)
+            fixture.v.renderer_restarted()
+            self.assertEqual(len(completed),1)
+        finally:
+            fixture.join_binds(); fixture.doCleanups()
 
 
 if __name__ == '__main__':

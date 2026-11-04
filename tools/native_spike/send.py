@@ -184,9 +184,12 @@ class WindowSender:
         with self._lock:
             if self.closed:
                 complete(done,False,'Window sender closed'); return
+            detail=None
             try: message = self.move(op, selected, verify=done is not None)
-            except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc: message = str(exc) or 'Could not move the window.'
-        complete(done,message is None,message or 'Window target verified')
+            except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+                message='Could not move the window.'
+                detail=str(exc) or message
+        complete(done,message is None,detail or message or 'Window target verified')
         if message and self.notify is not None: self.notify(message)
 
     def move(self, op, selected, verify=False):
