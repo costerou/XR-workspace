@@ -1,0 +1,11 @@
+{
+  "evidence_source": "local 3DoF source248fc87690d55c58ccc16d4e6bba19cd957373af; header ABI reference, not proof of installed executable provenance",
+  "base": "/home/cody/.local/share/viture-workspace/xrdriver-3dof/2.11.9-958908-pr147-pr148-3dof/src",
+  "files": {
+    "include/sdks/viture_device.h": "f123bae4795af9e8f04e7547b8fda08f71589471bde97b60836fbea4235edc56",
+    "include/sdks/viture_glasses_provider.h": "c1fded5831ca0469868e0d9b57c0499a469419b35621808f4643b0a3a285e476",
+    "include/sdks/viture_protocol_public.h": "f3fae39ceb80a8c030a5b822fefc39d5f1a1dc07b1809e8ac41aac4ce936eb56",
+    "include/sdks/viture_version.h": "07a88ac37151b6dfb44fad369046a26e4506f5fa1c6ab169c55ed3a1065a8bfc",
+    "src/devices/viture.c": "566ac6e172c6520dc23a41f7af9ec7ad56653ab28996708682db67b4654ff736"
+  }
+}

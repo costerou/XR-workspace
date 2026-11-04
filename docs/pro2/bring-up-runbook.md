@@ -6,6 +6,10 @@ Do not install or launch Pro 2 tracking yet. Exact identity and plain display en
 
 Installed/live workspace source reported by parent: detached feature-placement-menu-integrate at `ff7b26a`. Local master is a separate checkout and is not changed here. B1/C1UI (`xr-options-build` ebe4303) and reporting (`drop-incident-evidence` c19f4f9) are finished uninstalled siblings, excluded from this batch. This integration does not replace their functionality.
 
+## Finite raw-SDK diagnostic before adapter enablement
+
+The [standalone diagnostic candidate](diagnostic-candidate.md) now provides a concrete parent-reviewable experiment using the installed pinned Gen2 SDK: first15s stationary raw pose/firmware logging, then a separately authorized30s four-direction comparison. This does not enable the app or require a speculative correction/vendor response before collecting raw evidence. See its exact API sequence, active-operation consent scope, commands, offline tests and timeout risks. No installation is needed to review the source candidate. Existing app/provider guards stay closed until observations establish an adapter contract.
+
 ## Identity and display pin
 
 Require `35ca:1301` AND exact product `VITURE PRO 2 XR Glasses`, canonical key `pro2`. Never accept old Pro, Luma Ultra `1104` or Beast `1201` as equivalent. Inventory captured November 4: bus1/device13, port1-5, HID interface 0 (usbhid), hidraw7. These addresses are transient; re-read passive sysfs/udev identity rather than pinning node numbers.
