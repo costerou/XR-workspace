@@ -218,3 +218,31 @@ class TerminalEventOrdering(unittest.TestCase):
             self.assertTrue(completions.empty())
         finally:
             release_callback.set(); owner.close()
+
+class FastFailureRegistration(unittest.TestCase):
+    def test_failure_detail_is_latched_before_cleanup_and_late_callback(self):
+        for previous_error in ('','previous unrelated failure'):
+            with self.subTest(previous_error=previous_error):
+                cleanup_entered=threading.Event(); release_cleanup=threading.Event()
+                class Engine(FakeEngine):
+                    def stop(self):
+                        cleanup_entered.set()
+                        if not release_cleanup.wait(2): raise AssertionError('cleanup gate not released')
+                        super().stop()
+                owner=ImmersiveRun(Engine(fail=EngineError('authoritative model startup failed')),FakeSbs([]))
+                owner.error=previous_error
+                result=[]
+                try:
+                    owner.request(['XR-1']) # ViewControl starts worker before adapter registers done.
+                    self.assertTrue(cleanup_entered.wait(2))
+                    self.assertTrue(owner._failed)
+                    self.assertFalse(any(e[0]=='failed' for e in owner.take_events()))
+                    owner.request(['XR-1'],done=lambda ok,detail:result.append((ok,detail)))
+                    self.assertEqual(result,[(False,'engine: authoritative model startup failed')])
+                    release_cleanup.set()
+                    from test_immersive import wait_for
+                    events=[]
+                    wait_for(lambda:(events.extend(owner.take_events()),any(e[0]=='failed' for e in events))[1])
+                    self.assertEqual(len(result),1)
+                finally:
+                    release_cleanup.set(); owner.close()
