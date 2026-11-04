@@ -596,8 +596,13 @@ run's result; the setting stays, so the next start tries Luma again. Cancelling 
 two drivers share `tracking.json`, so `stop`, `status`, `ensure_ready` and the incident monitor's liveness check work on
 either, and `ensure_ready` swaps our own driver when the other kind, or an older install of Luma, is left running.
 
-The incident monitor still reads XRLinuxDriver's log only. A Luma run's USB drops come from the kernel log, and loss of
-tracking from the renderer's status and the driver's liveness.
+A start that finds the right Luma driver not calibrated gives it `LUMA_SETTLE` (5 s) before replacing it: it may be mid
+reconnect, which keeps its calibration, and a restart would lose that and add USB traffic. During a session the runner's
+`tracking.LumaWatch` restarts a crashed driver, three times in five minutes at most, then shows a notification. A stop or
+a swap ends the watch. After a fallback there is no watch: XRLinuxDriver reconnects by itself.
+
+The incident monitor reads the log of whichever driver is running, and a report's `glasses.tracking_driver` says which one
+that was (after a fallback, not what the consent says), so USB drops can be counted per driver.
 
 The Luma driver runs as `unshare --user --map-current-user --net`, the same network block without the mount namespace:
 it has no licence to fetch and no name lookups, so it needs neither the made-up MAC nor the hidden resolver directory.

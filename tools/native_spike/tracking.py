@@ -17,6 +17,8 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
+import threading
 import time
 
 from .ipc import private_dir
@@ -39,6 +41,11 @@ LUMA_LOST = ('luma: disconnected', 'luma: calibrating')
 # seconds or is not going to.
 LUMA_TIMEOUT = 30.0
 FALLBACK_TIMEOUT = 90.0
+# A reconnect takes about a second and keeps its calibration; restarting the driver would lose that and put more traffic
+# on the USB link. So a start gives a driver that is not calibrated right now this long before replacing it.
+LUMA_SETTLE = 5.0
+# LumaWatch: a crashed driver comes back this many times in this many seconds. Past that it is not a one-off.
+RESTARTS, RESTART_WINDOW = 3, 300.0
 # Without a MAC to hash into a hardware id the driver retries for 30 s, then carries on. A made-up MAC
 # on `lo` ends that wait, and `lo` stays down, so there are still no routes. The driver only looks at
 # interfaces with an IPv4 address. It must not be 127.0.0.1: an address on a down interface swallows
@@ -73,14 +80,38 @@ def _read_state(runtime):
     return None
 
 
+def _zombie(pid):
+    try: return Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[0] == 'Z'
+    except (OSError, IndexError): return False
+
+
 def _ours(data):
-    """The recorded process is still the exact driver we started (pid and kernel start tick)."""
-    return bool(data) and _start_tick(data['pid']) == data['start_tick']
+    """The recorded process is still the exact driver we started (pid and kernel start tick), and is not just a corpse.
+
+    The runner that started a driver is its parent and is busy with the session, so a crash leaves a zombie, tick intact.
+    """
+    return bool(data) and _start_tick(data['pid']) == data['start_tick'] and not _zombie(data['pid'])
 
 
 def driver_alive(runtime):
     """Is the driver this app started still that process? (The incident monitor; status() rereads the whole log.)"""
     return _ours(_read_state(runtime))
+
+
+def _kind(data):
+    return LUMA if data.get('driver') == LUMA else XRDRIVER  # a state file from before Luma has no `driver`
+
+
+def active_driver(runtime):
+    """Which driver is really running: 'xrdriver', 'luma', or None. After a fallback that is not what the consent says."""
+    data = _read_state(runtime)
+    return _kind(data) if _ours(data) else None
+
+
+def log_path(runtime):
+    """The log of the driver we last started, running or not."""
+    data = _read_state(runtime)
+    return LUMA_LOG if data and _kind(data) == LUMA else DRIVER_LOG
 
 
 def _other_drivers(exclude=None):
@@ -140,7 +171,7 @@ def status(runtime):
     data = _read_state(runtime)
     if not _ours(data): return {'running': False}
     pid = data['pid']
-    driver = LUMA if data.get('driver') == LUMA else XRDRIVER  # a state file from before Luma has no `driver`
+    driver = _kind(data)
     path, ready, lost = (LUMA_LOG, LUMA_READY, LUMA_LOST) if driver == LUMA else (DRIVER_LOG, READY, LOST)
     log = path.read_bytes() if path.exists() else b''
     current = log[data.get('log_offset', 0):].decode(errors='replace')
@@ -157,8 +188,12 @@ def ensure_ready(runtime, timeout=120.0, luma=None):
     driver is never killed; start() refuses to compete with it.
     """
     now = status(runtime)
-    if (now['running'] and now['network_isolated'] and now['calibrated']
-            and now['driver'] == (LUMA if luma else XRDRIVER) and now['binary'] == luma):
+    wanted = lambda: now['network_isolated'] and now['driver'] == (LUMA if luma else XRDRIVER) and now['binary'] == luma
+    if luma and now['running'] and wanted():  # the right driver, perhaps mid-reconnect: leave it be if it comes back
+        deadline = time.monotonic() + LUMA_SETTLE
+        while now['running'] and not now['calibrated'] and time.monotonic() < deadline:
+            time.sleep(0.1); now = status(runtime)
+    if now['running'] and wanted() and now['calibrated']:
         return now
     if now['running']:
         stop(runtime)
@@ -201,8 +236,7 @@ def start(runtime, timeout=120.0, luma=None):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             now = status(runtime)
-            # Asked first: an exited child stays a zombie until reaped, which reads as running and not isolated.
-            if not now['running'] or child.poll() is not None:
+            if not now['running']:
                 raise ValueError('tracking driver exited during startup')
             if not now['network_isolated']:
                 raise ValueError('tracking driver is not network-isolated; stopped')
@@ -215,6 +249,36 @@ def start(runtime, timeout=120.0, luma=None):
         raise
 
 
+class LumaWatch(threading.Thread):
+    """Brings a crashed Luma driver back during a session, RESTARTS times per RESTART_WINDOW, then says so through `notify`.
+
+    Only for a crash: a stop() removes the state file and a swap changes its driver, and either ends the watch.
+    The renderer holds its last pose meanwhile and picks up the feed's segments again, which a new driver reuses.
+    """
+    def __init__(self, runtime, luma, notify, poll=0.5):
+        super().__init__(name='luma-watch', daemon=True)
+        self.runtime, self.luma, self.notify, self.poll = runtime, luma, notify, poll
+        self.stopping, self.restarts = threading.Event(), []
+
+    def run(self):
+        while not self.stopping.wait(self.poll):
+            data = _read_state(self.runtime)
+            if data is None or _kind(data) != LUMA: return
+            if _ours(data): continue
+            now = time.monotonic()
+            self.restarts = [at for at in self.restarts if now - at < RESTART_WINDOW] + [now]
+            if len(self.restarts) > RESTARTS:
+                self.notify(f'The XR Luma driver keeps crashing, so head tracking has stopped for this session. See {LUMA_LOG}.')
+                return
+            print(f'xr-workspace: the XR Luma driver crashed; restart {len(self.restarts)} of {RESTARTS}', file=sys.stderr, flush=True)
+            try: ensure_ready(self.runtime, timeout=LUMA_TIMEOUT, luma=self.luma)
+            except (OSError, ValueError) as exc: print(f'xr-workspace: the restart failed: {exc}', file=sys.stderr, flush=True)
+
+    def finish(self):
+        self.stopping.set()
+        self.join(1.0)  # a restart in progress is left to finish: the driver outlives a run anyway
+
+
 def stop(runtime, timeout=5.0):
     data = _read_state(runtime)
     if not _ours(data):
@@ -224,11 +288,12 @@ def stop(runtime, timeout=5.0):
         try: os.waitpid(pid, os.WNOHANG)  # our own child (a fallback stops what it started) is a zombie, tick intact, until reaped
         except ChildProcessError: pass
         return _start_tick(pid) == data['start_tick']
+    # Before the signal: to LumaWatch, a dead driver whose state file is still there is a crash.
+    try: _state(runtime).unlink()
+    except FileNotFoundError: pass
     os.kill(pid, signal.SIGTERM)
     deadline = time.monotonic() + timeout
     while still_there() and time.monotonic() < deadline: time.sleep(0.05)
     if still_there(): os.kill(pid, signal.SIGKILL)
     still_there()
-    try: _state(runtime).unlink()
-    except FileNotFoundError: pass
     return {'stopped': True}

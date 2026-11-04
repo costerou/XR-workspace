@@ -61,7 +61,7 @@ def execute(consent_path, data_home, progress=None):
               'renderer_returncode': None, 'remaining': None, 'error': None}
     errors, client, plugin, attempted = [], None, None, False
     managed_started, run = False, None
-    runtime, consent = None, None
+    runtime, consent, watch = None, None, None
     try:
         # The consent names its own scope; the second read re-checks it against the first.
         raw = read_private_json(consent_path)
@@ -90,6 +90,9 @@ def execute(consent_path, data_home, progress=None):
                 if ready.get('fallback'):  # the setting stays: the next start tries the Luma driver again
                     result['tracking_fallback'] = ready['fallback']
                     _toast(f"The XR Luma driver could not start head tracking ({ready['fallback']}). Using XRLinuxDriver for this session.")
+                else:
+                    watch = tracking.LumaWatch(runtime, installed[LUMA_PIN]['path'], _toast)
+                    watch.start()
             else:
                 tracking.ensure_ready(runtime)
         result['phase'] = 'plugin'
@@ -116,6 +119,7 @@ def execute(consent_path, data_home, progress=None):
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)
     finally:
+        if watch is not None: watch.finish()
         # A saved broker epoch is required for explicit recovery. A return/exception
         # from run_managed does not by itself prove that recovery completed.
         preserve = managed_started and (

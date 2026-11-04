@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import signal
 import stat
 import subprocess
 import sys
@@ -37,6 +38,34 @@ EXITS = '''\
     import sys
     print('luma: no glasses', file=sys.stderr, flush=True)
     sys.exit(3)
+    '''
+RECONNECTS = '''\
+    import signal, sys, time
+    signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+    def say(line): print(line, file=sys.stderr, flush=True)
+    say('luma: calibrated restored=0 at=1.000')
+    time.sleep(0.4)
+    say('luma: disconnected reason=gone at=2.000')
+    time.sleep(0.8)
+    say('luma: calibrated restored=1 at=3.000')
+    while True: time.sleep(0.1)
+    '''
+CRASHES_ONCE = '''\
+    import os, signal, sys, time
+    signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+    print('luma: calibrated restored=0', file=sys.stderr, flush=True)
+    time.sleep(0.2)
+    mark = {mark!r}
+    if not os.path.exists(mark):
+        open(mark, 'w').close()
+        os.kill(os.getpid(), signal.SIGKILL)
+    while True: time.sleep(0.1)
+    '''
+ALWAYS_CRASHES = '''\
+    import os, signal, sys, time
+    print('luma: calibrated restored=0', file=sys.stderr, flush=True)
+    time.sleep(0.1)
+    os.kill(os.getpid(), signal.SIGKILL)
     '''
 XRDRIVER = '''\
     import signal, sys, time
@@ -159,6 +188,95 @@ class LumaLifecycle(unittest.TestCase):
         self.assertFalse(Path(f"/proc/{luma['pid']}/stat").exists() and tracking._start_tick(luma['pid']))
         back = tracking.ensure_ready(self.runtime, timeout=10, luma=str(self.luma))
         self.assertEqual(back['driver'], 'luma')
+
+    def wait_for(self, check, seconds=5.0):
+        deadline = time.monotonic() + seconds
+        while not check() and time.monotonic() < deadline: time.sleep(0.02)
+        self.assertTrue(check())
+
+    def test_a_reconnecting_driver_is_left_alone(self):
+        # Cody's bar: a reconnect keeps calibration and adds no USB traffic; a restart would lose both.
+        fake_driver(self.luma, RECONNECTS)
+        first = tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        self.wait_for(lambda: 'luma: disconnected' in self.log.read_text())
+        self.assertFalse(tracking.status(self.runtime)['calibrated'])
+        with patch.object(tracking, 'start') as start:
+            ready = tracking.ensure_ready(self.runtime, timeout=10, luma=str(self.luma))
+        start.assert_not_called()
+        self.assertEqual(ready['pid'], first['pid'])
+        self.assertTrue(ready['calibrated'])
+
+    def test_a_driver_that_does_not_come_back_is_replaced(self):
+        fake_driver(self.luma, NEVER_CALIBRATES)
+        self.pretend(log_offset=0, driver='luma', binary=str(self.luma))
+        old = self.state()['pid']
+        fake_driver(self.luma, CALIBRATES)
+        with patch.object(tracking, 'LUMA_SETTLE', 0.2), patch.object(tracking, '_network_isolated', return_value=True):
+            ready = tracking.ensure_ready(self.runtime, timeout=10, luma=str(self.luma))
+        self.assertNotEqual(ready['pid'], old)
+
+    def test_a_crash_reads_as_gone_though_the_zombie_remains(self):
+        # The runner is the driver's parent and does not reap it mid-session.
+        status = tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        self.assertEqual(tracking.active_driver(self.runtime), 'luma')
+        os.kill(status['pid'], signal.SIGKILL)
+        self.wait_for(lambda: tracking._zombie(status['pid']))
+        self.assertEqual(tracking._start_tick(status['pid']), self.state()['start_tick'])  # the trap: the tick survives
+        self.assertFalse(tracking.driver_alive(self.runtime))
+        self.assertIsNone(tracking.active_driver(self.runtime))
+        self.assertFalse(tracking.status(self.runtime)['running'])
+
+    def test_log_path_follows_the_driver(self):
+        self.assertEqual(tracking.log_path(self.runtime), self.xr_log)  # nothing started yet
+        tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        self.assertEqual(tracking.log_path(self.runtime), self.log)
+        tracking.stop(self.runtime)
+        tracking.start(self.runtime, timeout=10)
+        self.assertEqual(tracking.log_path(self.runtime), self.xr_log)
+
+    def watch(self, **changes):
+        notes = []
+        watch = tracking.LumaWatch(self.runtime, str(self.luma), notes.append, poll=0.05)
+        watch.start(); self.addCleanup(watch.finish)
+        return watch, notes
+
+    def test_the_watch_brings_a_crashed_driver_back(self):
+        fake_driver(self.luma, CRASHES_ONCE.format(mark=str(self.luma) + '.crashed'))
+        first = tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        watch, notes = self.watch()
+        self.wait_for(lambda: tracking.driver_alive(self.runtime) and self.state()['pid'] != first['pid'], 10)
+        self.assertTrue(tracking.status(self.runtime)['calibrated'])
+        self.assertEqual(len(watch.restarts), 1)
+        self.assertEqual(notes, [])
+
+    def test_the_watch_gives_up_and_says_so(self):
+        fake_driver(self.luma, ALWAYS_CRASHES)
+        with patch.object(tracking, 'start', wraps=tracking.start) as start:
+            self.pretend(log_offset=0, driver='luma', binary=str(self.luma))
+            os.kill(self.state()['pid'], signal.SIGKILL)
+            watch, notes = self.watch()
+            self.wait_for(lambda: notes, 20)
+            watch.join(2)
+        self.assertFalse(watch.is_alive())
+        self.assertLessEqual(start.call_count, tracking.RESTARTS)  # never more than the budget
+        self.assertIn('keeps crashing', notes[0])
+
+    def test_a_stop_is_not_a_crash(self):
+        tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        watch, notes = self.watch()
+        tracking.stop(self.runtime)
+        watch.join(3)
+        self.assertFalse(watch.is_alive())
+        self.assertFalse(tracking.status(self.runtime)['running'])
+        self.assertEqual((watch.restarts, notes), ([], []))
+
+    def test_a_swap_ends_the_watch(self):
+        tracking.start(self.runtime, timeout=10, luma=str(self.luma))
+        watch, notes = self.watch()
+        tracking.ensure_ready(self.runtime, timeout=10)
+        watch.join(3)
+        self.assertFalse(watch.is_alive())
+        self.assertEqual(tracking.active_driver(self.runtime), 'xrdriver')
 
     def test_a_driver_that_exits_stops_the_start(self):
         fake_driver(self.luma, EXITS)

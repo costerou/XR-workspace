@@ -135,6 +135,30 @@ class RunnerTests(unittest.TestCase):
         data = json.loads((self.state / 'run1.result.json').read_text())
         self.assertEqual(data['tracking_fallback'], ready['fallback'])
 
+    def test_a_luma_session_is_watched_until_it_ends(self):
+        self.luma_consent()
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='luma')), \
+                mock.patch('tools.native_spike.tracking.LumaWatch') as watch:
+            self.assertEqual(self.main(), 0)
+        watch.assert_called_once_with(self.runtime, self.installed['luma_driver']['path'], runner._toast)
+        watch.return_value.start.assert_called_once()
+        watch.return_value.finish.assert_called_once()
+
+    def test_the_watch_ends_when_the_session_fails_too(self):
+        self.luma_consent()
+        self.run_error = ValueError('renderer failed')
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='luma')), \
+                mock.patch('tools.native_spike.tracking.LumaWatch') as watch:
+            self.assertEqual(self.main(), 2)
+        watch.return_value.finish.assert_called_once()
+
+    def test_no_watch_after_a_fallback_or_on_xrlinuxdriver(self):
+        self.luma_consent()
+        with mock.patch('tools.native_spike.tracking.ensure_ready_luma', return_value=dict(driver='xrdriver', fallback='x')), \
+                mock.patch('tools.native_spike.tracking.LumaWatch') as watch, mock.patch.object(runner, '_toast'):
+            self.assertEqual(self.main(), 0)
+        watch.assert_not_called()
+
     def test_a_failed_toast_costs_nothing(self):
         for fault in (OSError('no notify-send'), subprocess.TimeoutExpired('notify-send', 2)):
             with mock.patch.object(runner.subprocess, 'run', side_effect=fault), contextlib.redirect_stderr(io.StringIO()) as err:

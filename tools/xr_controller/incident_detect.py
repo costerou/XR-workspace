@@ -248,6 +248,7 @@ class KernelLog:
 
 
 _DRIVER_TIME = re.compile(r'(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)?) ')
+_LUMA_TIME = re.compile(r' at=(\d+\.\d+)$')  # spike/driver/include/luma/daemon.hpp: every line ends so
 
 
 class DriverLog:
@@ -267,7 +268,17 @@ class DriverLog:
             if m:
                 try: when = datetime.datetime.fromisoformat(m[1]).timestamp()
                 except ValueError: pass
-            if 'Retrying driver connection' in line:
+            m = _LUMA_TIME.search(line)
+            if m: when = float(m[1])
+            if 'luma: disconnected' in line:
+                out.append(Signal(when, 'usb-drop', 'driver-log', 'the XR Luma driver lost the glasses and is reconnecting'))
+            elif 'luma: stale' in line:
+                out.append(Signal(when, 'tracking-lost', 'driver-log', 'the XR Luma driver stopped getting samples'))
+            elif 'luma: calibrating' in line:
+                out.append(Signal(when, 'tracking-lost', 'driver-log', 'the XR Luma driver is calibrating again'))
+            elif 'luma: error' in line:
+                out.append(Signal(when, 'tracking-lost', 'driver-log', 'the XR Luma driver reported an error'))
+            elif 'Retrying driver connection' in line:
                 out.append(Signal(when, 'usb-drop', 'driver-log', 'the tracking driver lost the glasses and is reconnecting'))
             elif 'Failed to send USB command' in line or 'open_imu failed' in line:
                 self.failures = [t for t in self.failures if at - t < USB_FAILS_WINDOW_S] + [at]

@@ -211,7 +211,7 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(b['versions']['source_sha'], '13c8d5e' + '0' * 33)
         self.assertEqual(b['versions']['bin'], 'f0de154899b9')
         self.assertEqual(b['versions']['renderer_sha256'], 'a' * 64)
-        self.assertEqual(b['glasses'], dict(model='luma-ultra', output='DP-2', recovery_output='DP-1', tracking=True))
+        self.assertEqual(b['glasses'], dict(model='luma-ultra', output='DP-2', recovery_output='DP-1', tracking=True, tracking_driver=None))
         self.assertEqual(b['display'], dict(mode='1920x1200@120', expected_mode='1920x1200@120', drm='connected'))
         self.assertEqual(b['renderer']['returncode'], 1)
         self.assertEqual(b['metrics']['last'], dict(presented_hz=119.9, missed=2))
