@@ -224,6 +224,8 @@ HudImage render_handle_atlas(std::array<float, 3> accent, const HudFont* font = 
 // Where a state is in that image (0..1 of it). A bar: `segment` hot (none: idle), `active` while it is dragged. A cap:
 // corner `corner`, `hot` under the dot or held, `active` while it is dragged.
 struct AtlasBox { float u0 = 0, v0 = 0, u1 = 0, v1 = 0; };
+AtlasBox options_icon_box(bool restore);
+AtlasBox options_gear_box();
 AtlasBox level_bar_box(LevelSegment segment, bool active);
 AtlasBox corner_cap_box(std::uint32_t corner, bool hot, bool active);
 // The 3D button's two controls. `lit`: the segment's desktop is 3D, the tail's every desktop is: the primary with on-primary
@@ -279,6 +281,8 @@ const char* glass_fragment_shader();
 // row on a fully rounded secondary-container band, sliders with a primary track, fill and handle (the selected one with
 // a focus halo), filled tonal buttons with icons (primary while on, error container while armed, M3 disabled). Every
 // role is under the OLED cap, so nothing passes kCardMaxLevel.
+struct OptionsMenuState;
+HudImage render_options_panel(const OptionsMenuState&, const HudFont* font = nullptr);
 HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font = nullptr,
                             std::array<float, 3> accent = kGlassThemeDefault);
 // Footer hint as drawn (font: arrows; pixel font: ASCII).
@@ -294,6 +298,7 @@ constexpr float kContentFrom = 0.75f;  // the panel's content fades in over the 
 
 // What the compositor draws this frame (GlassPills::frame and wayland.cpp fill it; overview only).
 struct GlassFrame {
+    bool options = false;
     bool pills = false;                       // collapsed pills under every desktop
     int hover = -1; float hover_level = kGlassIdle;  // the desktop whose pill is hovered or dragged
     std::array<float, kPlacementMenuDesktopCount> expand{};  // eased expansion per desktop

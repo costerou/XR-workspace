@@ -15,7 +15,7 @@
 #include <vector>
 
 namespace xr {
-enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
+enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, options_menu, resize_handle, video, move_handle,
                        overview_pointer, roll, desktops, environment, binds, edge_pan, immersive };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
@@ -174,9 +174,18 @@ struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightnes
 // keys). Malformed: rejected with kInvalidImmersiveCode and dropped, like roll.
 constexpr const char* kInvalidImmersiveCode = "invalid_immersive";
 struct ImmersivePayload { std::array<bool, kMaxDesktops> desktops{}; bool global = false, stereo = false; std::int32_t hover = -1; bool tail = false; ImmersiveParams params; };
+constexpr const char* kInvalidOptionsMenuCode = "invalid_options_menu";
+struct OptionsRow {
+ std::string id, label, scope, kind, value, unit; double minimum=0, maximum=0, step=0;
+ bool enabled=false; std::vector<std::string> choices;
+};
+struct OptionsMenuState {
+ bool open=false; std::string name_space, monitor, scope, category, status, message;
+ int focus=-1, scroll=0; std::uint32_t revision=0; std::vector<OptionsRow> rows;
+};
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, EdgePan, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
-                                    EnvironmentPayload, BindPanelState, ImmersivePayload>;
+                                    EnvironmentPayload, BindPanelState, ImmersivePayload, OptionsMenuState>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -189,7 +198,7 @@ Result<ControlMessage> decode_control(std::string_view frame);
 // resize_handle, move_handle, overview_pointer, roll, environment, binds or immersive payload. It carries no action, so its identity
 // and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
-    return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
+    return e.code == kInvalidOptionsMenuCode || e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
            e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode ||
            e.code == kInvalidBindsCode || e.code == kInvalidImmersiveCode;
 }
@@ -216,7 +225,7 @@ constexpr std::size_t kMaxRedactedFrame = 200;
 // What a log may say of a frame: its first kMaxRedactedFrame bytes on one line, with no string it does not know to be harmless.
 // Frames carry video titles and the bind panel's text.
 std::string redacted_frame(std::string_view frame);
-constexpr std::size_t kMaxControlPending = 65536;  // bytes with no newline before the stream gives the frame up
+constexpr std::size_t kMaxControlPending = 524288;  // bytes with no newline before the stream gives the frame up
 constexpr const char* kControlOverflowCode = "control_overflow";
 // The bytes off the renderer's control socket, frame by frame: what main.cpp runs and what the ctest control_wire feeds the
 // real supervisor's frames. One bad frame costs that frame, never the session: it has no effect, it does not move the replay

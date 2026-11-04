@@ -1,3 +1,4 @@
+#include "xr/options_geometry.hpp"
 #include "gl.hpp"
 #include <wayland-client.h>
 #include <wayland-egl.h>
@@ -794,7 +795,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             s.upload_panel(im, g.generation);
     }
     const std::array<float, 3> accent{s.accent[0], s.accent[1], s.accent[2]};
-    const bool handles = s.glass.pills && s.panel_program && s.handle_texture;
+    const bool handles = (s.glass.pills || highlight_alpha < .5f) && s.panel_program && s.handle_texture;
     if (handles) s.upload_handles(accent);  // (the same reason: only on a theme change)
     // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as without it.
     const bool environment = draw_environment(half_w, half_h);
@@ -848,17 +849,20 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         program(s.panel_program, s.panel_projection, s.panel_loc.view, s.panel_loc.half_fov, s.panel_loc.stereo);
         glUniform1f(s.panel_loc.alpha, 1.f);
         glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, s.handle_texture);  // sampler `tex` = unit 0 (link-time value)
-        auto image = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, const AtlasBox& box) {
-            const GLsizei n = s.build(mesh, canvas, tiles[i], s.resolved[i], r, Impl::Attr::rect_uv, false, &box);
+        auto image = [&](Impl::Mesh& mesh, std::size_t i, const FRect& r, const AtlasBox& box, bool glass_space = false) {
+            const GLsizei n = s.build(mesh, canvas, tiles[i], s.resolved[i], r, Impl::Attr::rect_uv, glass_space, &box);
             attrib(s.panel_loc.pos, 3, 5, 0); attrib(s.panel_loc.uv, 2, 5, 3);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         };
         for (const std::size_t i : order) {
-            if (i >= s.textures.size() || i >= g.bars.size() || !g.bars[i]) continue;
+            if (i >= s.textures.size() || i >= g.bars.size()) continue;
+            if(g.pills || int(i)==highlight) image(s.bar_meshes[i], i, options_maximize(tiles[i]), options_icon_box(highlight_alpha < .5f && int(i)==highlight));
+            if(!g.pills || !g.bars[i])continue;
             for (std::uint32_t corner = 0; corner < 4; ++corner) {
                 const bool hot = int(i) == g.cap_hover && corner == g.cap_corner;
                 image(s.cap_meshes[4 * i + corner], i, corner_cap_rect(tiles[i], corner), corner_cap_box(corner, hot, hot && g.cap_active));
             }
+            image(s.bar_meshes[i],i,options_gear(tiles[i]),options_gear_box(),true);
             const bool hot = int(i) == g.bar_hover;
             image(s.bar_meshes[i], i, level_bar_rect(tiles[i]), level_bar_box(hot ? g.bar_segment : LevelSegment::none, hot && g.bar_active));
             const FRect main = immersive_main_rect(tiles[i]), tail = immersive_tail_rect(tiles[i]);  // the 3D button, joined to the bar
@@ -919,7 +923,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             const float e = std::clamp(g.expand[i], 0.f, 1.f);
             if (!g.pills && e <= 0.f) continue;
             const float level = int(i) == g.hover ? g.hover_level : kGlassIdle;
-            const FRect r = glass_morph(tiles[i], e);
+            const FRect r = g.options && int(i)==g.content ? options_panel(tiles[i]) : glass_morph(tiles[i], e);
             shape(s.glass_meshes[i], i, r, glass_radius(tiles[i], e), glass_look(accent, level, e), 1.f, kGlassShadowMargin);
             if (e <= 0.f) continue;
             // The grabber where the pill was, fading in with the panel.
