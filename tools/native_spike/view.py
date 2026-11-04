@@ -1311,8 +1311,11 @@ class ViewControl:
         if not wanted: self.immersive_stereo = False
         done,self.options_immersive_done=self.options_immersive_done,None
         if self.immersive_run is not None:
-            if done is None: self.immersive_run.request(wanted)
-            else: self.immersive_run.request(wanted,done=done)
+            if done is None:
+                if hasattr(self.immersive_run,'observe_renderer'):
+                    self.immersive_run.request(wanted,setting=_immersive.validate(s.immersive))
+                else: self.immersive_run.request(wanted)  # legacy engine API
+            else: self.immersive_run.request(wanted,done=done,setting=_immersive.validate(s.immersive))
         elif done is not None: done(False,'3D owner unavailable')
         flags = [False if self.immersive_failed else _immersive.desktop_on(s.immersive, n) for n in s.names]
         every = bool(flags) and all(flags)  # lights the tails
@@ -1725,6 +1728,9 @@ class ViewControl:
         s = self.state
         self.flush()  # a pending panel change is saved first
         self._desktops_before = (list(s.names), [dict(p) for p in s.placements], list(s.wide))
+        selected_before=s.selected
+        menu_before=(s.menu_open,s.menu_desktop)
+        sizes_before=None if s.sizes is None else [dict(d) for d in s.sizes]
         out = b''
         if change.remove is not None:  # the renderer lets go of that output before the broker removes it
             gone = s.names.index(change.remove['name'])
@@ -1742,6 +1748,15 @@ class ViewControl:
         if not started:
             if done is not None: done(False,'Output owner refused transaction')
             s.desktops_busy = False
+            if change.remove is not None:
+                names,placements,wide=self._desktops_before
+                s.set_desktops(names,placements,wide,sizes=sizes_before)
+                s.selected=selected_before
+                s.menu_open,s.menu_desktop=menu_before
+                self._sync_menu_binds()
+                out += self._desktops_frame(names)+self._frame()+self._placement_frame()
+                self._desktops_changed()
+            self._desktops_before=None
             if self.supervisor is not None: self.supervisor.replace_guard(self.desktops.guard())
         return out + self._menu_frame()
 
@@ -1983,10 +1998,12 @@ class ViewControl:
     def set_owner_readback(self, value):
         from .options_menu import validate_owner_readback
         self.owner_readback=validate_owner_readback(value)
+        observer=getattr(self.immersive_run,'observe_renderer',None)
+        if observer is not None: observer(self.owner_readback['immersive'])
         pointer=self.overview_pointer
         if pointer is not None and pointer.maximize_geometry is not None:
             target=pointer.maximize_geometry['monitor']
-            if not any(o['name']==target and not o.get('stopped',False) for o in self.owner_readback['outputs']):
+            if not any(o['name']==target and o['ready'] for o in self.owner_readback['outputs']):
                 pointer.set_maximize_geometry(None)
 
     def set_maximize_geometry(self, geometry):

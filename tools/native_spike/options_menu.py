@@ -116,6 +116,13 @@ def validate_owner_readback(value):
         if type(video) is not dict: raise ValueError('invalid video report')
         for key in ('opened','frames_drawn','card_shown'):
             if key in video: integer(video[key],0,2**64-1)
+        for key in ('format_state','format_applied'):
+            if key in video and video[key] is not None:
+                fmt=video[key]
+                if type(fmt) is not dict or set(fmt)!={'projection','stereo','fov'} or fmt['projection'] not in ('360','180','fisheye') or fmt['stereo'] not in ('mono','sbs','tb') or type(fmt['fov']) not in (int,float) or not 180<=fmt['fov']<=220: raise ValueError('invalid actual video format')
+        if 'quality_readback' in video:
+            quality=video['quality_readback'];filters=('catmull-rom','sharp','bilinear','nearest')
+            if type(quality) is not dict or set(quality)!={'filter_requested','deband_requested','filter_applied','deband_applied'} or quality['filter_requested'] not in filters or (quality['filter_applied'] is not None and quality['filter_applied'] not in filters) or type(quality['deband_requested']) is not bool or (quality['deband_applied'] is not None and type(quality['deband_applied']) is not bool): raise ValueError('invalid actual video quality')
         for key in ('playback',):
             if key in video:
                 pb=video[key]
@@ -213,18 +220,31 @@ class OptionsMenu:
         if wake is not None: wake._poke()
         return True
 
+    def _owner_target_exists(self, request):
+        if request['monitor'] in self.control.state.names: return True
+        # Removal pre-releases the renderer capture before the authoritative
+        # broker transaction. That prospective list is not output-loss readback.
+        before=getattr(self.control,'_desktops_before',None)
+        planned=bool(getattr(self.control.state,'desktops_busy',False) and before and
+                     request['monitor'] in before[0] and request['row_id'] in
+                     ('remove_monitor','add_monitor','resolution','scale','ultrawide','layout_reset'))
+        if planned and request['row_id']=='remove_monitor': request['expected_removal']=True
+        # A verified removal can finish before its renderer receipts; retain
+        # just that correlated transaction, never an unrelated lost target.
+        return planned or bool(request.get('expected_removal') and request['queued'])
+
     def _drain_owner(self):
         with self._owner_lock:
             results=list(self._owner_results);self._owner_results.clear()
             for token,success,detail in results:
                 request=self._owner_requests.get(token)
                 if token!=self._owner_active or request is None: continue
-                if request['namespace']!=self.control.session or request['monitor'] not in self.control.state.names or request['epoch']!=self._owner_epoch:
+                if request['namespace']!=self.control.session or not self._owner_target_exists(request) or request['epoch']!=self._owner_epoch:
                     self._owner_requests.pop(token,None);self._owner_active=None
                     continue
                 self._owner_result=(success,detail)
             request=self._owner_requests.get(self._owner_active)
-            if request is not None and (request['namespace']!=self.control.session or request['monitor'] not in self.control.state.names):
+            if request is not None and (request['namespace']!=self.control.session or not self._owner_target_exists(request)):
                 self._owner_requests.clear();self._owner_active=None;self._owner_result=None
         if self._owner_result is not None:
             success,detail=self._owner_result
@@ -238,7 +258,16 @@ class OptionsMenu:
     def refuse(self, request_id, op, detail):
         if request_id not in self.pending_ids: return False
         if self._owner_active is not None:
-            return self.finish_owner(self._owner_active,False,detail)
+            with self._owner_lock:
+                token=self._owner_active
+                request=self._owner_requests.get(token)
+                if request is None: return False
+                # Native refusal must dominate a successful backend callback
+                # that is queued or awaiting this very renderer receipt.
+                self._owner_results=deque((r for r in self._owner_results if r[0]!=token),maxlen=64)
+                request['queued']=True
+                self._owner_results.append((token,False,self._detail(detail)))
+            return True
         self.pending_ids.clear();self.pending=None
         self.data.update(status='error',message=self._detail(detail))
         return True
@@ -332,6 +361,8 @@ class OptionsMenu:
             if editor is not None:
                 row=self.data['rows'][fields['focus']] if fields['focus']>=0 else None
                 editor.text_field=row['id'] if row and row['id'] in ('editor.text','editor.path') else None
+                select=getattr(editor,'select_candidate',None)
+                if row is not None and select is not None and select(row['id']): self.refresh()
             if fields['focus']>=0:
                 top=fields['focus']*38
                 self.data['scroll']=min(max(self.data['scroll'],top+38-304),top)
@@ -388,7 +419,7 @@ class OptionsMenu:
                 self.pending=(row['id'],str(value).lower() if type(value) is bool else str(value))
                 self.data.update(status='pending',message='Waiting for owner readback')
             self._bump()
-            if getattr(self.control.state,'menu_open',False) or getattr(self.control.state,'zoomed',False) or getattr(self.control,'video_active',False) or getattr(self.control,'help_visible',False):
+            if (self._owner_active is not None and getattr(self.control.state,'desktops_busy',False)) or getattr(self.control.state,'menu_open',False) or getattr(self.control.state,'zoomed',False) or getattr(self.control,'video_active',False) or getattr(self.control,'help_visible',False):
                 self.close('native child')
                 return True
             self.refresh()

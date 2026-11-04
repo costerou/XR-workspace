@@ -19,7 +19,7 @@ class NativeRestoreTests(unittest.TestCase):
   if not Path(executable).is_file(): raise RuntimeError('Build CPU restore_app_bound_test first')
   result=subprocess.run([executable,'--dump-json'],capture_output=True,text=True,timeout=20,check=True)
   cls.geometries=[json.loads(line)['maximize_geometry'] for line in result.stdout.splitlines()]
-  if len(cls.geometries)!=108: raise AssertionError('Native Restore fixture must emit all108 production geometry cases')
+  if len(cls.geometries)!=432: raise AssertionError('Native Restore fixture must emit all432 production geometry cases')
  def test_real_native_inset_mesh_acquires_clicks_and_restores_without_app_press(self):
   visible=0
   for geometry in self.geometries:
@@ -63,4 +63,4 @@ class NativeRestoreTests(unittest.TestCase):
      self.assertIn('release',client.calls)
      self.assertEqual(client.position,expected)
     finally:p.close()
-  self.assertEqual(visible,108,'Native fixture puts Restore in actual visible camera for every scenario')
+  self.assertEqual(visible,432,'Native fixture puts Restore in actual visible camera for every scenario')
