@@ -43,20 +43,27 @@ stayed hidden. One boot was observed, so the cause is very likely but not proven
 ## How much a soak can prove
 
 From the journal for 2026-11-03: 37 disconnect lines, which are 22 separate drops (more than 60 s
-apart), in 6.9 hours of XR sessions. That is about **3.2 drops per running hour**.
+apart), in 6.9 hours of XR sessions: about 3.2 drops per running hour. `acceptance.md` counts drops
+in bursts and gets 1.1 to 1.8 per hour. The lower rate is the cautious one, so both are shown.
 
-| Zero drops for | Chance the old driver does that by luck | What it shows |
+| Zero drops in total | Old driver does that by luck, at 1.1/h | At 3.2/h |
 |---|---|---|
-| 30 min | about 20% | It is not obviously broken. |
-| 1 h | about 4% | Better than the old driver, with 95% confidence. |
-| 1.5 h | about 1% | The same, with 99% confidence. |
-| 3 h | under 0.01% | A strong result. |
+| 30 min | 58% | 20% |
+| 1 h | 33% | 4% |
+| 1.5 h | 19% | under 1% |
+| 3 h | 3.7% | under 0.01% |
 
-These come from one day's numbers, and they assume drops arrive at a steady rate.
+So this plan uses the gate in `spike/driver/docs/acceptance.md`: **30 minutes with no drop is the
+first go/no-go, and 3 hours in total with no drop is what lets us say the problem is fixed.** Any
+drop restarts the 3 hour count. Deliberate unplugs in stage R do not count.
 
 **A bigger catch:** all those drops happened during XR sessions, with video on the same cable. A
 soak with XR off may never drop, on either driver. So step S1 measures the old driver with XR off
 first. If it does not drop, S2 is only a smoke test, and stage X is the real proof.
+
+**A second catch:** XRLinuxDriver runs the glasses with their cameras on, and our driver reads only
+the IMU. If drops stop, that may be the reason, not anything clever in our driver. It would still
+be a good result, but say so when reporting it.
 
 ## What this plan needs from other pieces
 
@@ -66,7 +73,7 @@ Checked against the sibling worktrees on 2026-11-03. None of it is on master yet
 |---|---|---|
 | Binary `build/release/driver/xr-luma-driver` | drv-daemon | Flags `--ipc-prefix`, `--replay` |
 | Log lines | drv-daemon | `luma: connected`, `calibrating`, `calibrated`, `disconnected`, `reconnected gap_ms=`, `stats`, `stopped`, `error` |
-| IMU start command that really works | drv-protocol-impl | Sends once per connection, nothing else |
+| IMU start command and packet format, **not public** | drv-protocol-impl, from a usbmon capture | Sends once per connection, nothing else |
 | usbfs transport, no reset, hotplug without netlink | drv-transport | Works inside the network namespace |
 | Soak gate | drv-soak-monitor | `python3 -m tools.luma_soak gate` |
 | Wire capture (optional) | drv-recorder | `python3 -m tools.luma_capture` |
@@ -170,6 +177,11 @@ Pass: `exit=0`.
 
 **This is the first time our code opens the glasses. Ask Cody first.** The glasses lie flat and
 still on the desk. Nobody is wearing them.
+
+**Do not start this stage until the start command and packet format come from a real capture.** The
+Luma Ultra's IMU packet and start command are not public, and Cody has yet to decide on the usbmon
+capture of the old driver (drv-recorder has the steps). Never guess: firmware commands may share
+this channel.
 
 **I1. Start.**
 
@@ -332,7 +344,8 @@ journalctl -k -q --since "$T0" --grep 'idVendor=35ca, idProduct=1104' -o short-p
 Pass, each round: `luma: disconnected`, then `luma: reconnected ... calibration=` showing it kept
 its calibration, within about 1 s of the kernel's `New USB device found` line for `1104`. Measure
 from that line. The hub and the other devices come up first: that took about 2 s on 2026-11-03, so
-the time from the plug going in will be longer, and that part is not the driver's.
+the time from the plug going in will be longer, and that part is not the driver's. `acceptance.md`
+measured the kernel at 0.9 s at best and 4.2 s typically.
 
 **R2. Fast replug, 3 times.** As R1, but back in after about 1 s. Pass: the same.
 
@@ -373,15 +386,17 @@ stage above passes, as a separate request. The orchestrator handles merge and in
 
 **X1.** Cody sets `tracking_driver: luma` and starts XR from the panel, working normally.
 
-**X2.** Watch for drops, with XR running, for 1.5 h or more in total, across sessions if needed:
+**X2.** Watch for drops with XR running: first 30 min, then on to 3 h in total on the same build,
+across sessions if needed. Same cable, port and display mode as the old driver's numbers, and no
+usb-drop-fix change during the series. Run this once per session, setting `--duration`:
 
 ```sh
-python3 -m tools.luma_soak gate --duration 5400 --driver-name xr-luma-driver \
+python3 -m tools.luma_soak gate --duration 1800 --driver-name xr-luma-driver \
   --driver-log "$HOME/.local/state/viture-workspace/luma-driver.log"; echo "gate=$?"
 ```
 
-Pass: `gate=0`. By the table above that is 99% confidence that it beats the old driver, at the
-rate seen on 2026-11-03.
+Pass: `gate=0` in every session, adding up to 3 h. By the table above that is about 95% confidence
+that the problem is fixed, even at the lower rate.
 
 **X3.** Pass: head tracking feels at least as good to Cody, with no drift Cody notices.
 
@@ -411,5 +426,5 @@ Fill in as stages finish. Keep `$RUN` for each run.
 | C CPU %, memory growth | | | |
 | R | | | |
 | L | | | |
-| X | | | |
+| X hours with no drop, out of 3 | | | |
 | B | | | |
