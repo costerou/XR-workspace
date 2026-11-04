@@ -464,3 +464,39 @@ controller/unit/service change, GPU, live IPC/compositor or private SDK log acce
 occurred. Preserve normal production guards, exact identity, SBS disabled and
 provisional projection limits. Parent must use the corrected source/hash artifact
 and its preflight, never the failed92 bundle.
+
+## RQ7 — exact packaged CLI class identity failure (independent RED)
+
+Parent reports second physical attempt failed after SDK/plugin startup with
+`explicit Pro2 supervised test scope required`. QA does not repeat that hardware
+attempt or inspect private SDK logs. Actual integration head when recheck began:
+`c4ae947b0f673c87ff404081c747bcbc5c7a4da5` (documentation-only descendants of
+path fix). Parent evidence prompted a new entrypoint acceptance scope.
+
+Independent reproduction executes the exact packaged bin/pro2-supervised-test
+shell script from a fresh copy of pathfix-ready in a new user/IPC/network child.
+A test-only interpreter shim installs fake external provider/client endpoints,
+then executes the shell script's original Python -c program unchanged. It does
+not replace execute or managed.run_pro2_test_managed (the latter is only traced
+and delegates to the real function). ctypes.CDLL is forbidden. No real plugin
+request, client, SDK or device operation occurs.
+
+```
+PRO2_QA_CLI_BUNDLE=/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-pathfix-ready python -m unittest discover -s tests/pro2_runtime_qa -p test_cli_bootstrap.py -v
+# 1 test, FAIL, 0.114s
+```
+
+Observed actual CLI sanitized result: complete=false, run=null,
+errors=["explicit Pro2 supervised test scope required"]. Entry trace shows both
+TestScope and BundleClient defined under __main__. Actual managed type guard
+imports the canonical pro2_test module, giving a distinct TestScope identity.
+Fake plugin load/park occurred, followed by confirmed fake plugin unload and
+provider close on failure. Thus source-module tests and --preflight alone did
+not establish actual packaged execution acceptance.
+
+Lead owns canonical entrypoint/shared scope module fix. QA red harness and tests
+are owned only under tests/pro2_runtime_qa. Full child-process acceptance must
+exercise actual execute/managed/journal/view_controls/_launch with simulated SDK
+and fake external transport, plus fresh-process pickle checks for scope, guard,
+and BundleClient. RQ7 remains open until that stronger route passes on committed
+source and a new extraction. Prior artifact green is not retry authorization.
