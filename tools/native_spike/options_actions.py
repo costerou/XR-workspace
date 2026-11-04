@@ -209,7 +209,13 @@ def options_apply(control, row_id, value, monitor, scope):
         out=control.set_immersive(v)
         run=getattr(control,'immersive_run',None)
         if done is not None:
-            if run is None: done(False,'3D engine owner unavailable')
+            if run is None:
+                if immersive.on_names(v,s.names): done(False,'3D engine owner unavailable')
+                else:
+                    try:
+                        control.settings.save(s.settings())
+                        done(True,'Saved for next 3D; no engine or live drawing requested')
+                    except (OSError,ValueError,AttributeError) as exc: done(False,'Could not save 3D defaults: '+str(exc))
             else: run.request(control._immersive_wanted(),done=done,setting=v)
         return out
     if row_id == 'quality_deband' and value in ('False','True'):
