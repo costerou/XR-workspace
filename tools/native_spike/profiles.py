@@ -43,7 +43,7 @@ from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, legacy_
                        validate_placement, validate_placements, validate_rolls)
 from .ipc import token
 
-MODELS = ('beast', 'luma-ultra', 'unknown')
+MODELS = ('beast', 'luma-ultra', 'pro2', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
                    'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'rolls': [0] * 3, 'tracking': True,
@@ -201,6 +201,10 @@ def load_profile(path, model):
     _model(model)
     path = Path(path)
     raw = _read_profiles(path).get(model)
+    if model == 'pro2':
+        # No legacy layout migration or Luma startup choices before exact-model proof.
+        return {**_clean(raw if isinstance(raw, dict) else {}), 'tracking': False,
+                'tracking_driver': XRDRIVER, 'mode_switch': False}
     if isinstance(raw, dict): return _clean(raw)
     return _clean(view.load_settings(path.with_name('layout.json')))  # seed from the v1 file, else defaults
 

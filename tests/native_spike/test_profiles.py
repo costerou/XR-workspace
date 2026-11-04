@@ -29,7 +29,8 @@ class ProfileTests(unittest.TestCase):
 
     def test_defaults_when_missing(self):
         for m in profiles.MODELS:
-            self.assertEqual(profiles.load_profile(self.path, m), profiles.DEFAULT_PROFILE)
+            expected = {**profiles.DEFAULT_PROFILE, 'tracking': False, 'mode_switch': False} if m == 'pro2' else profiles.DEFAULT_PROFILE
+            self.assertEqual(profiles.load_profile(self.path, m), expected)
         self.assertEqual(profiles.DEFAULT_PROFILE['desktops'], [DEFAULT_DESKTOP] * 3)
 
     def test_tracking_driver_defaults_to_the_standard_one(self):
@@ -70,7 +71,7 @@ class ProfileTests(unittest.TestCase):
         self.dir.mkdir()
         (self.dir / 'layout.json').write_text('{"spacing": 80}')
         for m in profiles.MODELS:
-            self.assertEqual(profiles.load_profile(self.path, m)['spacing'], 80)
+            self.assertEqual(profiles.load_profile(self.path, m)['spacing'], view.DEFAULT_SETTINGS['spacing'] if m == 'pro2' else 80)
 
     def test_invalid_desktop_falls_back_alone(self):
         good = {'width': 2560, 'height': 1440, 'scale': 1.0}

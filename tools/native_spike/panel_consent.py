@@ -47,6 +47,7 @@ def _validate(data, instance=None, output=None):
     if len(data['run_id']) > 80: raise ValueError('run id too long')
     if data['recovery_output'] == data['output']: raise ValueError('independent physical recovery output required')
     if not isinstance(data['model'], str) or data['model'] not in MODELS: raise ValueError('unknown model')
+    if data['model'] == 'pro2': raise ValueError('VITURE PRO 2 driver and display support unverified; start consent unavailable')
     if not isinstance(data['capture'], str) or data['capture'] != CAPTURE_SCOPE or data['allow'] != CAPTURE_ALLOW:
         raise ValueError('exact managed-output capture scope required')
     tracking = data['tracking']

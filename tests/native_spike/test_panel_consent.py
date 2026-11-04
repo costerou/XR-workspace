@@ -39,6 +39,11 @@ class PanelConsentTests(unittest.TestCase):
         consent = build_consent(scope(**changes))
         return self.write_raw(consent), consent
 
+    def test_pro2_identification_is_not_start_consent(self):
+        for tracking in (False, 'luma', 'xrlinuxdriver'):
+            with self.subTest(tracking=tracking), self.assertRaisesRegex(ValueError, 'PRO 2.*unverified'):
+                build_consent(scope(model='pro2', tracking=tracking, mode_switch=False, **({'luma_driver': {'path': '/opt/x/luma', 'sha256': SHA}} if tracking == 'luma' else {})))
+
     def test_roundtrip_exact(self):
         consent = build_consent(scope())
         name = write_consent(self.fd, consent)
