@@ -21,10 +21,11 @@ static void trace(const char *name) {
     FILE *f=fopen(p,"a"); if(!f)return;
     fprintf(f,"%s%s\n",name,created && !pthread_equal(owner,pthread_self())?":WRONG_OWNER":""); fclose(f);
 }
+__attribute__((constructor)) static void fixture_loaded(void) { trace("load"); }
 static int result(const char *name) { trace(name); return is(name)?-37:0; }
 static uint64_t now_ns(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return (uint64_t)ts.tv_sec*1000000000ULL+(uint64_t)ts.tv_nsec; }
 static void emit(unsigned i, uint64_t origin) {
-    float v[7]={0,0,0,1,0,0,0}; uint64_t stamp=origin+(uint64_t)i*16000000ULL;
+    float v[7]={0,0,0,0.9950041653f,0,0.0998334166f,0}; uint64_t stamp=origin+(uint64_t)i*16000000ULL;
     if(i>=4 && is("duplicate"))stamp=origin+3*16000000ULL;
     if(i>=4 && is("clock_reverse"))stamp=origin;
     if(i>=4 && is("nonfinite"))v[3]=NAN;
@@ -49,7 +50,7 @@ int xr_device_provider_register_imu_pose_callback(void *h,void (*cb)(float *,uin
 int xr_device_provider_get_glasses_version(void *h,char *out,int *len) {
     (void)h; const char *version=is("wrong_firmware")?"unreviewed":"30.0.00.002_20260804";
     int n=(int)strlen(version)+1; trace("firmware"); if(*len<n)return -1;
-    memcpy(out,version,(size_t)n);*len=is("firmware_length")?10000:n;return is("firmware_error")?-37:0;
+    memcpy(out,version,(size_t)n);*len=is("firmware_length")?10000:(is("firmware_short_length")?1:n);return is("firmware_error")?-37:0;
 }
 int xr_device_provider_open_imu(void *h,uint8_t mode,uint8_t rate) {
     (void)h;trace("open");if(mode!=1||rate!=0)return -1;
