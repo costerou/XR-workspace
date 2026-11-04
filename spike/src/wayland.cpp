@@ -424,6 +424,8 @@ struct Presentation::Impl : SurfaceRequests {
     float last_horizon_ms = 0, last_predicted_deg = 0;
     static constexpr float kMaxPredictionDeg = 15.f;
     StatusPopups popups;   // viewing mode / cursor follow pop-ups (GPU composition only)
+    TrackingHint tracking_hint;  // "Reconnecting tracking..." through a USB drop, in the pop-ups' place
+    std::uint64_t tracking_hints = 0;  // times it came up
     bool popup_drawn = false;  // last frame showed a pop-up: draw once more so it clears
     HelpOverlay help;          // keyboard help card (Ctrl+Alt+H)
     bool help_drawn = false;   // last frame showed the help card: draw once more so it clears
@@ -1038,6 +1040,7 @@ std::string Presentation::capture_report() const {
            ",\"mode\":\"" + (mode == ViewMode::locked ? "locked" : mode == ViewMode::follow ? "follow" : "anchor") + "\"" +
            ",\"feed\":" + (impl_->pose_feed ? "true" : "false") + ",\"tracking\":" + (impl_->pose.tracking() ? "true" : "false") +
            ",\"samples\":" + std::to_string(impl_->pose.samples()) + ",\"lost_events\":" + std::to_string(impl_->pose.lost_events()) +
+           ",\"reanchors\":" + std::to_string(impl_->pose.reanchors()) + ",\"hints\":" + std::to_string(impl_->tracking_hints) +
            ",\"diagonal_fov_deg\":" + std::to_string(impl_->fov_deg) + ",\"fov_source\":\"" +
            (impl_->fov_from_driver ? "driver" : "fallback-46") + "\",\"half_fov_tan\":[" + std::to_string(impl_->half_w) + "," +
            std::to_string(impl_->half_h) + "]}";
@@ -1158,6 +1161,7 @@ Status Presentation::open(std::string output_name, std::vector<std::string> capt
             std::string why; auto font = HudFont::load(kHudFontFamily, why);
             s->popup_font = font ? font->description() : "pixel-fallback: " + why;
             s->popups.set_font(std::move(font));
+            s->tracking_hint.set_font(s->popups.font());
             std::string help_why; s->help.set_font(HudFont::load(kHudFontFamily, help_why));  // same family, own instance
             std::string binds_why; s->binds.set_font(HudFont::load(kHudFontFamily, binds_why));
             std::string glass_why; s->glass.set_font(HudFont::load(kHudFontFamily, glass_why));
@@ -1192,6 +1196,7 @@ void Presentation::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->gl->set_accent(r, g, b);  // highlight border, glow, the pills' glass, the level bars and corner caps
     impl_->glass.set_accent(seed);   // an open panel (glass_theme.hpp)
     impl_->popups.set_accent(seed, double(monotonic_ms()));  // the pop-ups and the cards, redrawn if showing
+    impl_->tracking_hint.set_accent(seed);
     impl_->help.set_accent(seed);
     impl_->binds.set_accent(seed);
     if (impl_->video) impl_->video->set_accent(seed);
@@ -1449,6 +1454,8 @@ Status Presentation::draw_test_pattern() {
             }
             const auto sample = s.pose_feed ? s.pose_feed->read() : std::nullopt;
             s.pose.update(sample, double(now));
+            const bool lost = s.pose.reconnecting(double(now));
+            if (s.tracking_hint.update(lost, double(now)) && lost) ++s.tracking_hints;
             Quat relative = s.pose.relative();
             const auto age = sample ? s.pose_age.observe(double(read_ns) / 1e6, sample->device_ms) : std::nullopt;
             if (s.prediction && s.pose.tracking()) {  // never extrapolate a held (stale) pose
@@ -1493,8 +1500,10 @@ Status Presentation::draw_test_pattern() {
             wp_presentation_feedback_add_listener(proxy, &Impl::feedback_listener, &*slot);
         } else s.metrics.submit();
         const float popup = s.popups.alpha(double(monotonic_ms()));
-        s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
-        s.popup_drawn = popup > 0.f;
+        const float hint = s.tracking_hint.alpha(double(monotonic_ms()));
+        if (popup > 0.f || hint <= 0.f) s.gl->set_popup(popup > 0.f ? &s.popups.image() : nullptr, s.popups.generation(), popup);
+        else s.gl->set_popup(&s.tracking_hint.image(), s.tracking_hint.generation(), hint);  // a pop-up goes first, and is brief
+        s.popup_drawn = popup > 0.f || hint > 0.f;
         {  // The background behind everything, whatever the viewing mode: the head pose turns it, never the desktops' anchor.
             const double now = double(monotonic_ms());
             const float level = s.environment.level(now);

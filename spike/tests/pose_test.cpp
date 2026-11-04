@@ -1,5 +1,6 @@
 #include "fake_feed.hpp"
 #include "xr/pose.hpp"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -21,6 +22,114 @@ Quat axis_angle(float x, float y, float z, float deg) {
 
 // Synthetic SysV feed laid out like XRLinuxDriver (robust mutex; fake_feed.hpp).
 using test::FakeFeed;
+
+// A USB drop as the incident of 2026-11-04 00:57:58 had it, against a simulated 120 Hz renderer. The driver publishes nothing
+// (disabled, then a zeroed feed) for about 20 s with two disconnects, a few fresh samples get through between them, and the
+// feed comes back calibrated on a new reference: its timestamps restart and its frame is not the old one.
+namespace drop {
+constexpr double kFrameMs = 1000.0 / 120;
+float view_change_deg(const Mat3& a, const Mat3& b) {  // the rotation between two views
+    const float trace = a[0] * b[0] + a[3] * b[3] + a[6] * b[6] + a[1] * b[1] + a[4] * b[4] + a[7] * b[7] + a[2] * b[2] + a[5] * b[5] + a[8] * b[8];
+    return std::acos(std::clamp((trace - 1.f) / 2.f, -1.f, 1.f)) * 180.f / 3.14159265f;
+}
+struct Sim {
+    PoseState s;
+    double now = 0;
+    float device = 1;
+    void live(Quat q, double ms) {  // fresh samples
+        for (double end = now + ms; now < end; now += kFrameMs) { s.update(FeedSample{q, device}, now); device += 8; }
+    }
+    void silent(double ms) {  // the driver disabled, or its feed zeroed: PoseFeed::read gives nothing
+        for (double end = now + ms; now < end; now += kFrameMs) s.update(std::nullopt, now);
+    }
+};
+void run() {
+    const Quat worn = quat_mul(axis_angle(0, 0, 1, 40), axis_angle(0, 1, 0, 12));  // the head before the drop, feed frame A
+    const Quat new_frame = axis_angle(1, 0, 0, 70);                                  // the feed's reference after it: unrelated
+    {   // Twenty seconds, two disconnects: the view is held, then carries on from exactly there, with no jump.
+        Sim d;
+        d.live(Quat{}, 500);          // the recentre reference
+        d.live(worn, 2000);
+        const Mat3 held = d.s.view();
+        CHECK(d.s.tracking());
+        d.silent(4000);               // disconnect 1
+        CHECK(!d.s.tracking() && d.s.lost_events() == 1);
+        CHECK(view_change_deg(d.s.view(), held) < 1e-3f);
+        CHECK(d.s.reconnecting(d.now) && d.s.reanchors() == 0);
+        d.device = 1;                 // the driver reconnected: its clock starts again
+        d.live(new_frame, 100);       // a few samples between the disconnects are no recovery
+        CHECK(!d.s.tracking());
+        CHECK(view_change_deg(d.s.view(), held) < 1e-3f);
+        d.silent(6000);               // disconnect 2
+        d.silent(9900);
+        CHECK(!d.s.tracking() && d.s.lost_events() == 1);
+        d.device = 1;
+        float worst = 0;
+        for (int i = 0; i < 90; ++i) {  // calibrated again, the head still; it must not move the picture at any frame
+            d.s.update(FeedSample{new_frame, d.device}, d.now);
+            d.device += 8; d.now += drop::kFrameMs;
+            worst = std::max(worst, view_change_deg(d.s.view(), held));
+        }
+        CHECK(d.s.tracking() && d.s.lost_events() == 1 && d.s.reanchors() == 1 && !d.s.reconnecting(d.now));
+        CHECK(worst < 0.01f);
+        // And it tracks again: ten degrees of head are ten degrees of view, the world anchored where it was left.
+        d.live(quat_mul(new_frame, axis_angle(0, 0, 1, 10)), 100);
+        CHECK(near(view_change_deg(d.s.view(), held), 10.f, 0.05f));
+    }
+    {   // The level the desktops are measured against survives the change of frame.
+        Sim d;
+        d.live(Quat{}, 500);
+        d.live(axis_angle(0, 0, 1, 25), 2000);
+        const auto before = canvas_up(*d.s.reference(), Quat{});
+        d.silent(5000);
+        d.device = 1;
+        d.live(new_frame, 1000);
+        const auto after = canvas_up(*d.s.reference(), Quat{});
+        CHECK(near(before[0], after[0], 0.02f) && near(before[1], after[1], 0.02f) && near(before[2], after[2], 0.02f));
+    }
+    {   // A recentre pressed during the drop is kept: the current head is straight ahead once tracking is back.
+        Sim d;
+        d.live(Quat{}, 500);
+        d.live(worn, 1000);
+        d.silent(3000);
+        d.s.recenter();
+        d.silent(3000);
+        d.device = 1;
+        d.live(new_frame, 1000);
+        CHECK(d.s.tracking());
+        CHECK(view_change_deg(d.s.view(), {1, 0, 0, 0, 1, 0, 0, 0, 1}) < 1e-2f);
+    }
+    {   // A hiccup is no drop: the same feed, a fifth of a second late, is simply believed again, at once.
+        Sim d;
+        d.live(Quat{}, 500);
+        d.silent(200);
+        CHECK(!d.s.tracking() && !d.s.reconnecting(d.now));  // too short to mention
+        const Quat turned = axis_angle(0, 0, 1, 5);
+        d.s.update(FeedSample{turned, d.device}, d.now);
+        CHECK(d.s.tracking());
+        CHECK(near(view_change_deg(d.s.view(), {1, 0, 0, 0, 1, 0, 0, 0, 1}), 5.f, 0.05f));
+    }
+    {   // The hint waits a second, and a session that never had tracking has nothing to reconnect.
+        PoseState never;
+        never.update(std::nullopt, 60000);
+        CHECK(!never.reconnecting(60000));
+        Sim d;
+        d.live(Quat{}, 500);
+        const double last = d.now;
+        d.silent(1000);
+        CHECK(!d.s.reconnecting(d.now));
+        d.silent(200);
+        CHECK(d.s.reconnecting(d.now) && d.now - last > PoseState::kHintAfterMs);
+    }
+    {   // A feed that never comes back keeps the view, however long.
+        Sim d;
+        d.live(worn, 500);
+        const Mat3 held = d.s.view();
+        d.silent(90000);
+        CHECK(!d.s.tracking() && view_change_deg(d.s.view(), held) < 1e-3f);
+    }
+}
+}  // namespace drop
 
 int main() {
     // Quaternion basics.
@@ -248,5 +357,6 @@ int main() {
         for (int i = 0; i < 60; ++i) m.update(far, t += 8);
         CHECK(deg(m.update(far, t += 8), Quat{}) < 1e-3f);
     }
+    drop::run();
     std::cout << "pose math, feed and view modes passed\n";
 }

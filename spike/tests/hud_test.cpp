@@ -300,5 +300,26 @@ int main() {
             if (drop == 0) CHECK(std::abs(o.y - (float(H) - float(h)) / 2) <= 1);
         }
     }
+    {   // The tracking hint: one small line, up only while tracking is being reconnected, and never mistaken for a pop-up card.
+        CHECK(joined(tracking_hint_lines()) == "Reconnecting tracking...|");
+        TrackingHint hint;
+        CHECK(hint.alpha(0) == 0.f);
+        CHECK(!hint.update(false, 0));
+        CHECK(hint.update(true, 100));
+        CHECK(!hint.update(true, 110));
+        CHECK(hint.alpha(100 + kTrackingHintFadeInMs) == 1.f);
+        CHECK(hint.image().height > 0 && hint.image().rgba.size() == std::size_t(hint.image().width) * hint.image().height * 4);
+        const HudImage card = render_hud_card(view_mode_lines(0), kMdDefaultSeed);
+        CHECK(hint.image().height * 2 < card.height);
+        StatusPopups popups;
+        popups.update(0, false, 0);
+        CHECK(hint.generation() != popups.generation());  // they share the renderer's pop-up texture
+        const auto before = hint.generation();
+        CHECK(hint.set_accent({0.2f, 0.8f, 0.3f}));
+        CHECK(hint.generation() != before);
+        CHECK(hint.update(false, 5000));
+        CHECK(hint.alpha(5000 + kTrackingHintFadeOutMs + 1) == 0.f);
+        CHECK(!hint.animating(5000 + kTrackingHintFadeOutMs + 1));
+    }
     std::cout << "hud ok\n";
 }
