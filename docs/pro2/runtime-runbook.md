@@ -80,3 +80,22 @@ Backout after confirmedcleanrecovery: verify no testworker/renderer remains and 
 ## Bounded projection calibration if first test permits it
 
 No autosweep. After stopping/restoring, parent may separately approve one new scopevalue within44.5..50 in at most1°step, each newrunid, record comfort/edgegeometry/centerrelative tophysicalpicture. Never relabel marketed50 as confirmeddiagonal or infer opticalpitch from neutralquaternion. Stop at discomfort; do not require reaching50. A provisionalcomfortablevalue remains provisional, not instrumentedoptics. Normal route continuesrefusing unresolvedoptics. Independentprojection-policy.md explains provenance and assumptions.
+
+## RQ6 first-launch correction — supersedes the original archive
+
+The first parent-authorized attempt ended before plugin load/rendering with `supervised bundle plugin pin required`. Parent reports the runtime SDK owner closed cleanly, no XR outputs/plugin remained, USBnode unowned and1080p120unchanged. No physicalXRpicture was produced. This was **not a passed XRtest**, and no automatic retry was authorized. Private SDKlogs were not read/copied by integrator.
+
+Root cause: supervised BundleClient incorrectly reused normalinstalledPLUGIN_PATH, whose topology requires `/viture-workspace/bin/<12hex>/libxr-ownership.so`. Hyphens themselves were allowed. A fully hashed extraction such as `/home/cody/.hermes/profiles/coderbotxr/cache/scratch/pro2-release-review-z3nsa4vu/pro2-runtime-release/runtime/bin/libxr-ownership.so` did not meet that unrelated topology. Earlier tests injected a fakeclient that skipped real plugincommandvalidation; new tests use realBundleClient with only the compositorrequest boundary mocked.
+
+Corrected contract: supervised bundles may be run directly from a verified extraction. Root and ancestor directories must be canonical, non-symlink, absolute after normalization, with ASCII components `[A-Za-z0-9_.-]+`, no whitespace/control/protocoltokens or `.`/`..`aliases. Fixed suffix is exactly `bin/libxr-ownership.so`; every artifact remains manifest/hash-pinned; symlinkroot/bin/plugin and changedbytes reject. The normalinstalledregex/pins remain untouched. This is not permission to use arbitrary pluginpaths.
+
+**Mandatory before requesting any retry**, run the new packaged preflight at its final extracted/staged location:
+
+```
+BUNDLE=/absolute/verified/new-release/runtime
+"$BUNDLE/bin/pro2-supervised-test" --preflight
+```
+
+Preflight needs no consent/state and creates neither; it verifies the same exact pluginpath/hash contract used by load/unload plus all manifestpins, without SDK/client/compositor initialization. Expect `plugin_command_path:"validated"`, `sdk_started:false`, `compositor_contacted:false`, and the expected correctedsourcecommit. Unsupported locations fail before any compositorclient or SDKowner is constructed; packager also refuses unsupported destinations before compilation. Do not patch the old artifact in place or reuse its stale manifest.
+
+No special normal-install-layout staging is required. If parent elects versioned staging after review, an exact supported pattern is `$HOME/.local/share/viture-workspace/pro2-supervised/<FULL_CORRECTED_MANIFEST_SOURCE_SHA>/runtime/` holding the entire runtime tree. Use a new directory, preserve all files/modes, verify hashes and preflight THERE. This does not touch normalinstalled.json/services. The old `pro2-runtime-release-92f01a7.tar.gz` is superseded for launch; retain solely for incidentprovenance. Parent separately decides whether to authorize a new run with a fresh runid/state/consent. The previous consent does not authorize automatic retry.
