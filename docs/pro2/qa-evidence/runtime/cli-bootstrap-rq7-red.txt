@@ -1,0 +1,15 @@
+test_actual_packaged_cli_does_not_create_main_scope_class (test_cli_bootstrap.PackagedBootstrapQA.test_actual_packaged_cli_does_not_create_main_scope_class) ... FAIL
+
+======================================================================
+FAIL: test_actual_packaged_cli_does_not_create_main_scope_class (test_cli_bootstrap.PackagedBootstrapQA.test_actual_packaged_cli_does_not_create_main_scope_class)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/cody/.t3/worktrees/viture-workspace/pro2-qa/tests/pro2_runtime_qa/test_cli_bootstrap.py", line 33, in test_actual_packaged_cli_does_not_create_main_scope_class
+    self.assertNotEqual(entry['scope_module'],'__main__',(result.stdout,records))
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '__main__' == '__main__' : ('PRO2 SUPERVISED TEST: approximate diagonal 44.5 degrees; uncalibrated, no optical correction.\n{"run_id": "cli-qa", "complete": false, "run": null, "errors": ["explicit Pro2 supervised test scope required"]}\n', [{'event': 'client-init-fake'}, {'event': 'provider-start-simulated'}, {'event': 'plugin-load-spy'}, {'event': 'park-fake'}, {'event': 'managed-entry', 'scope_module': '__main__', 'client_module': '__main__'}, {'event': 'plugin-unload-spy'}, {'event': 'provider-close-simulated'}])
+
+----------------------------------------------------------------------
+Ran 1 test in 0.114s
+
+FAILED (failures=1)
