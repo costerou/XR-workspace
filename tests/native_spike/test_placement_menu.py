@@ -839,7 +839,7 @@ class NoScopeChangeTests(unittest.TestCase):
         self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'prediction': True,  # cursor_follow removed
                                                  'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                              'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': {'global': False, 'desktops': {}}})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
 
     def test_placement_bounds_unchanged(self):
         # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); distance's floor went from 50 to

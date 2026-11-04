@@ -1,5 +1,5 @@
 {
- "comment": "The renderer's `immersive` payload (spike/include/xr/ipc.hpp ImmersivePayload). The renderer's decoder (spike/tests/immersive_test.cpp) and the supervisor's frame builder (tools/native_spike/immersive.py, tests/native_spike/test_immersive.py) both run over this file. Each valid entry gives the arguments the supervisor builds it from: `flags`, one per desktop in the run, and `stereo`, `hover`, `tail`, `every`.",
+ "comment": "The renderer's `immersive` payload (spike/include/xr/ipc.hpp ImmersivePayload). The renderer's decoder (spike/tests/immersive_test.cpp) and the supervisor's frame builder (tools/native_spike/immersive.py, tests/native_spike/test_immersive.py) both run over this file. Each valid entry gives the arguments the supervisor builds it from: `flags`, one per desktop in the run, and `stereo`, `hover`, `tail`, `every`; `params` is the Desktop preset.",
  "valid": [
   {
    "flags": [
@@ -21,7 +21,15 @@
     "global": false,
     "stereo": false,
     "hover": -1,
-    "tail": false
+    "tail": false,
+    "params": {
+     "strength": 100,
+     "convergence": 92,
+     "near": 4,
+     "far": 14,
+     "text": 0,
+     "range_ms": 3000
+    }
    }
   },
   {
@@ -44,7 +52,15 @@
     "global": false,
     "stereo": false,
     "hover": -1,
-    "tail": false
+    "tail": false,
+    "params": {
+     "strength": 100,
+     "convergence": 92,
+     "near": 4,
+     "far": 14,
+     "text": 0,
+     "range_ms": 3000
+    }
    }
   },
   {
@@ -68,7 +84,15 @@
     "global": true,
     "stereo": true,
     "hover": 3,
-    "tail": true
+    "tail": true,
+    "params": {
+     "strength": 100,
+     "convergence": 92,
+     "near": 4,
+     "far": 14,
+     "text": 0,
+     "range_ms": 3000
+    }
    }
   },
   {
@@ -89,7 +113,15 @@
     "global": false,
     "stereo": false,
     "hover": 0,
-    "tail": false
+    "tail": false,
+    "params": {
+     "strength": 100,
+     "convergence": 92,
+     "near": 4,
+     "far": 14,
+     "text": 0,
+     "range_ms": 3000
+    }
    }
   }
  ],
@@ -154,7 +186,15 @@
    "global": false,
    "stereo": false,
    "hover": -1,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -167,7 +207,15 @@
    "global": false,
    "stereo": false,
    "hover": -1,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -179,7 +227,15 @@
    "global": false,
    "stereo": false,
    "hover": -1,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -191,7 +247,15 @@
    "global": false,
    "stereo": 1,
    "hover": -1,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -203,7 +267,15 @@
    "global": 1,
    "stereo": false,
    "hover": -1,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -215,7 +287,15 @@
    "global": false,
    "stereo": false,
    "hover": -1,
-   "tail": 0
+   "tail": 0,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -227,7 +307,15 @@
    "global": false,
    "stereo": false,
    "hover": 4,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -239,7 +327,15 @@
    "global": false,
    "stereo": false,
    "hover": -2,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -251,7 +347,15 @@
    "global": false,
    "stereo": false,
    "hover": "none",
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -263,7 +367,15 @@
    "global": false,
    "stereo": false,
    "hover": 18446744073709551615,
-   "tail": false
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -275,7 +387,15 @@
    "global": false,
    "stereo": false,
    "hover": -1,
-   "tail": true
+   "tail": true,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
   },
   {
    "desktops": [
@@ -288,7 +408,267 @@
    "stereo": false,
    "hover": -1,
    "tail": false,
-   "extra": 1
+   "extra": 1,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 201,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": -1,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 101,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 91,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 61,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 101,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 10001
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 1.5,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": "4",
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "text": 0,
+    "range_ms": 3000
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": {
+    "strength": 100,
+    "convergence": 92,
+    "near": 4,
+    "far": 14,
+    "text": 0,
+    "range_ms": 3000,
+    "extra": 1
+   }
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false
+  },
+  {
+   "desktops": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "global": false,
+   "stereo": false,
+   "hover": -1,
+   "tail": false,
+   "params": [
+    100,
+    92,
+    4,
+    14,
+    0,
+    3000
+   ]
   }
  ]
 }

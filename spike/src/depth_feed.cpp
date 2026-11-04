@@ -2,6 +2,7 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2ext.h>
 #include <cstring>
+#include <string>
 
 namespace xr {
 namespace {
@@ -23,6 +24,15 @@ void main() {
         sum += texture(source, uv + (vec2(x, y) - 1.5) * 0.25 * step_uv).rgb;
     colour = vec4(sum / 16.0, 1.0);
 })";
+// The same taps, on the GL_TEXTURE_2D gl.cpp keeps for each desktop. Binding that texture to the external target would be a GL
+// error, and an external sampler reading it would read nothing.
+const std::string kFragment2d = [] {
+    std::string s = kFragment;
+    const std::string extension = "#extension GL_OES_EGL_image_external_essl3 : require\n", sampler = "samplerExternalOES";
+    s.erase(s.find(extension), extension.size());
+    s.replace(s.find(sampler), sampler.size(), "sampler2D");
+    return s;
+}();
 GLuint compile(GLenum kind, const char* text) {
     GLuint s = glCreateShader(kind);
     glShaderSource(s, 1, &text, nullptr);
@@ -42,31 +52,41 @@ DepthFeed::~DepthFeed() {
     if (framebuffer_) glDeleteFramebuffers(1, &framebuffer_);
     if (vao_) glDeleteVertexArrays(1, &vao_);
     if (program_) glDeleteProgram(program_);
+    if (program_2d_) glDeleteProgram(program_2d_);
 }
 
 bool DepthFeed::init(int w, int h) {
     w_ = w; h_ = h;
-    const GLuint vs = compile(GL_VERTEX_SHADER, kVertex), fs = compile(GL_FRAGMENT_SHADER, kFragment);
-    if (!vs || !fs) return false;
-    program_ = glCreateProgram();
-    glAttachShader(program_, vs);
-    glAttachShader(program_, fs);
-    glLinkProgram(program_);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-    GLint ok = 0;
-    glGetProgramiv(program_, GL_LINK_STATUS, &ok);
-    if (!ok) return false;
-    step_ = glGetUniformLocation(program_, "step_uv");
+    const auto link = [](const char* fragment) -> GLuint {
+        const GLuint vs = compile(GL_VERTEX_SHADER, kVertex), fs = compile(GL_FRAGMENT_SHADER, fragment);
+        if (!vs || !fs) { if (vs) glDeleteShader(vs); if (fs) glDeleteShader(fs); return 0; }
+        const GLuint program = glCreateProgram();
+        glAttachShader(program, vs);
+        glAttachShader(program, fs);
+        glLinkProgram(program);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        GLint ok = 0;
+        glGetProgramiv(program, GL_LINK_STATUS, &ok);
+        if (!ok) { glDeleteProgram(program); return 0; }
+        return program;
+    };
+    program_2d_ = link(kFragment2d.c_str());
+    if (!program_2d_) return false;
+    step_2d_ = glGetUniformLocation(program_2d_, "step_uv");
+    program_ = link(kFragment);  // optional: only a dmabuf this code imports itself needs it
+    if (program_) step_ = glGetUniformLocation(program_, "step_uv");
     glGenTextures(1, &target_);
     glBindTexture(GL_TEXTURE_2D, target_);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, w, h);
     glBindTexture(GL_TEXTURE_2D, 0);
+    GLint previous_fb = 0;  // the caller's, which is not always 0: an off-screen compositor draws into its own
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_fb);
     glGenFramebuffers(1, &framebuffer_);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target_, 0);
     const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_fb));
     glGenVertexArrays(1, &vao_);
     glGenBuffers(1, &pbo_);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_);
@@ -75,20 +95,25 @@ bool DepthFeed::init(int w, int h) {
     return complete;
 }
 
-bool DepthFeed::draw(GLuint texture) {
+bool DepthFeed::draw(GLuint texture, GLenum target) {
+    const bool external = target == GL_TEXTURE_EXTERNAL_OES;
+    if (external && !program_) return false;
     GLint previous_fb = 0, viewport[4]{};
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_fb);
     glGetIntegerv(GL_VIEWPORT, viewport);
+    const GLboolean blended = glIsEnabled(GL_BLEND), scissored = glIsEnabled(GL_SCISSOR_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     glViewport(0, 0, w_, h_);
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
-    glUseProgram(program_);
-    glUniform2f(step_, 1.0f / static_cast<float>(w_), 1.0f / static_cast<float>(h_));
+    glUseProgram(external ? program_ : program_2d_);
+    glUniform2f(external ? step_ : step_2d_, 1.0f / static_cast<float>(w_), 1.0f / static_cast<float>(h_));
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(target, texture);
+    if (external) {
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -98,14 +123,22 @@ bool DepthFeed::draw(GLuint texture) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     fence_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
+    glBindTexture(target, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_fb));
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    if (blended) glEnable(GL_BLEND);
+    if (scissored) glEnable(GL_SCISSOR_TEST);
     return fence_ != nullptr;
+}
+
+bool DepthFeed::begin_texture(GLuint texture) {
+    if (fence_) return false;
+    return draw(texture, GL_TEXTURE_2D);
 }
 
 bool DepthFeed::begin_external(GLuint texture) {
     if (fence_) return false;
-    return draw(texture);
+    return draw(texture, GL_TEXTURE_EXTERNAL_OES);
 }
 
 bool DepthFeed::begin_dmabuf(EGLDisplay display, const DepthDmabuf& b) {
@@ -122,7 +155,7 @@ bool DepthFeed::begin_dmabuf(EGLDisplay display, const DepthDmabuf& b) {
     if (!imported_) glGenTextures(1, &imported_);
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, imported_);
     bind(GL_TEXTURE_EXTERNAL_OES, image);
-    const bool ok = glGetError() == GL_NO_ERROR && draw(imported_);
+    const bool ok = glGetError() == GL_NO_ERROR && draw(imported_, GL_TEXTURE_EXTERNAL_OES);
     destroy(display, image);  // The texture keeps the storage alive.
     return ok;
 }

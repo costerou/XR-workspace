@@ -23,7 +23,10 @@ public:
     DepthFeed& operator=(const DepthFeed&) = delete;
     // Shrink to w x h. False if the GL objects could not be made (GL errors are left for the caller to report).
     bool init(int w, int h);
-    // Queue one shrink of an external (dmabuf-backed) texture; the renderer already has one for every desktop. False while the previous one is still running.
+    // Queue one shrink of a GL_TEXTURE_2D, the kind gl.cpp keeps for every desktop (an imported dmabuf is bound to that target
+    // there too). False while the previous one is still running.
+    bool begin_texture(GLuint texture);
+    // The same for a GL_TEXTURE_EXTERNAL_OES texture.
     bool begin_external(GLuint texture);
     // The same for a dmabuf this code has to import itself.
     bool begin_dmabuf(EGLDisplay display, const DepthDmabuf& buffer);
@@ -31,10 +34,10 @@ public:
     bool collect(std::vector<std::byte>& rgba);
     bool busy() const { return fence_ != nullptr; }
 private:
-    bool draw(GLuint texture);
+    bool draw(GLuint texture, GLenum target);
     int w_ = 0, h_ = 0;
-    GLuint program_ = 0, framebuffer_ = 0, target_ = 0, vao_ = 0, pbo_ = 0, imported_ = 0;
-    GLint step_ = -1;
+    GLuint program_ = 0, program_2d_ = 0, framebuffer_ = 0, target_ = 0, vao_ = 0, pbo_ = 0, imported_ = 0;
+    GLint step_ = -1, step_2d_ = -1;
     GLsync fence_ = nullptr;
 };
 }

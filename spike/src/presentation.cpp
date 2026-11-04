@@ -38,6 +38,10 @@ void apply_presentation_policy(SurfaceRequests& surface) {
     surface.commit();
 }
 std::uint32_t layer_version(std::uint32_t advertised) { return std::min(advertised, 4U); } // Pinned XML v4; <= compositor v5.
+std::uint32_t canvas_width(std::uint32_t surface_width, std::uint32_t height) {
+    return height && surface_width / 3 >= height ? surface_width / 2 : surface_width;
+}
+
 bool valid_surface_size(std::uint32_t width, std::uint32_t height) {
     return width > 0 && height > 0 && width <= 8192 && height <= 8192 &&
            std::uint64_t(width) * height * 4 <= 64 * 1024 * 1024;

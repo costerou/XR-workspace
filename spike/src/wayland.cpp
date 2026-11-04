@@ -9,6 +9,7 @@
 #include "dmabuf.hpp"
 #include "xr/capture.hpp"
 #include "gl.hpp"
+#include "depth_link.hpp"
 #include "xr/view.hpp"
 #include "xr/pose.hpp"
 #include "xr/predict.hpp"
@@ -130,7 +131,8 @@ struct Presentation::Impl : SurfaceRequests {
         ~Buffer() { if (proxy) wl_buffer_destroy(proxy); if (memory != MAP_FAILED) munmap(memory, bytes); }
     };
     std::vector<std::unique_ptr<Buffer>> buffers;
-    std::uint32_t width = 0, height = 0;
+    std::uint32_t width = 0, height = 0;  // the canvas (canvas_width): half the surface in side-by-side
+    std::uint32_t surface_w = 0;          // the layer surface's own logical width
     bool configured = false, closed = false;
     PatternCadence cadence;
     // The theme colour last set by the supervisor's `style` op (the default until then) and how many changed it: the
@@ -275,7 +277,41 @@ struct Presentation::Impl : SurfaceRequests {
         return p;
     }
     struct LevelBars { std::array<bool, kMaxDesktops> bars{}; std::int32_t hover = -1; std::int8_t side = -1; bool active = false; std::uint64_t updates = 0; } roll;
-    struct { std::array<bool, kMaxDesktops> desktops{}; bool global = false, stereo = false; std::int32_t hover = -1; bool tail = false; } immersive;  // the 3D buttons, and whether to draw 3D
+    struct { std::array<bool, kMaxDesktops> desktops{}; bool global = false, stereo = false; std::int32_t hover = -1; bool tail = false; ImmersiveParams params; bool changed = false; } immersive;  // the 3D buttons, and whether to draw 3D
+    // The depth engine's end (depth_link.hpp): the memory, inherited for the run; a link only while some desktop is 3D.
+    int depth_fd = -1; std::unique_ptr<DepthLink> depth; std::string depth_why;
+    std::vector<std::uint64_t> depth_frames; std::array<bool, kMaxDesktops> depth_wanted{};
+    void depth_tick() {
+        if (!gl) return;
+        const auto& i = immersive;
+        if (i.changed) {  // here, with the context current: the first time on compiles the shaders
+            apply_immersive(i.stereo, i.params, i.desktops);
+            immersive.changed = false;
+        }
+        const bool any = std::any_of(i.desktops.begin(), i.desktops.end(), [](bool on) { return on; });
+        if (depth_fd < 0 || !any) {
+            if (depth) { depth->stop(); depth.reset(); }  // nothing is 3D: no link, no work
+            return;
+        }
+        if (!depth && depth_why.empty()) depth = DepthLink::open(depth_fd, depth_why);
+        if (!depth) return;
+        depth_frames.resize(captures.size());
+        for (std::size_t c = 0; c < captures.size(); ++c) depth_frames[c] = uploaded[c];
+        for (std::size_t d = 0; d < kMaxDesktops; ++d) depth_wanted[d] = d < captures.size() && i.desktops[d];
+        timespec ts{}; clock_gettime(CLOCK_MONOTONIC, &ts);
+        DepthLink::Tick t;
+        t.wanted = std::span<const bool>(depth_wanted.data(), std::min(captures.size(), std::size_t(kMaxDesktops)));
+        t.frames = depth_frames; t.focused = int(view.focus()); t.drawing = i.stereo;
+        t.convergence = float(i.params.convergence); t.range_ms = float(i.params.range_ms);
+        t.now_ns = std::uint64_t(ts.tv_sec) * 1'000'000'000ull + std::uint64_t(ts.tv_nsec);
+        depth->tick(*gl, t);
+    }
+    void apply_immersive(bool stereo, const ImmersiveParams& params, const std::array<bool, kMaxDesktops>& desktops) {
+        StereoSettings set;
+        set.enabled = stereo; set.params = stereo_from_wire(params);
+        set.desktops.assign(desktops.begin(), desktops.end());
+        gl->set_stereo(set);
+    }
     std::string roll_geometry_sent;      // last roll_geometry line handed to the supervisor
     double roll_geometry_ms = -1e9;      // when it was sent
     bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
@@ -854,18 +890,18 @@ struct Presentation::Impl : SurfaceRequests {
         auto& s = *static_cast<Impl*>(data);
         zwlr_layer_surface_v1_ack_configure(layer, serial);
         if (!valid_surface_size(w, h)) { s.closed = true; return; }
-        s.width = w; s.height = h; s.configured = true; s.cadence.invalidate();
-        s.help.set_viewport(w, h);  // the help card's text size comes from the output height
-        s.binds.set_viewport(w, h);
+        s.surface_w = w; s.width = canvas_width(w, h); s.height = h; s.configured = true; s.cadence.invalidate();
+        s.help.set_viewport(s.width, h);  // the help card's text size comes from the output height
+        s.binds.set_viewport(s.width, h);
         s.apply_scale();
         s.half_w = 0;  // recompute FOV split for the new aspect
     }
     // The buffer size for the current logical size and preferred scale; sent with the next commit (the next swap).
     void apply_scale() {
         if (!width || !height) return;
-        const auto px = viewport ? scaled_surface_size(width, height, scale120) : std::array<std::uint32_t, 2>{width, height};
+        const auto px = viewport ? scaled_surface_size(surface_w, height, scale120) : std::array<std::uint32_t, 2>{surface_w, height};
         px_w = px[0]; px_h = px[1];
-        if (viewport) wp_viewport_set_destination(viewport, int(width), int(height));
+        if (viewport) wp_viewport_set_destination(viewport, int(surface_w), int(height));
         if (gl) gl->resize(width, height, px_w, px_h);
         cadence.invalidate();
     }
@@ -936,6 +972,7 @@ struct Presentation::Impl : SurfaceRequests {
         cadence.stop();
         cancel_feedback();
         video.reset();  // mpv and its textures need the GL context, so before it goes
+        depth.reset();  // its GL objects first
         gl.reset();  // before the wl_surface it wraps and the dmabufs it imported
         captures.clear();
         allocator.reset();  // after every GBM buffer
@@ -1083,6 +1120,7 @@ std::string Presentation::capture_report() const {
     out += ",\"video\":" + (impl_->video ? impl_->video->report() : std::string("null"));
     out += ",\"composition\":";
     out += impl_->gl ? impl_->gl->report() : std::string("{\"path\":\"cpu-blit\",\"fallback\":\"") + impl_->gl_fallback + "\"}";
+    if (impl_->depth) out += ",\"depth\":" + impl_->depth->report();
     return out + "}";
 }
 Status Presentation::open(std::string output_name, std::vector<std::string> capture) {
@@ -1177,6 +1215,7 @@ void Presentation::set_desktops(const std::vector<std::string>& outputs, const s
     if (!impl_) return;
     impl_->glide.ms = 0;  // a glide is per desktop index: eased on from where it got to
     impl_->set_desktops(outputs, renew);
+    if (impl_->depth) impl_->depth->restart();  // so is a depth channel
 }
 Status Presentation::animate_pattern(std::uint32_t duration_ms) {
     if (!impl_ || !duration_ms || duration_ms > 60000 || impl_->metrics.snapshot().submitted)
@@ -1297,12 +1336,15 @@ void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, 
     s.roll.bars = bars; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
     s.cadence.invalidate();
 }
-void Presentation::set_immersive(const std::array<bool, kMaxDesktops>& desktops, bool global, bool stereo, std::int32_t hover, bool tail) {
+void Presentation::set_immersive(const std::array<bool, kMaxDesktops>& desktops, bool global, bool stereo, std::int32_t hover, bool tail, const ImmersiveParams& params) {
     if (!impl_) return;
     auto& i = impl_->immersive;
-    i.desktops = desktops; i.global = global; i.stereo = stereo; i.hover = hover; i.tail = tail;
+    i.changed = i.changed || i.stereo != stereo || i.desktops != desktops ||
+                std::memcmp(&i.params, &params, sizeof params) != 0;  // a hover alone costs the compositor nothing
+    i.desktops = desktops; i.global = global; i.stereo = stereo; i.hover = hover; i.tail = tail; i.params = params;
     impl_->cadence.invalidate();
 }
+void Presentation::set_depth_fd(int fd) { if (impl_) impl_->depth_fd = fd; }
 std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
@@ -1429,6 +1471,7 @@ Status Presentation::draw_test_pattern() {
             if (!s.gl->holding(i)) c.held_dbuf.reset();
         }
         std::copy(s.uploaded.begin(), s.uploaded.end(), s.drawn.begin());
+        s.depth_tick();  // before the pose is read, so 3D's work never ages it
         for (std::size_t i = 0; i < s.captures.size() && i < s.early_hold.size(); ++i) {  // see upload_early
             const auto frames = s.captures[i]->frames;
             if (frames - s.frames_at_draw[i] >= 2) s.early_hold[i] = Impl::kEarlyHoldDraws;

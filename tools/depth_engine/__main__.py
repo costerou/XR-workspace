@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import sys
+import threading
 import time
 
 import numpy as np
@@ -54,16 +56,54 @@ def cmd_file(a) -> int:
     return 0
 
 
+def attach(path: str, wait: float) -> S.DepthShm:
+    """The renderer lays the memory out when it first hears a desktop is 3D, which can be just after this process starts."""
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            return S.DepthShm.open(path)
+        except ValueError:
+            if time.monotonic() > deadline:
+                raise
+            time.sleep(0.02)
+
+
+def watch_stdin(stop: list) -> None:
+    """Supervised (tools/native_spike/immersive.py ProcessEngine): the end of input means the supervisor is gone, whatever
+    killed it, so this goes too. Its JSON lines name desktops for the record; which channels run comes from the shared memory."""
+    def work():
+        try:
+            while sys.stdin.buffer.readline():
+                pass
+        except (OSError, ValueError):
+            pass
+        stop.append(1)
+    threading.Thread(target=work, daemon=True).start()
+
+
+def serve_backend(a, w: int, h: int):
+    from .backends import BackendUnavailable, make_backend
+    try:
+        return make_backend(a.backend, w, h)
+    except BackendUnavailable:
+        if not a.supervised or a.backend != "rocm":
+            raise
+        return make_backend("ncnn", w, h)  # Half the speed, but a slower 3D beats none.
+
+
 def cmd_serve(a) -> int:
-    from .backends import make_backend
     from .engine import Engine
     from .scheduler import Scheduler
-    shm = S.DepthShm.open(a.shm)
-    w, h = S.input_size(a.src_width, a.src_height, a.long)
+    if bool(a.shm) == (a.shm_fd is not None):
+        raise SystemExit("exactly one of --shm and --shm-fd")
     stop = []
     signal.signal(signal.SIGTERM, lambda *_: stop.append(1))
     signal.signal(signal.SIGINT, lambda *_: stop.append(1))
-    backend = make_backend(a.backend, w, h)
+    if a.supervised:
+        watch_stdin(stop)
+    shm = attach(a.shm or f"/proc/self/fd/{a.shm_fd}", a.wait)
+    w, h = S.input_size(a.src_width, a.src_height, a.long)
+    backend = serve_backend(a, w, h)
     if backend.size and (w > shm.out_w or h > shm.out_h):  # A fixed-size model's map has to fit the file.
         raise SystemExit(f"{w}x{h} does not fit {a.shm}")
     if backend.size:  # Each batch size compiles on first use, which must not read as a dead engine mid-session.
@@ -73,8 +113,14 @@ def cmd_serve(a) -> int:
     engine = Engine(shm, backend, Scheduler(a.focused_hz, a.other_hz, a.batch))
     deadline = time.monotonic() + a.seconds if a.seconds else None
     print(f"depth engine: {backend.name} {w}x{h}, {shm.channels} channels", flush=True)
+    shm.heartbeat(time.monotonic_ns(), os.getpid())  # Before `ready`: the renderer feeds as soon as it sees this.
+    if a.supervised:
+        print("ready", flush=True)
     engine.run(lambda: stop or (deadline is not None and time.monotonic() > deadline))
     print(f"depth engine: {engine.stats.inferred} maps, {engine.stats.unchanged} unchanged frames skipped", flush=True)
+    sys.stdout.flush()
+    if a.supervised:
+        os._exit(0)  # The runtime's teardown can take seconds, and nothing here needs it.
     return 0
 
 
@@ -88,7 +134,11 @@ def main(argv=None) -> int:
     f.add_argument("--long", type=int, default=S.LONG_HIGH)
     f.set_defaults(fn=cmd_file)
     s = sub.add_parser("serve", help="serve a shared-memory file made by the renderer")
-    s.add_argument("--shm", required=True)
+    s.add_argument("--shm", default="")
+    s.add_argument("--shm-fd", type=int, default=None, help="the shared memory as an inherited descriptor")
+    s.add_argument("--desktops", default="", help="for the record: which channels run is in the shared memory")
+    s.add_argument("--supervised", action="store_true", help="say `ready`; end of input means exit (immersive.py)")
+    s.add_argument("--wait", type=float, default=10.0, help="seconds to wait for the renderer's layout")
     s.add_argument("--backend", default="rocm", choices=["rocm", "ncnn", "fake"])
     s.add_argument("--long", type=int, default=S.LONG_BALANCED)
     s.add_argument("--src-width", type=int, default=1920)

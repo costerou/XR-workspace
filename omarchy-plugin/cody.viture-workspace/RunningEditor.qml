@@ -17,7 +17,7 @@ ColumnLayout {
     // Live placements reported by the running session; the saved profile until the first status arrives.
     readonly property var placements: snapshot.placements || settings.placements || []
     readonly property var immersive: snapshot.immersive || ({})  // the run's 3D (Model.immersiveOn), {} before the first status
-    readonly property var immersiveSetting: immersive.setting || settings.immersive || ({global:false,desktops:{}})
+    readonly property var immersiveSetting: immersive.setting || settings.immersive || ({global:false,desktops:{},preset:"desktop",strength:100,convergence:92})
     property int placing: 0
     onDesktopsChanged: if (placing >= desktops.length) placing = 0  // a desktop removed in the glasses
     signal request(var message)
@@ -99,6 +99,38 @@ ColumnLayout {
             }
         }
         Label { objectName:"immersiveState"; text:Model.immersiveLabel(root.snapshot.immersive); opacity:0.65; Layout.fillWidth:true; elide:Text.ElideRight }
+    }
+    RowLayout {  // what 3D looks like: docs/3d-comfort.md has the presets
+        objectName:"immersiveLook"
+        Repeater {
+            model:Model.IMMERSIVE_PRESETS
+            delegate: Button {
+                required property var modelData
+                objectName:"immersivePreset_" + modelData.key
+                text:modelData.label; highlighted:root.immersiveSetting.preset===modelData.key; enabled:!root.busy
+                onClicked:root.request({op:"set_settings",settings:{immersive:Model.immersivePreset(root.immersiveSetting,modelData.key)}})
+            }
+        }
+        Repeater {
+            model:Model.IMMERSIVE_STRENGTHS
+            delegate: Button {
+                required property var modelData
+                objectName:"immersiveStrength_" + modelData.value
+                text:modelData.label; highlighted:root.immersiveSetting.strength===modelData.value; enabled:!root.busy
+                onClicked:root.request({op:"set_settings",settings:{immersive:Model.immersiveStrength(root.immersiveSetting,modelData.value)}})
+            }
+        }
+    }
+    RowLayout {
+        objectName:"immersiveConvergence"
+        Label { text:"Screen plane" }
+        Slider {
+            objectName:"immersivePlane"
+            Layout.fillWidth:true; from:0; to:100; stepSize:1; enabled:!root.busy
+            value:root.immersiveSetting.convergence===undefined ? 92 : root.immersiveSetting.convergence
+            onMoved:root.request({op:"set_settings",settings:{immersive:Model.immersiveConvergence(root.immersiveSetting,value)}})
+        }
+        Label { text:(root.immersiveSetting.convergence===undefined ? 92 : root.immersiveSetting.convergence) + "%"; opacity:0.65 }
     }
     Label { text:"Measured, this session"; font.bold:true; visible:Object.keys(root.snapshot.status || {}).length>0 }
     Flow {

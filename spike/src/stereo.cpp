@@ -27,6 +27,15 @@ StereoLimits stereo_limits(const StereoParams& in, float eye_w, float half_w) {
     return {p.near_deg * px_per_deg, p.far_deg * px_per_deg};
 }
 
+StereoParams stereo_from_wire(const ImmersiveParams& w) {
+    StereoParams p;
+    p.strength = float(w.strength) / 100.f;
+    p.near_deg = float(w.near_arcmin) / 60.f;
+    p.far_deg = float(w.far_arcmin) / 60.f;
+    p.text_keep = float(w.text) / 100.f;
+    return stereo_clamped(p);
+}
+
 float stereo_smoothstep(float a, float b, float x) {
     const float t = std::clamp((x - a) / (b - a), 0.f, 1.f);
     return t * t * (3.f - 2.f * t);

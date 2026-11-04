@@ -105,8 +105,9 @@ public:
     // The help card and the glass pills are not drawn: the supervisor closes them before a video opens.
     bool draw_scene_and_swap(const std::function<void(std::uint32_t width, std::uint32_t height)>& scene, const HudImage* card,
                              std::uint64_t card_generation, float card_alpha);
-    // Side-by-side 3D. With `enabled` the frame is drawn once per eye if the buffer is at least 3:1 wide (eye_viewports:
-    // resize(1920, 1200, 3840, 1200) keeps the 1920 x 1200 canvas and every layout); on a narrower buffer it stays 2D. Desktops
+    // Side-by-side 3D. A buffer at least 3:1 wide always draws one view per eye (eye_viewports: resize(1920, 1200, 3840, 1200)
+    // keeps the 1920 x 1200 canvas and every layout), because the glasses are showing each half to one eye, whatever is asked
+    // for here; without `enabled` the two views are the same picture. A narrower buffer stays 2D. With `enabled`, desktops
     // with depth are warped (stereo_gl.hpp); everything else on a desktop's surface, its border, pill, level bar, handles and
     // the drop frame, stays on that surface's plane; cards and pop-ups are head-locked on the screen plane; the free pointer
     // takes the disparity of what is under it. Each change eases in over kStereoFadeMs. Context current. The first enable
@@ -116,12 +117,19 @@ public:
     // A new depth map of desktop `source` for its current picture. False: not available, no picture yet or an invalid frame
     // (the last good one stays). Without a new frame for kStereoStaleMs the desktop eases flat, and back when frames return.
     bool set_depth(std::size_t source, const DepthInput& frame);
+    // Desktop `source`'s last map is still right: its picture has not changed, so the depth engine sent nothing new, and it
+    // is alive (depth_link.hpp). Without this a still desktop would go flat after kStereoStaleMs.
+    void keep_depth(std::size_t source);
+    // The texture a desktop's picture is in now, for the depth feed: a GL_TEXTURE_2D, its size, and whether its bytes are
+    // B,G,R (an SHM upload). id 0: no picture yet.
+    struct SourceTexture { unsigned id = 0; std::uint32_t width = 0, height = 0; bool bgr = false; };
+    SourceTexture source_texture(std::size_t source) const;
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;
     // One view of the frame: the whole buffer, or `eye`'s half in 3D.
     void draw_view(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight, float highlight_alpha,
-                   const Mat3& view, float half_w, float half_h, const EyeViewport* eye);
+                   const Mat3& view, float half_w, float half_h, const EyeViewport* eye, const PanLayers* pan);
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

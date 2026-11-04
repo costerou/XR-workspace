@@ -109,7 +109,7 @@ struct GlCompositor::Impl {
     std::uint64_t stereo_frames = 0;
     static double now_ms() { return double(now_us()) / 1000.0; }
     std::vector<EyeViewport> stereo_eyes() const {  // the two eye viewports; none in 2D or until the buffer is 3:1 wide
-        if (!stereo_set.enabled && !stereo_scene.moving()) return {};
+        if (px_w < 3 * px_h) return {};  // every 2D frame ends here
         auto eyes = eye_viewports(px_w, px_h);
         if (eyes.size() != 2) eyes.clear();
         return eyes;
@@ -502,6 +502,20 @@ bool GlCompositor::set_depth(std::size_t source, const DepthInput& frame) {
     return ok;
 }
 
+void GlCompositor::keep_depth(std::size_t source) {
+    auto& s = *impl_;
+    if (source < s.stereo_sources.size() && s.stereo_sources[source].depth_ms >= 0) s.stereo_sources[source].depth_ms = Impl::now_ms();
+}
+
+GlCompositor::SourceTexture GlCompositor::source_texture(std::size_t source) const {
+    const auto& s = *impl_;
+    if (source >= s.textures.size()) return {};
+    const auto& im = s.imported[source];
+    if (im.current >= 0) return {im.tex[std::size_t(im.current)], im.width, im.height, false};
+    if (im.held_tex) return {im.held_tex, im.width, im.height, false};
+    return s.textures[source].valid ? SourceTexture{s.textures[source].id, s.textures[source].width, s.textures[source].height, true} : SourceTexture{};
+}
+
 // Once per frame, before the eyes: the fades, then the baseline that keeps every desktop's plane inside the limits.
 void GlCompositor::Impl::stereo_frame(const std::vector<FRect>& tiles, const Mat3& rotation, const Canvas& canvas, float eye_w) {
     if (stereo_sources.size() < textures.size()) stereo_sources.resize(textures.size());
@@ -702,12 +716,12 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     const auto eyes = s.stereo_eyes();
     if (eyes.empty()) {
         s.env_eye = 0;
-        draw_view(tiles, placements, highlight, highlight_alpha, view, half_w, half_h, nullptr);
+        draw_view(tiles, placements, highlight, highlight_alpha, view, half_w, half_h, nullptr, pan);
     } else {
         glEnable(GL_SCISSOR_TEST);
         for (const auto& e : eyes) {
             glScissor(GLint(e.x), GLint(e.y), GLsizei(e.width), GLsizei(e.height));
-            draw_view(tiles, placements, highlight, highlight_alpha, view, half_w, half_h, &e);
+            draw_view(tiles, placements, highlight, highlight_alpha, view, half_w, half_h, &e, pan);
         }
         glDisable(GL_SCISSOR_TEST);
         glViewport(0, 0, GLsizei(s.px_w), GLsizei(s.px_h));
@@ -718,7 +732,7 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
 }
 
 void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
-                             float highlight_alpha, const Mat3& view, float half_w, float half_h, const EyeViewport* eye) {
+                             float highlight_alpha, const Mat3& view, float half_w, float half_h, const EyeViewport* eye, const PanLayers* pan) {
     auto& s = *impl_;
     const Mat3 column_major = transpose(view);  // GLES2 has no transpose flag
     const float half[2] = {half_w, half_h};

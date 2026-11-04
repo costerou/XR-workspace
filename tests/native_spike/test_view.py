@@ -313,7 +313,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'anchor', 'prediction': True,
                                                              'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                                              'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': {'global': False, 'desktops': {}}})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
         self.assertEqual(view.ViewState(NAMES).maximized_mode, 'follow')  # a fresh XR start: follow again
         self.assertEqual(view.MAXIMIZED_MODES, ('follow', 'locked'))
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
@@ -354,7 +354,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         loaded = view.load_settings(self.settings)
         self.assertEqual(loaded, {'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                   'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': {'global': False, 'desktops': {}}})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
         c = self.control(view.ViewState(NAMES, spacing=loaded['spacing'], prediction=loaded['prediction']))
         self.assertIsNone(c.on_message({'op': 'cursor_anim_toggle'}))  # a stale op: nothing
         c.on_message({'op': 'spacing_up'})
@@ -367,7 +367,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'prediction': True,
                                                              'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                                              'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': {'global': False, 'desktops': {}}})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
         self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1, "prediction": "on", '
                                  '"cursor_switch_animate": 0}')
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)
@@ -556,7 +556,7 @@ class StatusReplyTests(unittest.TestCase):
         c = view.ViewControl(view.ViewState(['XR-1']), 'run', 'session', None, None, None)
         self.assertEqual(c.status_reply({'missed':2}), dict(capabilities=list(view.USER_OPS), view=c.state.view(), status={'missed':2},
                                                             placements=[dict(DEFAULT_PLACEMENT)], names=['XR-1'],
-                                                            immersive={'setting': {'global': False, 'desktops': {}}, 'names': [], 'stereo': False, 'failed': False}))
+                                                            immersive={'setting': view.DEFAULT_SETTINGS['immersive'], 'names': [], 'stereo': False, 'failed': False, 'phase': 'off', 'installed': False}))
         self.assertNotIn('placement', c.status_reply({})['capabilities'])  # the panel renders capabilities as buttons
         self.assertIsNone(c.on_message({'op':'status'}))
 

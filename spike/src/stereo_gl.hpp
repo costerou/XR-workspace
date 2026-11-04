@@ -55,7 +55,7 @@ public:
     std::uint64_t updates() const { return updates_; }
 private:
     StereoPass() = default;
-    struct Source { GLuint raw = 0, text = 0, guide[2] = {0, 0}, fb[2] = {0, 0}, text_fb = 0; int w = 0, h = 0, current = -1; std::uint64_t seq = 0; };
+    struct Source { GLuint raw = 0, raw_half = 0, text = 0, guide[2] = {0, 0}, fb[2] = {0, 0}, text_fb = 0; int w = 0, h = 0, current = -1; std::uint64_t seq = 0; };
     void drop(Source& s);
     bool storage(Source& s, int w, int h);
     std::vector<Source> sources_;

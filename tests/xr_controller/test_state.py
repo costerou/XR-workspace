@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
+from tools.native_spike import immersive
 from tools.native_spike.profiles import DEFAULT_PROFILE
 from tools.native_spike.view import DEFAULT_SETTINGS
 from tools.native_spike.geometry import DEFAULT_DESKTOP
@@ -322,11 +323,10 @@ class StateTests(unittest.TestCase):
         # 3D goes to a run as one absolute message, and the supervisor saves what it applied (immersive.py).
         self.journal(); self.units.active=True; self.c.tick(); sent=[]
         self.units.control=lambda r,s,op,payload=None: sent.append((op,payload)) or True
-        one=dict(desktops={'XR-2':True})
-        one['global']=False
+        one={**immersive.DEFAULTS,'desktops':{'XR-2':True}}
         reply=self.c.request(dict(op='set_settings',settings={'immersive':one}))
         self.assertTrue(reply['ok'],reply); self.assertEqual(sent,[('immersive',one)])
-        off=dict(desktops={}); off['global']=False
+        off={**immersive.DEFAULTS}
         sent.clear(); self.assertTrue(self.c.request(dict(op='set_settings',settings={'immersive':off}))['ok'])
         self.assertEqual(sent,[])  # the same as saved: nothing to send
         self.c.live['immersive']=dict(failed=True)
@@ -339,10 +339,15 @@ class StateTests(unittest.TestCase):
         self.c.live['immersive']=dict(names=['XR-1'],stereo=True,failed=False)
         self.assertEqual(self.c.snapshot()['immersive']['names'],['XR-1'])
     def test_immersive_saved_while_idle_and_off_by_default(self):
-        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],dict(zip(('global','desktops'),(False,{}))))
-        on=dict(zip(('global','desktops'),(True,{})))
+        off={**immersive.DEFAULTS}
+        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],off)
+        on=dict(zip(('global','desktops'),(True,{})))  # a panel older than the look controls
         self.assertTrue(self.c.request(dict(op='set_settings',settings={'immersive':on}))['ok'])
-        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],on)
+        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],{**off,**on})
+        look={**off,**on,'preset':'video','strength':150,'convergence':70}
+        self.assertTrue(self.c.request(dict(op='set_settings',settings={'immersive':look}))['ok'])
+        self.assertEqual(self.c.request(dict(op='get_settings'))['settings']['immersive'],look)
+        self.assertFalse(self.c.request(dict(op='set_settings',settings={'immersive':{**look,'strength':999}}))['ok'])
     def test_environment_saved_while_idle(self):
         grid=dict(background='grid',last='grid',brightness=60)
         self.assertTrue(self.c.request(dict(op='set_settings',settings={'environment':grid}))['ok'])

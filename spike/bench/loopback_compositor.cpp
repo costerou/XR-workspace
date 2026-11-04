@@ -23,6 +23,7 @@
 #include "viewporter-server-protocol.h"
 #undef namespace
 #include "xr/capture.hpp"
+#include "xr/depth.hpp"
 #include "xr/desktops.hpp"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -49,6 +50,7 @@
 #include <memory>
 #include <climits>
 #include <optional>
+#include <span>
 #include <poll.h>
 #include <sstream>
 #include <string>
@@ -98,6 +100,12 @@ struct Options {
     std::string feed_script;
     double feed_drop = 0;
     double video_loss = 0;  // --video-loss S: S seconds in, DP-2 leaves as when the glasses' display link drops. --check: the renderer ends by itself.
+    // --immersive: the run as 3D makes it. The surface is side by side (twice the output's width, as the glasses' wide mode), the
+    // real renderer gets the real shared memory, and a stand-in depth engine here reads its pictures and sends maps.
+    // --engine-dies S: S seconds into the measured window it stops, with no warning, as a crash does. --check: the
+    // renderer's pictures were real (not black), maps were drawn, and frames kept coming to the end.
+    bool immersive = false;
+    double engine_dies = 0;
 };
 constexpr double kChurnMs = 150;
 constexpr double kMaximizeSettleMs = 500;  // well past the zoom (view.hpp kViewEaseMs)
@@ -346,7 +354,8 @@ struct Server {
         out = {};
         if (tiles.empty()) return false;
         if (auto* shm = wl_shm_buffer_get(buffer)) {
-            const auto w = std::uint32_t(wl_shm_buffer_get_width(shm)), h = std::uint32_t(wl_shm_buffer_get_height(shm));
+            // Side by side, the canvas is one half of the buffer: the left eye is read.
+            const auto w = std::uint32_t(wl_shm_buffer_get_width(shm)) / (opt.immersive ? 2 : 1), h = std::uint32_t(wl_shm_buffer_get_height(shm));
             const auto stride = std::uint32_t(wl_shm_buffer_get_stride(shm)) / 4;
             wl_shm_buffer_begin_access(shm);
             const auto* px = static_cast<const std::uint32_t*>(wl_shm_buffer_get_data(shm));
@@ -361,7 +370,7 @@ struct Server {
         if (!d || !g_gpu) return false;
         std::int32_t y_last = -1;
         for (std::size_t i = 0; i < tiles.size() && i < out.size(); ++i) {
-            const auto x = std::int32_t(to_buffer(tiles[i].x + tiles[i].width / 2, std::uint32_t(d->width), kOutW)),
+            const auto x = std::int32_t(to_buffer(tiles[i].x + tiles[i].width / 2, std::uint32_t(d->width) / (opt.immersive ? 2 : 1), kOutW)),
                        y = std::int32_t(to_buffer(tiles[i].y + tiles[i].height / 2, std::uint32_t(d->height), kOutH));
             if (y != y_last && !d->read_row(y, row)) { ++readback_failures; return false; }
             y_last = y;
@@ -420,7 +429,7 @@ void surface_commit(wl_client*, wl_resource* r) {
     const std::int64_t t = now_ns();
     if (s->layer && !s->layer->configured) {
         s->layer->configured = true; s->layer->serial = g->next_serial++;
-        zwlr_layer_surface_v1_send_configure(s->layer->res, s->layer->serial, kOutW, kOutH);
+        zwlr_layer_surface_v1_send_configure(s->layer->res, s->layer->serial, g->opt.immersive ? 2 * kOutW : kOutW, kOutH);
     }
     if (s->pending_attached && s->pending_buf.r) {
         if (s->commit_has_buffer && s->commit_buf.r && s->commit_buf.r != s->pending_buf.r && s->commit_buf.r != s->shown.r)
@@ -890,6 +899,8 @@ int main(int argc, char** argv) {
         else if (a == "--feed-script") opt.feed_script = next();
         else if (a == "--feed-drop") { opt.feed_drop = std::stod(next()); opt.tracking = true; }
         else if (a == "--video-loss") opt.video_loss = std::stod(next());
+        else if (a == "--immersive") opt.immersive = true;
+        else if (a == "--engine-dies") { opt.engine_dies = std::stod(next()); opt.immersive = true; }
         else { usage(); return 2; }
     }
     if (!opt.churn.empty() && opt.churn != "bounce" && opt.churn != "resize") { usage(); return 2; }
@@ -980,16 +991,26 @@ int main(int argc, char** argv) {
         if (p == MAP_FAILED) return 1;
         malloc_count = static_cast<std::uint64_t*>(p);
     }
+    // --immersive: the memory a run's supervisor makes, and this process's end of it.
+    int depth_fd = -1; void* depth_base = nullptr; const std::size_t depth_bytes = xr::depth_shm_bytes(xr::kDepthLinkShm);
+    if (opt.immersive) {
+        depth_fd = memfd_create("xr-depth", MFD_CLOEXEC);
+        if (depth_fd < 0 || ftruncate(depth_fd, off_t(depth_bytes)) != 0) return 1;
+        depth_base = mmap(nullptr, depth_bytes, PROT_READ | PROT_WRITE, MAP_SHARED, depth_fd, 0);
+        if (depth_base == MAP_FAILED) return 1;
+    }
     server.client = wl_client_create(server.display, wl_pair[0]);
     const pid_t pid = fork();
     if (pid == 0) {
         // Move every source above the target numbers first: a source may already sit on 10..13.
         const int c = fcntl(control[1], F_DUPFD, 100), w = fcntl(wl_pair[1], F_DUPFD, 100), st = fcntl(status[1], F_DUPFD, 100),
-                  e = fcntl(err_pipe[1], F_DUPFD, 100), m = count_fd >= 0 ? fcntl(count_fd, F_DUPFD, 100) : -1;
+                  e = fcntl(err_pipe[1], F_DUPFD, 100), m = count_fd >= 0 ? fcntl(count_fd, F_DUPFD, 100) : -1,
+                  df = depth_fd >= 0 ? fcntl(depth_fd, F_DUPFD, 100) : -1;
         dup2(c, 10); dup2(w, 11); dup2(st, 12); dup2(e, 2); dup2(e, 1);  // renderer stdout too: never into this tool's JSON
         std::vector<std::pair<std::string, std::string>> env = {{"MESA_SHADER_CACHE_DISABLE", "true"}};
         if (m >= 0) { dup2(m, 13); env.push_back({"XR_MALLOC_COUNT_FD", "13"}); env.push_back({"LD_PRELOAD", opt.malloc_shim}); }
-        for (int fd : {c, w, st, e, m}) if (fd >= 0) ::close(fd);
+        if (df >= 0) dup2(df, 14);
+        for (int fd : {c, w, st, e, m, df}) if (fd >= 0) ::close(fd);
         if (m >= 0 && !opt.malloc_trace.empty()) env.push_back({"XR_MALLOC_TRACE", opt.malloc_trace});
         if (opt.mode == "cpu") env.push_back({"__EGL_VENDOR_LIBRARY_FILENAMES", "/nonexistent/egl-vendor.json"});  // no EGL: CPU composition
         std::vector<std::string> args;
@@ -1014,6 +1035,7 @@ int main(int argc, char** argv) {
             for (int i = 1; i <= opt.outputs; ++i) list += (i > 1 ? ",XR-" : "XR-") + std::to_string(i);
             args.insert(args.end(), {"--capture", list});
             if (opt.tracking) args.insert(args.end(), {"--pose-feed", "xrld"});
+            if (opt.immersive) args.insert(args.end(), {"--depth-fd", "14"});
         } else args.insert(args.end(), {"--animate-pattern-ms", std::to_string(int(pattern_ms))});
         std::vector<char*> cargs; for (auto& a : args) cargs.push_back(a.data()); cargs.push_back(nullptr);
         execv(cargs[0], cargs.data());
@@ -1091,8 +1113,42 @@ int main(int argc, char** argv) {
     pollfd fds[6] = {{wl_event_loop_get_fd(wl_display_get_event_loop(server.display)), POLLIN, 0}, {vblank_fd, POLLIN, 0},
                      {capture_fd, POLLIN, 0}, {control[0], POLLIN, 0}, {status[0], POLLIN, 0}, {churn_fd, POLLIN, 0}};
     std::int64_t next_look = 0;
+    // The stand-in engine: the wire's other end, and a map with a near middle.
+    std::optional<xr::DepthShm> depth;
+    std::uint64_t depth_inputs = 0, depth_lit = 0, depth_maps_sent = 0;
+    bool immersive_sent = false, engine_dead = false;
+    std::array<std::uint64_t, xr::kDepthLinkShm.channels> depth_seen{};
+    std::vector<std::byte> depth_in;
+    std::vector<std::uint16_t> depth_map(std::size_t(xr::kDepthLinkShm.out_w) * std::size_t(xr::kDepthLinkShm.out_h), std::uint16_t(0));
+    for (int y = xr::kDepthLinkShm.out_h / 4; y < 3 * xr::kDepthLinkShm.out_h / 4; ++y)
+        for (int x = xr::kDepthLinkShm.out_w / 4; x < 3 * xr::kDepthLinkShm.out_w / 4; ++x) depth_map[std::size_t(y) * std::size_t(xr::kDepthLinkShm.out_w) + std::size_t(x)] = 0x3c00;
     for (;;) {
         const std::int64_t t = now_ns();
+        if (opt.immersive && server.measuring) {
+            if (!immersive_sent) {
+                std::string desktops;
+                for (int i = 0; i < int(xr::kMaxDesktops); ++i) desktops += std::string(i ? "," : "") + (i < opt.outputs ? "true" : "false");
+                send_frame(next_request++, "immersive", "{\"desktops\":[" + desktops + "],\"global\":true,\"stereo\":true,\"hover\":-1,\"tail\":false,"
+                                                        "\"params\":{\"strength\":100,\"convergence\":50,\"near\":60,\"far\":60,\"text\":100,\"range_ms\":0}}");
+                immersive_sent = true;
+            }
+            if (!depth) depth = xr::DepthShm::attach(depth_base, depth_bytes);  // once the renderer has laid it out
+            engine_dead = engine_dead || (opt.engine_dies > 0 && t >= measure_at + std::int64_t(opt.engine_dies * 1e9));
+            if (depth && !engine_dead) {
+                depth->heartbeat(std::uint64_t(t), 4242);
+                for (std::uint32_t c = 0; c < xr::kDepthLinkShm.channels; ++c) {
+                    if (!(depth->control(c) & xr::kDepthEnabled)) continue;
+                    const auto in = depth->fetch(xr::DepthShm::Side::Input, c, depth_in, depth_seen[c]);
+                    if (!in) continue;
+                    depth_seen[c] = in->source_seq; ++depth_inputs;
+                    const auto* p = reinterpret_cast<const std::uint8_t*>(in->pixels.data()) + (std::size_t(in->h / 2) * std::size_t(in->w) + std::size_t(in->w / 2)) * 4;
+                    if (p[0] || p[1] || p[2]) ++depth_lit;
+                    const xr::DepthFrame out{xr::kDepthLinkShm.out_w, xr::kDepthLinkShm.out_h, in->source_seq, in->source_ns, std::uint64_t(t), xr::DepthFormat::R16F, 0,
+                                             std::as_bytes(std::span(depth_map))};
+                    if (depth->publish(xr::DepthShm::Side::Output, c, out)) ++depth_maps_sent;
+                }
+            }
+        }
         if (opt.pointer_look && server.measuring && t >= next_look && !server.tiles.empty() && !server.look_waiting) {
             const auto& tile = server.tiles[0];
             server.look_beam = !server.look_beam;
@@ -1202,6 +1258,7 @@ int main(int argc, char** argv) {
     if (malloc_count && !shim_loaded) std::fprintf(stderr, "warning: the malloc shim did not load in the renderer; no allocation count\n");
     if (shim_loaded && counters) out["allocations_per_s"] = std::round(double(mallocs1 - mallocs0) / secs * 10) / 10;
     out["status_datagrams"] = status_lines; out["overview_geometry_lines"] = geometry_lines;
+    if (opt.immersive) { out["depth_inputs"] = depth_inputs; out["depth_lit"] = depth_lit; out["depth_maps_sent"] = depth_maps_sent; out["engine_dead"] = engine_dead; }
     out["last_status"] = last_status;
     // The renderer's own exit reports (timing JSON, capture JSON with path/fallback), bounded.
     std::istringstream lines(stderr_text); std::string line; std::vector<nlohmann::json> reports; std::vector<std::string> other;
@@ -1222,8 +1279,9 @@ int main(int argc, char** argv) {
             if (j.contains("composition") && j["composition"].is_object()) {
                 const auto& c = j["composition"];
                 out["composition"] = c.value("path", "");
-                for (const char* k : {"upload", "draw_swap", "uploaded_mib", "imported_frames"}) if (c.contains(k)) out["gl_" + std::string(k)] = c[k];
+                for (const char* k : {"upload", "draw_swap", "uploaded_mib", "imported_frames", "stereo"}) if (c.contains(k)) out["gl_" + std::string(k)] = c[k];
             }
+            if (j.contains("depth")) out["depth_report"] = j["depth"];
         }
     }
     if (!other.empty()) out["renderer_stderr"] = other;
@@ -1266,12 +1324,25 @@ int main(int argc, char** argv) {
         if ((opt.mode == "gl-shm" || opt.mode == "cpu") && !(out.contains("capture_paths") && out["capture_paths"][0]["path"] == "shm")) fail("not on the shm path");
         // Constraint churn (layout changes): no desktop ever goes blank, and constraints that come back to the buffers' own
         // size re-create nothing (one allocation per desktop for the whole run).
+        const std::uint32_t surface_w = opt.immersive ? 2 * kOutW : kOutW;
         if (opt.fractional_scale) {  // drawn at the native pixels, shown on the logical surface (GL; CPU stays logical)
             const auto want = [&](std::uint32_t v) { return std::int32_t((std::uint64_t(v) * opt.fractional_scale + 60) / 120); };
-            const bool scaled = gl ? server.buffer_w == want(kOutW) && server.buffer_h == want(kOutH)
-                                   : server.buffer_w == std::int32_t(kOutW) && server.buffer_h == std::int32_t(kOutH);
+            const bool scaled = gl ? server.buffer_w == want(surface_w) && server.buffer_h == want(kOutH)
+                                   : server.buffer_w == std::int32_t(surface_w) && server.buffer_h == std::int32_t(kOutH);
             if (!scaled) fail("committed buffer not at the fractional scale's size");
-            if (server.dest_w != std::int32_t(kOutW) || server.dest_h != std::int32_t(kOutH)) fail("viewport destination is not the logical size");
+            if (server.dest_w != std::int32_t(surface_w) || server.dest_h != std::int32_t(kOutH)) fail("viewport destination is not the logical size");
+        }
+        if (opt.immersive) {  // the wire and the memory, end to end, through the real renderer and a real capture
+            if (!opt.fractional_scale && server.buffer_w != std::int32_t(surface_w)) fail("the buffer is not side by side");
+            if (depth_inputs < 5) fail("too few pictures reached the engine");
+            if (depth_lit != depth_inputs) fail("a picture reached the engine black");
+            const auto report = out.value("depth_report", nlohmann::json::object());
+            if (report.value("maps", 0) < 3) fail("too few maps were drawn");
+            if (report.value("feed_failed", true)) fail("the feed failed");
+            if (report.value("alive", false) == engine_dead) fail("the renderer's view of the engine is wrong at the end");
+            const auto stereo = out.value("gl_stereo", nlohmann::json::object());
+            if (!stereo.value("available", false)) fail("stereo was not available");
+            if (stereo.value("frames", 0) < 10) fail("too few stereo frames");
         }
         if (capture && !opt.maximize && server.blank_frames) fail("a desktop went blank (showed no frame) after showing one");
         // What the incident monitor reads while a session runs (incident_detect.py). The status needs a frame to measure.

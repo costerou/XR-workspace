@@ -4,7 +4,7 @@ from pathlib import Path
 from dataclasses import dataclass
 # Up here, not where they are used: a run imports from the worktree, so a module first imported at Stop would be whatever an
 # install has checked out since the session started. Recovery needs nothing more from the disk once the run is up.
-from . import immersive, monitor_rules, privacy, restore, send, survive, tracking
+from . import immersive, monitor_rules, privacy, restore, sbs, send, survive, tracking
 from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
@@ -40,7 +40,7 @@ def recover_managed(client, consent, path, clear_rules=()):
     path = canonical
     session = client.verified_session()['id']
     privacy.wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
-    immersive.restore_2d()  # ... and a crash in 3D the glasses in side-by-side
+    immersive.restore_2d(sbs.ButtonSbs(client, consent['output'], send.notify))  # ... and a crash in 3D the glasses in side-by-side
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
         journal = Journal.open(path, consent['run_id'], session, existing_only=True)
@@ -60,7 +60,8 @@ def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=No
     # Privacy mode (Ctrl+Alt+D) may have left the fallback DPMS-off: it comes back first, whatever ended the run.
     saved = getattr(journal, 'broker', None)
     if isinstance(saved, dict): privacy.wake(client, saved.get('recovery_output'))
-    immersive.restore_2d()  # so do the glasses, out of side-by-side 3D
+    # So do the glasses, out of side-by-side 3D, as far as a program can: it says which button.
+    if isinstance(saved, dict) and saved.get('output'): immersive.restore_2d(sbs.ButtonSbs(client, saved['output'], send.notify))
     names = getattr(journal, 'output_names', list)()
     agreed = [name for name in names if name in clear_rules]
     unsolved = (monitor_rules.clear(client, agreed, notify=send.notify)
@@ -97,9 +98,14 @@ def _left_on(client, names):
 
 def _restore_output(client, consent, output):
     """What a run did to the glasses' output at its start (runner.py), which a drop undoes: they come back at their preferred
-    mode, placed anywhere. Raises until it reads back, so survive.wait_for_glasses tries again."""
+    mode, placed anywhere. Raises until it reads back, so survive.wait_for_glasses tries again. Glasses that come back side by
+    side (R1 was held, in a run with the 3D scope) come back to their wide mode: the session mode does not exist then."""
     def restore():
-        if consent.get('mode_switch') is not False: client.apply_session_mode(output)
+        rate = None
+        if sbs.scope_ok(consent.get('sbs_mode')):
+            rate = sbs.best_wide(next((m for m in monitors(client.query('monitors')) if m['name'] == output), None))
+        if rate is not None: client.apply_wide_mode(output, rate)
+        elif consent.get('mode_switch') is not False: client.apply_session_mode(output)
         client.park_presentation(output)
     return restore
 
@@ -124,7 +130,8 @@ def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer
         journal = Journal.open(directory / 'journal.json', consent['run_id'], session)
         return _run_owned(client, journal, broker, output, fallback, specs, capture=capture_names(consent, specs),
                           pose_feed=consent.get('tracking') in tracking.SCOPES, store=store, renderer=renderer,
-                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output))
+                          adopt=adopting, create_failed=_setup_failed(store, desktops), restore_output=_restore_output(client, consent, output),
+                          sbs_mode=consent.get('sbs_mode'))
 
 
 # The broker's verdicts on an output itself (ownership.OwnershipBrokerClient.verify): it was not made live, or did not
@@ -151,7 +158,7 @@ from contextlib import contextmanager
 
 @contextmanager
 def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None,
-                  cursor_shape=None, renderer=None):
+                  cursor_shape=None, renderer=None, sbs_mode=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
     `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
@@ -191,7 +198,10 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                 client.park_presentation(output)
             if mode is not None and hasattr(client, 'apply_session_mode'):
                 now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
-                if view.session_mode(now) != mode: client.apply_session_mode(output)
+                # Glasses side by side have no session mode to go back to: their wide one instead, 3D or not.
+                wide = sbs.best_wide(now) if sbs.scope_ok(sbs_mode) and hasattr(client, 'apply_wide_mode') else None
+                if wide is not None: client.apply_wide_mode(output, wide)
+                elif view.session_mode(now) != mode: client.apply_session_mode(output)
             if run_3d is not None: run_3d.reassert()
 
         def menu_binds(open_):
@@ -247,7 +257,10 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             control.state.wide = desktops.wide()
             control.state.sizes = desktops.desktops()  # the panel's Scale dropdown
         # Immersive 3D (immersive.py): the glasses' side-by-side mode and the depth engine, only while a desktop is 3D.
-        control.immersive_run = immersive.ImmersiveRun(immersive.ProcessEngine(immersive.find_engine(renderer)), immersive.make_sbs())
+        engine_binary = immersive.find_engine(renderer)
+        depth_memory = control.depth_memory = immersive.DepthMemory() if engine_binary is not None else None
+        control.immersive_run = immersive.ImmersiveRun(immersive.ProcessEngine(engine_binary, memory=depth_memory),
+                                                       immersive.make_sbs(client, output, {'sbs_mode': sbs_mode}, tell=control._tell))
         if windows is not None:  # where each window is, kept current (window_memory.py); Super drags and events reach it
             control.windows = windows
             windows.context = control.window_context
@@ -288,6 +301,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             control.privacy.close()  # the main display back on; no toggle starts after this
         if control is not None and control.immersive_run is not None:
             control.immersive_run.close()  # the glasses back in 2D, the engine gone; bounded, before recovery
+        if control is not None and control.depth_memory is not None: control.depth_memory.close()
         if control is not None:
             control.flush()  # a panel or drag change still inside its save delay
             control.save_setup()  # the whole monitor setup, for the next start (profiles.py)
@@ -349,23 +363,25 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify):
+def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify, switching=lambda: False):
     """Run the renderer; a USB drop of the glasses starts a new one once they are back (survive.py). The renderer's last exit
-    code. `restore_output`: None, the older runs' single renderer and no hold."""
+    code. `restore_output`: None, the older runs' single renderer and no hold. `switching`: true while the glasses are changing
+    between 2D and 3D (sbs.py): the same hold, for a reason that needs no apology."""
     while True:
         usb_before = survive.usb_identity()
         returncode = launch()
         if restore_output is None: return returncode
+        expected = switching()
         try:
             dropped = survive.should_hold(returncode, report.get('stop_reason'), output_ok=survive.output_ok(client, output),
-                                          usb_before=usb_before, usb_now=survive.usb_identity())
+                                          usb_before=usb_before, usb_now=survive.usb_identity(), expected=expected)
         except (OSError, ValueError, TimeoutError):
             return returncode  # the compositor went too: nothing to come back to
         if not dropped: return returncode
         if not holds.begin():
             tell('The glasses keep dropping off USB, so XR stopped. Check the cable.')
             return returncode
-        tell('The glasses dropped off USB. Your desktops are safe; XR comes back by itself.')
+        if not expected: tell('The glasses dropped off USB. Your desktops are safe; XR comes back by itself.')
         def ready():
             try: return survive.output_ok(client, output) and (usb_before is None or survive.usb_identity() is not None)
             except (OSError, ValueError, TimeoutError): return False
@@ -384,10 +400,10 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
         if not back:
             tell('The glasses did not come back, so XR stopped and your windows are back on the monitor.')
             return returncode
-        tell('The glasses are back. XR picks up where it was.')
+        if not expected: tell('The glasses are back. XR picks up where it was.')
 
 
-def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None):
+def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None, restore_output=None, sbs_mode=None):
     session = journal.session
     holds = survive.Holds()
     holds.revive = (lambda: survive.revive_tracking(client.runtime_dir, tracking)) if pose_feed else (lambda: True)
@@ -433,7 +449,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             if memory is not None: memory.finish()
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
         with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
-                           memory, cursor_shape=cursor_shape, renderer=renderer) as control:
+                           memory, cursor_shape=cursor_shape, renderer=renderer, sbs_mode=sbs_mode) as control:
             def launch():
                 report.clear()
                 # A later renderer: the desktops as they are now, which a pill may have changed since the start.
@@ -442,8 +458,13 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
                     return _launch(client, journal.run_id, session, output, wayland, None,
                                    guard=manager.guard() if manager is not None else guard,
                                    capture=[s['name'] for s in live] if capture else capture,
-                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report)
-            returncode = keep_renderer(launch, client, output, report, control, restore_output, holds)
+                                   control=control, pose_feed=pose_feed, renderer=renderer, report=report, **depth_fd)
+            # 3D's two ends, on a run with a view control (any capture run): VideoControl hands these through.
+            run_3d = getattr(control, 'immersive_run', None)
+            depth_memory = getattr(control, 'depth_memory', None)
+            depth_fd = {'depth_fd': depth_memory.fd} if depth_memory is not None else {}
+            returncode = keep_renderer(launch, client, output, report, control, restore_output, holds,
+                                       switching=run_3d.switching if run_3d is not None else lambda: False)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.

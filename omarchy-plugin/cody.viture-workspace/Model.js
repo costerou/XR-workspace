@@ -132,6 +132,7 @@ function scopeLines(scope, action, rules) {
     } else {
         required(scope.model === "beast" ? "Beast: native 120 Hz mode; no mode switch. This is not measured presentation cadence." : "No display mode switch requested.");
     }
+    if (scope.sbs_mode) required("If you turn on 3D and hold R1 on the glasses: follow them to " + scope.sbs_mode.width + "×" + scope.sbs_mode.height + " (" + scope.sbs_mode.refresh_hz.join(" or ") + " Hz), and hold R1 again to go back to 2D. Nothing is sent to the glasses.");
     return lines;
 }
 
@@ -148,7 +149,7 @@ const OPERATION_LABELS = {prev:"◀ Prev", next:"Next ▶", zoom_in:"Maximize", 
                           prediction:"Pose prediction"};
 function operationLabel(op) { return OPERATION_LABELS[op] || op; }
 
-// Immersive 3D (tools/native_spike/immersive.py, the same rules): {global, desktops}, `desktops` the exceptions by XR-n name.
+// Immersive 3D (tools/native_spike/immersive.py, the same rules): {global, desktops, preset, strength, convergence}, `desktops` the exceptions by XR-n name.
 // The panel sends the whole setting; the supervisor applies and saves it, and the next status shows it.
 function immersiveOn(setting, name) {
     if (!setting) return false;
@@ -157,21 +158,34 @@ function immersiveOn(setting, name) {
 }
 // All desktops: anything 3D goes flat, all of it; nothing 3D, everything goes 3D.
 function immersiveAll(setting, names) {
-    return {global:!names.some(n => immersiveOn(setting, n)), desktops:{}};
+    return Object.assign({}, setting, {global:!names.some(n => immersiveOn(setting, n)), desktops:{}});
 }
 // One desktop the other way, the rest as they are. An exception that says what `global` says is dropped.
 function immersiveDesktop(setting, name) {
     const every = !!(setting && setting.global), exceptions = Object.assign({}, (setting && setting.desktops) || {});
     if (immersiveOn(setting, name) === every) exceptions[name] = !every;
     else delete exceptions[name];
-    return {global:every, desktops:exceptions};
+    return Object.assign({}, setting, {global:every, desktops:exceptions});
 }
+// The panel's look controls; a preset brings its own screen plane (immersive.with_preset). Soft, Standard, Enhanced are VITURE's names.
+const IMMERSIVE_PRESETS = [{key:"desktop", label:"Desktop", convergence:92}, {key:"video", label:"Video", convergence:70}, {key:"games", label:"Games", convergence:75}];
+const IMMERSIVE_STRENGTHS = [{value:50, label:"Soft"}, {value:100, label:"Standard"}, {value:150, label:"Enhanced"}];
+function immersivePreset(setting, key) {
+    const preset = IMMERSIVE_PRESETS.find(p => p.key === key);
+    return preset ? Object.assign({}, setting, {preset:key, convergence:preset.convergence}) : setting;
+}
+function immersiveStrength(setting, value) { return Object.assign({}, setting, {strength:Math.round(value)}); }
+function immersiveConvergence(setting, value) { return Object.assign({}, setting, {convergence:Math.round(value)}); }
 // The line beside the 3D buttons, from the run's `immersive` status.
 function immersiveLabel(status) {
     if (!status) return "";
     if (status.failed) return "Fell back to 2D: press again to retry";
     if (status.stereo) return "3D on";
-    return (status.names || []).length ? "Starting…" : "Off";
+    if (!(status.names || []).length) return "Off";
+    if (status.installed === false) return "Depth engine not installed";
+    if (status.phase === "engine") return "Loading the depth model…";
+    if (status.phase === "glasses") return "Hold R1 on the glasses";
+    return "Starting…";
 }
 
 // Translate a preview click into the existing relative operations. The caller

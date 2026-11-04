@@ -13,7 +13,7 @@ from tools.native_spike.panel_consent import build_consent, write_consent, load_
 from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
-from tools.native_spike import environment, immersive, tracking
+from tools.native_spike import environment, immersive, sbs, tracking
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
@@ -208,6 +208,9 @@ class Controller:
             if self.state not in ('idle','running'): raise ValueError('busy')
             settings=msg['settings']
             if not isinstance(settings,dict): raise ValueError('invalid settings')
+            if isinstance(settings.get('immersive'),dict):  # a panel older than the look controls sends the desktops alone
+                model=self._consent(self.run)['model'] if self.state=='running' else self.observed['model']
+                settings={**settings,'immersive':{**self.store.load(model)['immersive'],**settings['immersive']}}
             if self.state=='running':
                 # View settings travel as relative operations; placements are the one absolute, presentation-only message.
                 if set(settings)-set(DEFAULT_SETTINGS)-{'placements'}: raise ValueError('resolution/settings locked while running')
@@ -258,6 +261,8 @@ class Controller:
                 tracking=self._tracking_scope(p,luma),mode_switch=LUMA_MODE.copy() if p['mode_switch'] and o['model']=='luma-ultra' else False,
                 desktops=self._startup_desktops(o['model'],p),**self._tracking_driver(p),**installed)
             if scope['tracking']==tracking.LUMA: scope[LUMA_PIN]=luma
+            # 3D's own line in the consent (tools/native_spike/sbs.py), only where the depth engine can run at all.
+            if scope['mode_switch'] and immersive.find_engine(scope['renderer']['path']) is not None: scope[sbs.SCOPE_KEY]=copy.deepcopy(sbs.SCOPE)
             if getattr(self,"scope_transform",None): scope=self.scope_transform(scope)
             build_consent(scope)
             self.last_failure=None

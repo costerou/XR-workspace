@@ -48,11 +48,13 @@ def output_ok(client, output):
     return any(m['name'] == output and not m['disabled'] for m in monitors_of(client))
 
 
-def should_hold(returncode, stop_reason, *, output_ok, usb_before, usb_now):
-    """Was this renderer's end a drop of the glasses? Only with evidence: a crash with the glasses fine is still a crash."""
+def should_hold(returncode, stop_reason, *, output_ok, usb_before, usb_now, expected=False):
+    """Was this renderer's end a drop of the glasses? Only with evidence: a crash with the glasses fine is still a crash.
+    `expected`: the glasses are changing mode (sbs.py), which can take the output for a moment and be over by the time this
+    looks, so it counts as evidence by itself."""
     if stop_reason in NOT_A_DROP: return False
     if returncode == 0 and stop_reason is None: return False
-    return not output_ok or (usb_before is not None and usb_before != usb_now)
+    return expected or not output_ok or (usb_before is not None and usb_before != usb_now)
 
 
 class Holds:

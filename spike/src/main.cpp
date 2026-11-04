@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
                      "Launched only by the permission-gated Python supervisor with inherited capability sockets.\n"
                      "Internal: --supervised-fd FD --wayland-fd FD --output NAME --run-id RUN --session SESSION\n"
                      "Optional --status-fd FD: nonblocking measured status JSON, at most once per second.\n"
+                     "Optional --depth-fd FD: the depth engine's shared memory, for immersive 3D (src/depth_link.hpp).\n"
                      "Presentation-only: python -m tools.native_spike present --instance INSTANCE --output OUTPUT --consent-file FILE.\n"
                      "Managed output ownership qualification is currently BLOCKED. No 120 Hz claim.\n"
                      "Optional presentation-time v1 feedback: bounded aggregate JSON on stderr at orderly exit/error.\n"
@@ -47,7 +48,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::map<std::string, std::string> args;
-    if (argc != 11 && argc != 13 && argc != 15 && argc != 17) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
+    if (argc != 11 && argc != 13 && argc != 15 && argc != 17 && argc != 19) { std::cerr << "permission: supervised capability sockets required; see --help\n"; return 2; }
     for (int i = 1; i < argc; i += 2) if (!args.emplace(argv[i], argv[i + 1]).second) return 2;
     for (const char* key : {"--supervised-fd", "--wayland-fd", "--output", "--run-id", "--session"}) if (!args.contains(key)) return 2;
     std::uint32_t animation_ms = 0;
@@ -56,7 +57,9 @@ int main(int argc, char** argv) {
     // Optional modes: generated animation alone; or capture, optionally with the XRLinuxDriver pose feed.
     const int status_fd = args.contains("--status-fd") ? number(args["--status-fd"]) : -1;
     if (args.contains("--status-fd") && status_fd < 0) return 2;
-    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd");
+    const int depth_fd = args.contains("--depth-fd") ? number(args["--depth-fd"]) : -1;
+    if (args.contains("--depth-fd") && depth_fd < 0) return 2;
+    const std::size_t optional = std::size_t(argc - 11) / 2 - args.count("--status-fd") - args.count("--depth-fd");
     if (optional > 2) return 2;
     if (optional == 1 && args.contains("--animate-pattern-ms")) {
         auto duration = xr::parse_pattern_duration(args["--animate-pattern-ms"]);
@@ -75,6 +78,7 @@ int main(int argc, char** argv) {
     const int control = number(args["--supervised-fd"]), wayland = number(args["--wayland-fd"]);
     if (control < 0 || wayland < 0 || control == wayland) return 2;
     if (status_fd >= 0 && (status_fd == control || status_fd == wayland)) return 2;
+    if (depth_fd >= 0 && (depth_fd == control || depth_fd == wayland || depth_fd == status_fd)) return 2;
     for (int fd : {control, wayland, status_fd}) {
         if (fd < 0) continue;
         ucred peer{}; socklen_t size = sizeof(peer);
@@ -97,6 +101,7 @@ int main(int argc, char** argv) {
     xr::Presentation presentation;
     int result = 0;
     if (!report(presentation.open(args["--output"], capture))) result = 1;
+    if (!result && depth_fd >= 0) presentation.set_depth_fd(depth_fd);
     if (!result && pose_feed) presentation.enable_tracking("/tmp/shader_runtime_");  // XRLinuxDriver IPC (fixed path)
     if (!result && animation_ms && !report(presentation.animate_pattern(animation_ms))) result = 1;
     // Further supervisor frames (view, stop) on the same private socket; replay-protected queue.
@@ -210,7 +215,7 @@ int main(int argc, char** argv) {
                             presentation.set_roll(r->roll, r->bars, r->hover, r->side, r->active);
                     }
                     else if (m->op == xr::ControlOp::immersive) {  // 3D; malformed ones were dropped above
-                        if (const auto* i = std::get_if<xr::ImmersivePayload>(&m->payload)) presentation.set_immersive(i->desktops, i->global, i->stereo, i->hover, i->tail);
+                        if (const auto* i = std::get_if<xr::ImmersivePayload>(&m->payload)) presentation.set_immersive(i->desktops, i->global, i->stereo, i->hover, i->tail, i->params);
                     }
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))

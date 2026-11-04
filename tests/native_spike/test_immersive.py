@@ -20,8 +20,13 @@ from tools.native_spike.immersive import EngineError, ImmersiveRun, NoDeviceSbs,
 from tools.native_spike.profiles import LayoutStore, ProfileStore
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
-OFF = {'global': False, 'desktops': {}}
-ALL = {'global': True, 'desktops': {}}
+def full(every, desktops):
+    """A whole setting with the default look: the tests about which desktops are 3D do not care about it."""
+    return {**immersive.DEFAULTS, 'global': every, 'desktops': desktops}
+
+
+OFF = full(False, {})
+ALL = full(True, {})
 FIXTURE = Path(__file__).parent / 'fixtures' / 'immersive_payloads.json'
 WAIT_S = 5.0
 
@@ -63,7 +68,7 @@ class FakeSbs:
     def __init__(self, log, enter_fails=None, leave_fails=None):
         self.log, self.enter_fails, self.leave_fails = log, enter_fails, leave_fails
 
-    def enter(self):
+    def enter(self, cancelled=None):
         self.log.append(('enter',))
         if self.enter_fails is not None: raise self.enter_fails
 
@@ -82,7 +87,8 @@ def frames(data):
 
 
 def immersive_frames(data):
-    return [f['payload'] for f in frames(data) if f['op'] == 'immersive']
+    """The frames' payloads without their `params`, which LookTests is about."""
+    return [{k: v for k, v in f['payload'].items() if k != 'params'} for f in frames(data) if f['op'] == 'immersive']
 
 
 class SettingTests(unittest.TestCase):
@@ -96,12 +102,12 @@ class SettingTests(unittest.TestCase):
     def test_anything_invalid_reads_as_off_and_never_raises(self):
         for bad in (None, 3, [], 'on', {'global': 1}, {'desktops': 'XR-1'}, {'global': None, 'desktops': []}):
             self.assertEqual(immersive.clean(bad), OFF, bad)
-        self.assertEqual(immersive.clean({'global': True, 'desktops': {'XR-9': False, 'HDMI-A-1': False, 3: False, 'XR-2': 'no'}}), ALL)
+        self.assertEqual(immersive.clean(full(True, {'XR-9': False, 'HDMI-A-1': False, 3: False, 'XR-2': 'no'})), ALL)
 
     def test_an_exception_that_says_nothing_is_dropped(self):
-        self.assertEqual(immersive.clean({'global': True, 'desktops': {'XR-1': True, 'XR-2': False}}),
-                         {'global': True, 'desktops': {'XR-2': False}})
-        self.assertFalse(immersive.is_valid({'global': True, 'desktops': {'XR-1': True}}))
+        self.assertEqual(immersive.clean(full(True, {'XR-1': True, 'XR-2': False})),
+                         full(True, {'XR-2': False}))
+        self.assertFalse(immersive.is_valid(full(True, {'XR-1': True})))
         self.assertRaises(ValueError, immersive.validate, {'global': False})
         self.assertRaises(ValueError, immersive.validate, {'global': False, 'desktops': {}, 'extra': 1})
 
@@ -145,9 +151,9 @@ class SavedTests(unittest.TestCase):
         self.path = Path(self.dir.name) / 'profiles.json'
 
     def test_each_glasses_model_keeps_its_own(self):
-        full = {**profiles.DEFAULT_PROFILE, 'immersive': {'global': False, 'desktops': {'XR-2': True}}}
-        profiles.save_profile(self.path, 'luma-ultra', full)
-        self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['immersive'], full['immersive'])
+        profile = {**profiles.DEFAULT_PROFILE, 'immersive': full(False, {'XR-2': True})}
+        profiles.save_profile(self.path, 'luma-ultra', profile)
+        self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['immersive'], profile['immersive'])
         self.assertEqual(profiles.load_profile(self.path, 'beast')['immersive'], OFF)
 
     def test_the_run_saves_to_the_profile_and_the_next_start_reads_it(self):
@@ -299,9 +305,9 @@ class ButtonTests(unittest.TestCase):
         pointer.pointer = fp.project(G, G['tiles'][1], FLAT, *self.centre(G['tiles'][1]))
         out = pointer.on_op('resize_press')
         self.assertEqual(immersive_frames(out)[0]['desktops'], [False, True, False, False])
-        self.assertEqual(control.state.immersive, {'global': False, 'desktops': {'XR-2': True}})
+        self.assertEqual(control.state.immersive, full(False, {'XR-2': True}))
         pointer.on_op('resize_release')
-        self.assertEqual(control.state.immersive, {'global': False, 'desktops': {'XR-2': True}})  # the press did it, once
+        self.assertEqual(control.state.immersive, full(False, {'XR-2': True}))  # the press did it, once
         pointer.on_op('resize_press')
         self.assertEqual(control.state.immersive, OFF)
 
@@ -496,7 +502,7 @@ class RunTests(unittest.TestCase):
         self.addCleanup(gate.set)
         log = []
         class Stuck(FakeSbs):
-            def enter(self):
+            def enter(self, cancelled=None):
                 gate.wait(WAIT_S)
         engine = FakeEngine(log)
         run = ImmersiveRun(engine, Stuck(log))
@@ -575,7 +581,7 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(immersive_frames(out), [{'desktops': [False] * 4, 'global': False, 'stereo': False, 'hover': -1, 'tail': False}])
         self.assertEqual(self.toasted(), '3D is off: the depth engine could not start (it is not installed). Back to 2D.')
         self.assertEqual(c.state.immersive, ALL)
-        self.assertEqual(c._immersive_status(), {'setting': ALL, 'names': [], 'stereo': False, 'failed': True})
+        self.assertEqual(c._immersive_status(), {'setting': ALL, 'names': [], 'stereo': False, 'failed': True, 'phase': 'off', 'installed': False})
 
     def test_it_says_so_once_and_does_not_retry_on_its_own(self):
         c = self.control(FakeEngine(self.log, fail=EngineError('no')))
@@ -595,7 +601,7 @@ class ViewTests(unittest.TestCase):
         self.engine.fail = None
         c.on_message({'op': immersive.TOGGLE_OP})
         self.assertFalse(c.immersive_failed)
-        self.assertEqual(c.state.immersive, {'global': False, 'desktops': {'XR-2': True}})
+        self.assertEqual(c.state.immersive, full(False, {'XR-2': True}))
         self.until_stereo(c)
 
     def test_a_button_press_after_a_failure_tries_again(self):
@@ -604,7 +610,7 @@ class ViewTests(unittest.TestCase):
         wait_for(lambda: (c.poll(), c.immersive_failed)[1])
         self.engine.fail = None
         c.immersive_click(1)
-        self.assertEqual(c.state.immersive, {'global': False, 'desktops': {'XR-2': True}})
+        self.assertEqual(c.state.immersive, full(False, {'XR-2': True}))
         self.until_stereo(c)
 
     def test_the_glasses_refusing_falls_back_with_a_toast(self):
@@ -618,7 +624,7 @@ class ViewTests(unittest.TestCase):
         c = self.control(sbs=NoDeviceSbs())
         c.on_message({'op': immersive.TOGGLE_OP})
         wait_for(lambda: (c.poll(), c.immersive_failed)[1])
-        self.assertIn('the 3D mode command is not available yet', self.toasted())
+        self.assertIn('3D mode is not part of this run', self.toasted())
         self.assertFalse(self.engine.up)
 
     def test_an_engine_dying_mid_run_goes_flat_with_a_toast(self):
@@ -661,7 +667,7 @@ class ViewTests(unittest.TestCase):
         wait_for(lambda: ('set', NAMES + ['XR-4']) in self.log)
 
     def test_the_last_3d_desktop_removed_stops_everything(self):
-        c = self.control(setting={'global': False, 'desktops': {'XR-3': True}})
+        c = self.control(setting=full(False, {'XR-3': True}))
         c.poll(); self.until_stereo(c)
         c.state.names = NAMES[:2]
         out = c.poll()
@@ -676,7 +682,7 @@ class ViewTests(unittest.TestCase):
 
     def test_the_panel_sets_it_absolutely_and_bad_ones_are_dropped(self):
         c = self.control()
-        one = {'global': False, 'desktops': {'XR-2': True}}
+        one = full(False, {'XR-2': True})
         c.on_message({'op': immersive.SET_OP, 'payload': one})
         self.assertEqual(c.state.immersive, one)
         self.assertIsNone(c.on_message({'op': immersive.SET_OP, 'payload': {'global': 3}}))
@@ -689,10 +695,10 @@ class ViewTests(unittest.TestCase):
 
     def test_status_tells_the_panel_what_is_shown(self):
         c = self.control()
-        self.assertEqual(c.status_reply({})['immersive'], {'setting': OFF, 'names': [], 'stereo': False, 'failed': False})
+        self.assertEqual(c.status_reply({})['immersive'], {'setting': OFF, 'names': [], 'stereo': False, 'failed': False, 'phase': 'off', 'installed': False})
         c.immersive_click(1); self.until_stereo(c)
-        self.assertEqual(c.status_reply({})['immersive'], {'setting': {'global': False, 'desktops': {'XR-2': True}}, 'names': ['XR-2'],
-                                                           'stereo': True, 'failed': False})
+        self.assertEqual(c.status_reply({})['immersive'], {'setting': full(False, {'XR-2': True}), 'names': ['XR-2'],
+                                                           'stereo': True, 'failed': False, 'phase': 'on', 'installed': False})
 
 
 class Sbs2dTests(unittest.TestCase):
@@ -712,7 +718,7 @@ class Sbs2dTests(unittest.TestCase):
         src = Path(managed.__file__).read_text()
         for caller in ('def recover_managed', 'def recover_restoring'):
             start = src.index(caller)
-            self.assertLess(src.index('immersive.restore_2d()', start), src.index('recover_restoring(client' if caller.endswith('managed') else 'names = getattr', start))
+            self.assertLess(src.index('immersive.restore_2d(', start), src.index('recover_restoring(client' if caller.endswith('managed') else 'names = getattr', start))
 
     def test_the_run_closes_it_before_recovery(self):
         src = Path(managed.__file__).read_text()
@@ -868,12 +874,12 @@ class WholeRunTests(unittest.TestCase):
 
     def test_the_engine_is_gone_and_the_glasses_flat_when_the_run_ends(self):
         log, engine = [], None
-        def make(renderer):
+        def make(renderer, memory=None):
             nonlocal engine
             self.assertEqual(renderer, '/installed/xr-native-spike')
             engine = FakeEngine(log)
             return engine
-        with mock.patch.object(immersive, 'ProcessEngine', make), mock.patch.object(immersive, 'make_sbs', lambda: FakeSbs(log)), \
+        with mock.patch.object(immersive, 'ProcessEngine', make), mock.patch.object(immersive, 'make_sbs', lambda *a, **k: FakeSbs(log)), \
                 mock.patch.object(immersive, 'find_engine', lambda renderer: renderer):
             with managed.view_controls(self.client, 'run1', 's1', NAMES, store=self.store, renderer='/installed/xr-native-spike') as control:
                 c = control.view
@@ -883,9 +889,9 @@ class WholeRunTests(unittest.TestCase):
         self.assertEqual(log[2:], [('leave',), ('stop',)])
 
     def test_a_saved_setting_comes_up_at_the_next_start(self):
-        self.store.save({**view.DEFAULT_SETTINGS, 'immersive': {'global': False, 'desktops': {'XR-2': True}}})
+        self.store.save({**view.DEFAULT_SETTINGS, 'immersive': full(False, {'XR-2': True})})
         log = []
-        with mock.patch.object(immersive, 'ProcessEngine', lambda renderer: FakeEngine(log)), mock.patch.object(immersive, 'make_sbs', lambda: FakeSbs(log)):
+        with mock.patch.object(immersive, 'ProcessEngine', lambda renderer, memory=None: FakeEngine(log)), mock.patch.object(immersive, 'make_sbs', lambda *a, **k: FakeSbs(log)):
             with managed.view_controls(self.client, 'run1', 's1', NAMES, store=self.store) as control:
                 self.assertEqual(immersive_frames(control.initial_frame())[0]['desktops'], [False, True, False, False])
                 wait_for(lambda: (control.poll(time.monotonic()), control.view.immersive_stereo)[1], 'stereo')

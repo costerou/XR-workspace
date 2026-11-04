@@ -345,6 +345,27 @@ class HyprlandClient:
                     if last is not None else None)
         raise ValueError(f'session mode {SESSION_MODE} at {mode} not observed within {DEADLINE:g}s; last readback: {observed}')
 
+    def apply_wide_mode(self, output, rate):
+        """The glasses' side-by-side mode at `rate` (sbs.py), on the output at its current placement; verified by readback, like
+        apply_session_mode. Asked for only after the glasses themselves offer it."""
+        from .sbs import WIDE, wide_mode_lua
+        def current(timeout=DEADLINE):
+            found = [m for m in monitors(self.query('monitors', timeout=timeout)) if m['name'] == output]
+            if len(found) != 1: raise ValueError('wide mode output not found')
+            return found[0]
+        m = current()
+        self._eval(wide_mode_lua(m['name'], m['x'], m['y'], float(m['scale']), rate))
+        started = time.monotonic()
+        deadline, last = started + DEADLINE, None
+        while (remaining := deadline - time.monotonic()) > 0:
+            try: last = current(timeout=remaining)
+            except TimeoutError: break
+            if (last['width'], last['height']) == WIDE and abs(last['refreshRate'] - rate) < 0.5: return last
+            remaining = deadline - time.monotonic()
+            if remaining <= 0: break
+            time.sleep(min(_readback_step(started), remaining))
+        raise ValueError(f'3840x1200@{rate:g} not observed within {DEADLINE:g}s')
+
     def park_presentation(self, output):
         """Keep the rendering output away from the interactive row; preserve its mode.
 

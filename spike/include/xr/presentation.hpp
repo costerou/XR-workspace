@@ -4,6 +4,7 @@
 #include "xr/video.hpp"
 #include "xr/hud.hpp"
 #include "xr/binds_panel.hpp"
+#include "xr/depth.hpp"
 #include "xr/desktops.hpp"
 #include "xr/view.hpp"
 #include <array>
@@ -26,6 +27,9 @@ struct SurfaceRequests {
 void apply_presentation_policy(SurfaceRequests&);
 std::uint32_t layer_version(std::uint32_t advertised);
 bool valid_surface_size(std::uint32_t width, std::uint32_t height);
+// The canvas of a surface: everything is laid out in it (placements, cards, FOV, the supervisor's geometry). A surface at least
+// 3:1 wide is the glasses in side-by-side, one half per eye, so its canvas is one eye's half and no layout changes with the mode.
+std::uint32_t canvas_width(std::uint32_t surface_width, std::uint32_t height);
 // The buffer size that fills a width x height (logical) surface pixel for pixel at wp_fractional_scale_v1 preferred
 // scale `scale120` (120ths: 150 = 1.25). The glasses run at 1.25, so the 1536x960 surface is drawn at the panel's own
 // 1920x1200 instead of being upscaled by the compositor. No scale (0), or a result valid_surface_size refuses: unscaled.
@@ -150,7 +154,10 @@ public:
     void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<bool, kMaxDesktops>& bars, std::int32_t hover,
                   std::int8_t side, bool active);
     // Immersive 3D (ipc.hpp ImmersivePayload). The buttons draw from it; `stereo` waits for the stereo pass to read it.
-    void set_immersive(const std::array<bool, kMaxDesktops>& desktops, bool global, bool stereo, std::int32_t hover, bool tail);
+    void set_immersive(const std::array<bool, kMaxDesktops>& desktops, bool global, bool stereo, std::int32_t hover, bool tail, const ImmersiveParams& params = {});
+    // The depth engine's shared memory (a memfd the supervisor made, see src/depth_link.hpp). Without one the 3D buttons still
+    // light, and no desktop ever gets depth. Not taken: it stays open for the run. Before open().
+    void set_depth_fd(int fd);
     // How far each desktop is from level as you see it, without its levelling roll (view.hpp desktop_tilt against the
     // world's up, PoseState::reference): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a
     // degree (counter-clockwise positive), or null where it cannot be measured (no head tracking, not in anchor mode or

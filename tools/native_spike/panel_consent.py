@@ -6,6 +6,7 @@ import re
 from .geometry import validate_desktops
 from .ipc import read_private_json, token
 from .profiles import MODELS
+from .sbs import SCOPE_KEY as SBS_KEY, scope_ok as sbs_scope_ok
 from .supervisor import CAPTURE_ALLOW, CAPTURE_SCOPE
 from .tracking import DOF3, LUMA, SCOPES
 
@@ -31,7 +32,9 @@ def _artifact(value):
 
 def _keys(data):
     keys = PANEL_KEYS | {LUMA_PIN} if data.get('tracking') == LUMA else PANEL_KEYS
-    return keys | {DRIVER_KEY} if DRIVER_KEY in data else keys
+    keys = keys | {DRIVER_KEY} if DRIVER_KEY in data else keys
+    # Present only where the depth engine is installed, so any other run's consent stays what older code reads.
+    return keys | {SBS_KEY} if SBS_KEY in data else keys
 
 
 def _validate(data, instance=None, output=None):
@@ -56,6 +59,9 @@ def _validate(data, instance=None, output=None):
         if data['model'] != 'luma-ultra': raise ValueError('mode switch is Luma Ultra only')
         if not isinstance(mode, dict) or set(mode) != set(LUMA_MODE) or any(type(mode[k]) is not int or mode[k] != v for k, v in LUMA_MODE.items()):
             raise ValueError('mode switch must be exactly 1920x1200@120')
+    if SBS_KEY in data:  # sbs.py: following the glasses to their own 3D mode, once a person has held R1 on them
+        if mode is False or data['model'] != 'luma-ultra' or not sbs_scope_ok(data[SBS_KEY]):
+            raise ValueError('3D mode must be exactly 3840x1200 at 90 or 60, on a Luma Ultra run that switches modes')
     data['plugin'] = _artifact(data['plugin']); data['renderer'] = _artifact(data['renderer'])
     if LUMA_PIN in data: data[LUMA_PIN] = _artifact(data[LUMA_PIN])
     # The desktops the session starts with (1..MAX_DESKTOPS). The approved capture scope is the run's own managed outputs:

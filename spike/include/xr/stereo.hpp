@@ -26,6 +26,7 @@ struct StereoParams {
 // comfort range; a virtual image at 4 m has about 0.93 degrees before the eyes must diverge (63 mm IPD).
 inline constexpr float kStereoStrengthMax = 2.f, kStereoNearDegMax = 1.5f, kStereoFarDegMax = 1.0f;
 StereoParams stereo_clamped(const StereoParams& p);  // in range; NaN or infinity: that field's default
+StereoParams stereo_from_wire(const ImmersiveParams& w);  // the whole numbers of an `immersive` frame, clamped
 
 // The whole view's comfort limits in pixels of an eye image eye_w wide, seen through tan(half FOV) half_w.
 struct StereoLimits { float near_px = 0, far_px = 0; };
@@ -39,7 +40,7 @@ float stereo_nearness(float raw, float lo, float hi);  // lo..hi -> 0..1, clampe
 float stereo_smoothstep(float a, float b, float x);
 // v is tapered to 0 over this fraction of a desktop's width (and the same pixels of its height) from each edge: nothing may
 // cross the desktop's frame, whose border, level bar and pill stay on its plane.
-inline constexpr float kStereoEdgeTaper = 0.03f;
+inline constexpr float kStereoEdgeTaper = 0.05f;
 float stereo_edge_gain(float u, float v, float aspect);  // aspect = width / height
 // A change of v above kStereoCut within one depth frame is new content, not noise: the filter lets go of its history.
 inline constexpr float kStereoCutLo = 0.1f, kStereoCut = 0.35f;

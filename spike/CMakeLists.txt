@@ -412,9 +412,9 @@ if(XR_ENABLE_PRESENTATION)
   add_test(NAME capture COMMAND capture_test)
   pkg_check_modules(GPU REQUIRED IMPORTED_TARGET egl glesv2 wayland-egl gbm libdrm)
   add_library(xr_presentation STATIC src/wayland.cpp src/presentation.cpp src/gl.cpp src/hud_gl.cpp src/dmabuf.cpp
-    src/video_gl.cpp src/video_player.cpp src/video_mode.cpp src/environment_gl.cpp src/stereo_gl.cpp ${PROTOCOL_SOURCES})
+    src/video_gl.cpp src/video_player.cpp src/video_mode.cpp src/environment_gl.cpp src/stereo_gl.cpp src/depth_link.cpp ${PROTOCOL_SOURCES})
   target_include_directories(xr_presentation PRIVATE "${GENERATED}")
-  target_link_libraries(xr_presentation PUBLIC xr_types xr_metrics xr_capture xr_view xr_pose xr_predict xr_hud PRIVATE PkgConfig::WAYLAND PkgConfig::GPU)
+  target_link_libraries(xr_presentation PUBLIC xr_types xr_metrics xr_capture xr_view xr_pose xr_predict xr_hud xr_depth_feed PRIVATE PkgConfig::WAYLAND PkgConfig::GPU)
   add_executable(xr-native-spike src/main.cpp)
   target_link_libraries(xr-native-spike PRIVATE xr_presentation xr_ipc)
   add_executable(presentation_test tests/presentation_test.cpp)
@@ -458,6 +458,14 @@ if(XR_ENABLE_PRESENTATION)
   target_compile_options(stereo_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   add_test(NAME stereo_render COMMAND stereo_render_test "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden")
   set_tests_properties(stereo_render PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+  # The renderer's end of the depth engine (src/depth_link.hpp): the real compositor and link against a stand-in engine in this
+  # process, through the real shared memory: feed, maps, a still desktop, a crash going flat, a restart, the per-frame budget.
+  add_executable(depth_link_render_test tests/depth_link_render_test.cpp)
+  target_include_directories(depth_link_render_test PRIVATE src)
+  target_link_libraries(depth_link_render_test PRIVATE xr_presentation PkgConfig::GPU)
+  target_compile_options(depth_link_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME depth_link_render COMMAND depth_link_render_test)
+  set_tests_properties(depth_link_render PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
   add_executable(environment_render_test tests/environment_render_test.cpp)
   target_include_directories(environment_render_test PRIVATE src)
   target_link_libraries(environment_render_test PRIVATE xr_presentation PkgConfig::GPU)
@@ -593,6 +601,19 @@ if(XR_ENABLE_PRESENTATION)
     add_test(NAME capture_e2e_open_panel COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 1.5 --warmup 1 --outputs 1
       --environment grid --open-panel --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_open_panel PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    # Immersive 3D through the real renderer: a side-by-side surface, real captures to the engine, maps back, at the glasses' 1.25
+    # too; then the engine dying part way through, with frames going on to the end. (spike/tests/depth_link_render_test.cpp shows the pixels.)
+    foreach(MODE gl-dmabuf gl-shm)
+      add_test(NAME capture_e2e_immersive_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1 --immersive
+               --renderer "$<TARGET_FILE:xr-native-spike>")
+      set_tests_properties(capture_e2e_immersive_${MODE} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    endforeach()
+    add_test(NAME capture_e2e_immersive_scaled COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 2 --warmup 1 --immersive --fractional-scale 150
+             --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_immersive_scaled PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+    add_test(NAME capture_e2e_immersive_engine_dies COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 4 --warmup 1 --engine-dies 1.5
+             --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_immersive_engine_dies PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     foreach(CHURN bounce resize)
       foreach(MODE cpu gl-shm gl-dmabuf)
         add_test(NAME capture_e2e_churn_${CHURN}_${MODE} COMMAND capture_e2e_bench --check --mode ${MODE} --seconds 2 --warmup 1

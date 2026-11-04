@@ -13,6 +13,8 @@ from tools.native_spike.tracking import DOF3, DRIVER as STANDARD_DRIVER, LUMA, X
 RENDERER, PLUGIN, SHIM = 'xr-native-spike', 'libxr-ownership.so', 'libxr-quiet-driver.so'
 SHIM_PIN = 'quiet-driver.pin.json'
 LUMA_DRIVER, LUMA_KEY = 'xr-luma-driver', 'luma_driver'
+ENGINE, ENGINE_PYTHON = 'xr-depth-engine', ('.cache', 'viture-depth', 'venv', 'bin', 'python')
+REPO = Path(__file__).resolve().parents[2]
 _HEX = re.compile(r'[0-9a-f]{64}')
 # The 3DoF test driver (docs/tracking-3dof-ab.md), built by tools/xrdriver_3dof/build.sh. Pinned here, not in installed.json:
 # `install` rewrites that file and an older controller refuses any extra key, so a rollback stays clean. A rebuild changes
@@ -75,6 +77,23 @@ def _pin_shim(build_dir, target):
     return entry
 
 
+def _write_engine(target, home=None, repo=None):
+    """The AI depth engine's launcher, beside the renderer, where tools/native_spike/immersive.py looks for it (docs/immersive-3d.md).
+    The engine is Python in the model's own environment (tools/depth_engine/setup.sh, 21 GB, no sudo); this names that and this
+    checkout, and sits at a low priority so the renderer always goes first. No environment, no launcher: 3D then says it is not
+    installed. Optional, like the quiet driver. Its name, not a pin: what it runs is a checkout, as the supervisor is."""
+    python = Path(home or Path.home()).joinpath(*ENGINE_PYTHON)
+    dest = Path(target) / ENGINE
+    if not python.is_file():
+        dest.unlink(missing_ok=True)
+        return None
+    repo = str(repo or REPO)
+    if not re.fullmatch(r'[A-Za-z0-9_./-]+', repo) or not re.fullmatch(r'[A-Za-z0-9_./-]+', str(python)): raise ValueError('unsafe path for the depth engine')
+    run = f"import sys,runpy; sys.path.insert(0,'{repo}'); sys.argv[0]='xr-depth-engine'; runpy.run_module('tools.depth_engine',run_name='__main__')"
+    _atomic_write(dest, f'#!/bin/sh\nexec nice -n 5 {python} -I -c "{run}" serve --supervised "$@"\n'.encode(), 0o500)
+    return dest
+
+
 def load_shim(data_home):
     """The installed quiet driver's path, verified, or None."""
     try: entry = json.loads((_root(data_home) / SHIM_PIN).read_text())
@@ -120,6 +139,7 @@ def install(build_dir, data_home):
     shim = _pin_shim(build_dir, target)
     if shim is not None: _atomic_write(root / SHIM_PIN, json.dumps(shim, indent=2).encode(), 0o600)
     else: (root / SHIM_PIN).unlink(missing_ok=True)
+    _write_engine(target)
     _atomic_write(root / 'installed.json', json.dumps(entry, indent=2).encode(), 0o600)
     return entry
 

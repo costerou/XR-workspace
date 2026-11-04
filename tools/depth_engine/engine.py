@@ -5,10 +5,45 @@ import os
 import time
 import zlib
 
+import numpy as np
+
 from . import shm as S
 from .backends import resize_rgba, to_half
 from .scheduler import Scheduler
 from .temporal import TemporalFilter, luma_of
+
+
+BAR_LEVEL = 12        # Brightest a black bar may be, of 255.
+BAR_MIN_SHARE = 0.03  # Of the frame's side: anything thinner is a dark edge of the picture, not a bar.
+BOX_HOLD = 5          # Frames a new picture box has to last: a dark scene must not make the crop flicker.
+
+
+def picture_box(rgba: np.ndarray, level: int = BAR_LEVEL) -> tuple[int, int, int, int] | None:
+    """(x0, y0, x1, y1) of the picture inside black letterbox or pillarbox bars, x1 and y1 exclusive; None for no bars, or
+    an all-black frame. The model reads black bars as the nearest thing on screen, which pushes the picture behind the plane
+    (docs/3d-comfort.md), so they must never reach it."""
+    bright = rgba[..., :3].max(axis=2)
+    rows, cols = np.flatnonzero(bright.max(axis=1) > level), np.flatnonzero(bright.max(axis=0) > level)
+    if rows.size == 0 or cols.size == 0:
+        return None
+    h, w = rgba.shape[:2]
+    x0, y0, x1, y1 = int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1
+    if (x0 + w - x1) < w * BAR_MIN_SHARE:
+        x0, x1 = 0, w
+    if (y0 + h - y1) < h * BAR_MIN_SHARE:
+        y0, y1 = 0, h
+    return None if (x1 - x0, y1 - y0) == (w, h) else (x0, y0, x1, y1)
+
+
+def paste_depth(depth: np.ndarray, box: tuple[int, int, int, int], h: int, w: int) -> np.ndarray:
+    """The map of a cropped picture, back in the whole frame. The bars take the picture's median, so they sit on its middle
+    distance instead of pulling the range towards them."""
+    x0, y0, x1, y1 = box
+    out = np.full((h, w), float(np.median(depth)), np.float32)
+    ys = (np.arange(y1 - y0) * depth.shape[0] / (y1 - y0)).astype(int)
+    xs = (np.arange(x1 - x0) * depth.shape[1] / (x1 - x0)).astype(int)
+    out[y0:y1, x0:x1] = depth[ys][:, xs]
+    return out
 
 
 class Stats:
@@ -28,7 +63,19 @@ class Engine:
         self._pending: dict[int, S.Frame] = {}
         self._filters: dict[int, TemporalFilter] = {}
         self._last_ns: dict[int, int] = {}
+        self._box: dict[int, tuple] = {}  # Channel: (the box in use, frames a different one has lasted).
         self._pid = os.getpid()
+
+    def _stable_box(self, ch: int, box):
+        held, waited = self._box.get(ch, (box, 0))
+        if box == held:
+            self._box[ch] = (held, 0)
+            return held
+        if waited + 1 >= BOX_HOLD:
+            self._box[ch] = (box, 0)
+            return box
+        self._box[ch] = (held, waited + 1)
+        return held
 
     def _collect(self) -> tuple[list[int], set[int]]:
         focused = set()
@@ -40,6 +87,7 @@ class Engine:
                 self._filters.pop(ch, None)
                 self._crc.pop(ch, None)
                 self._last_ns.pop(ch, None)
+                self._box.pop(ch, None)
                 self.scheduler.forget(ch)
                 continue
             if control & S.FOCUSED:
@@ -65,19 +113,32 @@ class Engine:
         if not picks:
             return 0
         frames = [self._pending.pop(ch) for ch in picks]
-        pixels = []
-        for f in frames:
+        pixels, wholes, boxes = [], [], []
+        for ch, f in zip(picks, frames):
             px = f.pixels[..., [2, 1, 0, 3]] if f.format == S.FMT_BGRA8 else f.pixels
-            if self.backend.size:
-                px = resize_rgba(px, *self.backend.size)
+            box = self._stable_box(ch, picture_box(px))
+            whole = resize_rgba(px, *self.backend.size) if self.backend.size else px
+            if box is not None:
+                px = px[box[1]:box[3], box[0]:box[2]]
+                if self.backend.size:
+                    px = resize_rgba(px, *self.backend.size)
+            else:
+                px = whole
             pixels.append(px)
+            wholes.append(whole)
+            boxes.append(box)
         if len({p.shape for p in pixels}) == 1:
             maps = self.backend.infer(pixels)
         else:  # Desktops of different shapes cannot share a batch.
             maps = [self.backend.infer([p])[0] for p in pixels]
         self.stats.batches += 1
         done = 0
-        for ch, f, px, depth in zip(picks, frames, pixels, maps):
+        for ch, f, px, depth, box in zip(picks, frames, wholes, maps, boxes):
+            if box is not None:
+                # In the frame's own coordinates, whatever size the model works at.
+                scale_x, scale_y = px.shape[1] / f.w, px.shape[0] / f.h
+                depth = paste_depth(depth, (round(box[0] * scale_x), round(box[1] * scale_y), round(box[2] * scale_x), round(box[3] * scale_y)),
+                                    px.shape[0], px.shape[1])
             filt = self._filters.setdefault(ch, TemporalFilter())
             end_ns = self.clock()
             last = self._last_ns.get(ch)

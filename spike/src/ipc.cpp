@@ -48,8 +48,8 @@ bool placement(const Json& value, WirePlacement& out) {
 }
 // An `immersive` frame's payload (ipc.hpp ImmersivePayload).
 bool immersive(const Json& p, ImmersivePayload& out) {
-    if (!p.is_object() || p.size() != 5) return false;
-    for (const char* key : {"desktops", "global", "stereo", "hover", "tail"}) if (!p.contains(key)) return false;
+    if (!p.is_object() || p.size() != 6) return false;
+    for (const char* key : {"desktops", "global", "stereo", "hover", "tail", "params"}) if (!p.contains(key)) return false;
     const auto& d = p["desktops"];
     if (!d.is_array() || d.size() != kMaxDesktops || !p["global"].is_boolean() || !p["stereo"].is_boolean() || !p["tail"].is_boolean() ||
         !p["hover"].is_number_integer()) return false;
@@ -62,6 +62,17 @@ bool immersive(const Json& p, ImmersivePayload& out) {
     if (hover < -1 || hover >= std::int64_t(kMaxDesktops)) return false;
     out.hover = std::int32_t(hover);
     out.global = p["global"].get<bool>(); out.stereo = p["stereo"].get<bool>(); out.tail = p["tail"].get<bool>();
+    const auto& w = p["params"];
+    if (!w.is_object() || w.size() != 6) return false;
+    const struct { const char* key; std::int32_t max; std::int32_t* into; } fields[] = {
+        {"strength", 200, &out.params.strength}, {"convergence", 100, &out.params.convergence}, {"near", 90, &out.params.near_arcmin},
+        {"far", 60, &out.params.far_arcmin}, {"text", 100, &out.params.text}, {"range_ms", 10000, &out.params.range_ms}};
+    for (const auto& f : fields) {
+        if (!w.contains(f.key) || !w[f.key].is_number_integer()) return false;
+        const auto v = w[f.key].is_number_unsigned() ? std::int64_t(std::min<std::uint64_t>(w[f.key].get<std::uint64_t>(), 1u << 30)) : w[f.key].get<std::int64_t>();
+        if (v < 0 || v > f.max) return false;
+        *f.into = std::int32_t(v);
+    }
     return !(out.tail && out.hover < 0);
 }
 // The background's fields, on an `environment` frame and on a placement_menu frame.

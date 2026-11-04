@@ -70,8 +70,9 @@ inline DepthSize depth_input_size(int src_w, int src_h, int long_side) {
 // What the renderer's stereo pass reads (docs/stereo-render.md), whichever way the map arrived. Values are "nearness": larger
 // is nearer. `lo` / `hi` are the farthest and nearest values of this frame, so a model's arbitrary scale needs no conversion
 // (the engine's maps are 0..1 already, the defaults). NaN and infinity are allowed and are drawn flat. One of `pixels` and
-// `texture` is set:
+// `half` and `texture` is set:
 //   pixels   `h` rows of `w` floats (R32F), top row first, `stride` bytes apart (0: tightly packed). Read only during the call.
+//   half     the same as half floats (R16F): what the engine sends, uploaded as it is.
 //   texture  a GL texture name in the renderer's context, R16F or R32F, row 0 the top row.
 struct DepthInput {
     int w = 0, h = 0;
@@ -80,12 +81,27 @@ struct DepthInput {
     std::size_t stride = 0;
     unsigned texture = 0;
     float lo = 0.f, hi = 1.f;
+    const std::uint16_t* half = nullptr;
+    float convergence = -1.f;      // This frame's screen plane (nearness, 0..1). Negative: StereoParams::convergence.
 };
 inline constexpr int kDepthMinHeight = 256;
 inline bool depth_input_valid(const DepthInput& f) {
-    if (f.w <= 0 || f.h < kDepthMinHeight || (!f.pixels && !f.texture)) return false;
+    if (f.w <= 0 || f.h < kDepthMinHeight || (!f.pixels && !f.half && !f.texture)) return false;
+    if (f.half) return !f.stride || f.stride >= std::size_t(f.w) * sizeof(std::uint16_t);
     return !f.pixels || !f.stride || f.stride >= std::size_t(f.w) * sizeof(float);
 }
+
+// What the supervisor asks of 3D (tools/native_spike/immersive.py PRESETS; docs/3d-comfort.md has why): the `params` of an
+// `immersive` frame. Whole numbers on the wire; stereo_from_wire (xr/stereo.hpp) turns them into StereoParams, whose ceilings
+// hold whatever is sent. The defaults are the Desktop preset.
+struct ImmersiveParams {
+    std::int32_t strength = 100;        // percent: 50 Soft, 100 Standard, 150 Enhanced
+    std::int32_t convergence = 92;      // the screen plane, as a percentile of each map's nearness
+    std::int32_t near_arcmin = 4;       // comfort limit in front of the plane
+    std::int32_t far_arcmin = 14;       // and behind it
+    std::int32_t text = 0;              // percent of the parallax left on small text
+    std::int32_t range_ms = 3000;       // how slowly the plane follows the scene
+};
 
 // The shared-memory layout.
 constexpr std::uint32_t kDepthMagic = 0x31445258;  // 'XRD1'
@@ -119,6 +135,10 @@ struct DepthShmConfig {
     std::uint32_t channels = 4;
     int in_w = kDepthLongHigh, in_h = kDepthLongHigh, out_w = kDepthLongHigh, out_h = kDepthLongHigh;
 };
+// A run's memory (src/depth_link.hpp; tools/native_spike/immersive.py DepthMemory makes it this size). One size for every desktop:
+// 266 px tall is the design's minimum and enough on real content (docs/3d-comfort.md), and the engine's model takes this size
+// whatever the desktop's shape, since a depth map is read through the desktop's own uv.
+inline constexpr DepthShmConfig kDepthLinkShm{4, kDepthLongBalanced, kDepthMinTall, kDepthLongBalanced, kDepthMinTall};
 constexpr std::size_t depth_align_page(std::size_t n) { return (n + 4095) / 4096 * 4096; }
 constexpr std::size_t depth_channel_stride(const DepthShmConfig& c) {
     return depth_align_page(kDepthChannelHeaderBytes + kDepthSlots * static_cast<std::size_t>(c.in_w) * c.in_h * 4

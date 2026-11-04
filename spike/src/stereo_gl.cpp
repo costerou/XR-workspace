@@ -32,7 +32,7 @@ const char* kGuideFragment =
     "#version 300 es\nprecision highp float;\n"
     "in vec2 uv; out vec4 color; uniform highp sampler2D raw; uniform sampler2D text; uniform highp sampler2D previous;\n"
     "uniform vec2 range; uniform vec3 params; uniform float alpha; uniform float aspect; uniform float history;\n"
-    "const float KNEE = 0.7, ROOM = 0.3, TAPER = 0.03;\n"
+    "const float KNEE = 0.7, ROOM = 0.3, TAPER = 0.05;\n"
     "void main() {\n"
     "  ivec2 p = ivec2(gl_FragCoord.xy), top = textureSize(raw, 0) - 1;\n"
     "  float r = texelFetch(raw, p, 0).r, v = 0.0;\n"
@@ -186,7 +186,7 @@ StereoPass::~StereoPass() {
 }
 
 void StereoPass::drop(Source& s) {
-    for (const GLuint t : {s.raw, s.text, s.guide[0], s.guide[1]}) if (t) glDeleteTextures(1, &t);
+    for (const GLuint t : {s.raw, s.raw_half, s.text, s.guide[0], s.guide[1]}) if (t) glDeleteTextures(1, &t);
     for (const GLuint f : {s.fb[0], s.fb[1], s.text_fb}) if (f) glDeleteFramebuffers(1, &f);
     s = {};
 }
@@ -246,6 +246,15 @@ bool StereoPass::update(std::size_t source, const DepthInput& f, GLuint colour, 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, f.w, f.h, GL_RED, GL_FLOAT, f.pixels);
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
         raw = s.raw;
+    } else if (f.half) {  // R32F takes GL_FLOAT only, so half floats get their own texture, made on first use
+        if (!s.raw_half) s.raw_half = texture(GL_R16F, GL_RED, GL_HALF_FLOAT, f.w, f.h, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, s.raw_half);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, f.stride ? GLint(f.stride / sizeof(std::uint16_t)) : 0);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, f.w, f.h, GL_RED, GL_HALF_FLOAT, f.half);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        raw = s.raw_half;
     }
     const int next = s.current == 0 ? 1 : 0;
     const auto p = stereo_clamped(params);
@@ -255,7 +264,7 @@ bool StereoPass::update(std::size_t source, const DepthInput& f, GLuint colour, 
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, s.text);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, had ? s.guide[s.current] : 0);
     glUniform2f(guide_.range, f.lo, f.hi);
-    glUniform3f(guide_.params, p.strength, p.convergence, p.text_keep);
+    glUniform3f(guide_.params, p.strength, f.convergence >= 0.f ? std::min(f.convergence, 1.f) : p.convergence, p.text_keep);
     glUniform1f(guide_.alpha, stereo_alpha(dt_ms));
     glUniform1f(guide_.aspect, aspect);
     glUniform1f(guide_.history, had && dt_ms > 0 ? 1.f : 0.f);

@@ -1008,6 +1008,9 @@ def remove_menu_binds_lua():
     return _remove_lua('xr_workspace_menu_binds') + ' ' + _LEGACY_MOUSE_CLEANUP_LUA
 
 
+IMMERSIVE_START = ([False] * MAX_DESKTOPS, False, -1, False, False, _immersive.wire_params(None))  # what a new renderer knows
+
+
 class ViewControl:
     """Supervisor-side handler: user op -> state, async focus, saved spacing, renderer view frame."""
     def __init__(self, state, run_id, session, focus, settings, server, first_request_id=2, border=None, on_reload=None,
@@ -1067,7 +1070,8 @@ class ViewControl:
         self.immersive_run = None  # optional immersive.ImmersiveRun; set by managed.view_controls
         self.immersive_stereo = self.immersive_failed = False
         self.immersive_hover, self.immersive_on_tail = -1, False
-        self._immersive_sent = ([False] * MAX_DESKTOPS, False, -1, False, False)  # the renderer starts with nothing on
+        self._immersive_sent = IMMERSIVE_START  # the renderer starts with nothing on
+        self.depth_memory = None  # immersive.DepthMemory, if the engine is installed; set by managed.view_controls
         self.immersive_failures = 0  # diagnostics
 
     @property
@@ -1095,6 +1099,7 @@ class ViewControl:
         """A new renderer in the same run (survive.py). It starts knowing what initial_frame says; what was only ever sent as
         a change goes again, and what it would not be showing is shut."""
         self.help_visible = False
+        self._immersive_sent = IMMERSIVE_START  # nothing on, as far as it knows: initial_frame tells it
         pointer = self.overview_pointer
         if pointer is not None and hasattr(pointer, 'roll_sent'): pointer.roll_sent = None  # the levelling rolls, on the next poll
 
@@ -1150,7 +1155,9 @@ class ViewControl:
         flags = [False if self.immersive_failed else _immersive.desktop_on(s.immersive, n) for n in s.names]
         every = bool(flags) and all(flags)  # lights the tails
         flags += [False] * (MAX_DESKTOPS - len(flags))  # the wire's length, so a desktop added with nothing on sends nothing
-        sent = (flags, self.immersive_stereo, self.immersive_hover, self.immersive_on_tail, every)
+        # The look matters only while something is 3D: with nothing on, a saved strength sends nothing.
+        look = _immersive.wire_params(s.immersive) if any(flags) else IMMERSIVE_START[-1]
+        sent = (flags, self.immersive_stereo, self.immersive_hover, self.immersive_on_tail, every, look)
         if sent == self._immersive_sent: return b''
         self._immersive_sent = sent
         frame = _immersive.renderer_frame(self.run_id, self.session, self.next_id, *sent)
@@ -1213,8 +1220,10 @@ class ViewControl:
     def _immersive_status(self):
         """For the panel: the setting, which desktops are 3D as shown, and whether it is really drawing."""
         s = self.state
+        run = self.immersive_run
         return {'setting': _immersive.validate(s.immersive), 'names': [] if self.immersive_failed else _immersive.on_names(s.immersive, s.names),
-                'stereo': self.immersive_stereo, 'failed': self.immersive_failed}
+                'stereo': self.immersive_stereo, 'failed': self.immersive_failed, 'phase': run.phase if run is not None else 'off',
+                'installed': run is not None and getattr(run.engine, 'binary', None) is not None}
 
     def _overview_layout(self):
         """The renderer's overview layout (free_pointer.parse_overview_geometry) while it has one slot per desktop, else
