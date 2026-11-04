@@ -158,6 +158,8 @@ class DropPairTests(unittest.TestCase):
 class SameDriverAfterAVideoDropTests(unittest.TestCase):
     """The driver died with the video: the one the run had comes back, by the real revive_tracking and restart_same."""
     def setUp(self):
+        usb = patch.object(tracking, 'SYS_USB', Path('/nonexistent/offline-usb'))
+        usb.start(); self.addCleanup(usb.stop)
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         self.runtime = Path(tmp.name); self.state = self.runtime / 'state.json'
         for patcher in (patch.object(tracking, '_state', lambda rt: self.state), patch.object(tracking, 'status', lambda rt: {'running': False})):
