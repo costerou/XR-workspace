@@ -39,11 +39,11 @@ class VerdictTests(Case):
         self.host.glasses_on_hub()
         self.assertIn('usbfs-route', self.codes('info'))
 
-    def test_one_millisecond_interrupt_endpoint_is_named_as_a_guess(self):
+    def test_the_imu_endpoint_is_named_as_measured(self):
         self.host.glasses_on_hub()
-        text = next(f.text for f in self.verdict().findings if f.code == 'imu-endpoint-hint')
-        self.assertIn('0x83', text)
-        self.assertIn('unproven', text)
+        text = next(f.text for f in self.verdict().findings if f.code == 'imu-endpoint')
+        self.assertIn('0x81', text)
+        self.assertIn('measured', text)
 
 
 class AccessTests(Case):

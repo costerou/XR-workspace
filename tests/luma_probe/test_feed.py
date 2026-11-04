@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.luma_probe.feed import Row, analyse, angle_deg, compare, decode, load, read_segment, record
+from tools.luma_probe.feed import Row, analyse, angle_deg, attitude, attitude_lines, compare, decode, load, read_segment, record
 
 
 def yaw(degrees):
@@ -21,6 +21,24 @@ def still_rows(seconds, rate=1000, drift_deg_per_min=0.0, start_s=0.0, q=None):
         t = start_s + i / rate
         rows.append(Row(int(t * 1e9), t * 1000, *(q or yaw(drift_deg_per_min * t / 60))))
     return rows
+
+
+class AttitudeTests(unittest.TestCase):
+    def row(self, w, x, y, z):
+        return Row(0, 0.0, x, y, z, w)
+
+    def half(self, degrees):
+        return math.cos(math.radians(degrees) / 2), math.sin(math.radians(degrees) / 2)
+
+    def test_signs_are_the_ones_the_plan_reads_off(self):
+        c, s = self.half(30)
+        self.assertAlmostEqual(attitude(self.row(c, 0, 0, s))[0], 30)   # about up: turned left
+        self.assertAlmostEqual(attitude(self.row(c, 0, s, 0))[1], 30)   # about left: nose down
+        self.assertAlmostEqual(attitude(self.row(c, s, 0, 0))[2], 30)   # about forward: right ear down
+
+    def test_one_line_per_second(self):
+        rows = [Row(i * 100_000_000, float(i), 0.0, 0.0, 0.0, 1.0) for i in range(35)]
+        self.assertEqual(len(attitude_lines(rows)), 4)
 
 
 class DecodeTests(unittest.TestCase):

@@ -72,10 +72,10 @@ def assess(scan, roots):
                                 'with no kernel driver, so that device is reached through usbfs (/dev/bus/usb) only.'))
     for interface in glasses.interfaces:
         for endpoint in interface.endpoints:
-            if endpoint.direction == 'in' and endpoint.kind == 'interrupt' and endpoint.period_us == 1000:
-                findings.append(Finding('info', 'imu-endpoint-hint',
-                                        f'Endpoint 0x{endpoint.address:02x} polls every 1 ms, which fits a 1 kHz IMU '
-                                        'stream. This is a guess from the descriptor, unproven.'))
+            if endpoint.direction == 'in' and endpoint.kind == 'interrupt' and endpoint.address == 0x81:
+                findings.append(Finding('info', 'imu-endpoint',
+                                        'Endpoint 0x81 carries the IMU, one 28 byte packet per ms: measured from a '
+                                        'usbmon capture, spike/driver/docs/capture-findings.md.'))
 
     if (glasses.speed or 0) < 480:
         findings.append(Finding('warning', 'slow-link', f'The link runs at {glasses.speed} Mbit/s, not 480: check the cable.'))

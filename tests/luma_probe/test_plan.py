@@ -8,7 +8,7 @@ from tools.luma_probe.udev import RULE_TEXT
 PLAN = Path(__file__).parents[2] / 'spike/driver/docs/live-test-plan.md'
 STEP = re.compile(r'^\*\*([A-Z])(\d+)\.', re.M)
 BLOCK = re.compile(r'```sh\n(.*?)```', re.S)
-STAGES = 'PDIFSCRLEXB'
+STAGES = 'PDGKIFSCRLEXB'
 NEEDS_NO_PASS_LINE = {'L3', 'X1'}  # L3 says plainly it is not measured; X1 is an instruction, X2 judges it
 
 

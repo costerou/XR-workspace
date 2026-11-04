@@ -3,6 +3,7 @@
     python -m tools.luma_probe.feed record --seconds 60 --out run.csv
     python -m tools.luma_probe.feed report run.csv
     python -m tools.luma_probe.feed compare old.csv new.csv
+    python -m tools.luma_probe.feed attitude run.csv      once a second: yaw, pitch, roll, in degrees
 
 The feed is the 16 floats spike/src/pose.cpp reads: x y z w three times, then three timestamps. The
 segment is attached read-only and the driver's mutex is left alone on purpose, so this cannot stall a
@@ -162,6 +163,25 @@ def compare(old, new):
     return all(ok for _, _, ok in checks), lines
 
 
+def attitude(row):
+    """Yaw left positive, pitch nose-down positive, roll right-ear-down positive, in degrees, for x forward, y left, z up."""
+    x, y, z, w = row.x, row.y, row.z, row.w
+    return (math.degrees(math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))),
+            math.degrees(math.asin(max(-1.0, min(1.0, 2 * (w * y - z * x))))),
+            math.degrees(math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y))))
+
+
+def attitude_lines(rows):
+    """One line per second of a recording, so a slow head movement can be read off by eye."""
+    lines, next_ns = [], None
+    for row in rows:
+        if next_ns is None or row.host_ns >= next_ns:
+            next_ns = row.host_ns + 1_000_000_000
+            yaw, pitch, roll = attitude(row)
+            lines.append(f'yaw {yaw:7.1f}  pitch {pitch:7.1f}  roll {roll:7.1f}')
+    return lines
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='python -m tools.luma_probe.feed')
     commands = parser.add_subparsers(dest='command', required=True)
@@ -170,6 +190,7 @@ def main(argv=None):
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--feed', default=DEFAULT_FEED)
     commands.add_parser('report').add_argument('file', type=Path)
+    commands.add_parser('attitude').add_argument('file', type=Path)
     p = commands.add_parser('compare')
     p.add_argument('old', type=Path)
     p.add_argument('new', type=Path)
@@ -177,6 +198,8 @@ def main(argv=None):
     try:
         if args.command == 'record':
             print(f'{record(args.feed, args.out, args.seconds)} samples in {args.out}')
+        elif args.command == 'attitude':
+            print('\n'.join(attitude_lines(load(args.file))))
         elif args.command == 'report':
             for key, value in analyse(load(args.file)).items():
                 print(f'{key}: {value:.3f}' if isinstance(value, float) else f'{key}: {value}')

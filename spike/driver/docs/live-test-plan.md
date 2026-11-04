@@ -50,8 +50,8 @@ start command per connection, and no polling, ever (I3, I5).
 
 **The glasses have no hidraw node.** `35ca:1104` has one interface, class 00, with no kernel driver
 and seven endpoints. Our driver reaches it through usbfs, `/dev/bus/usb/BBB/DDD`. The only VITURE
-hidraw nodes belong to the microphone device, `35ca:1102`, interfaces 3 and 4. Endpoint `0x83`
-(interrupt in, 512 B, polled every 1 ms) fits a 1 kHz IMU, but that is a guess from the descriptor.
+hidraw nodes belong to the microphone device, `35ca:1102`, interfaces 3 and 4. The IMU is on
+interrupt endpoint `0x81`, measured from a capture (`capture-findings.md`).
 
 **After a reboot with the glasses plugged in, nothing can open them.** The installed rule,
 `/usr/lib/udev/rules.d/70-viture-xr.rules`, has `ACTION=="add"` on its usb line. After the reboot at
@@ -94,7 +94,7 @@ Checked against the sibling worktrees on 2026-11-03. None of it is on master yet
 |---|---|---|
 | Binary `build/release/driver/xr-luma-driver` | drv-daemon | Flags `--ipc-prefix`, `--replay` |
 | Log lines | drv-daemon | `luma: connected`, `calibrating`, `calibrated`, `disconnected`, `reconnected gap_ms=`, `stats`, `stopped`, `error` |
-| IMU start command and packet format, **not public** | drv-protocol-impl, from a usbmon capture | Sends once per connection, nothing else |
+| IMU start command and packet format | Done, from a usbmon capture (`capture-findings.md`) | Sends once per connection, nothing else |
 | usbfs transport, no reset, hotplug without netlink | drv-transport | Works inside the network namespace |
 | Soak gate | drv-soak-monitor | `python3 -m tools.luma_soak gate` |
 | Wire capture (optional) | drv-recorder | `python3 -m tools.luma_capture` |
@@ -200,15 +200,149 @@ Pass: `exit=0`.
 
 **D3. Nothing holds it.** Pass: interface 0 shows `driver none`.
 
+## Stage G: get the stream going
+
+**This is the first time our code opens the glasses and writes to them. Ask Cody first.** The
+glasses lie flat and still on the desk. Nobody is wearing them. XR is off (P3).
+
+The capture showed what the old driver sends, not which of it the IMU needs, so this stage finds the
+smallest start that works. Each step sends more than the last. **Stop at the first step that streams.**
+Every byte below was captured from VITURE's own software in a normal session, and `Transport` refuses
+anything else on the firmware channel, so no flag here can send a guessed command.
+
+Record the wire for the whole stage if `/dev/usbmon5` can be read. It settles what `FA 55 95` does.
+
+```sh
+python3 -m tools.luma_capture check --bus 5
+python3 -m tools.luma_capture record --bus 5 --out "$RUN/capture" --segment 30 --duration 600 &
+REC=$!
+```
+
+**G1. Listen only, 3 s. Sends nothing.**
+
+```sh
+luma --start listen; sleep 3; kill -TERM "$PID"; wait "$PID"; tail -n 8 "$RUN/driver.log"
+```
+
+Pass: `luma: connected`, then `samples=0`, `commands=0`. That is the expected result. If samples
+arrive with no command, the stream was left running, so note it and go to G3.
+
+**G2. The start alone, 20 s.**
+
+```sh
+luma --start stream; sleep 20; tail -n 12 "$RUN/driver.log"
+```
+
+Pass: a line `luma: reply endpoint=0x85 bytes=6 head=fa5595000000`, then `luma: calibrating` and
+`luma: calibrated restored=0`. If it streams, leave it running and go to G3. If no samples arrive,
+`kill -TERM "$PID"; wait "$PID"` and go to G4.
+
+**G3. Does it hold?** With G2 running, wait 60 s more, then read the two newest `luma: stats` lines.
+
+Pass: `rate_hz` about 1000 between them, `bad_packets=0`, `stale=0`, `commands=1`, no drops. If samples
+start and then stop within seconds, the device is probably backing up on an endpoint nobody reads:
+stop, and go to G5.
+
+Then stop it and see whether the stream outlives the driver. No stop command is known, so none is sent.
+
+```sh
+kill -TERM "$PID"; wait "$PID"; sleep 2
+luma --start listen; sleep 3; kill -TERM "$PID"; wait "$PID"; tail -n 8 "$RUN/driver.log"
+```
+
+Record whether `samples` is above 0 in the last `luma: stats`. If it is, the stream keeps running after
+we leave, and with it possibly the cameras. Tell Cody: the glasses may stay warm until replugged.
+
+**G4. Only if G2 gave no samples.** Try each in turn, 5 s each, and stop at the first that streams.
+
+```sh
+luma --start prepared; sleep 5; tail -n 6 "$RUN/driver.log"; kill -TERM "$PID"; wait "$PID"
+luma --start full; sleep 5; tail -n 6 "$RUN/driver.log"; kill -TERM "$PID"; wait "$PID"
+```
+
+`prepared` sends `FA 55 97` then `FA 55 95`. `full` also sends `0x100B`, the order VITURE's software
+uses. If neither streams, **stop**. The SDK also reads calibration and issues CLEAR_HALT before its
+start, and this driver must do neither. Report it. The next move is a capture of a 3DoF session (step
+K3), not more attempts.
+
+Pass: one of them streams.
+
+**G5. Only if the stream started and then stalled.** The device may need its other endpoints read.
+
+```sh
+luma --start stream --read-events; sleep 20; tail -n 6 "$RUN/driver.log"; kill -TERM "$PID"; wait "$PID"
+```
+
+If that still stalls, **ask Cody first**, because this one puts the camera traffic back on the bus,
+19 MB/s, the very load that may cause the drops:
+
+```sh
+luma --start stream --read-events --drain-camera; sleep 20; tail -n 6 "$RUN/driver.log"; kill -TERM "$PID"; wait "$PID"
+```
+
+Keep whichever flags made it hold for every later stage. Write them in the results. A driver that
+needs `--drain-camera` has lost the main hoped-for advantage of an IMU-only driver.
+
+Pass: `stale=0` for the 20 s.
+
+**G6. Axes.** Cody picks the glasses up while it runs. A wrong sign is a one-line fix in `protocol.cpp`.
+
+```sh
+luma --start stream; sleep 4
+python3 -m tools.luma_probe.feed record --feed "$RUN/feed_pose_orientation" --seconds 25 --out "$RUN/axes.csv"
+python3 -m tools.luma_probe.feed attitude "$RUN/axes.csv"; kill -TERM "$PID"; wait "$PID"
+```
+
+Cody moves them slowly, about 5 s each, with notifications to cue him: nose up, back; nose down, back;
+turn left, back; right ear down, back. Pass: nose down raises `pitch`, turning left raises `yaw`,
+right ear down raises `roll`. Each returns to where it started.
+
+**G7. What went on the wire.** Stop the recorder and read it.
+
+```sh
+PID=$REC; kill -TERM "$PID"; wait "$PID"
+python3 -m tools.luma_capture merge "$RUN/capture" -o "$RUN/stage-g.lcap"
+python3 -m tools.luma_capture report "$RUN/stage-g.lcap" --rows 20 | head -40
+```
+
+Pass: `MCU 0x95` once per start, no `0x0007`, nothing else on `ep04`, no CLEAR_HALT from us (the kernel's
+own lines around enumeration are not ours). Note whether `ep82` shows any transfers.
+
+## Stage K: captures we still need, with the old driver
+
+These need no new code on the glasses: `xrDriver` runs as it does today, and the recorder only listens.
+They answer questions Stage G cannot.
+
+**K1. The shadow run: real drift and latency against the old driver.** In a normal XR session,
+record the wire and the old driver's published pose together. Cody uses XR as usual for 20 minutes.
+
+```sh
+python3 -m tools.luma_capture record --bus 5 --out "$RUN/shadow" --segment 300 --keep-segments 100 --max-gib 12 --duration 1200 &
+python3 -m tools.luma_probe.feed record --seconds 1200 --out "$RUN/shadow-feed.csv"
+wait
+python3 -m tools.luma_capture merge "$RUN/shadow" -o "$RUN/shadow.lcap"
+```
+
+Then replay it through our driver and compare the two orientations over the same head motion. This is
+the first true yardstick for heading, because the old driver's cameras give it a reference. It takes
+nothing from Cody but an ordinary session.
+
+Pass: the recorder reports no dropped events, and the two files overlap in time.
+
+**K2. A clean XR stop.** Keep the recorder running across XR being turned off from the panel. This is
+the only way to see a stop command, if one exists.
+
+Pass: the capture holds the session's last 10 s and the driver's exit.
+
+**K3. A 3DoF session.** With the `xrdriver-3dof-ab` shim, if Cody agrees. If the IMU flows with no
+`FA 55 95`, or `0x82` stays silent, that shows how to get the IMU without the cameras.
+
+Pass: the capture holds the stream's start, whatever it turns out to show.
+
 ## Stage I: first open, read the IMU for 60 s
 
-**This is the first time our code opens the glasses. Ask Cody first.** The glasses lie flat and
-still on the desk. Nobody is wearing them.
-
-**Do not start this stage until the start command and packet format come from a real capture.** The
-Luma Ultra's IMU packet and start command are not public, and Cody has yet to decide on the usbmon
-capture of the old driver (drv-recorder has the steps). Never guess: firmware commands may share
-this channel.
+Stage G found the start that works. Use its flags in every `luma` line from here on. The glasses
+lie flat and still on the desk. Nobody is wearing them.
 
 **I1. Start.**
 
@@ -216,8 +350,7 @@ this channel.
 luma; echo "pid=$PID"
 ```
 
-Pass: `luma: connected` in `$RUN/driver.log` within 5 s. If no samples arrive within 5 s, stop. The
-start command or endpoint is wrong, and that goes back to the protocol thread.
+Pass: `luma: connected` in `$RUN/driver.log` within 5 s. If no samples arrive within 5 s, stop.
 
 **I2. Calibration.** Compare the times of `luma: connected` and `luma: calibrated` in the log.
 Pass: under 3 s, with the glasses untouched. The old driver takes 11 to 12 s.
@@ -253,6 +386,10 @@ keep moving for 10 s, then stop it with `kill -TERM "$PID"; wait "$PID"`.
 
 Pass: `luma: calibrated` within 3 s of `luma: connected`, with no stillness at all. The pose may
 drift a little until the first pause. That is the cost of not waiting, and S3 checks it recovers.
+
+**I7. Saved calibration.** The driver wrote its gyro bias to
+`~/.local/state/viture-workspace/luma-gyro-bias` when it stopped, if it reached good quality. Run `luma`
+again. Pass: `luma: bias restored`, then `luma: calibrated` within 100 ms of `luma: calibrating`.
 
 ## Stage F: compare with XRLinuxDriver
 
