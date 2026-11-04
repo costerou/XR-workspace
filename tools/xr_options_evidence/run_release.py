@@ -60,13 +60,15 @@ def main():
     parser.add_argument('--build',type=Path,default=ROOT/'build/integration-release')
     parser.add_argument('--python',type=Path,default=ROOT/'build/test-venv/bin/python')
     parser.add_argument('--skip-build',action='store_true')
-    parser.add_argument('--suite',action='append',choices=('configure','build','ctest','python','qml'))
+    parser.add_argument('--suite',action='append',choices=('configure','build','ctest','python','qml','bind'))
     args=parser.parse_args();out=args.output.absolute();out.mkdir(parents=True,exist_ok=False)
     build=args.build.absolute();python=args.python.absolute()
     manifest=dict(head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),commands=[],gpu='/dev/dri/renderD129',live_session_access=False)
     with tempfile.TemporaryDirectory(prefix='xr-release-private-') as temp:
         private=Path(temp)
         for child in ('home','config','runtime'):(private/child).mkdir(mode=0o700)
+        fixture=private/'bind-fixture';fixture.mkdir()
+        (fixture/'hyprland.lua').write_text('hl.bind("SUPER + F12", hl.dsp.no_op())\n')
         env={k:v for k,v in os.environ.items() if not k.startswith(('WAYLAND_','HYPRLAND_','DBUS_')) and k not in ('DISPLAY','XAUTHORITY')}
         env.update(HOME=str(private/'home'),XDG_CONFIG_HOME=str(private/'config'),XDG_RUNTIME_DIR=str(private/'runtime'),
                    DRI_PRIME='pci-0000_12_00_0!',XR_BENCH_RENDER_NODE='/dev/dri/renderD129',XR_DEPTH_TEST_NODE='/dev/dri/renderD129',
@@ -80,6 +82,8 @@ def main():
         for directory in sorted((ROOT/'tests').iterdir()):
             if directory.is_dir() and any(directory.rglob('test_*.py')):commands.append(('python-'+directory.name,[str(python),'-m','pytest',str(directory),'-q','--junitxml',str(out/('python-'+directory.name+'.xml'))]))
         commands.append(('qml',[str(python),'-m','unittest','discover','-s','omarchy-plugin/cody.viture-workspace/tests']))
+        commands.append(('bind',[str(python),'-m','tools.native_spike.bind_check','--config',str(fixture/'hyprland.lua'),
+                                '--hyprland','/usr/bin/Hyprland','--keybinds',str(private/'keybinds.json')]))
         passed=True
         for name,command in commands:
             if args.suite and name.split('-')[0] not in args.suite: continue
