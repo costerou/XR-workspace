@@ -1,0 +1,33 @@
+{
+  "_comment": "Reference presets; docs/3d-comfort.md explains every field. A test keeps the doc's table equal to this file.",
+  "desktop": {
+    "near_arcmin": 4, "far_arcmin": 14, "strength": 1.0, "anchor_pct": 92,
+    "range_lo_pct": 2, "range_hi_pct": 98, "range_ms": 3000, "flat_span": 0.05, "full_span": 0.25,
+    "temporal_still_ms": 600, "temporal_motion_ms": 150, "guided_radius": 8, "guided_eps": 0.001,
+    "text_pin": 1, "text_ms": 200, "hud_lock": false, "pin_feather_px": 6,
+    "edge_fade": 0.05, "soften_px": 3, "cut_luma": 40, "cut_ease_ms": 400,
+    "targets": {"disparity.near_arcmin": {"max": 4.5}, "disparity.far_arcmin": {"max": 15}, "disparity.border_violation_share": {"max": 0.01}, "halo.halo_score": {"max": 0.05}, "text.text_ssim": {"min": 0.99}, "text.text_ssim_p10": {"min": 0.98}, "text.wobble_arcmin": {"max": 0.1}, "flicker.still_flicker_arcmin": {"max": 0.02}, "flicker.jitter_arcmin": {"max": 0.05}, "brightness_excess": {"max": 0}}
+  },
+  "video": {
+    "near_arcmin": 14, "far_arcmin": 36, "strength": 1.0, "anchor_pct": 70,
+    "range_lo_pct": 2, "range_hi_pct": 98, "range_ms": 1000, "flat_span": 0.05, "full_span": 0.25,
+    "temporal_still_ms": 300, "temporal_motion_ms": 60, "guided_radius": 8, "guided_eps": 0.0005,
+    "text_pin": 0, "text_ms": 200, "hud_lock": false, "pin_feather_px": 6,
+    "edge_fade": 0.04, "soften_px": 2, "cut_luma": 30, "cut_ease_ms": 250,
+    "targets": {"disparity.near_arcmin": {"max": 15}, "disparity.far_arcmin": {"max": 37}, "disparity.border_violation_share": {"max": 0.02}, "halo.halo_score": {"max": 0.5}, "flicker.still_flicker_arcmin": {"max": 0.1}, "flicker.jitter_arcmin": {"max": 0.3}, "brightness_excess": {"max": 0}}
+  },
+  "games": {
+    "near_arcmin": 10, "far_arcmin": 30, "strength": 1.0, "anchor_pct": 75,
+    "range_lo_pct": 2, "range_hi_pct": 98, "range_ms": 800, "flat_span": 0.05, "full_span": 0.25,
+    "temporal_still_ms": 200, "temporal_motion_ms": 30, "guided_radius": 8, "guided_eps": 0.0005,
+    "text_pin": 1, "text_ms": 200, "hud_lock": true, "hud_ms": 400, "pin_feather_px": 6,
+    "edge_fade": 0.04, "soften_px": 2, "cut_luma": 30, "cut_ease_ms": 200,
+    "targets": {"disparity.near_arcmin": {"max": 11}, "disparity.far_arcmin": {"max": 31}, "disparity.border_violation_share": {"max": 0.1}, "halo.halo_score": {"max": 0.1}, "text.text_ssim": {"min": 0.98}, "text.wobble_arcmin": {"max": 0.1}, "flicker.still_flicker_arcmin": {"max": 0.15}, "flicker.jitter_arcmin": {"max": 0.3}, "brightness_excess": {"max": 0}}
+  },
+  "naive": {
+    "near_arcmin": 40, "far_arcmin": 60, "strength": 1.0, "anchor_pct": 50,
+    "range_lo_pct": 0, "range_hi_pct": 100, "range_ms": 0, "flat_span": 0.0, "full_span": 0.0001,
+    "temporal_still_ms": 0, "temporal_motion_ms": 0, "guided_radius": 0, "guided_eps": 0.001,
+    "text_pin": 0, "hud_lock": false, "edge_fade": 0, "soften_px": 0, "cut_luma": 1000, "cut_ease_ms": 0
+  }
+}
