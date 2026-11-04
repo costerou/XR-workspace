@@ -1,0 +1,9 @@
+test_actual_controller_plugin_rejection_closes_synthetic_owner (test_bundle_path.BundlePathTests.test_actual_controller_plugin_rejection_closes_synthetic_owner) ... ok
+test_release_layout_real_load_and_unload_validation (test_bundle_path.BundlePathTests.test_release_layout_real_load_and_unload_validation) ... ok
+test_unsupported_location_preflight_precedes_client_and_sdk (test_bundle_path.BundlePathTests.test_unsupported_location_preflight_precedes_client_and_sdk) ... ok
+test_wrong_path_and_changed_pin_never_request (test_bundle_path.BundlePathTests.test_wrong_path_and_changed_pin_never_request) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.007s
+
+OK

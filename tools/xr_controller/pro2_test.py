@@ -8,7 +8,7 @@ from pathlib import Path
 import time
 from tools.native_spike.ipc import read_private_json,token
 from tools.native_spike import monitor_rules
-from tools.native_spike.hyprland import HyprlandClient,ownership_plugin_count,PLUGIN_PATH
+from tools.native_spike.hyprland import HyprlandClient,ownership_plugin_count
 from tools.native_spike.profiles import ProfileStore,profiles_path
 from tools.native_spike.geometry import validate_desktops
 from tools.native_spike.supervisor import CAPTURE_SCOPE
@@ -51,10 +51,9 @@ class BundleClient(HyprlandClient):
     def __init__(self,instance,runtime,root,manifest):
         super().__init__(instance,runtime);self.bundle_root=root;self.bundle_manifest=manifest
     def _plugin_command(self,verb,path,data_home=None,recovery_pin=None):
-        from tools.pro2_runtime.launch import pinned_fd
-        if verb not in ('load','unload') or path!=str(self.bundle_root/'bin/libxr-ownership.so') or not PLUGIN_PATH.fullmatch(path):
-            raise ValueError('supervised bundle plugin pin required')
-        fd=pinned_fd(path,self.bundle_manifest['files']['bin/libxr-ownership.so']);os.close(fd)
+        from tools.pro2_runtime.launch import validate_bundle_plugin
+        if verb not in ('load','unload'):raise ValueError('supervised plugin verb required')
+        validate_bundle_plugin(self.bundle_root,self.bundle_manifest,path)
         if self._request(f'/plugin {verb} {path}').decode().strip()!='ok':raise ValueError('supervised plugin command rejected')
 
 
@@ -99,9 +98,16 @@ def execute(data,bundle,state_dir,*,recover=False,client_factory=None,session_fa
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bundle',required=True,type=Path);parser.add_argument('--consent',required=True,type=Path)
-    parser.add_argument('--state-dir',required=True,type=Path);parser.add_argument('--recover',action='store_true')
-    args=parser.parse_args();args.state_dir.mkdir(mode=0o700,parents=False,exist_ok=True)
+    parser.add_argument('--bundle',required=True,type=Path);parser.add_argument('--consent',type=Path)
+    parser.add_argument('--state-dir',type=Path);parser.add_argument('--recover',action='store_true')
+    parser.add_argument('--preflight',action='store_true',help='verify bundle paths/hashes only; no consent, SDK, compositor or state mutation')
+    args=parser.parse_args()
+    if args.preflight:
+        root,manifest=verify_manifest(args.bundle)
+        print(json.dumps(dict(bundle=str(root),source_commit=manifest.get('source_commit'),files_verified=len(manifest['files']),plugin_command_path='validated',sdk_started=False,compositor_contacted=False)))
+        return 0
+    if args.consent is None or args.state_dir is None:parser.error('--consent and --state-dir required for execution/recovery')
+    args.state_dir.mkdir(mode=0o700,parents=False,exist_ok=True)
     def stop(*_):raise KeyboardInterrupt('supervised test interrupted')
     signal.signal(signal.SIGTERM,stop)
     data=read_private_json(args.consent)
