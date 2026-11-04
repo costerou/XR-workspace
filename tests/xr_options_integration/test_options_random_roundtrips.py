@@ -106,12 +106,22 @@ def test_real_snapshot_generation_covers_actual_rows_children_and_headers(tmp_pa
 def test_seeded_snapshots_and_corruptions(tmp_path):
     pairs=list(seeded_pairs());real=actual_snapshots(tmp_path)
     assert {p[0]['rows'][0]['kind'] for p in pairs}==set(KINDS)
-    states=[p for pair in pairs for p in pair]+real
-    wire=b''.join((json.dumps(dict(schema=1,run_id='run',session='session',request_id=i,
-                                    op='options_menu',payload=p))+'\n').encode() for i,p in enumerate(states,1))
     tool=os.environ['CONTROL_WIRE_CHECK']
-    result=subprocess.run([tool,'run','session'],input=wire,capture_output=True,check=True,timeout=20)
-    records=[json.loads(line) for line in result.stdout.splitlines()]
-    assert records[-1]==dict(accepted=len(pairs)+len(real),refused=len(pairs)),records
-    # Every corrupt frame is isolated; every following real/valid frame survives.
-    assert [r['id'] for r in records[:-1]]==list(range(2,2*len(pairs)+1,2))
+    def decode(states):
+        wire=b''.join((json.dumps(dict(schema=1,run_id='run',session='session',request_id=i,
+                                      op='options_menu',payload=p))+'\n').encode() for i,p in enumerate(states,1))
+        result=subprocess.run([tool,'run','session'],input=wire,capture_output=True,check=True,timeout=20)
+        records=[json.loads(line) for line in result.stdout.splitlines()]
+        return records[-1],records[:-1]
+    totals,refusals=decode([p for pair in pairs for p in pair]+real)
+    assert totals==dict(accepted=len(pairs)+len(real),refused=len(pairs))
+    assert len(refusals)==len(pairs)
+    # Decode failures precede accepted envelope identity, so refusal id may be0.
+    # Prove isolation by adding exactly one valid trailing frame to each known
+    # refused frame, rather than inventing malformed-payload correlation IDs.
+    for n,(good,bad) in enumerate(pairs):
+        bad_only,errors=decode([bad])
+        assert bad_only==dict(accepted=0,refused=1),(n,bad_only,errors)
+        followed,errors=decode([bad,good])
+        assert followed==dict(accepted=1,refused=1),(n,followed,errors)
+        assert len(errors)==1
