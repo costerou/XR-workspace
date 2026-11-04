@@ -105,7 +105,7 @@ PUSH_PX = 48              # logical px of push past one edge, each part within P
 PUSH_WINDOW_S = 0.25      # a pause longer than this starts the push over
 NUDGE_PX = 12             # an edge Hyprland clamps the cursor at (nothing beyond it in its layout): the cursor touching it
                           # is put back this far in, and each touch counts this much push (the hand's push is not seen)
-SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's landing: 0.74 s at most)
+SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's landing: 0.52 s)
 PAN_HOLD_PX = 64          # during a pan the hidden cursor waits this far inside the edge, so a clamped edge leaves it room:
 PAN_LEASH_PX = 24         # it goes back there once this far off, and what it did until then is the hand's motion
 PAN_PULL_PX = 2           # a pan that ended puts the cursor this far inside the edge, about where the hand is
@@ -430,7 +430,8 @@ class UnifiedPointer(fp.OverviewPointer):
         s = self.control.state
         g = self.geometry
         if g is None or len(g['tiles']) != len(s.names): return None
-        return edge_pan.plan(g, s.placements, s.selected, target, edge, along, (output['width'], output['height']))
+        rolls = dict(zip(self.roll_names, self.rolls))  # by name, as the renderer's are
+        return edge_pan.plan(g, s.placements, s.selected, target, edge, along, (output['width'], output['height']), [rolls.get(n, 0) for n in s.names])
 
     def set_pan(self, payload):
         """Sampler thread: the edge pan's payload now; the loop sends the newest (poll), so a slow loop only skips some."""

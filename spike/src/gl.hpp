@@ -38,8 +38,9 @@ public:
     // (view.hpp; missing entries are flat), back to front, with an optional highlight frame behind
     // `highlight` with `highlight_alpha`, then eglSwapBuffers (which attaches and commits).
     // `view` rotates the world-anchored canvas (identity = head-locked); half_w/h = tan(half FOV).
+    // `pan`: an edge pan under way (view.hpp PanLayers) sets who is in front and adds the border of the desktop being left.
     bool draw_and_swap(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
-                       float highlight_alpha, const Mat3& view, float half_w, float half_h);
+                       float highlight_alpha, const Mat3& view, float half_w, float half_h, const PanLayers* pan = nullptr);
     // Zero-copy (C2b): can EGL import this fourcc/modifier; import a capture slot's buffer once;
     // mark slot as the source's current frame (sampled without B/R swap); drop on reallocation.
     bool dmabuf_importable(std::uint32_t fourcc, std::uint64_t modifier) const;

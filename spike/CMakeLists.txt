@@ -342,13 +342,18 @@ if(XR_ENABLE_PRESENTATION)
   target_link_libraries(glass_geometry_dump PRIVATE xr_hud)
   # The orbit placement (view.cpp place_point on wire units), renderer side to supervisor side (tools/native_spike/orbit.py mirrors it).
   add_executable(placement_geometry_dump tests/placement_geometry_dump.cpp)
-  target_link_libraries(placement_geometry_dump PRIVATE xr_hud)
+  target_link_libraries(placement_geometry_dump PRIVATE xr_hud xr_pose)
+  # What the edge pan draws, frame by frame, on the real animator and geometry, with no GL (tools/edge_pan_clips/motion.py reads it).
+  add_executable(edge_pan_trace tests/edge_pan_trace.cpp)
+  target_link_libraries(edge_pan_trace PRIVATE xr_view xr_pose)
   find_package(Python3 COMPONENTS Interpreter)
   if(Python3_Interpreter_FOUND)
     add_test(NAME glass_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/glass_contract_test.py"
       "$<TARGET_FILE:glass_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
     add_test(NAME placement_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/placement_contract_test.py"
       "$<TARGET_FILE:placement_geometry_dump>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    add_test(NAME edge_pan_motion COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/edge_pan_motion_test.py"
+      "$<TARGET_FILE:edge_pan_trace>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
     if(TARGET level_frame_test)  # the level bar pressed with the tilts level_frame_test reports
       add_test(NAME level_contract COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/level_contract_test.py"
         "$<TARGET_FILE:level_frame_test>" "${CMAKE_CURRENT_SOURCE_DIR}/..")
@@ -417,7 +422,7 @@ if(XR_ENABLE_PRESENTATION)
   target_compile_options(pill_border_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
   add_test(NAME pill_border_render COMMAND pill_border_render_test)
   set_tests_properties(pill_border_render PROPERTIES SKIP_RETURN_CODE 77)
-  foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump placement_geometry_dump)
+  foreach(TARGET xr_presentation xr-native-spike presentation_test xr_metrics metrics_test xr_capture capture_test xr_view view_test xr_pose pose_test xr_predict predict_test xr_hud hud_test glass_test glass_geometry_dump placement_geometry_dump edge_pan_trace)
     target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
   endforeach()
   add_test(NAME presentation COMMAND presentation_test)

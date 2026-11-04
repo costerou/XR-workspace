@@ -607,7 +607,7 @@ void GlCompositor::Impl::upload_panel(const HudImage& im, std::uint64_t generati
 }
 
 bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight,
-                                 float highlight_alpha, const Mat3& view, float half_w, float half_h) {
+                                 float highlight_alpha, const Mat3& view, float half_w, float half_h, const PanLayers* pan) {
     auto& s = *impl_;
     const auto start = now_us();
     const Mat3 column_major = transpose(view);  // GLES2 has no transpose flag
@@ -651,11 +651,10 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
     // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as without it.
     const bool environment = draw_environment(half_w, half_h);
     if (!environment) { glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
-    if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
+    auto frame_of = [&](std::size_t h, float highlight_alpha) {
         // Drawn first over black, so no blending is needed: glow, then border, then the tiles (back to front) cover
         // the interior. The frame lies on the highlighted desktop's own surface (same placement and curvature). Over the
         // background the glow is the brighter of the two and the border is laid over it (premultiplied), so neither blacks out a halo.
-        const auto h = std::size_t(highlight);
         const auto& t = tiles[h];
         const FRect framed{t.x - kBorderPx, t.y - kBorderPx, t.width + 2 * kBorderPx, t.height + 2 * kBorderPx};
         const FRect halo{framed.x - kGlowRadiusPx, framed.y - kGlowRadiusPx, framed.width + 2 * kGlowRadiusPx, framed.height + 2 * kGlowRadiusPx};
@@ -679,10 +678,14 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         attrib(s.color_pos, 3, 5, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         if (environment) glDisable(GL_BLEND);
-    }
-    // Zoomed in (highlight_alpha = 1 - zoom), the zoomed desktop is drawn on top of any desktop dragged nearer.
-    auto order = highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
-                                : draw_order(canvas, tiles, s.resolved);
+    };
+    if (pan && pan->left < tiles.size() && pan->left_alpha > 0.f) frame_of(pan->left, pan->left_alpha);
+    if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) frame_of(std::size_t(highlight), highlight_alpha);
+    // Zoomed in (highlight_alpha = 1 - zoom), the zoomed desktop is drawn on top of any desktop dragged nearer. An edge pan's two
+    // are on top throughout.
+    auto order = pan ? pan_draw_order(draw_order(canvas, tiles, s.resolved), *pan)
+                 : highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
+                                  : draw_order(canvas, tiles, s.resolved);
     const auto& g = s.glass;
     if (handles) {
         // Level bars and corner caps: drawn before every desktop (over the border and glow, back to front), so any desktop's

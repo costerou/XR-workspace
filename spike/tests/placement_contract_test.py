@@ -4,6 +4,7 @@ no-overlap guard) is the renderer's (view.hpp place_point on glass.hpp placement
 usage: placement_contract_test.py PLACEMENT_GEOMETRY_DUMP REPO_ROOT
 """
 import json
+import math
 import subprocess
 import sys
 
@@ -57,6 +58,10 @@ for case in pans:
     p = edge_pan.point(g, g['tiles'][2], case['placements'][2], edge_pan.OPPOSITE[case['side']], case['entry'])
     for got, want in ((e, case['e']), (p, case['p'])):
         assert all(abs(a - b) <= 1e-3 for a, b in zip(got, want)), (case, got, want)
+    # The view's whole turn: edge_pan.way (one or other way round) is the renderer's aim_along between the two aims.
+    turn, spin = edge_pan.way(g, g['tiles'][0], case['placements'][0], g['tiles'][2], case['placements'][2], case['side'])
+    assert min(abs(turn - case['way']), abs(2 * math.pi - turn - case['way'])) <= 1e-3, (case, turn)
+    assert spin >= 1.0
 print(f"edge pan contract: {len(pans)} pans match")
 print(f"placement contract: {points} points and {glass} glass points on {len(cases)} placed desktops match (worst error {worst:.1e}, "
       f"{behind} behind you, {turned} turned to face you at their slot, {rolled} rolled level)")

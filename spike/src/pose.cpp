@@ -235,6 +235,7 @@ float quat_angle(Quat a, Quat b) {  // atan2 form: accurate near zero, where aco
     const Quat d = quat_mul(quat_conj(a), b);
     return 2 * std::atan2(std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z), std::fabs(d.w));
 }
+namespace { constexpr float kHalfTurnSlack = 1e-2f; }  // radians: this near half a turn, which way round is the push's to say
 Quat level(Quat q) {
     const auto f = apply(quat_to_mat3(q), {1, 0, 0});  // forward (x) in the reference frame; z up
     const float yaw = std::atan2(f[1], f[0]), pitch = std::asin(std::clamp(f[2], -1.f, 1.f));
@@ -281,10 +282,23 @@ Quat aim_rotation(float az, float el) {
     // y left, z up) that is a pitch of el about +y after a yaw of az about +z.
     return quat_mul(Quat{0, std::sin(el / 2), 0, std::cos(el / 2)}, Quat{0, 0, std::sin(az / 2), std::cos(az / 2)});
 }
-Quat aim_turned(Quat aim, const std::array<float, 3>& axis, float angle) {
-    const auto a = xr::apply(transpose(kDriverToGl), axis);  // into the driver frame
-    const float s = std::sin(-angle / 2);
-    return quat_normalized(quat_mul(aim, Quat{a[0] * s, a[1] * s, a[2] * s, std::cos(-angle / 2)})).value_or(aim);
+Quat aim_along(Quat from, Quat to, float way, float turned, std::uint8_t side) {
+    const float s = way > 0 ? std::clamp(turned / way, 0.f, 1.f) : 1.f;
+    if (way < float(M_PI) - kHalfTurnSlack) return quat_slerp(from, to, s);
+    Quat d = quat_mul(quat_conj(from), to);
+    if (d.w < 0) d = {-d.x, -d.y, -d.z, -d.w};
+    const float sn = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+    if (!(sn > 1e-6f)) return s < 1 ? from : to;
+    // The push as a turn of the canvas: right about -y, left about +y, up about +x, down about -x (GL frame, one quarter of `from`'s view).
+    static constexpr std::array<std::array<float, 3>, 4> kPush{{{0, -1, 0}, {0, 1, 0}, {1, 0, 0}, {-1, 0, 0}}};
+    const auto push = xr::apply(transpose(kDriverToGl), kPush[std::min<std::size_t>(side, 3)]);
+    float axis[3] = {d.x / sn, d.y / sn, d.z / sn}, angle = 2 * std::atan2(sn, d.w);
+    if (axis[0] * push[0] + axis[1] * push[1] + axis[2] * push[2] > 0) {  // a turn about +a of the aim is one about -a of the canvas
+        for (float& v : axis) v = -v;
+        angle = 2 * float(M_PI) - angle;
+    }
+    const float half = s * angle / 2, k = std::sin(half);
+    return quat_normalized(quat_mul(from, Quat{axis[0] * k, axis[1] * k, axis[2] * k, std::cos(half)})).value_or(to);
 }
 Quat ModeController::target(Quat head) const {
     if (holding_) return held_;

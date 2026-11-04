@@ -65,7 +65,7 @@ bool edge_pan(const Json& p, EdgePan& out) {
     if (!p.is_object() || !p.contains("active") || !p["active"].is_boolean()) return false;
     out.active = p["active"].get<bool>();
     if (!out.active) return p.size() == 1;
-    if (p.size() != 10) return false;
+    if (p.size() != 11) return false;
     for (const char* key : {"from", "to"})
         if (!p.contains(key) || !p[key].is_number_unsigned() || p[key].get<std::uint64_t>() >= kMaxDesktops) return false;
     out.from = p["from"].get<std::uint32_t>(); out.to = p["to"].get<std::uint32_t>();
@@ -82,6 +82,8 @@ bool edge_pan(const Json& p, EdgePan& out) {
     };
     if (!fraction("turn", out.turn)) return false;
     out.turn *= float(M_PI);  // the wire's is a share of half a turn
+    if (!fraction("way", out.way)) return false;
+    out.way *= 2 * float(M_PI);  // and this one of a whole turn: past half of one is the long way round
     return fraction("exit", out.exit) && fraction("entry", out.entry) && fraction("peek", out.peek) && fraction("cross", out.cross) &&
            fraction("zoom", out.zoom);
 }

@@ -60,34 +60,68 @@ float off_square(const Mat3& view, std::size_t focus) {
 }
 }
 
-// The view's turn of an edge pan (view.hpp EdgePan, pose.hpp aim_turned) and its landing, through the real head view.
+// The view's turn of an edge pan (view.hpp EdgePan, pose.hpp aim_along) and its landing, through the real head view.
 void edge_pan_tests() {
     const auto overview = overview_layout(kSizes, 1920, 1200, 40);
-    {  // A turn of the aim shows what that turn of the room puts straight ahead, and it turns the way the axis says.
-        const auto d = focus_direction(kCanvas, overview, kPlaced, 1);
-        const Quat aim = aim_rotation(d[0], d[1]);
-        const Quat turned = aim_turned(aim, {0, -1, 0}, rad(20));  // about -y: to the right
-        const Mat3 view = view_from(Quat{}, turned);
-        const auto c = view_centre(view);
-        CHECK(std::fabs(c[0] - (d[0] + rad(20))) < 1e-3f && std::fabs(c[1]) < 1e-3f);
-        const auto up = view_centre(view_from(Quat{}, aim_turned(aim, {1, 0, 0}, rad(15))));  // about +x: up
-        CHECK(std::fabs(up[1] - rad(15)) < 1e-3f);
-        const auto back = view_centre(view_from(Quat{}, aim_turned(aim, {0, -1, 0}, 0)));
-        CHECK(std::fabs(back[0] - d[0]) < 1e-4f);
-    }
-    {  // A long turn stays the push's way round, past half a turn from where the plain short way would go.
-        const Quat aim = aim_rotation(0, 0);
-        float was = 0;
-        for (int deg = 10; deg <= 170; deg += 10) {
-            const auto c = view_centre(view_from(Quat{}, aim_turned(aim, {0, -1, 0}, rad(float(deg)))));
-            CHECK(c[0] > was);
-            was = c[0];
+    const auto dir = [](float az, float el) { return aim_rotation(rad(az), rad(el)); };
+    {  // One rotation from end to end: exactly each aim at its end, and each share of the way that share of the angle.
+        const Quat a = dir(-30, 10), b = dir(40, -20);
+        const float way = quat_angle(a, b);
+        CHECK(quat_angle(aim_along(a, b, way, 0, 0), a) < 1e-3f && quat_angle(aim_along(a, b, way, way, 0), b) < 1e-3f);
+        CHECK(quat_angle(aim_along(a, b, way, way * 2, 0), b) < 1e-3f);
+        for (const float s : {0.2f, 0.5f, 0.8f}) {
+            const Quat q = aim_along(a, b, way, way * s, 0);
+            CHECK(std::fabs(quat_angle(a, q) - way * s) < 2e-3f && std::fabs(quat_angle(q, b) - way * (1 - s)) < 2e-3f);
         }
+    }
+    {  // Level neighbours: the view goes straight along, its height never moving.
+        const Quat a = dir(-20, 0), b = dir(20, 0);
+        const float way = quat_angle(a, b);
+        float was = -21;
+        for (float s = 0; s <= 1.f; s += 0.1f) {
+            const auto c = view_centre(view_from(Quat{}, aim_along(a, b, way, way * s, 0)));
+            CHECK(c[0] * 180 / kPi > was && std::fabs(c[1]) < 1e-3f);
+            was = c[0] * 180 / kPi;
+        }
+    }
+    {  // Raised neighbours: upright at both ends and hardly rolled between them, the centre going one way all along.
+        const Quat a = dir(-22, 9), b = dir(20, 9);
+        const float way = quat_angle(a, b);
+        float was = -23;
+        for (float s = 0; s <= 1.f; s += 0.1f) {
+            const auto c = view_centre(view_from(Quat{}, aim_along(a, b, way, way * s, 0)));
+            CHECK(c[0] * 180 / kPi > was && std::fabs(c[1] * 180 / kPi - 9) < 1.5f);
+            was = c[0] * 180 / kPi;
+        }
+    }
+    {  // The long way: past half a turn it goes on round the way it started, never back through the short way.
+        const Quat a = dir(0, 0), b = dir(-160, 0);  // 160 to the left the short way: 200 to the right
+        const float way = 2 * kPi - quat_angle(a, b);
+        CHECK(way > kPi);
+        float az = 0;
+        for (int i = 1; i <= 19; ++i) {
+            const auto c = view_centre(view_from(Quat{}, aim_along(a, b, way, way * float(i) / 20, 0)));
+            float now = c[0] * 180 / kPi;
+            if (now < az - 90) now += 360;  // past behind you
+            CHECK(now > az);
+            az = now;
+        }
+        CHECK(quat_angle(aim_along(a, b, way, way, 0), b) < 1e-3f);
+    }
+    {  // Dead opposite there is no short way: the push says which way round.
+        const Quat a = dir(0, 0), b = dir(180, 0);
+        CHECK(view_centre(view_from(Quat{}, aim_along(a, b, kPi, rad(10), 0)))[0] > rad(5));   // right
+        CHECK(view_centre(view_from(Quat{}, aim_along(a, b, kPi, rad(10), 1)))[0] < -rad(5));  // left
+        CHECK(quat_angle(aim_along(a, b, kPi, kPi, 0), b) < 1e-3f && quat_angle(aim_along(a, b, kPi, kPi, 1), b) < 1e-3f);
+    }
+    {  // A turn of no length is already there.
+        const Quat a = dir(10, 5);
+        CHECK(quat_angle(aim_along(a, a, 0, 0, 0), a) < 1e-4f);
     }
     // Landing: the aim ends on the target exactly, in front of you in follow (head turned) and on the view in locked.
     for (const ViewMode mode : {ViewMode::follow, ViewMode::locked}) {
         const auto from = focus_direction(kCanvas, overview, kPlaced, 1), to = focus_direction(kCanvas, overview, kPlaced, 0);
-        const Quat start = aim_turned(aim_rotation(from[0], from[1]), {0, -1, 0}, rad(10)), end = aim_rotation(to[0], to[1]);
+        const Quat start = aim_rotation(from[0], from[1]), end = aim_rotation(to[0], to[1]);
         ModeController m;
         const Quat head = axis_angle(0, 0, 1, 25);
         m.set_aim(aim_rotation(from[0], from[1]));
@@ -95,7 +129,8 @@ void edge_pan_tests() {
         double t = 0;
         for (; t < 3000; t += 8) m.update(head, t);  // settled on the desktop being left
         CHECK(m.settled());
-        for (int i = 0; i <= 65; ++i, t += 8) { m.set_aim(quat_slerp(start, end, float(i) / 65)); m.update(head, t); }
+        const float way = quat_angle(start, end);
+        for (int i = 0; i <= 65; ++i, t += 8) { m.set_aim(aim_along(start, end, way, way * float(i) / 65, 1)); m.update(head, t); }
         for (int i = 0; i < 300; ++i, t += 8) { m.set_aim(end); m.update(head, t); }
         CHECK(off_centre(view_from(head, m.update(head, t)), 0, 1) < 0.05f);
     }
