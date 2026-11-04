@@ -308,6 +308,18 @@ class StateTests(unittest.TestCase):
         self.c.live['view']=dict(zoomed=True,mode='follow')  # a maximized desktop, following (the last status)
         reply=self.c.request(dict(op='set_settings',settings={'mode':'locked','spacing':60,'prediction':False}))
         self.assertTrue(reply['ok'],reply); self.assertEqual(operations,['mode_next','spacing_up','prediction'])
+    def test_running_stabilization_forwarded_and_invalid_refused(self):
+        self.journal(); self.units.active=True; self.c.tick(); sent=[]
+        self.units.control=lambda r,s,op,payload=None: sent.append((op,payload)) or True
+        for strength in (0,25,47,60,100):
+            reply=self.c.request(dict(op='set_settings',settings={'stabilization':strength}))
+            self.assertTrue(reply['ok'],reply)
+            self.assertEqual(sent[-1],('stabilization',{'strength':strength}))
+        before=len(sent)
+        for strength in (-1,101,True,1.5):
+            self.assertFalse(self.c.request(dict(op='set_settings',settings={'stabilization':strength}))['ok'])
+        self.assertEqual(len(sent),before)
+
     def test_running_environment_forwarded(self):
         # The background goes to a run as one absolute message, like placements (environment.py); the supervisor saves what
         # it applied, so the controller writes nothing itself.

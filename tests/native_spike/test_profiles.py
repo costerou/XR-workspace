@@ -121,9 +121,9 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(store.load(), view.DEFAULT_SETTINGS)
         sharp = {'filter': 'nearest', 'deband': True}
         grid = {'background': 'grid', 'last': 'grid', 'brightness': 60}
-        store.save({'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': sharp, 'environment': grid,
+        store.save({'spacing': 60, 'mode': 'follow', 'prediction': False, 'stabilization': 25, 'video_quality': sharp, 'environment': grid,
                     'immersive': {**view.DEFAULT_SETTINGS['immersive'], 'desktops': {'XR-2': True}}})
-        self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': sharp, 'environment': grid,
+        self.assertEqual(store.load(), {'spacing': 60, 'mode': 'follow', 'prediction': False, 'stabilization': 25, 'video_quality': sharp, 'environment': grid,
                                         'immersive': {**view.DEFAULT_SETTINGS['immersive'], 'desktops': {'XR-2': True}}})
         with self.assertRaises(ValueError): store.save({'spacing': 60, 'mode': 'follow', 'cursor_follow': True, 'prediction': False,
                                                         'video_quality': sharp, 'environment': grid})

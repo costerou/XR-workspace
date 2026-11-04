@@ -28,8 +28,9 @@ struct SelectPayload { OutputId output_id; };
 // Optional `cut` (bool, default false): zoomed in, the new desktop is shown at once, with no zoom out / turn / zoom in and
 // no turn of the view: every switch between maximized desktops but a hand's push (view.py ViewControl.cursor_switch_flags).
 // Optional `pan` (bool, default false): the edge pan under way (`edge_pan` below) reached this desktop: it lands there.
+// Optional `stabilization`: integer 0..100, default Light (25); global renderer pose intake.
 struct ViewPayload { bool zoomed = false; std::uint32_t selected = 0, spacing = 0; std::uint8_t mode = 0; bool cursor_follow = false; bool prediction = false;
-                     bool typing = false; bool center = false; bool cut = false; bool pan = false; };
+                     bool typing = false; bool center = false; bool cut = false; bool pan = false; std::uint32_t stabilization = 25; };
 // The hand's pan past a maximized desktop's edge (tools/native_spike/edge_pan.py, view.hpp EdgePan), display only:
 // {"active":bool,"from":int,"to":int,"side":"right"|"left"|"up"|"down","exit":n,"entry":n,"peek":n,"cross":n,"turn":n,"way":n,"zoom":n}, each n an
 // integer 0..10000 (1 = 10000; `turn` is a share of half a turn, `way` of a whole one), or {"active":false} alone. Malformed: dropped, the session goes on.

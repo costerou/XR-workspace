@@ -26,10 +26,10 @@ class ViewStateTests(unittest.TestCase):
 
     def test_transitions_focus_and_view(self):
         v = view.ViewState(NAMES, spacing=40)
-        self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False})
+        self.assertEqual(v.view(), {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False, 'stabilization': 25})
         self.assertEqual(v.apply('next'), 'XR-2')            # overview: highlight + focus
         self.assertEqual(v.apply('zoom_in'), 'XR-2')         # maximize the highlighted desktop: it follows you
-        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False})
+        self.assertEqual(v.view(), {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False, 'stabilization': 25})
         self.assertEqual(v.apply('next'), 'XR-3')            # maximized: slide + focus
         self.assertIsNone(v.apply('next'))                   # clamped at the last desktop: no change
         self.assertEqual(v.apply('prev'), 'XR-2')
@@ -167,9 +167,9 @@ class SupervisorControlTests(unittest.TestCase):
         t.join(5)
         frames = [json.loads(l) for l in renderer.recv(65536).decode().splitlines()]
         self.assertEqual([f['payload'] for f in frames],
-                         [{'zoomed': False, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False},
-                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False},
-                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False}])
+                         [{'zoomed': False, 'selected': 1, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False, 'stabilization': 25},
+                          {'zoomed': True, 'selected': 1, 'spacing': 40, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False, 'stabilization': 25},
+                          {'zoomed': True, 'selected': 1, 'spacing': 60, 'mode': 'follow', 'cursor_follow': False, 'prediction': True, 'typing': False, 'stabilization': 25}])
         ids = [f['request_id'] for f in frames]
         self.assertEqual(ids, sorted(ids)); self.assertGreater(ids[0], 1)  # start frame used 1
         control.join_focus(timeout=2)
@@ -313,7 +313,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(view.load_settings(self.settings), {'spacing': 60, 'mode': 'anchor', 'prediction': True,
                                                              'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                                              'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive'], 'stabilization': 25})
         self.assertEqual(view.ViewState(NAMES).maximized_mode, 'follow')  # a fresh XR start: follow again
         self.assertEqual(view.MAXIMIZED_MODES, ('follow', 'locked'))
         self.assertEqual(oct(self.settings.stat().st_mode & 0o777), '0o600')
@@ -327,7 +327,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         frame = json.loads(c.on_message({'op': 'prediction'}))
         self.assertEqual(frame['op'], 'view')
         self.assertEqual(frame['payload'], {'zoomed': False, 'selected': 0, 'spacing': 40, 'mode': 'anchor', 'cursor_follow': False,
-                                            'prediction': False, 'typing': False})
+                                            'prediction': False, 'typing': False, 'stabilization': 25})
         self.assertFalse(view.load_settings(self.settings)['prediction'])  # an explicit off is kept
         self.assertTrue(json.loads(c.on_message({'op': 'prediction'}))['payload']['prediction'])
         self.assertTrue(view.load_settings(self.settings)['prediction'])
@@ -354,7 +354,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         loaded = view.load_settings(self.settings)
         self.assertEqual(loaded, {'spacing': 60, 'mode': 'follow', 'prediction': False, 'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                   'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive'], 'stabilization': 25})
         c = self.control(view.ViewState(NAMES, spacing=loaded['spacing'], prediction=loaded['prediction']))
         self.assertIsNone(c.on_message({'op': 'cursor_anim_toggle'}))  # a stale op: nothing
         c.on_message({'op': 'spacing_up'})
@@ -367,7 +367,7 @@ class ViewModeAndCursorFollowTests(unittest.TestCase):
         self.assertEqual(view.load_settings(self.settings), {'spacing': 80, 'mode': 'anchor', 'prediction': True,
                                                              'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                                              'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive'], 'stabilization': 25})
         self.settings.write_text('{"spacing": 9999, "mode": "orbit", "cursor_follow": 1, "prediction": "on", '
                                  '"cursor_switch_animate": 0}')
         self.assertEqual(view.load_settings(self.settings), view.DEFAULT_SETTINGS)

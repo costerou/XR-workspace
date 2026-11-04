@@ -23,6 +23,36 @@ TestCase {
     visible: true
     width: 900; height: 860
     Component { id: running; Workspace.RunningEditor {} }
+    Component { id: launcher; Workspace.Launcher {} }
+    function test_stabilization_before_start() {
+        const editor = createTemporaryObject(launcher, testCase, {width:900, snapshot:{}, settings:{stabilization:25}});
+        verify(editor !== null);
+        const sent = []; editor.request.connect(m => sent.push(m));
+        verify(findChild(editor, "stabilization_25").highlighted);
+        findChild(editor, "stabilization_100").clicked();
+        compare(sent[0].settings.stabilization, 100);
+        compare(findChild(editor, "startupOptions").visible, false);
+    }
+    function test_stabilization() {
+        const editor = createTemporaryObject(running, testCase, {width:900, snapshot:{view:{stabilization:60}}, settings:{stabilization:25}});
+        const sent = []; editor.request.connect(m => sent.push(m));
+        const light = findChild(editor, "stabilization_25");
+        verify(light !== null);
+        verify(findChild(editor, "stabilization_60").highlighted);
+        light.clicked(); compare(sent[0].settings.stabilization, 25);
+        const slider = findChild(editor, "stabilizationSlider");
+        compare(slider.value, 60);
+        slider.forceActiveFocus(); keyClick(Qt.Key_Right); compare(sent[1].settings.stabilization, 61);
+        editor.busy = true;
+        keyClick(Qt.Key_Right); keyClick(Qt.Key_Right);
+        compare(sent.length, 2);  // keep the last drag value while a reply is pending
+        editor.busy = false;
+        tryCompare(sent, "length", 3);
+        compare(sent[2].settings.stabilization, 63);
+        editor.snapshot = {view:{stabilization:0}};
+        compare(slider.value, 0);
+        verify(findChild(editor, "stabilization_0").highlighted);
+    }
     function test_row() {
         const snapshot = {model:"luma-ultra", output:"DP-2", names:["XR-1","XR-2"], capabilities:[], view:{}, status:{},
                           immersive:{setting:{global:false, desktops:{"XR-2":true}}, names:["XR-2"], stereo:true, failed:false}};
@@ -82,7 +112,7 @@ class RunningEditorTests(unittest.TestCase):
             done = subprocess.run([RUNNER, '-input', tmp, '-import', str(Path(tmp) / 'imports')], capture_output=True, text=True, timeout=60,
                                   env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'})
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn('Totals: 5 passed', done.stdout)  # initTestCase, the three tests, cleanupTestCase
+        self.assertIn('Totals: 7 passed', done.stdout)  # initTestCase, the three tests, cleanupTestCase
 
 
 if __name__ == '__main__':

@@ -74,6 +74,13 @@ void run() {
     auto control_mode =xr::decode_control(view(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false})"));
     require(std::holds_alternative<xr::ControlMessage>(control_mode) &&
             !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(control_mode).payload).typing);
+    require(v.stabilization == 25);  // old senders default to Light
+    for (const auto value : {"0", "25", "47", "60", "100", "-1", "101", "true", "1.5", "null"}) {
+        const auto decoded = xr::decode_control(view(std::string(R"({"zoomed":false,"selected":0,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":true,"typing":false,"stabilization":)") + value + "}"));
+        const bool valid = std::string(value) == "0" || std::string(value) == "25" || std::string(value) == "47" || std::string(value) == "60" || std::string(value) == "100";
+        require(std::holds_alternative<xr::ControlMessage>(decoded) == valid);
+        if (valid) require(std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(decoded).payload).stabilization == std::stoul(value));
+    }
     require(!v.center);  // optional, false
     auto centred = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":true})"));
     require(std::holds_alternative<xr::ControlMessage>(centred) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(centred).payload).center);

@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
         }
         else if (m->op == xr::ControlOp::view) {
             const auto& v = std::get<xr::ViewPayload>(m->payload);
-            presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing, v.center, v.cut, v.pan);
+            presentation.set_view(v.zoomed, v.selected, v.spacing, v.mode, v.cursor_follow, v.prediction, v.typing, v.center, v.cut, v.pan, v.stabilization);
         }
     };
     // Further supervisor frames (view, stop) on the same private socket, replay-protected. A bad one is dropped (ipc.hpp).

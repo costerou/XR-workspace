@@ -58,7 +58,7 @@ BASE_CAPABILITIES = ['zoom_in', 'zoom_out', 'next', 'prev', 'spacing_up', 'spaci
 BASE_QUERY = {'monitors', 'workspaces', 'clients', 'activewindow', 'getoption', 'cursorpos'}
 BASE_PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
                    'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
-BASE_PROFILE_KEYS = {'desktops', 'environment', 'fallback', 'immersive', 'mode', 'mode_switch', 'placements', 'previous_setup', 'prediction',
+BASE_PROFILE_KEYS = {'stabilization', 'desktops', 'environment', 'fallback', 'immersive', 'mode', 'mode_switch', 'placements', 'previous_setup', 'prediction',
                      'tracking_driver',  # which head tracking driver, a startup choice (drv-integration)
                      'rolls', 'spacing', 'tracking', 'video_quality'}  # cursor_switch_animate (Ctrl+Alt+A) added and removed 2026-11-03
 # rolls: each desktop's levelling roll, saved with the monitor setup since remember-layout-reset-bind (2026-11-03);
@@ -839,7 +839,7 @@ class NoScopeChangeTests(unittest.TestCase):
         self.assertEqual(view.DEFAULT_SETTINGS, {'spacing': 40, 'mode': 'anchor', 'prediction': True,  # cursor_follow removed
                                                  'video_quality': {'filter': 'catmull-rom', 'deband': False},
                                              'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
-                                                         'immersive': view.DEFAULT_SETTINGS['immersive']})
+                                                         'immersive': view.DEFAULT_SETTINGS['immersive'], 'stabilization': 25})
 
     def test_placement_bounds_unchanged(self):
         # x / y became the orbit round you in tenths of a degree (orbit.py, 2026-11-02); distance's floor went from 50 to

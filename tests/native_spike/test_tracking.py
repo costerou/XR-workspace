@@ -200,13 +200,15 @@ class RecenterTests(unittest.TestCase):
         control = view.ViewControl(state, 'run', 'session', lambda name: None, LayoutStore(Path(tempfile.mkdtemp()) / 'l.json'), None)
         frame = control.on_message({'op': 'recenter'})
         self.assertEqual(json.loads(frame)['op'], 'recenter')
-        self.assertEqual(state.view(), {'zoomed': False, 'selected': 0, 'spacing': view.DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False})
+        self.assertEqual(state.view(), {'zoomed': False, 'selected': 0, 'spacing': view.DEFAULT_SPACING, 'mode': 'anchor', 'cursor_follow': False, 'prediction': True, 'typing': False, 'stabilization': 25})
         self.assertIn(('CTRL + ALT + space', 'recenter'), view.BINDS)
 
 
 class DriverLifecycleTests(unittest.TestCase):
     """Fake driver script stands in for /usr/bin/xrDriver; unshare network isolation is real."""
     def setUp(self):
+        self.driver_scan = patch.object(tracking, '_other_drivers', return_value=[])
+        self.driver_scan.start(); self.addCleanup(self.driver_scan.stop)
         # This machine's install is not part of a test with a fake driver; nor are its glasses (SYS_USB below).
         patcher = patch.object(tracking, '_driver_env', lambda: dict(os.environ)); patcher.start(); self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
@@ -353,6 +355,7 @@ class DriverLifecycleTests(unittest.TestCase):
         self.assertEqual(tracking.status(self.runtime)['binary'], tracking.DRIVER)
 
     def test_other_driver_check_covers_every_copy(self):
+        self.driver_scan.stop()  # exercise the real scanner against the fake /proc below
         fake = {'/proc/10/cmdline': b'/usr/bin/xrDriver\0', '/proc/11/cmdline': b'xrDriver\0',
                 '/proc/12/cmdline': b'/home/x/.local/share/viture-workspace/xrdriver-3dof/v/xrDriver\0',
                 '/proc/13/cmdline': b'/usr/bin/vim\0xrDriver\0', '/proc/14/cmdline': b'',

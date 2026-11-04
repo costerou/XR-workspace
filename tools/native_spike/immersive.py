@@ -342,6 +342,7 @@ class ImmersiveRun:
         self._target, self._current = [], []  # what the loop wants; what is really up
         self._events = []
         self._stopping = self._reassert = False
+        self._failure_pending = False  # suppress stale poll requests until the loop consumes the failure
         self._thread = None
         self.starts = 0  # diagnostics: engine starts
         self.phase = 'off'
@@ -350,7 +351,7 @@ class ImmersiveRun:
         """Bring up these desktops ([]: all of it down). The worker starts here, so a run that never uses 3D never has one."""
         desktops = list(desktops)
         with self._cond:
-            if self._stopping or desktops == self._target: return
+            if self._stopping or desktops == self._target or (desktops and self._failure_pending): return
             self._target = desktops
             if desktops and self._thread is None:
                 self._thread = threading.Thread(target=self._work, daemon=True, name='xr-immersive')
@@ -366,6 +367,7 @@ class ImmersiveRun:
     def take_events(self):
         with self._cond:
             events, self._events = self._events, []
+            if any(event[0] == 'failed' for event in events): self._failure_pending = False
         return events
 
     def switching(self):
@@ -415,7 +417,9 @@ class ImmersiveRun:
 
     def _fail(self, kind, why):
         """Back to flat from any point. The target goes too: the loop latches this until a new press (ViewControl)."""
-        with self._cond: was_up, self._target, self._reassert = bool(self._current), [], False
+        with self._cond:
+            was_up, self._target, self._reassert = bool(self._current), [], False
+            self._failure_pending = True
         if was_up or kind == 'sbs': self._down()
         else: self.engine.stop()
         self.phase = 'off'

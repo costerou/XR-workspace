@@ -547,7 +547,7 @@ def warp_cursor_lua(x, y):
 
 class ViewState:
     def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None, environment=None,
-                 immersive=None):
+                 immersive=None, stabilization=25):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if type(prediction) is not bool: raise ValueError('invalid prediction')
         # Every run starts in the overview, anchored (maximize-follow): `zoomed` is the maximized state, and the viewing
@@ -556,6 +556,7 @@ class ViewState:
         self.held = {}  # hold_placements: desktop name -> the placement the panel asked for while maximized
         self.spacing = min(max(int(spacing), 0), MAX_SPACING)
         self.prediction = prediction
+        self.stabilization = validate_stabilization(stabilization)
         # The maximized desktop's mode (MAXIMIZED_MODES). Ctrl+Alt+V toggles it while maximized and it sticks: every later
         # maximize in this run uses it. Never saved: each run (each XR start) begins with follow.
         self.maximized_mode = MAXIMIZED_MODES[0]
@@ -758,12 +759,12 @@ class ViewState:
         """Renderer payload. `cursor_follow` is always false: the feature is gone, but the renderer's view decoder
         (spike/src/ipc.cpp) still requires the key, so an installed renderer keeps working."""
         return {'zoomed': self.zoomed, 'selected': self.selected, 'spacing': self.spacing, 'mode': self.mode,
-                'cursor_follow': False, 'prediction': self.prediction, 'typing': self.typing}
+                'cursor_follow': False, 'prediction': self.prediction, 'typing': self.typing, 'stabilization': self.stabilization}
 
     def settings(self):
         """The saved view settings. `mode` stays for the saved file's schema (profiles.py, an installed panel), always
         'anchor': every run starts in the anchored overview and the saved mode is never read (maximize-follow)."""
-        return {'spacing': self.spacing, 'mode': 'anchor', 'prediction': self.prediction,
+        return {'spacing': self.spacing, 'mode': 'anchor', 'prediction': self.prediction, 'stabilization': self.stabilization,
                 'video_quality': dict(self.video_quality), 'environment': dict(self.environment),
                 'immersive': _immersive.validate(self.immersive)}
 
@@ -798,7 +799,12 @@ def settings_path():
     return Path(base) / 'viture-workspace' / 'layout.json'
 
 
-DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True,
+def validate_stabilization(value):
+    if type(value) is not int or not 0 <= value <= 100: raise ValueError('invalid stabilization')
+    return value
+
+
+DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True, 'stabilization': 25,
                     'video_quality': dict(_quality.DEFAULTS),  # quality.py owns its defaults
                     'environment': dict(_environment.DEFAULTS),  # as environment.py does its own
                     'immersive': _immersive.clean(None)}  # and immersive.py
@@ -818,6 +824,7 @@ def load_settings(path):
     if type(data.get('spacing')) is int and 0 <= data['spacing'] <= MAX_SPACING: out['spacing'] = data['spacing']
     if data.get('mode') in MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
+    if type(data.get('stabilization')) is int and 0 <= data['stabilization'] <= 100: out['stabilization'] = data['stabilization']
     out['video_quality'] = _quality.video_quality(data)
     out['environment'] = _environment.environment(data)
     out['immersive'] = _immersive.immersive(data)
@@ -837,6 +844,7 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
+            and type(settings.get('stabilization')) is int and 0 <= settings['stabilization'] <= 100
             and type(settings.get('prediction')) is bool and _quality.is_valid(settings.get('video_quality'))
             and _environment.is_valid(settings.get('environment')) and _immersive.is_valid(settings.get('immersive')))
 
@@ -1934,6 +1942,15 @@ class ViewControl:
     def on_message(self, message):
         if isinstance(message, dict) and isinstance(message.get('op'), str):
             self.last_input = self.clock()  # any run key, click or panel change keeps an open card or panel up
+        if isinstance(message, dict) and message.get('op') == 'stabilization':
+            payload = message.get('payload')
+            if not isinstance(payload, dict) or set(payload) != {'strength'}: return None
+            try: value = validate_stabilization(payload['strength'])
+            except ValueError: return None
+            self.state.stabilization = value
+            try: self.settings.save(self.state.settings())
+            except (OSError, ValueError): pass
+            return self._frame()
         if isinstance(message, dict) and message.get('op') == 'placement':
             return self._on_placement(message.get('payload'))
         if isinstance(message, dict) and message.get('op') == 'resize_cancel':  # resize.CANCEL_OP: Super went down

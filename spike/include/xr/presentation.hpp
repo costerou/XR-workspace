@@ -90,7 +90,7 @@ public:
     // `center`: a cursor switch; in anchor mode it lands with the target centred in view. `cut`: shown at once, the view not
     // turned. `pan`: the edge pan under way reached it and lands there (ViewAnimator).
     void set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode = 0, bool cursor_follow = false,
-                  bool prediction = false, bool typing = false, bool center = false, bool cut = false, bool pan = false);
+                  bool prediction = false, bool typing = false, bool center = false, bool cut = false, bool pan = false, std::uint32_t stabilization = 25);
     void set_edge_pan(const EdgePan& pan);  // the hand's pan past a maximized desktop's edge (view.hpp); display only
     // World-anchored 3DoF from the pose feed at `prefix` (GPU composition only); recenter on request.
     void enable_tracking(std::string prefix);

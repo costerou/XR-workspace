@@ -58,12 +58,16 @@ def decode_control(raw):
                   "send_glasses", "send_glasses_1",
                   "send_glasses_2", "send_glasses_3", "send_glasses_4", "send_back", "typing_toggle", "help_prev",
                   "help_next", "privacy_display", "playback_menu_toggle", "binds_toggle", "binds_key", "environment_toggle",
-                  "environment", "immersive_toggle", "immersive"):
+                  "environment", "immersive_toggle", "immersive", "stabilization"):
         raise ValueError("invalid operation")
     if not isinstance(payload, dict): raise ValueError("invalid payload")
     if op == "select":
         if set(payload) != {"output_id"}: raise ValueError("invalid select")
         token(payload["output_id"])
+    elif op == "stabilization":
+        from .view import validate_stabilization
+        if set(payload) != {"strength"}: raise ValueError("invalid stabilization")
+        validate_stabilization(payload["strength"])
     elif op == "environment":  # the controller: the whole setting, absolute (environment.py)
         from .environment import validate
         message["payload"] = validate(payload)

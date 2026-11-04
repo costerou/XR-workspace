@@ -83,6 +83,10 @@ Two things can show up next to Start:
 
 ## Everyday use
 
+**Stabilization:** the panel’s **Display → Stabilization** control steadies small head movements while allowing deliberate
+turns through immediately. Choose Off, Light (the default), Medium or Strong, or use the 0–100 slider. It applies live
+and saves with your view settings. Ctrl+Alt+Space still recenters immediately. See [measurements and offline tests](docs/stabilization.md).
+
 Move your mouse onto a glasses desktop the same way you would move it onto another monitor. Open apps there as usual.
 
 Press **Ctrl+Alt+H** at any time for a help card in the glasses. The keys below only work while a session is running.
