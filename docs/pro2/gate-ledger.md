@@ -24,6 +24,17 @@ If clean and consistent, next work is native private replay/reader contract and 
 
 [Roll evidence](hil-evidence/20261104-155529-roll/README.md) and [native acceptance/integration plan](integration-plan.md) supersede the prior request for another motion session. Allthree signed axes support H1as an offline candidate; isolatednativewriter/reader/PoseState replays pass. No repeated posecapture is currently warranted. Parent reviews projection/FOV/opticalpolicy and the future specific bridgeartifact before any installation or XRgate. Roll physicalpicture confirmation is not yet supplied.15:47:27disconnect was confirmed manualunplug,not SDKinstability. Existingnormalguards remain.
 
-## Runtimebuild complete — authoritative currentstatus
+## Historical first runtime build — superseded by RQ6/RQ7
 
 Frozen92f01a7bundle includes realSDK→nativepublisherruntime, boundedwrapper, dedicatedcontrollerstart/recover and explicitprovisionalprojection. IndependentfinalQA117green plus287fileaudit; [runtimeevidence](runtime-evidence/README.md). NormalPro2guards stay. Rollphysicalpicture nowconfirmednormal. Prior recommendations tobuild/runtimeorcollectroll are historical and superseded. Nextapproval is concretebundle review/stagingifdesired and ONE separatelyauthorizedphysicalXRWorkspace test per runtime-runbook.md; no furtherofflinecodeblocker or repeatmotioncapture remains. Installation/physicalprojection/comfort/XRlifecycle are unproved.
+
+
+## Current status: canonical packaged entry, frozen source 9158428
+
+The parent authorized two physical XR attempts. Neither produced a physical XR picture: the first stopped at bundle plugin-path validation (RQ6); the second loaded the plugin but failed strict scope type identity (RQ7). Parent reports clean backout for both. No automatic retry is authorized.
+
+RQ6 now validates the complete extraction layout and pinned plugin before constructing the client or SDK owner. RQ7 places TestScope, ScopedGuard and BundleClient in one canonical module, and the shipped shell imports canonical main. Strict scope validation and the normal production Pro2 guard remain unchanged.
+
+The replacement runtime is frozen at `9158428f8daeb19fb8a8dbe28358c43252cb3c2b`. Its 330-file manifest SHA256 is `088343e0ceca1f10def4042baad3ac64db26f75aca3aabb0d1a9f763762192cb`. Fresh archive extraction, canonical imports, real plugin-command dispatch validation and the genuine packaged CLI four-case matrix passed offline. The matrix reaches real managed transactions, view controls, spawned guard and renderer launch through simulated external endpoints, including failure rollback and a second actual recovery CLI with no SDK calls. It does not execute real compositor Lua or prove a physical picture.
+
+The 92f01a7 and 910cabc archives are historical and superseded for launch. Later review-only documentation may differ from the frozen runtime documentation; this ledger and the release review README carry the final handoff status. Parent must review the replacement archive and run packaged preflight at the final extraction location before deciding whether to authorize one fresh bounded physical attempt. Installation, actual compositor rendering, projection comfort and physical XR lifecycle remain unproved. No additional axis capture is currently required. Normal per-model settings and Luma/Beast support remain intact.
