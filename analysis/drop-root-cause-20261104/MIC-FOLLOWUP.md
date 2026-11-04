@@ -1,3 +1,5 @@
+**Later update:** bus1 failure snapshots are now available and analyzed in [PRECURSOR-1116.md](PRECURSOR-1116.md). They show no microphone activity before parent loss, but a substantial Luma-driver recovery precursor. The availability statements below describe the earlier inspection.
+
 **Follow-up for Cody: no evidence that host software is hammering the VITURE microphone/keys device.** The strongest direct evidence is that the retained recordings show no1102 submissions or completions in the final five seconds before any of seven old-port drops. This does not establish the cause of the newer bus1 drops: those failures were not captured on bus1 in the files available for inspection.
 
 Read-only inspection approximately11:12–11:15 EST, November4. No driver, service, device, input or power settings changed. Analysis artifacts only were written.
