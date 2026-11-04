@@ -19,6 +19,9 @@ RESET_OP) puts a live run back to the default and saves it (PlacementStore.reset
 included, as a one-step backup in the profile's `previous_setup` (each real reset overwrites it; a reset of a layout that
 already is the default leaves it). Nothing reads the backup back yet: it is there for a future restore, or by hand.
 
+Where the windows were is not part of the setup: window_memory.py keeps that in its own file beside this one, which nothing
+here touches, so a reset or a discarded setup leaves it alone.
+
 load_profile, by contrast, cleans each field on its own (the panel and the view settings): placements missing for a
 desktop are flat, extra ones are dropped, and rolls missing (profiles saved before rolls were kept) are level.
 """

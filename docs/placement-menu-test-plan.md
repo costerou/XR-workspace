@@ -11,8 +11,8 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G38), the free
-pointer script (F1–F22), the round-you script (O1–O19) or the roll bracket script (B1–B16) has run in an isolated VM or
-been tried in the glasses.
+pointer script (F1–F22), the round-you script (O1–O19), the roll bracket script (B1–B16) or the window memory script
+(W1–W19) has run in an isolated VM or been tried in the glasses.
 
 ## Placement pills: automated coverage
 
@@ -495,5 +495,49 @@ something moving on XR-1 and XR-3, e.g. a clock):
 | RES10 | Stop the session and start a new one | XR-2 starts at the size (and scale) picked last; the others at theirs. |
 | RES11 | Pick 3840x2160 on all three desktops, then 5120x1440 on one | Still smooth in the glasses (watch head tracking and the dot); note any lag or capture stutter. |
 | RES12 | While a change is running, click the box again or another size | Nothing happens until it is done (both boxes dimmed while busy). |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+
+## Window memory: automated coverage and glasses test script
+
+Automated, offline only: `tests/native_spike/test_window_memory.py`, `test_window_memory_lua.py` and
+`test_window_memory_run.py`, with `bind_check` loading the generated evals and each dispatcher call in the real
+`Hyprland --verify-config`. None of it has run against a live Hyprland, in an isolated VM or in the glasses. The Lua tests use a
+stand-in for Hyprland written from reading the 0.56.2 source, so W5, W6 and W8 are the first time the column rebuild,
+`colresize` and master sizes meet the real thing. An attempt to run them on a sandboxed headless Hyprland on 2026-11-03 did not
+get it to start (`CBackend::create() failed`), so that check is still open.
+
+Needs your usual go-ahead for a live run. Before W1 note where everything is on your physical monitor, because W16 compares it.
+W17 to W19 check your 2026-11-03 decisions: windows on other monitors stay there, and nothing is ever launched.
+After each Stop, `~/.config/viture-workspace/window-memory.json` shows what was saved, and `journalctl --user -u 'viture-xr-*' |
+grep xr-workspace` shows how many windows came back and any failure. Two windows of one app with the same title are good to
+have: they show the matching at work.
+
+| # | Do | Expect |
+|---|----|--------|
+| W1 | Start XR and change nothing. Stop, then start again | Every window is where it was, on the same desktop and workspace, in the same order, with no window sliding across a desktop. A log line says how many came back. |
+| W2 | Move a terminal to XR-3 with Ctrl+Alt+3 and another window to XR-2 with a Super drag. Stop and start | Both are on the desktop you moved them to, on the same workspace. |
+| W3 | Drag a floating window within a desktop with Super, wait 2 s and check `window-memory.json` before stopping | Its `at` has already changed, with no Stop needed. |
+| W4 | Open a window on XR-2's second workspace with XR-2 showing it, then switch XR-1 to its second workspace. Stop and start | Each desktop shows the workspace it showed. The windows on the others are there too. |
+| W5 | On a scrolling workspace make three columns, the middle one holding two stacked windows, each column a different width. Stop. On your normal monitor move one of those windows to another workspace, so the workspace has to be rebuilt window by window. Start | Same columns left to right, the same stack, each column about the width it had. Note if the stack's heights differ: they are not remembered. |
+| W6 | On a scrolling workspace make a column wider than the view is showing and scroll so one column is off the desktop. Stop and start | No column has shrunk to a sliver. The widths and the order are right. |
+| W7 | On a master workspace swap the master with a stack window and drag the split. Stop and start | Same master, same stack order, same split. |
+| W8 | Same as W7, but between Stop and start move one of those windows to another workspace on your normal monitor, so the workspace is rebuilt | Same order; the split is close. Note how close. |
+| W9 | Float a window at a chosen place and size on XR-2. Make another window fullscreen on XR-1. Stop and start | The floating window is at the same place and size, the other is fullscreen. |
+| W10 | Close a window on XR-1, reopen it with the same title on the physical monitor, then start | It goes back to its place on XR-1, matched by class and title. Windows opened since that match nothing go where they always go. |
+| W11 | Log out of Hyprland or restart it (a new instance), reopen a few of those apps, and start | They go back by class and title. Identical terminals may swap with each other, but no window lands on two places and nothing is left out. |
+| W12 | With four desktops and windows on XR-4, press Ctrl+Alt+R twice | XR-4's windows are on XR-3, each workspace its own. `window-memory.json` still lists every window, those from XR-4 with `parked` true and `landing` XR-3. |
+| W13 | Right after W12 open a pill and press **Add new** | XR-4 is back and its windows return to it, on the same workspace. Nothing flickers on the other desktops, and focus and the cursor stay where they were. |
+| W14 | Press Ctrl+Alt+R twice again, stop and start with three desktops | Those windows go to XR-3, not on top of what XR-3 already shows. Add XR-4: they go back. Move one to XR-1 first and it stays on XR-1. |
+| W15 | Remove XR-2 with its pill, with windows on it. **Add new** in the same session. Then remove XR-2 again, stop and start | The windows go to your normal monitor and come back on Add. After the restart your old XR-3 is XR-2, and its windows are still on it. |
+| W16 | Stop, with windows moved around during the session | Your physical monitor is exactly as it was before W1: the windows you moved around on XR come back to it. |
+| W17 | During a session move one window from an XR desktop to DP-2, or any monitor that isn't the one windows return to, and a whole workspace too if you can. Stop, then start | They stay on that monitor through Stop and through the next start, as you left them. Every other window comes back around them. |
+| W18 | After Stop, move a remembered window to DP-2 on purpose. Start | It stays on DP-2. `window-memory.json` no longer lists it after the next capture. |
+| W19 | After a Stop, close a remembered window and start. In a later session, with a terminal remembered on XR-2: Stop, close it, open a new terminal of the same app with a different title on your normal monitor, start | First case: nothing is launched and the spot stays empty. Second: the open terminal takes the remembered spot, by class alone. A closed window's record lasts until the next capture, so it only waits for one start. |
+
+Then note anything that looks wrong: a moment of flicker at start, a desktop showing the wrong workspace, a window that lands
+on the right desktop in the wrong order, focus or the cursor somewhere unexpected after a start, and how a resolution changed
+between sessions treats floating windows and scrolling columns.
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.

@@ -113,11 +113,12 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None):
+def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
     `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
-    run's desktops.DesktopManager (the pills' Ultrawide / Add / Remove); closed here, before the run's recovery."""
+    run's desktops.DesktopManager (the pills' Ultrawide / Add / Remove); closed here, before the run's recovery. `windows`:
+    the run's window_memory.WindowTracker; it takes its last capture here, while the XR outputs still hold the windows."""
     if not capture:
         yield None
         return
@@ -202,6 +203,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             if hasattr(client, 'adopt_windows'): desktops.move_windows = _window_mover(client)  # Ctrl+Alt+R: XR-4 to XR-3
             control.state.wide = desktops.wide()
             control.state.sizes = desktops.desktops()  # the panel's Scale dropdown
+        if windows is not None:  # where each window is, kept current (window_memory.py); Super drags and events reach it
+            control.windows = windows
+            windows.context = control.window_context
+            control.desktop_listeners.append(windows.set_names)
+            if desktops is not None: desktops.leaving = windows.leaving
         stream = getattr(client, 'event_stream', None)  # config reloads; optional
         try: events = control.events = stream() if stream else None
         except (OSError, ValueError): events = None
@@ -238,6 +244,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         if control is not None:
             control.flush()  # a panel or drag change still inside its save delay
             control.save_setup()  # the whole monitor setup, for the next start (profiles.py)
+            if control.windows is not None: control.windows.close()  # and where every window is, before recovery moves them
             control.stop_menu_binds()  # no modal panel bind may land after the removal below
             if control.keys is not None: control.keys.stop()  # nor a key bind panel change (the removal closes it)
         if sampler is not None: sampler.stop()  # removes the free pointer's binds and shows the cursor; none after this
@@ -297,7 +304,7 @@ def capture_names(consent, specs):
 
 def _run_owned(client, journal, broker, output, fallback, specs, *, context=None, guard=None, capture=None, pose_feed=False, store=None, renderer=None, adopt=False, layouts=None, create_failed=None):
     session = journal.session
-    snapshot = None
+    snapshot = memory = None
     with journal.transaction():
         if journal.operations or journal.broker is not None:
             raise OwnershipBlocked('existing run requires explicit recovery; use a fresh run id')
@@ -327,10 +334,17 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             from .adopt import adopt as adopt_windows
             from .restore import take
             from .send import notify
+            from .window_memory import tracker_for
             snapshot = take(client, fallback, journal.run_id, layouts)
-            adopt_windows(client, fallback, [s['name'] for s in specs], notify=notify)
+            names = [s['name'] for s in specs]
+            # The windows XR last held go back where they were, the desktops being the remembered ones by now; adoption
+            # takes what is left, as ever; then whatever needs every window in place (window_memory.py).
+            memory = tracker_for(client, store, fallback, names)
+            if memory is not None: memory.place(names)
+            adopt_windows(client, fallback, names, notify=notify)
+            if memory is not None: memory.finish()
         with client.connect_wayland(session) as wayland, view_controls(client, journal.run_id, session, capture, output, store,
-                                                                                   fallback, manager) as control:
+                                                                                   fallback, manager, memory) as control:
             returncode = _launch(client, journal.run_id, session, output, wayland, None, guard=guard, capture=capture,
                                  control=control, pose_feed=pose_feed, renderer=renderer)
     finally:

@@ -294,6 +294,75 @@ class RoundTripTests(unittest.TestCase):
         self.assertRestored(before, after)
 
 
+@unittest.skipUnless(LUA, 'needs a Lua 5.4 interpreter')
+class OtherMonitorTests(unittest.TestCase):
+    """Cody, 2026-11-03: windows the user moved to DP-2 or another regular monitor stay where they are. The restore puts back
+    what is on the XR desktops or the fallback; moved anywhere else during the run, it was moved on purpose. (Moving it back here
+    would also put it in the way of the next start's adoption, which would carry it into XR.)"""
+    run_lua, start, where = RoundTripTests.run_lua, RoundTripTests.start, RoundTripTests.where
+
+    def other(self, omarchy=True):
+        state = world(omarchy)
+        state['monitors'].append({'name': 'DP-2', 'active': 21, 'block': 2, 'x': -5000})
+        state['workspaces'].append({'id': 21, 'mon': 'DP-2'})
+        return state
+
+    def test_a_window_moved_there_stays_and_the_rest_come_back(self):
+        state = self.other()
+        before, snapshot, adopting = self.start(state)
+        user = 'hl.dispatch(hl.dsp.window.move({workspace="21",follow=false,window="address:0xb"}))'
+        after = self.run_lua(state, *adopting, user, restore.lua(snapshot))
+        self.assertEqual(self.where(after)['0xb'], (21, 'DP-2'))
+        where, was = self.where(after), self.where(before)
+        for address in ('0xa', '0xc', '0xf', '0xd', '0xe', '0x9'): self.assertEqual(where[address], was[address], address)
+        self.assertEqual(after['tiled']['1'], ['0xa', '0xc'])
+
+    def test_a_workspace_moved_there_whole_stays_under_the_number_it_has(self):
+        state = self.other()
+        before, snapshot, adopting = self.start(state)
+        user = ('local one=hl.get_window("address:0xa").workspace.id '
+                'hl.dispatch(hl.dsp.workspace.move({workspace=tostring(one),monitor="DP-2"})) '
+                'hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(one),id=22}))')  # Omarchy's move_to_monitor
+        after = self.run_lua(state, *adopting, user, restore.lua(snapshot))
+        for address in ('0xa', '0xb', '0xc', '0xf'): self.assertEqual(self.where(after)[address], (22, 'DP-2'), address)
+        self.assertEqual(after['tiled']['22'], ['0xa', '0xb', '0xc'])
+        self.assertNotIn('1', after['tiled'])
+
+    def test_without_omarchy_it_keeps_its_id_there_and_is_not_rearranged(self):
+        state = self.other(omarchy=False)
+        before, snapshot, adopting = self.start(state)
+        user = ('hl.dispatch(hl.dsp.window.swap({window="address:0xa",target="address:0xc"})) '
+                'hl.dispatch(hl.dsp.workspace.move({workspace="1",monitor="DP-2"}))')
+        after = self.run_lua(state, *adopting, user, restore.lua(snapshot))
+        self.assertEqual(self.where(after)['0xa'], (1, 'DP-2'))
+        self.assertEqual(after['tiled']['1'], ['0xc', '0xb', '0xa'])  # as the user left it
+
+    def test_the_workspace_the_fallback_showed_stays_there_too(self):
+        state = self.other()
+        before, snapshot, adopting = self.start(state)
+        user = ('local two=hl.get_window("address:0xd").workspace.id '
+                'hl.dispatch(hl.dsp.workspace.move({workspace=tostring(two),monitor="DP-2"})) '
+                'hl.dispatch(hl.dsp.workspace.change_id({workspace=tostring(two),id=23}))')
+        after = self.run_lua(state, *adopting, user, restore.lua(snapshot))
+        self.assertEqual(self.where(after)['0xd'], (23, 'DP-2'))
+        self.assertEqual(self.where(after)['0xe'], (23, 'DP-2'))
+
+    def test_what_is_on_an_xr_desktop_still_comes_back(self):
+        # The safety side: only other regular monitors count. Nothing may stay on an XR output for recovery to find.
+        state = self.other()
+        before, snapshot, adopting = self.start(state)
+        user = 'hl.dispatch(hl.dsp.window.move({workspace="51",follow=false,window="address:0xb"}))'
+        after = self.run_lua(state, *adopting, user, restore.lua(snapshot))
+        self.assertEqual(self.where(after)['0xb'], (1, 'DP-1'))
+
+    def test_a_window_on_the_fallback_itself_still_goes_back_to_its_workspace(self):
+        state = self.other()
+        before, snapshot, adopting = self.start(state)
+        user = 'hl.dispatch(hl.dsp.window.move({workspace="9",follow=false,window="address:0xb"}))'
+        after = self.run_lua(state, *adopting, user, restore.lua(snapshot))
+        self.assertEqual(self.where(after)['0xb'], (1, 'DP-1'))
+
+
 class SnapshotTests(unittest.TestCase):
     def snapshot(self):
         spaces = [{'id': 1, 'name': '1', 'monitor': 'DP-1'}, {'id': 2, 'name': '2', 'monitor': 'DP-1'},

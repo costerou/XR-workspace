@@ -84,6 +84,10 @@ a toast says it is done. The maximized follow / locked choice is untouched (it i
 plays or a desktop change is still running (a toast says so); off in typing mode (its bind is released, and a stale one
 does nothing: layout_reset).
 
+Window memory (window_memory.py): Hyprland's window events and a Super drag's end mark where the windows are as changed, poll
+hands that to the tracker's worker once no desktop change is running, and every XR start puts the windows back. Ctrl+Alt+R
+leaves it alone. It has no bind.
+
 Send-window binds (send.py: Ctrl+Alt+G to the selected desktop, Ctrl+Alt+1..4 to XR-n, Ctrl+Alt+B back to the physical
 fallback) are installed and removed with the run binds, in their own Lua table and eval. They are not in BINDS, so they
 add no help card row; the Ctrl+Alt+H row names Ctrl+Alt+G/B instead.
@@ -344,6 +348,10 @@ def help_frame(run_id, session, request_id, visible, turn=0, binds=None, send_bi
     return (json.dumps({'schema': 1, 'request_id': request_id, 'run_id': run_id, 'session': session, 'op': 'help',
                         'payload': payload}, separators=(',', ':')) + '\n').encode()
 CONFIGRELOADED = re.compile(r'configreloaded>>')  # Omarchy theme switches reload the Hyprland config
+# What changes where windows are: the window memory reads Hyprland again (window_memory.py). Not titles or focus: they change
+# all the time, and the run's end reads those anyway.
+WINDOW_EVENT = re.compile(r'(?:openwindow|closewindow|movewindow|movewindowv2|changefloatingmode|fullscreen|workspace|workspacev2|'
+                          r'moveworkspace|moveworkspacev2|renameworkspace)>>')
 COLOR = re.compile(r'(?:0x)?([0-9a-fA-F]{8})\Z')
 
 
@@ -994,6 +1002,7 @@ class ViewControl:
         self.typing_binds = typing_binds
         self._typing_installed = False  # the bind set last put in place (False: the full set from install_view_binds)
         self.keys = None  # optional keybinds.BindControl (the key bind panel, Ctrl+Alt+K); set by managed.view_controls
+        self.windows = None  # optional window_memory.WindowTracker (where each window is); set by managed.view_controls
 
     @property
     def keys_open(self):
@@ -1335,6 +1344,7 @@ class ViewControl:
         if self.supervisor is not None: self.supervisor.replace_guard(manager.guard())
         manager.save(s.placements, self._rolls())
         self._desktops_changed()
+        if self.windows is not None: self.windows.mark()  # a shrink pulled windows in, a removal moved them
         from .desktops import RESET
         if change.action == RESET and self.reset is not None: return out + self._reset_done(error)  # it says how it went
         if error is not None: self._tell(error)
@@ -1480,6 +1490,12 @@ class ViewControl:
             else: store.save(placements)
         except (OSError, ValueError): pass
 
+    def window_context(self):
+        """Each desktop's placement and levelling roll, as the window memory keeps them with it (window_memory.py)."""
+        s = self.state
+        rolls = self._rolls() or [0] * len(s.names)
+        return {name: {'placement': dict(p), 'roll': r} for name, p, r in zip(list(s.names), list(s.placements), rolls)}
+
     def _tell(self, text):
         if self.notify is None: return
         def work():
@@ -1565,6 +1581,7 @@ class ViewControl:
                 self.state.remove_armed = False
                 out += self._menu_frame()
         out += self._settle()
+        if self.windows is not None and not self.state.desktops_busy: self.windows.poll(now)  # off the loop; never mid-change
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
             if self.help_visible: out += self._help_toggle()
@@ -1651,6 +1668,8 @@ class ViewControl:
         if isinstance(message, dict) and message.get('op') in ('resize_press', 'resize_release'):  # resize.RESIZE_OPS
             return self.overview_pointer.on_op(message['op']) if self.overview_pointer is not None else None
         if isinstance(message, dict) and message.get('op') in SUPER_OPS:  # unified_cursor.py: Super drags
+            # A drag inside a workspace sends Hyprland no event: the memory reads where it ended.
+            if message['op'] == SUPER_OPS[2] and self.windows is not None: self.windows.mark()
             on_super = getattr(self.overview_pointer, 'on_super', None)
             return on_super(message['op']) if on_super is not None else None
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
@@ -1713,14 +1732,17 @@ class ViewControl:
         return self._placement_frame() + (self._menu_frame() if self.state.menu_open else b'')
 
     def on_events(self, data):
-        """Hyprland socket2 bytes: a config reload re-applies the run's binds and style. Monitor focus never switches
-        the view (cursor follow was removed)."""
+        """Hyprland socket2 bytes: a config reload re-applies the run's binds and style, and a window change has the window
+        memory read Hyprland again (window_memory.py). Monitor focus never switches the view (cursor follow was removed)."""
         self._event_buffer += data
         if len(self._event_buffer) > 65536: self._event_buffer = self._event_buffer[-4096:]  # bounded; resync on newline
         *lines, self._event_buffer = self._event_buffer.split(b'\n')
-        reloaded = False
+        reloaded = moved = False
         for line in lines:
-            if CONFIGRELOADED.match(line.decode('utf-8', errors='replace')): reloaded = True
+            text = line.decode('utf-8', errors='replace')
+            if CONFIGRELOADED.match(text): reloaded = True
+            elif WINDOW_EVENT.match(text): moved = True
+        if moved and self.windows is not None: self.windows.mark()
         if reloaded:
             self.reloads += 1
             self._menu_binds_installed = False  # a reload drops runtime binds; the reload work re-adds an open panel's

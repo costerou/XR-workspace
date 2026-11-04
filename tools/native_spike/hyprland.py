@@ -217,6 +217,15 @@ class HyprlandClient:
         from .adopt import lua
         for code in lua(moves): self._eval(code)
 
+    def place_windows(self, placement, phase):
+        """Run start, or a removed desktop added again: the remembered windows back on their desktops (window_memory.py).
+        `phase`: 'moves' onto their workspaces, 'settle' floating, order, fullscreen and focus. Generated Lua only, from a
+        validated plan of window addresses, XR output names and whole numbers, each eval under the limit; never free-form
+        eval."""
+        from .window_memory import moves_lua, settle_lua
+        if phase not in ('moves', 'settle'): raise ValueError('unknown placement phase')
+        for code in (moves_lua if phase == 'moves' else settle_lua)(placement): self._eval(code)
+
     def fit_windows(self, moves):
         """A desktop shrank: its floating windows that would stick out back inside it (fit_windows.py). Generated Lua only,
         from a validated plan of window addresses and whole pixels; never free-form eval."""

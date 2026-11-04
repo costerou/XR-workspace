@@ -51,6 +51,9 @@ the last desktop that stays (normally XR-3), not to the fallback as Remove's do:
 `move_windows` (adopt.adopt: whole workspaces, each still its own workspace there, Omarchy's block renumbering included).
 Anything that could not move is still evacuated to the fallback by the removal itself, the safety net of every removal.
 
+Before any removal the worker tells the window memory (`leaving`, window_memory.py), which keeps that desktop's windows
+remembered for it: if the same desktop is added again in the run, they go straight back.
+
 Nothing here widens what the session may do: the outputs are the run's own managed outputs (the consent's capture
 scope), created and removed only through the broker, the windows a removal moves go where Stop would move them, and the
 windows a shrink pulls in stay on that output.
@@ -195,12 +198,14 @@ class DesktopManager:
     (managed.plan_outputs). `guard_factory(specs)`: the run's guard for a set of outputs (managed.ManagedGuard).
     `store`: optional profiles.PlacementStore (save_desktops). `windows`: optional Hyprland client (query, fit_windows), to
     pull a shrunk desktop's floating windows back inside it. `move_windows(source, target)`: optional, moves one output's
-    windows to another before a RESET removal (managed.view_controls; off the supervisor loop, on the worker).
+    windows to another before a RESET removal (managed.view_controls; off the supervisor loop, on the worker). `leaving(name,
+    target)`: optional, told before any removal, on the worker, so the window memory can keep that desktop's windows.
     `threads=False` runs the steps inline (tests)."""
     def __init__(self, broker, journal, specs, *, guard_factory=None, store=None, threads=True, windows=None):
         self.broker, self.journal, self.guard_factory, self.store, self.threads = broker, journal, guard_factory, store, threads
         self.windows = windows
         self.move_windows = None
+        self.leaving = None  # optional (name, target or None) -> None: a desktop is about to go (window_memory.py), on the worker
         self.specs = sorted((dict(s) for s in specs), key=lambda s: number(s['name']))
         if not self.specs: raise ValueError('a run has at least one desktop')
         self.origin = (self.specs[0]['x'], self.specs[0]['y'])
@@ -251,6 +256,7 @@ class DesktopManager:
             for kind, spec in change.steps():
                 if self._stop: raise ValueError('the session is ending')
                 if kind == 'remove':
+                    if self.leaving is not None: self.leaving(spec['name'], change.windows_to)  # never raises: its memory is kept
                     if change.windows_to is not None and self.move_windows is not None:
                         self.move_windows(spec['name'], change.windows_to)  # best effort: the removal evacuates what stays
                     if not self.broker.remove_live(spec['id'], spec['name'], self.journal):
