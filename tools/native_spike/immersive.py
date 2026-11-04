@@ -348,6 +348,7 @@ class ImmersiveRun:
     def __init__(self, engine, sbs):
         self.engine, self.sbs = engine, sbs
         self._cond = threading.Condition()
+        self._emit_lock = threading.RLock()
         self._target, self._current = [], []  # what the loop wants; what is really up
         self._events = []
         self._stopping = self._reassert = False
@@ -425,20 +426,27 @@ class ImmersiveRun:
         if thread.is_alive(): self.engine.stop()
 
     def _emit(self, *event):
-        callbacks=[]
-        with self._cond:
-            self._events.append(event)
-            if event[0] in ('failed','leave'): self.error=': '.join(str(x) for x in event[1:])
-            elif event[0]=='active': self.error=''
-            if event[0] in ('failed','leave'):
-                callbacks,self._completions=self._completions,[]
-            elif event[0] in ('active','off'):
-                target=event[1] if event[0]=='active' else []
-                callbacks=[item for item in self._completions if item[0]==target and self._verified(target,self._expected.get(item[1]))]
-                self._completions=[item for item in self._completions if item not in callbacks]
-        for _,done in callbacks:
-            complete(done,event[0] in ('active','off'),
-                     ('Saved for next 3D' if event[0]=='off' and self._expected.get(done) is not None else 'Engine, physical mode and native drawing verified') if event[0] in ('active','off') else ': '.join(str(x) for x in event[1:]))
+        # Serialise worker/native emissions, but release _cond for callbacks:
+        # take_events/request stay available while completion is being queued.
+        with self._emit_lock:
+            callbacks=[]
+            with self._cond:
+                if event[0] in ('failed','leave'): self.error=': '.join(str(x) for x in event[1:])
+                elif event[0]=='active': self.error=''
+                if event[0] in ('failed','leave'):
+                    callbacks,self._completions=self._completions,[]
+                elif event[0] in ('active','off'):
+                    target=event[1] if event[0]=='active' else []
+                    callbacks=[item for item in self._completions if item[0]==target and self._verified(target,self._expected.get(item[1]))]
+                    self._completions=[item for item in self._completions if item not in callbacks]
+            for _,done in callbacks:
+                complete(done,event[0] in ('active','off'),
+                         ('Saved for next 3D' if event[0]=='off' and self._expected.get(done) is not None else 'Engine, physical mode and native drawing verified') if event[0] in ('active','off') else ': '.join(str(x) for x in event[1:]))
+
+            # Publish only after callbacks have queued their completion. Readers
+            # of take_events can never observe terminal state ahead of that queue.
+            with self._cond: self._events.append(event)
+
 
     def _verified(self,names,setting=None):
         report=self._renderer_readback

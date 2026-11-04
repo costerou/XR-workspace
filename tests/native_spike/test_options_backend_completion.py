@@ -191,3 +191,30 @@ class CandidateFocus(unittest.TestCase):
         self.assertTrue(editor.select_candidate('editor.char.punctuation'))
         editor.apply('editor.insert')
         self.assertEqual(editor.text,':')
+
+class TerminalEventOrdering(unittest.TestCase):
+    def test_failure_event_waits_for_completion_enqueue_without_holding_condition(self):
+        import queue
+        owner=ImmersiveRun(FakeEngine(fail=EngineError('deterministic failure')),FakeSbs([]))
+        callback_entered=threading.Event(); release_callback=threading.Event()
+        completions=queue.SimpleQueue()
+        def done(success,detail):
+            callback_entered.set()
+            if not release_callback.wait(2): raise AssertionError('test callback was not released')
+            completions.put((success,detail))
+        try:
+            owner.request(['XR-1'],done=done)
+            self.assertTrue(callback_entered.wait(2))
+            # A callback is deliberately paused before enqueue. take_events must
+            # remain nonblocking, and must not expose its terminal event yet.
+            self.assertTrue(owner._cond.acquire(timeout=1))
+            owner._cond.release()
+            self.assertFalse(any(e[0]=='failed' for e in owner.take_events()))
+            release_callback.set()
+            from test_immersive import wait_for
+            observed=[]
+            wait_for(lambda:(observed.extend(owner.take_events()),any(e[0]=='failed' for e in observed))[1])
+            self.assertEqual(completions.get_nowait(),(False,'engine: deterministic failure'))
+            self.assertTrue(completions.empty())
+        finally:
+            release_callback.set(); owner.close()
