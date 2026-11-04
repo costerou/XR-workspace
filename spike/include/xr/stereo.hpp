@@ -58,7 +58,7 @@ float stereo_text_score(float mean_jumps_per_row);
 // the IPD over the physical distance of that plane: 31.5 mm / 4 m by default.
 inline constexpr float kStereoHalfBaseline = 0.0079f;
 float stereo_side(int eye);                 // 0 (left) -> +1, 1 (right) -> -1: the sign of a near pixel's shift
-// Each eye's clip-space x is (q.x + side b (1 + q.z)) / half_w, q = view * point (XR_PROJECT in gl.cpp). The disparity of a
+// Each eye's clip-space x is (q.x + side b (1 + q.z)) / half_w, q = view * point (XR_PROJECT in stereo_gl.hpp). The disparity of a
 // point at view depth z (< 0):
 float stereo_plane_disparity(float b, float z, float eye_w, float half_w);
 // b, cut so that no desktop's centre lies beyond the limits. `depths` are view z of the centres.
