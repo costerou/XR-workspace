@@ -108,3 +108,14 @@ Result after adding firmware_short_length: **12 tests run, 1 failing subcase**
 ready and done ready=true/cleanup_errors0. Exact version alone must not justify
 reading bytes outside declared response scope. Lead notified promptly to fix;
 QA does not edit runtime. Full output: qa-evidence/runtime/native-rq1-red.txt.
+
+Expanded executable tests additionally cover missing cleanup ABI symbol rejection
+before create, only two callbacks never ready/zero published samples, and the full
+3-second no-pose startup deadline with cleanup. Production compile is separately
+checked to reject synthetic fixture flags before dynamic loading. These are
+bounded unit cases, not a mandatory soak or new live test.
+
+Expanded suite result on unchanged committed86e20dd: **16 tests run, 1 failure**
+(known RQ1 firmware_short_length), 8.388s. Missing cleanup symbol, two-sample
+readiness, production flag rejection and full3-second timeout checks passed.
+The lead reports a fix in progress; uncommitted fixes are not treated as closed.
