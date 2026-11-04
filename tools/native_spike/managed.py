@@ -363,18 +363,25 @@ def capture_names(consent, specs):
     return [s['name'] for s in specs] if consent.get('capture') == CAPTURE_SCOPE else None
 
 
-def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify, switching=lambda: False):
+def keep_renderer(launch, client, output, report, control, restore_output, holds, *, tell=send.notify, switching=lambda: False, continuity_fd=None):
     """Run the renderer; a USB drop of the glasses starts a new one once they are back (survive.py). The renderer's last exit
     code. `restore_output`: None, the older runs' single renderer and no hold. `switching`: true while the glasses are changing
     between 2D and 3D (sbs.py): the same hold, for a reason that needs no apology."""
+    import os
     while True:
         usb_before = survive.usb_identity()
         returncode = launch()
         if restore_output is None: return returncode
         expected = switching()
+        usb_now = survive.usb_identity()
+        continuous = expected and usb_before is not None and usb_now == usb_before
+        if not continuous and continuity_fd is not None:
+            # Pose continuity is only valid for a display-mode handover with
+            # the same tracking reference, never ordinary drop/crash recovery.
+            os.ftruncate(continuity_fd, 0)
         try:
             dropped = survive.should_hold(returncode, report.get('stop_reason'), output_ok=survive.output_ok(client, output),
-                                          usb_before=usb_before, usb_now=survive.usb_identity(), expected=expected)
+                                          usb_before=usb_before, usb_now=usb_now, expected=expected)
         except (OSError, ValueError, TimeoutError):
             return returncode  # the compositor went too: nothing to come back to
         if not dropped: return returncode
@@ -390,9 +397,12 @@ def keep_renderer(launch, client, output, report, control, restore_output, holds
             back = survive.wait_for_glasses(ready, restore=restore_output, serve=lambda s: serve_without_renderer(control, s),
                                             settle=0.0 if expected else None)
             if back:
+                continuous = continuous and survive.usb_identity() == usb_before
+                if not continuous and continuity_fd is not None:
+                    os.ftruncate(continuity_fd, 0)
                 restarted = getattr(control, 'renderer_restarted', None)
                 if restarted is not None: restarted()
-                if not expected and not holds.revive():
+                if not continuous and not holds.revive():
                     tell('XR is back without head tracking: the tracking driver did not start.')
         except KeyboardInterrupt:  # Stop while waiting: the same end as Stop in _launch, which swallows it too
             holds.finish(False)
@@ -465,8 +475,15 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             run_3d = getattr(control, 'immersive_run', None)
             depth_memory = getattr(control, 'depth_memory', None)
             depth_fd = {'depth_fd': depth_memory.fd} if depth_memory is not None else {}
-            returncode = keep_renderer(launch, client, output, report, control, restore_output, holds,
-                                       switching=run_3d.switching if run_3d is not None else lambda: False)
+            import os
+            continuity = os.memfd_create('xr-view-continuity', os.MFD_CLOEXEC)
+            depth_fd['continuity_fd'] = continuity
+            try:
+                returncode = keep_renderer(launch, client, output, report, control, restore_output, holds,
+                                           switching=run_3d.switching if run_3d is not None else lambda: False,
+                                           continuity_fd=continuity)
+            finally:
+                os.close(continuity)
     finally:
         # _launch owns/reaps the renderer first. Creation, connect and spawn failures
         # also reach this recovery; a storage error is fatal and is never retried.

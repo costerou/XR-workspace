@@ -56,6 +56,7 @@ private:
 // turn meanwhile, the world turns with it, as with a recentre; that is the price of no jump. The driver publishes no pose
 // until it has calibrated (outputs.c handle_imu_update), so a fresh sample is a calibrated one.
 class PoseState {
+    friend struct ViewContinuity;
 public:
     static constexpr double kReanchorAfterMs = 500;  // a hiccup under this is the same feed, a moment late
     static constexpr double kResumeSettleMs = 250;
@@ -138,6 +139,7 @@ Quat aim_along(Quat from, Quat to, float way, float turned, std::uint8_t side);
 // kept through a maximize, and un-maximizing goes back to it, so every desktop is in the overview exactly where it was.
 enum class ViewMode : std::uint8_t { anchor = 0, locked = 1, follow = 2 };
 class ModeController {
+    friend struct ViewContinuity;
 public:
     // follow_omega: spring natural frequency (rad/s); higher = snappier. 8 covers ~90% of a turn in 0.5 s.
     struct Tuning { float transition_ms = 300, follow_omega = 8.f; };

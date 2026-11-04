@@ -12,6 +12,8 @@
 #include "depth_link.hpp"
 #include "xr/view.hpp"
 #include "xr/pose.hpp"
+#include "xr/continuity.hpp"
+#include <sys/stat.h>
 #include "xr/predict.hpp"
 #include "xr/hud.hpp"
 #include "xr/environment.hpp"
@@ -1422,6 +1424,40 @@ std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
     return line;
 }
 void Presentation::resend_help_geometry() { if (impl_) impl_->help_geometry_sent.clear(); }
+bool Presentation::restore_continuity(int fd) {
+    if (!impl_ || fd < 0) return false;
+    struct stat st{};
+    if (fstat(fd, &st) || st.st_size <= 0 || st.st_size > 65536) return false;
+    std::string bytes(std::size_t(st.st_size), '\0');
+    if (pread(fd, bytes.data(), bytes.size(), 0) != ssize_t(bytes.size())) return false;
+    // Consume once: if this renderer crashes before writing a new snapshot,
+    // a later retry must not roll back to an older view.
+    if (ftruncate(fd, 0)) return false;
+    ViewContinuity c;
+    if (!c.decode(bytes)) return false;
+    c.resume(double(monotonic_ms()));
+    auto& s = *impl_;
+    s.pose = c.pose; s.modes = c.modes; s.view = c.view; s.maximized = c.maximized;
+    s.rolls = c.rolls; s.last_drawn = c.last_drawn;
+    s.centre = {c.centre_valid, c.centre_serial, c.centre_dir};
+    s.cadence.invalidate();
+    return true;
+}
+void Presentation::save_continuity(int fd) {
+    if (!impl_ || fd < 0) return;
+    auto& s = *impl_;
+    ViewContinuity c;
+    c.pose = s.pose; c.modes = s.modes; c.view = s.view; c.maximized = s.maximized;
+    c.rolls = s.rolls; c.last_drawn = s.last_drawn;
+    c.centre_valid = s.centre.valid; c.centre_serial = s.centre.serial; c.centre_dir = s.centre.dir;
+    c.saved_ms = double(monotonic_ms());
+    try {
+        const auto bytes = c.encode();
+        // Invalidate first: a short write must never restore a stale snapshot.
+        if (ftruncate(fd, 0) == 0 && pwrite(fd, bytes.data(), bytes.size(), 0) != ssize_t(bytes.size()))
+            (void)ftruncate(fd, 0);
+    } catch (const std::runtime_error&) { (void)ftruncate(fd, 0); }
+}
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
 void Presentation::set_edge_pan(const EdgePan& pan) {
     if (!impl_) return;

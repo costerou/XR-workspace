@@ -233,5 +233,9 @@ switching for SBS video. R1 returning an active 3D desktop to narrow still
 falls back to flat rendering through the existing path.
 
 [Offline evidence and limitations](evidence/3d-switch-smooth/README.md).
-This implementation preserves desktop placement and the driver, but does
-not yet transfer renderer-local pose/recenter state across the fast restart.
+Renderer-local pose/recenter state now travels across the fast restart in
+private run-scoped memory: yaw anchor, follow spring, maximize/restore room,
+edge-pan/landed turns and level/roll references survive. Animation pauses
+through the display outage; initial control replay updates the restored view
+rather than creating a new anchor. Ordinary recovery and USB re-enumeration
+discard this state. See [continuity evidence](evidence/3d-switch-smooth/continuity/README.md).

@@ -1,0 +1,189 @@
+Test project /home/cody/.t3/worktrees/viture-workspace/3d-switch-smooth/build/release
+      Start  1: quiet_driver
+ 1/92 Test  #1: quiet_driver ..............................   Passed    0.01 sec
+      Start  2: layout
+ 2/92 Test  #2: layout ....................................   Passed    0.00 sec
+      Start  3: ipc
+ 3/92 Test  #3: ipc .......................................   Passed    0.01 sec
+      Start  4: placement_menu_ipc
+ 4/92 Test  #4: placement_menu_ipc ........................   Passed    0.01 sec
+      Start  5: control_wire
+ 5/92 Test  #5: control_wire ..............................   Passed   18.34 sec
+      Start  6: metrics
+ 6/92 Test  #6: metrics ...................................   Passed    0.01 sec
+      Start  7: pose
+ 7/92 Test  #7: pose ......................................   Passed    0.11 sec
+      Start  8: continuity
+ 8/92 Test  #8: continuity ................................   Passed    0.00 sec
+      Start  9: predict
+ 9/92 Test  #9: predict ...................................   Passed    0.00 sec
+      Start 10: tracking_bench_smoke
+10/92 Test #10: tracking_bench_smoke ......................   Passed    1.34 sec
+      Start 11: luma_predict
+11/92 Test #11: luma_predict ..............................   Passed    1.95 sec
+      Start 12: view
+12/92 Test #12: view ......................................   Passed    0.00 sec
+      Start 13: focus_center
+13/92 Test #13: focus_center ..............................   Passed    0.01 sec
+      Start 14: resize_handle
+14/92 Test #14: resize_handle .............................   Passed    0.00 sec
+      Start 15: free_pointer
+15/92 Test #15: free_pointer ..............................   Passed    0.00 sec
+      Start 16: hud
+16/92 Test #16: hud .......................................   Passed    0.14 sec
+      Start 17: stereo
+17/92 Test #17: stereo ....................................   Passed    0.07 sec
+      Start 18: hud_font
+18/92 Test #18: hud_font ..................................   Passed    0.24 sec
+      Start 19: help_card
+19/92 Test #19: help_card .................................   Passed    0.89 sec
+      Start 20: binds_panel
+20/92 Test #20: binds_panel ...............................   Passed    0.18 sec
+      Start 21: glass
+21/92 Test #21: glass .....................................   Passed    0.31 sec
+      Start 22: glass_theme
+22/92 Test #22: glass_theme ...............................   Passed    0.65 sec
+      Start 23: material
+23/92 Test #23: material ..................................   Passed    0.01 sec
+      Start 24: depth_contract
+24/92 Test #24: depth_contract ............................   Passed    0.30 sec
+      Start 25: roll_level
+25/92 Test #25: roll_level ................................   Passed    0.17 sec
+      Start 26: immersive
+26/92 Test #26: immersive .................................   Passed    0.05 sec
+      Start 27: level_frame
+27/92 Test #27: level_frame ...............................   Passed    0.07 sec
+      Start 28: glass_contract
+28/92 Test #28: glass_contract ............................   Passed    0.16 sec
+      Start 29: placement_contract
+29/92 Test #29: placement_contract ........................   Passed    1.05 sec
+      Start 30: edge_pan_motion
+30/92 Test #30: edge_pan_motion ...........................   Passed   14.12 sec
+      Start 31: level_contract
+31/92 Test #31: level_contract ............................   Passed    0.11 sec
+      Start 32: depth_feed_render
+32/92 Test #32: depth_feed_render .........................   Passed    0.07 sec
+      Start 33: capture
+33/92 Test #33: capture ...................................   Passed    0.03 sec
+      Start 34: overlay_residue
+34/92 Test #34: overlay_residue ...........................   Passed    0.33 sec
+      Start 35: glass_render
+35/92 Test #35: glass_render ..............................   Passed    0.37 sec
+      Start 36: gl_frame
+36/92 Test #36: gl_frame ..................................   Passed    3.83 sec
+      Start 37: environment
+37/92 Test #37: environment ...............................   Passed    0.00 sec
+      Start 38: stereo_render
+38/92 Test #38: stereo_render .............................   Passed    7.46 sec
+      Start 39: depth_link_render
+39/92 Test #39: depth_link_render .........................   Passed    3.95 sec
+      Start 40: environment_render
+40/92 Test #40: environment_render ........................   Passed   52.84 sec
+      Start 41: pill_border_render
+41/92 Test #41: pill_border_render ........................   Passed    4.05 sec
+      Start 42: presentation
+42/92 Test #42: presentation ..............................   Passed    0.16 sec
+      Start 43: native_help
+43/92 Test #43: native_help ...............................   Passed    0.03 sec
+      Start 44: video
+44/92 Test #44: video .....................................   Passed    0.04 sec
+      Start 45: video_render
+45/92 Test #45: video_render ..............................   Passed   26.39 sec
+      Start 46: capture_e2e_cpu
+46/92 Test #46: capture_e2e_cpu ...........................   Passed    2.51 sec
+      Start 47: capture_e2e_pattern
+47/92 Test #47: capture_e2e_pattern .......................   Passed    2.51 sec
+      Start 48: capture_e2e_gl-shm
+48/92 Test #48: capture_e2e_gl-shm ........................   Passed    2.53 sec
+      Start 49: capture_e2e_gl-dmabuf
+49/92 Test #49: capture_e2e_gl-dmabuf .....................   Passed    2.53 sec
+      Start 50: capture_e2e_scaled_cpu
+50/92 Test #50: capture_e2e_scaled_cpu ....................   Passed    2.51 sec
+      Start 51: capture_e2e_scaled_gl-shm
+51/92 Test #51: capture_e2e_scaled_gl-shm .................   Passed    2.53 sec
+      Start 52: capture_e2e_scaled_gl-dmabuf
+52/92 Test #52: capture_e2e_scaled_gl-dmabuf ..............   Passed    2.53 sec
+      Start 53: capture_e2e_maximize_1_gl-dmabuf
+53/92 Test #53: capture_e2e_maximize_1_gl-dmabuf ..........   Passed    2.53 sec
+      Start 54: capture_e2e_maximize_2_gl-dmabuf
+54/92 Test #54: capture_e2e_maximize_2_gl-dmabuf ..........   Passed    2.53 sec
+      Start 55: capture_e2e_maximize_3_gl-dmabuf
+55/92 Test #55: capture_e2e_maximize_3_gl-dmabuf ..........   Passed    2.53 sec
+      Start 56: capture_e2e_maximize_4_gl-dmabuf
+56/92 Test #56: capture_e2e_maximize_4_gl-dmabuf ..........   Passed    2.53 sec
+      Start 57: capture_e2e_edge_pan_gl-dmabuf
+57/92 Test #57: capture_e2e_edge_pan_gl-dmabuf ............   Passed    4.53 sec
+      Start 58: capture_e2e_maximize_4_gl-shm
+58/92 Test #58: capture_e2e_maximize_4_gl-shm .............   Passed    2.53 sec
+      Start 59: capture_e2e_pointer_look_gl-shm
+59/92 Test #59: capture_e2e_pointer_look_gl-shm ...........   Passed    3.52 sec
+      Start 60: capture_e2e_environment_gl-shm
+60/92 Test #60: capture_e2e_environment_gl-shm ............   Passed    2.53 sec
+      Start 61: capture_e2e_environment_smoke_gl-shm
+61/92 Test #61: capture_e2e_environment_smoke_gl-shm ......   Passed    2.53 sec
+      Start 62: capture_e2e_environment_gl-dmabuf
+62/92 Test #62: capture_e2e_environment_gl-dmabuf .........   Passed    2.53 sec
+      Start 63: capture_e2e_environment_smoke_gl-dmabuf
+63/92 Test #63: capture_e2e_environment_smoke_gl-dmabuf ...   Passed    2.53 sec
+      Start 64: capture_e2e_tracked
+64/92 Test #64: capture_e2e_tracked .......................   Passed    2.53 sec
+      Start 65: capture_e2e_bad_control
+65/92 Test #65: capture_e2e_bad_control ...................   Passed    2.53 sec
+      Start 66: capture_e2e_bad_control_fatal
+66/92 Test #66: capture_e2e_bad_control_fatal .............   Passed    1.03 sec
+      Start 67: capture_e2e_control_closed
+67/92 Test #67: capture_e2e_control_closed ................   Passed    1.02 sec
+      Start 68: capture_e2e_feed_drop
+68/92 Test #68: capture_e2e_feed_drop .....................   Passed   26.03 sec
+      Start 69: capture_e2e_feed_gone_video_loss
+69/92 Test #69: capture_e2e_feed_gone_video_loss ..........   Passed    6.03 sec
+      Start 70: capture_e2e_open_panel
+70/92 Test #70: capture_e2e_open_panel ....................   Passed    2.53 sec
+      Start 71: capture_e2e_immersive_gl-dmabuf
+71/92 Test #71: capture_e2e_immersive_gl-dmabuf ...........   Passed    3.03 sec
+      Start 72: capture_e2e_immersive_gl-shm
+72/92 Test #72: capture_e2e_immersive_gl-shm ..............   Passed    3.03 sec
+      Start 73: capture_e2e_immersive_scaled
+73/92 Test #73: capture_e2e_immersive_scaled ..............   Passed    3.03 sec
+      Start 74: capture_e2e_immersive_engine_dies
+74/92 Test #74: capture_e2e_immersive_engine_dies .........   Passed    5.03 sec
+      Start 75: capture_e2e_churn_bounce_cpu
+75/92 Test #75: capture_e2e_churn_bounce_cpu ..............   Passed    3.01 sec
+      Start 76: capture_e2e_churn_bounce_gl-shm
+76/92 Test #76: capture_e2e_churn_bounce_gl-shm ...........   Passed    3.03 sec
+      Start 77: capture_e2e_churn_bounce_gl-dmabuf
+77/92 Test #77: capture_e2e_churn_bounce_gl-dmabuf ........   Passed    3.03 sec
+      Start 78: capture_e2e_churn_resize_cpu
+78/92 Test #78: capture_e2e_churn_resize_cpu ..............   Passed    3.01 sec
+      Start 79: capture_e2e_churn_resize_gl-shm
+79/92 Test #79: capture_e2e_churn_resize_gl-shm ...........   Passed    3.03 sec
+      Start 80: capture_e2e_churn_resize_gl-dmabuf
+80/92 Test #80: capture_e2e_churn_resize_gl-dmabuf ........   Passed    3.03 sec
+      Start 81: luma_transport
+81/92 Test #81: luma_transport ............................   Passed    6.17 sec
+      Start 82: luma_publish
+82/92 Test #82: luma_publish ..............................   Passed    0.02 sec
+      Start 83: luma_protocol
+83/92 Test #83: luma_protocol .............................   Passed    0.20 sec
+      Start 84: fusion
+84/92 Test #84: fusion ....................................   Passed    1.13 sec
+      Start 85: luma_daemon
+85/92 Test #85: luma_daemon ...............................   Passed    0.06 sec
+      Start 86: luma_real_capture
+86/92 Test #86: luma_real_capture .........................   Passed    0.00 sec
+      Start 87: luma_replay_report_smoke
+87/92 Test #87: luma_replay_report_smoke ..................   Passed    0.00 sec
+      Start 88: luma_display
+88/92 Test #88: luma_display ..............................   Passed    0.00 sec
+      Start 89: luma_features
+89/92 Test #89: luma_features .............................   Passed    0.01 sec
+      Start 90: luma_contract
+90/92 Test #90: luma_contract .............................   Passed    0.01 sec
+      Start 91: luma_rt
+91/92 Test #91: luma_rt ...................................   Passed    0.38 sec
+      Start 92: luma_rt_bench_smoke
+92/92 Test #92: luma_rt_bench_smoke .......................   Passed    1.40 sec
+
+100% tests passed out of 92
+
+Total Test time (real) = 271.70 sec

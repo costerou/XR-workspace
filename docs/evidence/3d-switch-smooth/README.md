@@ -10,7 +10,8 @@ blackout. It is not a live measurement of time to picture.
 Implementation uses a fast renderer restart in the existing session. The
 Wayland layer surface is tied to the removed output and currently closes on
 removal. Desktop placements and the tracking driver survive; renderer-local
-pose/recenter state is not transferred and remains a limitation.
+pose/recenter state was initially not transferred. That gap is now closed by
+the [private continuity snapshot](continuity/README.md).
 
 The panel shows a switching card while the switch is pending. No software
 card can reach the glasses while their display link is disconnected.
