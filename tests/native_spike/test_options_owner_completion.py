@@ -122,3 +122,47 @@ class OwnerTests(unittest.TestCase):
         m.refresh();m.intent('options_focus',focus=0)
         self.assertEqual(selected,['editor.punct'])
         self.assertEqual(c.options_editor.text,'')
+    def test_deferred_native_frames_wait_for_actual_receipts_after_typed_completion(self):
+        import json
+        c,m=self.menu();token=m.begin_owner('editor.play','XR-3','workspace')
+        frame=(json.dumps(dict(schema=1,run_id='run',session='session',request_id=82,op='video',payload={'action':'open'}))+'\n').encode()
+        self.assertTrue(m.retain_owner_frames(token,frame))
+        m.finish_owner(token,True,'Native playback verified');m.tick()
+        self.assertEqual(m.snapshot()['status'],'pending')
+        m.acknowledge(81);m.tick();self.assertEqual(m.snapshot()['status'],'pending')
+        m.acknowledge(82);m.tick();self.assertEqual(m.snapshot()['status'],'applied')
+    def test_deferred_frames_cannot_be_bound_to_replacement_or_stale_namespace(self):
+        import json
+        c,m=self.menu();old=m.begin_owner('editor.play','XR-3','workspace')
+        current=m.begin_owner('editor.play','XR-3','workspace')
+        frame=(json.dumps(dict(schema=1,run_id='run',session='session',request_id=82,op='video',payload={'action':'open'}))+'\n').encode()
+        self.assertFalse(m.retain_owner_frames(old,frame));self.assertEqual(m.pending_ids,set())
+        c.session='replacement'
+        self.assertFalse(m.retain_owner_frames(current,frame));self.assertEqual(m.pending_ids,set())
+    def test_inline_registration_is_not_erased_when_adapter_returns(self):
+        import json
+        c,m=self.menu()
+        def apply(*a):
+            token=m.begin_owner('privacy','XR-3','workspace')
+            frame=(json.dumps(dict(schema=1,run_id='run',session='session',request_id=82,op='view',payload={}))+'\n').encode()
+            m.retain_owner_frames(token,frame);m.finish_owner(token,True,'Backend verified')
+        m._apply=apply;d=m.snapshot()
+        m.intent('options_activate',row_id='privacy',monitor='XR-3',scope='workspace',revision=d['revision'],value='')
+        self.assertEqual(m.pending_ids,{82});self.assertEqual(m.snapshot()['status'],'pending')
+    def test_deferred_batch_bounds_and_identity_reject_without_partial_registration(self):
+        import json
+        c,m=self.menu();token=m.begin_owner('editor.play','XR-3','workspace')
+        def frame(rid=82,session='session'):
+            return (json.dumps(dict(schema=1,run_id='run',session=session,request_id=rid,op='video',payload={}))+ '\n').encode()
+        for batch in (frame(session='old'),b'x'*(512*1024+1),b''.join(frame(i+1) for i in range(257))):
+            with self.assertRaises(ValueError):m.retain_owner_frames(token,batch)
+            self.assertEqual(m.pending_ids,set())
+    def test_deferred_failure_does_not_wait_for_receipts_and_namespace_cancels_success(self):
+        import json
+        for failed in (False,True):
+            c,m=self.menu();token=m.begin_owner('editor.play','XR-3','workspace')
+            batch=(json.dumps(dict(schema=1,run_id='run',session='session',request_id=82,op='video',payload={}))+ '\n').encode()
+            m.retain_owner_frames(token,batch);m.finish_owner(token,not failed,'Native decoder error' if failed else 'Played')
+            if not failed:c.session='replacement'
+            m.tick()
+            self.assertEqual(m.snapshot()['status'],'error' if failed else 'idle')

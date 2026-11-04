@@ -208,6 +208,33 @@ class OptionsMenu:
         self._bump()
         return token
 
+    def retain_owner_frames(self, token, frames):
+        """Loop-thread transport hook for frames produced after options_apply.
+
+        Bind actual emitted IDs to the exact owner request before its callback
+        may complete. This registers expectations only, never renderer receipt.
+        """
+        if type(token) is not int: return False
+        with self._owner_lock:
+            request=self._owner_requests.get(token)
+            if token!=self._owner_active or request is None or request['namespace']!=self.control.session or request['epoch']!=self._owner_epoch or not self._owner_target_exists(request): return False
+        if not isinstance(frames,(bytes,bytearray)) or len(frames)>512*1024: raise ValueError('invalid owner frame batch')
+        from .ipc import strict_json
+        ids=set()
+        lines=frames.splitlines()
+        if len(lines)>256: raise ValueError('owner frame batch limit')
+        for line in lines:
+            frame=strict_json(line)
+            if type(frame) is not dict or set(frame)!={'schema','run_id','session','request_id','op','payload'} or type(frame['schema']) is not int or frame['schema']!=1 or type(frame['payload']) is not dict: raise ValueError('invalid owner frame envelope')
+            if frame['run_id']!=self.control.run_id or frame['session']!=request['namespace']: raise ValueError('stale owner frame envelope')
+            integer(frame['request_id'],1,2**64-1);string(frame['op'],64)
+            if frame['op'] not in ('options_menu','placement_menu','move_handle','overview_pointer','help','binds'):
+                ids.add(frame['request_id'])
+        if len(self.pending_ids|ids)>256: raise ValueError('too many owner frame receipts')
+        self.pending_ids.update(ids)
+        self.action_has_receipt=bool(self.pending_ids)
+        return True
+
     def finish_owner(self, token, success, detail=''):
         """Worker-safe bounded enqueue; UI changes occur only in tick/refresh."""
         if type(token) is not int or type(success) is not bool: return False
@@ -400,13 +427,12 @@ class OptionsMenu:
                 callback=options_apply
             if not row['id'].startswith('editor.') and row['id'] not in ('video_browse','video_play','binds_toggle'):
                 self._invalidate_owner()
-            prior_token=self._owner_active
             result=callback(self.control,row['id'],value,fields['monitor'],fields['scope'])
             if result is False: raise ValueError('Owner rejected change')
             if isinstance(result,bytes): self.output += result
             # Preserve callbacks across child transitions. Receipts are necessary
             # for native frames, but can never complete an action on their own.
-            if self._owner_active is None or self._owner_active!=prior_token:
+            if self._owner_active is None:
                 self.pending_ids=set()
             if isinstance(result,bytes):
                 for line in result.splitlines():
