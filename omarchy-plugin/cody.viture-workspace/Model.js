@@ -4,11 +4,13 @@
 // Lead may populate {qa_commit, lead_commit, inventory_rows:116} only after both
 // reviews accept functional equivalence for every inventory row. Null keeps fallback.
 const OPTIONS_EQUIVALENCE = null;
+function validOptionsEquivalence(evidence) {
+    return !!evidence && typeof evidence === "object" && evidence.inventory_rows === 116
+        && typeof evidence.qa_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.qa_commit)
+        && typeof evidence.lead_commit === "string" && /^[0-9a-f]{40}$/.test(evidence.lead_commit);
+}
 function optionsRuntimeComplete(snapshot) {
-    const evidence = OPTIONS_EQUIVALENCE;
-    return !!evidence && evidence.inventory_rows === 116
-        && /^[0-9a-f]{40}$/.test(evidence.qa_commit || "")
-        && /^[0-9a-f]{40}$/.test(evidence.lead_commit || "")
+    return validOptionsEquivalence(OPTIONS_EQUIVALENCE)
         && ((snapshot || {}).capabilities || []).indexOf("options_runtime_complete") >= 0;
 }
 

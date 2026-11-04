@@ -14,12 +14,21 @@ TestCase {
     Component { id:placementComponent; Workspace.PlacementEditor {} }
     SignalSpy { id:placementSpy; signalName:"save" }
     SignalSpy { id:confirmationSpy; signalName:"confirm" }
-    function test_release_has_no_equivalence_approval() {
-        compare(Model.OPTIONS_EQUIVALENCE, null);
-        for (const snapshot of [null, {}, {capabilities:["options_menu"]},
-                {capabilities:["options_runtime_complete"]},
-                {capabilities:["options_runtime_complete"], options_equivalence:{qa_commit:"a".repeat(40),lead_commit:"b".repeat(40),inventory_rows:116}}])
-            verify(!Model.optionsRuntimeComplete(snapshot));
+    function test_release_attestation_validation() {
+        const valid = {qa_commit:"a".repeat(40),lead_commit:"b".repeat(40),inventory_rows:116};
+        verify(Model.validOptionsEquivalence(valid));
+        for (const record of [null, undefined, false, "approved", {},
+                Object.assign({}, valid, {inventory_rows:115}),
+                Object.assign({}, valid, {inventory_rows:"116"}),
+                Object.assign({}, valid, {qa_commit:"not-a-review"}),
+                Object.assign({}, valid, {lead_commit:""}),
+                Object.assign({}, valid, {qa_commit:123})])
+            verify(!Model.validOptionsEquivalence(record));
+        // The build's static record is the only approval source, never runtime data.
+        compare(Model.optionsRuntimeComplete({capabilities:["options_runtime_complete"], options_equivalence:valid}),
+                Model.validOptionsEquivalence(Model.OPTIONS_EQUIVALENCE));
+        verify(!Model.optionsRuntimeComplete({capabilities:[]}));
+        verify(!Model.optionsRuntimeComplete(null));
     }
     function test_confirmationControls() {
         const dialog=createTemporaryObject(confirmationComponent,testCase,{width:640,pending:{action:"start",scope_id:"test",scope:{model:"luma-ultra",output:"DP-2",recovery_output:"DP-1",desktops:[{width:1920,height:1080,scale:1}],tracking:"xrlinuxdriver",mode_switch:{width:1920,height:1200,refresh_hz:120}}}});
