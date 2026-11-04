@@ -653,3 +653,21 @@ on the right desktop in the wrong order, focus or the cursor somewhere unexpecte
 between sessions treats floating windows and scrolling columns.
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Recovery past a monitor rule: automated coverage and test script
+
+Automated, offline only: `tests/native_spike/test_leftover_rule.py`, `tests/xr_controller/test_recovery_report.py` and the
+ctests `ownership` and `ownership_offset`. Their compositor is a double modelled on the pinned Hyprland source and the logs of
+run `4468c283`; none of this has run on a live Hyprland. R1 to R3 need no glasses, only the stuck session if it is still
+there. R4 to R6 deliberately break a session, so they need your usual go-ahead.
+
+| # | Do | Expect |
+|---|----|--------|
+| R1 | With a session stuck in Recover and a rule naming XR-1 in `monitors.lua`, open the panel and press Recover | The confirm box has a line about taking the XR-1 rule out of `monitors.lua`, with the line number. |
+| R2 | Confirm it | A notification says the line went and names the copy. XR-1 and the plugin are gone (`hyprctl monitors`, `hyprctl plugin list`), the panel is back to Start with no warning under it, your windows are on your normal monitor, and `monitors.lua` differs from its copy by that one line. |
+| R3 | Start XR | It starts, every desktop at the size you saved, 120 Hz. |
+| R4 | During a session, focus an XR desktop and change its scale with Omarchy's Monitor panel, then Stop | Stop finishes, no Recover is offered, and a notification names the `monitors.lua` line. The file is unchanged. |
+| R5 | Start XR with that line still there | It refuses at once, before head tracking starts, and says which line to delete. |
+| R6 | Delete the line, run `hyprctl reload`, and start | It starts. |
+
+Record any failure with the step number and what you saw. Keep it apart from automated test results.

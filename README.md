@@ -476,8 +476,14 @@ you why. See [docs/vr-video.md](docs/vr-video.md) and [docs/web-video.md](docs/w
 display goes back to how it was.
 
 **Recover.** If a session crashed or the computer lost track of it, the panel shows **Recover**. Press it to clean up
-and put your windows and display back. If the panel says "Needs CLI recovery", see
-[docs/technical.md](docs/technical.md#cli-recovery).
+and put your windows and display back. If Recover can't finish, the panel says why, naming the desktop or window in the
+way. If the panel says "Needs CLI recovery", see [docs/technical.md](docs/technical.md#cli-recovery).
+
+**Use the glass pill's Scale on XR desktops, not Omarchy's.** Omarchy's monitor scale (the Monitor panel, Super+/ and
+Super+Alt+/) changes whichever monitor has focus, and it saves the change. On an XR desktop that breaks the desktop and
+adds a line naming it to `~/.config/hypr/monitors.lua`. If that happens, stop and press Recover if the panel offers it: its
+confirm box lists the line, and Recover takes it out and keeps a copy of the file next to it. If the panel doesn't offer
+Recover, the session has already cleaned up, and a notification tells you which line to delete.
 
 **Common problems:**
 
@@ -488,6 +494,8 @@ and put your windows and display back. If the panel says "Needs CLI recovery", s
   one is open, and most desktop keys do nothing while a video plays.
 - **Keys or the cursor act strangely after a crash.** Press the key once more, or click once. That clears what the
   crashed session left behind.
+- **Start says `monitors.lua line 9 names XR-1`.** Delete that line from `~/.config/hypr/monitors.lua`, run
+  `hyprctl reload`, and start again. Hyprland won't let an XR desktop be created while a rule uses its name.
 - **The panel looks out of date after an update.** Run `omarchy-restart-shell`.
 - **It stopped working after a Hyprland update.** Rebuild and run the install step again with no session running.
 

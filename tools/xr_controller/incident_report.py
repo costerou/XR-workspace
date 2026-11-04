@@ -146,6 +146,11 @@ def _top_frame(core):
     return None
 
 
+def _recovery_reasons(ev):
+    """Why a recovery stopped: the last Recover's own report, else what the run's result says of its recovery at Stop."""
+    return (ev.get('recovery') or {}).get('reasons') or (ev.get('result') or {}).get('recovery') or []
+
+
 def guess_cause(episode, ev):
     """A first guess from the evidence: what a person would look at first, and how sure it is. Rules in order of weight."""
     kinds = {s.kind for s in episode.signals}
@@ -174,6 +179,9 @@ def guess_cause(episode, ev):
         return guess('The display link to the glasses dropped with no USB trouble: check the cable and the display output.', 'medium')
     if result.get('stop_reason') == 'heartbeat-timeout':
         return guess('The renderer froze for over 2 seconds, which usually means a stuck GPU or compositor.', 'medium')
+    reasons = _recovery_reasons(ev)
+    if reasons:
+        return guess('Recovery could not finish: ' + ' '.join(reasons), 'high')
     if any('dispatch: closed' in line for line in logs.get('run') or []):
         return guess("Hyprland closed the renderer's surface or connection, usually because its output went away.", 'medium')
     if result.get('error'):
@@ -232,6 +240,7 @@ def build_bundle(episode, ev, now, scrub):
         display=dict(mode=ev.get('mode'), expected_mode=ev.get('expected_mode'), drm=ev.get('drm')),
         renderer=dict(returncode=rc, signal=signal_name(-rc) if type(rc) is int and rc < 0 else None, stop_reason=result.get('stop_reason'),
                       complete=result.get('complete'), phase=result.get('phase'), error=result.get('error')),
+        recovery=dict(reasons=_recovery_reasons(ev)),
         unit=ev.get('unit') or {}, metrics=dict(last=ev.get('status') or {}, exit_report=ev.get('metrics') or {}), core_dumps=cores, logs=logs,
         suppressed_since_last=ev.get('suppressed') or {}, truncated=False, privacy=PRIVACY)
     # The id too: a long kind makes it look like a token, and it is the file's name.

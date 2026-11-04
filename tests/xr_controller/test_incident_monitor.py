@@ -36,6 +36,7 @@ class Sources:
     """The host, as a script: a test changes these fields as the story goes on."""
     def __init__(self):
         self.boot, self.consents, self.results = 'boot-1', {RUN: CONSENT, OTHER: dict(CONSENT, run_id=OTHER)}, {}
+        self.recoveries = {}
         self.kernel, self.driver = [], ''
         self.reads = 0
         self.drm_state, self.ports, self.hypr_pid, self.hypr_up, self.driver_up = 'connected', {'5-2.1', '5-2.3'}, 1690, True, True
@@ -48,6 +49,7 @@ class Sources:
     def boot_id(self): return self.boot
     def consent(self, run_id): self._maybe('consent'); return self.consents.get(run_id)
     def result(self, run_id): self._maybe('result'); return self.results.get(run_id)
+    def recovery(self, run_id): self._maybe('recovery'); return self.recoveries.get(run_id)
     def kernel_start(self): self._maybe('kernel'); return len(self.kernel)
 
     def kernel_read(self, cursor):
@@ -401,6 +403,21 @@ class RunEndTests(Case):
         self.tick('starting', status=None, seconds=3)
         self.tick('recovery-needed', status=None, seconds=30)
         self.assertEqual([json.loads(p.read_text())['kind'] for p in self.reports()], ['run-killed', 'recovery-failed'])
+
+    def test_a_recover_that_fails_says_why_in_its_report(self):
+        # 20261104T022700Z: three Recovers exited 2, and the report could only say "No clear cause".
+        why = 'XR-1: the ownership plugin refused to remove it (state blocked)'
+        self.session()
+        self.tick('recovery-needed', status=None, seconds=30)
+        self.tick('confirming', status=None, seconds=2)
+        self.tick('starting', status=None, seconds=3)
+        self.host.recoveries[RUN] = dict(run_id=RUN, complete=False, reasons=[why])
+        self.tick('recovery-needed', status=None, seconds=30)
+        report = json.loads(self.reports()[-1].read_text())
+        self.assertEqual(report['kind'], 'recovery-failed')
+        self.assertEqual(report['recovery']['reasons'], [why])
+        self.assertIn(why, report['cause']['text'])
+        self.assertIn(why, report['timeline'][-1]['detail'])
 
     def test_a_failed_start(self):
         self.tick('starting', seconds=3, status=None)

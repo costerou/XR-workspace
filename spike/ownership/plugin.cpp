@@ -298,7 +298,13 @@ public:
             return cursorShapeName(g_pHyprRenderer->m_lastCursorData.name);
         return {};
     }
-    bool cleanup(const Handle& h,const Json&) override { return resolve(h) && eraseRule(*native(h)); }
+    bool cleanup(const Handle& h,const Json&) override {
+        if(!resolve(h)) return false;
+        auto o=native(h);
+        if(o->rule) eraseOwnRule(Config::monitorRuleMgr()->allMut(),*o->rule,[](const auto& a,const auto& b){return sameRule(a,b);});
+        o->rule.reset();
+        return true;
+    }
     void release(const Handle& h) override {
         // Strong PHLWORKSPACE members kept evacuated managed workspaces and retirement
         // gaps listed (empty) for the compositor lifetime after a complete recovery.
@@ -396,6 +402,7 @@ struct Broker {
                 result={{"id",id},{"name",e.spec["name"]},{"state",state},{"physical",false},
                     {"observation",e.object ? backend.observation(e.object):Json(nullptr)},
                     {"fallback_usable",backend.usable(r.fallback)}};
+                if(state=="blocked") result["blocked"]=e.blocked;
             }
             }
             auto reply=Json{{"schema",j["schema"]},{"session",session},{"run_id",run},{"request_id",j["request_id"]},{"epoch",epoch},{"result",result}}.dump();

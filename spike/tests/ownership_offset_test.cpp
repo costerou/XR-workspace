@@ -1,4 +1,4 @@
-// Actual plugin configure/verified bodies, with offline boundary doubles only.
+// Actual plugin configure/verified/cleanup bodies, with offline boundary doubles only.
 // Pinned Hyprland efb5099: applyMonitorRuleSoft stores active rule; only
 // MonitorLayoutController::arrange -> MonitorPositionController::arrange moves.
 #include "registry.hpp"
@@ -28,6 +28,7 @@ bool sameRule(const CMonitorRule& a,const CMonitorRule& b){return a==b;}
 struct RuleManager {
  std::vector<CMonitorRule> rules;
  auto& all(){return rules;}
+ auto& allMut(){return rules;}
  void add(CMonitorRule r){rules.push_back(r);}
 };
 RuleManager rules;
@@ -100,7 +101,6 @@ struct NativeBackend: Backend {
  bool usable(const Handle&) override{return true;}
  bool evacuate(const Handle&,const Handle&) override{return false;}
  bool reachable(const Handle&,const Handle&) override{return false;}
- bool cleanup(const Handle&,const Json&) override{return false;}
  void release(const Handle&) override {} // destroy never succeeds in this double
  bool destroy(const Handle&) override{return false;}
 };
@@ -135,6 +135,33 @@ int main() {
      CHECK(b.object->rule && b.object->rule->m_resolution==Vector2D(3440,1440) && b.object->rule->m_scale==1.25);
      CHECK(r.inspect("s","r","offset")=="live");
      b.monitor->m_scale=1; CHECK(r.inspect("s","r","offset")=="invalid");
+   }
+   { // Removal drops the run's own rule and goes on.
+     NativeBackend b; Registry r(b); CHECK(r.create("s","r",spec(0,0))=="live");
+     CHECK(b.cleanup(b.object,Json::object()));
+     CHECK(Config::rules.rules.empty() && !b.object->rule);
+     CHECK(b.cleanup(b.object,Json::object()));  // nothing left of ours: still no reason to stop
+   }
+   { // A reload already dropped it.
+     NativeBackend b; Registry r(b); CHECK(r.create("s","r",spec(0,0))=="live");
+     Config::rules.rules.clear();
+     CHECK(b.cleanup(b.object,Json::object()));
+     CHECK(!b.object->rule);
+   }
+   { // Run 4468c283: Omarchy's scale control, on XR-1, put a rule of its own in place of ours. It is the user's and stays,
+     // and it says nothing about the output, which is proven ours by its object: the removal goes on.
+     NativeBackend b; Registry r(b); CHECK(r.create("s","r",spec(0,0))=="live");
+     auto theirs=Config::rules.rules.at(0); theirs.m_refreshRate=60; theirs.m_scale=1.25;
+     Config::CMonitorRule catchAll, mainDisplay; catchAll.m_scale=1.25; mainDisplay.m_name="DP-1";
+     Config::rules.rules={catchAll,theirs,mainDisplay};
+     CHECK(b.cleanup(b.object,Json::object()));
+     CHECK(Config::rules.rules.size()==3 && Config::sameRule(Config::rules.rules.at(1),theirs));
+     CHECK(!b.object->rule);
+   }
+   { // The output itself is gone: that is a refusal, as ever.
+     NativeBackend b; Registry r(b); CHECK(r.create("s","r",spec(0,0))=="live");
+     b.object->live=false;
+     CHECK(!b.cleanup(b.object,Json::object()));
    }
    for(int fault=0;fault<4;++fault) {
      NativeBackend b; Registry r(b);

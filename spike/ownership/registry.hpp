@@ -67,7 +67,8 @@ public:
     // Takes only parse_request-validated schema-2 requests; never dispatches lifecycle mutations.
     Json handle(const Json&,const std::string& epoch);
 };
-struct Entry { std::string session,run; Json spec; Handle object; std::string state="pending"; };
+// `blocked`: the step the last refused removal stopped at (unavailable, evacuate, unreachable, rule, destroy).
+struct Entry { std::string session,run; Json spec; Handle object; std::string state="pending"; std::string blocked={}; };
 class Registry {
     Backend& backend;
     bool busy=false;

@@ -94,6 +94,14 @@ class HostSources:
         except FileNotFoundError: return None
         return result if isinstance(result, dict) and result.get('run_id') == run_id else None
 
+    def recovery(self, run_id):
+        """Why the last Recover of a run stopped (__main__.report_recovery): {'reasons': [text]}, or None."""
+        try: record = read_private_json(self.state_dir / f'{run_id}.recovery.json')
+        except FileNotFoundError: return None
+        if not isinstance(record, dict) or record.get('run_id') != run_id: return None
+        reasons = record.get('reasons')
+        return dict(reasons=[str(r) for r in reasons] if isinstance(reasons, list) else [])
+
     @staticmethod
     def _cursor(lines):
         for line in reversed(lines):
@@ -389,8 +397,9 @@ class IncidentMonitor:
         self.after[run_id] = state
         if before == 'starting' and state in STRANDED:
             at = o['at']
-            self.correlator.add(Signal(at, 'recovery-failed', 'controller', 'Recover ran, and the session still has unfinished work'), run_id,
-                                self._context(run_id, at), now=at)
+            reasons = (self._safe(self.sources.recovery, run_id) or {}).get('reasons')
+            detail = 'Recover ran, and the session still has unfinished work' + (': ' + '; '.join(reasons) if reasons else '')
+            self.correlator.add(Signal(at, 'recovery-failed', 'controller', detail), run_id, self._context(run_id, at), now=at)
             self.correlator.run_ended(run_id, at, 'ended')
 
     # --- reporting -----------------------------------------------------------------------------------------------------
@@ -415,6 +424,7 @@ class IncidentMonitor:
         last = max(episode.last, episode.ended_at or episode.last)
         kernel = self._safe(self.sources.kernel_around, episode.first - KERNEL_BEFORE_S, last + KERNEL_AFTER_S, default=[])
         return dict(consent=watch.consent, result=live.result, unit=live.unit or parse_unit_exit(run), source=self._safe(self.sources.source, default={}),
+                    recovery=self._safe(self.sources.recovery, episode.run_id),
                     cores=self._cores(episode), status=watch.last_status, mode=watch.mode_text(), expected_mode=watch.expected_mode_text(), drm=watch.drm,
                     metrics=exit_metrics(run), suppressed=suppressed,
                     logs=dict(run=run, kernel=relevant_kernel(kernel, live.kernel.ports),

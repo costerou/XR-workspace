@@ -112,6 +112,10 @@ TestCase {
         verify(lines.some(l => l.text.indexOf("3840 × 1080 · 125%") >= 0));
         verify(lines.some(l => l.text.indexOf("DP-1") >= 0));
         verify(Model.scopeLines(scope, "recover").every(l => !l.optional));
+        // A line Recover takes out of monitors.lua is part of what the click agrees to; none, no line about it.
+        const rule = Model.scopeLines(scope, "recover", [{name:"XR-1", line:9, removable:true}]);
+        verify(rule.some(l => l.text.indexOf("XR-1") >= 0 && l.text.indexOf("monitors.lua (line 9)") >= 0 && !l.optional));
+        verify(!Model.scopeLines(scope, "recover", []).some(l => l.text.indexOf("monitors.lua") >= 0));
         // The pills can change the desktops during the session: the start scope says so, the recover scope does not
         // list the start's desktops (the run may have others by then).
         verify(lines.some(l => !l.optional && l.text.indexOf("ultrawide") >= 0 && l.text.indexOf("up to " + Model.MAX_DESKTOPS) >= 0));

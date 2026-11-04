@@ -10,6 +10,7 @@ from pathlib import Path
 import secrets
 import sys
 
+from tools.native_spike import monitor_rules
 from tools.native_spike.hyprland import HyprlandClient
 from tools.native_spike.ipc import TOKEN, private_dir, read_private_json
 from tools.native_spike.managed import run_managed
@@ -66,6 +67,8 @@ def execute(consent_path, data_home, progress=None):
         result['phase'] = 'plugin'
         if not os.environ.get('XDG_RUNTIME_DIR'): raise ValueError('XDG_RUNTIME_DIR not set')
         runtime = Path(os.environ['XDG_RUNTIME_DIR'])
+        client = HyprlandClient(consent['instance'], runtime)
+        monitor_rules.refuse_start(client)  # before the wait for tracking: up to 120 seconds to hear nothing can start
         if consent['tracking'] == 'xrlinuxdriver':
             from tools.native_spike import tracking
             result['phase'] = 'tracking'
@@ -73,7 +76,6 @@ def execute(consent_path, data_home, progress=None):
             tracking.ensure_ready(runtime)
         result['phase'] = 'plugin'
         if progress: progress(result['run_id'], 'plugin')
-        client = HyprlandClient(consent['instance'], runtime)
         # Other plugins (e.g. Omarchy's hyprbars) may stay loaded; only a broker of ours already present blocks.
         if ownership_plugin_count(client.plugins_loaded()): raise ValueError('ownership plugin already loaded')
         verify_pinned(installed['plugin'])
@@ -92,6 +94,7 @@ def execute(consent_path, data_home, progress=None):
                           store=ProfileStore(profiles_path(), consent['model']), renderer=installed['renderer']['path'])
         result.update(complete=run['complete'], renderer_returncode=run['renderer_returncode'], remaining=run['remaining'])
         if run.get('stop_reason'): result['stop_reason'] = run['stop_reason']
+        if run.get('reasons'): result['recovery'] = run['reasons']
     except BaseException as exc:  # recorded, never re-raised: the result file is written on every exit
         errors.append(str(exc) or type(exc).__name__)
     finally:
@@ -101,7 +104,8 @@ def execute(consent_path, data_home, progress=None):
             (run is not None and run.get('complete') is not True) or
             (run is None and (runtime / 'xr-workspace-spike' / consent['run_id'] / 'journal.json').exists()))
         if preserve:
-            errors.append('ownership plugin retained for explicit recovery')
+            why = (run or {}).get('reasons')
+            errors.append('ownership plugin retained for explicit recovery' + (': ' + '; '.join(why) if why else ''))
         if attempted and not preserve:
             if not errors: result['phase'] = 'teardown'
             try:

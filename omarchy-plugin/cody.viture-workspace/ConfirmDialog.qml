@@ -16,7 +16,7 @@ ColumnLayout {
     Label { text: root.pending.action === "recover" ? "Recover this session?" : "Start XR session?"; font.bold: true; font.pixelSize: 20 }
     Label { text: "Your approval applies to this one run." }
     Repeater {
-        model: Model.scopeLines(root.pending.scope, root.pending.action)
+        model: Model.scopeLines(root.pending.scope, root.pending.action, root.pending.rules)
         delegate: CheckBox {
             required property var modelData
             id: scopeCheck

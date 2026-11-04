@@ -81,7 +81,7 @@ if(XR_ENABLE_OWNERSHIP_PLUGIN)
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/ownership_pair_wire_test.py" "$<TARGET_FILE:ownership_test>")
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_ownership_methods.py"
-      "${CMAKE_CURRENT_SOURCE_DIR}/ownership/plugin.cpp" "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc"
+      "${CMAKE_CURRENT_SOURCE_DIR}/ownership/plugin.cpp" "${CMAKE_CURRENT_BINARY_DIR}/ownership_methods.inc" configure verified cleanup
     DEPENDS ownership/plugin.cpp tests/extract_ownership_methods.py VERBATIM)
   add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_methods.inc" "${CMAKE_CURRENT_BINARY_DIR}/ownership_pair_broker.inc"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_pair_methods.py"

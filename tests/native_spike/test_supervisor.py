@@ -299,7 +299,7 @@ class StopReasonTests(unittest.TestCase):
                 import contextlib
                 return contextlib.nullcontext()
             def bind_broker(self, context): pass
-        class Recovered: complete, remaining = True, []
+        class Recovered: complete, remaining, reasons = True, [], []
         class Broker: epoch, fallback = 1, 'DP-1'
         with patch.object(managed, '_launch', launch), patch.object(managed, 'create_outputs', lambda *a: None), \
                 patch.object(managed, 'recover_restoring', lambda *a: Recovered()):
