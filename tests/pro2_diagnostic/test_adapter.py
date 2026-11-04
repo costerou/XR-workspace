@@ -68,3 +68,16 @@ class ReplayScopeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'empty'):replay(rows)
         rows[-1]['queue_dropped']=1
         with self.assertRaisesRegex(ValueError,'unclean'):replay(rows)
+
+class RollEvidenceTests(unittest.TestCase):
+    def test_left_ear_down_and_right_ear_down_candidate_signs(self):
+        from tools.pro2_diagnostic.directional import aggregate,mul
+        rows=[];cues=[dict(label=n,host_monotonic_ns=int(t*1e9)) for n,t in zip(['center','roll_left','roll_right','return'],[.004,5.003,10.001,15])]
+        for i in range(1200):
+            t=i/60;a=.2 if 5<=t<10 else -.2 if 10<=t<15 else 0
+            rows.append(dict(kind='pose',host_monotonic_ns=int(t*1e9),sdk_values=[0,0,0,math.cos(a),0,0,math.sin(a)],issues=[]))
+        result=aggregate(rows,cues,roll=True)
+        self.assertLess(result['holds']['roll_left']['compositions']['reference']['H1_upstream_basis']['axis_xyz'][0],-.99)
+        self.assertGreater(result['holds']['roll_right']['compositions']['reference']['H1_upstream_basis']['axis_xyz'][0],.99)
+        self.assertLess(result['pair_metrics']['reference']['roll_left_right_axis_dot'],-.99)
+        self.assertLess(result['holds']['return']['actual_sample_span_s'],3)

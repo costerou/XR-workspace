@@ -1,0 +1,212 @@
+{
+  "capture_span_s": 19.976536247,
+  "holds": {
+    "center": {
+      "cue_offset_s": 0.00384306,
+      "settled_bounds_s": [
+        2.00384306,
+        5.00309972
+      ],
+      "samples": 181,
+      "actual_sample_span_s": 2.993100588,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 0.0,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 0.0,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 4.969616689786746e-17,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 4.969616689786746e-17,
+            "axis_xyz": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "roll_left": {
+      "cue_offset_s": 5.00309972,
+      "settled_bounds_s": [
+        7.00309972,
+        10.001182249
+      ],
+      "samples": 180,
+      "actual_sample_span_s": 2.977083426,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 23.033579203682834,
+            "axis_xyz": [
+              -0.006619988638668776,
+              -0.31508571229069365,
+              0.949040130690315
+            ],
+            "off_expected_axis_fraction": 0.9999780876351361
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 23.033579203682834,
+            "axis_xyz": [
+              -0.949040130690315,
+              0.006619988638668776,
+              -0.31508571229069365
+            ],
+            "off_expected_axis_fraction": 0.3151552479958247
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 23.03357920368283,
+            "axis_xyz": [
+              0.001295200782957971,
+              -0.03689660754888559,
+              0.9993182490109522
+            ],
+            "off_expected_axis_fraction": 0.9999991612271142
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 23.03357920368283,
+            "axis_xyz": [
+              -0.9993182490109522,
+              -0.001295200782957971,
+              -0.03689660754888559
+            ],
+            "off_expected_axis_fraction": 0.03691933360293044
+          }
+        }
+      }
+    },
+    "roll_right": {
+      "cue_offset_s": 10.001182249,
+      "settled_bounds_s": [
+        12.001182249,
+        15.000197329
+      ],
+      "samples": 180,
+      "actual_sample_span_s": 2.972108911,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 23.204272000637793,
+            "axis_xyz": [
+              0.09357605730496443,
+              0.5071722492472386,
+              -0.8567495731500278
+            ],
+            "off_expected_axis_fraction": 0.9956121340659012
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 23.204272000637793,
+            "axis_xyz": [
+              0.8567495731500278,
+              -0.09357605730496443,
+              0.5071722492472386
+            ],
+            "off_expected_axis_fraction": 0.5157326525509562
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 23.204272000637793,
+            "axis_xyz": [
+              0.08014493008982917,
+              0.24943070117960076,
+              -0.9650705235836131
+            ],
+            "off_expected_axis_fraction": 0.9967832212577098
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 23.204272000637793,
+            "axis_xyz": [
+              0.9650705235836131,
+              -0.08014493008982917,
+              0.24943070117960076
+            ],
+            "off_expected_axis_fraction": 0.2619902374327159
+          }
+        }
+      }
+    },
+    "return": {
+      "cue_offset_s": 15.000197329,
+      "settled_bounds_s": [
+        17.000197329,
+        19.976536247
+      ],
+      "samples": 180,
+      "actual_sample_span_s": 2.972066586,
+      "compositions": {
+        "body": {
+          "H0_identity": {
+            "angle_deg": 4.238804641584281,
+            "axis_xyz": [
+              -0.2141150529513133,
+              0.9765791476093398,
+              0.02116394467653484
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 4.238804641584281,
+            "axis_xyz": [
+              -0.02116394467653484,
+              0.2141150529513133,
+              0.9765791476093398
+            ]
+          }
+        },
+        "reference": {
+          "H0_identity": {
+            "angle_deg": 4.238804641584281,
+            "axis_xyz": [
+              -0.24146020908680654,
+              0.9372591055701112,
+              -0.2514802903880762
+            ]
+          },
+          "H1_upstream_basis": {
+            "angle_deg": 4.238804641584281,
+            "axis_xyz": [
+              0.2514802903880762,
+              0.24146020908680654,
+              0.9372591055701112
+            ]
+          }
+        }
+      }
+    }
+  },
+  "pair_metrics": {
+    "body": {
+      "roll_left_right_axis_dot": -0.9735119287155236
+    },
+    "reference": {
+      "roll_left_right_axis_dot": -0.9735119287155238
+    }
+  },
+  "selected_production_mapping": null,
+  "optical_tilt": "unvalidated",
+  "roll": "unvalidated"
+}

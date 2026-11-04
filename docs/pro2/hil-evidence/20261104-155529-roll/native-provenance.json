@@ -1,0 +1,15 @@
+{
+  "native_build": "c++ -std=c++20 -Wall -Wextra -Werror -pthread; see test_native_contract.py for exact arguments",
+  "runtime": "unshare -Ur -i -- temporary-native-contract; fresh IPCnamespace, generated private prefix; no SDK/GPU/compositor",
+  "files": {
+    "tools/pro2_diagnostic/adapter.py": "5663edf4e32bd550b5befe56ef758588044df4d9503413fd8fb5628c25a1ae49",
+    "tools/pro2_diagnostic/directional.py": "ee4c9aecb5c0795d0a43964ccc422fa14edd96110b9a37349cc543bfd3cee0d3",
+    "tests/pro2_diagnostic/native_contract.cpp": "5ea7f21daab2320f697e6d4c3179a9814518499ee1c049a424abc2332cb73b40",
+    "tests/pro2_diagnostic/test_native_contract.py": "7bd815c5ae3ac2a50c6efd5d0e5d801ff3a3ba9c6414aaa79d5c287f45e50af6",
+    "spike/src/pose.cpp": "cb713a43e971a34aaa0e58fa2e1edca1dc85985ca77ad54445649fafa296b08b",
+    "spike/include/xr/pose.hpp": "9c344b35b436654aad665f98b036253630438cdf11297746366eed110b9a0f43",
+    "spike/driver/src/publish.cpp": "0befb0e07f50b1bdb3fd51aff5d7bd68f402750fba542833bbbe327ae367a73f",
+    "spike/driver/include/luma/publish.hpp": "f1393905983b92ac5a4229caf932c5150dde03cf5c4e271fbf1ddc27805b2c09",
+    "spike/driver/include/luma/types.hpp": "8a0222709dea8ba381b5ed3b262e54e8e1d9398c7348d780d205ad28cea8f5ad"
+  }
+}

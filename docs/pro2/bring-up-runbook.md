@@ -49,3 +49,7 @@ The passive launch guard cannot confine a driver already waiting for a future ho
 ## Parent-run G3 update (no integrator live execution)
 
 See [gate ledger](gate-ledger.md) and [independent G3 evidence](hil-evidence/20261104-154541-directional/README.md). Parent-authorized stationary and four-direction streams are complete; H1basis is implemented only as an offline replay candidate. Next consent proposed is one bounded roll/reference capture, not installation or XR activation. Normal Pro2 guards remain unchanged. G3 immediate before/afterreadbacks are1080p120; final actual settled return sample span2.957119s. Opticaltilt remains unvalidated.
+
+## Parent-run roll and native offline acceptance
+
+See [roll evidence](hil-evidence/20261104-155529-roll/README.md). Three signed motion families now support H1offlinecandidate; native publisher/reader/PoseState replays pass under a fresh IPCnamespace. No SDK/device/compositor/liveIPC touched by integrator. No further repeated motioncapture requested. Next reviewed decision/artifact blockers are [projection/opticalpolicy and runtimebridge](integration-plan.md), not installing the safety-only build. Keep existingactivationguards. Roll-run physicalpicture confirmation remains missing; manual15:47:27unplug is not spontaneous.

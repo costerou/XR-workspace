@@ -25,12 +25,13 @@ def rotation(q):
     return dict(angle_deg=math.degrees(2*math.atan2(n,q[0])),axis_xyz=[v/n for v in q[1:]] if n>1e-12 else [0]*3)
 
 
-def aggregate(records,cues):
+def aggregate(records,cues,*,roll=False):
     poses=[r for r in records if r.get('kind')=='pose']
     if not poses or any(r.get('issues') for r in poses):raise ValueError('missing/invalid samples')
     first=poses[0]['host_monotonic_ns'];last=poses[-1]['host_monotonic_ns']
-    cues=[c for c in cues if c['label'] in ('center','left','right','up','down','return')]
-    if [c['label'] for c in cues]!=['center','left','right','up','down','return']:raise ValueError('cue order')
+    expected=['center','roll_left','roll_right','return'] if roll else ['center','left','right','up','down','return']
+    cues=[c for c in cues if c['label'] in expected]
+    if [c['label'] for c in cues]!=expected:raise ValueError('cue order')
     times=[c['host_monotonic_ns'] for c in cues]
     if any(b<=a for a,b in zip(times,times[1:])):raise ValueError('cue time order')
     result={};medians={}
@@ -50,13 +51,13 @@ def aggregate(records,cues):
             r['compositions'][composition]={}
             for h,relative in [('H0_identity',q),('H1_upstream_basis',basis(q))]:
                 metric=rotation(relative)
-                axis=2 if name in ('left','right') else 1 if name in ('up','down') else None
+                axis=0 if name in ('roll_left','roll_right') else 2 if name in ('left','right') else 1 if name in ('up','down') else None
                 if axis is not None:metric['off_expected_axis_fraction']=math.sqrt(max(0,1-metric['axis_xyz'][axis]**2))
                 r['compositions'][composition][h]=metric
     pairs={}
     for composition in ('body','reference'):
         def axis(name):return result[name]['compositions'][composition]['H0_identity']['axis_xyz']
         def dot(a,b):return sum(x*y for x,y in zip(axis(a),axis(b)))
-        pairs[composition]=dict(left_right_axis_dot=dot('left','right'),up_down_axis_dot=dot('up','down'),left_up_axis_dot=dot('left','up'))
+        pairs[composition]=dict(roll_left_right_axis_dot=dot('roll_left','roll_right')) if roll else dict(left_right_axis_dot=dot('left','right'),up_down_axis_dot=dot('up','down'),left_up_axis_dot=dot('left','up'))
     return dict(capture_span_s=(last-first)/1e9,holds=result,pair_metrics=pairs,
                 selected_production_mapping=None,optical_tilt='unvalidated',roll='unvalidated')

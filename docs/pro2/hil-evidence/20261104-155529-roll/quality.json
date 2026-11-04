@@ -1,0 +1,64 @@
+{
+  "samples": 1203,
+  "duration_host_s": 19.976536247,
+  "observed_hz": 60.17059139471748,
+  "issue_samples": 0,
+  "host_interval_ns": {
+    "min": 13007233,
+    "p05": 14973391,
+    "median": 15003318,
+    "p95": 20010119,
+    "max": 21018574
+  },
+  "sdk_delta_raw": {
+    "min": 13729000,
+    "p05": 14805000,
+    "median": 15004000,
+    "p95": 19973000,
+    "max": 20041000
+  },
+  "sdk_ticks_per_host_second_ols": 999985079.4553317,
+  "sdk_ticks_per_host_second_endpoint": 1000010449.909705,
+  "three_second_block_slopes": [
+    999946630.8086573,
+    999996643.3304341,
+    999996601.8295479,
+    1000004352.7955478,
+    999992597.3982644,
+    999972891.1326791
+  ],
+  "residual_receipt_ms": {
+    "min": -0.5084480577002828,
+    "p05": -0.4416482570062036,
+    "median": -0.00238656575164502,
+    "p95": 0.45657247751123214,
+    "max": 0.5096207599926618
+  },
+  "quaternion_norm": {
+    "min": 0.9999999365057379,
+    "p05": 0.9999999841578062,
+    "median": 1.0000000361965382,
+    "p95": 1.0000000787355403,
+    "max": 1.0000001023135734
+  },
+  "angular_distance_from_first_deg": {
+    "min": 0.0,
+    "p05": 0.29586431999957497,
+    "median": 5.108391420619287,
+    "p95": 24.59679765121264,
+    "max": 25.132454867226848
+  },
+  "firmware_status": 0,
+  "firmware_version": "30.0.00.002_20260804",
+  "library_sha256": "8dbe441e41aacf3592e94a94e8151a644c1a6f3749b2f684c33282b251b3e19e",
+  "cleanup": [
+    {
+      "error_count": 0,
+      "queue_dropped": 0
+    }
+  ],
+  "timestamp_unit": "unvalidated; paired clock fit only",
+  "frame": "unvalidated",
+  "optical_tilt": "unvalidated",
+  "capture_sha256": "8fdfd3ac3362bd83a33e0427e34ca61b624ba5075ce433e5eaf4f1c9fdc6bf29"
+}

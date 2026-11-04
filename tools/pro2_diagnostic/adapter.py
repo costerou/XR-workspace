@@ -1,7 +1,8 @@
 """OFFLINE H1 replay candidate: no SDK, device, IPC writer or production import.
 
-Provisional scope: pinned SDK / firmware30.0.00.002_20260804, parent G2/G3.
-Raw ns scale and body-to-reference interpretation are hypotheses, not activation.
+Provisional scope: pinned SDK / firmware30.0.00.002_20260804, parent G2/G3 + labeled roll.
+H1 has sign-consistent yaw/pitch/roll evidence; native private replay compatibility
+is tested. This is not live renderer/optical or production activation approval.
 """
 import math
 import struct
