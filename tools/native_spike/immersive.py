@@ -502,6 +502,9 @@ class ImmersiveRun:
         """Back to flat from any point. The target goes too: the loop latches this until a new press (ViewControl)."""
         with self._cond:
             was_up, self._target, self._reassert = bool(self._current), [], False
+            # Late callback registration may observe the latch while teardown
+            # is still running: publish its authoritative reason atomically.
+            self.error = f'{kind}: {why}'
             self._failure_pending = True
             self._failed = True
         if was_up or kind == 'sbs': self._down()
