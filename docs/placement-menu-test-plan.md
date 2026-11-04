@@ -712,3 +712,29 @@ there. R4 to R7 deliberately break a session or install during one, so they need
 | R7 | During a session, install a new build (orchestrator's job, with your go-ahead), then Stop | Stop finishes with nothing left over: no XR desktops, `hyprctl plugin list` has no `xr-ownership`, and the next start loads the new plugin. |
 
 Record any failure with the step number and what you saw. Keep it apart from automated test results.
+
+## Immersive 3D: automated coverage and glasses test script
+
+Automated: `tests/native_spike/test_immersive.py` (setting, saving, bind, help row, hit zone, the worker's order and every fall back, a
+real child process, the run's own wiring), ctest `immersive`, `glass_contract`, `environment_render` (the button drawn, lit, under the
+cap), `tests/xr_controller/test_state.py`, the panel's `tst_model.qml` and `test_running_editor.py`. Not run on a live compositor or
+in the glasses.
+
+Steps I1-I4 work today. I5-I12 wait for the engine, the SBS command and the stereo pass.
+
+| Step | Do | Expect |
+| --- | --- | --- |
+| I1 | Open the overview | Joined to every level bar, 2 px apart: a dark 3D segment and a dark tail with three small desktops |
+| I2 | Move the dot onto each | Each lights in turn; the dot stays plain; the bar's own segments still work right up to the gap |
+| I3 | Click the 3D, the tail, press Ctrl+Alt+I, or use the panel's 3D row | Toast: the depth engine could not start. Back to 2D; the picture never changes |
+| I4 | Ctrl+Alt+T, then Ctrl+Alt+I | Nothing: typing mode has that key off |
+| I5 | Press Ctrl+Alt+I | Buttons light at once; after the engine loads the glasses switch and every desktop is 3D |
+| I6 | Click one desktop's 3D segment | Only that desktop goes flat, its segment and every tail go dark, the rest stay 3D |
+| I6a | Click any tail | Every desktop 3D, every segment and tail lit; click again: all flat |
+| I7 | Turn the last 3D desktop off | Glasses back in 2D; `xr-depth-engine` gone from `ps`; GPU load back down |
+| I8 | Kill `xr-depth-engine` while 3D is on | Flat, 2D mode, a toast; the next press retries |
+| I9 | Open a VR video in 3D, close it | 3D stands down for the video and comes back |
+| I10 | Reload the Hyprland config in 3D | Stays in 3D |
+| I11 | Stop XR in 3D; then again with a crash of the supervisor | Glasses back in 2D, no engine left running |
+| I12 | Restart XR after leaving one desktop 3D | Comes back on that desktop only; another glasses model is off |
+

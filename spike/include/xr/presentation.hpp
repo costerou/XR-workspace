@@ -149,6 +149,8 @@ public:
     // desktop and segment that is lit (glass.hpp LevelSegment; -1: none), brightest when `active`.
     void set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, const std::array<bool, kMaxDesktops>& bars, std::int32_t hover,
                   std::int8_t side, bool active);
+    // Immersive 3D (ipc.hpp ImmersivePayload). The buttons draw from it; `stereo` waits for the stereo pass to read it.
+    void set_immersive(const std::array<bool, kMaxDesktops>& desktops, bool global, bool stereo, std::int32_t hover, bool tail);
     // How far each desktop is from level as you see it, without its levelling roll (view.hpp desktop_tilt against the
     // world's up, PoseState::reference): {"roll_geometry":{"tilt":[t,...]}}, one entry per captured desktop in hundredths of a
     // degree (counter-clockwise positive), or null where it cannot be measured (no head tracking, not in anchor mode or

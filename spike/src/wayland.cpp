@@ -275,6 +275,7 @@ struct Presentation::Impl : SurfaceRequests {
         return p;
     }
     struct LevelBars { std::array<bool, kMaxDesktops> bars{}; std::int32_t hover = -1; std::int8_t side = -1; bool active = false; std::uint64_t updates = 0; } roll;
+    struct { std::array<bool, kMaxDesktops> desktops{}; bool global = false, stereo = false; std::int32_t hover = -1; bool tail = false; } immersive;  // the 3D buttons, and whether to draw 3D
     std::string roll_geometry_sent;      // last roll_geometry line handed to the supervisor
     double roll_geometry_ms = -1e9;      // when it was sent
     bool roll_geometry_measured = false; // ...and whether it held measurements (then later changes are rate-limited)
@@ -1296,6 +1297,12 @@ void Presentation::set_roll(const std::array<std::int32_t, kMaxDesktops>& roll, 
     s.roll.bars = bars; s.roll.hover = hover; s.roll.side = side; s.roll.active = active; ++s.roll.updates;
     s.cadence.invalidate();
 }
+void Presentation::set_immersive(const std::array<bool, kMaxDesktops>& desktops, bool global, bool stereo, std::int32_t hover, bool tail) {
+    if (!impl_) return;
+    auto& i = impl_->immersive;
+    i.desktops = desktops; i.global = global; i.stereo = stereo; i.hover = hover; i.tail = tail;
+    impl_->cadence.invalidate();
+}
 std::optional<std::string> Presentation::take_roll_geometry(double now_ms) {
     if (!impl_ || !impl_->gl || impl_->captures.empty() || !impl_->half_w) return std::nullopt;
     auto& s = *impl_;
@@ -1542,6 +1549,8 @@ Status Presentation::draw_test_pattern() {
                 glass.surface->roll = s.target_placement(std::size_t(glass.surface_desktop)).roll;
             for (std::size_t i = 0; i < glass.bars.size() && i < s.roll.bars.size(); ++i) glass.bars[i] = s.roll.bars[i];
             glass.bar_hover = s.roll.hover; glass.bar_segment = LevelSegment(s.roll.side); glass.bar_active = s.roll.active;
+            for (std::size_t i = 0; i < glass.immersive.size() && i < s.immersive.desktops.size(); ++i) glass.immersive[i] = s.immersive.desktops[i];
+            glass.immersive_global = s.immersive.global; glass.immersive_hover = s.immersive.hover; glass.immersive_tail = s.immersive.tail;
             // The corner under the dot or held: overview only (any zoom hides the caps, so it never lands on a zooming desktop).
             if (s.handle.visible && overview) { glass.cap_hover = int(s.handle.desktop); glass.cap_corner = s.handle.corner; glass.cap_active = s.handle.active; }
             s.gl->set_glass(glass);

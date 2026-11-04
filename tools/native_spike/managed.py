@@ -4,7 +4,7 @@ from pathlib import Path
 from dataclasses import dataclass
 # Up here, not where they are used: a run imports from the worktree, so a module first imported at Stop would be whatever an
 # install has checked out since the session started. Recovery needs nothing more from the disk once the run is up.
-from . import monitor_rules, privacy, restore, send, survive, tracking
+from . import immersive, monitor_rules, privacy, restore, send, survive, tracking
 from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
@@ -40,6 +40,7 @@ def recover_managed(client, consent, path, clear_rules=()):
     path = canonical
     session = client.verified_session()['id']
     privacy.wake(client, consent['recovery_output'])  # a crash in privacy mode (Ctrl+Alt+D) left it DPMS-off
+    immersive.restore_2d()  # ... and a crash in 3D the glasses in side-by-side
     validate_physical_pair(client, session, consent['output'], consent['recovery_output'])
     with managed_owner(path):
         journal = Journal.open(path, consent['run_id'], session, existing_only=True)
@@ -59,6 +60,7 @@ def recover_restoring(client, journal, broker, run_id, snapshot=None, layouts=No
     # Privacy mode (Ctrl+Alt+D) may have left the fallback DPMS-off: it comes back first, whatever ended the run.
     saved = getattr(journal, 'broker', None)
     if isinstance(saved, dict): privacy.wake(client, saved.get('recovery_output'))
+    immersive.restore_2d()  # so do the glasses, out of side-by-side 3D
     names = getattr(journal, 'output_names', list)()
     agreed = [name for name in names if name in clear_rules]
     unsolved = (monitor_rules.clear(client, agreed, notify=send.notify)
@@ -149,7 +151,7 @@ from contextlib import contextmanager
 
 @contextmanager
 def view_controls(client, run_id, session, capture, output=None, store=None, fallback=None, desktops=None, windows=None,
-                  cursor_shape=None):
+                  cursor_shape=None, renderer=None):
     """Glasses view controls for capture runs: private control socket and runtime-only Ctrl+Alt binds.
 
     `fallback` is the run's physical recovery output: Ctrl+Alt+B sends a window back there (send.py). `desktops`: the
@@ -182,6 +184,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             # Typing mode (Ctrl+Alt+T) survives a reload: only its toggle comes back. The keys are the key bind panel's.
             keys = control.keys.bind_kwargs() if control is not None and control.keys is not None else {}
             if reinstall: reinstall(*bind_args, **({'typing': True} if control is not None and control.state.typing else {}), **keys)
+            run_3d = control.immersive_run if control is not None else None  # a reload resets the mode 3D needs too
             # Park first: an asynchronous mode restore followed by parking could
             # read the pre-restore mode and overwrite the requested 120 Hz rule.
             if output is not None and hasattr(client, 'park_presentation'):
@@ -189,6 +192,7 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             if mode is not None and hasattr(client, 'apply_session_mode'):
                 now = next((m for m in client.query('monitors', timeout=0.5) if m.get('name') == output), None)
                 if view.session_mode(now) != mode: client.apply_session_mode(output)
+            if run_3d is not None: run_3d.reassert()
 
         def menu_binds(open_):
             # Placement panel (an expanded glass pill): bare arrows/Tab/R/Escape exist only while one is open.
@@ -210,7 +214,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'],
                                                    placements=_initial_placements(initial, capture),
                                                    video_quality=video_quality(saved),
-                                                   environment=environment(saved)), run_id, session,
+                                                   environment=environment(saved), immersive=immersive.immersive(saved)),
+                                   run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,
@@ -241,6 +246,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             if hasattr(client, 'adopt_windows'): desktops.move_windows = _window_mover(client)  # Ctrl+Alt+R: XR-4 to XR-3
             control.state.wide = desktops.wide()
             control.state.sizes = desktops.desktops()  # the panel's Scale dropdown
+        # Immersive 3D (immersive.py): the glasses' side-by-side mode and the depth engine, only while a desktop is 3D.
+        control.immersive_run = immersive.ImmersiveRun(immersive.ProcessEngine(immersive.find_engine(renderer)), immersive.make_sbs())
         if windows is not None:  # where each window is, kept current (window_memory.py); Super drags and events reach it
             control.windows = windows
             windows.context = control.window_context
@@ -279,6 +286,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
             control.sender.close()  # no window move may start after this; one in flight lands before recovery runs
         if control is not None and control.privacy is not None:
             control.privacy.close()  # the main display back on; no toggle starts after this
+        if control is not None and control.immersive_run is not None:
+            control.immersive_run.close()  # the glasses back in 2D, the engine gone; bounded, before recovery
         if control is not None:
             control.flush()  # a panel or drag change still inside its save delay
             control.save_setup()  # the whole monitor setup, for the next start (profiles.py)
@@ -424,7 +433,7 @@ def _run_owned(client, journal, broker, output, fallback, specs, *, context=None
             if memory is not None: memory.finish()
         cursor_shape = getattr(broker, 'cursor_reader', lambda: None)()
         with view_controls(client, journal.run_id, session, capture, output, store, fallback, manager,
-                           memory, cursor_shape=cursor_shape) as control:
+                           memory, cursor_shape=cursor_shape, renderer=renderer) as control:
             def launch():
                 report.clear()
                 # A later renderer: the desktops as they are now, which a pill may have changed since the start.

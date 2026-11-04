@@ -145,6 +145,8 @@ Image read() {
 struct Frame {
     bool desktops = true, pills = false, pointer = false;
     bool bars = false;              // every desktop's level bar and corner caps (drawn with the pills: overview only)
+    bool immersive = false;         // and their 3D segments lit
+    bool global = false;            // and their tails
     float zoom = 0;                 // 0 overview, 1 maximized (desktop 1)
     int highlight = 1;
     Mat3 view = kIdentity;          // the desktops' rotation (anchor: the head; locked / follow: identity here)
@@ -158,6 +160,8 @@ Image draw(GlCompositor& gl, const Frame& f) {
     const auto tiles = f.desktops ? blended_layout(sizes, float(kCanvasW), float(kCanvasH), 40.f, f.zoom, 1.f) : std::vector<FRect>{};
     GlassFrame glass; glass.pills = f.pills && f.zoom < 0.01f;
     if (f.bars) glass.bars.fill(true);
+    if (f.immersive) glass.immersive.fill(true);
+    glass.immersive_global = f.global;
     static std::uint64_t generation = 0;
     if (f.panel) { glass.expand[1] = 1; glass.top = 1; glass.content = 1; glass.image = f.panel; glass.generation = ++generation; glass.content_alpha = 1; }
     gl.set_glass(glass);
@@ -575,6 +579,18 @@ int main(int argc, char** argv) {
         Frame black_bars = black; black_bars.bars = true;
         const std::size_t shown = changed(draw(*gl, black_bars), draw(*gl, black));
         CHECK(shown > 500);
+        // The 3D buttons come with the bars, and a lit one looks different, on the bars' own rules: nothing when maximized.
+        Frame lit = black_bars; lit.immersive = true;
+        const Image lit_image = draw(*gl, lit);
+        CHECK(changed(lit_image, draw(*gl, black_bars)) > 200);
+        Frame every = lit; every.global = true;
+        CHECK(changed(draw(*gl, every), lit_image) > 100);  // the tails light on their own
+        CHECK(changed(draw(*gl, lit), draw(*gl, black)) > shown);
+        const Image unlit_image = draw(*gl, black_bars);
+        for (std::size_t i = 0; i < lit_image.rgb.size(); ++i)  // what the lit button drew is under the OLED cap, with GL's rounding
+            if (lit_image.rgb[i] != unlit_image.rgb[i]) CHECK(lit_image.rgb[i] <= 191 + 1);
+        Frame lit_zoomed = lit, black_zoomed = black; lit_zoomed.zoom = black_zoomed.zoom = 1;
+        CHECK(changed(draw(*gl, lit_zoomed), draw(*gl, black_zoomed)) == 0);
         for (const Background scene : {Background::grid, Background::smoke}) {
             Frame bare = black; bare.environment = true; bare.scene = scene;
             Frame barred = bare; barred.bars = true;

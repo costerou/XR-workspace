@@ -150,9 +150,10 @@ struct GlCompositor::Impl {
     enum class Attr { tile_uv, canvas_px, rect_uv, disc };
     struct Mesh { GLuint buffer = 0; GLsizei count = 0; bool built = false; std::array<float, 21> key{}; };
     Mesh glow_mesh, border_mesh, disc_mesh[2], mark_mesh[2], ghost_mesh, drop_mesh[4];
-    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, bar_meshes, cap_meshes;  // per desktop (caps: and corner)
+    std::vector<Mesh> tile_meshes, glass_meshes, grab_meshes, panel_meshes, bar_meshes, cap_meshes, button_meshes;  // per desktop (caps: and corner)
     // The level bars' and corner caps' pixels (glass.hpp render_handle_atlas): one image per theme colour.
     GLuint handle_texture = 0; std::array<float, 3> handle_accent{-1, -1, -1};
+    std::unique_ptr<HudFont> handle_font; bool handle_font_tried = false;  // the 3D button's label; its own instance, as each user has
     void upload_handles(const std::array<float, 3>& accent);  // renders and uploads it; a no-op for the same colour
     std::vector<GLfloat> scratch;              // staging for a rebuilt mesh (capacity kept)
     std::vector<Placement> resolved;           // this frame's placement per tile (capacity kept)
@@ -168,7 +169,7 @@ struct GlCompositor::Impl {
         auto drop = [](Mesh& m) { if (m.buffer) glDeleteBuffers(1, &m.buffer); m = {}; };
         drop(glow_mesh); drop(border_mesh); for (auto& m : disc_mesh) drop(m); for (auto& m : mark_mesh) drop(m);
         drop(ghost_mesh); for (auto& m : drop_mesh) drop(m);
-        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &bar_meshes, &cap_meshes}) {
+        for (auto* v : {&tile_meshes, &glass_meshes, &grab_meshes, &panel_meshes, &bar_meshes, &cap_meshes, &button_meshes}) {
             for (auto& m : *v) drop(m);
             v->clear();
         }
@@ -663,7 +664,12 @@ GLsizei GlCompositor::Impl::build_ghost(Mesh& m, const Canvas& c, float x, float
 void GlCompositor::Impl::upload_handles(const std::array<float, 3>& colour) {
     if (colour == handle_accent) return;
     handle_accent = colour;
-    const HudImage atlas = render_handle_atlas(colour);
+    if (!handle_font_tried) {  // once: a theme change never looks it up again. None: the 3D is the pixel font's
+        handle_font_tried = true;
+        std::string why;
+        handle_font = HudFont::load(kHudFontFamily, why);
+    }
+    const HudImage atlas = render_handle_atlas(colour, handle_font.get());
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, handle_texture);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GLsizei(atlas.width), GLsizei(atlas.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, atlas.rgba.data());
@@ -739,6 +745,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
     for (auto* v : {&s.tile_meshes, &s.glass_meshes, &s.grab_meshes, &s.panel_meshes})
         if (v->size() < tiles.size()) v->resize(tiles.size());
     if (s.bar_meshes.size() < tiles.size()) s.bar_meshes.resize(tiles.size());
+    if (s.button_meshes.size() < 2 * tiles.size()) s.button_meshes.resize(2 * tiles.size());
     if (s.cap_meshes.size() < 4 * tiles.size()) s.cap_meshes.resize(4 * tiles.size());  // 4 * desktop + corner
     // A vertex attribute from the mesh buffer bound by build(): `size` floats at `offset` in vertices of `stride` floats.
     auto attrib = [](GLint loc, int size, int stride, int offset) {
@@ -826,6 +833,12 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
             }
             const bool hot = int(i) == g.bar_hover;
             image(s.bar_meshes[i], i, level_bar_rect(tiles[i]), level_bar_box(hot ? g.bar_segment : LevelSegment::none, hot && g.bar_active));
+            const FRect main = immersive_main_rect(tiles[i]), tail = immersive_tail_rect(tiles[i]);  // the 3D button, joined to the bar
+            const bool on_button = int(i) == g.immersive_hover;
+            if (main.width > 0) {
+                image(s.button_meshes[2 * i], i, main, immersive_main_box(i < g.immersive.size() && g.immersive[i], on_button && !g.immersive_tail));
+                image(s.button_meshes[2 * i + 1], i, tail, immersive_tail_box(g.immersive_global, on_button && g.immersive_tail));
+            }
         }
         glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));
         glDisable(GL_BLEND);

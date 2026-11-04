@@ -26,7 +26,9 @@ mirror = {'pill_share': fp.PILL_SHARE, 'pill_min_w': fp.PILL_MIN, 'pill_max_w': 
           'background_top': fp.PANEL_BACKGROUND_TOP, 'brightness_top': fp.PANEL_BRIGHTNESS_TOP,
           'background_item_h': fp.PANEL_BACKGROUND_ITEM_H, 'background_list_gap': fp.PANEL_BACKGROUND_LIST_GAP,
           'brightness_min': environment.BRIGHTNESS_BOUNDS[0], 'brightness_max': environment.BRIGHTNESS_BOUNDS[1],
-          'brightness_default': environment.DEFAULT_BRIGHTNESS}
+          'brightness_default': environment.DEFAULT_BRIGHTNESS,
+          'immersive_gap': fp.IMMERSIVE_GAP, 'immersive_main_w': fp.IMMERSIVE_MAIN_W, 'immersive_tail_w': fp.IMMERSIVE_TAIL_W,
+          'immersive_clear': fp.IMMERSIVE_CLEAR}
 assert set(mirror) == set(c), (sorted(mirror), sorted(c))
 for name, value in mirror.items():
     assert abs(value - c[name]) < 1e-3, (name, value, c[name])
@@ -58,7 +60,7 @@ for i, want in enumerate(data['resolution_items']):
     assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (i, got, want)
 assert [tuple(r) for r in data['resolutions']] == list(geometry.RESOLUTIONS), data['resolutions']
 assert [(n, c) for n, c in data['resolution_groups']] == [(n, len(s)) for n, s in geometry.RESOLUTION_GROUPS], data['resolution_groups']
-probes = hits = 0
+probes = hits = button_probes = button_hits = 0
 for case in data['cases']:
     tile = tuple(case['tile'])
     for got, want in ((fp.pill_rect(tile), case['pill']), (fp.panel_rect(tile), case['panel'])):
@@ -78,6 +80,20 @@ for case in data['cases']:
             got = fp.level_bar_segment(tile, (px, py))
             assert got == want, (tile, px, py, got, want)
         probes += 1; hits += want is not None
+    # The 3D button (glass.hpp immersive_main_rect / immersive_tail_rect / immersive_part): the same rects, and over and round
+    # them the same control, where the point is not within float error of a zone's edge.
+    button = case['button']
+    main, tail = fp.immersive_main_rect(tile), fp.immersive_tail_rect(tile)
+    for got, want in ((main, button['main']), (tail, button['tail'])):
+        assert all(abs(a - b) < 1e-3 for a, b in zip(got, want)), (tile, got, want)
+    half = fp.IMMERSIVE_GAP * fp.level_bar_scale(tile) / 2
+    edges_x = (main[0] - half, tail[0] - half, tail[0] + tail[2] + pad)
+    edges_y = (main[1] - pad, main[1] + main[3] + pad)
+    for px, py, part in button['probes']:
+        if main[2] > 0 and min(min(abs(px - e) for e in edges_x), min(abs(py - e) for e in edges_y)) <= 1e-2: continue
+        got = fp.immersive_part(tile, (px, py))
+        assert got == (None, 'main', 'tail')[part], (tile, px, py, got, part)
+        button_probes += 1; button_hits += part != 0
 assert probes > 1000 and 100 < hits < probes, (probes, hits)
 # The corner caps sit in the corners' resize zones, so what you see is what you can press: an idle cap lies inside the band
 # EDGE_OUT_PX outside the edges and within the smallest corner_zone along them.

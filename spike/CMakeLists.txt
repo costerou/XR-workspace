@@ -359,6 +359,13 @@ if(XR_ENABLE_PRESENTATION)
       target_compile_options(roll_level_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME roll_level COMMAND roll_level_test)
+    # Immersive 3D's renderer side: the button's look and its control frame (the fixture is shared with test_immersive.py).
+    add_executable(immersive_test tests/immersive_test.cpp)
+    target_link_libraries(immersive_test PRIVATE xr_hud xr_ipc nlohmann_json::nlohmann_json)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(immersive_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME immersive COMMAND immersive_test "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native_spike/fixtures/immersive_payloads.json")
     # What level is measured against: the pose feed is relative to the driver's reference, not to gravity.
     add_executable(level_frame_test tests/level_frame_test.cpp)
     target_link_libraries(level_frame_test PRIVATE xr_hud xr_ipc)

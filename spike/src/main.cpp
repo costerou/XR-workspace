@@ -209,6 +209,9 @@ int main(int argc, char** argv) {
                         if (const auto* r = std::get_if<xr::RollPayload>(&m->payload))
                             presentation.set_roll(r->roll, r->bars, r->hover, r->side, r->active);
                     }
+                    else if (m->op == xr::ControlOp::immersive) {  // 3D; malformed ones were dropped above
+                        if (const auto* i = std::get_if<xr::ImmersivePayload>(&m->payload)) presentation.set_immersive(i->desktops, i->global, i->stereo, i->hover, i->tail);
+                    }
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);

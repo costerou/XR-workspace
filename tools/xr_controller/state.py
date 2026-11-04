@@ -13,7 +13,7 @@ from tools.native_spike.panel_consent import build_consent, write_consent, load_
 from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
-from tools.native_spike import environment, tracking
+from tools.native_spike import environment, immersive, tracking
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
@@ -53,6 +53,7 @@ class Controller:
             names=self.live.get('names') if self.state=='running' else None,
             video=self.live.get('video') if self.state=='running' else None,
             tracking_drivers=o.get('tracking_drivers') or [],
+            immersive=self.live.get('immersive') if self.state=='running' else None,
             incident=self.monitor.latest if self.monitor is not None else None))
 
     def _state(self, state):
@@ -69,7 +70,7 @@ class Controller:
         self.last_status=now
         try: reply=self.units.control(journal['run_id'],journal['session'],'status')
         except (OSError,ValueError): reply=None
-        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements','video','desktops','names') if k in reply} if isinstance(reply,dict) else {}
+        self.live={k:copy.deepcopy(reply[k]) for k in ('capabilities','view','status','placements','video','desktops','names','immersive') if k in reply} if isinstance(reply,dict) else {}
 
     def tick(self):
         try: self._tick()
@@ -238,6 +239,9 @@ class Controller:
                     if not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')
                 if 'environment' in settings and target['environment']!=current['environment']:  # absolute, like placements
                     if not self.units.control(self.run['run_id'],self.run['session'],environment.SET_OP,target['environment']): raise ValueError('run control unavailable')
+                # Absolute, like the background; sent unchanged too after a fall back to 2D, as that press is a new try.
+                if 'immersive' in settings and (target['immersive']!=current['immersive'] or (self.live.get('immersive') or {}).get('failed')):
+                    if not self.units.control(self.run['run_id'],self.run['session'],immersive.SET_OP,target['immersive']): raise ValueError('run control unavailable')
                 # The supervisor saves actual applied values; never claim these send-only operations applied.
                 return dict(forwarded=True)
             model=self.observed['model']; profile=self.store.load(model)

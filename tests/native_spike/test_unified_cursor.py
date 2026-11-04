@@ -534,7 +534,8 @@ class CursorFollowRemovedTests(unittest.TestCase):
             path.write_text('{"spacing": 60, "mode": "follow", "cursor_follow": true, "prediction": false}')
             self.assertEqual(view.load_settings(path), {'spacing': 60, 'mode': 'follow', 'prediction': False,
                                                         'video_quality': {'filter': 'catmull-rom', 'deband': False},
-                                                        'environment': {'background': 'none', 'last': 'grid', 'brightness': 100}})
+                                                        'environment': {'background': 'none', 'last': 'grid', 'brightness': 100},
+                                                         'immersive': {'global': False, 'desktops': {}}})
 
 
 class WiringTests(unittest.TestCase):

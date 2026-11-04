@@ -46,6 +46,24 @@ bool placement(const Json& value, WirePlacement& out) {
     }
     return true;
 }
+// An `immersive` frame's payload (ipc.hpp ImmersivePayload).
+bool immersive(const Json& p, ImmersivePayload& out) {
+    if (!p.is_object() || p.size() != 5) return false;
+    for (const char* key : {"desktops", "global", "stereo", "hover", "tail"}) if (!p.contains(key)) return false;
+    const auto& d = p["desktops"];
+    if (!d.is_array() || d.size() != kMaxDesktops || !p["global"].is_boolean() || !p["stereo"].is_boolean() || !p["tail"].is_boolean() ||
+        !p["hover"].is_number_integer()) return false;
+    for (std::size_t i = 0; i < kMaxDesktops; ++i) {
+        if (!d[i].is_boolean()) return false;
+        out.desktops[i] = d[i].get<bool>();
+    }
+    if (p["hover"].is_number_unsigned() && p["hover"].get<std::uint64_t>() >= kMaxDesktops) return false;  // before it could wrap as int64
+    const auto hover = p["hover"].get<std::int64_t>();
+    if (hover < -1 || hover >= std::int64_t(kMaxDesktops)) return false;
+    out.hover = std::int32_t(hover);
+    out.global = p["global"].get<bool>(); out.stereo = p["stereo"].get<bool>(); out.tail = p["tail"].get<bool>();
+    return !(out.tail && out.hover < 0);
+}
 // The background's fields, on an `environment` frame and on a placement_menu frame.
 bool background_name(const Json& v, std::uint8_t& out) {
     if (!v.is_string()) return false;
@@ -386,6 +404,7 @@ Result<ControlMessage> decode_control(std::string_view frame) {
         else if (name == "environment") op = ControlOp::environment;
         else if (name == "binds") op = ControlOp::binds;
         else if (name == "edge_pan") op = ControlOp::edge_pan;
+        else if (name == "immersive") op = ControlOp::immersive;
         else return invalid();
         ControlPayload payload;
         if (op == ControlOp::video) {
@@ -488,6 +507,10 @@ Result<ControlMessage> decode_control(std::string_view frame) {
             RollPayload r;
             if (!roll(j["payload"], r)) return Error{kInvalidRollCode, "Ignored malformed roll payload"};
             payload = r;
+        } else if (op == ControlOp::immersive) {
+            ImmersivePayload i;
+            if (!immersive(j["payload"], i)) return Error{kInvalidImmersiveCode, "Ignored malformed immersive payload"};
+            payload = i;
         } else if (op == ControlOp::binds) {
             BindPanelState panel;
             if (!binds(j["payload"], panel)) return Error{kInvalidBindsCode, "Ignored malformed binds payload"};

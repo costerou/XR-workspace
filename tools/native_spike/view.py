@@ -114,6 +114,12 @@ background_switch) and a Brightness slider (a fifth `field`, brightness, that is
 desktop's panel; Ctrl+Alt+E goes between None and the last background used. Saved with the view settings; the renderer
 turns it with the head pose whatever the viewing mode.
 
+Immersive 3D (immersive.py): any desktop made stereo by an AI depth map. Ctrl+Alt+I for every desktop, the 3D button next to a
+desktop's level bar for that desktop, its tail for every desktop, and the panel. Saved with the view settings, off by default. ViewControl only says what it
+wants (_immersive_sync, every poll, so a desktop change or a VR video is noticed too) and collects what happened
+(_immersive_tick); immersive.ImmersiveRun brings the engine and the glasses' 3D mode up and down off the loop, and a failure
+holds the run in 2D (immersive_failed) with a toast until the next press.
+
 Legacy cleanup: builds before the glass pills had a menu "mouse mode" (Ctrl+Alt+M) with its own left-button binds and
 hidden cursor. A run of such a build that died in mouse mode left those behind; remove_menu_binds_lua() (and the bind
 helper xr_control.py, which still accepts the old op names for this only) removes them and shows the cursor again, a
@@ -129,9 +135,11 @@ import time
 
 from . import edge_pan
 from . import environment as _environment
+from . import immersive as _immersive
 from . import quality as _quality
 from .environment import BRIGHTNESS_FIELD, SET_OP as ENVIRONMENT_SET_OP, TOGGLE_BIND as ENVIRONMENT_BIND, TOGGLE_OP as ENVIRONMENT_OP
 from .geometry import MAX_DESKTOPS
+from .immersive import SET_OP as IMMERSIVE_SET_OP, TOGGLE_BIND as IMMERSIVE_BIND, TOGGLE_OP as IMMERSIVE_OP
 from .ownership import CURSOR_EVENT, CURSOR_NAME
 from .privacy import PRIVACY_BIND, PRIVACY_OP
 from .send import SEND_OPS
@@ -155,7 +163,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          PRIVACY_BIND,  # Ctrl+Alt+D: main display off / on (privacy.py)
          ('CTRL + ALT + C', 'playback_menu_toggle'),  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
          ('CTRL + ALT + K', 'binds_toggle'),  # the key bind panel (BINDS_PANEL_OP, keybinds.py)
-         ENVIRONMENT_BIND)  # Ctrl+Alt+E: the background, None <-> the last one used (environment.py)
+         ENVIRONMENT_BIND,  # Ctrl+Alt+E: the background, None <-> the last one used (environment.py)
+         IMMERSIVE_BIND)  # Ctrl+Alt+I: immersive 3D for every desktop (immersive.py)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -223,7 +232,8 @@ HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overvie
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
                 PLAYBACK_MENU_OP: 'VR video: hide / show playback controls',
                 BINDS_PANEL_OP: 'Key binds: change keys, see conflicts',
-                ENVIRONMENT_OP: 'Background: none / last used'}
+                ENVIRONMENT_OP: 'Background: none / last used',
+                IMMERSIVE_OP: 'Immersive 3D: all desktops on / off'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -239,7 +249,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('SHIFT + Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key', ENVIRONMENT_OP)
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key', ENVIRONMENT_OP, IMMERSIVE_OP)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -285,7 +295,8 @@ HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'spacing_down', 'recenter'),   
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action); the second may be a
 # tuple of ops, all on the one row ('Ctrl+Alt+O / U / C').
-HELP_PAIRS = {'prev': ('next', 'Previous / next desktop'),  # shares a row so the background's keeps the card at its roomiest text
+HELP_PAIRS = {ENVIRONMENT_OP: (IMMERSIVE_OP, 'Background / immersive 3D: on or off'),  # keeps the card at its 14 rows
+              'prev': ('next', 'Previous / next desktop'),  # shares a row so the background's keeps the card at its roomiest text
               'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               # Ctrl+Alt+R shares the recenter row (both put things back) for the same reason as Ctrl+Alt+C below
               'recenter': (RESET_OP, 'Recenter / reset to 3 flat desktops'),
@@ -535,7 +546,8 @@ def warp_cursor_lua(x, y):
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None, environment=None):
+    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None, environment=None,
+                 immersive=None):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if type(prediction) is not bool: raise ValueError('invalid prediction')
         # Every run starts in the overview, anchored (maximize-follow): `zoomed` is the maximized state, and the viewing
@@ -554,6 +566,7 @@ class ViewState:
         # The background (environment.py: read it with environment.environment); saved with the view settings. Its dropdown's
         # list is open (like scale_picker, never saved, and any collapse or switch of the open panel closes it).
         self.environment = _environment.clean(environment)
+        self.immersive = _immersive.clean(immersive)  # immersive.py: read it with immersive.immersive; saved with the view settings
         self.background_picker = False
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
@@ -751,7 +764,8 @@ class ViewState:
         """The saved view settings. `mode` stays for the saved file's schema (profiles.py, an installed panel), always
         'anchor': every run starts in the anchored overview and the saved mode is never read (maximize-follow)."""
         return {'spacing': self.spacing, 'mode': 'anchor', 'prediction': self.prediction,
-                'video_quality': dict(self.video_quality), 'environment': dict(self.environment)}
+                'video_quality': dict(self.video_quality), 'environment': dict(self.environment),
+                'immersive': _immersive.validate(self.immersive)}
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
@@ -786,14 +800,16 @@ def settings_path():
 
 DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True,
                     'video_quality': dict(_quality.DEFAULTS),  # quality.py owns its defaults
-                    'environment': dict(_environment.DEFAULTS)}  # as environment.py does its own
+                    'environment': dict(_environment.DEFAULTS),  # as environment.py does its own
+                    'immersive': _immersive.clean(None)}  # and immersive.py
 
 
 def load_settings(path):
     """Each field validated on its own; anything invalid or missing falls back to its default. A `cursor_follow`
     saved before 2026-11-02 and a `cursor_switch_animate` saved before 2026-11-03 (Ctrl+Alt+A) are ignored (both
     features were removed)."""
-    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS), 'environment': dict(_environment.DEFAULTS)}
+    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS), 'environment': dict(_environment.DEFAULTS),
+           'immersive': _immersive.clean(None)}
     try:
         data = json.loads(Path(path).read_text())
     except (OSError, ValueError):
@@ -804,6 +820,7 @@ def load_settings(path):
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
     out['video_quality'] = _quality.video_quality(data)
     out['environment'] = _environment.environment(data)
+    out['immersive'] = _immersive.immersive(data)
     return out
 
 
@@ -821,7 +838,7 @@ def save_settings(path, settings):
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
             and type(settings.get('prediction')) is bool and _quality.is_valid(settings.get('video_quality'))
-            and _environment.is_valid(settings.get('environment')))
+            and _environment.is_valid(settings.get('environment')) and _immersive.is_valid(settings.get('immersive')))
 
 
 def load_spacing(path):
@@ -1045,6 +1062,13 @@ class ViewControl:
         self._typing_installed = False  # the bind set last put in place (False: the full set from install_view_binds)
         self.keys = None  # optional keybinds.BindControl (the key bind panel, Ctrl+Alt+K); set by managed.view_controls
         self.windows = None  # optional window_memory.WindowTracker (where each window is); set by managed.view_controls
+        # Immersive 3D (immersive.py): the run's worker; False / True whether the renderer is drawing 3D now; the 2D the run
+        # fell back to, held until the next press; the desktop whose button is under the dot; the last frame's content.
+        self.immersive_run = None  # optional immersive.ImmersiveRun; set by managed.view_controls
+        self.immersive_stereo = self.immersive_failed = False
+        self.immersive_hover, self.immersive_on_tail = -1, False
+        self._immersive_sent = ([False] * MAX_DESKTOPS, False, -1, False, False)  # the renderer starts with nothing on
+        self.immersive_failures = 0  # diagnostics
 
     @property
     def keys_open(self):
@@ -1063,7 +1087,8 @@ class ViewControl:
         self.supervisor = supervisor
 
     def initial_frame(self):
-        out = self._frame() + self._placement_frame(initial=True) + self._style_frame() + self._environment_frame(initial=True)
+        out = self._frame() + self._placement_frame(initial=True) + self._style_frame() + self._environment_frame(initial=True) + \
+            self._immersive_sync()
         return out + self._menu_frame() if self.state.menu_open else out  # open only for a new renderer mid-run (survive.py)
 
     def renderer_restarted(self):
@@ -1109,6 +1134,87 @@ class ViewControl:
         self.state.environment = env
         self.environment_save_due = self.clock() + MENU_SAVE_DELAY
         return self._environment_frame()
+
+    # --- immersive 3D (immersive.py) -----------------------------------------------------------------------------------
+    def _immersive_wanted(self):
+        """The desktops 3D should be up for right now: none after a failure, or while a VR video replaces the desktops."""
+        s = self.state
+        return [] if self.immersive_failed or self.video_active else _immersive.on_names(s.immersive, s.names)
+
+    def _immersive_sync(self):
+        """Tell the worker what is wanted, and the renderer if what it shows changed. Going flat is at once, here: the
+        renderer stops drawing 3D before the glasses leave it. Frames (bytes), b'' if nothing changed."""
+        s, wanted = self.state, self._immersive_wanted()
+        if not wanted: self.immersive_stereo = False
+        if self.immersive_run is not None: self.immersive_run.request(wanted)
+        flags = [False if self.immersive_failed else _immersive.desktop_on(s.immersive, n) for n in s.names]
+        every = bool(flags) and all(flags)  # lights the tails
+        flags += [False] * (MAX_DESKTOPS - len(flags))  # the wire's length, so a desktop added with nothing on sends nothing
+        sent = (flags, self.immersive_stereo, self.immersive_hover, self.immersive_on_tail, every)
+        if sent == self._immersive_sent: return b''
+        self._immersive_sent = sent
+        frame = _immersive.renderer_frame(self.run_id, self.session, self.next_id, *sent)
+        self.next_id += 1
+        return frame
+
+    def _immersive_tick(self):
+        """poll: what the worker did, then what is wanted now. Frames (bytes)."""
+        for event in self.immersive_run.take_events() if self.immersive_run is not None else ():
+            if event[0] == 'active': self.immersive_stereo = bool(self._immersive_wanted())
+            elif event[0] == 'failed':
+                self.immersive_failed, self.immersive_stereo = True, False
+                self.immersive_failures += 1
+                self._tell(_immersive.TOASTS[event[1]].format(why=event[2]))
+            elif event[0] == 'leave': self._tell(_immersive.TOASTS['leave'].format(why=event[1]))
+        return self._immersive_sync()
+
+    def set_immersive(self, setting):
+        """3D changes (every way of changing it comes here): applied live and saved with the view settings. Any press is
+        also a new try after a failure, even with the setting unchanged. Frames (bytes), b'' if nothing changed."""
+        setting = _immersive.validate(setting)
+        self.immersive_failed = False
+        if setting != self.state.immersive:
+            self.state.immersive = setting
+            try: self.settings.save(self.state.settings())
+            except (OSError, ValueError): pass  # best effort, like the other view settings: the run keeps going
+            if self.video_active and _immersive.on_names(setting, self.state.names): self._tell(_immersive.TOASTS['video'])
+        return self._immersive_sync()
+
+    def immersive_toggle(self):
+        """Ctrl+Alt+I: every desktop on or off; after a failure, the same desktops again."""
+        s = self.state
+        retry = self.immersive_failed and _immersive.on_names(s.immersive, s.names)
+        return self.set_immersive(s.immersive if retry else _immersive.toggled_all(s.immersive, s.names))
+
+    def immersive_click(self, desktop):
+        """A free-pointer press on `desktop`'s 3D button: that desktop on or off; after a failure, a lit-in-the-setting
+        desktop tries again. Frames (bytes), b'' when stale (zoomed in, typing mode, a VR video, no such desktop)."""
+        s = self.state
+        if type(desktop) is not int or not 0 <= desktop < len(s.names) or s.zoomed or s.typing or self.video_active: return b''
+        self.last_input = self.clock()
+        retry = self.immersive_failed and _immersive.desktop_on(s.immersive, s.names[desktop])
+        return self.set_immersive(s.immersive if retry else _immersive.toggled_desktop(s.immersive, s.names[desktop]))
+
+    def immersive_tail_click(self, desktop):
+        """A free-pointer press on a 3D button's tail: every desktop, on or off, whichever desktop's tail it is; after a
+        failure with all of them on in the setting, they try again. Frames (bytes), b'' when stale (immersive_click)."""
+        s = self.state
+        if type(desktop) is not int or not 0 <= desktop < len(s.names) or s.zoomed or s.typing or self.video_active: return b''
+        self.last_input = self.clock()
+        retry = self.immersive_failed and len(_immersive.on_names(s.immersive, s.names)) == len(s.names)
+        return self.set_immersive(s.immersive if retry else _immersive.toggled_every(s.immersive, s.names))
+
+    def immersive_pointer(self, desktop, tail=False):
+        """The free pointer: the desktop whose 3D button the dot is on (-1: none), and whether on its tail, lights. Frames (bytes)."""
+        if (desktop, tail) == (self.immersive_hover, self.immersive_on_tail): return b''
+        self.immersive_hover, self.immersive_on_tail = desktop, tail
+        return self._immersive_sync()
+
+    def _immersive_status(self):
+        """For the panel: the setting, which desktops are 3D as shown, and whether it is really drawing."""
+        s = self.state
+        return {'setting': _immersive.validate(s.immersive), 'names': [] if self.immersive_failed else _immersive.on_names(s.immersive, s.names),
+                'stereo': self.immersive_stereo, 'failed': self.immersive_failed}
 
     def _overview_layout(self):
         """The renderer's overview layout (free_pointer.parse_overview_geometry) while it has one slot per desktop, else
@@ -1176,7 +1282,7 @@ class ViewControl:
 
     def status_reply(self, status):
         reply = dict(capabilities=list(USER_OPS), view=self.state.view(), status=dict(status),
-                     placements=self.state.wanted_placements(), names=list(self.state.names))
+                     placements=self.state.wanted_placements(), names=list(self.state.names), immersive=self._immersive_status())
         if self.desktops is not None: reply['desktops'] = self.desktops.desktops()  # live sizes (Ultrawide, Add)
         return reply
 
@@ -1744,6 +1850,7 @@ class ViewControl:
                 self.state.remove_armed = False
                 out += self._menu_frame()
         out += self._settle()
+        out += self._immersive_tick()
         if self.windows is not None and not self.state.desktops_busy: self.windows.poll(now)  # off the loop; never mid-change
         if now - self.last_input >= OVERLAY_IDLE_CLOSE_S:
             if self.state.menu_open: out += self._on_menu('menu_toggle') or b''  # saves at once and releases the panel keys
@@ -1844,6 +1951,11 @@ class ViewControl:
             return self.set_environment(_environment.toggled(self.state.environment)) or None
         if isinstance(message, dict) and message.get('op') == ENVIRONMENT_SET_OP:  # the controller: absolute, like `placement`
             try: return self.set_environment(message.get('payload')) or None
+            except ValueError: return None
+        if isinstance(message, dict) and message.get('op') == IMMERSIVE_OP:  # Ctrl+Alt+I: every desktop's 3D
+            return self.immersive_toggle() or None
+        if isinstance(message, dict) and message.get('op') == IMMERSIVE_SET_OP:  # the panel: absolute, like `placement`
+            try: return self.set_immersive(message.get('payload')) or None
             except ValueError: return None
         if isinstance(message, dict) and message.get('op') == PRIVACY_OP:  # the compositor call runs off the loop
             if self.privacy is not None: self.privacy.request()

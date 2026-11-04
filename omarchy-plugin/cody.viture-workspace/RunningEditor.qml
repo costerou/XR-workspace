@@ -16,6 +16,8 @@ ColumnLayout {
     readonly property var names: snapshot.names || []
     // Live placements reported by the running session; the saved profile until the first status arrives.
     readonly property var placements: snapshot.placements || settings.placements || []
+    readonly property var immersive: snapshot.immersive || ({})  // the run's 3D (Model.immersiveOn), {} before the first status
+    readonly property var immersiveSetting: immersive.setting || settings.immersive || ({global:false,desktops:{}})
     property int placing: 0
     onDesktopsChanged: if (placing >= desktops.length) placing = 0  // a desktop removed in the glasses
     signal request(var message)
@@ -78,6 +80,25 @@ ColumnLayout {
                 onClicked:root.request({op:"view_op",operation:modelData})
             }
         }
+    }
+    RowLayout {
+        objectName:"immersiveRow"
+        Label { text:"3D"; font.bold:true }
+        Button {
+            objectName:"immersiveAll"
+            text:"All desktops"; highlighted:(root.immersive.names || []).length===root.names.length && root.names.length>0; enabled:!root.busy
+            onClicked:root.request({op:"set_settings",settings:{immersive:Model.immersiveAll(root.immersiveSetting,root.names)}})
+        }
+        Repeater {
+            model:root.names
+            delegate: Button {
+                required property string modelData
+                objectName:"immersive_" + modelData
+                text:modelData; highlighted:(root.immersive.names || []).indexOf(modelData)>=0; enabled:!root.busy
+                onClicked:root.request({op:"set_settings",settings:{immersive:Model.immersiveDesktop(root.immersiveSetting,modelData)}})
+            }
+        }
+        Label { objectName:"immersiveState"; text:Model.immersiveLabel(root.snapshot.immersive); opacity:0.65; Layout.fillWidth:true; elide:Text.ElideRight }
     }
     Label { text:"Measured, this session"; font.bold:true; visible:Object.keys(root.snapshot.status || {}).length>0 }
     Flow {
