@@ -2,12 +2,19 @@
 
 No plugin loading, name-based deletion, raw-command forwarding or epoch adoption.
 Unknown UUIDs are unproven even after a fresh hello (including supervisor restart).
+One read beside the lifecycle: the name of the cursor the app under the pointer asked for (cursor_reader).
 """
+import copy
 import json
 import math
+import re
 import uuid
 from .hyprland import OwnershipBlocked, LIMIT
 from .ipc import strict_json, token
+
+# A requested cursor's name, as spike/ownership/registry.cpp cursorShapeName lets it out (the reply's empty name: none).
+CURSOR_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}')
+CURSOR_TIMEOUT = 0.25  # seconds, as the sampler's own cursor reads
 
 
 def _brief(value, items=8, limit=300):
@@ -49,8 +56,11 @@ class OwnershipBrokerClient:
         if observed != {'id': self.session}: raise OwnershipBlocked('compositor session changed')
         return observed
 
-    def _call(self, op, payload):
-        self.verified_session()
+    def _call(self, op, payload, glance=None):
+        """One broker request, its reply checked to the letter. `glance` (seconds) is a read that only changes how something
+        looks: at most that long, and no session proof round it (the transport checks the peer on every connect, the broker
+        the epoch, run and session, and the run's guard does the full proof twice a second)."""
+        if glance is None: self.verified_session()
         self.request_id += 1
         if self.request_id > 2147483647: raise OwnershipBlocked('request capacity')
         envelope = {'schema': self.SCHEMA, 'session': self.session, 'run_id': self.run_id,
@@ -58,7 +68,7 @@ class OwnershipBrokerClient:
                     'op': op, 'payload': self._payload(payload)}
         wire = 'j/xrspike ' + json.dumps(envelope, allow_nan=False, separators=(',', ':'), ensure_ascii=True)
         if len(wire) > 8194: raise ValueError('broker request exceeds 8 KiB')
-        raw = self.transport._request(wire)
+        raw = self.transport._request(wire) if glance is None else self.transport._request(wire, glance)
         if len(raw) > LIMIT: raise ValueError('broker reply exceeds 1 MiB')
         reply = strict_json(raw)
         fields = {'schema','session','run_id','request_id','epoch','result'}
@@ -70,7 +80,7 @@ class OwnershipBrokerClient:
         if self.epoch is not None and self.epoch != epoch: raise OwnershipBlocked('broker epoch lost; preserve journal')
         if op != self.HELLO and self.epoch is None: raise OwnershipBlocked('handshake required')
         if not isinstance(reply['result'], dict): raise OwnershipBlocked('invalid broker result')
-        self.verified_session()
+        if glance is None: self.verified_session()
         if op == self.HELLO: self.epoch = epoch
         return reply['result']
 
@@ -88,6 +98,23 @@ class OwnershipBrokerClient:
             self.epoch = None
             self.fallback = None
             raise
+
+    def cursor_shape(self):
+        """The name of the cursor the app under the pointer asked for while the pointer is on one of this run's live XR
+        outputs, None if there is none (elsewhere, or a cursor given as a picture). Read-only; raises as any broker call."""
+        result = self._call('cursor_shape', {}, glance=CURSOR_TIMEOUT)
+        if set(result) != {'shape'} or type(result['shape']) is not str: raise OwnershipBlocked('invalid cursor shape')
+        shape = result['shape']
+        if shape and not CURSOR_NAME.fullmatch(shape): raise OwnershipBlocked('invalid cursor shape')
+        return shape or None
+
+    def cursor_reader(self):
+        """cursor_shape for the pointer's sampler thread: a copy of this client with its own request ids, so it shares nothing
+        that changes with the thread doing the lifecycle. None without a handshake, or on a run with no such read (isolated)."""
+        if self.SCHEMA != 1 or self.epoch is None: return None
+        reader = copy.copy(self)
+        reader.request_id = 0
+        return reader.cursor_shape
 
     def inspect(self, identity):
         if not isinstance(identity, str) or str(uuid.UUID(identity)) != identity: raise ValueError('invalid UUID')

@@ -56,6 +56,13 @@ scrolling and typing, and a click never maximizes):
     it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so the keyboard goes to that
     monitor's focused window and focus-follows-mouse picks the window under the dot. It feels like one cursor: the same
     dot, the same speed either side of an edge (_gain), and a look that always says what a press would do.
+  * Over text (the Serif Beam; Cody's pick, 2026-11-03). In desktop mode the sampler asks the ownership broker up to 30
+    times a second which cursor the app under the hidden real cursor wants (ownership.cursor_reader; Hyprland keeps the
+    name while cursor.invisible hides it). A text cursor (free_pointer.is_text_shape) makes the look `text`: the renderer
+    draws the beam instead of the dot, at the same pixel, so the click point is the beam's centre. It comes on at once and
+    goes free_pointer.TEXT_HOLD_S after the app stops asking, so the gaps between lines do not flicker; the handles win at
+    once, with no hold (_step_text). Off in typing mode, maximized and during a video, where the real cursor shows, and
+    during a Super drag. A cursor given as a picture has no name, a failed read means no name, and both are the plain dot.
   * Super drags (Hyprland's own window move and resize, SUPER + mouse:272 / 273: view.SUPER_BINDS; Cody, 2026-11-03). The drag
     stays Hyprland's; the run only keeps out of its way and carries it across the gaps. Non-consuming binds beside the
     user's tell the run it began, and the buttons' release (ignore_mods: Super may go first) that it ended
@@ -314,6 +321,10 @@ class UnifiedPointer(fp.OverviewPointer):
 
     def _handles_on(self):
         return self.active() and not getattr(self.control.state, 'typing', False)
+
+    def _text_allowed(self):
+        """A Super drag is Hyprland's, and the cursor it shows is its own: the dot stays the dot."""
+        return self.super_drag is None and super()._text_allowed()
 
     # --- zoomed in: the push past an edge -------------------------------------------------------------------------
     def can_switch(self):
@@ -652,8 +663,8 @@ class UnifiedSampler(il.LockedSampler):
     leash, warps left to the loop), desktop mode installs the non-consuming click binds and warps the cursor where the
     dot went in. Outside it: the cursor kept on home (confine_target), sampled at the overview's rate while it is on an
     XR monitor."""
-    def __init__(self, client, names, pointer, bind_args, period=fp.SAMPLE_S):
-        super().__init__(client, names, pointer, bind_args, period)
+    def __init__(self, client, names, pointer, bind_args, period=fp.SAMPLE_S, cursor_shape=None):
+        super().__init__(client, names, pointer, bind_args, period, cursor_shape)
         self.bound = False   # the click binds are installed (desktop mode)
         self.confines = 0    # diagnostics: cursors put back on home while zoomed in
         self._outside = None  # previous cursor sample outside the overview
@@ -689,6 +700,7 @@ class UnifiedSampler(il.LockedSampler):
             cursor, motion = self._sample()
             self.pointer.feed(cursor, motion, outputs, self.applied if self.applied is not None else -1)
             self._recentre(cursor)
+            self._read_shape()
             self._stop.wait(self.period)
 
     def _confine(self, outputs):

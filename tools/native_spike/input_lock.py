@@ -192,8 +192,8 @@ class _LockingClient:
 class LockedSampler(fp.PointerSampler):
     """The free pointer's sampler with the lock: grabs with lock_pointer, a short leash, warps by others left alone, and
     a release that leaves the cursor where it is."""
-    def __init__(self, client, names, pointer, bind_args, period=fp.SAMPLE_S):
-        super().__init__(_LockingClient(client), names, pointer, bind_args, period)
+    def __init__(self, client, names, pointer, bind_args, period=fp.SAMPLE_S, cursor_shape=None):
+        super().__init__(_LockingClient(client), names, pointer, bind_args, period, cursor_shape)
 
     def _sample(self):
         cursor, motion = super()._sample()
