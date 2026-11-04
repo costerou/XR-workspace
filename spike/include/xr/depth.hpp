@@ -67,6 +67,26 @@ inline DepthSize depth_input_size(int src_w, int src_h, int long_side) {
     return {w, h};
 }
 
+// What the renderer's stereo pass reads (docs/stereo-render.md), whichever way the map arrived. Values are "nearness": larger
+// is nearer. `lo` / `hi` are the farthest and nearest values of this frame, so a model's arbitrary scale needs no conversion
+// (the engine's maps are 0..1 already, the defaults). NaN and infinity are allowed and are drawn flat. One of `pixels` and
+// `texture` is set:
+//   pixels   `h` rows of `w` floats (R32F), top row first, `stride` bytes apart (0: tightly packed). Read only during the call.
+//   texture  a GL texture name in the renderer's context, R16F or R32F, row 0 the top row.
+struct DepthInput {
+    int w = 0, h = 0;
+    std::uint64_t source_seq = 0;  // The capture frame this was estimated from.
+    const float* pixels = nullptr;
+    std::size_t stride = 0;
+    unsigned texture = 0;
+    float lo = 0.f, hi = 1.f;
+};
+inline constexpr int kDepthMinHeight = 256;
+inline bool depth_input_valid(const DepthInput& f) {
+    if (f.w <= 0 || f.h < kDepthMinHeight || (!f.pixels && !f.texture)) return false;
+    return !f.pixels || !f.stride || f.stride >= std::size_t(f.w) * sizeof(float);
+}
+
 // The shared-memory layout.
 constexpr std::uint32_t kDepthMagic = 0x31445258;  // 'XRD1'
 constexpr std::uint32_t kDepthVersion = 1;

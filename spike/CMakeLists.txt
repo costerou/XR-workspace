@@ -296,12 +296,17 @@ if(XR_ENABLE_PRESENTATION)
   # video.cpp: VR video maths + controls card state; material*.cpp: the Material Design 3 palette, tokens and drawing.
   # binds_panel.cpp: the key bind panel's card (Ctrl+Alt+K, tools/native_spike/keybinds.py).
   add_library(xr_hud STATIC src/hud.cpp src/hud_font.cpp src/video.cpp src/glass.cpp src/glass_theme.cpp src/material.cpp
-              src/material_draw.cpp src/environment.cpp src/binds_panel.cpp)
+              src/material_draw.cpp src/environment.cpp src/binds_panel.cpp src/stereo.cpp)
   target_link_libraries(xr_hud PUBLIC xr_types xr_pose xr_view PRIVATE PkgConfig::FONT)
   add_executable(hud_test tests/hud_test.cpp)
   target_link_libraries(hud_test PRIVATE xr_hud)
   add_test(NAME hud COMMAND hud_test)
   # HudFont's glyph / advance / metrics caches never change what is drawn or measured; UTF-8 decoding matches the reference.
+  # Global immersive 3D: the maths and CPU mirrors of the warp (docs/stereo-render.md), no GL.
+  add_executable(stereo_test tests/stereo_test.cpp)
+  target_link_libraries(stereo_test PRIVATE xr_hud)
+  target_compile_options(stereo_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME stereo COMMAND stereo_test)
   add_executable(hud_font_test tests/hud_font_test.cpp)
   target_link_libraries(hud_font_test PRIVATE xr_hud)
   target_compile_options(hud_font_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -400,7 +405,7 @@ if(XR_ENABLE_PRESENTATION)
   add_test(NAME capture COMMAND capture_test)
   pkg_check_modules(GPU REQUIRED IMPORTED_TARGET egl glesv2 wayland-egl gbm libdrm)
   add_library(xr_presentation STATIC src/wayland.cpp src/presentation.cpp src/gl.cpp src/hud_gl.cpp src/dmabuf.cpp
-    src/video_gl.cpp src/video_player.cpp src/video_mode.cpp src/environment_gl.cpp ${PROTOCOL_SOURCES})
+    src/video_gl.cpp src/video_player.cpp src/video_mode.cpp src/environment_gl.cpp src/stereo_gl.cpp ${PROTOCOL_SOURCES})
   target_include_directories(xr_presentation PRIVATE "${GENERATED}")
   target_link_libraries(xr_presentation PUBLIC xr_types xr_metrics xr_capture xr_view xr_pose xr_predict xr_hud PRIVATE PkgConfig::WAYLAND PkgConfig::GPU)
   add_executable(xr-native-spike src/main.cpp)
@@ -422,7 +427,7 @@ if(XR_ENABLE_PRESENTATION)
   # GlCompositor frames on surfaceless EGL (create_offscreen): a long-lived compositor draws every scenario frame exactly
   # like a fresh one (ctest); --bench and --hashes time and fingerprint the draw path. gl.cpp and hud_gl.cpp are compiled
   # into it a second time with their GL calls counted (tests/gl_call_counts.hpp). Skipped without EGL.
-  add_executable(gl_bench tests/gl_bench.cpp tests/gl_bench_gl.cpp tests/gl_bench_hud_gl.cpp tests/gl_bench_environment_gl.cpp)
+  add_executable(gl_bench tests/gl_bench.cpp tests/gl_bench_gl.cpp tests/gl_bench_hud_gl.cpp tests/gl_bench_environment_gl.cpp src/stereo_gl.cpp)
   target_include_directories(gl_bench PRIVATE src tests)
   target_link_libraries(gl_bench PRIVATE xr_hud xr_view xr_pose PkgConfig::GPU PkgConfig::WAYLAND)
   target_compile_options(gl_bench PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-subobject-linkage)  # gl.cpp included as a header
@@ -438,6 +443,14 @@ if(XR_ENABLE_PRESENTATION)
   # ... and drawn behind the desktops on surfaceless EGL (exit 77 without it). `environment_render_test DIR` also writes
   # the offscreen preview PNGs there (zlib); ctest writes them into the build directory's environment-previews/.
   find_package(ZLIB)
+  # Global immersive 3D on surfaceless EGL: the warp against its CPU mirror, goldens, disparity bounds, the whole view through
+  # the real compositor, frame time (exit 77 without EGL). `stereo_render_test --write-goldens DIR` re-creates tests/golden.
+  add_executable(stereo_render_test tests/stereo_render_test.cpp)
+  target_include_directories(stereo_render_test PRIVATE src)
+  target_link_libraries(stereo_render_test PRIVATE xr_presentation PkgConfig::GPU)
+  target_compile_options(stereo_render_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  add_test(NAME stereo_render COMMAND stereo_render_test "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden")
+  set_tests_properties(stereo_render PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
   add_executable(environment_render_test tests/environment_render_test.cpp)
   target_include_directories(environment_render_test PRIVATE src)
   target_link_libraries(environment_render_test PRIVATE xr_presentation PkgConfig::GPU)

@@ -8,6 +8,7 @@
 #include "xr/pose.hpp"
 #include "xr/hud.hpp"
 #include "xr/glass.hpp"
+#include "xr/stereo.hpp"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -19,6 +20,14 @@ struct wl_surface;
 
 namespace xr {
 struct DmabufBuffer;
+struct EyeViewport;
+// Global immersive 3D (xr/stereo.hpp, docs/stereo-render.md). `desktops`: per desktop on / off, missing entries on.
+struct StereoSettings {
+    bool enabled = false;
+    StereoParams params;
+    std::vector<bool> desktops;
+    float half_baseline = kStereoHalfBaseline;  // of the desktops' real depth (their Placement distance); 0: all on the screen plane
+};
 class GlCompositor {
 public:
     // Returns nullptr (with `why`) if EGL/GLES are unavailable; the caller reports the fallback.
@@ -96,9 +105,23 @@ public:
     // The help card and the glass pills are not drawn: the supervisor closes them before a video opens.
     bool draw_scene_and_swap(const std::function<void(std::uint32_t width, std::uint32_t height)>& scene, const HudImage* card,
                              std::uint64_t card_generation, float card_alpha);
+    // Side-by-side 3D. With `enabled` the frame is drawn once per eye if the buffer is at least 3:1 wide (eye_viewports:
+    // resize(1920, 1200, 3840, 1200) keeps the 1920 x 1200 canvas and every layout); on a narrower buffer it stays 2D. Desktops
+    // with depth are warped (stereo_gl.hpp); everything else on a desktop's surface, its border, pill, level bar, handles and
+    // the drop frame, stays on that surface's plane; cards and pop-ups are head-locked on the screen plane; the free pointer
+    // takes the disparity of what is under it. Each change eases in over kStereoFadeMs. Context current. The first enable
+    // compiles the shaders; if this GL cannot (stereo_available), the view is still two eyes, flat desktops at their real depth.
+    void set_stereo(const StereoSettings& settings);
+    bool stereo_available() const;
+    // A new depth map of desktop `source` for its current picture. False: not available, no picture yet or an invalid frame
+    // (the last good one stays). Without a new frame for kStereoStaleMs the desktop eases flat, and back when frames return.
+    bool set_depth(std::size_t source, const DepthInput& frame);
     std::string report() const;  // bounded JSON: renderer strings, timing; no pixel data
 private:
     GlCompositor() = default;
+    // One view of the frame: the whole buffer, or `eye`'s half in 3D.
+    void draw_view(const std::vector<FRect>& tiles, const std::vector<Placement>& placements, int highlight, float highlight_alpha,
+                   const Mat3& view, float half_w, float half_h, const EyeViewport* eye);
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

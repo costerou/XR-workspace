@@ -20,11 +20,12 @@ public:
     // `gain` the brightness (1 = 100%); `line` the line colour (environment_line_color); `seconds` the animation clock,
     // 0..kEnvironmentLoopS. Background::none draws nothing. Leaves no vertex attribute array enabled and no buffer bound; the
     // program it used stays current (program()).
-    void draw(Background background, const Mat3& view, float half_w, float half_h, float level, float gain, const MdRgb& line, float seconds);
+    // `eye_shift`: in side-by-side 3D, this eye's offset in NDC, which puts the background at infinity (0 in 2D).
+    void draw(Background background, const Mat3& view, float half_w, float half_h, float level, float gain, const MdRgb& line, float seconds, float eye_shift = 0.f);
     GLuint program(Background background) const { return programs_[std::size_t(background)].id; }
 private:
     EnvironmentPass() = default;
-    struct Program { GLuint id = 0; GLint pos = -1, view = -1, half_fov = -1, line = -1, level = -1, gain = -1, seconds = -1; };
+    struct Program { GLuint id = 0; GLint pos = -1, view = -1, half_fov = -1, line = -1, level = -1, gain = -1, seconds = -1, eye = -1; float eye_set = 0; };
     std::array<Program, kBackgroundCount> programs_{};  // one per background; None has none
     GLuint buffer_ = 0;
 };

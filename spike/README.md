@@ -27,6 +27,8 @@ Tests never open a real display or device. Checks stay active in Release builds.
 Dependencies are listed in [dependencies.md](dependencies.md); the vendored
 protocol XML provenance is in [protocols/PROVENANCE.md](protocols/PROVENANCE.md).
 
+Side-by-side 3D (depth-based warp of each desktop, off until something calls `GlCompositor::set_stereo`): [docs/stereo-render.md](../docs/stereo-render.md).
+
 ## Capture and frame delivery benchmarks
 
 `spike/bench/` measures the capture path offline. It never touches the desktop, the glasses or XRLinuxDriver.
