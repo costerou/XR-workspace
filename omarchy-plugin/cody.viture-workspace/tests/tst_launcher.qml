@@ -35,6 +35,34 @@ TestCase {
     }
     function cleanup() { requestSpy.target = null; }
 
+    readonly property var drivers: [{key:"standard", label:"Standard", path:"/usr/bin/xrDriver", available:true},
+                                    {key:"3dof", label:"3DoF test build", path:"/t/xrDriver", available:true}]
+    function openOptions(launcher) { launcher.showOptions = true; verify(waitForRendering(launcher)); }
+    function test_trackingDriverOptionSavesThePathAndShowsTheSavedOne() {
+        const launcher = make(idle({tracking_drivers:drivers}), settings({tracking_driver_binary:"/t/xrDriver"}));
+        openOptions(launcher);
+        verify(findChild(launcher, "trackingDriverOption").visible);
+        const combo = findChild(launcher, "trackingDriverCombo");
+        compare(combo.currentText, "3DoF test build");
+        combo.currentIndex = 0;
+        combo.activated(0);
+        compare(requestSpy.count, 1);
+        compare(requestSpy.signalArguments[0][0].op, "set_settings");
+        compare(requestSpy.signalArguments[0][0].settings.tracking_driver_binary, "/usr/bin/xrDriver");
+    }
+    function test_trackingDriverOptionHiddenWithNothingToChoose() {
+        const missing = [drivers[0], Object.assign({}, drivers[1], {available:false})];
+        for (const snapshot of [idle(), idle({tracking_drivers:missing})]) {
+            const launcher = make(snapshot, settings({tracking_driver_binary:"/usr/bin/xrDriver"}));
+            openOptions(launcher);
+            verify(!findChild(launcher, "trackingDriverOption").visible);
+        }
+    }
+    function test_trackingDriverOptionHiddenWithHeadTrackingOff() {
+        const launcher = make(idle({tracking_drivers:drivers}), settings({tracking:false, tracking_driver_binary:"/usr/bin/xrDriver"}));
+        openOptions(launcher);
+        verify(!findChild(launcher, "trackingDriverOption").visible);
+    }
     function test_oneBigStartButton() {
         const launcher = make();
         const start = findChild(launcher, "startButton");

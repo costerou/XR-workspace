@@ -91,13 +91,30 @@ class RunnerTests(unittest.TestCase):
     def test_tracking_is_ready_before_plugin_or_renderer(self):
         self.consent(tracking='xrlinuxdriver')
         with mock.patch('tools.native_spike.tracking.ensure_ready') as ready:
-            ready.side_effect = lambda runtime: self.assertEqual(self.log, [])
+            ready.side_effect = lambda runtime, binary: self.assertEqual(self.log, [])
             self.assertEqual(self.main(), 0)
-            ready.assert_called_once_with(self.runtime)
+            ready.assert_called_once_with(self.runtime, binary='/usr/bin/xrDriver')
+
+    def test_a_consent_for_the_3dof_build_launches_it_with_its_pin_checked(self):
+        self.consent(tracking='xrlinuxdriver', tracking_driver='3dof')
+        with mock.patch.object(runner, 'tracking_driver_path', return_value='/pinned/xrDriver') as path, \
+                mock.patch('tools.native_spike.tracking.ensure_ready') as ready:
+            self.assertEqual(self.main(), 0)
+        self.assertEqual(path.call_args.args[0], '3dof')
+        ready.assert_called_once_with(self.runtime, binary='/pinned/xrDriver')
+
+    def test_a_changed_3dof_build_stops_the_start_before_the_plugin_and_never_runs_the_standard_driver(self):
+        self.consent(tracking='xrlinuxdriver', tracking_driver='3dof')  # the temp data home has no build: same refusal
+        with mock.patch('tools.native_spike.tracking.ensure_ready') as ready:
+            self.assertEqual(self.main(), 2)
+        ready.assert_not_called()
+        self.assertEqual(self.log, [])
+        self.assertEqual(self.result()['phase'], 'tracking')
+        self.assertIn('pinned binary changed', self.result()['error'])
 
     def test_progress_is_published_before_tracking_wait(self):
         self.consent(tracking='xrlinuxdriver')
-        def waiting(runtime):
+        def waiting(runtime, binary):
             progress=json.loads((self.state/'run1.progress.json').read_text())
             self.assertEqual(progress, dict(run_id='run1',phase='tracking'))
         with mock.patch('tools.native_spike.tracking.ensure_ready',side_effect=waiting):

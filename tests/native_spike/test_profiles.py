@@ -19,6 +19,32 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(profiles.load_profile(self.path, m), profiles.DEFAULT_PROFILE)
         self.assertEqual(profiles.DEFAULT_PROFILE['desktops'], [DEFAULT_DESKTOP] * 3)
 
+    def test_tracking_driver_defaults_to_the_system_one(self):
+        self.assertEqual(profiles.DEFAULT_PROFILE['tracking_driver_binary'], '/usr/bin/xrDriver')
+
+    def test_tracking_driver_survives_a_save_and_other_saves(self):
+        path = '/home/x/.local/share/viture-workspace/xrdriver-3dof/v/xrDriver'
+        profile = profiles.load_profile(self.path, 'luma-ultra')
+        profiles.save_profile(self.path, 'luma-ultra', {**profile, 'tracking_driver_binary': path})
+        self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver_binary'], path)
+        store = profiles.ProfileStore(self.path, 'luma-ultra')
+        store.save(store.load())
+        profiles.PlacementStore(self.path, 'luma-ultra').reset()
+        self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver_binary'], path)
+
+    def test_bad_tracking_driver_in_a_file_cleans_to_the_system_one(self):
+        self.dir.mkdir()
+        for bad in ('/usr/bin/sh', 'xrDriver', '/a/../xrDriver', 5, None, ['/usr/bin/xrDriver'], '/a/xrDriver\0'):
+            with self.subTest(bad):
+                self.path.write_text(json.dumps({'schema': profiles.SCHEMA, 'profiles': {'luma-ultra': {'tracking_driver_binary': bad}}}))
+                self.assertEqual(profiles.load_profile(self.path, 'luma-ultra')['tracking_driver_binary'], '/usr/bin/xrDriver')
+
+    def test_save_refuses_a_bad_tracking_driver(self):
+        profile = profiles.load_profile(self.path, 'luma-ultra')
+        for bad in ('/usr/bin/sh', 'xrDriver', 5, None):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                profiles.save_profile(self.path, 'luma-ultra', {**profile, 'tracking_driver_binary': bad})
+
     def test_seeds_from_layout_v1(self):
         self.dir.mkdir()
         (self.dir / 'layout.json').write_text('{"spacing": 80}')

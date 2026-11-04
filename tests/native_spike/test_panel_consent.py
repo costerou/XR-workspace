@@ -152,5 +152,19 @@ class PanelConsentTests(unittest.TestCase):
         with self.assertRaises(OSError): write_consent(self.fd, build_consent(scope()))
 
 
+class TrackingDriverConsentTests(unittest.TestCase):
+    def test_standard_run_stays_the_consent_older_code_reads(self):
+        self.assertEqual(set(build_consent(scope())), PANEL_KEYS)
+
+    def test_the_3dof_build_keeps_the_tracking_scope_the_pose_feed_tests_for(self):
+        consent = build_consent(scope(tracking_driver='3dof'))
+        self.assertEqual((consent['tracking'], consent['tracking_driver']), ('xrlinuxdriver', '3dof'))
+
+    def test_only_the_3dof_key_and_only_with_tracking(self):
+        for changes in ({'tracking_driver': 'standard'}, {'tracking_driver': '/usr/bin/sh'}, {'tracking_driver': True},
+                        {'tracking_driver': '3dof', 'tracking': False}):
+            with self.subTest(changes), self.assertRaises(ValueError): build_consent(scope(**changes))
+
+
 if __name__ == '__main__':
     unittest.main()

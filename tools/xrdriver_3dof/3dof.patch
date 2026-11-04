@@ -1,0 +1,18 @@
+diff --git i/src/devices/viture.c w/src/devices/viture.c
+index d04c92d..001fd07 100644
+--- i/src/devices/viture.c
++++ w/src/devices/viture.c
+@@ -759,6 +759,13 @@ static bool viture_initialize_provider_locked(uint16_t product_id) {
+         return false;
+     }
+ 
++    // A/B test build: the SDK defaults to 6DoF with the tracking cameras on, and this may only be set after
++    // create and before initialize. The argument is is_6dof, so 0 asks for 3DoF.
++    if (xr_device_provider_get_device_type(viture_provider) == XR_DEVICE_TYPE_VITURE_CARINA) {
++        int dof_status = xr_device_provider_set_dof_type_carina(viture_provider, 0);
++        log_message("VITURE: requested 3DoF (status %d)\n", dof_status);
++    }
++
+     if (config()->debug_device) {
+         log_debug("VITURE: Provider handle created for product 0x%04x\n", product_id);
+     }

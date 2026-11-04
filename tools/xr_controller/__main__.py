@@ -19,7 +19,7 @@ from tools.xr_probe.hardware import probe_usb, probe_drm
 from .detect import identify
 from .incident_monitor import HostSources, IncidentMonitor
 from .incident_report import Reports, hook_path
-from .install import install, load_installed
+from .install import install, load_installed, tracking_drivers
 from .state import Controller
 from .server import serve
 
@@ -99,7 +99,8 @@ class Host:
         self.runtime,self.state_dir,self.data_home=Path(runtime),Path(state_dir),Path(data_home)
     def probe(self):
         instance=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','')
-        result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[])
+        result=dict(model=None,output=None,reason=None,instance=instance,monitors=[],installed={},plugins=[],journals=[],
+                    tracking_drivers=tracking_drivers(self.data_home))
         root=self.runtime/'xr-workspace-spike'
         if root.exists():
             for path in sorted(root.glob('*/journal.json')):

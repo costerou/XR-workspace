@@ -8,8 +8,15 @@ import shutil
 import stat
 import tempfile
 
+from tools.native_spike.tracking import DRIVER as STANDARD_DRIVER
+
 RENDERER, PLUGIN = 'xr-native-spike', 'libxr-ownership.so'
 _HEX = re.compile(r'[0-9a-f]{64}')
+# The 3DoF test driver (docs/tracking-3dof-ab.md), built by tools/xrdriver_3dof/build.sh. Pinned here, not in installed.json:
+# `install` rewrites that file and an older controller refuses any extra key, so a rollback stays clean. A rebuild changes
+# the hash, so it needs a new value here; until then the option refuses to start rather than run something else.
+DRIVER_3DOF_VERSION = '2.11.9-958908-pr147-pr148-3dof'
+DRIVER_3DOF_SHA256 = '623c3dd03d204a125b1cdc32307a985bd2597d408c27edf1770df052fc44dcb8'
 
 
 def _root(data_home): return Path(data_home) / 'viture-workspace'
@@ -94,6 +101,28 @@ def verify_pinned(entry):
     except (OSError, ValueError, KeyError, TypeError):
         ok = False
     if not ok: raise ValueError('pinned binary changed')
+
+
+def tracking_drivers(data_home):
+    """The panel's Head tracking driver choices. Read every controller tick, so `available` is only a stat, no hash."""
+    path = _root(data_home) / 'xrdriver-3dof' / DRIVER_3DOF_VERSION / 'xrDriver'
+    return [dict(key='standard', label='Standard', path=STANDARD_DRIVER, sha256=None, available=True),
+            dict(key='3dof', label='3DoF test build', path=str(path), sha256=DRIVER_3DOF_SHA256, available=path.is_file())]
+
+
+def verify_tracking_driver(choice):
+    """Refuses a test build that is missing or changed. The standard driver belongs to pacman and is not pinned."""
+    if choice['sha256'] is not None: verify_pinned(choice)
+
+
+def tracking_driver_path(key, data_home):
+    """The binary a run's consent names ('standard' or '3dof'), its pin checked now. Never falls back to the other one:
+    a 3DoF session that quietly ran the standard driver would make the test's result wrong."""
+    for choice in tracking_drivers(data_home):
+        if choice['key'] == key:
+            verify_tracking_driver(choice)
+            return choice['path']
+    raise ValueError('unknown tracking driver')
 
 
 def verify_recovery_pin(entry, data_home):

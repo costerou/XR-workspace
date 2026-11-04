@@ -19,6 +19,10 @@ RESET_OP) puts a live run back to the default and saves it (PlacementStore.reset
 included, as a one-step backup in the profile's `previous_setup` (each real reset overwrites it; a reset of a layout that
 already is the default leaves it). Nothing reads the backup back yet: it is there for a future restore, or by hand.
 
+`tracking_driver_binary` is the head tracking driver a start launches (the panel's Startup option). Here it is only checked
+for shape, and is what load_profile cleans back to the standard driver: the controller's start accepts nothing but the
+choices install.tracking_drivers offers, so a hand-edited path is refused there, not launched.
+
 Where the windows were is not part of the setup: window_memory.py keeps that in its own file beside this one, which nothing
 here touches, so a reset or a discarded setup leaves it alone.
 
@@ -37,12 +41,13 @@ from .quality import video_quality
 from .geometry import (DEFAULT_DESKTOP, DEFAULT_PLACEMENT, MAX_DESKTOPS, legacy_placement, validate_desktop, validate_desktops,
                        validate_placement, validate_placements, validate_rolls)
 from .ipc import token
+from .tracking import DRIVER as STANDARD_TRACKING_DRIVER
 
 MODELS = ('beast', 'luma-ultra', 'unknown')
 SCHEMA = 2
 DEFAULT_PROFILE = {**view.DEFAULT_SETTINGS, 'desktops': [dict(DEFAULT_DESKTOP) for _ in range(3)],
                    'placements': [dict(DEFAULT_PLACEMENT) for _ in range(3)], 'rolls': [0] * 3, 'tracking': True,
-                   'mode_switch': True, 'fallback': None, 'previous_setup': None}
+                   'tracking_driver_binary': STANDARD_TRACKING_DRIVER, 'mode_switch': True, 'fallback': None, 'previous_setup': None}
 
 # The monitor setup a start restores (module docstring), and the default it falls back to: three flat 1920x1080 desktops
 # at 100%, level. Ctrl+Alt+R (view.RESET_OP) resets a live run to the same.
@@ -163,6 +168,13 @@ def _fallback(value):
     except ValueError: return None
 
 
+def _driver_binary(value):
+    """An absolute, tidy path to something called xrDriver (module docstring), or ValueError."""
+    if (not isinstance(value, str) or '\0' in value or not value.startswith('/') or os.path.normpath(value) != value
+            or os.path.basename(value) != 'xrDriver'): raise ValueError('invalid profile')
+    return value
+
+
 def _clean(data):
     """Each field validated on its own; anything invalid or missing falls back to its default."""
     out = _view_part(data)
@@ -178,6 +190,8 @@ def _clean(data):
     for key in ('tracking', 'mode_switch'):
         out[key] = data[key] if type(data.get(key)) is bool else True
     out['fallback'] = _fallback(data.get('fallback'))
+    try: out['tracking_driver_binary'] = _driver_binary(data.get('tracking_driver_binary'))
+    except ValueError: out['tracking_driver_binary'] = STANDARD_TRACKING_DRIVER  # missing (saved before the choice), or invalid
     return out
 
 
@@ -209,6 +223,7 @@ def _check(profile):
            'rolls': rolls + [0] * (len(desktops) - len(rolls))}
     if any(type(profile[k]) is not bool for k in ('tracking', 'mode_switch')): raise ValueError('invalid profile')
     if profile['fallback'] is not None: token(profile['fallback'])
+    _driver_binary(profile['tracking_driver_binary'])
     previous = profile['previous_setup']
     if previous is not None:
         out['previous_setup'] = _previous(previous)

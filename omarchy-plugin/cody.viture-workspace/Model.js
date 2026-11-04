@@ -117,7 +117,7 @@ function scopeLines(scope, action, rules) {
     (scope.desktops || []).forEach((d,i) => required("XR-" + (i+1) + ": " + d.width + " × " + d.height + " · " + d.scale*100 + "%"));
     required("In the glasses, a desktop's glass pill can make it ultrawide, add one (up to " + MAX_DESKTOPS + ") or remove it; its windows then return to " + scope.recovery_output + ".");
     required("Load the pinned ownership plugin for this session.");
-    lines.push({text:scope.tracking ? "Head tracking via XRLinuxDriver, network blocked." : "Head tracking off (not requested).", optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
+    lines.push({text:scope.tracking ? (scope.tracking_driver === "3dof" ? "Head tracking via the 3DoF test build of XRLinuxDriver, network blocked." : "Head tracking via XRLinuxDriver, network blocked.") : "Head tracking off (not requested).", optional:!!scope.tracking, key:scope.tracking ? "tracking" : "", unavailable:!scope.tracking});
     if (scope.mode_switch) {
         const m = scope.mode_switch;
         lines.push({text:"Switch " + scope.output + " to " + m.width + "×" + m.height + "@" + m.refresh_hz + " for this session only.", optional:true, key:"mode_switch"});
@@ -245,3 +245,11 @@ function placedRects(rects, placements) {
         return {x: cx - w / 2, y: cy - h / 2, width: w, height: h};
     });
 }
+
+// The panel's Head tracking driver choices: what the controller can start, plus the saved one if it has gone missing, so
+// the box shows why Start refuses. index is -1 for a saved path that is no choice at all.
+function trackingDriverChoices(drivers, saved) {
+    return (drivers || []).filter(d => d.available || d.path === saved)
+        .map(d => ({label:d.label + (d.available ? "" : " (missing)"), path:d.path}));
+}
+function trackingDriverIndex(choices, saved) { return choices.findIndex(c => c.path === saved); }

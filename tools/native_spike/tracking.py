@@ -4,6 +4,11 @@ The driver runs in unprivileged user, network and mount namespaces (only `lo`, w
 its licence requests cannot leave the machine; it starts without a licence and publishes 3DoF
 orientation over SysV IPC. It must not drive the mouse (output_mode=external_only). Lifetime is
 independent of managed runs (startup is slow); stop signals only the exact process.
+
+Which binary runs is the caller's choice (`binary`, default DRIVER; the panel's Head tracking driver option, checked by
+install.tracking_driver_path). Every binary gets the same namespaces and the same readiness checks. A driver outlives its
+run, so ensure_ready restarts one that is not the binary asked for: reusing it would quietly run the other arm of the
+docs/tracking-3dof-ab.md test.
 """
 import json
 import os
@@ -63,15 +68,16 @@ def driver_alive(runtime):
 
 
 def _other_drivers(exclude=None):
+    """Any xrDriver, wherever it was started from: /usr/bin, the 3DoF test build, or a bare name."""
     found = []
     for d in Path('/proc').glob('[0-9]*'):
         try: argv = (d / 'cmdline').read_bytes().split(b'\0')
         except OSError: continue
-        if int(d.name) != exclude and argv and argv[0] in (DRIVER.encode(), b'xrDriver'): found.append(int(d.name))
+        if int(d.name) != exclude and argv and os.path.basename(argv[0]) == b'xrDriver': found.append(int(d.name))
     return found
 
 
-def _driver_argv():
+def _driver_argv(binary=None):
     """Set the namespaces up as their root, then become ourselves in a child user namespace.
 
     The driver ends up with no capabilities, and its network belongs to the parent namespace, so it
@@ -79,7 +85,7 @@ def _driver_argv():
     """
     setup = (f'mount -t tmpfs tmpfs {RESOLVED_DIR} && ip link set lo address {FAKE_MAC} && ip address add {FAKE_ADDRESS} dev lo\n'
              f'exec unshare --user --map-user={os.getuid()} --map-group={os.getgid()} -- "$0"')
-    return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, DRIVER]
+    return ['unshare', '--user', '--map-root-user', '--net', '--mount', '--', 'sh', '-c', setup, binary or DRIVER]
 
 
 def _interfaces(pid):
@@ -109,29 +115,32 @@ def status(runtime):
     invalidated = max(current.rfind(marker) for marker in (
         'Retrying driver connection', 'Waiting on device calibration', 'Failed to send USB command'))
     calibrated = current.rfind(READY) > invalidated
-    return {'running': True, 'pid': pid, 'network_isolated': _network_isolated(pid), 'calibrated': calibrated}
+    return {'running': True, 'pid': pid, 'network_isolated': _network_isolated(pid), 'calibrated': calibrated,
+            'binary': data.get('binary', DRIVER)}  # a state file from before the choice existed: the standard driver
 
 
-def ensure_ready(runtime, timeout=120.0):
-    """Reuse a calibrated isolated driver, or restart our disconnected driver.
+def ensure_ready(runtime, timeout=120.0, binary=None):
+    """Reuse a calibrated isolated driver of the same binary, or restart ours.
 
     Only the PID/start-tick recorded by this app can be stopped. A separate
     driver is never killed; start() refuses to compete with it.
     """
+    binary = binary or DRIVER
     now = status(runtime)
-    if now['running'] and now['network_isolated'] and now['calibrated']:
+    if now['running'] and now['network_isolated'] and now['calibrated'] and now.get('binary', DRIVER) == binary:
         return now
     if now['running']:
         stop(runtime)
-    return start(runtime, timeout=timeout)
+    return start(runtime, timeout=timeout, binary=binary)
 
 
-def start(runtime, timeout=120.0):
+def start(runtime, timeout=120.0, binary=None):
+    binary = binary or DRIVER
     if _ours(_read_state(runtime)): raise ValueError('tracking already running')
     _check_config()
     if _other_drivers(): raise ValueError('another XRLinuxDriver is running; refusing to compete for the glasses')
     offset = DRIVER_LOG.stat().st_size if DRIVER_LOG.exists() else 0
-    child = subprocess.Popen(_driver_argv(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    child = subprocess.Popen(_driver_argv(binary), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True, close_fds=True)
     deadline = time.monotonic() + 2
     tick = None
@@ -139,7 +148,7 @@ def start(runtime, timeout=120.0):
         tick = _start_tick(child.pid); time.sleep(0.02)
     path = _state(runtime)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'w') as f: json.dump({'pid': child.pid, 'start_tick': tick, 'log_offset': offset}, f)
+    with os.fdopen(fd, 'w') as f: json.dump({'pid': child.pid, 'start_tick': tick, 'log_offset': offset, 'binary': binary}, f)
     try:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

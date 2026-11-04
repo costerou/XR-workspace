@@ -12,6 +12,9 @@ PANEL_GATE = 'P2-panel'
 PANEL_KEYS = {'schema', 'gate', 'run_id', 'instance', 'output', 'recovery_output', 'model', 'allow', 'capture',
               'tracking', 'mode_switch', 'plugin', 'renderer', 'desktops', 'input', 'sdk'}
 FIXED_KEYS = {'schema', 'gate', 'allow', 'capture', 'input', 'sdk'}
+# Present only for the 3DoF test driver, so a standard run's consent stays what older code reads (a rollback, a recovery).
+# It is its own key: `tracking` stays "xrlinuxdriver", which the pose feed and the incident monitor test for.
+OPTIONAL_KEYS = {'tracking_driver'}
 LUMA_MODE = {'width': 1920, 'height': 1200, 'refresh_hz': 120}
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')
 
@@ -25,7 +28,7 @@ def _artifact(value):
 
 
 def _validate(data, instance=None, output=None):
-    if not isinstance(data, dict) or set(data) != PANEL_KEYS: raise ValueError('invalid consent fields')
+    if not isinstance(data, dict) or set(data) - OPTIONAL_KEYS != PANEL_KEYS: raise ValueError('invalid consent fields')
     if type(data['schema']) is not int or data['schema'] != 1 or data['gate'] != PANEL_GATE:
         raise ValueError(f'{PANEL_GATE} consent required')
     token(data['run_id']); token(data['instance']); token(data['output']); token(data['recovery_output'])
@@ -39,6 +42,8 @@ def _validate(data, instance=None, output=None):
     tracking = data['tracking']
     if tracking is not False and (not isinstance(tracking, str) or tracking != 'xrlinuxdriver'):
         raise ValueError('tracking scope must be false or "xrlinuxdriver"')
+    if 'tracking_driver' in data and (data['tracking_driver'] != '3dof' or tracking is False):
+        raise ValueError('tracking driver must be "3dof", with tracking on')
     mode = data['mode_switch']
     if mode is not False:
         if data['model'] != 'luma-ultra': raise ValueError('mode switch is Luma Ultra only')
@@ -54,7 +59,7 @@ def _validate(data, instance=None, output=None):
 
 def build_consent(scope):
     expected = PANEL_KEYS - FIXED_KEYS
-    if not isinstance(scope, dict) or set(scope) != expected: raise ValueError('invalid scope fields')
+    if not isinstance(scope, dict) or set(scope) - OPTIONAL_KEYS != expected: raise ValueError('invalid scope fields')
     consent = {'schema': 1, 'gate': PANEL_GATE, 'allow': list(CAPTURE_ALLOW), 'capture': CAPTURE_SCOPE,
                'input': False, 'sdk': False, **json.loads(json.dumps(scope))}
     return _validate(consent)

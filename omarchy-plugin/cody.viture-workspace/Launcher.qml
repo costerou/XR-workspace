@@ -6,7 +6,7 @@ import "Model.js" as Model
 
 // The panel before a session: one big Start. Desktops, placement, view, video and the rest are set in the glasses
 // during the session (README "Everyday use" and "Placing desktops"). The few things only the panel can set before a
-// start (each desktop's startup resolution and scale, head tracking, the 120 Hz switch, which monitor windows return
+// start (each desktop's startup resolution and scale, head tracking and its driver, the 120 Hz switch, which monitor windows return
 // to) wait under "Startup options", closed each time the panel shows this page. Start only asks the controller to
 // begin (op begin_start); the one-run consent box (ConfirmDialog) follows as before.
 // Colours come from the palette Panel.qml sets from the Omarchy theme, so this page needs no shell-only imports.
@@ -23,6 +23,7 @@ ColumnLayout {
     // monitor for windows to return to. A snapshot without the field (an older controller) is left to the controller.
     readonly property bool fallbackRequired: snapshot.fallback === "choose"
     readonly property bool noFallback: snapshot.fallback === null
+    readonly property var trackingDriverChoices: Model.trackingDriverChoices(snapshot.tracking_drivers, settings.tracking_driver_binary)
     signal request(var message)
     spacing: 14
 
@@ -165,6 +166,24 @@ ColumnLayout {
             spacing: 8
             CheckBox { objectName: "trackingOption"; text: "Head tracking"; checked: !!root.settings.tracking; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{tracking:checked}}) }
             CheckBox { objectName: "modeSwitchOption"; visible: root.snapshot.model==="luma-ultra"; text: "120 Hz mode switch"; checked: !!root.settings.mode_switch; enabled: !root.busy; onToggled: root.request({op:"set_settings",settings:{mode_switch:checked}}) }
+        }
+        // Only with something to choose: the 3DoF test build (docs/tracking-3dof-ab.md) installed, or saved and gone.
+        RowLayout {
+            objectName: "trackingDriverOption"
+            visible: !!root.settings.tracking && root.trackingDriverChoices.length > 1
+            Layout.fillWidth: true
+            spacing: 10
+            Label { text: "Head tracking driver" }
+            ComboBox {
+                objectName: "trackingDriverCombo"
+                Layout.fillWidth: true
+                textRole: "label"
+                valueRole: "path"
+                model: root.trackingDriverChoices
+                currentIndex: Model.trackingDriverIndex(root.trackingDriverChoices, root.settings.tracking_driver_binary)
+                enabled: !root.busy
+                onActivated: root.request({op:"set_settings",settings:{tracking_driver_binary:currentValue}})
+            }
         }
         Label { objectName: "beastNote"; visible: root.snapshot.model==="beast"; text: "Beast: native 120 Hz mode, no switch. Presentation rate is measured during a run."; wrapMode: Text.WordWrap; Layout.fillWidth: true; opacity: 0.65 }
     }
