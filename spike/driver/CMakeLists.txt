@@ -2,7 +2,7 @@
 # pthreads only, no VITURE SDK. Tests never open a real device.
 find_package(Threads REQUIRED)
 
-add_library(xr_luma_driver STATIC src/transport.cpp)
+add_library(xr_luma_driver STATIC src/transport.cpp src/publish.cpp)
 target_compile_features(xr_luma_driver PUBLIC cxx_std_20)
 target_include_directories(xr_luma_driver PUBLIC include)
 target_compile_options(xr_luma_driver PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -13,6 +13,12 @@ target_compile_options(luma_transport_test PRIVATE -Wall -Wextra -Wpedantic -Wer
 target_link_libraries(luma_transport_test PRIVATE xr_luma_driver)
 add_test(NAME luma_transport COMMAND luma_transport_test)
 set_tests_properties(luma_transport PROPERTIES TIMEOUT 60)
+
+# The real renderer sources, compiled in so that the contract test cannot pass against a copy of the reader.
+add_executable(publish_test tests/publish_test.cpp ../src/pose.cpp ../src/predict.cpp)
+target_include_directories(publish_test PRIVATE ../include ../tests)
+target_link_libraries(publish_test PRIVATE xr_luma_driver)
+add_test(NAME luma_publish COMMAND publish_test)
 
 # Each other piece declares its own targets and tests in its own file, so pieces can land in any
 # order. Add one line per piece.
