@@ -11,8 +11,8 @@ its tests `placement_menu_style` and `menu_geometry_contract` went with the card
 `feature/glass-pills`.
 
 Passing tests do not count as a glasses pass. Only the scripts below do. Nothing in the pill script (G1–G42), the free
-pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20) or the window memory script
-(W1–W19) has run in an isolated VM or been tried in the glasses.
+pointer script (F1–F22), the round-you script (O1–O19), the level bar script (H1–H20), the text cursor script (C1–C17) or the
+window memory script (W1–W19) has run in an isolated VM or been tried in the glasses.
 
 ## Placement pills: automated coverage
 
