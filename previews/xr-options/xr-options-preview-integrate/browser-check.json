@@ -64,7 +64,26 @@
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/UX-AUDIT.md",
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-motion.mp4",
     "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-contact-sheet.png",
-    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-export.cjs"
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-export.cjs",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/compact-coverage.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/button-browser-checks.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/button-inventory-reference.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/compact-test.cjs",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-validation.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-f1-mode-overview.png",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-f1-mode-maximized.png",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-f2-mode-overview.png",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-f2-mode-maximized.png",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-f3-mode-overview.png",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/full-f3-mode-maximized.png",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/reconciliation.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/AUDIT-RECHECK.md",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/IMPLEMENTATION-PLAN.md",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/INTEGRATION-REPORT.md",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/assets/browser-check.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/reconciliation.json",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/AUDIT-RECHECK.md",
+    "file:///home/cody/.t3/worktrees/viture-workspace/xr-options-preview-integrate/previews/xr-options/xr-options-preview-integrate/IMPLEMENTATION-PLAN.md"
   ],
   "combinations": [
     true,
@@ -139,9 +158,36 @@
       "overflow": false
     }
   ],
+  "compactRows": {
+    "visited": 348,
+    "missing": []
+  },
+  "fullRows": {
+    "visited": 348,
+    "missing": []
+  },
+  "compactFidelity": {
+    "monitorScope": true,
+    "signedPersist": true,
+    "removeFallback": true,
+    "presets": true,
+    "strengthRange": true,
+    "stabilization": true,
+    "quickWorkspace": true
+  },
+  "fullFidelity": {
+    "modeOverview": true,
+    "modeMaximized": true,
+    "modeNotMonitor": true,
+    "noMonitorPreset": true,
+    "signedPersist": true,
+    "diagnosticsReadOnly": true,
+    "sourcePresets": true,
+    "quality": true
+  },
   "realPointerOpen": true,
   "realEscapeDismiss": true,
   "mobileOverflow": false,
   "consoleExceptions": [],
-  "date": "2026-11-04T17:31:44.799Z"
+  "date": "2026-11-04T17:38:29.365Z"
 }

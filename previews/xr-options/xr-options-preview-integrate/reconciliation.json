@@ -1,0 +1,3161 @@
+{
+  "rows": [
+    {
+      "identifier": "zoom_in",
+      "label": "Maximize the selected desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "zoom_in",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Maximize the selected desktop",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Maximize the selected desktop",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Maximize the selected desktop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Maximize the selected desktop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "zoom_out",
+      "label": "Overview",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "zoom_out",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Overview",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Overview",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Overview",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Overview"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "prev",
+      "label": "Previous desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "prev",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Previous desktop",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Previous desktop",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Previous desktop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Previous desktop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "next",
+      "label": "Next desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "next",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Next desktop",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Next desktop",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Next desktop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Next desktop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "spacing_down",
+      "label": "Less space between desktops",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "spacing_down",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Layout & profile",
+        "label": "Less space between desktops",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Less space between desktops",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Less space between desktops",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Less space between desktops"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "spacing_up",
+      "label": "More space between desktops",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "spacing_up",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Layout & profile",
+        "label": "More space between desktops",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 More space between desktops",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 More space between desktops",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 More space between desktops"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "recenter",
+      "label": "Recenter the view",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "recenter",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Display stabilization",
+        "label": "Recenter the view",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Recenter the view",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Recenter the view",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Recenter the view"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "layout_reset",
+      "label": "Reset to 3 flat desktops (press twice)",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 159
+      },
+      "wire": "layout_reset",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Profiles",
+      "compact_path_contract": {
+        "category": "Layout & profile",
+        "label": "Reset to 3 flat desktops (press twice)",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Reset to 3 flat desktops (press twice)",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Reset to 3 flat desktops (press twice)",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Reset to 3 flat desktops (press twice)"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "mode_next",
+      "label": "Maximized: follow / locked",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 148
+      },
+      "wire": "mode_next",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Maximized: follow / locked",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Maximized: follow / locked",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Maximized: follow / locked",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Maximized: follow / locked"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "prediction",
+      "label": "Toggle pose prediction",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 149
+      },
+      "wire": "prediction",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Display stabilization",
+        "label": "Toggle pose prediction",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Toggle pose prediction",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Toggle pose prediction",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Toggle pose prediction"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "typing_toggle",
+      "label": "Typing mode: XR keys off / on",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 157
+      },
+      "wire": "typing_toggle",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Typing mode: XR keys off / on",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Typing mode: XR keys off / on",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Typing mode: XR keys off / on",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Typing mode: XR keys off / on"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "privacy_display",
+      "label": "Privacy: main display off / on",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/privacy.py",
+        "line": 37
+      },
+      "wire": "privacy_display",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Privacy: main display off / on",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Privacy: main display off / on",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Privacy: main display off / on",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Privacy: main display off / on"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "environment_toggle",
+      "label": "Background: none / last used",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/environment.py",
+        "line": 38
+      },
+      "wire": "environment_toggle",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Background",
+      "compact_path_contract": {
+        "category": "Background",
+        "label": "Background: none / last used",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background: none / last used",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background: none / last used",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background: none / last used"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_toggle",
+      "label": "Immersive 3D: all desktops on / off",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/immersive.py",
+        "line": 91
+      },
+      "wire": "immersive_toggle",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "Immersive 3D: all desktops on / off",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Immersive 3D: all desktops on / off",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Immersive 3D: all desktops on / off",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Immersive 3D: all desktops on / off"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_toggle",
+      "label": "Placement pill of the selected desktop",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 158
+      },
+      "wire": "menu_toggle",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Placement pill of the selected desktop",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Placement pill of the selected desktop",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Placement pill of the selected desktop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 Placement pill of the selected desktop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_open",
+      "label": "Play a 180/360 VR video",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 160
+      },
+      "wire": "video_open",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Play a 180/360 VR video",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play a 180/360 VR video",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play a 180/360 VR video",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play a 180/360 VR video"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_paste",
+      "label": "Play the browser video you copied",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 161
+      },
+      "wire": "video_paste",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Play the browser video you copied",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play the browser video you copied",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play the browser video you copied",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play the browser video you copied"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "playback_menu_toggle",
+      "label": "VR video: hide / show playback controls",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 164
+      },
+      "wire": "playback_menu_toggle",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "VR video: hide / show playback controls",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Workspace \u00b7 All monitors \u2192 VR video: hide / show playback controls",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Workspace \u00b7 All monitors \u2192 VR video: hide / show playback controls",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Workspace \u00b7 All monitors \u2192 VR video: hide / show playback controls"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "help",
+      "label": "Help card (every key)",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 149
+      },
+      "wire": "help",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Session",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Help card (every key)",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Help card (every key)",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Help card (every key)",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Help card (every key)"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "binds_toggle",
+      "label": "Key binds (this panel)",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 165
+      },
+      "wire": "binds_toggle",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Key binds (this panel)",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Key binds (this panel)",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Key binds (this panel)",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Key binds (this panel)"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "help_prev",
+      "label": "Previous help page",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 162
+      },
+      "wire": "help_prev",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Session",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Previous help page",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Previous help page",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Previous help page",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Previous help page"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "help_next",
+      "label": "Next help page",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 162
+      },
+      "wire": "help_next",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Session",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Next help page",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Next help page",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Next help page",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Next help page"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "send_glasses",
+      "label": "Send window to the selected desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "wire": "send_glasses",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Send window to the selected desktop",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to the selected desktop",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to the selected desktop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to the selected desktop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "send_glasses_1",
+      "label": "Send window to XR-1",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "wire": "send_glasses_1",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Send window to XR-1",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-1",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-1",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-1"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "send_glasses_2",
+      "label": "Send window to XR-2",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "wire": "send_glasses_2",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Send window to XR-2",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-2",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-2",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-2"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "send_glasses_3",
+      "label": "Send window to XR-3",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "wire": "send_glasses_3",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Send window to XR-3",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-3",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-3",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-3"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "send_glasses_4",
+      "label": "Send window to XR-4",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "wire": "send_glasses_4",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Send window to XR-4",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-4",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-4",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Send window to XR-4"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "send_back",
+      "label": "Send window back to the main display",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/send.py",
+        "line": 41
+      },
+      "wire": "send_back",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Send window back to the main display",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Send window back to the main display",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Send window back to the main display",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Send window back to the main display"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_field_prev",
+      "label": "menu_field_prev",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "wire": "menu_field_prev",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu field prev",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field prev",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field prev",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field prev"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_field_next",
+      "label": "menu_field_next",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "wire": "menu_field_next",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu field next",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field next",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field next",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu field next"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_dec",
+      "label": "menu_dec",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "wire": "menu_dec",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu dec",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_inc",
+      "label": "menu_inc",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "wire": "menu_inc",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu inc",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_dec_big",
+      "label": "menu_dec_big",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_dec_big",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu dec big",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec big",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec big",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu dec big"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_inc_big",
+      "label": "menu_inc_big",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_inc_big",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu inc big",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc big",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc big",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu inc big"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_desktop_next",
+      "label": "menu_desktop_next",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "wire": "menu_desktop_next",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu desktop next",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop next",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop next",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop next"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_desktop_prev",
+      "label": "menu_desktop_prev",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 239
+      },
+      "wire": "menu_desktop_prev",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu desktop prev",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop prev",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop prev",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu desktop prev"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_reset",
+      "label": "menu_reset",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_reset",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu reset",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu reset",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu reset",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu reset"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_back",
+      "label": "menu_back",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_back",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu back",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu back",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu back",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu back"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_ultrawide",
+      "label": "menu_ultrawide",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_ultrawide",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu ultrawide",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu ultrawide",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu ultrawide",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu ultrawide"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_add",
+      "label": "menu_add",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_add",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Profiles",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu add",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu add",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu add",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu add"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "menu_delete",
+      "label": "menu_delete",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 240
+      },
+      "wire": "menu_delete",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Menu delete",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu delete",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu delete",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Menu delete"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_pause",
+      "label": "Play / pause",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "wire": "video_pause",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Play / pause",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play / pause",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play / pause",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play / pause"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_seek_back",
+      "label": "\u221210 s",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "wire": "video_seek_back",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "\u221210 s",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221210 s",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221210 s",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221210 s"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_seek_fwd",
+      "label": "+10 s",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "wire": "video_seek_fwd",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "+10 s",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +10 s",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +10 s",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +10 s"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_seek_back_big",
+      "label": "\u221260 s",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "wire": "video_seek_back_big",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "\u221260 s",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221260 s",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221260 s",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 \u221260 s"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_seek_fwd_big",
+      "label": "+60 s",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 51
+      },
+      "wire": "video_seek_fwd_big",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "+60 s",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +60 s",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +60 s",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 +60 s"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_format",
+      "label": "Next format",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 52
+      },
+      "wire": "video_format",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Next format",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Next format",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Next format",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Next format"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_up",
+      "label": "video_up",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 50
+      },
+      "wire": "video_up",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Video up",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video up",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video up",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video up"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_down",
+      "label": "video_down",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 50
+      },
+      "wire": "video_down",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Video down",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video down",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video down",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video down"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_exit",
+      "label": "Back to desktops",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 52
+      },
+      "wire": "video_exit",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Back to desktops",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Back to desktops",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Back to desktops",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Back to desktops"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_quality",
+      "label": "video_quality",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/video.py",
+        "line": 50
+      },
+      "wire": "video_quality",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Video quality",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video quality",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video quality",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Video quality"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_controls",
+      "label": "Show / hide controls",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 26
+      },
+      "wire": "view_op(video_controls)",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Show / hide controls",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Show / hide controls",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Show / hide controls",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Show / hide controls"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "stabilization",
+      "label": "Stabilization",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/StabilizationControls.qml",
+        "line": 23
+      },
+      "wire": "stabilization {strength:0..100}",
+      "inventory_section": "Workspace / All monitors \u00b7 Display",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Display stabilization",
+        "label": "Stabilization",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Stabilization",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Stabilization",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Display stabilization \u2192 Stabilization"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_all",
+      "label": "All desktops",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 103
+      },
+      "wire": "immersive {global,desktops,preset,strength,strengths,convergence}",
+      "inventory_section": "Workspace / All monitors \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "All desktops",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 All desktops",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 All desktops",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 All desktops"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_monitor",
+      "label": "XR-n",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 110
+      },
+      "wire": "immersive.desktops[XR-n]",
+      "inventory_section": "Selected monitor \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "XR-n",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 XR-n",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 XR-n",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 XR-n"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_preset",
+      "label": "Desktop / Video / Games",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 171
+      },
+      "wire": "immersive.preset + convergence",
+      "inventory_section": "Workspace / All monitors \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "Desktop / Video / Games",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Desktop / Video / Games",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Desktop / Video / Games",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Desktop / Video / Games"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_strength_presets",
+      "label": "Soft / Standard / Enhanced",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 172
+      },
+      "wire": "immersive.strength=50/100/150",
+      "inventory_section": "Workspace / All monitors \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "Soft / Standard / Enhanced",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Soft / Standard / Enhanced",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Soft / Standard / Enhanced",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Soft / Standard / Enhanced"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_strength",
+      "label": "Strength",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 139
+      },
+      "wire": "immersive.strength=0..200",
+      "inventory_section": "Workspace / All monitors \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "Strength",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Strength",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Strength",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Strength"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_monitor_strength",
+      "label": "Selected desktop strength",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 150
+      },
+      "wire": "immersive.strengths[XR-n]=0..200",
+      "inventory_section": "Selected monitor \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "Selected desktop strength",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 Selected desktop strength",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 Selected desktop strength",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 3D depth \u2192 Selected desktop strength"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_plane",
+      "label": "Screen plane",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 160
+      },
+      "wire": "immersive.convergence=0..100",
+      "inventory_section": "Workspace / All monitors \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "Screen plane",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Screen plane",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Screen plane",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 Screen plane"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "placement_x",
+      "label": "Left / right",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 212
+      },
+      "wire": "placement.desktops[].x",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Left / right",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Left / right",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Left / right",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Left / right"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "placement_y",
+      "label": "Down / up",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Model.js",
+        "line": 212
+      },
+      "wire": "placement.desktops[].y",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Down / up",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Down / up",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Down / up",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Down / up"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "placement_distance",
+      "label": "Distance",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 28
+      },
+      "wire": "placement.desktops[].distance",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Distance",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Distance",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Distance",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Distance"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "placement_curvature",
+      "label": "Curvature",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 28
+      },
+      "wire": "placement.desktops[].curvature",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Curvature",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Curvature",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Curvature",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Curvature"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "placement_apply",
+      "label": "Apply placement",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 55
+      },
+      "wire": "set_settings {placements}",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Apply placement",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Apply placement",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Apply placement",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Apply placement"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "placement_flat",
+      "label": "Flat",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/PlacementEditor.qml",
+        "line": 56
+      },
+      "wire": "set_settings {placements}",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Flat",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Flat",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Flat",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Flat"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "mode_follow",
+      "label": "follow",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 67
+      },
+      "wire": "set_settings {mode:\"follow\"}",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "follow",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 follow",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 follow",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 follow"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "mode_locked",
+      "label": "locked",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 67
+      },
+      "wire": "set_settings {mode:\"locked\"}",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Display",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "locked",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 locked",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 locked",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 locked"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_browse",
+      "label": "Browse\u2026",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 60
+      },
+      "wire": "video_open {path}",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Browse\u2026",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Browse\u2026",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Browse\u2026",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Browse\u2026"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_play",
+      "label": "Play",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 61
+      },
+      "wire": "video_open {path|url|web,format?}",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Play",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Play"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "video_paste_ui",
+      "label": "Paste from browser",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/VideoControls.qml",
+        "line": 66
+      },
+      "wire": "video_open {url}",
+      "inventory_section": "Video",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Paste from browser",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Paste from browser",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Paste from browser",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Paste from browser"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "resolution",
+      "label": "Resolution",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 552
+      },
+      "wire": "desktops RESOLUTION",
+      "inventory_section": "Selected monitor",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Monitor settings",
+        "label": "Resolution",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Resolution",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Resolution",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Resolution"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "scale",
+      "label": "Scale",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 555
+      },
+      "wire": "desktops SCALE",
+      "inventory_section": "Selected monitor",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Monitor settings",
+        "label": "Scale",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Scale",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Scale",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Scale"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "ultrawide",
+      "label": "Ultrawide",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 333
+      },
+      "wire": "desktops ULTRAWIDE",
+      "inventory_section": "Selected monitor",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Monitor settings",
+        "label": "Ultrawide",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Ultrawide",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Ultrawide",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Ultrawide"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "add_monitor",
+      "label": "Add new",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 334
+      },
+      "wire": "desktops ADD",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Profiles",
+      "compact_path_contract": {
+        "category": "Monitor settings",
+        "label": "Add new",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Monitor settings \u2192 Add new",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Monitor settings \u2192 Add new",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Monitor settings \u2192 Add new"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "remove_monitor",
+      "label": "Remove / Remove?",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 335
+      },
+      "wire": "desktops REMOVE",
+      "inventory_section": "Selected monitor",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Monitor settings",
+        "label": "Remove / Remove?",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Remove / Remove?",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Remove / Remove?",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Monitor settings \u2192 Remove / Remove?"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "background",
+      "label": "Background",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 560
+      },
+      "wire": "environment {background,last,brightness}",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Background",
+      "compact_path_contract": {
+        "category": "Background",
+        "label": "Background",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "background_brightness",
+      "label": "Brightness",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/src/glass.cpp",
+        "line": 570
+      },
+      "wire": "environment.brightness",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Background",
+      "compact_path_contract": {
+        "category": "Background",
+        "label": "Brightness",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Brightness",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Brightness",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Brightness"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "roll_ccw",
+      "label": "roll_ccw",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 174
+      },
+      "wire": "roll {desktop,side}",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Roll ccw",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll ccw",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll ccw",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll ccw"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "roll_level",
+      "label": "roll_level",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 174
+      },
+      "wire": "roll {desktop,side}",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Roll level",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll level",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll level",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll level"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "roll_cw",
+      "label": "roll_cw",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 174
+      },
+      "wire": "roll {desktop,side}",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Roll cw",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll cw",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll cw",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Roll cw"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "drag_move",
+      "label": "drag_move",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 35
+      },
+      "wire": "placement + placement_menu.surface",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Drag move",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag move",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag move",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag move"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "drag_resize",
+      "label": "drag_resize",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "spike/include/xr/glass.hpp",
+        "line": 185
+      },
+      "wire": "placement distance",
+      "inventory_section": "Selected monitor \u00b7 Placement",
+      "full_catalog_home": "Placement",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Drag resize",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag resize",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag resize",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Drag resize"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "quality_filter",
+      "label": "Texture filter",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/quality.py",
+        "line": 31
+      },
+      "wire": "video action=quality filter",
+      "inventory_section": "Video \u00b7 Quality",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Texture filter",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Texture filter",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Texture filter",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Texture filter"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "quality_deband",
+      "label": "Deband",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/quality.py",
+        "line": 33
+      },
+      "wire": "video action=quality deband",
+      "inventory_section": "Video \u00b7 Quality",
+      "full_catalog_home": "Video",
+      "compact_path_contract": {
+        "category": "VR video",
+        "label": "Deband",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Deband",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Deband",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 VR video \u2192 Deband"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "bind_change",
+      "label": "Enter",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 9
+      },
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "inventory_section": "View & Input \u00b7 Key binds",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Enter",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Enter",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Enter",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Enter"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "bind_reset",
+      "label": "R",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 11
+      },
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "inventory_section": "View & Input \u00b7 Key binds",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "R",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 R",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 R",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 R"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "bind_reset_all",
+      "label": "Shift+R",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 11
+      },
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "inventory_section": "View & Input \u00b7 Key binds",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Shift+R",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Shift+R",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Shift+R",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Shift+R"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "bind_cancel",
+      "label": "Esc",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 10
+      },
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "inventory_section": "View & Input \u00b7 Key binds",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Esc",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Esc",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Esc",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Esc"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "bind_navigation",
+      "label": "Up / Down (PgUp / PgDn, Home / End)",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/keybinds.py",
+        "line": 9
+      },
+      "wire": "binds_key {mods,code}; renderer binds rows",
+      "inventory_section": "View & Input \u00b7 Key binds",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Up / Down (PgUp / PgDn, Home / End)",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Up / Down (PgUp / PgDn, Home / End)",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Up / Down (PgUp / PgDn, Home / End)",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Input & keybinds \u2192 Up / Down (PgUp / PgDn, Home / End)"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "fallback",
+      "label": "Return windows to",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 32
+      },
+      "wire": "set_settings {fallback}",
+      "inventory_section": "Before Start",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Return windows to",
+        "lifecycle": "startup-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Return windows to",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Return windows to",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Return windows to"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "tracking",
+      "label": "Head tracking",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 172
+      },
+      "wire": "set_settings {tracking}",
+      "inventory_section": "Before Start",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Head tracking",
+        "lifecycle": "startup-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Head tracking",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Head tracking",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Head tracking"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "tracking_driver",
+      "label": "Tracking driver",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 182
+      },
+      "wire": "set_settings {tracking_driver}",
+      "inventory_section": "Before Start",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Tracking driver",
+        "lifecycle": "startup-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Tracking driver",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Tracking driver",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Tracking driver"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "mode_switch",
+      "label": "120 Hz mode switch",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Launcher.qml",
+        "line": 173
+      },
+      "wire": "set_settings {mode_switch}",
+      "inventory_section": "Before Start",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "120 Hz mode switch",
+        "lifecycle": "startup-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 120 Hz mode switch",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 120 Hz mode switch",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Placement & view \u2192 120 Hz mode switch"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "startup_desktops",
+      "label": "Save desktop",
+      "scope": "per-monitor",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/DesktopEditor.qml",
+        "line": 59
+      },
+      "wire": "set_settings {desktops}",
+      "inventory_section": "Before Start",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Save desktop",
+        "lifecycle": "startup-only",
+        "scope": "per-monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Advanced & session \u2192 Save desktop",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Advanced & session \u2192 Save desktop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Advanced & session \u2192 Save desktop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "stop",
+      "label": "Stop",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/xr_controller/state.py",
+        "line": 316
+      },
+      "wire": "stop",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Session",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Stop",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Stop",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Stop",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Stop"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "recover",
+      "label": "Recover",
+      "scope": "workspace",
+      "lifecycle": "recovery-only",
+      "source": {
+        "file": "tools/xr_controller/state.py",
+        "line": 274
+      },
+      "wire": "recover",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "External shell",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Recover",
+        "lifecycle": "recovery-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external recovery / consent guard",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "start",
+      "label": "Start XR",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "tools/xr_controller/state.py",
+        "line": 255
+      },
+      "wire": "start",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Start XR",
+        "lifecycle": "startup-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start XR",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start XR",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start XR"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "confirm_start",
+      "label": "Start",
+      "scope": "workspace",
+      "lifecycle": "startup-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+        "line": 36
+      },
+      "wire": "confirm_start",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Before Start",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Start",
+        "lifecycle": "startup-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external before Start",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "confirm_recover",
+      "label": "Recover",
+      "scope": "workspace",
+      "lifecycle": "recovery-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+        "line": 36
+      },
+      "wire": "confirm_recover",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "External shell",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Recover",
+        "lifecycle": "recovery-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Recover"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external recovery / consent guard",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "cancel",
+      "label": "Cancel",
+      "scope": "workspace",
+      "lifecycle": "confirmation-only",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/ConfirmDialog.qml",
+        "line": 34
+      },
+      "wire": "cancel",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Session",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Cancel",
+        "lifecycle": "confirmation-only",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Cancel",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Cancel",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Cancel"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external recovery / consent guard",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "status",
+      "label": "Measured, this session",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/RunningEditor.qml",
+        "line": 169
+      },
+      "wire": "status / state event",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "Session",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Measured, this session",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Measured, this session",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Measured, this session",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Measured, this session"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "controller_restart",
+      "label": "Start / restart controller",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Panel.qml",
+        "line": 118
+      },
+      "wire": "systemctl user restart controller",
+      "inventory_section": "Help & Session",
+      "full_catalog_home": "External shell",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Start / restart controller",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start / restart controller",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start / restart controller",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Start / restart controller"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external shell maintenance, not session configuration",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "close_external",
+      "label": "Close",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/Panel.qml",
+        "line": 112
+      },
+      "wire": "dismiss()",
+      "inventory_section": "External shell",
+      "full_catalog_home": "External shell",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Close",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Close",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Close",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Close"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external shell maintenance, not session configuration",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "immersive_connected_tail",
+      "label": "3D",
+      "scope": "selected monitor + workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/free_pointer.py",
+        "line": 1502
+      },
+      "wire": "immersive_click / immersive_tail_click",
+      "inventory_section": "Selected monitor \u00b7 3D",
+      "full_catalog_home": "3D depth",
+      "compact_path_contract": {
+        "category": "3D depth",
+        "label": "3D",
+        "lifecycle": "live",
+        "scope": "selected monitor + workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 3D",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 3D",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 3D depth \u2192 3D"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "runtime XR entry / child editor; validate revised prototype path",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "select_pointer",
+      "label": "select_pointer",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/free_pointer.py",
+        "line": 20
+      },
+      "wire": "select_desktop",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Select pointer",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Select pointer",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Select pointer",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Select pointer"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "edge_pan",
+      "label": "edge_pan",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 16
+      },
+      "wire": "edge_pan + switch_desktop",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Edge pan",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Edge pan",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Edge pan",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Edge pan"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "background_switch",
+      "label": "background_switch",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/free_pointer.py",
+        "line": 1523
+      },
+      "wire": "environment_toggle",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Background",
+      "compact_path_contract": {
+        "category": "Background",
+        "label": "Background switch",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background switch",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background switch",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Background \u2192 Workspace \u00b7 All monitors \u2192 Background switch"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "profile_remember",
+      "label": "profile_remember",
+      "scope": "per-glasses model",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/profiles.py",
+        "line": 54
+      },
+      "wire": "profiles schema 2: desktops,placements,rolls; previous_setup",
+      "inventory_section": "Workspace / All monitors",
+      "full_catalog_home": "Profiles",
+      "compact_path_contract": {
+        "category": "Layout & profile",
+        "label": "Profile remember",
+        "lifecycle": "live",
+        "scope": "per-glasses model",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Profile remember",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Profile remember",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Layout & profile \u2192 Profile remember"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "plugin_restart",
+      "label": "Restart plugin",
+      "scope": "workspace",
+      "lifecycle": "live",
+      "source": {
+        "file": "omarchy-plugin/cody.viture-workspace/BarWidget.qml",
+        "line": 23
+      },
+      "wire": "shell restartPlugin",
+      "inventory_section": "External shell",
+      "full_catalog_home": "External shell",
+      "compact_path_contract": {
+        "category": "Advanced & session",
+        "label": "Restart plugin",
+        "lifecycle": "live",
+        "scope": "workspace",
+        "paths": [
+          "C1 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Restart plugin",
+          "C2 \u2192 Options \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Restart plugin",
+          "C3 \u2192 Options \u2192 All settings \u2192 Workspace \u00b7 All monitors \u2192 Advanced & session \u2192 Restart plugin"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "external shell maintenance, not session configuration",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "resize_press",
+      "label": "resize_press",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 1966
+      },
+      "wire": "resize_press",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Resize press",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize press",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize press",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize press"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "resize_release",
+      "label": "resize_release",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 1966
+      },
+      "wire": "resize_release",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Resize release",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize release",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize release",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize release"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "resize_cancel",
+      "label": "resize_cancel",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 1957
+      },
+      "wire": "resize_cancel",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Placement & view",
+        "label": "Resize cancel",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize cancel",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize cancel",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Placement & view \u2192 Resize cancel"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "super_left_press",
+      "label": "super_left_press",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 177
+      },
+      "wire": "super_left_press",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Super left press",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super left press",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super left press",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super left press"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "super_right_press",
+      "label": "super_right_press",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 177
+      },
+      "wire": "super_right_press",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Super right press",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super right press",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super right press",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super right press"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    },
+    {
+      "identifier": "super_release",
+      "label": "super_release",
+      "scope": "selected monitor",
+      "lifecycle": "live",
+      "source": {
+        "file": "tools/native_spike/view.py",
+        "line": 177
+      },
+      "wire": "super_release",
+      "inventory_section": "View & Input",
+      "full_catalog_home": "Input",
+      "compact_path_contract": {
+        "category": "Input & keybinds",
+        "label": "Super release",
+        "lifecycle": "live",
+        "scope": "selected monitor",
+        "paths": [
+          "C1 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super release",
+          "C2 \u2192 Options \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super release",
+          "C3 \u2192 Options \u2192 All settings \u2192 Selected monitor \u00b7 XR-2 \u2192 Input & keybinds \u2192 Super release"
+        ]
+      },
+      "compact_contract_matches": true,
+      "disposition": "preserve original gesture and document options destination",
+      "status": "catalog routes reconciled; native behavior remains future work"
+    }
+  ],
+  "count": 116,
+  "full_catalog_missing": [],
+  "snapshots": {
+    "INVENTORY.md": "97e9b1fab46ae45829a53b89524c18a72186911a6ce35b4989f7e43720365cd0",
+    "inventory.json": "9a2f7944b7bbefbcd548b1517d09559efc19f5711c8bb20a26663f5aab26e7de",
+    "button-NOTES.md": "951631dd1a755756a26d09ace3b90302760c2d9123e97391a260b8850b17a4b8",
+    "button-demo.html": "49af92cce0e6e439b46115a07198019c1bf6b81367a50df3ffb95fe6b81b3ec8",
+    "compact-categories.json": "2a1302f6b5fd148a3b52601bc016bc7bc4314d525f91e5001f8117cfa04beb44",
+    "compact-demo.html": "a0ef710def2857041950f25b4e86aac86af611445271c77162287bc62d60caf1",
+    "compact-rationale.md": "19e76ca301ae7b2efd846af1ef524f67fd559b52e6df6fef8dab1af6e448cda8",
+    "compact-validation.json": "296fc7c69456b8102e73ae7d4de2978627b4084bf564a9c926c2d2f8cbfb0c3a",
+    "full-demo.html": "890023bd1b2f31bfb532258afdd6405518368bf1ed18034f1f122b79d5bfb63f",
+    "full-control-homes.json": "c8a7473375a264cc38fe3e9ba46e930b1b56d935625ea8f890b0eefc49ce344e",
+    "full-notes.md": "f30607ee535137126d690dc4082ae7de1702b90752324c4db7549002c01d89d1",
+    "UX-AUDIT.md": "45ee49cad4319bf7a24363e8752acec2b11b8a5908fb9494cf8d4e8e2eeb7e60",
+    "compact-coverage.json": "048e9ec78d06c64446a0754c0a6c4f93080723fb2b263fd3588acf248a6bccbc",
+    "button-browser-checks.json": "a906f0ed2ada87ff563fd0db9124dfffbcea15b6759d25e5082dc13f6ddc31f6",
+    "button-inventory-reference.json": "74d7d770ab12a6d22ba2012711c8dcd0c9da479aaf0752609b2b99755114f934",
+    "full-validation.json": "303bec338d014f39f201c99d09cc790d842fa576327a38e158a0fc5946dc24c8",
+    "reconciliation.json": "b24cb59a253e660a29b408a3f3738fbacd07bd2366c4cac4560fd264c79cacc9",
+    "AUDIT-RECHECK.md": "6544e303a4dcc7ad8c5cf3e528a233065d749a1d850fa5e71657fe37678aa02c",
+    "IMPLEMENTATION-PLAN.md": "6782d8a30c771f4df6731d7b0bf00e4a49a539128c7930220b5767cb1ff96a0e",
+    "INTEGRATION-REPORT.md": "d3a555f56d5e5dcfac89602697e6a5341f49a1688855678ed21b1f3c157a44b8",
+    "browser-check.json": "a3af30637e0eaeffe5581cf6469383bbde561542119a9b8c05be9d6086e80846"
+  }
+}
