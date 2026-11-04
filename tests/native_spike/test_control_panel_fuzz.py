@@ -403,6 +403,19 @@ class ContractTests(unittest.TestCase):
             frames.add(view.view_frame, dict(zoomed=zoomed, selected=selected, spacing=spacing, mode=mode, cursor_follow=False, prediction=prediction, typing=typing, **flags))
         self.check(frames, 1000)
 
+    def test_merged_stabilization_and_depth_strength_fields(self):
+        from tools.native_spike import immersive
+        frames = Numbered()
+        for strength in edges(0, 100):
+            frames.add(view.view_frame, dict(zoomed=True, selected=0, spacing=40,
+                mode='anchor', cursor_follow=False, prediction=True, typing=False,
+                stabilization=strength))
+        for strength in edges(0, 200):
+            params = immersive.wire_params(None)
+            params['strengths'] = [strength] * geometry.MAX_DESKTOPS
+            frames.add(immersive.renderer_frame, [True], True, params=params)
+        self.check(frames, 10)
+
     def test_desktops_in_every_combination(self):
         frames = Numbered()
         names = [f'XR-{i}' for i in range(1, geometry.MAX_DESKTOPS + 1)]

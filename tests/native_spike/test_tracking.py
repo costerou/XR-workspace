@@ -210,9 +210,9 @@ class DriverLifecycleTests(unittest.TestCase):
         # Snapshot host processes only: foreign drivers created by a test still exercise the real scanner.
         scan = tracking._other_drivers
         host = set(scan())
-        detector = patch.object(tracking, '_other_drivers',
+        self.driver_scan = patch.object(tracking, '_other_drivers',
                                 lambda exclude=None: [pid for pid in scan(exclude) if pid not in host])
-        detector.start(); self.addCleanup(detector.stop)
+        self.driver_scan.start(); self.addCleanup(self.driver_scan.stop)
         # This machine's install is not part of a test with a fake driver; nor are its glasses (SYS_USB below).
         patcher = patch.object(tracking, '_driver_env', lambda: dict(os.environ)); patcher.start(); self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
