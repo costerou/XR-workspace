@@ -34,6 +34,7 @@ def recover_managed(client, consent, path, clear_rules=()):
     # Copies must never select a different owner lock or receive recovery writes
     # while leaving the canonical journal stale. Do not resolve symlink aliases:
     # the existing no-follow directory/file opens must continue to reject them.
+    _require_supported_model(consent)
     canonical = client.runtime_dir / 'xr-workspace-spike' / token(consent['run_id']) / 'journal.json'
     if Path(path).absolute() != canonical:
         raise OwnershipBlocked('managed recovery requires the canonical runtime journal')
@@ -110,7 +111,13 @@ def _restore_output(client, consent, output):
     return restore
 
 
+def _require_supported_model(consent):
+    if consent.get('model') == 'pro2':
+        raise ValueError('VITURE PRO 2 driver and display support unverified; managed operations unavailable')
+
+
 def run_managed(client, consent, runtime, *, desktops=None, store=None, renderer=None, faults=None):
+    _require_supported_model(consent)
     session = client.verified_session()['id']
     output, fallback = consent['output'], consent['recovery_output']
     validate_physical_pair(client, session, output, fallback)
