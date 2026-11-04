@@ -91,7 +91,18 @@ class LumaLifecycle(unittest.TestCase):
                   patch.object(tracking, 'DRIVER_LOG', self.xr_log), patch.object(tracking, 'DRIVER_CONFIG', self.config),
                   patch.object(tracking, '_other_drivers', return_value=[])):
             p.start(); self.addCleanup(p.stop)
+        self.addCleanup(self.nothing_left_running, root)
         self.addCleanup(lambda: tracking.stop(self.runtime))
+
+    def nothing_left_running(self, root):
+        """A driver that outlives its test is a lifecycle bug: name the test, and leave nothing behind."""
+        left = []
+        for entry in Path('/proc').glob('[0-9]*'):
+            try: argv = (entry / 'cmdline').read_bytes().split(b'\0')
+            except OSError: continue
+            if any(arg.startswith(str(root).encode()) for arg in argv): left.append(int(entry.name))
+        for pid in left: os.kill(pid, signal.SIGKILL)
+        self.assertEqual(left, [])
 
     def state(self): return json.loads(tracking._state(self.runtime).read_text())
 
