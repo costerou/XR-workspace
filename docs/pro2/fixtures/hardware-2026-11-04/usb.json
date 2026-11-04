@@ -1,0 +1,421 @@
+{
+  "started_utc": "2026-11-04T19:35:46.171163+00:00",
+  "sysfs": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0/0000:06:0c.0/0000:10:00.0/usb1/1-5",
+  "attributes": {
+    "idVendor": "35ca",
+    "idProduct": "1301",
+    "product": "VITURE PRO 2 XR Glasses",
+    "manufacturer": "VITURE",
+    "busnum": "1",
+    "devnum": "13",
+    "devpath": "5",
+    "speed": "12",
+    "version": "2.01",
+    "bcdDevice": "0200",
+    "bDeviceClass": "00",
+    "bDeviceSubClass": "00",
+    "bDeviceProtocol": "00",
+    "bNumConfigurations": "1",
+    "bNumInterfaces": "1",
+    "bConfigurationValue": "1",
+    "bmAttributes": "c0",
+    "bMaxPower": "100mA",
+    "authorized": "1",
+    "configuration": ""
+  },
+  "power": {
+    "control": "on",
+    "runtime_status": "active",
+    "runtime_active_time": "168277",
+    "runtime_suspended_time": "0",
+    "autosuspend_delay_ms": "2000",
+    "wakeup": null
+  },
+  "interfaces": [
+    {
+      "name": "1-5:1.0",
+      "attributes": {
+        "bInterfaceNumber": "00",
+        "bAlternateSetting": "0",
+        "bNumEndpoints": "02",
+        "bInterfaceClass": "03",
+        "bInterfaceSubClass": "00",
+        "bInterfaceProtocol": "00",
+        "interface": null
+      },
+      "driver": "usbhid",
+      "endpoints": [
+        {
+          "name": "ep_01",
+          "bEndpointAddress": "01",
+          "bmAttributes": "03",
+          "wMaxPacketSize": "0040",
+          "bInterval": "01",
+          "interval": "1ms",
+          "type": "Interrupt",
+          "direction": "out"
+        },
+        {
+          "name": "ep_81",
+          "bEndpointAddress": "81",
+          "bmAttributes": "03",
+          "wMaxPacketSize": "0040",
+          "bInterval": "01",
+          "interval": "1ms",
+          "type": "Interrupt",
+          "direction": "in"
+        }
+      ]
+    }
+  ],
+  "cached_descriptors": {
+    "length": 59,
+    "records": [
+      {
+        "offset": 0,
+        "length": 18,
+        "type": 1,
+        "hex": "1201010200000040ca350113000201020301"
+      },
+      {
+        "offset": 18,
+        "length": 9,
+        "type": 2,
+        "hex": "09022900010100c032"
+      },
+      {
+        "offset": 27,
+        "length": 9,
+        "type": 4,
+        "hex": "090400000203000000"
+      },
+      {
+        "offset": 36,
+        "length": 9,
+        "type": 33,
+        "hex": "092111010001222200"
+      },
+      {
+        "offset": 45,
+        "length": 7,
+        "type": 5,
+        "hex": "07058103400001"
+      },
+      {
+        "offset": 52,
+        "length": 7,
+        "type": 5,
+        "hex": "07050103400001"
+      }
+    ],
+    "note": "Kernel cached device/configuration descriptors only; string descriptors not requested. iSerialNumber is an index, not serial text."
+  },
+  "usb_node": {
+    "path": "/dev/bus/usb/001/013",
+    "mode": "0o660",
+    "uid": 0,
+    "gid": 0,
+    "readable_by_collector": true,
+    "writable_by_collector": true,
+    "acl": "user::rw-\nuser:cody:rw-\ngroup::rw-\nmask::rw-\nother::---"
+  },
+  "nodes": [
+    {
+      "class": "hidraw",
+      "name": "hidraw7",
+      "sysfs": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0/0000:06:0c.0/0000:10:00.0/usb1/1-5/1-5:1.0/0003:35CA:1301.000E/hidraw/hidraw7",
+      "attributes": {
+        "name": null,
+        "bInterfaceNumber": null
+      },
+      "permission": {
+        "path": "/dev/hidraw7",
+        "mode": "0o660",
+        "uid": 0,
+        "gid": 0,
+        "readable_by_collector": true,
+        "writable_by_collector": true,
+        "acl": "user::rw-\nuser:cody:rw-\ngroup::rw-\nmask::rw-\nother::---"
+      }
+    }
+  ],
+  "ancestor_chain": [
+    {
+      "path": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0/0000:06:0c.0/0000:10:00.0/usb1/1-5",
+      "attributes": {
+        "idVendor": "35ca",
+        "idProduct": "1301",
+        "product": "VITURE PRO 2 XR Glasses",
+        "speed": "12",
+        "busnum": "1",
+        "class": null,
+        "vendor": null,
+        "device": null
+      },
+      "driver": "usb",
+      "power": {
+        "control": "on",
+        "runtime_status": "active"
+      }
+    },
+    {
+      "path": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0/0000:06:0c.0/0000:10:00.0/usb1",
+      "attributes": {
+        "idVendor": "1d6b",
+        "idProduct": "0002",
+        "product": "xHCI Host Controller",
+        "speed": "480",
+        "busnum": "1",
+        "class": null,
+        "vendor": null,
+        "device": null
+      },
+      "driver": "usb",
+      "power": {
+        "control": "auto",
+        "runtime_status": "active"
+      }
+    },
+    {
+      "path": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0/0000:06:0c.0/0000:10:00.0",
+      "attributes": {
+        "idVendor": null,
+        "idProduct": null,
+        "product": null,
+        "speed": null,
+        "busnum": null,
+        "class": "0x0c0330",
+        "vendor": "0x1022",
+        "device": "0x43f7"
+      },
+      "driver": "xhci_hcd",
+      "power": {
+        "control": "auto",
+        "runtime_status": "active"
+      }
+    },
+    {
+      "path": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0/0000:06:0c.0",
+      "attributes": {
+        "idVendor": null,
+        "idProduct": null,
+        "product": null,
+        "speed": null,
+        "busnum": null,
+        "class": "0x060400",
+        "vendor": "0x1022",
+        "device": "0x43f5"
+      },
+      "driver": "pcieport",
+      "power": {
+        "control": "auto",
+        "runtime_status": "active"
+      }
+    },
+    {
+      "path": "/sys/devices/pci0000:00/0000:00:02.1/0000:05:00.0",
+      "attributes": {
+        "idVendor": null,
+        "idProduct": null,
+        "product": null,
+        "speed": null,
+        "busnum": null,
+        "class": "0x060400",
+        "vendor": "0x1022",
+        "device": "0x43f4"
+      },
+      "driver": "pcieport",
+      "power": {
+        "control": "auto",
+        "runtime_status": "active"
+      }
+    },
+    {
+      "path": "/sys/devices/pci0000:00/0000:00:02.1",
+      "attributes": {
+        "idVendor": null,
+        "idProduct": null,
+        "product": null,
+        "speed": null,
+        "busnum": null,
+        "class": "0x060400",
+        "vendor": "0x1022",
+        "device": "0x14db"
+      },
+      "driver": "pcieport",
+      "power": {
+        "control": "auto",
+        "runtime_status": "active"
+      }
+    }
+  ],
+  "topology": [
+    {
+      "port": "1-1",
+      "idVendor": "1532",
+      "idProduct": "0574",
+      "product": "Razer Barracuda X Chroma",
+      "speed": "12",
+      "devpath": "1",
+      "busnum": "1",
+      "devnum": "2"
+    },
+    {
+      "port": "1-10",
+      "idVendor": "048d",
+      "idProduct": "5702",
+      "product": "ITE Device",
+      "speed": "12",
+      "devpath": "10",
+      "busnum": "1",
+      "devnum": "10"
+    },
+    {
+      "port": "1-12",
+      "idVendor": "1b1c",
+      "idProduct": "0c3f",
+      "product": "iCUE LINK System Hub",
+      "speed": "480",
+      "devpath": "12",
+      "busnum": "1",
+      "devnum": "11"
+    },
+    {
+      "port": "1-5",
+      "idVendor": "35ca",
+      "idProduct": "1301",
+      "product": "VITURE PRO 2 XR Glasses",
+      "speed": "12",
+      "devpath": "5",
+      "busnum": "1",
+      "devnum": "13"
+    },
+    {
+      "port": "1-6",
+      "idVendor": "046d",
+      "idProduct": "c349",
+      "product": "LogiG MKeyboard",
+      "speed": "12",
+      "devpath": "6",
+      "busnum": "1",
+      "devnum": "4"
+    },
+    {
+      "port": "1-7",
+      "idVendor": "0bda",
+      "idProduct": "b850",
+      "product": "Bluetooth Radio",
+      "speed": "12",
+      "devpath": "7",
+      "busnum": "1",
+      "devnum": "7"
+    },
+    {
+      "port": "2-3",
+      "idVendor": "0781",
+      "idProduct": "5591",
+      "product": "SanDisk 3.2Gen1",
+      "speed": "5000",
+      "devpath": "3",
+      "busnum": "2",
+      "devnum": "2"
+    },
+    {
+      "port": "5-2",
+      "idVendor": "33e4",
+      "idProduct": "5317",
+      "product": "G-Wolves HTS Ultra 8K Receiver-N",
+      "speed": "480",
+      "devpath": "2",
+      "busnum": "5",
+      "devnum": "2"
+    },
+    {
+      "port": "7-1",
+      "idVendor": "0846",
+      "idProduct": "9060",
+      "product": "Wireless_Device",
+      "speed": "480",
+      "devpath": "1",
+      "busnum": "7",
+      "devnum": "2"
+    },
+    {
+      "port": "usb1",
+      "idVendor": "1d6b",
+      "idProduct": "0002",
+      "product": "xHCI Host Controller",
+      "speed": "480",
+      "devpath": "0",
+      "busnum": "1",
+      "devnum": "1"
+    },
+    {
+      "port": "usb2",
+      "idVendor": "1d6b",
+      "idProduct": "0003",
+      "product": "xHCI Host Controller",
+      "speed": "10000",
+      "devpath": "0",
+      "busnum": "2",
+      "devnum": "1"
+    },
+    {
+      "port": "usb3",
+      "idVendor": "1d6b",
+      "idProduct": "0002",
+      "product": "xHCI Host Controller",
+      "speed": "480",
+      "devpath": "0",
+      "busnum": "3",
+      "devnum": "1"
+    },
+    {
+      "port": "usb4",
+      "idVendor": "1d6b",
+      "idProduct": "0003",
+      "product": "xHCI Host Controller",
+      "speed": "10000",
+      "devpath": "0",
+      "busnum": "4",
+      "devnum": "1"
+    },
+    {
+      "port": "usb5",
+      "idVendor": "1d6b",
+      "idProduct": "0002",
+      "product": "xHCI Host Controller",
+      "speed": "480",
+      "devpath": "0",
+      "busnum": "5",
+      "devnum": "1"
+    },
+    {
+      "port": "usb6",
+      "idVendor": "1d6b",
+      "idProduct": "0003",
+      "product": "xHCI Host Controller",
+      "speed": "10000",
+      "devpath": "0",
+      "busnum": "6",
+      "devnum": "1"
+    },
+    {
+      "port": "usb7",
+      "idVendor": "1d6b",
+      "idProduct": "0002",
+      "product": "xHCI Host Controller",
+      "speed": "480",
+      "devpath": "0",
+      "busnum": "7",
+      "devnum": "1"
+    }
+  ],
+  "finished_utc": "2026-11-04T19:35:46.177613+00:00",
+  "exact_identity_present_at_end": true,
+  "cached_hid_report_descriptor": {
+    "length": 34,
+    "hex": "0600ff0901a1010901150026ff009540750881020901150026ff00954075089102c0",
+    "source": "sysfs report_descriptor (kernel cache); hidraw not opened"
+  }
+}

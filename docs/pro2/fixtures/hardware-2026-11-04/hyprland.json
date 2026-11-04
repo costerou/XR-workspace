@@ -1,0 +1,35 @@
+{
+  "captured_utc": "2026-11-04T19:35:46.183632+00:00",
+  "selection": "hyprctl instances under /run/user/1000; sole instance verified against /proc PID comm=Hyprland and uid=1000; explicit instance selected",
+  "pid": 1660,
+  "uid": 1000,
+  "wayland_socket": "wayland-1",
+  "monitors": [
+    {
+      "name": "DP-2",
+      "make": "Visitech AS",
+      "model": "VITURE",
+      "width": 1920,
+      "height": 1080,
+      "physicalWidth": 160,
+      "physicalHeight": 100,
+      "refreshRate": 60.0,
+      "x": 4096,
+      "y": 0,
+      "scale": 1.25,
+      "transform": 0,
+      "dpmsStatus": true,
+      "vrr": false,
+      "disabled": false,
+      "currentFormat": "XRGB8888",
+      "availableModes": [
+        "1920x1080@60.00Hz",
+        "1920x1080@120.00Hz",
+        "1920x1080@119.88Hz",
+        "1920x1080@90.00Hz",
+        "1920x1080@59.94Hz"
+      ]
+    }
+  ],
+  "note": "Only DP-2 display fields retained; serial, description containing serial, workspace and activity fields removed."
+}

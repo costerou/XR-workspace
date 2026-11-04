@@ -1,0 +1,51 @@
+{
+  "captured_utc": "2026-11-04T19:35:46.177811+00:00",
+  "connector": "card1-DP-2",
+  "attributes": {
+    "status": "connected",
+    "enabled": "enabled",
+    "dpms": "On",
+    "modes": "1920x1080\n1920x1080\n1920x1080\n1920x1080\n1920x1080"
+  },
+  "edid_bytes": 256,
+  "original_block_checksums_valid": [
+    true,
+    true
+  ],
+  "sanitization": "Base numeric serial zeroed; base serial text redacted; checksums regenerated. No raw EDID retained.",
+  "audio_cards": "0 [HDMI           ]: HDA-Intel - HDA ATI HDMI\n                      HDA ATI HDMI at 0xf6b20000 irq 108\n 1 [Generic        ]: HDA-Intel - HD-Audio Generic\n                      HD-Audio Generic at 0xf6588000 irq 109\n 2 [Generic_1      ]: HDA-Intel - HD-Audio Generic\n                      HD-Audio Generic at 0xf6580000 irq 110\n 3 [Chroma         ]: USB-Audio - Razer Barracuda X Chroma\n                      MediaTek Inc Razer Barracuda X Chroma at usb-0000:10:00.0-1, full speed",
+  "eld": [
+    {
+      "path": "/proc/asound/card0/eld#0.0",
+      "text": "monitor_present\t\t1\neld_valid\t\t1\ncodec_pin_nid\t\t0x3\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x2\nmonitor_name\t\tOdyssey G93SD\nconnection_type\t\tDisplayPort\neld_version\t\t[0x2] CEA-861D or below\nedid_version\t\t[0x3] CEA-861-B, C or D\nmanufacture_id\t\t0x2d4c\nproduct_id\t\t0x772d\nport_id\t\t\t0x0\nsupport_hdcp\t\t0\nsupport_ai\t\t0\naudio_sync_delay\t0\nspeakers\t\t[0x1] FL/FR\nsad_count\t\t1\nsad0_coding_type\t[0x1] LPCM\nsad0_channels\t\t2\nsad0_rates\t\t[0xe0] 32000 44100 48000\nsad0_bits\t\t[0xe] 16 20 24"
+    },
+    {
+      "path": "/proc/asound/card0/eld#0.1",
+      "text": "monitor_present\t\t1\neld_valid\t\t1\ncodec_pin_nid\t\t0x5\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x4\nmonitor_name\t\tVITURE\nconnection_type\t\tDisplayPort\neld_version\t\t[0x2] CEA-861D or below\nedid_version\t\t[0x3] CEA-861-B, C or D\nmanufacture_id\t\t0x3459\nproduct_id\t\t0x30\nport_id\t\t\t0x0\nsupport_hdcp\t\t0\nsupport_ai\t\t0\naudio_sync_delay\t0\nspeakers\t\t[0x1] FL/FR\nsad_count\t\t1\nsad0_coding_type\t[0x1] LPCM\nsad0_channels\t\t2\nsad0_rates\t\t[0xe0] 32000 44100 48000\nsad0_bits\t\t[0xe] 16 20 24"
+    },
+    {
+      "path": "/proc/asound/card0/eld#0.2",
+      "text": "monitor_present\t\t0\neld_valid\t\t0\ncodec_pin_nid\t\t0x7\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x6"
+    },
+    {
+      "path": "/proc/asound/card0/eld#0.3",
+      "text": "monitor_present\t\t0\neld_valid\t\t0\ncodec_pin_nid\t\t0x9\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x8"
+    },
+    {
+      "path": "/proc/asound/card1/eld#0.0",
+      "text": "monitor_present\t\t0\neld_valid\t\t0\ncodec_pin_nid\t\t0x3\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x2"
+    },
+    {
+      "path": "/proc/asound/card1/eld#0.1",
+      "text": "monitor_present\t\t0\neld_valid\t\t0\ncodec_pin_nid\t\t0x5\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x4"
+    },
+    {
+      "path": "/proc/asound/card1/eld#0.2",
+      "text": "monitor_present\t\t0\neld_valid\t\t0\ncodec_pin_nid\t\t0x7\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x6"
+    },
+    {
+      "path": "/proc/asound/card1/eld#0.3",
+      "text": "monitor_present\t\t0\neld_valid\t\t0\ncodec_pin_nid\t\t0x9\ncodec_dev_id\t\t0x0\ncodec_cvt_nid\t\t0x8"
+    }
+  ]
+}
