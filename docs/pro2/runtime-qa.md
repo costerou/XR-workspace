@@ -57,3 +57,11 @@ Initial independent results on 1d141f8: diagnostic/native suite **29 discovered,
 QA boundary suite **5 passed**, 0.001s. These commands ran in fresh user+IPC+network
 namespaces. ABI fixture is locally compiled C with no SDK/device dependencies.
 Actual runtime acceptance remains pending the lead's committed implementation.
+
+Independent adversarial ABI fixture `tests/pro2_runtime_qa/sdk_fixture.c` compiles
+with C11, -Wall -Wextra -Werror and pthreads. It has no vendor dependencies.
+Scenarios cover per-API nonzero results, wrong capability/family/firmware/length,
+NULL create/callback, callback during close, asynchronous stream/no-pose/stale,
+duplicate/reversed clocks, nonfinite/invalid norm and 1024-callback overflow.
+Lifecycle trace records SDK calls and flags calls from a non-owner thread. Compilation
+alone is not execution evidence; fixture will drive committed native runtime tests.
