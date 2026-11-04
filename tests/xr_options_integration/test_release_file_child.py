@@ -38,9 +38,12 @@ def test_c1_file_child_keeps_worker_failure_and_never_applies_from_typed_report_
             native=dict(opened=1,player=dict(state='playing'),format_applied=dict(v.format),
                         playback=dict(state='playing',paused=False,position_s=0,duration_s=100,
                                       revision=1,command_replies=0,command_errors=0,command_error='',error=''),
-                        quality_readback=dict(filter_applied=v.quality()['filter'],deband_applied=v.quality()['deband']))
+                        quality_readback=dict(filter_requested=v.quality()['filter'],deband_requested=v.quality()['deband'],
+                                             filter_applied=v.quality()['filter'],deband_applied=v.quality()['deband']))
             watch=Supervisor(None,None,control=c)
             watch.status_bytes((json.dumps(dict(owner_readback=dict(video=native,immersive=None,outputs=[])))+'\n').encode())
+            assert c.owner_readback is not None, 'native fixture rejected by authoritative schema'
+            assert c.owner_readback['video']==native
             d.add(v.poll());d.add(c.poll())
             assert c.options.snapshot()['status']=='pending', 'async native frame was never received/applied by a renderer'
         d.teardown()
