@@ -1,0 +1,80 @@
+{
+  "errors": [],
+  "geometry": [
+    {
+      "gutter": 14.40625,
+      "controlToNote": 19,
+      "noteToMenu": 57,
+      "tailWidth": 56.71875
+    },
+    {
+      "gutter": 14.796875,
+      "controlToNote": 34,
+      "noteToMenu": 17,
+      "tailWidth": 66.203125
+    },
+    {
+      "gutter": 14.40625,
+      "controlToNote": 19,
+      "noteToMenu": 57,
+      "tailWidth": 56.71875
+    },
+    {
+      "gutter": 14.796875,
+      "controlToNote": 34,
+      "noteToMenu": 17,
+      "tailWidth": 66.203125
+    },
+    {
+      "gutter": 14.40625,
+      "controlToNote": 19,
+      "noteToMenu": 57,
+      "tailWidth": 56.71875
+    },
+    {
+      "gutter": 14.796875,
+      "controlToNote": 34,
+      "noteToMenu": 17,
+      "tailWidth": 66.203125
+    },
+    {
+      "gutter": 2.40625,
+      "controlToNote": 19,
+      "noteToMenu": 57,
+      "tailWidth": 56.71875
+    },
+    {
+      "gutter": 12.796875,
+      "controlToNote": 34,
+      "noteToMenu": 17,
+      "tailWidth": 66.203125
+    },
+    {
+      "gutter": 14.40625,
+      "controlToNote": 17,
+      "noteToMenu": 57,
+      "tailWidth": 56.71875
+    },
+    {
+      "gutter": 14.796875,
+      "controlToNote": 32,
+      "noteToMenu": 17,
+      "tailWidth": 66.203125
+    },
+    {
+      "gutter": 14.40625,
+      "controlToNote": 19,
+      "noteToMenu": 57,
+      "tailWidth": 56.71875
+    },
+    {
+      "gutter": 14.796875,
+      "controlToNote": 34,
+      "noteToMenu": 17,
+      "tailWidth": 66.203125
+    }
+  ],
+  "variants": 6,
+  "overviewAndMaxClickEscape": true,
+  "nativeGeometryProven": false
+}

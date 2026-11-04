@@ -1,0 +1,704 @@
+{
+  "status": "complete",
+  "base": "origin/master ff7b26a",
+  "inventory_sha256": "9a2f7944b7bbefbcd548b1517d09559efc19f5711c8bb20a26663f5aab26e7de",
+  "note": "Coverage reference only; representative button shells do not implement these controls.",
+  "rows": [
+    {
+      "identifier": "zoom_in",
+      "label": "Maximize the selected desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "zoom_out",
+      "label": "Overview",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "prev",
+      "label": "Previous desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "next",
+      "label": "Next desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "spacing_down",
+      "label": "Less space between desktops",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "spacing_up",
+      "label": "More space between desktops",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "recenter",
+      "label": "Recenter the view",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "layout_reset",
+      "label": "Reset to 3 flat desktops (press twice)",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "mode_next",
+      "label": "Maximized: follow / locked",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "prediction",
+      "label": "Toggle pose prediction",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "typing_toggle",
+      "label": "Typing mode: XR keys off / on",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "privacy_display",
+      "label": "Privacy: main display off / on",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "environment_toggle",
+      "label": "Background: none / last used",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_toggle",
+      "label": "Immersive 3D: all desktops on / off",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_toggle",
+      "label": "Placement pill of the selected desktop",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_open",
+      "label": "Play a 180/360 VR video",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_paste",
+      "label": "Play the browser video you copied",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "playback_menu_toggle",
+      "label": "VR video: hide / show playback controls",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "help",
+      "label": "Help card (every key)",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "binds_toggle",
+      "label": "Key binds (this panel)",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "help_prev",
+      "label": "Previous help page",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "help_next",
+      "label": "Next help page",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "send_glasses",
+      "label": "Send window to the selected desktop",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "send_glasses_1",
+      "label": "Send window to XR-1",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "send_glasses_2",
+      "label": "Send window to XR-2",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "send_glasses_3",
+      "label": "Send window to XR-3",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "send_glasses_4",
+      "label": "Send window to XR-4",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "send_back",
+      "label": "Send window back to the main display",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_field_prev",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_field_next",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_dec",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_inc",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_dec_big",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_inc_big",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_desktop_next",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_desktop_prev",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_reset",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_back",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_ultrawide",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_add",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "menu_delete",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_pause",
+      "label": "Play / pause",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_seek_back",
+      "label": "\u221210 s",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_seek_fwd",
+      "label": "+10 s",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_seek_back_big",
+      "label": "\u221260 s",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_seek_fwd_big",
+      "label": "+60 s",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_format",
+      "label": "Next format",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_up",
+      "label": null,
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_down",
+      "label": null,
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_exit",
+      "label": "Back to desktops",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_quality",
+      "label": null,
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_controls",
+      "label": "Show / hide controls",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "stabilization",
+      "label": "Stabilization",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_all",
+      "label": "All desktops",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_monitor",
+      "label": "XR-n",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_preset",
+      "label": "Desktop / Video / Games",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_strength_presets",
+      "label": "Soft / Standard / Enhanced",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_strength",
+      "label": "Strength",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_monitor_strength",
+      "label": "Selected desktop strength",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_plane",
+      "label": "Screen plane",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "placement_x",
+      "label": "Left / right",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "placement_y",
+      "label": "Down / up",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "placement_distance",
+      "label": "Distance",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "placement_curvature",
+      "label": "Curvature",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "placement_apply",
+      "label": "Apply placement",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "placement_flat",
+      "label": "Flat",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "mode_follow",
+      "label": "follow",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "mode_locked",
+      "label": "locked",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_browse",
+      "label": "Browse\u2026",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_play",
+      "label": "Play",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "video_paste_ui",
+      "label": "Paste from browser",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "resolution",
+      "label": "Resolution",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "scale",
+      "label": "Scale",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "ultrawide",
+      "label": "Ultrawide",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "add_monitor",
+      "label": "Add new",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "remove_monitor",
+      "label": "Remove / Remove?",
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "background",
+      "label": "Background",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "background_brightness",
+      "label": "Brightness",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "roll_ccw",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "roll_level",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "roll_cw",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "drag_move",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "drag_resize",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "quality_filter",
+      "label": "Texture filter",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "quality_deband",
+      "label": "Deband",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "bind_change",
+      "label": "Enter",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "bind_reset",
+      "label": "R",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "bind_reset_all",
+      "label": "Shift+R",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "bind_cancel",
+      "label": "Esc",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "bind_navigation",
+      "label": "Up / Down (PgUp / PgDn, Home / End)",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "fallback",
+      "label": "Return windows to",
+      "scope": "workspace",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "tracking",
+      "label": "Head tracking",
+      "scope": "workspace",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "tracking_driver",
+      "label": "Tracking driver",
+      "scope": "workspace",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "mode_switch",
+      "label": "120 Hz mode switch",
+      "scope": "workspace",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "startup_desktops",
+      "label": "Save desktop",
+      "scope": "per-monitor",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "stop",
+      "label": "Stop",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "recover",
+      "label": "Recover",
+      "scope": "workspace",
+      "lifecycle": "recovery-only"
+    },
+    {
+      "identifier": "start",
+      "label": "Start XR",
+      "scope": "workspace",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "confirm_start",
+      "label": "Start",
+      "scope": "workspace",
+      "lifecycle": "startup-only"
+    },
+    {
+      "identifier": "confirm_recover",
+      "label": "Recover",
+      "scope": "workspace",
+      "lifecycle": "recovery-only"
+    },
+    {
+      "identifier": "cancel",
+      "label": "Cancel",
+      "scope": "workspace",
+      "lifecycle": "confirmation-only"
+    },
+    {
+      "identifier": "status",
+      "label": "Measured, this session",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "controller_restart",
+      "label": "Start / restart controller",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "close_external",
+      "label": "Close",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "immersive_connected_tail",
+      "label": "3D",
+      "scope": "selected monitor + workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "select_pointer",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "edge_pan",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "background_switch",
+      "label": null,
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "profile_remember",
+      "label": null,
+      "scope": "per-glasses model",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "plugin_restart",
+      "label": "Restart plugin",
+      "scope": "workspace",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "resize_press",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "resize_release",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "resize_cancel",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "super_left_press",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "super_right_press",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    },
+    {
+      "identifier": "super_release",
+      "label": null,
+      "scope": "selected monitor",
+      "lifecycle": "live"
+    }
+  ]
+}
