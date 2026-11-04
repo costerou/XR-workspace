@@ -1,3 +1,5 @@
+**After-patch update:** [12:47 hub loss and current black-picture evidence](AFTER-PATCH-1247.md). The verified patched driver lost the hub without an error/reopen precursor; the later compositor capture was nonblack despite dark glasses. No root cause is yet proved.
+
 **New evidence:** the later11:15–11:16 capture contains repeated endpoint failures and reopens before parent-hub loss. Read [the precursor follow-up](PRECURSOR-1116.md) for the updated diagnosis; the original capture conclusions below remain scoped to their earlier events.
 
 **Cody: the investigation does not yet prove a root cause, and it does not justify declaring this a hardware fault.** The strongest diagnosis is a workload-dependent loss of the glasses' common USB hub/link. A glasses/adapter firmware interaction with tracking or the display mode remains plausible, alongside a power/link problem exposed by that workload. Confidence is high about where the connection disappears, moderate about this shared glasses/adapter failure family, and low about the initiating mechanism. I found no evidence that XR explicitly resets or powers off the hub.

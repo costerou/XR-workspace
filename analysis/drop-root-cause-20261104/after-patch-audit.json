@@ -1,0 +1,277 @@
+{
+  "files": [
+    {
+      "file": "20261104-124541.bin",
+      "sha256": "8695449bb2f46d84ef14b73658b0ff5eb135df24acc00429d54cc2368dabf0d2",
+      "events": 80217,
+      "bytes": 6971644
+    },
+    {
+      "file": "20261104-124601.bin",
+      "sha256": "7a318918840f305907cafc2c29dddd76c163dd145a586015e2d4b036cf8656c9",
+      "events": 80023,
+      "bytes": 6961536
+    },
+    {
+      "file": "20261104-124621.bin",
+      "sha256": "4ccee0b324fbc5aefc267936a3864447a0f750eef492d4383f4e88eed2ce2d40",
+      "events": 80012,
+      "bytes": 6960960
+    },
+    {
+      "file": "20261104-124641.bin",
+      "sha256": "c41dd4db4bacbfd629e35e37fd48ad13df67ced91d509fc561b86b82e5703d83",
+      "events": 80018,
+      "bytes": 6961488
+    },
+    {
+      "file": "20261104-124701.bin",
+      "sha256": "7c41486c395b93936189b6e0faa796d25e39b3f67a1d6f511b9d0d2b2eae9b6d",
+      "events": 80024,
+      "bytes": 6961584
+    },
+    {
+      "file": "20261104-124721.bin",
+      "sha256": "c90e96966f34d27181c44f982d7adc85b292a72aa0f018b0438314381dab2b72",
+      "events": 74700,
+      "bytes": 6624121
+    },
+    {
+      "file": "20261104-124741.bin",
+      "sha256": "7a67f780570eb9ea26ab2730182d481108fa111dff65f8d351a52e2a35094f9a",
+      "events": 80016,
+      "bytes": 6961280
+    },
+    {
+      "file": "20261104-124801.bin",
+      "sha256": "025e2c03b560533b598cf86787cb91ee8c88172883a4110bac69164e96d030d1",
+      "events": 78105,
+      "bytes": 9139086
+    },
+    {
+      "file": "20261104-124821.bin",
+      "sha256": "c87608331ba9bc171e02169a1382a2399351296a6aead6c1977cde9b55da06d1",
+      "events": 68873,
+      "bytes": 8132522
+    },
+    {
+      "file": "20261104-124841.bin",
+      "sha256": "907d270b1b5d085797360f8e5e9edad9a3ed721fce2ebd79b14f9f99ebfc7737",
+      "events": 80178,
+      "bytes": 6971110
+    }
+  ],
+  "coverage": [
+    "2026-11-04T12:45:41.030821-05:00",
+    "2026-11-04T12:49:01.042759-05:00"
+  ],
+  "records": 782166,
+  "cutoff": "2026-11-04T12:47:30.424950-05:00",
+  "pre_root_nonzero_completions": 0,
+  "windows": [
+    {
+      "from": "2026-11-04T12:45:50.424950-05:00",
+      "until": "2026-11-04T12:46:30.424950-05:00",
+      "address": 44,
+      "successful_completions": 39999,
+      "max_gap_ms": 1.127004623413086
+    },
+    {
+      "from": "2026-11-04T12:45:50.424950-05:00",
+      "until": "2026-11-04T12:46:30.424950-05:00",
+      "address": 9,
+      "successful_completions": 39999,
+      "max_gap_ms": 1.1150836944580078
+    },
+    {
+      "from": "2026-11-04T12:46:30.424950-05:00",
+      "until": "2026-11-04T12:47:30.424950-05:00",
+      "address": 44,
+      "successful_completions": 59999,
+      "max_gap_ms": 1.5020370483398438
+    },
+    {
+      "from": "2026-11-04T12:46:30.424950-05:00",
+      "until": "2026-11-04T12:47:30.424950-05:00",
+      "address": 9,
+      "successful_completions": 59999,
+      "max_gap_ms": 1.0559558868408203
+    },
+    {
+      "from": "2026-11-04T12:47:00.424950-05:00",
+      "until": "2026-11-04T12:47:30.424950-05:00",
+      "address": 44,
+      "successful_completions": 29999,
+      "max_gap_ms": 1.1019706726074219
+    },
+    {
+      "from": "2026-11-04T12:47:00.424950-05:00",
+      "until": "2026-11-04T12:47:30.424950-05:00",
+      "address": 9,
+      "successful_completions": 29999,
+      "max_gap_ms": 1.0421276092529297
+    }
+  ],
+  "first_root_and_teardown": [
+    {
+      "time": "2026-11-04T12:47:30.424950-05:00",
+      "address": 1,
+      "kind": "S",
+      "endpoint": "0x80",
+      "status": -115,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.424954-05:00",
+      "address": 1,
+      "kind": "C",
+      "endpoint": "0x80",
+      "status": 0,
+      "root_status": "00010100"
+    },
+    {
+      "time": "2026-11-04T12:47:30.424956-05:00",
+      "address": 1,
+      "kind": "S",
+      "endpoint": "0x0",
+      "status": -115,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.424959-05:00",
+      "address": 1,
+      "kind": "C",
+      "endpoint": "0x0",
+      "status": 0,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425372-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425373-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425374-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425374-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425374-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425374-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425375-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425375-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x81",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425387-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425388-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425388-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425388-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425388-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425389-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425389-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    },
+    {
+      "time": "2026-11-04T12:47:30.425389-05:00",
+      "address": 44,
+      "kind": "C",
+      "endpoint": "0x85",
+      "status": -108,
+      "root_status": null
+    }
+  ]
+}
