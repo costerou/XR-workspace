@@ -1,3 +1,5 @@
+#include "maximize_geometry.hpp"
+#include "owner_readback.hpp"
 #include "xr/options_geometry.hpp"
 #include "xr/ipc.hpp"
 #include "xr/presentation.hpp"
@@ -263,7 +265,7 @@ struct Presentation::Impl : SurfaceRequests {
     std::vector<Placement> resolved;     // resolved_placements() of the frame being drawn
     std::unique_ptr<GlCompositor> gl;     // GPU composition when available (C2a)
     std::unique_ptr<VideoMode> video;     // VR video (video_mode.hpp); created on the first open
-    VideoQuality video_quality;           // the last `quality` frame, for a VideoMode created after it
+    VideoDefaults video_defaults;           // the last `quality` frame, for a VideoMode created after it
     std::string gl_fallback;              // non-empty: why the CPU blit is in use
     std::vector<std::uint64_t> uploaded;  // per capture: frame counter last uploaded
     std::vector<std::uint64_t> drawn;     // per capture: `uploaded` as of the last draw (SHM: one upload ahead at most)
@@ -489,6 +491,7 @@ struct Presentation::Impl : SurfaceRequests {
         PointerLook look = PointerLook::plain;
     } free_pointer;
     std::string overview_geometry_sent;  // last overview_geometry line handed to the supervisor
+    OwnerReadbackStream owner_readback;
     std::string maximize_geometry_line="{\"maximize_geometry\":null}", maximize_geometry_sent;
     std::string help_geometry_sent;      // last help_geometry line handed to the supervisor
     double help_geometry_ms = -1e9;      // when it was sent
@@ -1266,7 +1269,7 @@ void Presentation::video_open(int fd, const VideoFormat& format, const std::stri
         s.video = std::make_unique<VideoMode>();
         std::string why; s.video->set_font(HudFont::load(kHudFontFamily, why));
         s.video->set_accent({s.accent[0] / 255.f, s.accent[1] / 255.f, s.accent[2] / 255.f});  // the theme colour so far
-        s.video->set_quality(s.video_quality);
+        s.video->set_quality(s.video_defaults.quality());
     }
     s.video->open(fd, format, title, s.display, double(monotonic_ms()));
     s.cadence.invalidate();
@@ -1282,7 +1285,7 @@ void Presentation::video_controls(bool visible) {
 }
 void Presentation::video_quality(const VideoQuality& quality) {
     if (!impl_) return;
-    impl_->video_quality = quality;  // kept for a VideoMode created later (the first open)
+    impl_->video_defaults.set(quality);  // kept for a VideoMode created later (the first open)
     if (impl_->video) { impl_->video->set_quality(quality); impl_->cadence.invalidate(); }
 }
 void Presentation::video_menu(bool visible, const std::vector<VideoMenuRow>& rows, std::uint32_t selected) {
@@ -1411,6 +1414,20 @@ std::optional<std::string> Presentation::take_overview_geometry() {
     return line;
 }
 void Presentation::resend_overview_geometry() { if (impl_) impl_->overview_geometry_sent.clear(); }
+std::optional<std::string> Presentation::take_owner_readback(double now){
+ if(!impl_)return std::nullopt;
+ auto& s=*impl_;if(!s.owner_readback.due(now))return std::nullopt;using J=nlohmann::json;
+ J outputs=J::array();J immersive=s.gl?J::parse(s.gl->stereo_readback()):J(nullptr);
+ for(std::size_t i=0;i<s.captures.size();++i){const auto& c=*s.captures[i];auto texture=s.gl?s.gl->source_texture(i):GlCompositor::SourceTexture{};
+ const auto* shown=c.ready>=0 && c.slots[c.ready]?c.slots[c.ready].get():c.held_shm.get();
+ const bool ready=!c.stopped && (s.gl?texture.id!=0:shown!=nullptr);
+ outputs.push_back({{"name",c.name},{"ready",ready},{"width",s.gl?texture.width:shown?shown->width:0},{"height",s.gl?texture.height:shown?shown->height:0}});
+ if(immersive.is_object()&&i<immersive["desktops"].size())immersive["desktops"][i]["monitor"]=c.name;
+ }
+ if(immersive.is_object()) {immersive["engine"]=s.depth?J::parse(s.depth->report()):J(nullptr);immersive["engine_error"]=s.depth_why.substr(0,256);}
+ return s.owner_readback.next({{"video",J::parse(s.video?s.video->report():s.video_defaults.report())},{"immersive",immersive},{"outputs",outputs}},now);
+}
+void Presentation::resend_owner_readback(){if(impl_)impl_->owner_readback.resend();}
 std::optional<std::string> Presentation::take_maximize_geometry(){
  if(!impl_ || impl_->maximize_geometry_line==impl_->maximize_geometry_sent)return std::nullopt;
  impl_->maximize_geometry_sent=impl_->maximize_geometry_line;return impl_->maximize_geometry_line;
@@ -1693,11 +1710,7 @@ Status Presentation::draw_test_pattern() {
         s.maximize_geometry_line="{\"maximize_geometry\":null}";
         const auto selected=s.view.focus();
         if(s.view.zoom()>=.99f && !s.view.switching() && selected<tiles.size() && selected<placed.size() && selected<s.captures.size()){
-          auto t=tiles[selected];auto p=placed[selected];auto r=options_maximize(t);auto h=options_maximize_hit(t);
-          auto number=[](float v){return std::to_string(v);};
-          std::string line="{\"maximize_geometry\":{\"monitor\":\""+s.captures[selected]->name+"\",\"maximized\":true,\"canvas\":["+number(float(s.width))+","+number(float(s.height))+","+number(s.half_w)+","+number(s.half_h)+"],\"tile\":["+number(t.x)+","+number(t.y)+","+number(t.width)+","+number(t.height)+"],\"placement\":["+number(p.x)+","+number(p.y)+","+number(p.distance)+","+number(p.curvature)+","+number(p.roll)+"],\"rect\":["+number(r.x)+","+number(r.y)+","+number(r.width)+","+number(r.height)+"],\"hit_mesh\":[";
-          bool first=true;for(const auto& v:tile_mesh(Canvas{float(s.width),float(s.height),s.half_w,s.half_h},t,p,h)){if(!first)line+=",";first=false;line+="["+number(v.world.x)+","+number(v.world.y)+","+number(v.world.z)+"]";}
-          line+="],\"view\":[";first=true;for(auto v:s.last_drawn){if(!first)line+=",";first=false;line+=number(v);}line+="]}}";s.maximize_geometry_line=std::move(line);
+          s.maximize_geometry_line=maximize_geometry_json(s.captures[selected]->name,Canvas{float(s.width),float(s.height),s.half_w,s.half_h},tiles[selected],placed[selected],s.last_drawn);
         }
         const auto pan_layers = s.view.pan_layers();
         if (!s.gl->draw_and_swap(tiles, placed, int(s.view.focus()), s.view.highlight_alpha(), s.last_drawn, s.half_w, s.half_h, pan_layers ? &*pan_layers : nullptr))

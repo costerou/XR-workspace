@@ -1,4 +1,5 @@
 #include "video_player.hpp"
+#include "video_readback.hpp"
 #include "video_gl.hpp"
 #include <unistd.h>
 #ifdef XR_HAVE_MPV
@@ -56,7 +57,7 @@ std::string ascii(const char* s, std::size_t limit = 120) {
 }
 void* proc_address(void*, const char* name) { return reinterpret_cast<void*>(eglGetProcAddress(name)); }
 // Observed properties (reply_userdata identifies them).
-enum Prop : std::uint64_t { kPause = 1, kTime, kDuration, kEof, kWidth, kHeight, kHwdec, kDrops, kQuality };
+enum Prop : std::uint64_t { kPause = 1, kTime, kDuration, kEof, kWidth, kHeight, kHwdec, kDrops, kQuality, kDeband, kPauseCommand, kSeekCommand };
 bool has_token(const char* list, const char* token) {
     const std::size_t n = std::strlen(token);
     for (const char* p = list ? list : ""; (p = std::strstr(p, token)); p += n)
@@ -130,6 +131,7 @@ struct VideoPlayer::Impl {
     std::atomic<bool> update_pending{false};
     GLuint fbo = 0, tex = 0;
     std::uint32_t tex_w = 0, tex_h = 0, video_w = 0, video_h = 0;
+    VideoReadback readback;
     bool loaded = false, paused = false, eof = false, failed = false, rendered = false, idle = false;
     double position = 0, duration = 0;
     std::string why, hwdec = "unknown", last_log, render_node;
@@ -212,8 +214,11 @@ struct VideoPlayer::Impl {
             else if (!loaded) fail(last_log.empty() ? "no playable video" : last_log);
             break;
         }
+        case MPV_EVENT_COMMAND_REPLY:
+            if(e.reply_userdata==kPauseCommand || e.reply_userdata==kSeekCommand)readback.reply(e.error>=0,mpv_error_string(e.error));
+            break;
         case MPV_EVENT_SET_PROPERTY_REPLY:
-            if (e.reply_userdata == kQuality) ++(e.error < 0 ? quality_errors : quality_set);
+            if (e.reply_userdata == kQuality) { ++(e.error < 0 ? quality_errors : quality_set);readback.reply(e.error>=0,mpv_error_string(e.error)); }
             break;
         case MPV_EVENT_LOG_MESSAGE: {
             const auto* m = static_cast<const mpv_event_log_message*>(e.data);
@@ -228,11 +233,11 @@ struct VideoPlayer::Impl {
             if (per_file && restarting()) break;
             if (p->format == MPV_FORMAT_FLAG) {
                 const bool v = *static_cast<int*>(p->data) != 0;
-                if (e.reply_userdata == kPause) paused = v; else if (e.reply_userdata == kEof) eof = v;
+                if (e.reply_userdata == kPause) {paused = v;readback.flag("pause",v);} else if(e.reply_userdata==kDeband)readback.flag("deband",v); else if (e.reply_userdata == kEof) eof = v;
             } else if (p->format == MPV_FORMAT_DOUBLE) {
                 const double v = *static_cast<double*>(p->data);
                 if (!std::isfinite(v)) break;
-                if (e.reply_userdata == kTime) position = std::max(0.0, v); else if (e.reply_userdata == kDuration) duration = std::max(0.0, v);
+                if (e.reply_userdata == kTime) {position = std::max(0.0, v);readback.number("time-pos",v);} else if (e.reply_userdata == kDuration) {duration = std::max(0.0, v);readback.number("duration",v);}
             } else if (p->format == MPV_FORMAT_INT64) {
                 const auto v = *static_cast<std::int64_t*>(p->data);
                 if (e.reply_userdata == kDrops) { drops = std::max<std::int64_t>(0, v); break; }
@@ -365,6 +370,7 @@ std::unique_ptr<VideoPlayer> VideoPlayer::open(int fd, const Options& options, s
         }
     mpv_request_log_messages(s.mpv, std::getenv("XR_MPV_LOG") ? std::getenv("XR_MPV_LOG") : "error");
     if (mpv_initialize(s.mpv) < 0) { ::close(fd); why = "mpv_initialize failed"; return nullptr; }
+    mpv_observe_property(s.mpv, kDeband, "deband", MPV_FORMAT_FLAG);
     mpv_observe_property(s.mpv, kPause, "pause", MPV_FORMAT_FLAG);
     mpv_observe_property(s.mpv, kTime, "time-pos", MPV_FORMAT_DOUBLE);
     mpv_observe_property(s.mpv, kDuration, "duration", MPV_FORMAT_DOUBLE);
@@ -414,6 +420,7 @@ bool VideoPlayer::reopen(int fd, const Options& options) {
     ++s.reopens;
     // What a new player shows: nothing until the next file's first frame.
     s.loaded = s.eof = s.rendered = false;
+    s.readback.restart();
     s.position = s.duration = 0;
     s.last_log.clear();
     s.pacer.restart();
@@ -425,7 +432,8 @@ void VideoPlayer::toggle_pause() {
     if (s.failed) return;
     if (s.restarting()) { s.pause_next = !s.pause_next; return; }  // applied with the next file
     const char* cmd[] = {"cycle", "pause", nullptr};
-    mpv_command_async(s.mpv, 0, cmd);
+    const int result=mpv_command_async(s.mpv, kPauseCommand, cmd);
+    if(result<0)s.readback.reply(false,mpv_error_string(result));
 }
 
 void VideoPlayer::seek(double relative_s) {
@@ -433,14 +441,16 @@ void VideoPlayer::seek(double relative_s) {
     if (s.failed || s.restarting() || !std::isfinite(relative_s)) return;
     const std::string amount = std::to_string(relative_s);
     const char* cmd[] = {"seek", amount.c_str(), "relative+exact", nullptr};  // exact: works between keyframes and past the last one
-    mpv_command_async(s.mpv, 0, cmd);
+    const int result=mpv_command_async(s.mpv, kSeekCommand, cmd);
+    if(result<0)s.readback.reply(false,mpv_error_string(result));
 }
 
 void VideoPlayer::set_deband(bool on) {
     auto& s = *impl_;
     if (s.failed || !s.mpv) return;
     const char* value = on ? "yes" : "no";  // async: the renderer thread never waits on the mpv core
-    mpv_set_property_async(s.mpv, kQuality, "deband", MPV_FORMAT_STRING, &value);
+    const int result=mpv_set_property_async(s.mpv, kQuality, "deband", MPV_FORMAT_STRING, &value);
+    if(result<0){++s.quality_errors;s.readback.reply(false,mpv_error_string(result));}
 }
 
 bool VideoPlayer::update() {
@@ -490,7 +500,7 @@ std::string VideoPlayer::report() const {
     const auto& s = *impl_;
     auto num = [](double v) { char b[32]; std::snprintf(b, sizeof b, "%.2f", std::isfinite(v) ? v : 0.0); return std::string(b); };
     const auto t = s.pacer.stats();
-    return "{\"decoder\":\"libmpv\",\"hwdec\":\"" + s.hwdec + "\",\"va_device\":\"" + (s.render_node.empty() ? std::string("default") : s.render_node) +
+    return "{\"readback\":"+s.readback.json().dump()+",\"decoder\":\"libmpv\",\"hwdec\":\"" + s.hwdec + "\",\"va_device\":\"" + (s.render_node.empty() ? std::string("default") : s.render_node) +
            "\",\"video\":[" + std::to_string(s.video_w) + "," + std::to_string(s.video_h) +
            "],\"texture\":[" + std::to_string(s.tex_w) + "," + std::to_string(s.tex_h) + "],\"frames\":" + std::to_string(s.frames) +
            ",\"mip_levels\":" + std::to_string(s.levels) + ",\"anisotropy\":" + num(s.anisotropy) +

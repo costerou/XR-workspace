@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 #include "xr/options_geometry.hpp"
 #include "gl.hpp"
 #include <wayland-client.h>
@@ -836,6 +837,18 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
                  : highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))
                                   : draw_order(canvas, tiles, s.resolved);
     const auto& g = s.glass;
+    auto maximize_image = [&](std::size_t i, bool restore) {
+        auto image=[&](const FRect& r,const AtlasBox& box){const GLsizei n=s.build(s.bar_meshes[i],canvas,tiles[i],s.resolved[i],r,Impl::Attr::rect_uv,false,&box);attrib(s.panel_loc.pos,3,5,0);attrib(s.panel_loc.uv,2,5,3);glDrawArrays(GL_TRIANGLE_STRIP,0,n);};
+        auto resolved=restore?options_restore_rect(canvas,tiles[i],s.resolved[i],view):options_maximize(tiles[i]);
+        if(resolved.width<=0)return;
+        bool hot=false;
+        if(s.free_pointer){auto [a,e]=Impl::dot_direction(canvas,s.free_x,s.free_y,s.free_directed,s.free_az,s.free_el);Vec3 ray{std::cos(e)*std::sin(a),std::sin(e),-std::cos(e)*std::cos(a)};
+          auto hit=options_maximize_ray(canvas,tiles[i],s.resolved[i],ray,restore,restore?&resolved:nullptr);hot=bool(hit);
+          if(hit)for(std::size_t j=0;j<tiles.size();++j){if(restore && j==i)continue;auto block=stereo_surface_hit(canvas,tiles[j],s.resolved[j],ray);if(block && std::sqrt(block->world.x*block->world.x+block->world.y*block->world.y+block->world.z*block->world.z)<*hit)hot=false;}
+        }
+        auto r=resolved;image(r,options_icon_box(restore,hot));
+        if(hot){float scale=level_bar_scale(tiles[i]);image({r.x,r.y+(restore?32:-24)*scale,84*scale,20*scale},options_hint_box(restore));}
+    };
     if (handles) {
         // Level bars and corner caps: drawn before every desktop (over the border and glow, back to front), so any desktop's
         // content covers them and the glass goes over them: they show only where nothing else is, which is where the
@@ -856,15 +869,7 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         };
         for (const std::size_t i : order) {
             if (i >= s.textures.size() || i >= g.bars.size()) continue;
-            if((g.pills && g.bars[i]) || (highlight_alpha < .5f && int(i)==highlight)) {
-                bool restore=g.maximized && int(i)==highlight, hot=false;
-                if(s.free_pointer){auto [a,e]=Impl::dot_direction(canvas,s.free_x,s.free_y,s.free_directed,s.free_az,s.free_el);Vec3 ray{std::cos(e)*std::sin(a),std::sin(e),-std::cos(e)*std::cos(a)};
-                  auto hit=options_maximize_ray(canvas,tiles[i],s.resolved[i],ray);hot=bool(hit);
-                  if(hit)for(std::size_t j=0;j<tiles.size();++j){auto block=stereo_surface_hit(canvas,tiles[j],s.resolved[j],ray);if(block && std::sqrt(block->world.x*block->world.x+block->world.y*block->world.y+block->world.z*block->world.z)<*hit)hot=false;}
-                }
-                auto r=options_maximize(tiles[i]);image(s.bar_meshes[i],i,r,options_icon_box(restore,hot));
-                if(hot){float scale=level_bar_scale(tiles[i]);image(s.bar_meshes[i],i,{r.x,r.y-24*scale,84*scale,20*scale},options_hint_box(restore));}
-            }
+            if(g.pills && g.bars[i])maximize_image(i,false);
             if(!g.pills || !g.bars[i])continue;
             for (std::uint32_t corner = 0; corner < 4; ++corner) {
                 const bool hot = int(i) == g.cap_hover && corner == g.cap_corner;
@@ -905,6 +910,15 @@ void GlCompositor::draw_view(const std::vector<FRect>& tiles, const std::vector<
         const GLsizei n = s.build(s.tile_meshes[i], canvas, tiles[i], s.resolved[i], tiles[i], Impl::Attr::tile_uv);
         attrib(s.pos, 3, 5, 0); attrib(s.uv, 2, 5, 3);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+    }
+    // Restore overlays its captured picture; overview controls keep their original occlusion order.
+    if(handles && g.maximized && highlight>=0 && std::size_t(highlight)<tiles.size()){
+        if(s.uv>=0)glDisableVertexAttribArray(static_cast<GLuint>(s.uv));
+        glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+        program(s.panel_program,s.panel_projection,s.panel_loc.view,s.panel_loc.half_fov,s.panel_loc.stereo);
+        glUniform1f(s.panel_loc.alpha,1);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,s.handle_texture);
+        maximize_image(std::size_t(highlight),true);
+        glDisableVertexAttribArray(static_cast<GLuint>(s.panel_loc.uv));glDisable(GL_BLEND);
     }
     if (s.glass_program) {
         // Glass pills: blended over the desktops, each on its own desktop's surface (it faces you with its desktop),
@@ -1053,6 +1067,15 @@ bool GlCompositor::draw_scene_and_swap(const std::function<void(std::uint32_t, s
     return ok;
 }
 
+std::string GlCompositor::stereo_readback()const{
+ using J=nlohmann::json;const auto& s=*impl_;const auto& p=s.stereo_set.params;
+ J desktops=J::array();
+ const bool sbs=!s.stereo_eyes().empty();
+ for(std::size_t i=0;i<s.textures.size();++i){bool configured=s.stereo_set.enabled&&(i>=s.stereo_set.desktops.size()||s.stereo_set.desktops[i]);bool ready=s.stereo&&s.stereo->ready(i);float gain=i<s.stereo_sources.size()?s.stereo_sources[i].gain:0;
+ desktops.push_back({{"configured",configured},{"depth_ready",ready},{"gain",gain},{"drawing",sbs&&bool(s.stereo)&&ready&&gain>0},{"strength",i<s.stereo_set.strengths.size()&&s.stereo_set.strengths[i]>=0?s.stereo_set.strengths[i]/100.f:p.strength}});
+ }
+ return J{{"available",bool(s.stereo)},{"enabled",s.stereo_set.enabled},{"physical_sbs",sbs},{"error",s.stereo_why.substr(0,256)},{"frames",s.stereo_frames},{"depth_updates",s.stereo?s.stereo->updates():0},{"params",{{"strength",p.strength},{"convergence",p.convergence},{"near_deg",p.near_deg},{"far_deg",p.far_deg},{"text_keep",p.text_keep}}},{"desktops",desktops}}.dump();
+}
 std::string GlCompositor::report() const {
     const auto& s = *impl_;
     bool any = false; for (const auto& i : s.imported) any |= i.current >= 0;
