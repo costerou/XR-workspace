@@ -1,8 +1,15 @@
 # Independent PRO 2 runtime QA
 
-Current RQ7 status: canonical fix189fc93,42-case QA suite and independently
-executed4-case genuine packaged-CLI wire lifecycle matrix PASS. Final replacement
-artifact freeze/extraction validation remains pending. Earlier artifact green is historical, not retry authorization.
+FINAL independent acceptance: **PASS** on frozen source
+`9158428f8daeb19fb8a8dbe28358c43252cb3c2b` and corrected bundle
+`build/pro2-runtime-cli-ready`. RQ1–RQ7 CLOSED within offline scope.
+330 manifest hashes/source pins, canonical packaged entry/classes, preflight,
+request-spy dispatch and4 genuine CLI lifecycle/rollback cases from fresh
+extraction pass. No real SDK/hardware/GPU/live compositor or retry performed.
+All earlier open/pending/green release statements below are audit history;
+this final disposition supersedes them. Physical XR acceptance remains unproved.
+
+Historical release chronology follows:
 
 Latest artifact: corrected source `910cabc198e14b5e18910ebb5005bf0c9b74127a`
 independently audited with307 manifest file hashes and a fresh extraction.
@@ -617,3 +624,62 @@ python tests/pro2_runtime_qa/audit_extracted_bundle.py ../pro2-integrate/build/p
 PASS:317 hashes/canonical packaged source+entry+dispatch and all4 genuine CLI
 cases from the fresh extraction. This additionally proves the combined audit
 workflow works; final frozen replacement source/archive is still pending.
+
+## FINAL RQ7 / frozen9158428 artifact acceptance — PASS
+
+Exact frozen source and integration HEAD before/after run:
+`9158428f8daeb19fb8a8dbe28358c43252cb3c2b`.
+Corrected final bundle:
+`/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-cli-ready`.
+Safely incorporated frozen source into own QA branch; no runtime implementation
+edits by QA. Ran the pending combined acceptance **once** on this final bundle:
+
+```
+python tests/pro2_runtime_qa/audit_extracted_bundle.py /home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-cli-ready --source 9158428f8daeb19fb8a8dbe28358c43252cb3c2b --genuine-cli-matrix
+```
+
+Exit0. **330 manifest file hashes/source pins PASS**, original and fresh archive
+extraction match. Canonical packaged scope.py and imported-main entry match the
+frozen commit. Production bridge excludes fixture flags, renderer has explicit
+private-prefix/projection flags; no SDK/test fixture library in release manifest.
+Packaged preflight reports source9158428,330 verified, plugin path validated,
+sdk_started=False/compositor_contacted=False. Actual extracted BundleClient
+load/unload dispatch verifies the real inert-on-disk plugin hash and emits exactly
+two requests to a spy; no plugin request reaches a compositor, no library is loaded.
+Canonical class origin and aliases are verified from the extracted package.
+
+**All4 genuine packaged CLI matrix cases pass,12.165s,zero skips** against that
+fresh extraction. Success traverses real execute/managed/journal/view_controls/
+_launch and separate canonical guard worker through private fake Unix endpoints;
+actual C SDK fixture/native Publisher/PoseState and CPU renderer boundary only.
+Rendererexit9 cleanup, partial create failure retaining authority then exact
+second CLI --recover without SDK trace change, and SDK-open failure before plugin
+all pass. Final extraction manifest/source hashes remain unchanged afterward.
+
+Final manifest SHA256:
+`088343e0ceca1f10def4042baad3ac64db26f75aca3aabb0d1a9f763762192cb`.
+Bridge:
+`359bf8c807b5aef1fcc1ea63bee930ad41f446d88dc7c0328cda2b67d3086a9d`.
+Renderer:
+`c4af50d0667362f56b71168c8eb7f157b952c78f34452b9a5f4b968a42d07334`.
+Ownership plugin:
+`45ade12a6af7c80d695d33f8d334ca517b135174e661c7283e786a98b04db7f9`.
+Complete sanitized output:
+`qa-evidence/runtime/final-canonical-cli-artifact-9158428.json`.
+
+**Disposition: RQ7 CLOSED and no remaining offline artifact-readiness blocker
+found in assigned QA scope for this frozen corrected release.** Strict canonical
+isinstance is preserved; no duck-typing bypass, normal-model guard change or
+competing runtime introduced. Old92/910 path-fix packages and intermediate8c72
+checkpoint are superseded for retry purposes. Only this source/hash-pinned final
+artifact has the combined genuine-entrypoint/extraction acceptance recorded here.
+
+This is artifact acceptance, not a claim that the physical issue is fixed or that
+live XR works. No real vendor SDK, USB/HID device, GPU, live compositor, controller/
+unit/service or installation change occurred; no hardware retry or private parent
+SDK-log access. Synthetic SDK/private endpoints were restricted to fresh user/IPC/
+network namespaces with fake runtime/home/config/state and no host D-Bus. Parent's
+separate staging/installation and supervised physical XR/window/projection/comfort
+acceptance remain the next unproved actions, requiring their existing consent
+process. No mandatory long soak, new axis capture or forced USB reset/unplug is
+added by this QA closure.
