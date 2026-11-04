@@ -1,5 +1,10 @@
 # Independent PRO 2 runtime QA
 
+Latest artifact: corrected source `910cabc198e14b5e18910ebb5005bf0c9b74127a`
+independently audited with307 manifest file hashes and a fresh extraction.
+Packaged --preflight and actual packaged BundleClient request-spy dispatch pass.
+No SDK/client/hardware activation; old92 bundle is superseded and cannot retry.
+
 Latest: RQ6 release-path blocker CLOSED on actual integrated head
 `aa73af455c0790b9943fe982e7690aa83c36e03d`:9 independent path cases
 and4 lead path cases pass; no SDK/client/hardware/retry or private-log access.
@@ -401,3 +406,61 @@ acceptance. The earlier frozen92f01a7 artifact pin is historical and must not be
 mistaken for validation of a rebuilt path-fix release. Parent/lead must retain the
 new release's own source/hash provenance and use its no-SDK `--preflight` before
 any separately authorized retry. Private SDK logs were not read.
+
+## Corrected frozen artifact910cabc — independent PASS
+
+Parent-provided frozen source:
+`910cabc198e14b5e18910ebb5005bf0c9b74127a`, read from actual integration HEAD
+before and after audit. Safely fast-forwarded own branch to the same commit.
+Corrected bundle:
+`/home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-pathfix-ready`.
+
+Exact independent command (exit0):
+
+```
+python tests/pro2_runtime_qa/audit_extracted_bundle.py /home/cody/.t3/worktrees/viture-workspace/pro2-integrate/build/pro2-runtime-pathfix-ready --source 910cabc
+```
+
+Read-only original bundle audit verifies **307 manifest file hashes**, SDK/firmware
+pin, source_commit, key packaged source files versus git910cabc, native ELF route
+flags and no synthetic fixture flags in production bridge. No vendor SDK or test
+fixture .so appears in manifest. Manifest SHA256:
+`795a709543abb5cf5a3583185c66088e0496fe24faf3c2f3863d59241a2b8783`.
+Bridge/renderer/plugin hashes are unchanged from the92 native artifact hashes
+recorded above; the corrected Python source/path validation is now bundled and
+independently matched to910cabc. Old92 bundle remains superseded, not retryable.
+
+Independent harness creates an archive from the reviewed bundle and extracts it
+to a new private temporary `unpacked/pro2-runtime-release/runtime` tree. Re-audit
+confirms the same307 manifest hashes and source pin after extraction. It runs the
+**packaged** bin/pro2-supervised-test --preflight there in new user/IPC/network
+namespaces: reports plugin_command_path=validated, source910cabc,
+files_verified307, sdk_started=False, compositor_contacted=False.
+No consent or state directory is supplied or needed.
+
+A separate isolated Python -I process imports only the extracted packaged tools
+(asserts module paths belong to the extraction). It constructs BundleClient with
+__new__ and supplies a request spy. Actual packaged plugin_load and plugin_unload
+validate the real extracted plugin file/hash and emit exactly two expected request
+strings to the spy. No plugin is loaded or unloaded. ctypes.CDLL and real
+HyprlandClient.__init__ are patched to fail on any call and assert zero calls;
+thus no SDK/library is loaded and no real client constructed/contacted. This
+checks the dispatch implementation missed by the former injected-client tests.
+Artifact hash/source audit is repeated after the packaged operations and still
+matches. All temporary extraction/spy state is removed by the QA harness.
+
+Evidence: qa-evidence/runtime/pathfix-final-extracted-audit.json. It records
+operational source/hash/count/spy results only, no private SDK output. This turn
+performs path/artifact audits only; parent reports37 full-QA and10 pipeline tests
+green on frozen source, but those counts are parent evidence, not a fresh QA-run
+SDK/native-pipeline claim for this artifact audit.
+
+**Disposition:** no remaining artifact-readiness blocker found for corrected
+910cabc release within this offline scope. RQ6 is closed by independent real
+packaged dispatch and preflight. This is not a hardware fix/acceptance claim or
+retry authorization: installation/staging and supervised physical XR/window/
+comfort acceptance remain explicit parent actions. No hardware, SDK session,
+controller/unit/service change, GPU, live IPC/compositor or private SDK log access
+occurred. Preserve normal production guards, exact identity, SBS disabled and
+provisional projection limits. Parent must use the corrected source/hash artifact
+and its preflight, never the failed92 bundle.
