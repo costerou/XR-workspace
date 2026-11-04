@@ -26,3 +26,18 @@ class CallbackTransportTests(unittest.TestCase):
   self.assertIs(requests[0][1]['done'],done)
   self.assertEqual(requests[1][1],{})
   self.assertEqual(calls,[])
+ def test_refused_remove_start_restores_prospectively_released_view_identity(self):
+  c=ViewControl(ViewState(['XR-1','XR-3']),'run','session',None,None,None)
+  c.state.selected=1
+  before=list(c.state.names)
+  c.desktops=SimpleNamespace(start=lambda change,done=None:False)
+  calls=[];c.options_output_done=lambda *a:calls.append(a)
+  c._start_change(SimpleNamespace(remove={'name':'XR-3'}))
+  self.assertEqual(c.state.names,before)
+  self.assertEqual(c.state.selected,1)
+  self.assertEqual(calls,[(False,'Output owner refused transaction')])
+ def test_readback_aware_worker_always_receives_actual_setting_without_callback(self):
+  c=self.control();requests=[]
+  c.immersive_run=SimpleNamespace(observe_renderer=lambda value:None,request=lambda wanted,**kw:requests.append(kw))
+  c._immersive_sync();c._immersive_sync()
+  self.assertEqual([r['setting'] for r in requests],[c.state.immersive,c.state.immersive])

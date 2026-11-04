@@ -1,5 +1,6 @@
 """Offline restore acquisition through the real cursor sampler feed and click route."""
 import copy
+import math
 import unittest
 from tools.native_spike import free_pointer as fp, view, orbit, unified_cursor as uc
 
@@ -97,3 +98,25 @@ class RestoreSamplerTests(unittest.TestCase):
         self.assertAlmostEqual(ray[2],0)
         g['view']=[1,0,0,0,1,0,0,0,1]
         self.assertIsNone(fp.restore_cursor_ray(g,OUTPUT,(1400,300)))
+
+class RestoreEpochTests(unittest.TestCase):
+    def test_camera_only_status_does_not_invalidate_structural_press_target(self):
+        c=view.ViewControl(view.ViewState(['XR-3']),'run','session',None,None,None)
+        c.state.apply('zoom_in');p=fp.OverviewPointer(c);c.overview_pointer=p;self.addCleanup(p.close)
+        g=geometry();c.set_maximize_geometry(g)
+        output=dict(index=0,x=1000,y=0,width=800,height=600)
+        p.feed((1400,300),(0,0),[output],0);p.poll(1);p.on_op('resize_press')
+        epoch=p._restore_epoch
+        camera=copy.deepcopy(g);angle=.001
+        camera['view']=[math.cos(angle),-math.sin(angle),0,math.sin(angle),math.cos(angle),0,0,0,1]
+        c.set_maximize_geometry(camera)
+        self.assertEqual(p._restore_epoch,epoch)
+        p.on_op('resize_release');self.assertFalse(c.state.zoomed)
+    def test_output_change_cancels_held_restore_and_geometry(self):
+        c=view.ViewControl(view.ViewState(['XR-3']),'run','session',None,None,None)
+        c.state.apply('zoom_in');p=fp.OverviewPointer(c);c.overview_pointer=p;self.addCleanup(p.close)
+        c.set_maximize_geometry(geometry());p.feed((1400,300),(0,0),[dict(index=0,x=1000,y=0,width=800,height=600)],0)
+        p.poll(1);p.on_op('resize_press');p.desktops_changed();p.on_op('resize_release')
+        self.assertTrue(c.state.zoomed)
+        self.assertIsNone(p.maximize_geometry)
+        self.assertIsNone(p._restore_press)

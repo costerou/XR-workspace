@@ -1138,7 +1138,8 @@ class OverviewPointer:
     def set_maximize_geometry(self, geometry):
         # Parse first: malformed datagrams cannot replace good geometry or acquire input.
         parsed=parse_maximize_geometry(geometry)
-        if parsed!=self.maximize_geometry:
+        structural=lambda g: None if g is None else {k:v for k,v in g.items() if k!='view'}
+        if structural(parsed)!=structural(self.maximize_geometry):
             self._restore_epoch+=1
             self._restore_press=None
         self.maximize_geometry=parsed
@@ -1264,6 +1265,7 @@ class OverviewPointer:
         they change, so a dropped one may never come again (dot-cursor-new-desktop). Once the pointer is back it brings
         the cursor onto the selected desktop (rehome), wherever the change left it."""
         self.drag = self.hover = None
+        self.set_maximize_geometry(None)  # no capture/press survives output identity changes
         self.layout_stale = True
         names = list(self.control.state.names)  # each desktop keeps its own levelling roll and last measured tilt
         by_name = dict(zip(self.roll_names, self.rolls))
