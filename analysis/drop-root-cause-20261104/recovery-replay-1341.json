@@ -1,0 +1,29 @@
+{
+  "method": "Real Supervisor fake child/clock; simulated renderer statuses, not a recording of missing live status datagrams. No host/device access.",
+  "results": [
+    {
+      "scenario": "loss_never_observed_recovered",
+      "finished_at_s": 61,
+      "stop_reason": "tracking-timeout",
+      "terminations": 1,
+      "kills": 0,
+      "recovery_calls": 1
+    },
+    {
+      "scenario": "recovered_status_resets_clock",
+      "finished_at_s": 71,
+      "stop_reason": "tracking-timeout",
+      "terminations": 1,
+      "kills": 0,
+      "recovery_calls": 1
+    },
+    {
+      "scenario": "explicit_stop",
+      "finished_at_s": 20,
+      "stop_reason": "interrupted",
+      "terminations": 1,
+      "kills": 0,
+      "recovery_calls": 1
+    }
+  ]
+}

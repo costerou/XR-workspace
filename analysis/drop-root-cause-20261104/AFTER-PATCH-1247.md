@@ -1,3 +1,5 @@
+**Later outcome:** Cody confirmed picture after normal Stop restored1920×1080@60 at12:58. See [the controlled60Hz follow-up](CONTROLLED-60HZ-1340.md); this does not isolate which part of Stop restored delivery.
+
 # After-patch loss and black-picture investigation
 
 November 4, 2026; times below are America/Detroit (UTC−05). Follow-up to PRECURSOR-1116.md, not a replacement for its evidence.

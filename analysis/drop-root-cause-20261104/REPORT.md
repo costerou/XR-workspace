@@ -1,3 +1,5 @@
+**Controlled60Hz update:** [13:40 loss, automatic tracking timeout, and recovery-command timing](CONTROLLED-60HZ-1340.md). The short no-host-tracking phase is inconclusive; handling at the first loss remains unknown.
+
 **After-patch update:** [12:47 hub loss and current black-picture evidence](AFTER-PATCH-1247.md). The verified patched driver lost the hub without an error/reopen precursor; the later compositor capture was nonblack despite dark glasses. No root cause is yet proved.
 
 **New evidence:** the later11:15–11:16 capture contains repeated endpoint failures and reopens before parent-hub loss. Read [the precursor follow-up](PRECURSOR-1116.md) for the updated diagnosis; the original capture conclusions below remain scoped to their earlier events.
