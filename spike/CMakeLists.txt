@@ -491,6 +491,10 @@ if(XR_ENABLE_PRESENTATION)
         --outputs 4 --maximize ${N} --renderer "$<TARGET_FILE:xr-native-spike>")
       set_tests_properties(capture_e2e_maximize_${N}_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     endforeach()
+    # The hand's pan through the real renderer: from desktop 1 to desktop 3 by `edge_pan` frames and the landing, read off the view.
+    add_test(NAME capture_e2e_edge_pan_gl-dmabuf COMMAND capture_e2e_bench --check --mode gl-dmabuf --seconds 3.5 --warmup 1
+      --outputs 4 --maximize 3 --edge-pan --renderer "$<TARGET_FILE:xr-native-spike>")
+    set_tests_properties(capture_e2e_edge_pan_gl-dmabuf PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
     add_test(NAME capture_e2e_maximize_4_gl-shm COMMAND capture_e2e_bench --check --mode gl-shm --seconds 1.5 --warmup 1
       --outputs 4 --maximize 4 --renderer "$<TARGET_FILE:xr-native-spike>")
     set_tests_properties(capture_e2e_maximize_4_gl-shm PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)

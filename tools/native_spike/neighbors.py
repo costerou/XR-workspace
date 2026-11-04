@@ -12,6 +12,9 @@ switches to the desktop placed that way round you (unified_cursor.EdgePush), not
   * The candidate must lie within CONE of the push direction. Among those the nearest wins, an off-axis one counting as
     further: score = angle / cos(off-axis). A desktop (within BEHIND of) directly behind home has no bearing and is never picked.
   * No candidate in the cone: None, the cursor stays on home (clamped at the edge).
+  * The live push measures all of that from the point of home's edge the cursor is on, as the desktops are placed, within a
+    narrower cone (pick_at, cursor-switch-animation 2026-11-03: Cody, "only pan over ... if the monitor IS actually in that
+    general direction"; edge_pan.py). A desktop near the end of a long edge can be in reach from one end and not the other.
 Without an overview layout from the renderer (none reported yet) only the row order is known: right is the next desktop,
 left the previous one, up and down nothing.
 """
@@ -22,6 +25,7 @@ from . import orbit
 DIRECTIONS = {'right': (1.0, 0.0), 'left': (-1.0, 0.0), 'up': (0.0, 1.0), 'down': (0.0, -1.0)}
 CONE = math.radians(60)  # half-angle round the push direction a neighbour must lie in (60: a 45-degree diagonal is
                          # reachable from both of its sides)
+PAN_CONE = math.radians(45)  # pick_at's half-angle: a 45-degree diagonal is still reachable from both of its sides
 BEHIND = math.radians(1)  # a desktop within this of directly behind home's direction has no usable bearing
 _EPS = 1e-9
 
@@ -87,6 +91,33 @@ def pick(fs, home, direction, cone=CONE):
         score = angle / max(math.cos(off), _EPS)
         if score < best_score - 1e-12: best, best_score = j, score
     return best
+
+
+def edge_frame(g, tile, p, direction, along):
+    """frame() of the point of edge `direction` `along` (0..1, left / top first) of the way along it: its direction and
+    home's right and up axes taken to that point. None if degenerate."""
+    x, y, w, h = tile
+    f = max(0.0, min(1.0, along))
+    px, py = {'right': (x + w, y + h * f), 'left': (x, y + h * f), 'up': (x + w * f, y), 'down': (x + w * f, y + h)}[direction]
+    base, e = frame(g, tile, p), orbit._norm(orbit.place_point(g, tile, p, px, py))
+    if base is None or e is None: return None
+    r = orbit._norm(_sub(base[1], _scale(e, orbit._dot(base[1], e))))
+    if r is None: return None
+    u = _sub(base[2], _scale(e, orbit._dot(base[2], e)))
+    u = orbit._norm(_sub(u, _scale(r, orbit._dot(u, r))))
+    return None if u is None else (e, r, u)
+
+
+def pick_at(g, placements, home, direction, along, cone=PAN_CONE):
+    """pick() for a cursor `along` (0..1) of the way along home's `direction` edge: the bearings are from that point of the
+    edge, on the desktops as placed, within `cone`."""
+    if direction not in DIRECTIONS: raise ValueError('invalid direction')
+    if not 0 <= home < len(placements) or home >= len(g['tiles']): return None
+    origin = edge_frame(g, g['tiles'][home], placements[home], direction, along)
+    if origin is None: return None
+    fs = frames(g, placements)
+    fs[home] = origin
+    return pick(fs, home, direction, cone)
 
 
 def row_fallback(count, home, direction):

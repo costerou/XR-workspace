@@ -315,16 +315,50 @@ struct Presentation::Impl : SurfaceRequests {
     }
     // Follow and locked modes centre the view on the focused desktop wherever it was dragged (view.hpp focus_direction /
     // focus_weight; pose.hpp ModeController::set_aim): the canvas turns, never a placement. 0 in the overview.
+    // An edge pan (view.hpp EdgePan) aims by itself: from the desktop being left, turned with the dot. Its landing runs from
+    // there to the target as the switch's turn runs, on the same way round, so the target lands in front of you in follow
+    // and on the view in locked; the switch then hands over to the plain aim with nothing moving.
     Quat focus_aim() const {
         const float w = focus_weight(view);
-        if (!(w > 0.f) || !half_w) return Quat{};
+        if ((!(w > 0.f) && !view.pan_active()) || !half_w) return Quat{};
         const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
         std::array<Placement, kMaxDesktops> placed{};
         const std::size_t n = std::min(captures.size(), placed.size());
         for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
-        const auto d = focus_direction(Canvas{float(width), float(height), half_w, half_h}, overview,
-                                       std::span<const Placement>(placed.data(), n), view.focus());
+        const std::span<const Placement> ps(placed.data(), n);
+        const Canvas c{float(width), float(height), half_w, half_h};
+        if (view.pan_active()) {
+            const auto from = focus_direction(c, overview, ps, view.pan().from), to = focus_direction(c, overview, ps, view.pan().to);
+            Quat aim = aim_rotation(from[0], from[1]);
+            if (const auto path = edge_pan_path(c, capture_sizes().span(), view.spacing(), overview, ps, view.pan()))
+                aim = aim_turned(aim, {path->axis.x, path->axis.y, path->axis.z}, view.pan_turn());
+            return view.pan_landing() ? quat_slerp(aim, aim_rotation(to[0], to[1]), view.turn()) : aim;
+        }
+        const auto d = focus_direction(c, overview, ps, view.focus());
         return aim_rotation(w * d[0], w * d[1]);
+    }
+    // The dot of an edge pan, as a direction {azimuth, elevation} on the canvas: on the desktop's edge as it is drawn until
+    // it leaves it, then on its way across. nullopt when there is none to draw (landing: the real cursor is on the target).
+    std::optional<std::array<float, 2>> pan_dot(std::span<const FRect> tiles, std::span<const Placement> drawn) const {
+        if (!view.pan_active() || view.pan_landing() || !half_w) return std::nullopt;
+        const auto overview = overview_layout(capture_sizes().span(), float(width), float(height), view.spacing());
+        std::array<Placement, kMaxDesktops> placed{};
+        const std::size_t n = std::min(captures.size(), placed.size());
+        for (std::size_t i = 0; i < n; ++i) placed[i] = i < eased.size() ? eased[i] : target_placement(i);
+        const Canvas c{float(width), float(height), half_w, half_h};
+        const auto path = edge_pan_path(c, capture_sizes().span(), view.spacing(), overview, std::span<const Placement>(placed.data(), n), view.pan());
+        const auto& p = view.pan();
+        if (!path || p.from >= tiles.size() || p.from >= drawn.size()) return std::nullopt;
+        Vec3 start = path->from;
+        if (view.zoom() > p.zoom) {
+            const auto e = edge_point(tiles[p.from], p.side, p.exit);
+            start = place_point(c, tiles[p.from], drawn[p.from], e[0], e[1]);
+            const float len = std::sqrt(start.x * start.x + start.y * start.y + start.z * start.z);
+            if (!(len > 0)) return std::nullopt;
+            start = {start.x / len, start.y / len, start.z / len};
+        }
+        const Vec3 d = edge_pan_dot(*path, start, view.pan_cross());
+        return std::array<float, 2>{std::atan2(d.x, -d.z), std::atan2(d.y, std::sqrt(d.x * d.x + d.z * d.z))};
     }
     // A landed desktop switch's turn (ViewAnimator::take_landed_turn) becomes the room's: anchor mode turns the pinned
     // canvas by exactly the camera turn the switch ended on, so the view stays on the target instead of easing back to the
@@ -1338,8 +1372,13 @@ std::optional<std::string> Presentation::take_help_geometry(double now_ms) {
 }
 void Presentation::resend_help_geometry() { if (impl_) impl_->help_geometry_sent.clear(); }
 void Presentation::recenter() { if (impl_) { impl_->pose.recenter(); impl_->modes.recenter(); } }
+void Presentation::set_edge_pan(const EdgePan& pan) {
+    if (!impl_) return;
+    impl_->view.set_pan(pan, double(monotonic_ms()));
+    impl_->cadence.invalidate();
+}
 void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t spacing, std::uint8_t mode, bool cursor_follow,
-                            bool prediction, bool typing, bool center, bool cut) {
+                            bool prediction, bool typing, bool center, bool cut, bool pan) {
     if (!impl_) return;
     // Maximize-follow (2026-11-03): the overview is always anchor and a maximized desktop follow (or locked), so a maximize
     // and an un-maximize change the mode as well. Those changes need no pop-up (only Ctrl+Alt+V's does), the zoom-in grows
@@ -1355,7 +1394,7 @@ void Presentation::set_view(bool zoomed, std::uint32_t selected, std::uint32_t s
                           : unmaximize && view_mode == ViewMode::anchor ? Change::restore : Change::blend);
     impl_->maximized = zoomed;
     impl_->view.set_target(zoomed, std::min<std::uint32_t>(selected, impl_->captures.empty() ? 0 : std::uint32_t(impl_->captures.size() - 1)),
-                           spacing, double(monotonic_ms()), center, cut);
+                           spacing, double(monotonic_ms()), center, cut, pan);
     impl_->cadence.invalidate();
 }
 bool Presentation::finished() const { return impl_ && impl_->cadence.finished(monotonic_ms()); }
@@ -1510,9 +1549,13 @@ Status Presentation::draw_test_pattern() {
             s.panel_shift.set(shift, help_now);
         }
         const bool free_pointer = s.free_pointer.visible && s.view.zoom() < 0.01f && !s.view.switching();  // overview only; world-locked on the canvas
-        s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
-                               s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
-                               float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f, s.free_pointer.look);
+        if (const auto dot = s.pan_dot(tiles, s.resolved_placements(tiles)))  // the hand's: the real cursor is hidden and held
+            // (degrees, as the frames below)
+            s.gl->set_free_pointer(true, float(s.width) / 2, float(s.height) / 2, kFreePointerLevel, true, (*dot)[0] * float(180 / M_PI), (*dot)[1] * float(180 / M_PI), PointerLook::plain);
+        else
+            s.gl->set_free_pointer(free_pointer, float(s.free_pointer.x), float(s.free_pointer.y),
+                                   s.free_pointer.held ? kFreePointerHeldLevel : kFreePointerLevel, s.free_pointer.directed,
+                                   float(s.free_pointer.az) / 100.f, float(s.free_pointer.el) / 100.f, s.free_pointer.look);
         s.gl->set_window_drag(float(s.free_pointer.ghost_w), float(s.free_pointer.ghost_h), free_pointer ? s.free_pointer.target : -1);
         const float panel_shift = s.panel_shift.value(double(monotonic_ms()));
         s.last_head = glass_view_shift(head, panel_shift);  // the help card's hit box is worked out on the canvas as drawn

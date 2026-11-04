@@ -398,13 +398,18 @@ In the overview your mouse is no longer stuck inside the desktops, and every des
   mouse stays on that desktop until you let go, even at its edge. The selected desktop is the one under the dot;
   Ctrl+Alt+Left / Right still pick one too.
 - **Push the mouse past an edge to switch** (new, not yet tried in the glasses): maximized, keep pushing the mouse past
-  an edge of the desktop and the view switches to the desktop placed that way round you, as Ctrl+Alt+Left / Right do:
-  straight to it, with no trip through the overview, and it comes in front of you (follow) or stays locked to your view.
-  It goes by where the desktops are placed, so pushing up reaches a desktop you put
-  above, and a desktop off at an angle is reached from the side it is nearest. The mouse comes in at the matching edge
-  of the new desktop. If no desktop is placed that way, the mouse just stops at the edge. At an edge with a desktop
-  beyond it the mouse bounces back a few pixels each time it touches, so a quick touch (to reach a bar at the top, say)
-  doesn't switch. Not in typing mode or during a VR video.
+  an edge and the view follows your hand to the desktop placed that way. The picture zooms out only as far as it has to,
+  a dot takes over from the mouse pointer, and the view turns with your hand at the speed the mouse moved on the desktop, so
+  it goes as fast as you push. Pull back before you get there and the view goes back to the desktop you were on. Stop
+  for a moment (about half a second) and it does the same. Once the dot reaches the other desktop it settles in smoothly:
+  the desktop comes in front of you (follow) or stays locked to your view, and the mouse is at the matching height
+  on the edge you came in by. This only happens for a push that really goes that way: the other desktop's middle
+  must be within about 45° of the direction you are pushing, measured from the spot on the edge where the mouse is and from
+  where the desktops really are. If none is, the mouse just stops at the edge and nothing moves, so a desktop off to
+  the side or behind you is never picked by mistake, and a desktop off at an angle can be in reach from one end of an edge
+  and not the other. Far round you, it goes the way you pushed. A short push does nothing, so a quick touch (to reach a bar
+  at the top, say) doesn't switch. Not in typing mode or during a VR video. Every other switch is instant, with no
+  zoom or turn: Ctrl+Alt+Left / Right, the panel, Ctrl+Alt+G sends and anything in the overview.
 - **Scrolling layout: the columns come first** (new, not yet tried in the glasses): maximized on a workspace in
   Hyprland's scrolling layout, pushing the mouse against the left or right edge scrolls the windows waiting past it
   into view first, one column at a time, as on your normal monitor. The mouse stays at the edge meanwhile. Once the

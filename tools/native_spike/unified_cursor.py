@@ -18,13 +18,15 @@ scrolling and typing, and a click never maximizes):
     onto an XR monitor, and then goes to home.
   * Zoomed in, the push past an edge (EdgePush; not in typing mode or during a VR video). If a desktop is placed past
     that edge of home round you in 3D (neighbors.py: by direction from the eye, a cone round the push and the nearest;
-    not the row order), pushing PUSH_PX past the edge switches to it: the loop selects it (ViewControl.switch_desktop,
-    as Ctrl+Alt+Left / Right: the renderer zooms out, turns and zooms in, in anchor mode panning straight to it and
-    centring it in view; every desktop stays where it is placed) and the
-    sampler brings the cursor in just inside the opposite edge of the new home, as far along it as it left. Over an
-    edge Hyprland lets it cross the overshoot counts; at an edge Hyprland clamps it at (the layout's outer edge, e.g.
-    the top of the row) each touch counts NUDGE_PX and puts it that far back in, so a hand still pushing touches
-    again. Nothing placed that way: the plain confinement above, and the cursor stays on home at the edge.
+    not the row order; edge_pan.py: from the point of the edge the cursor is on), the push pans the view there by hand:
+    the real cursor is hidden and held PAN_HOLD_PX inside the edge, its motion is the hand's (signed, so pulling back works
+    the same at an edge Hyprland clamps), the renderer draws the dot and the view from the supervisor's `edge_pan` frames, and
+    reaching the target selects it (ViewControl.switch_desktop, with `pan`) and lands. The sampler brings the cursor in
+    just inside the opposite edge of the new home at the entry point. Pulling back, or resting
+    edge_pan.REST_S, ends it on home with the cursor at the edge. Every other switch is a cut. Over an
+    edge Hyprland lets it cross the overshoot counts toward the pan's start; at an edge Hyprland clamps it at (the
+    layout's outer edge, e.g. the top of the row) each touch counts NUDGE_PX and puts it that far back in, so a hand still
+    pushing touches again. Nothing placed that way: the plain confinement above, and the cursor stays on home at the edge.
   * Scroll before switch (columns.py, scroll-before-switch 2026-11-03; zoomed in, typing mode included, not during a VR
     video). On a scrolling-layout workspace with a column past home's left or right edge, the push there scrolls the
     columns first and never counts toward a switch: the cursor is held in the edge band (hold_point) while they scroll
@@ -96,14 +98,17 @@ scrolling and typing, and a click never maximizes):
 import math
 import time
 
-from . import columns as cols, free_pointer as fp, input_lock as il, neighbors, resize, view
+from . import columns as cols, edge_pan, free_pointer as fp, input_lock as il, neighbors, resize, view
 
 # Zoomed in, pushing past an edge of home toward a desktop placed that way switches to it (EdgePush, neighbors.py).
 PUSH_PX = 48              # logical px of push past one edge, each part within PUSH_WINDOW_S of the last, that switch
 PUSH_WINDOW_S = 0.25      # a pause longer than this starts the push over
 NUDGE_PX = 12             # an edge Hyprland clamps the cursor at (nothing beyond it in its layout): the cursor touching it
                           # is put back this far in, and each touch counts this much push (the hand's push is not seen)
-SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's zoom out, turn, zoom in)
+SWITCH_COOLDOWN_S = 0.8   # after a switch no push counts for this long (the renderer's landing: 0.74 s at most)
+PAN_HOLD_PX = 64          # during a pan the hidden cursor waits this far inside the edge, so a clamped edge leaves it room:
+PAN_LEASH_PX = 24         # it goes back there once this far off, and what it did until then is the hand's motion
+PAN_PULL_PX = 2           # a pan that ended puts the cursor this far inside the edge, about where the hand is
 ENTRY_PX = 24             # the cursor enters the new desktop this far inside the edge it came in over
 # A Super drag (carry mode) between desktops: the real cursor, and the window with it, waits this far inside the edge it
 # left by (so hand motion past a clamped edge still shows), and goes back there once it strays CARRY_LEASH_PX. Small, because
@@ -228,6 +233,16 @@ def hold_point(o, cursor, side):
     return int(x), y
 
 
+def pan_point(o, side, t, inset):
+    """`inset` px inside edge `side` of `o`, fraction `t` along it."""
+    w, h = o['width'] - 1, o['height'] - 1
+    if side == 'up': local = (round(t * w), inset)
+    elif side == 'down': local = (round(t * w), h - inset)
+    elif side == 'left': local = (inset, round(t * h))
+    else: local = (w - inset, round(t * h))
+    return inside(o, (o['x'] + local[0], o['y'] + local[1]))
+
+
 def entry_point(o, side, t, inset=ENTRY_PX):
     """Where the cursor enters output `o` after a push past the old desktop's `side` edge: just inside the opposite edge
     (pushed up, it comes in at the bottom), fraction `t` along it."""
@@ -243,8 +258,12 @@ class EdgePush:
     """Zoomed in: the confinement (confine_target) plus the push past an edge of home that switches desktops.
 
     step() takes each cursor sample and returns (warp, switch): warp, a layout pixel on home to put the cursor at, or
-    None; switch, (target index, edge, fraction along it) once the push past one edge reached PUSH_PX, or None.
+    None; switch, (target index, edge, fraction along it) once the push reached its target (below), or None.
     `neighbour(edge)` gives the desktop placed past home's edge, or None (no switch that way: plain confinement).
+    `planner(target, edge, along, output)` (UnifiedPointer.pan_plan) gives the push its edge_pan.Plan. With one, the push
+    becomes a pan once it reaches edge_pan.START_PX: `frame` is then the `edge_pan` payload, and the cursor is held and read
+    until the hand comes back to the edge, rests edge_pan.REST_S or reaches Plan.total_px. Without one (no layout yet, or
+    none given), PUSH_PX switches, and the switch is a cut.
       * Past an edge Hyprland lets it over (onto another monitor): the overshoot counts and the cursor goes back, as
         confine_target does. A jump of more than free_pointer.JUMP_PX is a warp, never a push.
       * On an edge Hyprland clamps it at (its outermost pixel, nothing beyond in the layout), with a neighbour that way:
@@ -258,13 +277,62 @@ class EdgePush:
         with `confirm`, and a True then holds it instead. None (or False every time): every push exactly as before."""
     def __init__(self):
         self.edge, self.amount, self.last, self.quiet_until = None, 0.0, None, -math.inf
+        self.track = None   # a pan under way: {'plan', 'travel', 'at' (last cursor), 'moved' (when), 'hold'}
+        self.frame = None   # its `edge_pan` payload, or None
+        self.panned = False  # the switch step() just returned ended a pan
+        self.pulled_back = 0  # diagnostics: pans that ended on home
 
     def reset(self):
         self.edge, self.amount, self.last = None, 0.0, None
+        self.track, self.frame = None, None
 
-    def step(self, outputs, home, cursor, previous, now, neighbour, columns=None):
+    def _start(self, o, plan, cursor, now):
+        hold = pan_point(o, plan.side, plan.exit, PAN_HOLD_PX)
+        self.track = {'plan': plan, 'travel': self.amount - edge_pan.START_PX, 'at': hold, 'moved': now, 'hold': hold}
+        self.frame = plan.frame(self.track['travel'])
+        return hold
+
+    def _pan(self, o, home, cursor, now, columns):
+        """One sample of the pan under way (the class docstring). The cursor's motion along the push is the hand's."""
+        p = self.track
+        plan = p['plan']
+        if home != plan.home:  # a key took the selection: that switch is what counts
+            self.reset()
+            return None, None
+        axis = 0 if plan.side in ('left', 'right') else 1
+        sign = 1 if plan.side in ('right', 'down') else -1
+        step = (cursor[axis] - p['at'][axis]) * sign
+        if abs(step) > fp.JUMP_PX: step = 0  # a warp, not the hand
+        if step:
+            p['travel'] = max(p['travel'] + step, 0.0)
+            p['moved'] = now
+        p['at'] = cursor
+        if (step < 0 and p['travel'] <= 0) or now - p['moved'] >= edge_pan.REST_S:
+            self.reset()
+            self.pulled_back += 1
+            return pan_point(o, plan.side, plan.exit, PAN_PULL_PX), None
+        if p['travel'] >= plan.total_px:
+            if columns is not None and plan.side in cols.SIDES and columns(plan.side, now, True):  # a column turned up
+                self.reset()
+                self.pulled_back += 1
+                return hold_point(o, cursor, plan.side), None
+            final = plan.frame(plan.total_px)
+            self.reset()
+            self.frame, self.panned = final, True
+            self.quiet_until = now + SWITCH_COOLDOWN_S
+            return None, (plan.target, plan.side, plan.entry)
+        self.frame = plan.frame(p['travel'])
+        if math.hypot(cursor[0] - p['hold'][0], cursor[1] - p['hold'][1]) <= PAN_LEASH_PX: return None, None
+        p['at'] = p['hold']
+        return p['hold'], None
+
+    def step(self, outputs, home, cursor, previous, now, neighbour, columns=None, planner=None):
         o = next((o for o in outputs if o['index'] == home), None)
-        if o is None or cursor is None: return None, None
+        self.panned = False
+        if o is None or cursor is None:
+            self.reset()
+            return None, None
+        if self.track is not None: return self._pan(o, home, cursor, now, columns)
         at = _output_at(outputs, cursor)
         if at is not None and at['index'] == home:
             band = _band(o, cursor) if columns is not None else None
@@ -286,11 +354,14 @@ class EdgePush:
         if side != self.edge or self.last is None or now - self.last > PUSH_WINDOW_S: self.edge, self.amount = side, 0.0
         self.amount += amount
         self.last = now
+        target = neighbour(side)
+        plan = planner(target, side, along(o, cursor, side), o) if planner is not None else None
+        if plan is not None:
+            return (self._start(o, plan, cursor, now) if self.amount >= edge_pan.START_PX else warp), None
         if self.amount < PUSH_PX: return warp, None
         if columns is not None and side in cols.SIDES and columns(side, now, True):  # a column turned up: it scrolls first
             self.reset()
             return hold_point(o, cursor, side), None
-        target = neighbour(side)
         self.reset()
         self.quiet_until = now + SWITCH_COOLDOWN_S
         return warp, (target, side, along(o, cursor, side))
@@ -302,7 +373,9 @@ class UnifiedPointer(fp.OverviewPointer):
         super().__init__(control, clock)
         self.click = None  # over home, left button down: {'start', 'at', 'moved'} (the dot and time at the press)
         self.rehomes = self.pullbacks = self.window_clicks = self.follows = self.desktop_presses = 0  # diagnostics
-        self._switch = None  # zoomed in: (home, target) the sampler asked the loop to switch to (EdgePush)
+        self._switch = None  # zoomed in: (home, target, panned) the sampler asked the loop to switch to (EdgePush)
+        self._pan = None     # the edge pan's latest payload (edge_pan.py), or None
+        self._pan_dirty = False  # not yet sent
         self.edge_switches = 0  # diagnostics
         self.super_drag = None  # 'move' / 'resize': a Super drag of Hyprland's is under way (on_super)
         self.super_crossed = False  # it went through carry mode
@@ -341,26 +414,52 @@ class UnifiedPointer(fp.OverviewPointer):
         never during a VR video."""
         return self.control.state.zoomed and not getattr(self.control, 'video_active', False)
 
-    def neighbour(self, edge):
-        """The desktop placed past home's `edge` round you (neighbors.pick on the renderer's overview layout and the
-        placements as drawn: without their rolls, home being level while maximized and a neighbour's roll turning it about
-        its own centre), or None. Without a layout with one slot per desktop: the row order (neighbors.row_fallback).
-        Read from the sampler thread: the layout and placements are replaced, never changed in place."""
+    def neighbour(self, edge, along=0.5):
+        """The desktop placed past home's `edge` round you, seen from the point `along` of the way along that edge
+        (neighbors.pick_at on the renderer's overview layout and the placements as drawn: without their rolls, home being
+        level while maximized and a neighbour's roll turning it about its own centre), or None. Without a layout with
+        one slot per desktop: the row order (neighbors.row_fallback). Read from the sampler thread: the layout and
+        placements are replaced, never changed in place."""
         s = self.control.state
         home, count, g = s.selected, len(s.names), self.geometry
         if g is None or len(g['tiles']) != count: return neighbors.row_fallback(count, home, edge)
-        return neighbors.pick(neighbors.frames(g, s.placements), home, edge)
+        return neighbors.pick_at(g, s.placements, home, edge, along)
 
-    def request_switch(self, home, target):
-        """Sampler thread: the push past home's edge reached a neighbour; the loop switches (poll)."""
-        with self._lock: self._switch = (home, target)
+    def pan_plan(self, target, edge, along, output):
+        """The push's edge_pan.Plan, or None without a layout with one slot per desktop (it then switches with a cut)."""
+        s = self.control.state
+        g = self.geometry
+        if g is None or len(g['tiles']) != len(s.names): return None
+        return edge_pan.plan(g, s.placements, s.selected, target, edge, along, (output['width'], output['height']))
+
+    def set_pan(self, payload):
+        """Sampler thread: the edge pan's payload now; the loop sends the newest (poll), so a slow loop only skips some."""
+        with self._lock:
+            if payload == self._pan: return
+            self._pan, self._pan_dirty = payload, True
+        self._poke()
+
+    def _take_pan(self):
+        with self._lock:
+            if not self._pan_dirty: return b''
+            self._pan_dirty = False
+            payload = self._pan
+        return self.control.pan_frame(payload)
+
+    def request_switch(self, home, target, panned=False):
+        """Sampler thread: the push past home's edge reached a neighbour; the loop switches (poll). `panned`: by hand, so it
+        lands from the pan (edge_pan.py); otherwise it is a cut."""
+        with self._lock: self._switch = (home, target, panned)
         self._poke()
 
     def _take_switch(self):
         with self._lock: req, self._switch = self._switch, None
-        if req is None or not self.can_switch() or self._home() != req[0]: return b''
-        out = self.control.switch_desktop(req[1])
+        if req is None: return b''
+        out = self.control.switch_desktop(req[1], panned=req[2]) if self.can_switch() and self._home() == req[0] else b''
         if out: self.edge_switches += 1
+        elif req[2]:  # refused: the view goes back to home
+            with self._lock: self._pan, self._pan_dirty = None, False
+            out = self.control.pan_frame(None)
         return out
 
     def _home(self):
@@ -370,6 +469,7 @@ class UnifiedPointer(fp.OverviewPointer):
     def poll(self, now):
         if not self.active() or now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S: self.click = None
         out = self._super_end() if self.super_drag is not None and now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S else b''
+        out += self._take_pan()
         out += self._take_switch()
         if self.active() and self.mode in fp.DOT_MODES and self.desktop != self._home():
             out += self._to_home(now)  # a key changed the selected desktop: the cursor goes with it
@@ -689,13 +789,17 @@ class UnifiedSampler(il.LockedSampler):
                 self.errors += 1
             if not self.pointer.overview():
                 self._release()
-                self.cursor.step(self.client, False)  # the normal cursor outside the overview
+                # The normal cursor outside the overview, but for a hand's pan: the dot shows where the hand is, until it lands.
+                self.cursor.step(self.client, self.push.frame is not None or self._pending is not None)
                 self.applied = None  # re-apply the current want when the overview is back
                 self._last = None
                 fast = self._confine(outputs)
                 self._stop.wait(self.period if fast else fp.IDLE_S)
                 continue
             self._outside = None
+            if self.push.frame is not None:  # back to the overview mid-pan: the view frame ended it
+                self.push.reset()
+                self.pointer.set_pan(None)
             self._apply()
             self.cursor.step(self.client, self.pointer.mode in fp.DOT_MODES)  # hidden while the dot is the pointer
             cursor, motion = self._sample()
@@ -723,6 +827,8 @@ class UnifiedSampler(il.LockedSampler):
             o = next((o for o in outputs if o['index'] == target), None)
             if home == target and o is not None:  # the loop switched: the cursor comes in over the matching edge
                 self._pending = None
+                self.push.reset()
+                self.pointer.set_pan(None)
                 entry = entry_point(o, edge, t)
                 try:
                     self.client.confine_cursor(*entry, self.names[target])  # also gives the new home monitor focus
@@ -731,12 +837,20 @@ class UnifiedSampler(il.LockedSampler):
                     self.errors += 1
                 self._outside = cursor
                 return True
-            if home == target or now - asked >= PENDING_S: self._pending = None
+            if home == target or now - asked >= PENDING_S:
+                self._pending = None
+                self.push.reset()
+                self.pointer.set_pan(None)
         live = self._pending is None and self.pointer.can_switch()
         columns = self._columns(home) if self._pending is None and self.pointer.can_scroll() else None
-        warp, switch = self.push.step(outputs, home, cursor, self._outside, now,
-                                      self.pointer.neighbour if live else (lambda edge: None), columns)
-        if not live: self.push.reset()
+        if not live and self._pending is None: self.push.reset()
+        o = next((o for o in outputs if o['index'] == home), None)
+        neighbour = (lambda edge: self.pointer.neighbour(edge, along(o, cursor, edge))) if live and o is not None else (lambda edge: None)
+        warp, switch = self.push.step(outputs, home, cursor, self._outside, now, neighbour, columns,
+                                      self.pointer.pan_plan if live else None)
+        panned = self.push.panned
+        if not live and self._pending is None: self.push.reset()
+        if self._pending is None: self.pointer.set_pan(self.push.frame)
         if warp is not None:
             try:
                 self.client.confine_cursor(*warp, self.names[home])
@@ -746,7 +860,7 @@ class UnifiedSampler(il.LockedSampler):
                 self.errors += 1
         if switch is not None and 0 <= switch[0] < len(self.names):
             self._pending = (*switch, now)
-            self.pointer.request_switch(home, switch[0])
+            self.pointer.request_switch(home, switch[0], panned)
         self._outside = cursor
         return _output_at(outputs, cursor) is not None
 

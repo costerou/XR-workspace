@@ -89,6 +89,41 @@ int main() {
                     }
         }
     }
+    // Edge pans (view.hpp edge_pan_path; edge_pan.py point and drawn_home mirror it): E at each zoom on the desktop being left, P
+    // on the target as placed, every side, on row, lifted, far-round and curved placements.
+    out += "],\"pans\":[";
+    first = true;
+    const MenuPlacement sets[][3] = {{{0, 0, 100, 0}, {0, 0, 100, 0}, {0, 0, 100, 0}},
+                                     {{120, 0, 150, 0}, {-90, 300, 100, 0}, {900, -200, 70, 0}},
+                                     {{-300, 100, 100, 45}, {1500, 0, 120, 90}, {0, 450, 100, 0}}};
+    const char* const side_names[] = {"right", "left", "up", "down"};
+    for (const Canvas& c : canvases) {
+        const auto overview = overview_layout(sources, c.view_w, c.view_h, 40);
+        for (const auto& set : sets) {
+            std::vector<Placement> placed;
+            for (const auto& w : set) placed.push_back(placement_from_wire(w));
+            for (const float zoom : {0.f, 0.2f, 0.5f, 0.8f})
+                for (std::uint8_t side = 0; side < 4; ++side) {
+                    EdgePan p; p.active = true; p.from = 0; p.to = 2; p.side = side; p.exit = 0.3f; p.entry = 0.7f; p.zoom = zoom;
+                    const auto path = edge_pan_path(c, sources, 40, overview, placed, p);
+                    if (!path) continue;
+                    out += first ? "{" : ",{";
+                    first = false;
+                    out += "\"canvas\":[" + num(c.view_w) + "," + num(c.view_h) + "," + num(c.half_w) + "," + num(c.half_h) + "],\"tiles\":[";
+                    for (std::size_t i = 0; i < overview.size(); ++i) {
+                        const FRect& t = overview[i];
+                        out += (i ? ",[" : "[") + num(t.x) + "," + num(t.y) + "," + num(t.width) + "," + num(t.height) + "]";
+                    }
+                    out += "],\"placements\":[";
+                    for (std::size_t i = 0; i < 3; ++i)
+                        out += (i ? ",{" : "{") + std::string("\"x\":") + std::to_string(set[i][0]) + ",\"y\":" + std::to_string(set[i][1]) +
+                               ",\"distance\":" + std::to_string(set[i][2]) + ",\"curvature\":" + std::to_string(set[i][3]) + "}";
+                    out += "],\"side\":\"" + std::string(side_names[side]) + "\",\"zoom\":" + num(zoom) + ",\"exit\":" + num(p.exit) + ",\"entry\":" + num(p.entry);
+                    out += ",\"e\":[" + num(path->from.x) + "," + num(path->from.y) + "," + num(path->from.z) + "]";
+                    out += ",\"p\":[" + num(path->to.x) + "," + num(path->to.y) + "," + num(path->to.z) + "]}";
+                }
+        }
+    }
     std::printf("%s]}\n", out.c_str());
     return 0;
 }

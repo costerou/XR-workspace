@@ -515,6 +515,65 @@ void SizeEase::advance(Size target, double now_ms, bool animate) {
     if (t_ < 1.f) t_ = clampf(float((now_ms - start_ms_) / duration_), 0, 1);
 }
 
+std::array<float, 2> edge_point(const FRect& t, std::uint8_t side, float f) {
+    const float k = clampf(f, 0, 1);
+    switch (side) {
+        case 0: return {t.x + t.width, t.y + t.height * k};
+        case 1: return {t.x, t.y + t.height * k};
+        case 2: return {t.x + t.width * k, t.y};
+        default: return {t.x + t.width * k, t.y + t.height};
+    }
+}
+
+namespace {
+float dot3(const Vec3& a, const Vec3& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+Vec3 cross3(const Vec3& a, const Vec3& b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+std::optional<Vec3> unit(const Vec3& v) {
+    const float n = std::sqrt(dot3(v, v));
+    if (!(n > 1e-6f) || !std::isfinite(n)) return std::nullopt;
+    return Vec3{v.x / n, v.y / n, v.z / n};
+}
+}
+
+std::optional<EdgePanPath> edge_pan_path(const Canvas& c, std::span<const Size> src, float spacing, std::span<const FRect> overview,
+                                         std::span<const Placement> placements, const EdgePan& pan) {
+    const std::size_t n = overview.size();
+    if (pan.from >= n || pan.to >= n || pan.from == pan.to || src.size() != n || c.view_w <= 0 || c.view_h <= 0) return std::nullopt;
+    // The placements as the supervisor reads them: a maximized desktop is level, and it measures this same way across.
+    std::array<Placement, kMaxDesktops> level{};
+    const std::size_t count = std::min(n, level.size());
+    for (std::size_t i = 0; i < count; ++i) { if (i < placements.size()) level[i] = placements[i]; level[i].roll = 0; }
+    const std::span<const Placement> placed(level.data(), count);
+    const auto tiles = blended_layout(src, c.view_w, c.view_h, spacing, pan.zoom, float(pan.from));
+    const auto drawn = zoomed_placements(c, overview, tiles, placed, pan.zoom, float(pan.from));
+    if (tiles.size() != n || drawn.size() != n) return std::nullopt;
+    const auto e = edge_point(tiles[pan.from], pan.side, pan.exit);
+    const std::uint8_t opposite = pan.side ^ 1;  // right <-> left, up <-> down
+    const auto p = edge_point(overview[pan.to], opposite, pan.entry);
+    const auto from = unit(place_point(c, tiles[pan.from], drawn[pan.from], e[0], e[1]));
+    const auto to = unit(place_point(c, overview[pan.to], placed[pan.to], p[0], p[1]));
+    if (!from || !to) return std::nullopt;
+    const Vec3 normal = cross3(*from, *to);
+    const float angle = std::atan2(std::sqrt(dot3(normal, normal)), dot3(*from, *to));
+    auto axis = angle >= kPanAxisMinRad ? unit(normal) : std::nullopt;
+    if (!axis && angle < kPanAxisMinRad) {
+        const auto b = edge_point(overview[pan.from], opposite, pan.exit);
+        const auto back = unit(place_point(c, overview[pan.from], placed[pan.from], b[0], b[1]));
+        if (back) axis = unit(cross3(*back, *to));
+    }
+    if (!axis) return std::nullopt;
+    return EdgePanPath{*from, *to, *axis, angle};
+}
+
+Vec3 edge_pan_dot(const EdgePanPath& path, const Vec3& start, float cross) {
+    const float t = clampf(cross, 0, 1);
+    if (t >= 1) return path.to;
+    const float a = std::acos(clampf(dot3(start, path.to), -1, 1)), s = std::sin(a);
+    if (!(s > 1e-5f)) return start;
+    const float wa = std::sin((1 - t) * a) / s, wb = std::sin(t * a) / s;
+    return {wa * start.x + wb * path.to.x, wa * start.y + wb * path.to.y, wa * start.z + wb * path.to.z};
+}
+
 void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom, double now_ms, bool center) {
     switch_ = {};
     switch_.center = turn_centred_ = center; ++serial_;
@@ -524,7 +583,33 @@ void ViewAnimator::start_switch(std::uint32_t from, std::uint32_t to, float zoom
     from_zoom_ = to_zoom_ = 1.f; t_ = 1.f;  // the zoom tween waits at 1 for the switch to land
 }
 
-void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center, bool cut) {
+void ViewAnimator::set_pan(const EdgePan& p, double now_ms) {
+    advance(now_ms);
+    if (pan_landing_) return;
+    if (!p.active) { pan_.active = false; pan_.peek = pan_.cross = pan_.turn = 0; return; }  // back to the desktop, eased
+    const bool same = pan_on_ && pan_.from == p.from && pan_.to == p.to && pan_.side == p.side;
+    if (!same && (switch_.active || to_zoom_ != 1.f || t_ < 1.f || p.from != shown_ || p.to == p.from || p.to > kMaxIndex)) return;
+    pan_ = p;
+    pan_.peek = clampf(p.peek, 0, 1); pan_.cross = clampf(p.cross, 0, 1); pan_.zoom = clampf(p.zoom, 0, 1); pan_.turn = clampf(p.turn, 0, float(M_PI));
+    pan_on_ = true; pan_seen_ms_ = now_ms;
+}
+
+void ViewAnimator::step_pan(double now_ms) {
+    const double dt = std::max(now_ms - pan_ms_, 0.0);
+    pan_ms_ = now_ms;
+    if (!pan_on_) return;
+    if (!pan_landing_ && pan_.active && now_ms - pan_seen_ms_ > double(kPanStaleMs)) { pan_.active = false; pan_.peek = pan_.cross = pan_.turn = 0; }
+    const float k = std::exp(-float(dt) / kPanEaseMs);
+    auto ease = [&](float v, float to) { const float e = to + (v - to) * k; return std::fabs(e - to) < 1e-3f ? to : e; };
+    pan_peek_ = ease(pan_peek_, pan_.peek); pan_cross_ = ease(pan_cross_, pan_.cross); pan_turn_ = ease(pan_turn_, pan_.turn);
+    if (pan_landing_) return;  // the switch has the zoom
+    const float want = lerp(1.f, pan_.zoom, smoothstep(pan_peek_)) * (1 - smoothstep(pan_cross_));
+    const float step = duration_ > 0 ? float(dt) / duration_ : 1.f;
+    pan_zoom_ += clampf(want - pan_zoom_, -step, step);
+    if (!pan_.active && pan_peek_ == 0 && pan_cross_ == 0 && pan_turn_ == 0 && pan_zoom_ == 1.f) end_pan();
+}
+
+void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t spacing, double now_ms, bool center, bool cut, bool pan) {
     advance(now_ms);
     selected = std::min(selected, kMaxIndex);
     const float spacing_target = float(std::min(spacing, kMaxSpacing));
@@ -532,6 +617,18 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
         from_spacing_ = this->spacing(); to_spacing_ = spacing_target; spacing_start_ms_ = now_ms; spacing_t_ = 0.f;
     }
     const float z = zoom();
+    if (pan && !pan_on_) { pan = false; cut = true; }  // the frames of the pan never came: nothing to land from
+    if (pan && zoomed && !pan_landing_ && !switch_.active && selected != shown_) {  // the hand reached it: land from there
+        pan_.active = false;  // peek, cross and turn stay as the last frame left them, the end of the way
+        pan_landing_ = true; pan_zoom_ = 1;
+        start_switch(shown_, selected, z, now_ms, false);
+        to_selected_ = selected;
+        return;
+    }
+    if (pan_on_ && (cut || !zoomed || selected != to_selected_)) {  // over: from_zoom_ takes up what the pan had drawn
+        end_pan();
+        from_zoom_ = to_zoom_ = z; t_ = 1.f;
+    }
     auto tween_zoom = [&](float to) {
         const float look_now = look();
         float turn_now = turn();
@@ -574,6 +671,7 @@ void ViewAnimator::set_target(bool zoomed, std::uint32_t selected, std::uint32_t
     to_selected_ = selected;
 }
 void ViewAnimator::advance(double now_ms) {
+    step_pan(now_ms);
     if (t_ < 1.f) t_ = duration_ > 0 ? clampf(float((now_ms - start_ms_) / duration_), 0, 1) : 1.f;
     if (spacing_t_ < 1.f) spacing_t_ = duration_ > 0 ? clampf(float((now_ms - spacing_start_ms_) / duration_), 0, 1) : 1.f;
     if (look_t_ < 1.f) look_t_ = duration_ > 0 ? clampf(float((now_ms - look_start_ms_) / duration_), 0, 1) : 1.f;
@@ -592,11 +690,12 @@ void ViewAnimator::advance(double now_ms) {
         const std::uint32_t from = w.to, next = w.next;
         const bool next_center = w.next_center;
         w.active = false; w.zoom_now = 1; w.look_now = w.turn_now = 0;
+        if (pan_landing_) end_pan();
         if (!again) { shown_ = from; break; }
         start_switch(from, next, 1.f, w.start_ms + in, next_center);
     }
 }
-float ViewAnimator::zoom() const { return switch_.active ? switch_.zoom_now : lerp(from_zoom_, to_zoom_, smoothstep(t_)); }
+float ViewAnimator::zoom() const { return switch_.active ? switch_.zoom_now : lerp(from_zoom_, to_zoom_, smoothstep(t_)) * pan_zoom_; }
 float ViewAnimator::look() const { return switch_.active ? switch_.look_now : from_look_ * (1 - smoothstep(look_t_)); }
 float ViewAnimator::turn() const { return switch_.active ? switch_.turn_now : from_turn_ * (1 - smoothstep(look_t_)); }
 void ViewAnimator::land_turn(std::uint32_t from, std::uint32_t to, bool centred) {

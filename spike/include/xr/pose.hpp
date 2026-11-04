@@ -100,6 +100,9 @@ std::array<float, 3> canvas_up(Quat reference, Quat anchor);
 // az / el radians round the eye as view.hpp place_point turns a desktop (+az right, +el up). With a canvas anchored at
 // head * aim_rotation(az, el), view_from puts the point in direction (az, el) on the view's centre, upright.
 Quat aim_rotation(float az, float el);
+// The aim that turns the view by `angle` radians about `axis` (a unit vector in the canvas's GL frame) from `aim`: a point
+// the view showed straight ahead at `aim`, turned about `axis` by `angle`, is straight ahead now, with no roll of its own.
+Quat aim_turned(Quat aim, const std::array<float, 3>& axis, float angle);
 
 // T2 viewing modes. Where the canvas sits, relative to the recentre reference (driver frame):
 //   anchor: fixed in space (3DoF world-locked) where the canvas was when anchor mode was entered (un-maximizing: back

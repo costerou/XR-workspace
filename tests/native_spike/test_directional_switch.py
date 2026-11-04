@@ -1,8 +1,8 @@
 """Directional desktop switching (neighbors.py, unified_cursor.EdgePush): maximized, pushing the cursor past an edge of
 the selected desktop switches to the desktop placed that way round you in 3D (home is drawn level), not just the
-next one in the row, with the Ctrl+Alt+Left / Right switch (a maximized desktop follows you or is locked, so it is a
-`cut` straight there, which the aim then centres; anchor mode, now the overview's only, would pan with `center`) and
-every desktop left where it is placed. Nothing that way: the cursor stays on home, clamped at the edge. The maximize /
+next one in the row, and every desktop stays where it is placed. The push itself pans by hand and lands with `pan`
+(test_edge_pan.py); a switch with no pan, as every key's, is a `cut` straight there, which the aim then centres (anchor mode,
+now the overview's only, would pan with `center`). Nothing that way: the cursor stays on home, clamped at the edge. The maximize /
 overview modes themselves: MaximizeFollowTests.
 
 Regression: dot-cursor monitor switching was removed on 2026-11-02 (the cursor never left home); it comes back here,
@@ -415,7 +415,8 @@ class SamplerTests(unittest.TestCase):
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline and not any(a[2] == 'XR-2' for a in client.args('confine')): time.sleep(0.005)
         entry = next(a for a in client.args('confine') if a[2] == 'XR-2')
-        self.assertEqual(entry, (X2 + uc.ENTRY_PX, 300, 'XR-2'))
+        self.assertEqual((entry[0], entry[2]), (X2 + uc.ENTRY_PX, 'XR-2'))
+        self.assertAlmostEqual(entry[1], 300, delta=12)  # the height it left at, in real positions (test_edge_pan.py)
         self.assertEqual(self.focused, [])  # no focus thread: the sampler's confine focuses XR-2 at the entry point
         self.assertEqual(self.p.edge_switches, 1)
         self.assertGreater(sampler.confines, 1)
@@ -427,7 +428,9 @@ class SamplerTests(unittest.TestCase):
         self.assertTrue(self.push(client, (X1 + 960, 0), lambda: self.control.state.selected == 1))
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline and not any(a[2] == 'XR-2' for a in client.args('confine')): time.sleep(0.005)
-        self.assertIn((X2 + 960, 1079 - uc.ENTRY_PX, 'XR-2'), client.args('confine'))
+        entry = next(a for a in client.args('confine') if a[2] == 'XR-2')
+        self.assertEqual(entry[1], 1079 - uc.ENTRY_PX)
+        self.assertAlmostEqual(entry[0], X2 + 960, delta=12)
         self.assertEqual(self.control.state.placements[1], at_direction(1, 0, 25))  # it stays where it was placed
 
     def hand(self, client, delta, seconds):

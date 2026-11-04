@@ -13,8 +13,8 @@ toggles follow and locked (MAXIMIZED_MODES), and that choice sticks: every later
 Ctrl+Alt+V again (it is not saved, so each XR start is follow again). In the overview Ctrl+Alt+V changes nothing and a
 toast says why (MODE_OVERVIEW_TOAST). Un-maximizing (Ctrl+Alt+Down, Ctrl+Alt+L, a pill) returns to anchor, and the renderer puts the
 room back exactly as it was left (spike pose.hpp ModeController::Change), so every desktop is where it was. Every run
-starts in the overview, in anchor; the saved mode is no longer read. Maximized, every desktop switch (keys, a cursor
-push) cuts straight to the desktop with no zoom out / turn / zoom in. Ctrl+Alt+H toggles a help card in
+starts in the overview, in anchor; the saved mode is no longer read. Maximized, the cursor pushed past an edge pans to the
+desktop that way by hand (edge_pan.py) and every other switch cuts straight to the desktop. Ctrl+Alt+H toggles a help card in
 the glasses listing every bind (rows come from BINDS, so it cannot drift), grouped in HELP_SECTIONS. Rows that do not fit
 the output's height flow onto further pages (the renderer decides how many): Ctrl+Alt+PgUp / PgDn, or a free-pointer
 click on the card's arrows or "2 / 3" indicator, turn them; reopening the card starts on page 1. The cursor stays on the
@@ -127,6 +127,7 @@ import re
 import threading
 import time
 
+from . import edge_pan
 from . import environment as _environment
 from . import quality as _quality
 from .environment import BRIGHTNESS_FIELD, SET_OP as ENVIRONMENT_SET_OP, TOGGLE_BIND as ENVIRONMENT_BIND, TOGGLE_OP as ENVIRONMENT_OP
@@ -1663,26 +1664,32 @@ class ViewControl:
         self.state.selected = desktop
         return self._frame() + self.follow_focus()
 
-    def switch_desktop(self, desktop):
+    def switch_desktop(self, desktop, panned=False):
         """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
-        desktop placed that way round you, neighbors.py): select it as Ctrl+Alt+Left / Right do. A maximized desktop is
-        follow or locked (maximize-follow), so it is a cut, straight there with no overview step, every desktop staying
-        where it is placed, and the aim centres it. cursor_switch_flags decides (anchor mode, which a maximized desktop no
-        longer has, would pan with `center`). The sampler gives its monitor focus and
+        desktop placed that way round you, neighbors.py): select it. `panned`: the hand's pan got there, and it lands from
+        there (edge_pan.py); otherwise a cut. cursor_switch_flags decides. The sampler gives its monitor focus and
         brings the cursor in over the matching edge (no focus thread here: that would warp the cursor to the middle).
         One view frame, or b'' when stale (not maximized, typing mode, a VR video, no such desktop, already selected)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names) or desktop == self.state.selected: return b''
         if not self.state.zoomed or self.state.typing or self.video_active: return b''
         self.last_input = self.clock()
         self.state.selected = desktop
-        return self._frame(**self.cursor_switch_flags())
+        return self._frame(**self.cursor_switch_flags(panned))
 
-    def cursor_switch_flags(self):
+    def pan_frame(self, payload):
+        """One `edge_pan` frame (edge_pan.py; None: over). Display only."""
+        frame = edge_pan.frame_bytes(self.run_id, self.session, self.next_id, payload)
+        self.next_id += 1
+        return frame
+
+    def cursor_switch_flags(self, panned=False):
         """The one decision for how a cursor switch looks (spike/include/xr/ipc.hpp ViewPayload). Follow and locked (every
-        maximized desktop, maximize-follow): `cut`, straight onto the desktop with no zoom out / turn / zoom in (their aim
-        then centres it). Anchor mode: `center`, the switch pans straight to the desktop and lands with it centred (anchor
-        is the overview's mode now, where no cursor switch happens)."""
-        return {'cut': True} if self.state.mode != 'anchor' else {'center': True}
+        maximized desktop, maximize-follow): `pan`, landing the hand's pan (`panned`, edge_pan.py); otherwise `cut`, straight
+        onto the desktop with no zoom out / turn / zoom in (their aim then centres it). Anchor mode: `center`, the switch
+        pans straight to the desktop and lands with it centred (anchor is the overview's mode now, where no cursor switch
+        happens)."""
+        if self.state.mode == 'anchor': return {'center': True}
+        return {'pan': True} if panned else {'cut': True}
 
     def set_overview_geometry(self, geometry):
         """Supervisor: the renderer's overview layout (free_pointer.parse_overview_geometry), for free-pointer hit testing.

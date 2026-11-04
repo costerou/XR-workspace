@@ -74,6 +74,27 @@ int main() {
     require(!v.center);  // optional, false
     auto centred = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"center":true})"));
     require(std::holds_alternative<xr::ControlMessage>(centred) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(centred).payload).center);
+    auto landing = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"follow","cursor_follow":false,"prediction":false,"typing":false,"pan":true})"));
+    require(std::holds_alternative<xr::ControlMessage>(landing) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(landing).payload).pan);
+    require(!v.pan);
+    require(std::holds_alternative<xr::Error>(xr::decode_control(view(R"({"zoomed":true,"selected":0,"spacing":0,"mode":"follow","cursor_follow":false,"prediction":false,"typing":false,"pan":1})"))));
+    {  // The hand's pan (edge_pan.py): every key required, integers 0..10000, or the end of it alone.
+        auto frame = [](const std::string& payload) { return R"({"schema":1,"request_id":9,"run_id":"run","session":"session","op":"edge_pan","payload":)" + payload + "}\n"; };
+        auto ok = xr::decode_control(frame(R"({"active":true,"from":0,"to":3,"side":"up","exit":3000,"entry":2500,"peek":10000,"cross":5000,"turn":10000,"zoom":2000})"));
+        require(std::holds_alternative<xr::ControlMessage>(ok));
+        const auto& pan = std::get<xr::EdgePan>(std::get<xr::ControlMessage>(ok).payload);
+        require(pan.active && pan.from == 0 && pan.to == 3 && pan.side == 2 && pan.exit == 0.3f && pan.entry == 0.25f && pan.peek == 1 && pan.cross == 0.5f && pan.zoom == 0.2f);
+        require(pan.turn > 3.14f && pan.turn < 3.15f);
+        auto off = xr::decode_control(frame(R"({"active":false})"));
+        require(std::holds_alternative<xr::ControlMessage>(off) && !std::get<xr::EdgePan>(std::get<xr::ControlMessage>(off).payload).active);
+        for (const char* bad : {R"({"active":true})", R"({})", R"({"active":false,"from":0})",
+                                R"({"active":true,"from":4,"to":0,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0,"zoom":0})",
+                                R"({"active":true,"from":0,"to":1,"side":"in","exit":0,"entry":0,"peek":0,"cross":0,"turn":0,"zoom":0})",
+                                R"({"active":true,"from":0,"to":1,"side":"up","exit":10001,"entry":0,"peek":0,"cross":0,"turn":0,"zoom":0})",
+                                R"({"active":true,"from":0,"to":1,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0.5,"zoom":0})",
+                                R"({"active":true,"from":0,"to":1,"side":"up","exit":0,"entry":0,"peek":0,"cross":0,"turn":0})"})
+            require(std::holds_alternative<xr::Error>(xr::decode_control(frame(bad))));
+    }
     auto cut = xr::decode_control(view(R"({"zoomed":true,"selected":1,"spacing":0,"mode":"anchor","cursor_follow":false,"prediction":false,"typing":false,"cut":true})"));
     require(std::holds_alternative<xr::ControlMessage>(cut) && std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(cut).payload).cut &&
             !std::get<xr::ViewPayload>(std::get<xr::ControlMessage>(cut).payload).center && !v.cut);
