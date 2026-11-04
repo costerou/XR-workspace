@@ -418,6 +418,32 @@ void memory_lock_only_under_a_limit_it_cannot_hit() {
     CHECK(memlock_is_safe(RLIM_INFINITY));
 }
 
+// In a child, because both change the process for good.
+template <class Fn> void in_child(Fn fn) {
+    const pid_t child = fork();
+    CHECK(child >= 0);
+    if (child == 0) _exit(fn() ? 0 : 1);
+    int status = 0;
+    CHECK(waitpid(child, &status, 0) == child);
+    CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+}
+void real_rttime_guard_lands_in_the_kernel() {
+    in_child([] {
+        if (real_sys_ops().arm_rttime_guard(kRtTimeGuardUs) != 0) return false;
+        rlimit limit{};
+        return getrlimit(RLIMIT_RTTIME, &limit) == 0 && limit.rlim_cur == kRtTimeGuardUs && limit.rlim_max == kRtTimeGuardUs * 5;
+    });
+}
+void real_memory_lock_matches_the_limit() {
+    in_child([] {
+        const auto r = lock_memory();
+        rlimit limit{};
+        if (getrlimit(RLIMIT_MEMLOCK, &limit) != 0) return false;
+        if (!memlock_is_safe(limit.rlim_max)) return !r.locked && !r.detail.empty();
+        return r.locked;
+    });
+}
+
 void clocks_are_raw_and_convertible() {
     timespec ts{};
     const std::uint64_t a = monotonic_raw_ns();
@@ -661,6 +687,7 @@ int main() {
         T(policy_survives_a_kernel_without_slices), T(short_slice_reaches_the_real_kernel), T(policy_realtime_off_never_asks),
         T(policy_pins_only_when_asked_and_survives_a_bad_cpu), T(apply_real_thread), T(pinning_to_a_cpu_that_does_not_exist_is_reported),
         T(setup_commands_grant_what_the_defaults_ask), T(memory_lock_only_under_a_limit_it_cannot_hit),
+        T(real_rttime_guard_lands_in_the_kernel), T(real_memory_lock_matches_the_limit),
         T(clocks_are_raw_and_convertible), T(histogram_percentiles_are_within_three_percent),
         T(histogram_shows_a_lone_spike_in_max_not_in_p99), T(histogram_small_and_huge_values_stay_in_range), T(histogram_empty_reads_zero),
         T(pipeline_ring_publishes_every_item_in_order), T(pipeline_stop_drains_the_ring), T(pipeline_stop_never_strands_the_last_item), T(pipeline_inline_mode_publishes_on_the_reader_thread),

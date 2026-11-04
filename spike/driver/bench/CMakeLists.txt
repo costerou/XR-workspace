@@ -22,6 +22,11 @@ target_compile_options(luma_rt_bench PRIVATE ${LUMA_RT_WARNINGS} -O2)
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../include/luma/types.hpp")
   target_include_directories(luma_rt_bench PRIVATE stubs)
 endif()
+# Likewise real fusion, compiled here so the benchmark needs no other target. Until it is merged: stub_fusion.hpp.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../src/fusion.cpp")
+  target_sources(luma_rt_bench PRIVATE ../src/fusion.cpp)
+  target_compile_definitions(luma_rt_bench PRIVATE LUMA_BENCH_REAL_FUSION)
+endif()
 # Smoke only: asserts no sample lost, no allocation, nothing about timing, which a busy machine would fail. Run --check by hand.
 add_test(NAME luma_rt_bench_smoke COMMAND luma_rt_bench --quick)
 set_tests_properties(luma_rt_bench_smoke PROPERTIES TIMEOUT 30)

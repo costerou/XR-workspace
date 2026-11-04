@@ -1,6 +1,6 @@
 #pragma once
 // A stand-in for fusion.hpp's luma::Fusion with the same update() shape: a plain Mahony filter, so the benchmark carries about
-// the arithmetic the real thing will. Replace the `using` in rt_bench.cpp once the real one is merged; nothing else changes.
+// the arithmetic the real thing will. CMakeLists.txt switches to the real one as soon as it is merged.
 #include "luma/types.hpp"
 #include <cmath>
 

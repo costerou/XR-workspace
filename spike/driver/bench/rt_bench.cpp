@@ -8,7 +8,11 @@
 #include "alloc_probe.hpp"
 #include "fake_transport.hpp"
 #include "luma/rt.hpp"
+#if defined(LUMA_BENCH_REAL_FUSION)
+#include "luma/fusion.hpp"
+#else
 #include "stub_fusion.hpp"
+#endif
 #include <cinttypes>
 #include <csignal>
 #include <cstdio>
@@ -24,7 +28,13 @@
 
 using namespace luma;
 using namespace luma::rt;
-using Fusion = bench::StubFusion;  // luma::Fusion, once merged
+#if defined(LUMA_BENCH_REAL_FUSION)
+using BenchFusion = luma::Fusion;
+inline constexpr bool kRealFusion = true;
+#else
+using BenchFusion = bench::StubFusion;
+inline constexpr bool kRealFusion = false;
+#endif
 
 namespace {
 struct Args {
@@ -89,7 +99,7 @@ struct MutexFeed {
 
 // Everything the sink learns, on the thread that publishes.
 struct Sink {
-    Fusion fusion;
+    BenchFusion fusion;
     SeqlockWriter<PoseRecord>* writer = nullptr;
     MutexFeed* mutex_feed = nullptr;
     std::int64_t raw_to_mono = 0;
@@ -262,7 +272,7 @@ int main(int argc, char** argv) {
     const std::uint64_t allocs = sink.allocs_end - sink.allocs_start;
     const std::uint64_t lost = transport.sent() - stats.items_published;
 
-    std::printf("%s, %s, %d Hz, %.1f s, reader %s%s, fusion %s, %d busy threads\n", a.inline_mode ? "inline" : "ring", a.mutex_publish ? "mutex" : "seqlock", a.rate, wall_s,
+    std::printf("%s fusion, %s, %s, %d Hz, %.1f s, reader %s%s, fusion thread %s, %d busy threads\n", kRealFusion ? "real" : "stand-in", a.inline_mode ? "inline" : "ring", a.mutex_publish ? "mutex" : "seqlock", a.rate, wall_s,
                 reader_sched.c_str(), pipeline.reader_policy().short_slice ? " short-slice" : "", fusion_sched.c_str(), a.load);
     if (!pipeline.reader_policy().detail.empty()) std::printf("  reader: %s\n", pipeline.reader_policy().detail.c_str());
     if (pipeline.reader_policy().needs_setup && !a.quick) std::printf("  one-time setup for real-time: see docs/performance.md\n");
