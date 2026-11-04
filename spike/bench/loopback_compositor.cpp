@@ -143,7 +143,9 @@ struct Gpu {
     PFNEGLCREATEIMAGEKHRPROC create_image = nullptr; PFNEGLDESTROYIMAGEKHRPROC destroy_image = nullptr;
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target = nullptr; PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_mods = nullptr;
     bool init(std::string& why) {
-        for (const char* node : {"/dev/dri/renderD128", "/dev/dri/renderD129"}) {
+        const char* selected_node = std::getenv("XR_BENCH_RENDER_NODE");
+        for (const char* node : {selected_node ? selected_node : "/dev/dri/renderD129",
+                                 selected_node ? selected_node : "/dev/dri/renderD128"}) {
             struct stat st{};
             if (stat(node, &st) != 0 || !S_ISCHR(st.st_mode)) continue;
             fd = ::open(node, O_RDWR | O_CLOEXEC);

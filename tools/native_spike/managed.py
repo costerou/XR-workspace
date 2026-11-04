@@ -292,6 +292,8 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
                 else: client.remove_video_binds()
         video = VideoControl(control, binds=video_binds, notify=notify_send)
         control.options_video = video
+        from .options_text import RuntimeText
+        control.options_key_text = RuntimeText(control, client)
         if hasattr(client, 'open_key_panel'):
             def options_binds(owned):
                 if owned: client.open_key_panel(*bind_args)

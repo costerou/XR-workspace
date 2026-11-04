@@ -322,7 +322,7 @@ class OneCursorTests(Base):
         self.at(X1 + 600, 400)
         over_content = set(self.p.sent)
         self.at(X1 + 600, 40); self.at(X1 + 600, 0)
-        self.move(0, -100)  # empty space: free, plain
+        self.move(0, -220)  # clear the new top maximize capsule: free, plain
         self.assertIsNone(self.p.hover)
         self.assertEqual(set(self.p.sent), over_content)
 

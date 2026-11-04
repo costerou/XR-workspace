@@ -8,6 +8,44 @@ import ctypes.util
 
 
 class TextInput:
+    @classmethod
+    def from_names(cls, names):
+        """Compile the active compositor keyboard's reported XKB names, never assume US."""
+        fields = ('rules','model','layout','variant','options')
+        if not isinstance(names, dict) or not names.get('layout'): raise ValueError('Compositor keyboard layout unavailable')
+        values = [names.get(k, '') for k in fields]
+        if any(not isinstance(v,str) or len(v.encode()) > 256 for v in values): raise ValueError('Invalid compositor keyboard names')
+        class Names(C.Structure):
+            _fields_ = [(k,C.c_char_p) for k in fields]
+        lib=C.CDLL(ctypes.util.find_library('xkbcommon') or 'libxkbcommon.so.0')
+        lib.xkb_context_new.restype=C.c_void_p
+        lib.xkb_keymap_new_from_names.argtypes=[C.c_void_p,C.POINTER(Names),C.c_int]
+        lib.xkb_keymap_new_from_names.restype=C.c_void_p
+        lib.xkb_keymap_get_as_string.argtypes=[C.c_void_p,C.c_int]
+        lib.xkb_keymap_get_as_string.restype=C.c_void_p
+        lib.xkb_keymap_unref.argtypes=[C.c_void_p]
+        lib.xkb_context_unref.argtypes=[C.c_void_p]
+        context=lib.xkb_context_new(0); keymap=None; raw=None
+        libc=C.CDLL(None); libc.free.argtypes=[C.c_void_p]
+        try:
+            keymap=lib.xkb_keymap_new_from_names(context,C.byref(Names(*[v.encode() or None for v in values])),0)
+            if not keymap: raise ValueError('Cannot compile compositor keyboard layout')
+            raw=lib.xkb_keymap_get_as_string(keymap,1)
+            return cls(C.string_at(raw).decode())
+        finally:
+            if raw: libc.free(raw)
+            if keymap: lib.xkb_keymap_unref(keymap)
+            if context: lib.xkb_context_unref(context)
+
+    def hypr_modifiers(self, mods):
+        self.lib.xkb_keymap_mod_get_index.argtypes=[C.c_void_p,C.c_char_p]
+        self.lib.xkb_keymap_mod_get_index.restype=C.c_uint32
+        mask=0
+        for bit,name in ((1,b'Shift'),(2,b'Lock'),(4,b'Control'),(8,b'Mod1'),(16,b'Mod2'),(32,b'Mod3'),(64,b'Mod4'),(128,b'Mod5')):
+            index=self.lib.xkb_keymap_mod_get_index(self.keymap,name)
+            if mods & bit and index < 32: mask |= 1 << index
+        self.modifiers(mask)
+
     def __init__(self, keymap, locale='C.UTF-8'):
         if not isinstance(keymap,str) or len(keymap.encode()) > 1024*1024: raise ValueError('invalid keymap')
         self.lib = lib = C.CDLL(ctypes.util.find_library('xkbcommon') or 'libxkbcommon.so.0')
@@ -66,3 +104,26 @@ class TextInput:
         for attr,name in (('compose','compose_state'),('table','compose_table'),('state','state'),('keymap','keymap'),('context','context')):
             obj=getattr(self,attr,None)
             if obj: getattr(self.lib,'xkb_'+name+'_unref')(obj); setattr(self,attr,None)
+
+
+class RuntimeText:
+    """Lazy text translation from the current compositor keyboard description."""
+    def __init__(self, control, client):
+        self.control, self.client = control, client
+
+    def __call__(self, mods, code):
+        import json
+        editor = getattr(self.control, 'options_editor', None)
+        if editor is None or editor.kind != 'url': return ''
+        if editor.text_input is None:
+            devices = json.loads(self.client._request('j/devices'))
+            keyboards = devices.get('keyboards', [])
+            keyboard = next((k for k in keyboards if k.get('main')), None)
+            if keyboard is None and len(keyboards) == 1: keyboard = keyboards[0]
+            if keyboard is None: raise ValueError('Active compositor keyboard unavailable')
+            editor.text_input = TextInput.from_names(keyboard)
+            editor.text_field = 'editor.text'
+            editor.text_group = keyboard.get('active_layout_index', 0)
+        editor.text_input.hypr_modifiers(mods)
+        action, text = editor.text_input.key(code)
+        return text if action == 'text' else ''

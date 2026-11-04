@@ -2082,7 +2082,10 @@ class ViewControl:
                 if key != 'space' or editor is None or editor.kind != 'url': return self.options_key(key)
             translator = getattr(self, 'options_key_text', None)
             if translator is not None:
-                return self.options_text(translator(payload.get('mods'), payload.get('code')))
+                try: return self.options_text(translator(payload.get('mods'), payload.get('code')))
+                except (ValueError, OSError) as exc:
+                    self.options.data.update(status='error', message=str(exc)[:256])
+                    return self._options_frame()
             return None
         if isinstance(message, dict) and message.get('op') == 'menu_back' and self.options.keyboard_owned:
             return self.options_key('Escape') or None
