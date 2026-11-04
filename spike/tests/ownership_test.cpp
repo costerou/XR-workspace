@@ -78,22 +78,6 @@ int main(int argc,char** argv) {
                                 std::string("te\"xt"),std::string("te\nxt"),std::string("te/xt"),std::string("te\\xt"),std::string("t\xc3\xa9xt"),
                                 std::string("te\0xt",5),std::string("text "),std::string(" text")})
         CHECK(cursorShapeName(bad).empty());
-    // Which changes go out on socket2: each change once, and never more than a bounded number in a second.
-    {
-        CursorNotice notice;
-        CHECK(!notice.announce("",1000));                   // nothing was said yet, and nothing is the start
-        CHECK(notice.announce("text",1000) && !notice.announce("text",1001) && !notice.announce("text",9000));
-        CHECK(notice.announce("left_ptr",9001) && notice.announce("",9002) && !notice.announce("",9003));
-        CursorNotice flood;
-        unsigned said=0;
-        for(unsigned i=0;i<1000;++i) said+=flood.announce(i%2 ? "text":"left_ptr",5000+i/10);  // 1000 flips in 100 ms
-        CHECK(said==CursorNotice::kPerSecond);
-        CHECK(!flood.announce("other",5999));               // still that second
-        CHECK(flood.announce("other",6000));                // the next one: what was held back is not lost for good
-        CHECK(!flood.announce("other",6001));
-        CursorNotice backwards;
-        CHECK(backwards.announce("text",5000) && backwards.announce("left_ptr",100));  // a clock that steps back starts anew
-    }
     // The op's wire: schema 1, an empty payload, nothing else in it.
     {
         const Json read={{"schema",1},{"session","session"},{"run_id","run"},{"request_id",1},{"epoch","epoch"},{"op","cursor_shape"},{"payload",Json::object()}};

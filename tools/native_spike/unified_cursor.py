@@ -58,10 +58,10 @@ scrolling and typing, and a click never maximizes):
     it). The sampler's enter_desktop_lua focuses that monitor first, then warps the cursor, so the keyboard goes to that
     monitor's focused window and focus-follows-mouse picks the window under the dot. It feels like one cursor: the same
     dot, the same speed either side of an edge (_gain), and a look that always says what a press would do.
-  * Over text (the Serif Beam; Cody's pick, 2026-11-03). The ownership plugin announces which cursor the app under the hidden
-    real cursor wants as it changes (`xrcursor` on socket2, OverviewPointer.push_shape; Hyprland keeps the name while
-    cursor.invisible hides it), and in desktop mode the sampler reads the same name from the broker (ownership.cursor_reader):
-    four times a second as a check on those pushes, 120 times a second if none come. A text cursor (free_pointer.is_text_shape)
+  * Over text (the Serif Beam; Cody's pick, 2026-11-03). In desktop mode the sampler reads which cursor the app under the
+    hidden real cursor wants from the broker (ownership.cursor_reader), 120 times a second; Hyprland keeps the name while
+    cursor.invisible hides it. The plugin has no cursor hooks (docs/technical.md "No cursor hooks"), so no `xrcursor` line
+    comes and OverviewPointer.push_shape stays idle. A text cursor (free_pointer.is_text_shape)
     makes the look `text`: the renderer draws the beam instead of the dot, at the same pixel, so the click point is the beam's
     centre. It comes on and goes at once. Only after text came back within free_pointer.TEXT_BOUNCE_S, a gap between lines, do
     leaves wait that long, for TEXT_SWEEP_S (TextHold); the handles always win at once (_step_text). Off in typing mode, maximized and during a video, where the real cursor shows, and

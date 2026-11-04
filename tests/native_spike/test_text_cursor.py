@@ -1,8 +1,8 @@
 """The overview's text cursor (Cody's pick, 2026-11-03: the Serif Beam): where the app under the dot asks for a text cursor,
 the dot's look is `text` and the renderer draws the beam instead of the dot. The shape's name comes through the ownership
 broker (`cursor_shape`, read-only), the sampler thread asks while the dot is on a desktop's content, and everything here
-ends in the `overview_pointer` frame's `look`. While the plugin pushes each change on socket2 (`xrcursor`), that line does the
-work and the reads only check it.
+ends in the `overview_pointer` frame's `look`. The plugin no longer pushes anything (test_no_cursor_hooks.py), so the reads at
+SHAPE_S do the work; PushTests keeps the supervisor's `xrcursor` line honest while its receiver remains, inert.
 
 Offline only: fake clocks, fake compositor clients and the real C++ validators when the ownership build is present. Nothing
 here has watched a real app ask for a cursor, or been seen in the glasses.
@@ -668,23 +668,9 @@ class PushTests(PointerBase):
 
 
 class SourceContractTests(unittest.TestCase):
-    def test_the_event_is_the_plugins(self):
-        source = (ROOT / 'spike/ownership/plugin.cpp').read_text()
+    def test_the_event_is_nobodys_now(self):
         self.assertEqual(ownership.CURSOR_EVENT, 'xrcursor>>')
-        self.assertIn('SHyprIPCEvent{"xrcursor",shape}', source)
-
-    def test_the_hooks_run_the_original_first_and_keep_its_arguments(self):
-        source = (ROOT / 'spike/ownership/plugin.cpp').read_text()
-        for name, call in (('hookedCursorName', '(renderer,name,force);'), ('hookedCursorSurface', 'renderer,std::move(surface),hotspotX,hotspotY,force);')):
-            body = source[source.index(f'void {name}('):]
-            body = body[:body.index('\n}\n')]
-            self.assertLess(body.index(call), body.index('cursorChanged();'), name)
-
-    def test_the_hooks_are_taken_out_on_unload_before_the_broker_goes(self):
-        source = (ROOT / 'spike/ownership/plugin.cpp').read_text()
-        body = source[source.index('PLUGIN_EXIT()'):]
-        self.assertLess(body.index('unhook(pluginHandle,cursorNameHook)'), body.index('broker.reset()'))
-        self.assertLess(body.index('unhook(pluginHandle,cursorSurfaceHook)'), body.index('broker.reset()'))
+        self.assertNotIn('xrcursor', (ROOT / 'spike/ownership/plugin.cpp').read_text().split('#include', 1)[1])
 
     @unittest.skipUnless(BENCH_LOCAL, 'needs a local socket directory')
     def test_through_real_sockets_it_follows_both_ways_with_no_hold(self):

@@ -65,16 +65,14 @@ struct Windows {std::vector<int> windows(){return {};}} window;
 auto windowState(){return &window;}
 }
 // What cursorShape reads, as pinned efb5099 keeps it (Pointer::mgr()->position(), m_lastCursorData.name: "" for a picture).
+// Deliberately nothing else: the real m_lastCursorData also holds the cursor's surface, and with no such member here, code in
+// the plugin that looked at a surface would not compile.
 namespace Pointer {
 struct Manager {Vector2D at; Vector2D position(){return at;}} manager;
 Manager* mgr(){return &manager;}
 }
 struct Renderer {struct {std::string name;} m_lastCursorData;} renderer;
 Renderer* g_pHyprRenderer=&renderer;
-// Where Broker::cursorChanged posts (socket2).
-struct SHyprIPCEvent {std::string event,data;};
-struct EventManager {std::vector<SHyprIPCEvent> posted; void postEvent(const SHyprIPCEvent& e){posted.push_back(e);}} eventManager;
-EventManager* g_pEventManager=&eventManager;
 struct Boundary : PairBackend, Backend {
     int selections=0;
     SP<Aquamarine::IOutput> created;  // the output a create binds to (the XR output of the cursor_shape cases)
@@ -249,48 +247,31 @@ void cursorShapeRead() {
         CHECK(send(isolated,envelope(2,pair["epoch"],"cursor_shape",{{"mode","isolated-vm"}})).contains("error"));
     }
 }
-// cursorChanged, as the two cursor hooks call it, through the production broker and cursorShape body: one line per change of
-// what cursor_shape would answer, in the same plain word, for a run's own live output, and it changes nothing anywhere.
-void cursorPush() {
+// Crash of 2026-11-03: Hyprland died in processMouseRequest on a freed cursor surface after a hook on setCursorSurface. The
+// broker has no entry point a compositor call could reach any more, and the read stays a string read through the case that
+// call handles: wl_pointer.set_cursor with a null surface or one already destroyed leaves the name empty, and every read
+// answers nothing, changes nothing and leaves the run alive.
+template<class B> concept TakesCursorCalls=requires(B& b) {b.cursorChanged();};
+static_assert(!TakesCursorCalls<Broker>);
+void cursorReadWithNoSurface() {
     twoOutputs();
     auto xr=std::make_shared<Monitor>(); auto output=std::make_shared<Aquamarine::CDRMOutput>();
     output->name="XR-1"; xr->m_name="XR-1"; xr->m_output=output; xr->box={1280,0,1920,1080};
     State::monitors.ms[0]->box={0,0,1280,720};
     State::monitors.ms.push_back(xr);
     Broker broker; broker.backend.created=output;
-    auto& posted=eventManager.posted; posted.clear();
-    Pointer::manager.at={1500,500}; renderer.m_lastCursorData.name="text";
-    auto said=[&](const std::string& name) { renderer.m_lastCursorData.name=name; broker.cursorChanged(); };
-    auto last=[&] { CHECK(!posted.empty() && posted.back().event=="xrcursor"); return posted.back().data; };
-    said("text"); CHECK(posted.empty());                    // no run: not a word
     auto hello=send(broker,envelope(1,"unknown","hello",{{"fallback_name","Virtual-2"}}));
     const std::string epoch=hello["epoch"];
-    said("text"); CHECK(posted.empty());                    // a run with no output yet: nothing for it to read either
     CHECK(send(broker,envelope(1,epoch,"create",spec(false)))["result"]["state"]=="live");
     const int mutations=broker.backend.mutations,selections=broker.backend.selections;
-    said("text"); CHECK(posted.size()==1 && last()=="text");
-    said("text"); CHECK(posted.size()==1);                  // the hooks fire on every call; only a change is said
-    said("left_ptr"); CHECK(posted.size()==2 && last()=="left_ptr");
-    said(""); CHECK(posted.size()==3 && last().empty());    // a picture has no name
-    for(const std::string& name:{std::string("te xt"),std::string(65,'a'),std::string("text\n")}) {
-        said(name); CHECK(posted.size()==3);                // nothing the broker would not report goes out either
+    auto shape=[&] {auto reply=send(broker,envelope(1,epoch,"cursor_shape",Json::object())); CHECK(reply.contains("result")); return reply["result"]["shape"].get<std::string>();};
+    Pointer::manager.at={1500,500};
+    for(int i=0;i<1000;++i) {  // the set_cursor(null) / named cursor flips of a busy app, far past the two that crashed it
+        renderer.m_lastCursorData.name=""; CHECK(shape().empty());
+        renderer.m_lastCursorData.name="text"; CHECK(shape()=="text");
     }
-    said("xterm"); CHECK(posted.size()==4 && last()=="xterm");
-    Pointer::manager.at={100,100}; said("xterm"); CHECK(posted.size()==5 && last().empty());  // the physical monitor: nobody's
-    Pointer::manager.at={1500,500}; said("xterm"); CHECK(posted.size()==6 && last()=="xterm");
-    broker.busy=true; said("text"); CHECK(posted.size()==6);  // mid-lifecycle: the registry is changing, so nothing is read
-    broker.busy=false; said("text"); CHECK(posted.size()==7 && last()=="text");
-    // What cursor_shape answers is what was said, and nothing moved.
-    CHECK(send(broker,envelope(1,epoch,"cursor_shape",Json::object()))["result"]["shape"]=="text");
     CHECK(broker.backend.mutations==mutations && broker.backend.selections==selections);
-    CHECK(renderer.m_lastCursorData.name=="text" && send(broker,envelope(1,epoch,"inspect",{{"id",uuid}}))["result"]["state"]=="live");
-    // An isolated pair run hears nothing, as it has no such read.
-    {
-        twoOutputs(); Broker isolated; posted.clear();
-        CHECK(send(isolated,envelope(2,"unknown","pair_hello",{{"mode","isolated-vm"},{"target_name","Virtual-1"},{"fallback_name","Virtual-2"}})).contains("result"));
-        renderer.m_lastCursorData.name="text"; isolated.cursorChanged();
-        CHECK(posted.empty());
-    }
+    CHECK(send(broker,envelope(1,epoch,"inspect",{{"id",uuid}}))["result"]["state"]=="live");
 }
 // Regression (physical phys1 + VM xr-isolated-bindrace): a strong broker reference kept a
 // destroyed CMonitor alive, so Hyprland's late wl_output bind dereferenced its torn-down
@@ -312,7 +293,7 @@ int main() {
     monitorNotRetained();
     isolatedLifecycle();
     cursorShapeRead();
-    cursorPush();
+    cursorReadWithNoSurface();
     for(int side=0;side<2;++side) for(int fault=0;fault<20;++fault) {
         State::monitors.ms.clear(); statFail=false; character=true;
         for(int i=0;i<2;++i) {

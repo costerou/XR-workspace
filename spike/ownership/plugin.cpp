@@ -1,6 +1,7 @@
 // Opt-in output lifecycle module. It also reads, and never changes, the name of the cursor the app under the pointer asked
-// for: the cursor_shape op, and an `xrcursor` event on Hyprland's socket2 when it changes, from two hooks that run the original
-// untouched and then only look. No other renderer access; no capture, input or config-file access.
+// for: the cursor_shape op, a plain read. No function hook on any cursor or input call, ever: two such hooks took Hyprland down
+// on 2026-11-03 (docs/technical.md "No cursor hooks"), and tests/native_spike/test_no_cursor_hooks.py fails if one comes back.
+// No other renderer access; no capture, input or config-file access.
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/debug/HyprCtl.hpp>
@@ -14,7 +15,6 @@
 #include <hyprland/src/config/shared/monitor/MonitorRuleManager.hpp>
 #include <hyprland/src/pointer/PointerManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprland/src/managers/EventManager.hpp>
 #include <aquamarine/backend/Headless.hpp>
 #include <aquamarine/backend/DRM.hpp>
 #include <sys/stat.h>
@@ -292,7 +292,8 @@ public:
         return true;
     }
     // The cursor the app under the pointer asked for, by name, while the pointer is on one of `outputs` (the run's own live
-    // XR outputs); nothing elsewhere, or for a cursor given as a picture, which has no name. Only reads. Pinned efb5099:
+    // XR outputs); nothing elsewhere, or for a cursor given as a picture, which has no name. Only reads, and only a string:
+    // a cursor surface is never touched, so a null or destroyed one (wl_pointer.set_cursor) cannot reach here. Pinned efb5099:
     // setCursorFromName and setCursorSurface keep m_lastCursorData.name current before they look at m_cursorHidden, so it
     // holds while cursor.invisible hides the cursor; m_cursorSurfaceInfo.name goes stale over borders and empty desktop.
     std::string cursorShape(const std::vector<Handle>& outputs) {
@@ -342,21 +343,6 @@ struct Broker {
     std::thread::id thread=std::this_thread::get_id(); bool busy=false;
     std::map<std::string,Run> runs;
     PairRegistry pairs{backend,randomToken};
-    CursorNotice cursorNotice;
-    // The cursor an app asks for changed (hookedCursorName, hookedCursorSurface): say so on socket2 if that changes what
-    // cursor_shape answers for a schema-1 run. Mid-lifecycle (`busy`) the registry is changing, so nothing is said and the
-    // sampler's own read finds it. Only reads the broker's state, and writes one line to Hyprland's event listeners.
-    void cursorChanged() {
-        if(busy) return;
-        std::string shape;
-        for(const auto& [id,r]:runs) if(!r.isolated) {
-            shape=backend.cursorShape(registry.liveOutputs(r.session,id));
-            if(!shape.empty()) break;
-        }
-        const auto now=std::chrono::steady_clock::now().time_since_epoch();
-        if(cursorNotice.announce(shape,std::chrono::duration_cast<std::chrono::milliseconds>(now).count()))
-            g_pEventManager->postEvent(SHyprIPCEvent{"xrcursor",shape});
-    }
     std::string handle(std::string wire) {
         if(busy || std::this_thread::get_id()!=thread) return "{\"error\":\"thread/reentrancy\"}";
         busy=true; struct Reset { bool& b; ~Reset(){b=false;} } reset{busy};
@@ -445,24 +431,6 @@ void hookedClear(Config::CMonitorRuleManager* rules) {
     reinterpret_cast<void(*)(Config::CMonitorRuleManager*)>(clearHook->m_original)(rules);
     for(auto& rule:kept) rules->add(std::move(rule));
 }
-// The two calls every cursor change goes through (pinned efb5099: 10 and 5 call sites, none inlined). Each stores the name first
-// and returns before anything else if the cursor is hidden, so what the original does is untouched and the change is visible
-// after it, whatever `cursor.invisible` says.
-CFunctionHook* cursorNameHook=nullptr;
-CFunctionHook* cursorSurfaceHook=nullptr;
-void cursorChanged() {
-    if(!broker) return;
-    try { broker->cursorChanged(); } catch(...) {}  // a look only: never into the compositor's call
-}
-void hookedCursorName(Render::IHyprRenderer* renderer,const std::string& name,bool force) {
-    reinterpret_cast<void(*)(Render::IHyprRenderer*,const std::string&,bool)>(cursorNameHook->m_original)(renderer,name,force);
-    cursorChanged();
-}
-void hookedCursorSurface(Render::IHyprRenderer* renderer,SP<Desktop::View::CWLSurface> surface,int hotspotX,int hotspotY,bool force) {
-    reinterpret_cast<void(*)(Render::IHyprRenderer*,SP<Desktop::View::CWLSurface>,int,int,bool)>(cursorSurfaceHook->m_original)(
-        renderer,std::move(surface),hotspotX,hotspotY,force);
-    cursorChanged();
-}
 CFunctionHook* hookSymbol(HANDLE handle,const std::string& symbol,const void* replacement) {
     for(const auto& match:HyprlandAPI::findFunctionsByName(handle,symbol))
         if(match.signature==symbol) {
@@ -481,14 +449,6 @@ void hookClear(HANDLE handle) {
     // seamlessly.
     clearHook=hookSymbol(handle,"_ZN6Config19CMonitorRuleManager5clearEv",reinterpret_cast<const void*>(&hookedClear));
 }
-void hookCursor(HANDLE handle) {
-    // Both or neither: half a push would look like a working one. Without them the sampler reads at SHAPE_S, as an older plugin.
-    cursorNameHook=hookSymbol(handle,"_ZN6Render13IHyprRenderer17setCursorFromNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEb",
-        reinterpret_cast<const void*>(&hookedCursorName));
-    cursorSurfaceHook=hookSymbol(handle,"_ZN6Render13IHyprRenderer16setCursorSurfaceEN9Hyprutils6Memory14CSharedPointerIN7Desktop4View10CWLSurfaceEEEiib",
-        reinterpret_cast<const void*>(&hookedCursorSurface));
-    if(!cursorNameHook || !cursorSurfaceHook) { unhook(handle,cursorNameHook); unhook(handle,cursorSurfaceHook); }
-}
 }
 APICALL EXPORT std::string PLUGIN_API_VERSION() { return HYPRLAND_API_VERSION; }
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
@@ -500,9 +460,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         command=HyprlandAPI::registerHyprCtlCommand(handle,{"xrspike ",false,[](eHyprCtlOutputFormat,std::string request){return broker->handle(std::move(request));}});
         if(!command) throw std::runtime_error("broker command registration failed");
         hookClear(handle);
-        hookCursor(handle);
     } catch(...) {
-        unhook(handle,cursorNameHook); unhook(handle,cursorSurfaceHook); unhook(handle,clearHook);
+        unhook(handle,clearHook);
         command.reset(); broker.reset();
         throw;
     }
@@ -510,7 +469,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 }
 APICALL EXPORT void PLUGIN_EXIT() {
     // Unhooked first: the reload that follows an unload is the user's own again.
-    unhook(pluginHandle,cursorNameHook); unhook(pluginHandle,cursorSurfaceHook); unhook(pluginHandle,clearHook);
+    unhook(pluginHandle,clearHook);
     if(command) HyprlandAPI::unregisterHyprCtlCommand(pluginHandle,command);
     command.reset(); broker.reset(); // Detach listeners; never delete unresolved outputs on unload.
 }

@@ -609,7 +609,7 @@ supervisor installed together. Have foot, a Chromium or Electron window with a p
 | C19 | Move quickly on and off a word several times | Beam and dot follow the hand with no lag you can see, each way. |
 | C20 | Leave text straight after sweeping down several lines | The dot comes back within about a twentieth of a second. |
 | C21 | Hover a text field that changes the cursor by itself, or wait over a page that is loading | The look follows with no cursor motion. |
-| C22 | First, with text under a desktop's dot: in a terminal run `socat -u UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock - \| grep xrcursor`, then hover on and off text a few times | One `xrcursor>>text` and one `xrcursor>>default` (or `left_ptr`) line per change, none while the mouse is on the physical monitor. This is the only proof the plugin's hooks work on real Hyprland. No lines at all: the hooks did not take, and the beam still works from the faster reads, with up to 9 ms more delay. |
+| C22 | With text under a desktop's dot, in a terminal run `socat -u UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock - \| grep xrcursor`, then hover on and off text a few times | No lines at all: the plugin has no cursor hooks since the crash of 2026-11-03. The beam still follows, from the reads at 120 Hz. |
 | C23 | Scroll a page of text under a still beam until a gap, a link or a picture is under it | The look follows what the app asks for. Note if the app only answers on the next mouse motion: that is the app's. |
 
 Then note anything that looks wrong: an app whose text keeps the dot, a beam that stays too long or goes too soon, and how the
