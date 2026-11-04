@@ -13,6 +13,7 @@
 // the state layer on its header strip only; its content (render_glass_panel) is M3's slider, list and button parts. On the
 // glasses' micro-OLED panels black is see-through: every role sits under kCardMaxLevel (191/255), the panel is dark
 // behind its text, and nothing moves on its own.
+#include "xr/environment.hpp"
 #include "xr/glass_theme.hpp"
 #include "xr/hud.hpp"
 #include "xr/view.hpp"
@@ -23,12 +24,13 @@
 #include <vector>
 
 namespace xr {
+constexpr double kGlassExpandMs = 260, kGlassCollapseMs = 200;  // the pill <-> panel morph
 // --- Geometry: canvas px on the desktop's surface, relative to its overview tile ----------------------------------------
 // Collapsed pill: a share of the desktop's width (clamped), centred, kGlassPillGap below its bottom edge.
 constexpr float kGlassPillShare = 0.24f, kGlassPillMinW = 64.f, kGlassPillMaxW = 160.f, kGlassPillH = 14.f, kGlassPillGap = 10.f;
 FRect glass_pill(const FRect& tile);
 // Expanded panel: kPanelW x kPanelH, centred under the desktop, its top where the pill's top is.
-constexpr float kPanelW = 480.f, kPanelH = 326.f, kPanelRadius = 18.f;
+constexpr float kPanelW = 480.f, kPanelH = 394.f, kPanelRadius = 18.f;
 FRect glass_panel(const FRect& tile);
 // The shape `t` (eased 0..1) of the way from pill to panel, and its corner radius (the pill is fully rounded).
 FRect glass_morph(const FRect& tile, float t);
@@ -83,22 +85,65 @@ static_assert(kScaleBoxY - kScaleListGap - float(kScaleSteps) * kScaleItemH >= k
 bool glass_scale_enabled(std::size_t step, const PlacementMenuState& state);
 // Text of a scale in percent as drawn: "125%"; "--" for 0 (unknown).
 std::string glass_scale_label(std::uint16_t percent);
+// Under that, the background's two rows (xr/environment.hpp), the same in every desktop's panel. The Background row (at
+// kPanelBackgroundTop): the label, an M3 exposed dropdown (glass_background_box, the Scale box's look) showing the background,
+// and an M3 switch (glass_background_switch) that turns it off and back to the last one used, as Ctrl+Alt+E does. A click on
+// the box opens its list, one item per kBackgrounds row (glass_background_item), kBackgroundListGap above the box, drawn over
+// the rows above it. The Brightness row (at kPanelBrightnessTop): a slider like the placement ones, on their knob range,
+// filled from 100%, kBrightnessMin..kBrightnessMax, M3 disabled with no background. free_pointer.py mirrors the geometry
+// (glass_contract compares).
+constexpr float kPanelBackgroundTop = kPanelScaleTop + kPanelRowH;  // 250
+constexpr float kBackgroundSwitchW = 46.f, kBackgroundSwitchH = 26.f, kBackgroundBoxGap = 12.f;
+constexpr float kBackgroundSwitchX = kPanelW - kPanelPad - kBackgroundSwitchW;  // 412
+constexpr float kBackgroundBoxX = kPanelTrackX0, kBackgroundBoxH = kScaleBoxH;
+constexpr float kBackgroundBoxW = kBackgroundSwitchX - kBackgroundBoxGap - kBackgroundBoxX;  // 216 wide
+constexpr float kBackgroundBoxY = kPanelBackgroundTop + (kPanelRowH - kBackgroundBoxH) / 2;  // 254
+constexpr float kBackgroundItemH = kScaleItemH, kBackgroundListGap = kScaleListGap;
+constexpr float kPanelBrightnessTop = kPanelBackgroundTop + kPanelRowH;  // 284
+FRect glass_background_box();                    // panel px
+FRect glass_background_switch();                 // panel px
+FRect glass_background_item(std::size_t item);   // panel px; empty for item >= kBackgroundCount
+static_assert(kBackgroundBoxY - kBackgroundListGap - float(kBackgroundCount) * kBackgroundItemH >= kPanelHeaderH,
+              "the open list stays under the header");
 // Under that, the desktop row: kPanelActions buttons side by side, button i spanning
 // [kPanelPad + i * (kPanelActionW + kPanelActionGap), + kPanelActionW) x [kPanelActionsTop, + kPanelActionH) (glass_panel_action):
 // Ultrawide (toggles the desktop between 16:9 and ultrawide), Add (a new desktop), Remove (this desktop; asks for a second
 // click). tools/native_spike/desktops.py does the work; free_pointer.py mirrors the geometry (glass_contract compares).
 constexpr std::size_t kPanelActions = 3;
-constexpr float kPanelActionsTop = kPanelScaleTop + kPanelRowH + 6.f;  // 256
+constexpr float kPanelActionsTop = kPanelBrightnessTop + kPanelRowH + 6.f;  // 324
 constexpr float kPanelActionH = 32.f, kPanelActionW = 138.f, kPanelActionGap = 11.f;
 static_assert(kPanelPad * 2 + kPanelActionW * float(kPanelActions) + kPanelActionGap * float(kPanelActions - 1) == kPanelW,
               "the desktop row spans the panel between its paddings");
-constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 296
+constexpr float kPanelFooterTop = kPanelActionsTop + kPanelActionH + 8.f;  // 364
 constexpr std::uint32_t kPanelTextPx = 24, kPanelHintPx = 18, kPanelActionPx = 20;  // em sizes with the system font
 FRect glass_panel_action(std::size_t action);  // panel px; empty for action >= kPanelActions
 // Button labels as drawn (the pixel font is ASCII; so are these). Remove reads "Remove?" while armed.
 const char* glass_panel_action_label(std::size_t action, bool armed);
 // Whether a button does anything now: nothing while busy; Add below kMaxDesktops desktops, Remove above one.
 bool glass_panel_action_enabled(std::size_t action, const PlacementMenuState& state);
+// The open panel hangs below its desktop, further than the view reaches with your head level, so while it is open the view
+// is pitched down (the desktops, pills and panel move up as you see them; the world-locked background does not), easing with
+// the panel's morph and back when it closes. A camera offset at draw time: nothing moves on the canvas, so the supervisor's
+// hit testing, which works on the canvas, needs no change. It does not depend on where your head is, so it stays put
+// while you look round and does not change as the panel moves from desktop to desktop.
+// glass_panel_shift: how far (radians, at most kPanelShiftMax) to pitch down so the panel's bottom edge ends
+// kPanelShiftMarginPx inside the view, looking straight at the desktop, or level at its height from straight ahead (the row's
+// outer desktops sit lower in the view then). 0 when it fits.
+constexpr float kPanelShiftMarginPx = 12.f, kPanelShiftMax = 0.26f;  // ~15 degrees: a huge desktop's panel is left to your head
+constexpr double kPanelShiftMs = kGlassExpandMs;
+float glass_panel_shift(const Canvas& canvas, const FRect& tile, const Placement& placement);
+// `view` with the camera pitched down by `angle` radians: the rotation R(angle) * view in the eye's frame. `angle` 0: `view`.
+Mat3 glass_view_shift(const Mat3& view, float angle);
+// The shift's ease, on the renderer's monotonic clock (ms): from wherever it is to the latest target, over kPanelShiftMs.
+class PanelShift {
+public:
+    void set(float target, double now_ms);
+    float value(double now_ms) const;
+    bool animating(double now_ms) const;
+private:
+    float from_ = 0, to_ = 0;
+    double start_ms_ = -1e9;
+};
 // A small grabber capsule at the top centre of an open panel (where the pill was).
 constexpr float kGrabberW = 44.f, kGrabberH = 5.f, kGrabberTop = 8.f;
 static_assert(kPanelFooterTop + kPanelHintPx + 6.f <= kPanelH, "footer fits the panel");
@@ -192,7 +237,8 @@ const char* glass_fragment_shader();
 // transparent background (the glass is drawn under it): header "XR-n" / "Placement", one row per field (label, slider
 // filled from the flat value, value with units; the selected row on a faint accent band), the Resolution row (and its
 // list while state.resolution_picker: over the slider rows), the Scale row (and its list while state.picker: over the
-// Resolution and slider rows), the desktop row (Ultrawide lit
+// Resolution and slider rows), the Background row and the Brightness row (and the Background list while
+// state.background_picker: over the rows above it), the desktop row (Ultrawide lit
 // while the desktop is ultrawide, Remove lit while armed, buttons that do nothing now dimmed), and a key-hint footer.
 // Material Design 3 parts in `accent`'s scheme (glass_theme_scheme): text in on-surface / on-surface-variant, the selected
 // row on a fully rounded secondary-container band, sliders with a primary track, fill and handle (the selected one with
@@ -209,7 +255,6 @@ PanelButtonStyle glass_panel_button_style(std::size_t action, const PlacementMen
                                           std::array<float, 3> accent = kGlassThemeDefault);
 
 // --- Animation -----------------------------------------------------------------------------------------------------
-constexpr double kGlassExpandMs = 260, kGlassCollapseMs = 200;
 constexpr float kContentFrom = 0.75f;  // the panel's content fades in over the last quarter of the expansion
 
 // What the compositor draws this frame (GlassPills::frame and wayland.cpp fill it; overview only).

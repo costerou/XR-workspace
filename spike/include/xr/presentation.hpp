@@ -97,6 +97,10 @@ public:
     // still under way ends there, eased on from where it got to.
     void set_placements(const std::vector<std::array<std::int32_t, 4>>& placements, std::uint32_t glide_ms = 0);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // theme border colour
+    // The background behind the desktops and a VR video (xr/environment.hpp; ipc.hpp EnvironmentPayload): `background` an
+    // index into kBackgrounds (0, None, fades it out), `brightness` in percent. World-locked in every viewing mode, in the
+    // theme colour (set_accent). GPU composition only.
+    void set_environment(std::uint8_t background, std::uint16_t brightness);
     // VR video (docs/vr-video.md; capture runs with GPU composition only). While open the glasses show the head-tracked
     // video (world-locked to the recentre reference whatever the viewing mode) and its controls card instead of the
     // desktops. `fd` is the file the supervisor opened; ownership is taken, also when video is unavailable.

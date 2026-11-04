@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 #include "gl.hpp"
+#include "xr/environment.hpp"
 #define XR_GL_COUNT_NO_MACROS
 #include "gl_call_counts.hpp"
 #include "xr/glass.hpp"
@@ -97,6 +98,8 @@ struct Scenario {
     bool upload_each_frame = false;
     bool roll = false;                         // both roll brackets on every desktop, desktop 1's left one hovered
     bool surface = false;                      // desktop 1's held panel on its press-time placement (Placement{})
+    float environment = 0;  // the background's level (0: none), moving with the head and the clock
+    Background scene = Background::grid;  // which one
 };
 
 std::vector<Scenario> scenarios() {
@@ -132,6 +135,20 @@ std::vector<Scenario> scenarios() {
     { Scenario s{"roll_brackets_resized"}; s.pills = true; s.expand = 1; s.panel = true; s.pointer = true; s.roll = true; s.surface = true;
       s.placements[1] = resized; out.push_back(s); }
     { Scenario s{"video_card"}; s.kind = Kind::video; s.popup = true; out.push_back(s); }
+    // The grid behind the same frames as above, and fading, and behind a video (xr/environment.hpp).
+    { Scenario s{"zoomed_env"}; s.zoom = 1; s.environment = 1; out.push_back(s); }
+    { Scenario s{"overview_env"}; s.environment = 1; out.push_back(s); }
+    { Scenario s{"overview_pills_env"}; s.pills = true; s.hover = 1; s.pointer = true; s.handle = true; s.environment = 1; out.push_back(s); }
+    { Scenario s{"overview_motion_env"}; s.pills = true; s.pointer = true; s.head_motion = true; s.environment = 1; out.push_back(s); }
+    { Scenario s{"panel_open_env"}; s.pills = true; s.expand = 1; s.panel = true; s.pointer = true; s.environment = 1; out.push_back(s); }
+    { Scenario s{"help_card_env"}; s.pills = true; s.help = true; s.pointer = true; s.environment = 1; out.push_back(s); }
+    { Scenario s{"overview_env_fading"}; s.pills = true; s.pointer = true; s.environment = 0.4f; out.push_back(s); }
+    { Scenario s{"video_env"}; s.kind = Kind::video; s.popup = true; s.environment = 1; out.push_back(s); }
+    // Smoke behind the same: the cost of a different scene, not of anything else.
+    { Scenario s{"zoomed_smoke"}; s.zoom = 1; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
+    { Scenario s{"overview_smoke"}; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
+    { Scenario s{"panel_open_smoke"}; s.pills = true; s.expand = 1; s.panel = true; s.pointer = true; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
+    { Scenario s{"video_smoke"}; s.kind = Kind::video; s.popup = true; s.environment = 1; s.scene = Background::smoke; out.push_back(s); }
     return out;
 }
 
@@ -164,10 +181,13 @@ double draw_frame(GlCompositor& gl, Resources& r, const Scenario& s, int frame, 
     const double d = std::tan(46.0 * M_PI / 360.0), a = double(w) / h;
     const float half_w = float(d * a / std::sqrt(1 + a * a)), half_h = float(d / std::sqrt(1 + a * a));
     gl.set_popup(s.popup ? &r.popup : nullptr, 1, 1.f);
+    gl.set_environment(s.environment, s.environment > 0.f ? s.scene : Background::none, 100.f,
+                       std::fmod(float(frame) * 0.083f, float(kEnvironmentLoopS)), head(frame, s.head_motion || s.environment > 0.f));
     if (s.kind == Kind::video) {
         const double t = now_us();
-        CHECK(gl.draw_scene_and_swap([](std::uint32_t vw, std::uint32_t vh) {
+        CHECK(gl.draw_scene_and_swap([&](std::uint32_t vw, std::uint32_t vh) {
             glViewport(0, 0, GLsizei(vw), GLsizei(vh)); glClearColor(26 / 255.f, 31 / 255.f, 38 / 255.f, 1); glClear(GL_COLOR_BUFFER_BIT);  // exact k/255: no rounding
+            gl.draw_environment(half_w, half_h);  // what a 180 degree or fisheye picture leaves of the sphere
         }, &r.card, 1, 1.f));
         return now_us() - t;
     }

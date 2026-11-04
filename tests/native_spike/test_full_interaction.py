@@ -12,8 +12,8 @@ What the run controls, and what is checked here:
     left presses there make no XR action, and a held button keeps the cursor on that desktop.
   * Focus and keyboard: the desktop under the dot becomes the selected one, and entering it focuses its monitor before
     the cursor warps (enter_desktop_lua), so the keyboard goes to that monitor's focused window and focus-follows-mouse
-    picks the window under the dot. No key is bound by the pointer; a click into a window closes an open pill so its
-    modal keys stop taking the typing.
+    picks the window under the dot. No key is bound by the pointer; a click into a window takes an open pill's modal keys
+    off the keyboard, the pill staying, so they stop taking the typing.
   * Handles are not forwarded: on a pill, roll arrow, corner or edge the dot stays free (the run's grab), the press does
     its XR action and the cursor is never handed to a window; no handle covers a desktop's content.
   * Window drag (press and hold to lift a window onto another desktop) is off: holds and drags stay the app's.
@@ -215,17 +215,33 @@ class ForwardingTests(Base):
 
 
 class FocusAndKeyboardTests(Base):
-    def test_a_click_into_a_window_closes_an_open_pill_and_releases_its_keys(self):
+    def test_clicking_another_desktop_brings_the_pill_and_a_press_on_it_takes_its_keys_back(self):
+        calls = []
+        self.control.menu_binds = calls.append
+        self.control.pill_click(0)
+        self.free()
+        self.aim(1, centre(T1))
+        self.at(*self.p.want[2])
+        self.op('resize_press'); self.op('resize_release')
+        self.assertEqual((self.control.state.menu_open, self.control.state.menu_desktop, self.control.state.selected), (True, 1, 1))
+        for t in self.control._menu_threads: t.join(2)
+        self.assertEqual(calls, [True, False])
+        self.assertFalse(self.p.outside_closes)
+        self.control.panel_keys_on()  # as a press on the panel does (test_glass_pills, free mode)
+        for t in self.control._menu_threads: t.join(2)
+        self.assertEqual(calls, [True, False, True])
+
+    def test_a_click_into_a_window_keeps_an_open_pill_and_releases_its_keys(self):
         calls = []
         self.control.menu_binds = calls.append
         self.control.pill_click(0)  # XR-1's pill open: arrows, Tab, R, U, N, Delete, Esc are its keys now
         self.free()
         self.aim(1, centre(T1))
         self.at(*self.p.want[2])
-        self.assertTrue(self.control.state.menu_open)  # moving over a window leaves it open
-        out = self.op('resize_press')  # the click goes to the window (non-consuming) and closes the pill
-        self.assertFalse(self.control.state.menu_open)
-        self.assertFalse(last(out, 'placement_menu')['open'])
+        self.assertEqual((self.control.state.menu_open, self.control.state.menu_desktop), (True, 1))  # it followed the dot
+        self.op('resize_press')  # the click goes to the window (non-consuming) and the pill stays
+        self.assertEqual((self.control.state.menu_open, self.control.state.menu_desktop), (True, 1))
+        self.assertEqual(self.p.outside_closes, 0)
         self.op('resize_release')
         for t in self.control._menu_threads: t.join(2)
         self.assertEqual(calls, [True, False])  # the modal keys installed, then removed: typing goes to the window

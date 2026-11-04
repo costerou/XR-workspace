@@ -5,6 +5,7 @@
 // GL context current for every call and for destruction.
 #include "xr/video.hpp"
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -38,8 +39,12 @@ public:
     void set_menu(bool visible, std::vector<VideoMenuRow> rows, std::uint32_t selected);
     // Before drawing a frame: decode/update and refresh the card. False on a GL error.
     bool prepare(double now_ms);
-    // Draw the video into the current framebuffer (`width` x `height`), one viewport per output eye.
-    void draw(const Mat3& view, float diagonal_fov_deg, std::uint32_t width, std::uint32_t height);
+    // Draws what goes behind the video into the current viewport, seen through tan(half FOV) half_w / half_h; false if
+    // nothing was drawn. A 360° picture covers everything, so it is not called for one (while nothing is showing yet, it is).
+    using Behind = std::function<bool(float half_w, float half_h)>;
+    // Draw the video into the current framebuffer (`width` x `height`), one viewport per output eye, over `background`
+    // (pixels outside the picture show it; black without one).
+    void draw(const Mat3& view, float diagonal_fov_deg, std::uint32_t width, std::uint32_t height, const Behind& background = {});
     void after_swap();
     const HudImage* card(double now_ms, float& alpha, std::uint64_t& generation) const;
     bool animating(double now_ms) const;  // the card is fading

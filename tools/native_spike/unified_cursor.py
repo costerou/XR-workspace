@@ -34,8 +34,9 @@ scrolling and typing, and a click never maximizes):
     drawn where it maps onto home's surface (free_pointer._from_logical; every viewing mode). It is hidden
     (overview_cursor.py), but hover, focus-follows-mouse, every button, the wheel and the keyboard reach the window under
     it, as on any monitor. The left button is bound non-consuming (click_binds_lua: the window gets it as usual) to
-    resize_press / resize_release, so the run sees it too: a press closes an open placement panel (its modal keys would
-    otherwise take the typing meant for the window) and starts the held-button guard below. A click there is the
+    resize_press / resize_release, so the run sees it too: a press brings an open placement panel to that desktop and
+    takes its modal keys off the keyboard, so they cannot take the typing meant for the window
+    (view.ViewControl.desktop_press), and starts the held-button guard below. A click there is the
     window's alone: it never maximizes home (anchor-no-click-maximize, 2026-11-03; until then a press and release no
     more than free_pointer.CLICK_PX apart also zoomed in). Only Ctrl+Alt+Up maximizes. While the button is held the dot
     never turns free and the cursor stays on home (pulled back if Hyprland let it onto another monitor), so a drag inside
@@ -292,7 +293,7 @@ class UnifiedPointer(fp.OverviewPointer):
     def __init__(self, control, clock=time.monotonic):
         super().__init__(control, clock)
         self.click = None  # over home, left button down: {'start', 'at', 'moved'} (the dot and time at the press)
-        self.rehomes = self.pullbacks = self.window_clicks = self.follows = 0  # diagnostics
+        self.rehomes = self.pullbacks = self.window_clicks = self.follows = self.desktop_presses = 0  # diagnostics
         self._switch = None  # zoomed in: (home, target) the sampler asked the loop to switch to (EdgePush)
         self.edge_switches = 0  # diagnostics
         self.super_drag = None  # 'move' / 'resize': a Super drag of Hyprland's is under way (on_super)
@@ -463,7 +464,7 @@ class UnifiedPointer(fp.OverviewPointer):
         if self.super_drag == 'move': self._identify()
         if self.mode == 'off' and self.overview():  # typing mode: the last cursor seen is old, wait for the next sample
             with self._lock: self._abs, self._fresh = None, False
-        out = self.control.pill_close() if self.active() and self.control.state.menu_open else b''  # as a click into a window
+        out = self.control.pill_close() if self.active() and self.control.state.menu_open else b''  # the drag takes the window, keys and all
         if self.active() and self.mode == 'free':  # the hand beat the helper to the edge: the grab must not stay on the drag
             o = self._output(self._home())
             with self._lock: cursor = self._abs
@@ -596,9 +597,9 @@ class UnifiedPointer(fp.OverviewPointer):
         return (stale + (super().on_op(op) or b'')) or None
 
     def _desktop_button(self, op):
-        """Over home, the non-consuming left button: the window already has it. The press closes an open placement panel
-        (a click into a window is a click outside it, and its modal keys would take the typing meant for the window) and
-        is noted for the held-button guard (and, with window_drag on, a hold that lifts the window: _hold_home); a click
+        """Over home, the non-consuming left button: the window already has it. The press brings an open placement panel
+        here with its modal keys off the keyboard (view.ViewControl.desktop_press: they would take the typing meant for the
+        window) and is noted for the held-button guard (and, with window_drag on, a hold that lifts the window: _hold_home); a click
         is the window's alone and never maximizes home (anchor-no-click-maximize)."""
         now = self.clock()
         idle = now - self.last_move >= view.OVERLAY_IDLE_CLOSE_S
@@ -608,8 +609,8 @@ class UnifiedPointer(fp.OverviewPointer):
         if op == 'resize_press':
             self.click = {'start': self.pointer, 'at': now, 'moved': False} if live and not idle else None
             if live and self.control.state.menu_open:
-                self.outside_closes += 1
-                out += self.control.pill_close()
+                self.desktop_presses += 1
+                out += self.control.desktop_press()
         else:
             self.click = None
             self.window_clicks += 1

@@ -3,6 +3,7 @@
 // Frame pacing stays with the caller's frame callbacks and presentation feedback; this class
 // only renders and swaps. No readback: pixels never return to the CPU.
 #include "xr/capture.hpp"
+#include "xr/environment.hpp"
 #include "xr/view.hpp"
 #include "xr/pose.hpp"
 #include "xr/hud.hpp"
@@ -82,6 +83,14 @@ public:
     // Drawn only while the free pointer is.
     void set_window_drag(float w, float h, int target);
     void set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b);  // highlight border + glow, and the M3 scheme's seed (theme)
+    // The background (xr/environment.hpp): `background` drawn first, behind everything, in place of the black clear,
+    // world-locked by `world` (environment_view; world -> eye, row-major), at fade `level` (<= 0 or Background::none: not
+    // drawn at all, the frame is exactly as without it) and `brightness` percent, animated by `seconds`. Its colour is the
+    // highlight border's accent (set_accent), so a theme switch recolours both in one frame. False if this GL cannot draw it
+    // (its shaders failed): nothing is drawn then. draw_and_swap draws it by itself; a VR video scene calls draw_environment.
+    bool set_environment(float level, Background background, float brightness, float seconds, const Mat3& world);
+    // That background over the current viewport, seen through tan(half FOV) half_w / half_h. False if nothing was drawn.
+    bool draw_environment(float half_w, float half_h);
     // VR video mode (video_mode.hpp): `scene` draws the whole frame instead of the desktops; then the video controls card
     // (`card`, head-locked near the bottom, never moved; nullptr or alpha 0: none) and any status pop-up, then swap.
     // The help card and the glass pills are not drawn: the supervisor closes them before a video opens.

@@ -6,9 +6,11 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include "dmabuf.hpp"
+#include "environment_gl.hpp"
 #include "hud_gl.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 
 namespace xr {
@@ -94,6 +96,11 @@ struct GlCompositor::Impl {
     PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_modifiers = nullptr;
     std::uint64_t imported_frames = 0;
     std::unique_ptr<GlHud> video_hud;    // VR video controls card (own texture); created with the others (retried on use)
+    // The background (environment_gl.hpp): compiled at setup (not on the first frame it shows); absent if its shaders failed.
+    std::unique_ptr<EnvironmentPass> environment;
+    float env_level = 0, env_gain = 1, env_seconds = 0; Background env_background = Background::none; Mat3 env_view{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    bool env_visible() const { return environment && env_level > 0.f && env_background != Background::none; }
+    bool blend_max = false;  // GL_MAX blending (ES 3 or EXT_blend_minmax): the highlight's glow over the grid stays under the cap
     void drop(Imported& i) {
         for (auto& t : i.tex) if (t) { glDeleteTextures(1, &t); t = 0; }
         for (auto& im : i.image) if (im != EGL_NO_IMAGE_KHR && destroy_image) { destroy_image(display, im); im = EGL_NO_IMAGE_KHR; }
@@ -168,7 +175,7 @@ struct GlCompositor::Impl {
             drop_meshes();
             for (auto& t : textures) if (t.id) glDeleteTextures(1, &t.id);
             for (auto& i : imported) { drop(i); drop_held(i); }
-            hud.reset(); help_hud.reset(); binds_hud.reset();
+            hud.reset(); help_hud.reset(); binds_hud.reset(); environment.reset();
             if (panel_texture) glDeleteTextures(1, &panel_texture);
             if (glass_program) glDeleteProgram(glass_program);
             if (panel_program) glDeleteProgram(panel_program);
@@ -270,6 +277,11 @@ bool GlCompositor::Impl::setup(std::size_t sources, std::string& why) {
     s.help_hud = GlHud::create();
     s.binds_hud = GlHud::create();
     s.video_hud = GlHud::create();  // now, not on the first video frame (a shader compile there costs that frame)
+    s.environment = EnvironmentPass::create();  // optional, and now for the same reason; the run works without the grid
+    {
+        const char* gl_ext = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+        s.blend_max = std::strncmp(s.version.c_str(), "OpenGL ES 3", 11) == 0 || (gl_ext && std::strstr(gl_ext, "GL_EXT_blend_minmax"));
+    }
     // Glass pills: optional too (composition works without them; the run reports no pills then).
     auto link = [](const char* vertex, const char* fragment) -> GLuint {
         GLuint v = compile(GL_VERTEX_SHADER, vertex), f = compile(GL_FRAGMENT_SHADER, fragment);
@@ -437,6 +449,22 @@ std::size_t GlCompositor::sources() const { return impl_->textures.size(); }
 
 void GlCompositor::set_accent(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     impl_->accent[0] = r / 255.f; impl_->accent[1] = g / 255.f; impl_->accent[2] = b / 255.f;
+}
+
+bool GlCompositor::set_environment(float level, Background background, float brightness, float seconds, const Mat3& world) {
+    auto& s = *impl_;
+    s.env_level = std::isfinite(level) ? std::min(level, 1.f) : 0.f; s.env_background = background;
+    s.env_gain = brightness / 100.f; s.env_seconds = seconds; s.env_view = world;
+    return s.environment != nullptr;
+}
+
+bool GlCompositor::draw_environment(float half_w, float half_h) {
+    auto& s = *impl_;
+    if (!s.env_visible()) return false;
+    s.environment->draw(s.env_background, s.env_view, half_w, half_h, s.env_level, s.env_gain,
+                        environment_line_color({s.accent[0], s.accent[1], s.accent[2]}), s.env_seconds);
+    s.current = s.environment->program(s.env_background);
+    return true;
 }
 
 void GlCompositor::resize(std::uint32_t width, std::uint32_t height, std::uint32_t px_width, std::uint32_t px_height) {
@@ -621,14 +649,21 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
             !(g.content_alpha <= 0.f) && im.width && im.height && im.rgba.size() == std::size_t(im.width) * im.height * 4)
             s.upload_panel(im, g.generation);
     }
-    glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
+    // The background covers every pixel in place of the clear; with none (or level 0) the frame is drawn exactly as without it.
+    const bool environment = draw_environment(half_w, half_h);
+    if (!environment) { glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
     if (highlight >= 0 && std::size_t(highlight) < tiles.size() && highlight_alpha > 0.f) {
         // Drawn first over black, so no blending is needed: glow, then border, then the tiles (back to front) cover
-        // the interior. The frame lies on the highlighted desktop's own surface (same placement and curvature).
+        // the interior. The frame lies on the highlighted desktop's own surface (same placement and curvature). Over the
+        // background the glow is the brighter of the two and the border is laid over it (premultiplied), so neither blacks out a halo.
         const auto h = std::size_t(highlight);
         const auto& t = tiles[h];
         const FRect framed{t.x - kBorderPx, t.y - kBorderPx, t.width + 2 * kBorderPx, t.height + 2 * kBorderPx};
         const FRect halo{framed.x - kGlowRadiusPx, framed.y - kGlowRadiusPx, framed.width + 2 * kGlowRadiusPx, framed.height + 2 * kGlowRadiusPx};
+        if (environment) {  // the glow over the grid: the brighter of the two (else added)
+            glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE);
+            if (s.blend_max) glBlendEquation(GL_MAX_EXT);
+        }
         program(s.glow_program, s.glow_projection, s.glow_view, s.glow_half_fov);
         glUniform4f(s.glow_rect, framed.x + framed.width / 2, framed.y + framed.height / 2, framed.width / 2, framed.height / 2);
         glUniform3f(s.glow_color, s.accent[0], s.accent[1], s.accent[2]);
@@ -638,10 +673,13 @@ bool GlCompositor::draw_and_swap(const std::vector<FRect>& tiles, const std::vec
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
         glDisableVertexAttribArray(static_cast<GLuint>(s.glow_px));
         program(s.color_program, s.color_projection, s.color_view, s.color_half_fov);
-        glUniform4f(s.color, s.accent[0] * highlight_alpha, s.accent[1] * highlight_alpha, s.accent[2] * highlight_alpha, 1.f);  // over black
+        if (environment) { if (s.blend_max) glBlendEquation(GL_FUNC_ADD); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); }
+        glUniform4f(s.color, s.accent[0] * highlight_alpha, s.accent[1] * highlight_alpha, s.accent[2] * highlight_alpha,
+                    environment ? highlight_alpha : 1.f);  // over black (or premultiplied over the grid)
         n = s.build(s.border_mesh, canvas, t, s.resolved[h], framed, Impl::Attr::tile_uv);
         attrib(s.color_pos, 3, 5, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, n);
+        if (environment) glDisable(GL_BLEND);
     }
     // Zoomed in (highlight_alpha = 1 - zoom), the zoomed desktop is drawn on top of any desktop dragged nearer.
     auto order = highlight >= 0 ? zoom_draw_order(draw_order(canvas, tiles, s.resolved), 1.f - highlight_alpha, std::size_t(highlight))

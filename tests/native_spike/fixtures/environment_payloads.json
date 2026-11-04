@@ -1,0 +1,34 @@
+{
+  "comment": "The renderer's `environment` payload (the background, spike/include/xr/ipc.hpp EnvironmentPayload). The renderer's decoder (spike/tests/environment_test.cpp) and the supervisor's frame builder (tools/native_spike/environment.py, tests/native_spike/test_environment.py) both run over this file. Each valid entry gives what it decodes to: `background` an index into kBackgrounds, and its `setting`, the saved form the supervisor builds it from.",
+  "valid": [
+    {"payload": {"background": "none", "brightness": 100}, "background": 0, "brightness": 100,
+     "setting": {"background": "none", "last": "grid", "brightness": 100}},
+    {"payload": {"background": "grid", "brightness": 100}, "background": 1, "brightness": 100,
+     "setting": {"background": "grid", "last": "grid", "brightness": 100}},
+    {"payload": {"background": "grid", "brightness": 10}, "background": 1, "brightness": 10,
+     "setting": {"background": "grid", "last": "grid", "brightness": 10}},
+    {"payload": {"brightness": 200, "background": "grid"}, "background": 1, "brightness": 200,
+     "setting": {"background": "grid", "last": "grid", "brightness": 200}},
+    {"payload": {"background": "smoke", "brightness": 100}, "background": 2, "brightness": 100,
+     "setting": {"background": "smoke", "last": "smoke", "brightness": 100}},
+    {"payload": {"background": "smoke", "brightness": 55}, "background": 2, "brightness": 55,
+     "setting": {"background": "smoke", "last": "smoke", "brightness": 55}}
+  ],
+  "invalid": [
+    {},
+    {"background": "grid"},
+    {"brightness": 100},
+    {"background": "red", "brightness": 100},
+    {"background": "Grid", "brightness": 100},
+    {"background": "Smoke", "brightness": 100},
+    {"background": 1, "brightness": 100},
+    {"background": null, "brightness": 100},
+    {"background": "grid", "brightness": 9},
+    {"background": "grid", "brightness": 201},
+    {"background": "grid", "brightness": 100.5},
+    {"background": "grid", "brightness": "100"},
+    {"background": "grid", "brightness": -1},
+    {"background": "grid", "brightness": 100, "color": "cyan"},
+    {"on": true, "color": "cyan"}
+  ]
+}

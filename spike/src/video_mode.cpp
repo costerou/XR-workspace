@@ -71,24 +71,28 @@ bool VideoMode::prepare(double now_ms) {
     return ok;
 }
 
-void VideoMode::draw(const Mat3& view, float diagonal_fov_deg, std::uint32_t width, std::uint32_t height) {
+void VideoMode::draw(const Mat3& view, float diagonal_fov_deg, std::uint32_t width, std::uint32_t height, const Behind& background) {
     glClearColor(0, 0, 0, 1);
     glViewport(0, 0, GLsizei(width), GLsizei(height)); glClear(GL_COLOR_BUFFER_BIT);
     const unsigned tex = player_ ? player_->texture() : 0;
-    if (!active_ || !sphere_ || !tex) return;  // loading or failed: black behind the card
-    // Every frame: the player may replace its texture (a new size, a new player); two state calls cost nothing.
-    // Minified areas keep the player's trilinear mipmaps (video_texture_filtering); only magnification changes.
-    if (!sphere_->forced()) sphere_->set_filter(quality().filter);
-    const GLint mag = sphere_->filter() == VideoFilter::nearest ? GL_NEAREST : GL_LINEAR;
-    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag);
+    const bool picture = active_ && sphere_ && tex;  // loading or failed: only the background behind the card
+    if (picture) {
+        // Every frame: the player may replace its texture (a new size, a new player); two state calls cost nothing.
+        // Minified areas keep the player's trilinear mipmaps (video_texture_filtering); only magnification changes.
+        if (!sphere_->forced()) sphere_->set_filter(quality().filter);
+        const GLint mag = sphere_->filter() == VideoFilter::nearest ? GL_NEAREST : GL_LINEAR;
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag);
+    }
+    const bool covered = picture && format_.projection == VideoProjection::equirect360;  // nothing of the background would show
     for (const auto& e : eye_viewports(width, height)) {
         glViewport(GLint(e.x), GLint(e.y), GLsizei(e.width), GLsizei(e.height));
         const auto half = half_fov_tan(diagonal_fov_deg, e.width, e.height);
-        sphere_->draw(tex, player_->flip_y(), format_, e.eye, view, half[0], half[1]);
+        const bool behind = background && !covered && background(half[0], half[1]);
+        if (picture) sphere_->draw(tex, player_->flip_y(), format_, e.eye, view, half[0], half[1], behind);
     }
     glViewport(0, 0, GLsizei(width), GLsizei(height));
-    ++frames_drawn_;
+    if (picture) ++frames_drawn_;
 }
 
 void VideoMode::after_swap() { if (player_) player_->report_swap(); }

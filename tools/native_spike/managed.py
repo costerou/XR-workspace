@@ -6,6 +6,7 @@ from .hyprland import monitors, plan_outputs, create_outputs, OwnershipBlocked
 from .ipc import private_dir, token
 from .journal import Journal, recover, managed_owner
 from .ownership import OwnershipBrokerClient
+from .environment import environment
 from .quality import video_quality
 from .supervisor import validate_physical_pair, _launch
 
@@ -169,10 +170,11 @@ def view_controls(client, run_id, session, capture, output=None, store=None, fal
         # nothing is saved, the save is unusable, or the run's desktops are not the saved ones.
         initial, rolls = _restored(placements, capture, desktops)
         # Every start is in the overview, anchored, and a maximize follows until Ctrl+Alt+V picks locked (maximize-follow):
-        # no saved mode is read; spacing, prediction and the VR video quality still are.
+        # no saved mode is read; spacing, prediction, the VR video quality and the background still are.
         control = view.ViewControl(view.ViewState(capture, spacing=saved['spacing'], prediction=saved['prediction'],
                                                    placements=_initial_placements(initial, capture),
-                                                   video_quality=video_quality(saved)), run_id, session,
+                                                   video_quality=video_quality(saved),
+                                                   environment=environment(saved)), run_id, session,
                                    lambda name: client.mutate(view.focus_command(name)), store, server,
                                    border=lambda: client.query('getoption', 'general:col.active_border', timeout=0.5),
                                    on_reload=after_reload, placements=placements, menu_binds=menu_binds,

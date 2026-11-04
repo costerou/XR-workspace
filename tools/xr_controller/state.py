@@ -13,6 +13,7 @@ from tools.native_spike.panel_consent import build_consent, write_consent, load_
 from tools.native_spike.profiles import _check, NOTHING_SAVED, describe_setup, log, setup_from
 from tools.native_spike.geometry import validate_placements
 from tools.native_spike.hyprland import ownership_plugin_count
+from tools.native_spike import environment
 from tools.native_spike.view import DEFAULT_SETTINGS, USER_OPS, MAXIMIZED_MODES, SPACING_STEP
 from tools.native_spike.video import KEY_OPS as VIDEO_KEY_OPS, validate_request as validate_video_request
 from .detect import pick_fallback
@@ -185,6 +186,8 @@ class Controller:
                 if len(operations)>8: raise ValueError('too many live operations; use smaller steps')
                 for operation in operations:
                     if not self.units.control(self.run['run_id'],self.run['session'],operation): raise ValueError('run control unavailable')
+                if 'environment' in settings and target['environment']!=current['environment']:  # absolute, like placements
+                    if not self.units.control(self.run['run_id'],self.run['session'],environment.SET_OP,target['environment']): raise ValueError('run control unavailable')
                 # The supervisor saves actual applied values; never claim these send-only operations applied.
                 return dict(forwarded=True)
             model=self.observed['model']; profile=self.store.load(model)

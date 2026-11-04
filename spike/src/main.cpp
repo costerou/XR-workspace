@@ -185,6 +185,8 @@ int main(int argc, char** argv) {
                             state.scale = menu->scale; state.scales = menu->scales; state.picker = menu->picker;
                             state.resolution_w = menu->resolution_w; state.resolution_h = menu->resolution_h;
                             state.resolution_picker = menu->resolution_picker;
+                            state.background = menu->background; state.brightness = menu->brightness;
+                            state.background_picker = menu->background_picker;
                             std::optional<std::array<std::int32_t, 4>> surface;
                             if (const auto& w = menu->surface)  // a held slider: the panel's drawing surface
                                 surface = std::array<std::int32_t, 4>{w->x, w->y, w->distance, w->curvature};
@@ -207,6 +209,9 @@ int main(int argc, char** argv) {
                     else if (m->op == xr::ControlOp::move_handle) {  // display only; malformed ones were dropped above
                         if (const auto* g = std::get_if<xr::MoveHandlePayload>(&m->payload))
                             presentation.set_move_handle(g->visible, g->desktop, g->hover, g->active);
+                    }
+                    else if (m->op == xr::ControlOp::environment) {  // the background; malformed ones were dropped above
+                        if (const auto* e = std::get_if<xr::EnvironmentPayload>(&m->payload)) presentation.set_environment(e->background, e->brightness);
                     }
                     else if (m->op == xr::ControlOp::desktops) {  // a pill's Add / Remove / Ultrawide (desktops.py)
                         const auto& d = std::get<xr::DesktopsPayload>(m->payload);

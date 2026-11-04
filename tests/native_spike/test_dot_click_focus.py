@@ -94,13 +94,13 @@ class LockedClickSelectTests(LockBase):
         self.at(*self.cur)
         self.assertEqual(self.p.mode, 'off')  # the lock lets go: out of the overview
 
-    def test_a_click_with_a_panel_open_collapses_it_then_selects(self):
+    def test_a_click_with_a_panel_open_selects_and_the_panel_comes_along(self):
         self.on_pill(0)
         self.op('resize_press'); self.op('resize_release')  # a pill click: XR-1's panel opens
         self.assertTrue(self.control.state.menu_open)
         self.dot_to(centre(T1))
         self.click()
-        self.assertFalse(self.control.state.menu_open)  # collapsed (saved) by the press
+        self.assertEqual((self.control.state.menu_open, self.control.state.menu_desktop), (True, 1))
         self.assertFalse(self.control.state.zoomed)
         self.assertEqual(self.control.state.selected, 1)
 

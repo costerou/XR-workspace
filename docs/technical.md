@@ -107,7 +107,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Keys | When | Action |
 | --- | --- | --- |
 | Ctrl+Alt+Up / Down | run | Maximize the selected desktop (follow) / back to the overview (anchor) |
-| Ctrl+Alt+Left / Right | run | Previous / next desktop |
+| Ctrl+Alt+Left / Right | run | Previous / next desktop; an open placement panel goes with the selection |
 | Ctrl+Alt+[ / ] | run | Less / more space between desktops |
 | Ctrl+Alt+Space | run | Recenter |
 | Ctrl+Alt+V | run | Maximized: follow / locked (0DoF). In the overview (always anchor, 3DoF) nothing changes; a toast says why |
@@ -126,6 +126,7 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Ctrl+Alt+1 / 2 / 3 | run | Send the focused window to XR-1 / XR-2 / XR-3 |
 | Ctrl+Alt+B | run | Send the focused window back from the glasses to the physical monitor |
 | Ctrl+Alt+D | run | Privacy mode: main physical display off / on (DPMS), so only the glasses show content (see [Privacy mode](#privacy-mode-main-display-off)) |
+| Ctrl+Alt+E | run | The background behind the desktops: None / the last one used, with a fade (see [The background](#the-background)) |
 | Tab / Shift+Tab | pill open | Open the next / previous desktop's pill instead (only one is open) |
 | Up / Down | pill open | Previous / next field: left/right, down/up, distance, curvature |
 | Left / Right | pill open | Decrease / increase the field by a small step (Shift for a big step). Left/right: 0.2°, Shift 15°, and it carries on past 180° to the other side. Down/up: 0.2°, Shift 10°, and it stops at ±90°. Not stopped by other desktops |
@@ -136,9 +137,9 @@ These keybinds exist only during a run. The keys marked "pill open" are bound on
 | Left click a pill | free pointer on a pill, or on the open panel's top strip | Open that desktop's panel (closing any other), or close it if it is the open one |
 | Left-drag a pill | free pointer on a pill, or on the open panel's top strip (in anchor mode anywhere round you, see [Moving desktops](#moving-desktops-in-the-overview-the-pill-under-the-desktop)) | Turn that desktop round you, like a title bar, the grabbed point staying under the dot; in anchor mode all the way round you. It never overlaps another desktop. Nothing moves until the pointer is more than 4 px from the press, so a click never nudges it |
 | Left click / drag a slider | free pointer on a slider of the open panel | Select that field and snap it to the pointer; a drag moves it live; release saves |
-| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, select a desktop, or nothing in empty space |
+| Left click outside the open panel | free pointer | Close the panel (saved), then the click does what it would anyway: open or drag another pill, or nothing in empty space. A click on a desktop is not a click outside: the panel goes to that desktop |
 | Left-drag a desktop edge or corner | free pointer on a resize handle, just outside the desktop ([Handles and content](#handles-and-content)); the dot shows two arrows | Resize that desktop about its centre, keeping its shape: outward is bigger, inward is smaller. An edge follows the dot along its normal (new 2026-11-03), a corner along its diagonal. The open desktop's own edges and corners do not close its panel. A click there does nothing |
-| Left click a desktop | over its content the cursor is the real one: every click is the window's alone, and closes an open pill. Only next to the open help card is the dot still free there | There, select it on the release and hand it the real cursor at that spot (its monitor focused); this click reaches no window. No click maximizes (since 2026-11-03; Ctrl+Alt+Up does) |
+| Left click a desktop | over its content the cursor is the real one: every click is the window's, and an open pill comes to that desktop with its keys off the keyboard. Only next to the open help card is the dot still free there | There, select it on the release and hand it the real cursor at that spot (its monitor focused); this click reaches no window. No click maximizes (since 2026-11-03; Ctrl+Alt+Up does) |
 | Left press-hold (`HOLD_S` 0.35 s) or drag (> `WINDOW_DRAG_PX` 12 canvas px) on a desktop, then release on another desktop | **Off since 2026-11-03** (`OverviewPointer.window_drag`): a press, hold or drag on a desktop is its window's. With it on: holding still over a desktop | Move the window under the press onto the workspace that desktop shows (`send.WindowSender.drop`, Hyprland move with `follow = false`): no zoom, no selection change. A ghost outline follows the dot and the target desktop is framed (`overview_pointer` frame `drag`). Released anywhere else: nothing moves |
 | Super + left-drag | a window, over a desktop | Hyprland's own window move (Omarchy's bind), across desktops too: [Super drags](#super-drags). Handles do nothing while it lasts |
 | Super + right-drag | a window, over a desktop | Hyprland's own window resize. The mouse stays on that desktop until you let go |
@@ -344,6 +345,116 @@ different chord), and in this project's binds; `python -m tools.native_spike.bin
 Ctrl+Alt+P has its own help card row. Cursor follow (Ctrl+Alt+F: the view switched to the monitor the cursor crossed
 onto) was removed on 2026-11-02; a `cursor_follow` saved in layout.json or a profile is ignored, and the renderer's
 `view` payload still carries `cursor_follow: false` because the installed renderer's decoder requires the key.
+
+### The background
+
+An optional 360° scene behind the desktops and behind a VR video. It is chosen in the placement panel's **Background** dropdown
+(the same in every desktop's panel) or the VR video's quality menu, and **Ctrl+Alt+E** or the switch beside the dropdown goes
+between None and the last background used, with a 0.6 s fade. **Grid** is the TRON grid and **Smoke** is drifting fog. Offline
+tests only: nothing about either has been tried in the glasses.
+
+*Adding a background.* A row in `tools/native_spike/environment.py` `BACKGROUNDS` and in `spike/include/xr/environment.hpp`
+`kBackgrounds` (`glass_contract` compares them), and a `scene()` in `spike/src/environment_gl.cpp`. The dropdown, the quality
+menu, the wire and the saved setting follow from the tables.
+
+*What Grid draws.* `spike/src/environment_gl.cpp`: one fullscreen triangle whose fragment shader casts the view ray into a
+procedural scene (no textures, no extra framebuffer, GLES2 with `OES_standard_derivatives`). A black sky; a floor plane
+1.6 m below the eye with lines every 2 m and a brighter one every 10 m, anti-aliased from the screen derivatives (lines
+finer than a pixel fade to their average instead of shimmering), a soft halo for the bloom and a distance fade; a thin
+bright horizon with a haze either side; a ring of ridge outlines up to about 5° high, with gaps between the ranges; and on
+about one line in five a light trail at 8, 12 or 16 m/s. The animation clock wraps every 512 s, a common multiple of the
+trails' periods, so the wrap never shows.
+
+*What Smoke draws.* The same fullscreen triangle with another `scene()`. The view direction is folded four times by sines of
+itself, each fold's phase running a whole number of cycles per clock loop, then read through three gyroids (a smooth periodic
+field): one says where the banks of smoke are, and ridges of the two finer ones are the strands inside them. Working in direction
+space gives the whole sphere with no seam or pole, and since the head only turns, no depth is lost by leaving out a raymarch. The
+field is squashed in y so wisps lie along the horizon, and it thins toward straight up and down. Density ends at exactly zero,
+so the air between the banks is black, at any brightness. At 100% about a quarter to three quarters of the view is exactly black
+depending on where you look. The folds slide past each other, so the wisps change shape as they drift: 512 s until the same
+shapes come round.
+
+*Colour.* The Omarchy theme's: `GlCompositor::draw_environment` reads the same accent the highlight border and glow are
+drawn in (`set_accent`), so a theme switch recolours them in one frame, and every lit pixel of the grid has that colour's
+proportions. `environment_line_color` only scales it: a theme colour brighter than the OLED cap comes down to it, all three
+channels together, and a near-black one, which would not show on the see-through panels, is lifted to 72/255.
+
+*Brightness.* 10..200%, 100 by default, in the placement panel's slider (or Up / Down to its row, Left / Right 5%, Shift 25%).
+It scales the scene before the cap, so below 100 everything dims and above it the dim parts come up while the brightest stay
+on the cap. It multiplies, and the halo ends at a finite distance, so black stays exactly black (only the far floor's
+faint average of its lines, under half a level at 100%, reaches one level at 200%). The row is M3 disabled with None. A
+drag applies live and saves on release.
+
+*World-locked, always.* The renderer gives the pass `environment_view(relative, reference)`: the head pose, prediction
+included, relative to the recentre reference turned to level. It takes only the reference's heading about gravity (the pose
+feed's z axis), so a recentre with the head tipped leaves the floor flat. The desktops' `view` and the mode controller's anchor
+are never involved, so anchor, follow, locked and a maximized desktop all see the same room. A recentre turns it to the new
+heading, as it does the desktops.
+
+*Over it.* The pass replaces the frame's black clear. Desktops are opaque and drawn after it, so their pixels are the same
+as without it (`environment_render` compares them). The pills and cards already blend, premultiplied. The highlighted
+desktop's glow and border were drawn opaque "over black": with a background the glow blends with `GL_MAX` (added, where the
+GL has neither ES 3 nor `EXT_blend_minmax`) and the border is laid over it, so neither blacks out a box round the selected
+desktop. With None (or level 0) the pass is skipped and that path is as it was: `gl_bench --hashes` gives the same frame hashes
+as before the feature, but for the open panel, which grew.
+
+*Behind a VR video.* The background is drawn first in each output eye's viewport (`VideoMode::draw`'s `background`), and the
+projection pass then leaves the pixels outside the picture alone (`VideoSphere::draw`'s `behind`) instead of painting them black.
+So it shows round a 180° or fisheye picture, and while a video loads. A 360° picture covers everything, so the pass is skipped
+for one. Both eyes get the same image in the side-by-side 3D mode.
+
+*The glasses.* The shader scales each pixel so that its brightest channel stays under 191/255 (hue kept), and the sky and
+the floor between the lines stay exactly black, so see-through (`environment_render` checks both, looking every way
+round). A slight dither breaks up the dim haze's banding, never on black.
+
+*The setting.* `tools/native_spike/environment.py`: `{"background": "none", "last": "grid", "brightness": 100}` by default, saved
+with the view settings (`environment` in layout.json for CLI runs and in the glasses model's profile for panel runs), and
+restored at each XR start. A file without it, or with an invalid field, loads that field's default. The renderer gets an
+`environment` frame (`{"background":name,"brightness":percent}`, `spike/include/xr/ipc.hpp`) on each change and at a start only
+if there is a background, so an older renderer never sees one with None; a malformed one is dropped without stopping the
+renderer. The open panel shows it through `placement_menu`'s `background`, `brightness` and `background_picker` keys and a fifth
+`field`, `brightness`. The panel's `set_settings` reaches a running session as one absolute `environment` op, like `placement`.
+
+*The bind* is in `view.BINDS`, so the help card, `bind_check` and typing mode treat it like any run bind. Omarchy binds
+Super+Ctrl+E, Super+Shift+E, Super+Ctrl+Shift+E and Super+Ctrl+Alt+E, all different chords.
+
+*Panel geometry.* The two rows make the panel 360 px tall (it was 292), so it would run past the bottom of the view with your
+head level. While it is open the view shifts down to fit it ([Placement pills](#placement-pills)).
+
+*Cost*, measured with `gl_bench --bench --frames 1000 --size 1920x1200` (the glasses' native buffer; GPU time from
+`EXT_disjoint_timer_query`, CPU the draw call), 2026-11-03, on surfaceless EGL, so no compositor or capture is included.
+The glasses render on the RX 7800 XT (`DRI_PRIME=pci-0000_03_00_0`); the integrated GPU, gl_bench's default here, is the
+worst case:
+
+| GPU | Scenario | GPU none | GPU Grid | CPU none (p50) | CPU Grid (p50) | Frames over 8.3 ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| RX 7800 XT | maximized | 22 µs | 69 µs | 1.8 µs | 2.5 µs | 0 |
+| RX 7800 XT | overview, pills, dot | 26 µs | 70 µs | 5.0 µs | 5.6 µs | 0 |
+| RX 7800 XT | overview, head moving | 25 µs | 69 µs | 4.8 µs | 5.7 µs | 0 |
+| RX 7800 XT | video frame (without the video's own pass) | 17 µs | 54 µs | 2.1 µs | 2.7 µs | 0 |
+| Radeon 610M (the Ryzen's iGPU) | overview, pills, dot | 361 µs | 2591 µs | 5.1 µs | 23.4 µs | 0 |
+
+So about 0.05 ms of the 8.3 ms frame on the glasses' GPU, the same in every scenario: the pass shades each pixel once
+whatever is in front of it. Its shader compiles at renderer start, not on the first frame it shows.
+
+Smoke costs a little less than Grid: on the Radeon 610M the overview takes 2.34 ms of GPU time against Grid's 2.56 ms and 0.35 ms
+with no background (`gl_bench --bench --frames 300`). It has not been measured on the RX 7800 XT, because an XR session was
+using that GPU at the time; by Grid's ratio between the two GPUs it should be about 0.04 ms.
+
+Through the real renderer (`capture_e2e_bench --mode gl-dmabuf --seconds 8 --warmup 2 --hz 120`, zero-copy on the RX 7800 XT
+against the loopback compositor, so a stand-in for Hyprland and no glasses; `--environment grid` for Grid, `--tracking` for
+a head-tracked run):
+
+| Run | Background | Commits/s | Capture to present p50 / p99 | Blank frames |
+| --- | --- | --- | --- | --- |
+| Head tracked | None | 120.0 | 13.15 / 16.47 ms | 0 |
+| Head tracked | Grid | 120.0 | 13.14 / 16.48 ms | 0 |
+| No head tracking | None | 119.8 | 5.72 / 9.90 ms | 0 |
+| No head tracking | Grid | 119.8 | 5.23 / 8.47 ms | 0 |
+
+The background asks for frames only while it fades. Settled it needs none of its own in a head-tracked run, which draws every
+frame anyway. Without head tracking a renderer drawing on every callback would show new desktop frames a refresh later
+(the 5 -> 13 ms between the rows above), so there its trails move only when something else redraws.
 
 ### Key bind panel
 
@@ -594,7 +705,8 @@ under the dot, then installs the left button's non-consuming binds. The focus ma
 focused window whatever the focus-follows-mouse setting; the warp after it puts the cursor back under the dot (a
 monitor focus alone moves the cursor to that monitor's last window) and, with focus-follows-mouse, focuses the window
 under the dot. The pointer binds no key. An open placement pill's modal keys (arrows, Tab, R, U, N, Delete, Esc) would
-take typing meant for a window, so a left press on a window (desktop mode) closes the pill, like any click outside it.
+take typing meant for a window, so a left press on a window (desktop mode) takes them off the keyboard
+(`ViewControl.desktop_press`). The pill stays open, on that desktop, and a press on the panel or its pill brings its keys back.
 Window drag (hold a window to lift it onto another desktop) is off (`OverviewPointer.window_drag = False`): it took
 long presses and slow drags from apps.
 
@@ -728,8 +840,8 @@ still for the whole overview and let no click or wheel reach a window.
 - **Overview, over a desktop:** the real cursor is the pointer. Hand motion moves it, and the dot is drawn where it
   maps onto that desktop's surface, in anchor, locked and follow mode. It stays hidden, but hover, focus-follows-mouse,
   every button, the wheel and the keyboard reach the window under it. The left button is bound *non-consuming*
-  (`non_consuming = true`), so the window gets the click as usual. The run sees it too: a press closes an open pill
-  (its modal keys would take the typing), and that is all; it never zooms in (until 2026-11-03,
+  (`non_consuming = true`), so the window gets the click as usual. The run sees it too: a press brings an open pill to
+  that desktop and takes its modal keys off the keyboard, and that is all; it never zooms in (until 2026-11-03,
   `anchor-no-click-maximize`, a press and release less than 4 canvas px apart did). While the button is held the dot
   never goes free and the cursor stays on that desktop: if Hyprland lets it onto another monitor, it is pulled back, so
   a drag inside an app keeps going and the window gets its release.
@@ -1263,11 +1375,25 @@ You can also place desktops from inside the glasses, without the settings panel.
 small pill in the theme's colour under it (Material Design 3; see The look below). Click a pill with the free pointer's dot, or press **Ctrl+Alt+L** for the selected
 desktop's pill, and it expands into that desktop's own placement panel. (Ctrl+Alt+P was already taken by pose
 prediction.) Ctrl+Alt+L again, Escape, a click on the panel's top strip (the pill itself) or a click outside the panel
-collapses it. Only one pill is open at a time: opening another collapses the first, and Tab / Shift+Tab move the open
+(on a pill or in empty space; a desktop is not outside, the panel goes there) collapses it. Only one pill is open at a time: opening another collapses the first, and Tab / Shift+Tab move the open
 panel to the next / previous desktop. Pressed while zoomed in, Ctrl+Alt+L first zooms out to the overview so the pill is
 visible; the pill only starts growing once the overview is reached, so the whole expansion is seen. Zooming in
 (Ctrl+Alt+Up) closes an open panel first, saved, with its keys released. Everything here is covered by offline tests
 only. It has not been run in an isolated VM or tried in the glasses.
+
+**The view shifts while a panel is open.** The panel hangs under its desktop, further than the view reaches with your head
+level, so the renderer pitches the camera down just enough for its bottom edge to end 12 canvas px inside the view
+(`glass.hpp` `glass_panel_shift`: 1.7° for the middle desktop of the default row and 2.0° for the outer two, at most 15°), easing over the panel's 260 ms morph and back
+when it closes. It covers looking straight at the desktop, and looking level at its height from straight ahead, where the
+row's outer desktops sit lower in the view. It is worked out from the panel's size, not from your head, so it stays put while
+you look round and does not change as the panel moves along the row. It is a camera offset at draw time (`glass_view_shift`):
+nothing moves on the canvas, so the supervisor's hit testing needs no change, and the help card's hit box is worked out with
+the shifted view. Desktops, pills, panel and dot shift together. The background does not, since it is world-locked.
+
+**An open panel follows the focus.** When the selection moves to another desktop in the overview (Ctrl+Alt+Left / Right, or the
+pointer selecting one), `ViewControl.follow_focus` opens that desktop's panel and closes the old one, saved at once, as Tab does:
+the modal keys stay, the highlighted setting stays, an open list closes. With every pill collapsed a selection change opens nothing.
+A key that moves no selection (the end of the row) moves no panel. Tab / Shift+Tab still move the panel without moving the selection.
 
 This replaces the earlier placement menu: a head-locked card in the middle of the view, with a mouse mode (Ctrl+Alt+M)
 that drew its own pointer over the card. The card, Ctrl+Alt+M, mouse mode, the renderer's `menu_pointer` op and its
@@ -1407,6 +1533,32 @@ when they fit a page; the overlay turns and wraps pages and reopens on page 1; t
 `help_geometry_json` maps them onto the canvas; text only shrinks as the output gets shorter, and the card is laid out
 again when the output size changes. `tests/native_spike/test_help_pages.py` covers the page keys, the `sections` /
 `turn` frame, the `help_geometry` line and the free pointer's clicks on the card.
+
+The background adds these tests. `environment` (`spike/tests/environment_test.cpp`): the backgrounds' table, the line colour
+(the theme's own, scaled only for the cap or to show at all), the fade, the levelled world-locked view from any recentre
+reference, the `environment` frame over `tests/native_spike/fixtures/environment_payloads.json`, which
+`tests/native_spike/test_environment.py` runs the supervisor over too, and the panel's fields on a `placement_menu` frame.
+`environment_render` (`spike/tests/environment_render_test.cpp`) draws the backgrounds with the real compositor on surfaceless EGL behind
+three synthetic desktops at 1920x1200: None is bit for bit a compositor that never had it; with Grid the desktops' pixels do not
+change and the glow leaves no black halo; looking every way round nothing passes 191/255, most of the view stays dark and the sky
+stays black; the horizon sits where the pitch puts it, a whole turn gives the same frame, and in locked mode the grid turns while
+the desktops do not; every lit pixel has the theme colour's proportions, on the frame after a theme switch too; the fade and the
+brightness, black staying black at each end; the seamless clock wrap; and behind a 180° video the picture is as it was without it
+and the rest of the view is exactly the grid. It also writes preview PNGs (zlib) to `build/release/environment-previews/`, or
+to the directory given as its argument, the panel with its Background list open and its Brightness row selected among them.
+`video_render` adds VideoMode's side with a real decoded clip: one call per output eye, and none behind a 360° picture. `glass`
+covers the panel's new rows, `glass_contract` their geometry and the table against `free_pointer.py` and `environment.py`.
+`gl_bench`'s `*_env` scenarios add the grid to the fresh-compositor comparison, so it can leave no GL state behind, and to
+`--bench`. `capture_e2e_environment_*` send the real renderer its `environment` frame on both GL paths and check that frames keep
+flowing and no desktop goes blank. `test_environment.py` covers the setting, the key, saving and restoring, the panel's dropdown,
+switch and slider down to their hit tests, and the quality menu's row.
+Smoke gets its own section there: the desktops' pixels do not change, nothing passes the cap every way round, clear air stays
+exactly black at any brightness, every lit pixel has the theme's hue, no seam shows behind you or straight up or down, a whole
+turn gives the same frame, a frame at 120 Hz changes under a level on average, and neither the loop nor the clock's wrap shows.
+
+`capture_e2e_open_panel` opens a panel in the real renderer and requires the view to have shifted (`view_shift_mrad` in the
+renderer's exit report); every other `capture_e2e_*` run requires it to be 0. The shift's geometry and ease are in `glass`.
+`tests/native_spike/test_panel_follows_focus.py` covers the panel following the selection.
 
 The placement round you, with every desktop facing you (see
 [Moving desktops in the overview](#moving-desktops-in-the-overview-the-pill-under-the-desktop)), adds

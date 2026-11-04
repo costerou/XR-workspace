@@ -14,7 +14,7 @@
 
 namespace xr {
 enum class ControlOp { status, start, stop, select, recover, view, recenter, style, help, placement, placement_menu, resize_handle, video, move_handle,
-                       overview_pointer, roll, desktops, binds };
+                       overview_pointer, roll, desktops, environment, binds };
 struct SelectPayload { OutputId output_id; };
 // Glasses view: overview vs zoomed into `selected` (0..kMaxDesktops-1), gap `spacing` px (0..400).
 // `mode` (T2): 0 anchor, 1 locked (0DoF), 2 follow; wire strings "anchor" | "locked" | "follow".
@@ -76,6 +76,10 @@ struct PlacementMenuPayload {
     // The Resolution dropdown (optional): "resolution" [width, height] (0 x 0 if absent; desktops.hpp bounds, even),
     // "resolution_picker" (its list open; open panels only, never with "picker").
     std::uint16_t resolution_w = 0, resolution_h = 0; bool resolution_picker = false;
+    // The background (optional; the same for every desktop's panel): "background" a kBackgrounds name, "brightness" its
+    // percent, "background_picker" its dropdown's list open (open panels only, never with "picker"). `field` may also be
+    // "brightness": the Brightness row is the selected one (field = kPlacementMenuBrightness).
+    std::uint8_t background = 0; std::uint16_t brightness = 100; bool background_picker = false;
 };
 constexpr std::uint32_t kMaxPointerPx = 8192;
 // Overview corner-resize handle (tools/native_spike/resize.py), display only:
@@ -148,9 +152,14 @@ struct DesktopsPayload { std::vector<std::string> outputs, renew; bool ease = fa
 // The key bind panel (tools/native_spike/keybinds.py), display only: binds_panel.hpp BindPanelState, whose comment has the
 // wire form. Malformed: rejected with kInvalidBindsCode and dropped, like placement_menu (a redraw is not worth a session).
 constexpr const char* kInvalidBindsCode = "invalid_binds";
+// The background behind the desktops and a VR video (xr/environment.hpp; tools/native_spike/environment.py), display only:
+// {"background":name,"brightness":percent} (exactly those keys): a kBackgrounds name ("none" fades it out) and
+// kBrightnessMin..kBrightnessMax. Malformed: rejected with kInvalidEnvironmentCode and dropped, like move_handle.
+constexpr const char* kInvalidEnvironmentCode = "invalid_environment";
+struct EnvironmentPayload { std::uint8_t background = 0; std::uint16_t brightness = 100; };  // background: index into kBackgrounds
 using ControlPayload = std::variant<std::monostate, SelectPayload, ViewPayload, StylePayload, HelpPayload, PlacementPayload, PlacementMenuPayload,
                                     ResizeHandlePayload, VideoPayload, MoveHandlePayload, OverviewPointerPayload, RollPayload, DesktopsPayload,
-                                    BindPanelState>;
+                                    EnvironmentPayload, BindPanelState>;
 struct ControlMessage {
     std::uint32_t schema;
     std::uint64_t request_id;
@@ -160,11 +169,12 @@ struct ControlMessage {
 };
 Result<ControlMessage> decode_control(std::string_view frame);
 // A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle,
-// overview_pointer, roll or binds payload. It
+// overview_pointer, roll, environment or binds payload. It
 // carries no action, so its identity and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
     return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
-           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidBindsCode;
+           e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode ||
+           e.code == kInvalidBindsCode;
 }
 class ControlQueue {
 public:

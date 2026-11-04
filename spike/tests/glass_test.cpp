@@ -61,11 +61,92 @@ int main() {
     CHECK(kPanelFooterTop + float(kPanelHintPx) <= kPanelH && kGrabberTop + kGrabberH < kPanelHeaderH);
     // Four rows (left / right, down / up, distance, curvature: every desktop faces you, so there is no facing setting).
     static_assert(kPlacementMenuFields == 4);
-    // Then the Resolution row and the Scale row (one row each: label and dropdown box), then the desktop row (Ultrawide /
-    // Add / Remove) between them and the footer, inside the paddings.
+    // Then the Resolution and Scale rows (one row each: label and dropdown box), the Background and Brightness rows, then
+    // the desktop row (Ultrawide / Add / Remove) between them and the footer, inside the paddings.
     CHECK(kPanelResolutionTop == kPanelRowsTop + 4 * kPanelRowH && kPanelScaleTop == kPanelResolutionTop + kPanelRowH &&
-          kPanelActionsTop == kPanelScaleTop + kPanelRowH + 6 && kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
-    CHECK(kPanelFooterTop == 296.f && kPanelH == 326.f);
+          kPanelBackgroundTop == kPanelScaleTop + kPanelRowH && kPanelBrightnessTop == kPanelBackgroundTop + kPanelRowH &&
+          kPanelActionsTop == kPanelBrightnessTop + kPanelRowH + 6 && kPanelFooterTop == kPanelActionsTop + kPanelActionH + 8);
+    CHECK(kPanelFooterTop == 364.f && kPanelH == 394.f);
+    {  // the view shift while a panel is open: all of the panel shows with your head level, and only as much as that takes
+        constexpr float kHalfW = 0.36f, kHalfH = 0.225f;
+        const Canvas canvas{1536, 960, kHalfW, kHalfH};  // the glasses at scale 1.25
+        const std::vector<Size> sizes(3, Size{1920, 1080});
+        const auto tiles = overview_layout(sizes, 1536, 960, 40);
+        const Mat3 level{1, 0, 0, 0, 1, 0, 0, 0, 1};
+        auto lowest = [&](const FRect& tile, const Placement& on, const Mat3& view) {  // the panel's bottom edge in view: NDC y
+            const FRect panel = glass_panel(tile);
+            float out = 2;
+            for (const float gx : {panel.x, panel.x + panel.width / 2, panel.x + panel.width}) {
+                const auto [x, y] = glass_to_desktop(tile, on, gx, panel.y + panel.height);
+                const Vec3 p = place_point(canvas, tile, on, x, y);
+                const auto q = xr::apply(view, {p.x, p.y, p.z});
+                if (std::fabs(q[0] / q[2]) <= kHalfW) out = std::min(out, q[1] / -q[2] / kHalfH);
+            }
+            return out;
+        };
+        const float bottom = -1 + 2 * kPanelShiftMarginPx / 960;  // where its margin ends, in NDC
+        const float middle = glass_panel_shift(canvas, tiles[1], {});
+        CHECK(lowest(tiles[1], {}, level) < -1);  // without it the panel runs past the view's bottom edge
+        CHECK(middle > 0.01f && middle < 0.05f);  // a degree or two
+        CHECK(near(lowest(tiles[1], {}, glass_view_shift(level, middle)), bottom, 2e-3f));  // and with it, just inside
+        for (const auto& t : tiles) {
+            CHECK(lowest(t, {}, glass_view_shift(level, glass_panel_shift(canvas, t, {}))) >= bottom - 2e-3f);
+            // The same with the head turned to look straight at that desktop.
+            const Vec3 c = place_point(canvas, t, {}, t.x + t.width / 2, t.y + t.height / 2);
+            const float yaw = std::atan2(c.x, -c.z), cy = std::cos(yaw), sy = std::sin(yaw);
+            const Mat3 at{cy, 0, -sy, 0, 1, 0, sy, 0, cy};
+            CHECK(lowest(t, {}, glass_view_shift(at, glass_panel_shift(canvas, t, {}))) >= bottom - 2e-3f);
+        }
+        // It goes by the panel's size against the view, not by where the desktop is or where you look: moved round you, or
+        // following a panel along the row, it does not change (the side desktops' corners need a little more).
+        Placement moved; moved.x = 0.9f; moved.y = 0.4f;
+        CHECK(near(glass_panel_shift(canvas, tiles[1], moved), middle, 2e-3f));
+        CHECK(near(glass_panel_shift(canvas, tiles[0], {}), glass_panel_shift(canvas, tiles[2], {}), 1e-4f));
+        // A bigger desktop pushes its panel further down, up to the cap, a smaller one less; one small enough to leave room
+        // needs none.
+        Placement near_you; near_you.distance = 0.5f;
+        Placement huge; huge.distance = 0.1f;
+        Placement far_away; far_away.distance = 2.f;
+        CHECK(glass_panel_shift(canvas, tiles[1], near_you) > middle);
+        CHECK(glass_panel_shift(canvas, tiles[1], huge) == kPanelShiftMax);
+        CHECK(glass_panel_shift(canvas, tiles[1], far_away) < middle);
+        CHECK(glass_panel_shift(canvas, FRect{tiles[1].x, 470, tiles[1].width, 20}, far_away) == 0.f);
+        CHECK(glass_panel_shift(canvas, {}, {}) == 0.f && glass_panel_shift({}, tiles[1], {}) == 0.f);
+        // The shift itself: nothing at 0, exactly; what is ahead moves up; still a rotation.
+        CHECK(glass_view_shift(level, 0.f) == level);
+        const Mat3 turned{0.8f, 0, 0.6f, 0, 1, 0, -0.6f, 0, 0.8f};
+        CHECK(glass_view_shift(turned, 0.f) == turned);
+        const auto up = xr::apply(glass_view_shift(level, 0.1f), {0, 0, -1});
+        CHECK(near(up[1] / -up[2], std::tan(0.1f), 1e-5f) && near(up[0], 0.f));
+        const auto n = xr::apply(transpose(glass_view_shift(turned, 0.1f)), xr::apply(glass_view_shift(turned, 0.1f), {0.3f, -0.2f, 0.5f}));
+        CHECK(near(n[0], 0.3f, 1e-5f) && near(n[1], -0.2f, 1e-5f) && near(n[2], 0.5f, 1e-5f));
+        // The ease: from where it is, to the latest target, and at rest once there.
+        PanelShift ease;
+        CHECK(ease.value(0) == 0.f && !ease.animating(0));
+        ease.set(0.f, 0);
+        CHECK(!ease.animating(0));
+        ease.set(0.02f, 1000);
+        CHECK(ease.value(1000) == 0.f && ease.animating(1000));
+        CHECK(near(ease.value(1000 + kPanelShiftMs / 2), 0.01f, 1e-6f));
+        CHECK(ease.value(1000 + kPanelShiftMs) == 0.02f && !ease.animating(1000 + kPanelShiftMs));
+        ease.set(0.02f, 2000);  // the same target: nothing restarts
+        CHECK(!ease.animating(2000));
+        ease.set(0.f, 3000);
+        const float part = ease.value(3000 + kPanelShiftMs / 4);
+        ease.set(0.02f, 3000 + kPanelShiftMs / 4);  // turned round on the way: no jump
+        CHECK(near(ease.value(3000 + kPanelShiftMs / 4), part, 1e-6f));
+    }
+    {  // the Background box and its switch share a row, right of the label column up to the padding; its list above it
+        const FRect box = glass_background_box(), sw = glass_background_switch();
+        CHECK(box.x == kPanelTrackX0 && box.y >= kPanelBackgroundTop && box.y + box.height <= kPanelBackgroundTop + kPanelRowH);
+        CHECK(sw.x >= box.x + box.width && near(sw.x + sw.width, kPanelW - kPanelPad) && sw.y == box.y && sw.height == box.height);
+        for (std::size_t i = 0; i < kBackgroundCount; ++i) {
+            const FRect r = glass_background_item(i);
+            CHECK(r.x == box.x && r.width == box.width && r.height == kBackgroundItemH && r.y >= kPanelHeaderH);
+        }
+        CHECK(near(glass_background_item(kBackgroundCount - 1).y + kBackgroundItemH + kBackgroundListGap, box.y));
+        CHECK(glass_background_item(kBackgroundCount).width == 0.f);
+    }
     {  // the Resolution box: the Scale box's twin one row up; its list above it over the slider rows and their band
         const FRect box = glass_resolution_box(), scale = glass_scale_box();
         CHECK(box.x == scale.x && box.width == scale.width && box.height == scale.height && near(box.y + kPanelRowH, scale.y));
@@ -298,6 +379,54 @@ int main() {
                 const float label = float(f->measure(glass_panel_action_label(1, false), 18, true));
                 CHECK(first >= 0 && float(first) < r.x + (r.width - (16 + 6 + label)) / 2 + 9);  // the plus, not the label
             }
+        }
+        {  // the Background rows: the box shows the choice, the switch its state, the slider its value, under the cap
+            const auto& m = glass_theme_scheme(kGlassThemeDefault);
+            auto px_at = [](const HudImage& panel_im, float x, float y) {
+                const auto* p = &panel_im.rgba[(std::size_t(y) * panel_im.width + std::size_t(x)) * 4];
+                return std::array<int, 4>{p[0], p[1], p[2], p[3]};
+            };
+            auto is = [](std::array<int, 4> got, std::array<float, 3> c, float a) {
+                for (int k = 0; k < 3; ++k) if (std::abs(got[std::size_t(k)] - int(std::lround(c[std::size_t(k)] * a * 255))) > 1) return false;
+                return std::abs(got[3] - int(std::lround(a * 255))) <= 1;
+            };
+            PlacementMenuState none = st; none.background = 0; none.background_picker = false;
+            PlacementMenuState grid = none; grid.background = 1;
+            const auto in = render_glass_panel(none, f), ig = render_glass_panel(grid, f);
+            CHECK(in.rgba != ig.rgba);
+            const FRect sw = glass_background_switch(), box = glass_background_box();
+            auto rect_differs = [&](const HudImage& a, const HudImage& b, const FRect& r) {
+                for (int y = int(r.y); y < int(r.y + r.height); ++y)
+                    for (int x = int(r.x); x < int(r.x + r.width); ++x)
+                        for (std::size_t c = 0; c < 4; ++c)
+                            if (a.rgba[(std::size_t(y) * a.width + std::size_t(x)) * 4 + c] != b.rgba[(std::size_t(y) * b.width + std::size_t(x)) * 4 + c]) return true;
+                return false;
+            };
+            CHECK(rect_differs(in, ig, box) && rect_differs(in, ig, sw));
+            CHECK(!rect_differs(in, ig, {0, 0, kPanelW, kPanelBackgroundTop - 2}));  // nothing above the row moves
+            // On: the track is the primary, the handle at its right end; off: the track is the dark container, the handle left.
+            const auto on_track = px_at(ig, sw.x + 6, sw.y + sw.height / 2), off_track = px_at(in, sw.x + sw.width - 3, sw.y + sw.height / 2);
+            CHECK(is(on_track, m.primary, 1.f) && !is(off_track, m.primary, 1.f));
+            CHECK(!is(px_at(ig, sw.x + sw.width - sw.height / 2, sw.y + sw.height / 2), m.primary, 1.f));  // the on handle
+            // The slider's knob follows the percent; a row with no background is dimmed, and selected it gets the band.
+            const float cy = kPanelBrightnessTop + kPanelRowH / 2;
+            PlacementMenuState dim = grid; dim.brightness = 10;
+            PlacementMenuState top = grid; top.brightness = 200;
+            const auto id = render_glass_panel(dim, f), it = render_glass_panel(top, f);
+            CHECK(is(px_at(id, kPanelKnobLo, cy), m.primary, 1.f) && is(px_at(it, kPanelKnobHi, cy), m.primary, 1.f));
+            CHECK(!is(px_at(id, kPanelKnobHi, cy), m.primary, 1.f));
+            CHECK(!is(px_at(in, kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * 90.f / 190.f, cy), m.primary, 1.f));  // None: disabled
+            CHECK(is(px_at(ig, kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * 90.f / 190.f, cy), m.primary, 1.f));   // 100%, at 90 of 190
+            PlacementMenuState selected = grid; selected.field = kPlacementMenuBrightness;
+            CHECK(render_glass_panel(selected, f).rgba != ig.rgba);
+            // The open list, over what is above its box, every item shown; the rows themselves stay; under the cap.
+            PlacementMenuState open = grid; open.background_picker = true;
+            const auto io = render_glass_panel(open, f);
+            CHECK(rect_differs(ig, io, glass_background_item(0)) && rect_differs(ig, io, glass_background_item(kBackgroundCount - 1)));
+            CHECK(!rect_differs(ig, io, {0, kPanelBrightnessTop, kPanelW, kPanelRowH}));
+            for (const auto* im : {&in, &ig, &id, &it, &io})
+                for (std::size_t k = 0; k < im->rgba.size(); k += 4)
+                    for (std::size_t c = 0; c < 3; ++c) CHECK(im->rgba[k + c] <= kCardMaxLevel);
         }
         {  // the Scale row: the box shows the scale; the open list covers the sliders and shows every step, under the cap
             const auto row_top = std::uint32_t(kPanelScaleTop), row_bottom = std::uint32_t(kPanelScaleTop + kPanelRowH);

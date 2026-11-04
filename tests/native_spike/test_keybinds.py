@@ -341,7 +341,7 @@ class PanelTests(unittest.TestCase):
         self.assertNotIn('"CTRL + ALT + right"', lua)
         # The help card follows.
         help_rows = frames(c.on_message({'op': 'help', 'payload': {}}))[-1]['payload']['rows']
-        self.assertIn(['Ctrl+Alt+J', 'Next desktop'], help_rows)
+        self.assertIn(['Ctrl+Alt+Left / J', 'Previous / next desktop'], help_rows)
 
     def test_escape_cancels_a_change_and_then_closes_the_panel(self):
         c = self.control()

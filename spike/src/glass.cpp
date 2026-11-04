@@ -36,6 +36,8 @@ constexpr MdIcon kActionIcons[kPanelActions] = {MdIcon::width, MdIcon::add, MdIc
 constexpr float kFieldDisabled = 0.04f, kFieldPadX = 12.f, kCaretPx = 24.f, kCaretInset = 16.f, kIndicatorH = 1.f, kIndicatorFocusH = 2.f;
 // Short labels: the label column is kPanelTrackX0 - kPanelPad wide.
 constexpr const char* kLabels[kPlacementMenuFields] = {"Left/right", "Down/up", "Distance", "Curvature"};
+constexpr float kSwitchHandleOn = 9.f, kSwitchHandleOff = 6.f;  // the Background switch's handle radius (M3: larger while on)
+static_assert(PlacementMenuState{}.brightness == kBrightnessDefault, "a panel with no brightness sent shows the default");
 
 // Text at an em size: the system font, or the built-in pixel font (ASCII, zoom 2) without one.
 std::uint32_t text_width(const HudFont* font, const std::string& s, std::uint32_t px, bool bold) {
@@ -92,6 +94,50 @@ FRect glass_panel(const FRect& t) {
     if (t.width <= 0 || t.height <= 0) return {};
     return {t.x + (t.width - kPanelW) / 2, t.y + t.height + kGlassPillGap, kPanelW, kPanelH};
 }
+
+float glass_panel_shift(const Canvas& c, const FRect& tile, const Placement& on) {
+    if (c.view_w <= 0 || c.view_h <= 0 || tile.width <= 0 || tile.height <= 0) return 0;
+    const FRect panel = glass_panel(tile);
+    auto at = [&](float gx) {  // the panel's bottom edge at glass x `gx`
+        const auto [x, y] = glass_to_desktop(tile, on, gx, panel.y + panel.height);
+        return place_point(c, tile, on, x, y);
+    };
+    const Vec3 centre = place_point(c, tile, on, tile.x + tile.width / 2, tile.y + tile.height / 2), bottom = at(tile.x + tile.width / 2);
+    // Looking straight at the desktop: the angle from its centre down to the panel's bottom edge.
+    const float dot = centre.x * bottom.x + centre.y * bottom.y + centre.z * bottom.z;
+    const float ax = centre.y * bottom.z - centre.z * bottom.y, ay = centre.z * bottom.x - centre.x * bottom.z,
+                az = centre.x * bottom.y - centre.y * bottom.x;
+    float needed = std::atan2(std::sqrt(ax * ax + ay * ay + az * az), dot);
+    // Level at the desktop's height, from straight ahead: a corner the view reaches, further away from the view's centre.
+    const float length = std::sqrt(centre.x * centre.x + centre.y * centre.y + centre.z * centre.z);
+    const float e = length > 0 ? std::asin(std::clamp(centre.y / length, -1.f, 1.f)) : 0.f, ce = std::cos(e), se = std::sin(e);
+    for (const float gx : {panel.x, panel.x + panel.width}) {
+        const Vec3 p = at(gx);
+        const float y = ce * p.y + se * p.z, z = ce * p.z - se * p.y;
+        if (z < 0 && std::fabs(p.x / z) <= c.half_w) needed = std::max(needed, std::atan2(-y, -z));
+    }
+    const float limit = std::atan(c.half_h * (1 - 2 * kPanelShiftMarginPx / c.view_h));
+    return std::clamp(needed - limit, 0.f, kPanelShiftMax);
+}
+
+Mat3 glass_view_shift(const Mat3& v, float angle) {
+    if (angle == 0.f) return v;
+    const float s = std::sin(angle), k = std::cos(angle);  // about the eye's x axis: what is straight ahead moves up
+    return {v[0], v[1], v[2], k * v[3] - s * v[6], k * v[4] - s * v[7], k * v[5] - s * v[8],
+            s * v[3] + k * v[6], s * v[4] + k * v[7], s * v[5] + k * v[8]};
+}
+
+void PanelShift::set(float target, double now_ms) {
+    if (target == to_) return;
+    from_ = value(now_ms); to_ = target; start_ms_ = now_ms;
+}
+
+float PanelShift::value(double now_ms) const {
+    const float t = clamp01(float((now_ms - start_ms_) / kPanelShiftMs));
+    return from_ + (to_ - from_) * (t * t * (3 - 2 * t));
+}
+
+bool PanelShift::animating(double now_ms) const { return now_ms - start_ms_ < kPanelShiftMs; }
 
 float roll_arm(const FRect& t) {
     if (!(t.width > 0) || !(t.height > 0)) return 0.f;
@@ -216,6 +262,16 @@ bool glass_scale_enabled(std::size_t step, const PlacementMenuState& state) {
 }
 
 std::string glass_scale_label(std::uint16_t percent) { return percent ? std::to_string(unsigned(percent)) + "%" : "--"; }
+
+FRect glass_background_box() { return {kBackgroundBoxX, kBackgroundBoxY, kBackgroundBoxW, kBackgroundBoxH}; }
+
+FRect glass_background_switch() { return {kBackgroundSwitchX, kBackgroundBoxY, kBackgroundSwitchW, kBackgroundSwitchH}; }
+
+FRect glass_background_item(std::size_t item) {
+    if (item >= kBackgroundCount) return {};
+    const float top = kBackgroundBoxY - kBackgroundListGap - float(kBackgroundCount) * kBackgroundItemH;
+    return {kBackgroundBoxX, top + float(item) * kBackgroundItemH, kBackgroundBoxW, kBackgroundItemH};
+}
 
 FRect glass_resolution_box() { return {kResBoxX, kResBoxY, kResBoxW, kResBoxH}; }
 
@@ -368,29 +424,31 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     for (int x = int(kPanelPad); x < int(W - kPanelPad); ++x) md_over(im, x, int(kPanelHeaderH) - 1, m.outline_variant, 1.f);
     // Rows: an M3 list of sliders. The selected row is the active indicator (secondary container, fully rounded) with its
     // text in on-secondary-container; the others' labels on-surface, their values on-surface-variant.
+    // One slider row: `alpha` < 1 is M3 disabled.
+    auto slider_row = [&](float top, const std::string& label, std::int32_t lo, std::int32_t hi, std::int32_t flat, std::int32_t value,
+                          const std::string& shown, bool selected, float alpha) {
+        const float cy = top + kPanelRowH / 2;
+        if (selected)
+            md_fill_rounded(im, kBandInset, top + 2, W - kBandInset, top + kPanelRowH - 2, (kPanelRowH - 4) / 2, m.secondary_container, 1.f);
+        text(im, font, label, kPanelTextPx, selected, kPanelPad, cy, selected ? m.on_secondary_container : m.on_surface, alpha);
+        // The slider: inactive track (primary at 24%), active track from the flat value to the value, handle (primary).
+        auto at = [&](std::int32_t v) { return kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * float(std::clamp(v, lo, hi) - lo) / float(hi - lo); };
+        md_fill_rounded(im, kPanelTrackX0, cy - kTrackH / 2, kPanelTrackX1, cy + kTrackH / 2, kTrackH / 2, m.primary, kTrackAlpha * alpha);
+        const float a = at(flat), b = at(value);
+        if (std::fabs(b - a) >= 1.f)
+            md_fill_rounded(im, std::min(a, b), cy - kTrackH / 2, std::max(a, b), cy + kTrackH / 2, kTrackH / 2, m.primary, alpha);
+        if (selected) md_disc(im, b, cy, kHaloR, m.primary, kMdStateFocus * alpha);  // the focused handle's state layer
+        md_disc(im, b, cy, kPanelKnobR, m.primary, alpha);
+        text(im, font, shown, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, shown, kPanelTextPx, selected)), cy,
+             selected ? m.on_secondary_container : m.on_surface_variant, alpha);
+    };
     const auto rows = placement_menu_rows(state, font == nullptr);
     const auto bounds = placement_menu_bounds();
     const auto flat = placement_menu_flat();
     const auto& values = state.placements[desktop];
-    for (std::size_t i = 0; i < kPlacementMenuFields; ++i) {
-        const float top = kPanelRowsTop + float(i) * kPanelRowH, cy = top + kPanelRowH / 2;
-        const bool selected = rows[i].selected;
-        if (selected)
-            md_fill_rounded(im, kBandInset, top + 2, W - kBandInset, top + kPanelRowH - 2, (kPanelRowH - 4) / 2, m.secondary_container, 1.f);
-        text(im, font, kLabels[i], kPanelTextPx, selected, kPanelPad, cy, selected ? m.on_secondary_container : m.on_surface);
-        // The slider: inactive track (primary at 24%), active track from the flat value to the value, handle (primary).
-        const auto [lo, hi] = bounds[i];
-        auto at = [&](std::int32_t v) { return kPanelKnobLo + (kPanelKnobHi - kPanelKnobLo) * float(std::clamp(v, lo, hi) - lo) / float(hi - lo); };
-        md_fill_rounded(im, kPanelTrackX0, cy - kTrackH / 2, kPanelTrackX1, cy + kTrackH / 2, kTrackH / 2, m.primary, kTrackAlpha);
-        const float a = at(flat[i]), b = at(values[i]);
-        if (std::fabs(b - a) >= 1.f)
-            md_fill_rounded(im, std::min(a, b), cy - kTrackH / 2, std::max(a, b), cy + kTrackH / 2, kTrackH / 2, m.primary, 1.f);
-        if (selected) md_disc(im, b, cy, kHaloR, m.primary, kMdStateFocus);  // the focused handle's state layer
-        md_disc(im, b, cy, kPanelKnobR, m.primary, 1.f);
-        const auto& value = rows[i].value;
-        text(im, font, value, kPanelTextPx, selected, W - kPanelPad - float(text_width(font, value, kPanelTextPx, selected)), cy,
-             selected ? m.on_secondary_container : m.on_surface_variant);
-    }
+    for (std::size_t i = 0; i < kPlacementMenuFields; ++i)
+        slider_row(kPanelRowsTop + float(i) * kPanelRowH, kLabels[i], bounds[i].first, bounds[i].second, flat[i], values[i], rows[i].value,
+                   rows[i].selected, 1.f);
     // Everything clickable under the sliders is in M3 label large (bold) at kButtonLabelPx: the Resolution and Scale
     // boxes, their lists and the desktop row's buttons.
     const auto label_px = font ? kButtonLabelPx : 0u;
@@ -401,6 +459,21 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
                  state.resolution_w != 0 && state.resolution_h != 0 && !state.busy);
     dropdown_row(im, font, m, "Scale", kPanelScaleTop, glass_scale_box(), glass_scale_label(state.scale), label_px, state.picker,
                  state.scale != 0 && !state.busy);
+    // The background: its dropdown, an M3 switch beside it (on: the primary track and an on-primary handle at its end; off:
+    // an outlined track and a smaller outline handle), then the Brightness slider, M3 disabled while there is no background.
+    const auto background = std::min<std::size_t>(state.background, kBackgroundCount - 1);
+    dropdown_row(im, font, m, "Background", kPanelBackgroundTop, glass_background_box(), std::string(kBackgrounds[background].label), label_px,
+                 state.background_picker, true);
+    {
+        const FRect sw = glass_background_switch();
+        const bool on = background != 0;
+        const float x1 = sw.x + sw.width, y1 = sw.y + sw.height, cy = sw.y + sw.height / 2, end = sw.height / 2;
+        md_fill_rounded(im, sw.x, sw.y, x1, y1, end, on ? m.primary : m.surface_container_highest, 1.f);
+        if (!on) md_stroke_rounded(im, sw.x, sw.y, x1, y1, end, 2.f, m.outline, 1.f);
+        md_disc(im, on ? x1 - end : sw.x + end, cy, on ? kSwitchHandleOn : kSwitchHandleOff, on ? m.on_primary : m.outline, 1.f);
+    }
+    slider_row(kPanelBrightnessTop, "Brightness", kBrightnessMin, kBrightnessMax, kBrightnessDefault, state.brightness,
+               std::to_string(unsigned(state.brightness)) + "%", state.field == kPlacementMenuBrightness, background != 0 ? 1.f : kMdDisabledContent);
     // Desktop row: fully rounded M3 buttons (glass_panel_button_style), each an icon and its label (M3 label large) when
     // every button has room for both.
     bool icons = true;
@@ -422,22 +495,29 @@ HudImage render_glass_panel(const PlacementMenuState& state, const HudFont* font
     const auto hint_px = font ? kPanelHintPx : 0u;
     const float hint_w = float(font ? font->measure(hint, hint_px, false) : hud_text_width(hint, 2));
     text(im, font, hint, hint_px, false, std::max(kPanelPad, (W - hint_w) / 2), kPanelFooterTop + float(kPanelHintPx) / 2, m.outline);
-    // The open Scale list, last: an M3 menu over the slider rows (surface container, extra small corners, an
-    // outline-variant edge; opaque, so the sliders under it do not show), one item per step in label large: the current
-    // one on the secondary container, steps that cannot be picked M3 disabled (on-surface at 38%).
-    if (state.picker) {
-        const FRect first = glass_scale_item(0), last = glass_scale_item(kScaleSteps - 1);
+    // An open list, last: an M3 menu over the rows above its box (surface container, extra small corners, an outline-variant
+    // edge; opaque, so what is under it does not show), one item per choice in label large: the current one on the secondary
+    // container, ones that cannot be picked M3 disabled (on-surface at 38%).
+    auto list_frame = [&](const FRect& first, const FRect& last) {
         const float x0 = first.x, y0 = first.y - 1, x1 = first.x + first.width, y1 = last.y + last.height + 1;
         md_fill_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, m.surface_container, 1.f);
         md_stroke_rounded(im, x0, y0, x1, y1, kMdShapeExtraSmall, 1.f, m.outline_variant, 1.f);
-        for (std::size_t i = 0; i < kScaleSteps; ++i) {
-            const FRect r = glass_scale_item(i);
-            const bool current = kScalePercents[i] == state.scale, enabled = glass_scale_enabled(i, state);
-            if (current)
-                md_fill_rounded(im, r.x + 2, r.y + 1, r.x + r.width - 2, r.y + r.height - 1, kMdShapeExtraSmall, m.secondary_container, 1.f);
-            text(im, font, glass_scale_label(kScalePercents[i]), label_px, true, r.x + kFieldPadX, r.y + r.height / 2,
-                 current ? m.on_secondary_container : m.on_surface, enabled || current ? 1.f : kMdDisabledContent);
-        }
+    };
+    auto list_item = [&](const FRect& r, const std::string& label, bool current, bool enabled) {
+        if (current)
+            md_fill_rounded(im, r.x + 2, r.y + 1, r.x + r.width - 2, r.y + r.height - 1, kMdShapeExtraSmall, m.secondary_container, 1.f);
+        text(im, font, label, label_px, true, r.x + kFieldPadX, r.y + r.height / 2, current ? m.on_secondary_container : m.on_surface,
+             enabled || current ? 1.f : kMdDisabledContent);
+    };
+    if (state.picker) {
+        list_frame(glass_scale_item(0), glass_scale_item(kScaleSteps - 1));
+        for (std::size_t i = 0; i < kScaleSteps; ++i)
+            list_item(glass_scale_item(i), glass_scale_label(kScalePercents[i]), kScalePercents[i] == state.scale, glass_scale_enabled(i, state));
+    }
+    if (state.background_picker) {
+        list_frame(glass_background_item(0), glass_background_item(kBackgroundCount - 1));
+        for (std::size_t i = 0; i < kBackgroundCount; ++i)
+            list_item(glass_background_item(i), std::string(kBackgrounds[i].label), i == background, true);
     }
     // The open Resolution list, likewise an M3 menu over the slider rows (and their selected band, kBandInset in): a
     // column per shape, its name on top (on-surface-variant, regular) over an outline-variant divider, then its sizes in

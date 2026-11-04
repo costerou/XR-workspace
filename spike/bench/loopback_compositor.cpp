@@ -76,6 +76,8 @@ struct Options {
     double seconds = 5, warmup = 1.5, hz = 120, capture_hz = 119.7;
     int outputs = 3;
     bool check = false, tracking = false;
+    std::string environment;  // a background's name, sent as an `environment` frame at the start; empty: none
+    bool open_panel = false;  // the first desktop's placement panel open from the start (its view shift reported and, with --check, required)
     // Constraint churn, as Hyprland sends it on monitor mode events (a layout change re-checks every monitor rule; a config
     // reload takes each XR-n output through the default rule and back): "bounce" resends each session's constraints as
     // another size and straight back in one flush, plus an unchanged batch; "resize" alternates the source size, failing
@@ -828,7 +830,7 @@ void usage() {
     std::fprintf(stderr, "capture_e2e_bench --renderer PATH [--mode cpu|gl-shm|gl-dmabuf|pattern] [--seconds S] [--warmup S]\n"
                          "                  [--hz HZ] [--capture-hz HZ (0: static desktops)] [--outputs 1..4] [--tracking (bwrap)]\n"
                          "                  [--malloc-shim LIB [--malloc-trace FILE]] [--constraint-churn bounce|resize] [--fractional-scale N120]\n"
-                         "                  [--maximize 1..outputs] [--check]\n");
+                         "                  [--environment grid|smoke] [--open-panel] [--maximize 1..outputs] [--check]\n");
 }
 }  // namespace
 
@@ -849,6 +851,8 @@ int main(int argc, char** argv) {
         else if (a == "--check") opt.check = true;
         else if (a == "--constraint-churn") opt.churn = next();
         else if (a == "--tracking") opt.tracking = true;
+        else if (a == "--environment") opt.environment = next();  // a background from the start: grid or smoke
+        else if (a == "--open-panel") opt.open_panel = true;
         else if (a == "--fractional-scale") opt.fractional_scale = std::uint32_t(std::stoul(next()));
         else if (a == "--maximize") opt.maximize = std::stoi(next());
         else { usage(); return 2; }
@@ -988,6 +992,13 @@ int main(int argc, char** argv) {
     if (capture)
         send_frame(2, "view", "{\"zoomed\":false,\"selected\":0,\"spacing\":40,\"mode\":\"anchor\",\"cursor_follow\":false,"
                               "\"prediction\":false,\"typing\":false}");
+    std::uint64_t next_request = capture ? 3 : 2;
+    if (capture && !opt.environment.empty()) send_frame(next_request++, "environment", "{\"background\":\"" + opt.environment + "\",\"brightness\":100}");
+    if (capture && opt.open_panel) {
+        std::string placements;
+        for (int i = 0; i < opt.outputs; ++i) placements += std::string(i ? "," : "") + "{\"x\":0,\"y\":0,\"distance\":100,\"curvature\":0}";
+        send_frame(next_request++, "placement_menu", "{\"open\":true,\"desktop\":0,\"field\":\"x\",\"placements\":[" + placements + "]}");
+    }
 
     std::uint64_t heartbeats = 0, status_lines = 0, geometry_lines = 0;
     std::string stderr_text;
@@ -1033,8 +1044,8 @@ int main(int argc, char** argv) {
             if (opt.maximize) {
                 const std::string selected = ",\"selected\":" + std::to_string(opt.maximize - 1) + ",\"spacing\":40,\"mode\":\"";
                 const std::string rest = "\",\"cursor_follow\":false,\"prediction\":false,\"typing\":false}";
-                send_frame(3, "view", "{\"zoomed\":false" + selected + "anchor" + rest);
-                send_frame(4, "view", "{\"zoomed\":true" + selected + "follow" + rest);
+                send_frame(next_request++, "view", "{\"zoomed\":false" + selected + "anchor" + rest);
+                send_frame(next_request++, "view", "{\"zoomed\":true" + selected + "follow" + rest);
                 server.tiles = {xr::Rect{0, 0, kOutW, kOutH}};  // read the middle of the view from here on
                 server.maximized_ns = t + std::int64_t(kMaximizeSettleMs * 1e6);
             }
@@ -1044,7 +1055,7 @@ int main(int argc, char** argv) {
             cpu1 = process_cpu_ns(measured_pid); ctx1 = process_ctx_switches(measured_pid); hb1 = heartbeats;
             if (malloc_count) { mallocs1 = std::atomic_ref<std::uint64_t>(malloc_count[0]).load(); std::atomic_ref<std::uint64_t>(malloc_count[1]).store(0); }
             server.measuring = false;
-            send_frame(!capture ? 2 : opt.maximize ? 5 : 3, "stop", "{}");
+            send_frame(next_request, "stop", "{}");
             stop_sent = true; stop_deadline = t + 5'000'000'000;
         }
         if (!child_exited && waitpid(pid, &child_status, WNOHANG) == pid) child_exited = true;
@@ -1118,6 +1129,7 @@ int main(int argc, char** argv) {
                                                                 {"resize_settles", o.value("resize_settles", -1)},
                                                                 {"shape_eases", o.value("shape_eases", -1)}});
             out["capture_paths"] = paths;
+            if (j.contains("placement_menu") && j["placement_menu"].contains("view_shift_mrad")) out["view_shift_mrad"] = j["placement_menu"]["view_shift_mrad"];
             if (j.contains("composition") && j["composition"].is_object()) {
                 const auto& c = j["composition"];
                 out["composition"] = c.value("path", "");
@@ -1161,6 +1173,8 @@ int main(int argc, char** argv) {
                 if (i != want && server.centre_frames[i]) fail("another desktop is in the middle of the view");
             if (server.centre_none) fail("a frame had no desktop's frame in the middle of the view");
         }
+        if (opt.open_panel && out.value("view_shift_mrad", 0) <= 0) fail("the open panel did not shift the view");
+        if (!opt.open_panel && capture && out.value("view_shift_mrad", 0) != 0) fail("the view stayed shifted with no panel open");
         if (capture && !opt.churn.empty() && server.churn_events < 3) fail("too few constraint churn events");
         if (capture && opt.churn == "bounce") {
             if (!out.contains("capture_paths")) fail("no capture report");

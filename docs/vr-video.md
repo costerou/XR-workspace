@@ -87,6 +87,7 @@ between arrows:
 | --- | --- | --- | --- |
 | Texture filter | Catmull-Rom, Sharp, Bilinear, Nearest pixels | Catmull-Rom | How the projection pass reconstructs the frame where it is magnified (see [Sampling](#sampling)): a Catmull-Rom cubic (Keys a = −0.5), a sharper cubic (a = −0.75, a little more ringing), plain bilinear, or `GL_NEAREST` (hard texel edges, for judging the source's real resolution). The same choices as `XR_VIDEO_FILTER`, which overrides the menu when set. Minified areas keep trilinear mipmaps whatever the choice |
 | Deband | Off, On | Off | mpv's `deband` pass while it converts each frame into the texture: smooths the banding of compressed skies and gradients; a small GPU cost per decoded frame, none per display frame |
+| Background | None, Grid, Smoke | None | Not a video setting: [the background](technical.md#the-background), the same setting as Ctrl+Alt+E and the placement panel's dropdown. It stays behind the video, so it shows round a 180° or fisheye picture; a 360° one covers it |
 
 Each change applies to the playing video at once and is saved with the view settings: `video_quality` in layout.json
 (CLI runs) or in the glasses model's profile (`profiles.json`, panel runs). An older file without it loads the

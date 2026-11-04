@@ -46,6 +46,8 @@ the panel, to collapse it. While a panel is open a second, modal bind set (MENU_
 Escape) is installed and it is removed again on close: Up/Down pick the setting, Left/Right adjust it (Shift: big step),
 Tab / Shift+Tab move the open panel to the next / previous desktop, R puts that desktop back flat in its slot and
 levels it (no roll, free_pointer.OverviewPointer.level), Escape collapses.
+An open panel also follows the focus: when the selection moves to another desktop in the overview that desktop's panel
+opens and the old one collapses (ViewControl.follow_focus). With every pill collapsed a selection change opens nothing.
 Every change is applied live through the same `placement` frame, sent to the renderer as a `placement_menu` frame
 (open + desktop = the expanded pill; while the free pointer holds a slider, also `surface`, the press-time placement the
 renderer keeps the panel on) and saved to the profile 500 ms after the last change, or at once when the panel
@@ -54,7 +56,8 @@ Overview free pointer (free_pointer.py): in the overview the mouse can leave a d
 space as a small dim dot, to drag a desktop's pill (move), drag its corner (resize, the `distance` placement), click a
 pill (expand / collapse its panel), press or drag an open panel's sliders, roll a desktop with its arrows, or move onto
 any desktop (no click maximizes: only Ctrl+Alt+Up does); inside a desktop the real cursor works on windows as usual (a
-click there goes to the window, and the unified cursor's non-consuming bind also closes an open panel).
+click there goes to the window, and the unified cursor's non-consuming bind also brings an open panel to that desktop
+and takes its keys off the keyboard: ViewControl.desktop_press).
 resize_press and resize_release come from left-button binds: modal (consuming) while the pointer is outside the
 desktops, non-consuming over them (unified_cursor.py); they are not USER_OPS.
 
@@ -105,6 +108,12 @@ Space, Tab, Esc and other apps' Ctrl+Alt shortcuts reach the focused window. Ctr
 never saved and every run starts in control mode. Config reloads keep the current mode (after_reload in managed.py
 reinstalls the matching set). Panel buttons keep working.
 
+The background (environment.py): an optional 360 degree scene behind the desktops and a VR video, the TRON grid for now, in
+the theme's colour. The placement panel has a Background dropdown and switch (background_box / background_pick /
+background_switch) and a Brightness slider (a fifth `field`, brightness, that is not a placement), the same in every
+desktop's panel; Ctrl+Alt+E goes between None and the last background used. Saved with the view settings; the renderer
+turns it with the head pose whatever the viewing mode.
+
 Legacy cleanup: builds before the glass pills had a menu "mouse mode" (Ctrl+Alt+M) with its own left-button binds and
 hidden cursor. A run of such a build that died in mouse mode left those behind; remove_menu_binds_lua() (and the bind
 helper xr_control.py, which still accepts the old op names for this only) removes them and shows the cursor again, a
@@ -118,7 +127,9 @@ import re
 import threading
 import time
 
+from . import environment as _environment
 from . import quality as _quality
+from .environment import BRIGHTNESS_FIELD, SET_OP as ENVIRONMENT_SET_OP, TOGGLE_BIND as ENVIRONMENT_BIND, TOGGLE_OP as ENVIRONMENT_OP
 from .geometry import MAX_DESKTOPS
 from .privacy import PRIVACY_BIND, PRIVACY_OP
 from .send import SEND_OPS
@@ -141,7 +152,8 @@ BINDS = (('CTRL + ALT + up', 'zoom_in'), ('CTRL + ALT + down', 'zoom_out'), ('CT
          ('CTRL + ALT + Page_Up', 'help_prev'), ('CTRL + ALT + Page_Down', 'help_next'),  # help card pages (HELP_PAGE_OPS)
          PRIVACY_BIND,  # Ctrl+Alt+D: main display off / on (privacy.py)
          ('CTRL + ALT + C', 'playback_menu_toggle'),  # VR video: playback menu hidden / shown (PLAYBACK_MENU_OP)
-         ('CTRL + ALT + K', 'binds_toggle'))  # the key bind panel (BINDS_PANEL_OP, keybinds.py)
+         ('CTRL + ALT + K', 'binds_toggle'),  # the key bind panel (BINDS_PANEL_OP, keybinds.py)
+         ENVIRONMENT_BIND)  # Ctrl+Alt+E: the background, None <-> the last one used (environment.py)
 # Ctrl+Alt+PgUp / PgDn flip the open help card's pages (they do nothing while it is closed). Run binds, not modal ones:
 # plain PgUp / PgDn stay with the focused window, and Ctrl+Alt+Left / Right already switch desktops.
 HELP_PAGE_OPS = {'help_prev': -1, 'help_next': 1}
@@ -208,7 +220,8 @@ HELP_ACTIONS = {'zoom_in': 'Maximize the selected desktop', 'zoom_out': 'Overvie
                 'video_paste': 'Play the browser video you copied', 'help_prev': 'Previous help page',
                 'help_next': 'Next help page', PRIVACY_OP: 'Privacy: main display off / on',
                 PLAYBACK_MENU_OP: 'VR video: hide / show playback controls',
-                BINDS_PANEL_OP: 'Key binds: change keys, see conflicts'}
+                BINDS_PANEL_OP: 'Key binds: change keys, see conflicts',
+                ENVIRONMENT_OP: 'Background: none / last used'}
 # Placement pills: the panel's actions (shared contract with the renderer and tests; `menu_*` names kept from the
 # placement menu the pills replaced) and the modal binds present only while a panel is open.
 MENU_OPS = ('menu_toggle', 'menu_desktop_next', 'menu_desktop_prev', 'menu_field_next', 'menu_field_prev', 'menu_inc', 'menu_dec',
@@ -222,7 +235,7 @@ MENU_BINDS = (('up', 'menu_field_prev'), ('down', 'menu_field_next'), ('left', '
               ('U', 'menu_ultrawide'), ('N', 'menu_add'), ('Delete', 'menu_delete'))
 # Key-only ops that do nothing in typing mode: their binds are gone, so they can only come from a stale or racing bind.
 # (The overview free pointer, and with it every pill click and slider, is off in typing mode: OverviewPointer.overview.)
-IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key')
+IGNORED_WHILE_TYPING = MENU_OPS + SEND_OPS + (PRIVACY_OP, PLAYBACK_MENU_OP, BINDS_PANEL_OP, 'binds_key', ENVIRONMENT_OP)
 MAX_POINTER_PX = 8192      # spike/include/xr/ipc.hpp kMaxPointerPx (the overview free pointer's dot, canvas px)
 # (small, Shift) step per field, in the field's own units (geometry.PLACEMENT_BOUNDS); results are clamped to the bounds.
 MENU_STEPS = {'x': (2, 150), 'y': (2, 100), 'distance': (5, 25), 'curvature': (2, 20)}
@@ -260,15 +273,16 @@ EXTRA_HELP_ROWS = ()
 
 # Help card sections, in order: the op naming each row (a pair's first op). The renderer keeps a section on one page when
 # it fits one and draws a faint rule between sections. An op in BINDS but in no section lands in the last one.
-HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'next', 'spacing_down', 'recenter'),  # moving around the desktops
-                 ('mode_next', 'prediction', 'typing_toggle', PRIVACY_OP),              # modes
+HELP_SECTIONS = (('zoom_in', 'zoom_out', 'prev', 'spacing_down', 'recenter'),          # moving around the desktops
+                 ('mode_next', 'prediction', 'typing_toggle', PRIVACY_OP, ENVIRONMENT_OP),  # modes
                  ('menu_toggle', 'video_open'),                                          # placement and VR video
                  ('help', 'help_prev'))                                                  # this card (and the key bind panel)
 
 
 # Bind pairs shown as one help-card row, which keeps the card short. first op -> (second op, action); the second may be a
 # tuple of ops, all on the one row ('Ctrl+Alt+O / U / C').
-HELP_PAIRS = {'spacing_down': ('spacing_up', 'Less / more space between desktops'),
+HELP_PAIRS = {'prev': ('next', 'Previous / next desktop'),  # shares a row so the background's keeps the card at its roomiest text
+              'spacing_down': ('spacing_up', 'Less / more space between desktops'),
               # Ctrl+Alt+R shares the recenter row (both put things back) for the same reason as Ctrl+Alt+C below
               'recenter': (RESET_OP, 'Recenter / reset to 3 flat desktops'),
               # docs/web-video.md; Ctrl+Alt+C shares the row, so the card keeps its row count (help_card_test: roomiest text)
@@ -455,16 +469,18 @@ def placement_menu_frame(run_id, session, request_id, menu):
     press), `busy` (a desktop change is in progress). Optional Scale dropdown: `scale` (the open desktop's output scale
     in percent, one of SCALE_PERCENTS), `scales` (the percents it can take, increasing), `picker` (its list is open; open
     panels only). Optional Resolution dropdown: `resolution` (the open desktop's [width, height] in pixels, a size the
-    broker accepts), `resolution_picker` (its list is open; open panels only, never with `picker`)."""
+    broker accepts), `resolution_picker` (its list is open; open panels only, never with `picker`). Optional background
+    (environment.py): `background` (a name), `brightness` (percent), `background_picker` (its list is open; open panels
+    only, one list at a time); `field` may be environment.BRIGHTNESS_FIELD."""
     from .geometry import PLACEMENT_KEYS, validate_desktop, validate_placement, validate_placements
     keys = {'open', 'desktop', 'field', 'placements'}
     if not isinstance(menu, dict) or not keys <= set(menu) or \
             set(menu) - keys - {'surface', 'names', 'wide', 'armed', 'busy', 'scale', 'scales', 'picker', 'resolution',
-                                'resolution_picker'}:
+                                'resolution_picker', 'background', 'brightness', 'background_picker'}:
         raise ValueError('invalid menu')
     placements = validate_placements(menu['placements'])
     if type(menu['open']) is not bool or type(menu['desktop']) is not int or not 0 <= menu['desktop'] < len(placements) \
-            or menu['field'] not in PLACEMENT_KEYS or ('surface' in menu and menu['open'] is not True):
+            or menu['field'] not in PLACEMENT_KEYS + (BRIGHTNESS_FIELD,) or ('surface' in menu and menu['open'] is not True):
         raise ValueError('invalid menu')
     payload = {'open': menu['open'], 'desktop': menu['desktop'], 'field': menu['field'], 'placements': placements}
     if 'surface' in menu: payload['surface'] = validate_placement(menu['surface'])
@@ -474,18 +490,26 @@ def placement_menu_frame(run_id, session, request_id, menu):
                 or any(not 1 <= n <= MAX_DESKTOPS for n in names) or names != sorted(set(names))):
             raise ValueError('invalid menu')
         payload['names'] = list(names)
-    for key in ('wide', 'armed', 'busy', 'picker', 'resolution_picker'):
+    for key in ('wide', 'armed', 'busy', 'picker', 'resolution_picker', 'background_picker'):
         if key in menu:
             if type(menu[key]) is not bool: raise ValueError('invalid menu')
             payload[key] = menu[key]
-    if (payload.get('picker') or payload.get('resolution_picker')) and menu['open'] is not True: raise ValueError('invalid menu')
-    if payload.get('picker') and payload.get('resolution_picker'): raise ValueError('invalid menu')  # one list at a time
+    lists = [bool(payload.get(k)) for k in ('picker', 'resolution_picker', 'background_picker')]
+    if any(lists) and menu['open'] is not True: raise ValueError('invalid menu')
+    if sum(lists) > 1: raise ValueError('invalid menu')  # one list at a time
     if 'resolution' in menu:
         size = menu['resolution']
         if not isinstance(size, list) or len(size) != 2: raise ValueError('invalid menu')
         try: validate_desktop({'width': size[0], 'height': size[1], 'scale': 1.0})
         except ValueError: raise ValueError('invalid menu') from None
         payload['resolution'] = list(size)
+    if 'background' in menu:
+        if not isinstance(menu['background'], str) or menu['background'] not in _environment.NAMES: raise ValueError('invalid menu')
+        payload['background'] = menu['background']
+    if 'brightness' in menu:
+        lo, hi = _environment.BRIGHTNESS_BOUNDS
+        if type(menu['brightness']) is not int or not lo <= menu['brightness'] <= hi: raise ValueError('invalid menu')
+        payload['brightness'] = menu['brightness']
     if 'scale' in menu:
         if type(menu['scale']) is not int or menu['scale'] not in SCALE_PERCENTS: raise ValueError('invalid menu')
         payload['scale'] = menu['scale']
@@ -507,7 +531,7 @@ def warp_cursor_lua(x, y):
 
 
 class ViewState:
-    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None):
+    def __init__(self, names, spacing=DEFAULT_SPACING, prediction=True, placements=None, video_quality=None, environment=None):
         if not names or len(names) > MAX_DESKTOPS or any(not MANAGED.match(n) for n in names): raise ValueError('managed outputs required')
         if type(prediction) is not bool: raise ValueError('invalid prediction')
         # Every run starts in the overview, anchored (maximize-follow): `zoomed` is the maximized state, and the viewing
@@ -523,6 +547,10 @@ class ViewState:
         # saved with the view settings. Missing or invalid settings fall back to quality.DEFAULTS.
         from .quality import clean
         self.video_quality = clean(video_quality)
+        # The background (environment.py: read it with environment.environment); saved with the view settings. Its dropdown's
+        # list is open (like scale_picker, never saved, and any collapse or switch of the open panel closes it).
+        self.environment = _environment.clean(environment)
+        self.background_picker = False
         from .geometry import DEFAULT_PLACEMENT, validate_placement
         # One per managed output, in order (a saved profile holds one per desktop; extra entries are ignored).
         placements = list(placements or [])[:len(self.names)]
@@ -578,7 +606,7 @@ class ViewState:
         else:
             self.menu_open, self.menu_desktop = False, min(self.menu_desktop, len(names) - 1)
         self.menu_surface = None
-        self.remove_armed = self.scale_picker = self.resolution_picker = False
+        self.remove_armed = self.scale_picker = self.resolution_picker = self.background_picker = False
 
     def menu(self):
         """`placement_menu` payload: one placement per desktop and the desktop row (names, wide, armed, busy), plus
@@ -597,6 +625,8 @@ class ViewState:
             out['resolution'] = [size['width'], size['height']]
             out['resolution_picker'] = self.menu_open and self.resolution_picker
         if self.menu_open and self.menu_surface is not None: out['surface'] = dict(self.menu_surface)
+        out['background'], out['brightness'] = self.environment['background'], self.environment['brightness']
+        out['background_picker'] = self.menu_open and self.background_picker
         return out
 
     def size(self, desktop):
@@ -608,7 +638,7 @@ class ViewState:
         """Expand `desktop`'s pill into its panel; an open one on another desktop collapses (only one is ever open)."""
         if type(desktop) is not int or not 0 <= desktop < len(self.names): raise ValueError('invalid desktop')
         self.menu_open, self.menu_desktop, self.menu_surface = True, desktop, None
-        self.remove_armed = self.scale_picker = self.resolution_picker = False
+        self.remove_armed = self.scale_picker = self.resolution_picker = self.background_picker = False
 
     def hold_surface(self, placement):
         """The free pointer pressed one of the open panel's sliders: draw the panel on `placement` (the desktop's at the
@@ -641,27 +671,30 @@ class ViewState:
         """
         from .geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
         if op not in MENU_OPS: raise ValueError('unsupported menu operation')
-        # any panel key closes the Scale or Resolution list (they cover the sliders the keys adjust)
-        self.scale_picker = self.resolution_picker = False
+        # any panel key closes an open list (they cover the sliders the keys adjust)
+        self.scale_picker = self.resolution_picker = self.background_picker = False
         if op in MENU_DESKTOP_OPS: return False  # the desktop row: ViewControl.desktop_action, never a placement change
         if op == 'menu_back': op = 'menu_toggle' if self.menu_open else None
         if op == 'menu_toggle':
-            if self.menu_open: self.menu_open, self.menu_surface, self.remove_armed, self.scale_picker = False, None, False, False
+            if self.menu_open: self.menu_open, self.menu_surface, self.remove_armed = False, None, False
             else: self.open_menu(self.selected)  # the pill of the desktop being looked at
             return False
         if not self.menu_open: return False
         if op in ('menu_desktop_next', 'menu_desktop_prev'):  # the open panel moves to the next / previous desktop's pill
             self.menu_desktop = (self.menu_desktop + (1 if op == 'menu_desktop_next' else -1)) % len(self.names)
             self.menu_surface = None
-            self.remove_armed = self.scale_picker = False
+            self.remove_armed = False
             return False
         if op in ('menu_field_next', 'menu_field_prev'):
-            i = PLACEMENT_KEYS.index(self.menu_field) + (1 if op == 'menu_field_next' else -1)
-            self.menu_field = PLACEMENT_KEYS[i % len(PLACEMENT_KEYS)]
+            fields = PLACEMENT_KEYS + (BRIGHTNESS_FIELD,)
+            i = fields.index(self.menu_field) + (1 if op == 'menu_field_next' else -1)
+            self.menu_field = fields[i % len(fields)]
             return False
         current = self.placements[self.menu_desktop]
         if op == 'menu_reset':
             updated = dict(DEFAULT_PLACEMENT)
+        elif self.menu_field == BRIGHTNESS_FIELD:  # not a placement: ViewControl._on_menu changes it
+            return False
         else:
             small, big = MENU_STEPS[self.menu_field]
             step = (big if op.endswith('_big') else small) * (1 if op.startswith('menu_inc') else -1)
@@ -714,7 +747,7 @@ class ViewState:
         """The saved view settings. `mode` stays for the saved file's schema (profiles.py, an installed panel), always
         'anchor': every run starts in the anchored overview and the saved mode is never read (maximize-follow)."""
         return {'spacing': self.spacing, 'mode': 'anchor', 'prediction': self.prediction,
-                'video_quality': dict(self.video_quality)}
+                'video_quality': dict(self.video_quality), 'environment': dict(self.environment)}
 
     def apply(self, op):
         """Update state; return the output to focus, or None."""
@@ -748,14 +781,15 @@ def settings_path():
 
 
 DEFAULT_SETTINGS = {'spacing': DEFAULT_SPACING, 'mode': 'anchor', 'prediction': True,
-                    'video_quality': dict(_quality.DEFAULTS)}  # quality.py owns its defaults
+                    'video_quality': dict(_quality.DEFAULTS),  # quality.py owns its defaults
+                    'environment': dict(_environment.DEFAULTS)}  # as environment.py does its own
 
 
 def load_settings(path):
     """Each field validated on its own; anything invalid or missing falls back to its default. A `cursor_follow`
     saved before 2026-11-02 and a `cursor_switch_animate` saved before 2026-11-03 (Ctrl+Alt+A) are ignored (both
     features were removed)."""
-    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS)}
+    out = {**DEFAULT_SETTINGS, 'video_quality': dict(_quality.DEFAULTS), 'environment': dict(_environment.DEFAULTS)}
     try:
         data = json.loads(Path(path).read_text())
     except (OSError, ValueError):
@@ -765,6 +799,7 @@ def load_settings(path):
     if data.get('mode') in MODES: out['mode'] = data['mode']
     if type(data.get('prediction')) is bool: out['prediction'] = data['prediction']
     out['video_quality'] = _quality.video_quality(data)
+    out['environment'] = _environment.environment(data)
     return out
 
 
@@ -781,7 +816,8 @@ def save_settings(path, settings):
 
 def _valid(settings):
     return (type(settings.get('spacing')) is int and 0 <= settings['spacing'] <= MAX_SPACING and settings.get('mode') in MODES
-            and type(settings.get('prediction')) is bool and _quality.is_valid(settings.get('video_quality')))
+            and type(settings.get('prediction')) is bool and _quality.is_valid(settings.get('video_quality'))
+            and _environment.is_valid(settings.get('environment')))
 
 
 def load_spacing(path):
@@ -972,11 +1008,13 @@ class ViewControl:
         self.menu_binds = menu_binds  # optional (open: bool) -> None: install/remove the panel's modal binds (compositor call)
         self.clock = clock
         self.save_due = None          # monotonic deadline of a pending debounced placement save
+        self.environment_save_due = None  # the same for a Brightness drag (the view settings)
         self._pusher = None           # bump.Pusher of the desktop the panel keys / sliders last moved (kept while it is)
         self._settle_due = False      # the renderer reported a new overview layout: overlaps to push apart (_settle)
         self.bumps = 0                # diagnostics: edits that pushed another desktop out of the way
         self._menu_lock = threading.Lock()
         self._menu_binds_installed = False
+        self.menu_keys_off = False    # a press on a desktop gave the keyboard back to the window, the panel staying (desktop_press)
         self._menu_threads = []
         self.overview_pointer = None  # optional free_pointer.OverviewPointer (overview free pointer); set by managed.view_controls
         self.wake = None    # optional socket the supervisor loop also waits on (the free pointer's sampler pokes it)
@@ -1021,7 +1059,7 @@ class ViewControl:
         self.supervisor = supervisor
 
     def initial_frame(self):
-        return self._frame() + self._placement_frame(initial=True) + self._style_frame()
+        return self._frame() + self._placement_frame(initial=True) + self._style_frame() + self._environment_frame(initial=True)
 
     def _placement_frame(self, initial=False, glide=False):
         from .geometry import DEFAULT_PLACEMENT
@@ -1030,6 +1068,35 @@ class ViewControl:
         frame = placement_frame(self.run_id, self.session, self.next_id, self.state.placements, glide=GLIDE_MS if glide else None)
         self.next_id += 1
         return frame
+
+    def _environment_frame(self, initial=False):
+        """The background's setting for the renderer; a run's start sends it only if there is one (the renderer starts with none)."""
+        if initial and not _environment.on(self.state.environment): return b''
+        frame = _environment.renderer_frame(self.run_id, self.session, self.next_id, self.state.environment)
+        self.next_id += 1
+        return frame
+
+    def _save_environment(self):
+        self.environment_save_due = None
+        try: self.settings.save(self.state.settings())
+        except (OSError, ValueError): pass  # best effort, like the other view settings: the run keeps going
+
+    def set_environment(self, env):
+        """The background changes (Ctrl+Alt+E, the panel, the quality menu's row, the controller): applied live and saved with
+        the view settings. The renderer's frames (an open panel shows it too), b'' if nothing changed."""
+        env = _environment.validate(env)
+        if env == self.state.environment: return b''
+        self.state.environment = env
+        self._save_environment()
+        return self._environment_frame() + (self._menu_frame() if self.state.menu_open else b'')
+
+    def _brightness(self, env):
+        """The panel's Brightness row: applied live, saved after MENU_SAVE_DELAY (a drag sends one per pointer move) and at once
+        when flush() comes (a release, a collapse). Nothing with no background: the row is M3 disabled. Frames (bytes)."""
+        if not _environment.on(self.state.environment) or env == self.state.environment: return b''
+        self.state.environment = env
+        self.environment_save_due = self.clock() + MENU_SAVE_DELAY
+        return self._environment_frame()
 
     def _overview_layout(self):
         """The renderer's overview layout (free_pointer.parse_overview_geometry) while it has one slot per desktop, else
@@ -1147,6 +1214,16 @@ class ViewControl:
         """Panel key op. Ctrl+Alt+L while maximized goes back to the overview first, so the expanding pill is seen."""
         if op in MENU_DESKTOP_OPS:  # U / N / Delete: the open panel's desktop row
             return (self.desktop_action(self.state.menu_desktop, MENU_DESKTOP_OPS[op]) if self.state.menu_open else b'') or None
+        if op in ('menu_inc', 'menu_dec', 'menu_inc_big', 'menu_dec_big') and self.state.menu_open and self.state.menu_field == BRIGHTNESS_FIELD:
+            step = _environment.BRIGHTNESS_STEPS[op.endswith('_big')] * (1 if op.startswith('menu_inc') else -1)
+            env = self.state.environment
+            frames = []
+
+            def change():  # (apply_menu closes an open list)
+                frames.append(self._brightness(_environment.brightened(env, env['brightness'] + step)))
+                return self.state.apply_menu(op)
+            out = self._menu_update(change)
+            return (b''.join(frames) + out) or None
         out = self._zoom_out() if op == 'menu_toggle' and not self.state.menu_open and self.state.zoomed else b''
         level = self.state.menu_desktop if op == 'menu_reset' and self.state.menu_open else None
         out += self._menu_update(lambda: self.state.apply_menu(op))
@@ -1155,6 +1232,33 @@ class ViewControl:
         return out or None
 
     # --- the overview free pointer's pill clicks and sliders (free_pointer.OverviewPointer) ------------------------------
+    def follow_focus(self):
+        """The selection just moved to another desktop in the overview: an open panel goes with it, that desktop's pill
+        expanding and the old one collapsing (its changes saved at once, the panel's keys staying), as Tab does. With every
+        pill collapsed nothing opens. Renderer frames (bytes), b'' if the panel stayed."""
+        s = self.state
+        if not s.menu_open or s.zoomed or s.typing or self.video_active or s.selected == s.menu_desktop: return b''
+        self.flush()
+        return self._menu_update(lambda: s.open_menu(s.selected) or False)
+
+    def desktop_press(self):
+        """A left press on a desktop's content with a panel open (unified_cursor: the window has the click). The panel stays
+        (Cody, 2026-11-03: clicking another desktop moves it there, so a press on a desktop is no click outside it), on that
+        desktop if it was on another, and its modal keys come off: they are plain keys (R, U, N, Delete, arrows, Tab, Escape),
+        and the typing is the window's now. A press on the panel or its pill brings them back (panel_keys_on), and a collapse
+        forgets it. Renderer frames (bytes), b'' if the panel stayed where it was."""
+        out = self.follow_focus()
+        if self.state.menu_open and not self.menu_keys_off:
+            self.menu_keys_off = True
+            self._sync_menu_binds()
+        return out
+
+    def panel_keys_on(self):
+        """A press on the open panel or its pill: the panel is in use again, so its modal keys are back (desktop_press)."""
+        if not self.menu_keys_off: return
+        self.menu_keys_off = False
+        self._sync_menu_binds()
+
     def pill_click(self, desktop):
         """A click on `desktop`'s pill (or its open panel's header): expand it, collapsing any other (only one is open),
         or collapse it if it is the open one. Same path as Ctrl+Alt+L: the modal keys are installed / removed, a
@@ -1181,12 +1285,17 @@ class ViewControl:
         the open one. Frames (bytes)."""
         if not self.state.menu_open or self.state.menu_desktop != desktop: return b''
         self.last_input = self.clock()  # a held slider keeps the panel up
+        frames = []
 
         def change():
             if surface is not None: self.state.hold_surface(surface)
-            return self.state.slide(field, t)
+            if field != BRIGHTNESS_FIELD: return self.state.slide(field, t)
+            self.state.menu_field = field
+            frames.append(self._brightness(_environment.slid(self.state.environment, t)))
+            return False
         if surface is not None: self._pusher = None  # a new press: a new edit
-        return self._menu_update(change, keep=True, glide=surface is not None)
+        out = self._menu_update(change, keep=True, glide=surface is not None)
+        return b''.join(frames) + out
 
     def pill_release(self):
         """The held slider was let go (or its drag ended): the open panel goes back onto its desktop's live placement.
@@ -1194,6 +1303,39 @@ class ViewControl:
         self._pusher = None  # that slider edit is over
         if self.state.menu_surface is None: return b''
         return self._menu_update(lambda: self.state.hold_surface(None) or False)
+
+    # --- the open panel's background row (environment.py) -------------------------------------------------------------
+    def _open_panel(self, desktop):
+        s = self.state
+        return type(desktop) is int and s.menu_open and s.menu_desktop == desktop and not s.typing and not self.video_active
+
+    def background_box(self, desktop):
+        """A free-pointer click on the open panel's Background box: its list opens, or closes if it is open. Frames (bytes)."""
+        if not self._open_panel(desktop): return b''
+        self.last_input = self.clock()
+        s = self.state
+        s.background_picker, s.scale_picker, s.resolution_picker, s.remove_armed = not s.background_picker, False, False, False
+        return self._menu_frame()
+
+    def background_close(self):
+        """A press on the open panel away from the Background list: the list closes. Frames (bytes), b'' if it was closed."""
+        if not self.state.background_picker: return b''
+        self.state.background_picker = False
+        return self._menu_frame()
+
+    def background_pick(self, desktop, name):
+        """A click on an item of the open Background list: the list closes and that background fades in. Frames (bytes)."""
+        if not self._open_panel(desktop) or not self.state.background_picker: return b''
+        self.last_input = self.clock()
+        self.state.background_picker = False
+        return self.set_environment(_environment.picked(self.state.environment, name)) or self._menu_frame()
+
+    def background_switch(self, desktop):
+        """A click on the open panel's switch: as Ctrl+Alt+E. Frames (bytes)."""
+        if not self._open_panel(desktop): return b''
+        self.last_input = self.clock()
+        self.state.background_picker = False
+        return self.set_environment(_environment.toggled(self.state.environment))
 
     # --- the open panel's desktop row (desktops.py) -----------------------------------------------------------------
     def scale_box(self, desktop):
@@ -1204,7 +1346,7 @@ class ViewControl:
         if s.typing or self.video_active or s.size(desktop) is None: return b''
         self.last_input = self.clock()
         if not s.scale_picker and (s.desktops_busy or self.desktops.busy()): return b''
-        s.scale_picker, s.remove_armed, s.resolution_picker = not s.scale_picker, False, False
+        s.scale_picker, s.remove_armed, s.resolution_picker, s.background_picker = not s.scale_picker, False, False, False
         return self._menu_frame()
 
     def scale_close(self):
@@ -1237,7 +1379,7 @@ class ViewControl:
         if s.typing or self.video_active or s.size(desktop) is None: return b''
         self.last_input = self.clock()
         if not s.resolution_picker and (s.desktops_busy or self.desktops.busy()): return b''
-        s.resolution_picker, s.scale_picker, s.remove_armed = not s.resolution_picker, False, False
+        s.resolution_picker, s.scale_picker, s.background_picker, s.remove_armed = not s.resolution_picker, False, False, False
         return self._menu_frame()
 
     def resolution_close(self):
@@ -1276,7 +1418,7 @@ class ViewControl:
         if s.typing or self.video_active or not s.menu_open or s.menu_desktop != desktop: return b''
         now = self.last_input = self.clock()
         if s.desktops_busy or self.desktops.busy(): return b''
-        s.scale_picker = s.resolution_picker = False
+        s.scale_picker = s.resolution_picker = s.background_picker = False
         if action == 'remove' and not (s.remove_armed and self.remove_armed_at is not None and now - self.remove_armed_at < REMOVE_ARM_S):
             s.remove_armed, self.remove_armed_at = True, now  # "Remove?": a second press removes
             return self._menu_frame()
@@ -1508,14 +1650,14 @@ class ViewControl:
         (anchor-no-click-maximize, 2026-11-03: a click never maximizes; Ctrl+Alt+Up and the panel's Maximize do). The
         highlight moves there, as Ctrl+Alt+Left / Right move it. The free pointer then brings the real cursor back onto
         that desktop under the dot, and that warp gives its monitor Hyprland's focus (focus-follows-mouse; no focus thread
-        here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel was already collapsed by
-        the press (free_pointer: Clicks). One view frame, or b'' when stale (zoomed in, typing mode, a VR video, no such
-        desktop) or already selected."""
+        here: Hyprland's monitor focus would warp the cursor away from the dot). An open panel goes to that desktop
+        (follow_focus; free_pointer: Clicks, a press on a desktop does not collapse it). Frames (bytes): a view frame and
+        the panel's if it moved, b'' when stale (zoomed in, typing mode, a VR video, no such desktop) or nothing changed."""
         if type(desktop) is not int or not 0 <= desktop < len(self.state.names): return b''
         if self.state.zoomed or self.state.typing or self.video_active: return b''  # no free pointer then: a stale click
-        if desktop == self.state.selected: return b''
+        if desktop == self.state.selected: return self.follow_focus()  # Tab may have taken the panel elsewhere
         self.state.selected = desktop
-        return self._frame()
+        return self._frame() + self.follow_focus()
 
     def switch_desktop(self, desktop):
         """Maximized, the cursor pushed past the selected desktop's edge toward `desktop` (unified_cursor.EdgePush; the
@@ -1549,6 +1691,7 @@ class ViewControl:
         if self.overview_pointer is not None: self.overview_pointer.set_roll_geometry(tilts)
 
     def _sync_menu_binds(self, force=False):
+        if not self.state.menu_open: self.menu_keys_off = False  # the next panel starts with its keys
         if self.menu_binds is None: return
         # Compositor call: never on the watchdog loop. The worker applies the state current when it runs, serialized,
         # so a fast open/close/open cannot leave the binds out of step with the panel.
@@ -1557,7 +1700,7 @@ class ViewControl:
 
     def _menu_bind_work(self, force):
         with self._menu_lock:
-            binds, want = self.menu_binds, self.state.menu_open
+            binds, want = self.menu_binds, self.state.menu_open and not self.menu_keys_off
             if binds is not None and (want != self._menu_binds_installed or (force and want)):
                 try:
                     binds(want)
@@ -1573,6 +1716,7 @@ class ViewControl:
         out += self.overview_pointer.poll(now) if self.overview_pointer is not None else b''  # pill / corner drags, sliders
         if self.reset is None: self._watch_rolls(now)  # a roll arrow's change is saved like a placement
         if self.save_due is not None and now >= self.save_due: self.flush()
+        if self.environment_save_due is not None and now >= self.environment_save_due: self._save_environment()
         if self.desktops is not None:  # a desktop change done; Remove disarms after a while
             from .desktops import REMOVE_ARM_S
             result = self.desktops.take_result()
@@ -1637,7 +1781,9 @@ class ViewControl:
         if self.overview_pointer is not None: self.overview_pointer.set_help_geometry(geometry)
 
     def flush(self):
-        """Write any pending panel / drag placement save now (panel collapse, drag release, run end)."""
+        """Write any pending panel / drag placement save now (panel collapse, drag release, run end), and a pending
+        brightness."""
+        if self.environment_save_due is not None: self._save_environment()
         if self.save_due is None: return
         self.save_due = None
         self._save_placements()
@@ -1675,6 +1821,11 @@ class ViewControl:
         if isinstance(message, dict) and message.get('op') in SEND_OPS:  # the move itself runs off the loop
             if self.sender is not None: self.sender.request(message['op'], self.state.names[self.state.selected])
             return None
+        if isinstance(message, dict) and message.get('op') == ENVIRONMENT_OP:  # Ctrl+Alt+E: None <-> the last background
+            return self.set_environment(_environment.toggled(self.state.environment)) or None
+        if isinstance(message, dict) and message.get('op') == ENVIRONMENT_SET_OP:  # the controller: absolute, like `placement`
+            try: return self.set_environment(message.get('payload')) or None
+            except ValueError: return None
         if isinstance(message, dict) and message.get('op') == PRIVACY_OP:  # the compositor call runs off the loop
             if self.privacy is not None: self.privacy.request()
             return None
@@ -1709,6 +1860,7 @@ class ViewControl:
         if self.state.view() != before:
             out += self._frame(cut=True) if direct and self.state.selected != before['selected'] else self._frame()
         out += self._release_placements()  # un-maximized by that op
+        if self.state.selected != before['selected']: out += self.follow_focus()
         return out or None
 
     def _on_placement(self, payload):

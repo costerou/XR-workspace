@@ -106,6 +106,7 @@ which sits on top of the desktops). The card opens on page 1 every time.
 | Ctrl+Alt+Space | Recenter: bring the desktops back in front of you |
 | Ctrl+Alt+V | While a desktop is maximized: switch it between following your head and locked to your view (see below) |
 | Ctrl+Alt+P | Turn head-motion prediction on or off (it cuts lag; on by default) |
+| Ctrl+Alt+E | The background behind your desktops: off, and back to the last one you used (see below) |
 | Ctrl+Alt+L | Open or close the placement pill of the selected desktop (goes back to the overview first) |
 | Ctrl+Alt+R, twice | Reset every desktop to three flat 1920×1080 desktops at 100%, and save that as your layout (see [Placing desktops](#placing-desktops)) |
 | Ctrl+Alt+G | Send the window you're using to the selected glasses desktop |
@@ -152,6 +153,25 @@ what you are looking at, as on the INAIR Pod:
 
 Ctrl+Alt+V in the overview changes nothing; a small notification says why. The little card in the glasses names the
 mode when the session starts and when Ctrl+Alt+V changes it, not on every maximize.
+
+**The background** (new, not yet tried in the glasses). By default there is nothing behind your desktops: black, which you
+see through. Open any desktop's pill (Ctrl+Alt+L) and the **Background** dropdown offers **None**, **Grid** or **Smoke**. Grid is
+the TRON grid: a black sky, a glowing grid floor running off to a bright horizon, a ring of mountain outlines in the distance,
+and light trails racing along the grid lines. Smoke is slow wisps of fog drifting round you, thickest about the horizon and
+thinning out overhead, with clear black air between them. Either one fades in behind your desktops and stays put in the room whatever they do, so you can
+look all the way round, up and down, also while a desktop is maximized or locked to your view.
+
+- **Ctrl+Alt+E**, or the switch beside the dropdown, turns it off and back on. It goes between None and the last background
+  you used.
+- **Brightness**, the slider under the dropdown, goes from 10% to 200%; 100% is the normal look. Black stays black at any
+  setting and nothing gets brighter than the glasses' safe limit. With the pill open, Up / Down reach it too and Left / Right
+  change it.
+- **The colour is your theme's**, the same colour as the desktops' borders and glow. A theme change recolours it at once.
+- **Behind a VR video** it stays where it is: you see it round a 180° or fisheye video. A 360° video covers all of it. The
+  video's quality menu (Q) has a Background row too.
+
+Your desktops, pills and the grey dot sit on top of it exactly as before. Your choice is remembered per pair of glasses and
+comes back at your next XR start.
 
 **Sending windows.** Ctrl+Alt+G sends a window to the desktop you have maximized, or the one highlighted in the
 overview. The number keys work on any keyboard layout. A pinned window can't be sent; unpin it first. If nothing can be
@@ -289,6 +309,13 @@ degrees, so a single small step may not change the number there; the panel's **P
 keys and sliders bump other desktops out of the way like a drag does (above), and R walks the desktop back to its slot,
 pushing aside whatever is there now.
 
+**While a pill is open** (new, not yet tried in the glasses) your desktops ease up a little, so the whole panel fits in view
+with your head level, key hints included, and ease back down when it closes. A background stays where it is. **The open pill
+follows the selected desktop:** select another desktop in the overview (Ctrl+Alt+Left / Right, the dot moving onto it, or a click
+on it) and its pill opens as the old one closes. If no pill is open, selecting a desktop opens nothing. A click into a window keeps
+the pill open, but its plain keys (arrows, Tab, R, U, N, Delete, Esc) go back to the window so you can type. Click the panel to
+get them back.
+
 These keys only take over while a pill is open. After it closes, the arrows, Tab, R and Esc type normally again.
 Maximizing a desktop (Ctrl+Alt+Up) closes an open pill, and so does starting a video.
 
@@ -414,7 +441,7 @@ While a video plays:
 
 **Quality menu:** press **Q** while a video plays. The controls card shows the video's quality settings. Up and Down
 pick a setting, Left and Right change it, and Q or Esc closes the menu. Changes show at once and are remembered for
-your next videos, per pair of glasses. There are two settings. **Texture filter** is *Catmull-Rom* (the default, crisp), *Sharp*
+your next videos, per pair of glasses. There are two video settings, plus a [Background](#everyday-use) row. **Texture filter** is *Catmull-Rom* (the default, crisp), *Sharp*
 (crisper, with a little ringing), *Bilinear* (softer) or *Nearest pixels* (hard pixel edges). **Deband** is *Off* (the default) or *On*; it smooths the stepped bands you can see in skies and gradients.
 
 Videos with copy protection, or links that need you to be logged in, won't play. The panel or a notification will tell

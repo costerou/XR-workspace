@@ -106,7 +106,7 @@ class GeometryTests(unittest.TestCase):
     def test_the_mirror_holds_the_renderers_numbers(self):
         # glass.hpp; the ctest glass_contract compares them with the renderer's own dump.
         self.assertEqual((fp.PILL_SHARE, fp.PILL_MIN, fp.PILL_MAX, fp.PILL_THICKNESS, fp.PILL_GAP), (0.24, 64.0, 160.0, 14.0, 10.0))
-        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 326.0, 42.0))  # four setting rows, Resolution, Scale, the desktop row
+        self.assertEqual((fp.PANEL_W, fp.PANEL_H, fp.PANEL_HEADER_H), (480.0, 394.0, 42.0))  # four setting rows, Resolution, Scale, Background, Brightness, the desktop row
         self.assertEqual((fp.PANEL_ROWS_TOP, fp.PANEL_ROW_H, fp.PANEL_KNOB_LO, fp.PANEL_KNOB_HI), (46.0, 34.0, 191.0, 367.0))
         self.assertEqual((fp.PILL_PAD_X, fp.PILL_PAD_Y, fp.PANEL_SLOP_PX, fp.CLICK_PX), (10.0, 10.0, 12.0, 4.0))
         # Seven rows and the footer fit the panel (glass.hpp kPanelFooterTop + kPanelHintPx + 6 <= kPanelH).
@@ -130,7 +130,7 @@ class GeometryTests(unittest.TestCase):
         for tile in G['tiles'] + [(0.0, 100.0, 60.0, 40.0)]:
             with self.subTest(tile=tile):
                 x, y, w, h = fp.panel_rect(tile)
-                self.assertEqual((w, h), (480.0, 326.0))
+                self.assertEqual((w, h), (480.0, 394.0))
                 self.assertAlmostEqual(x + w / 2, tile[0] + tile[2] / 2)
                 self.assertEqual(y, fp.pill_rect(tile)[1])
 
@@ -408,6 +408,24 @@ class PillClickTests(Base):
         self.assertEqual(self.p.mode, 'desktop')
         self.assertEqual(self.press() + self.release(), [])  # the run never gets such a click; if it did, nothing happens
         self.assertTrue(self.state.menu_open)
+
+    def test_a_press_on_the_panel_brings_back_the_keys_a_press_on_a_desktop_gave_up(self):
+        self.open_by_click(0)
+        self.control.desktop_press()
+        self.assertEqual(self.join(), [True, False])
+        self.to(*on_panel(T0, 30, 150))
+        self.press(); self.release()
+        self.assertTrue(self.state.menu_open)
+        self.assertEqual(self.join(), [True, False, True])
+
+    def test_a_click_outside_collapses_and_forgets_them(self):
+        self.open_by_click(0)
+        self.control.desktop_press()
+        self.assertEqual(self.join(), [True, False])
+        self.to(*pill_centre(T1))
+        self.press()  # another pill: a click outside closes it, and that forgets the keys
+        self.assertFalse(self.state.menu_open)
+        self.assertFalse(self.control.menu_keys_off)
 
 
 class PillDragTests(Base):
@@ -1158,7 +1176,8 @@ class WireTests(unittest.TestCase):
         frame = json.loads(view.placement_menu_frame('run', 's', 4, s.menu()))
         self.assertEqual(frame['op'], 'placement_menu')
         # No pointer; since desktops change in XR, also the panel's desktop row (desktops.py).
-        self.assertEqual(set(frame['payload']), {'open', 'desktop', 'field', 'placements', 'names', 'wide', 'armed', 'busy'})
+        self.assertEqual(set(frame['payload']), {'open', 'desktop', 'field', 'placements', 'names', 'wide', 'armed', 'busy',
+                                                 'background', 'brightness', 'background_picker'})
         self.assertEqual((frame['payload']['open'], frame['payload']['desktop']), (True, 2))
 
     def test_move_handle_drives_the_pills(self):

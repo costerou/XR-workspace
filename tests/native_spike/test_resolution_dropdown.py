@@ -377,7 +377,7 @@ class PointerTests(unittest.TestCase):
                 mock.patch.object(fp, 'unproject', return_value=(0.0, 0.0)), \
                 mock.patch.object(fp, 'desktop_to_glass', side_effect=lambda tile, p, q: (tile[0] + tile[2] / 2, tile[1] + tile[3] + 20)):
             fp.hit({'tiles': [(0.0, 0.0, 800.0, 450.0)]}, [FLAT], (1.0, 1.0), open_=0, resolution_picker=True)
-        self.assertEqual(panel_hit.call_args.args[3:], (False, True))
+        self.assertEqual(panel_hit.call_args.args[3:], (False, True, False))
 
 
 class BrokerTests(unittest.TestCase):
