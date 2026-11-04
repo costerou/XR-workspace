@@ -9,11 +9,13 @@ from tools.native_spike import view
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
+from control_wire import in_order
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
 
 
 def frames(data):
+    in_order(data)
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
 

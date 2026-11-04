@@ -525,4 +525,51 @@ std::optional<ControlMessage> ControlQueue::pop() {
     if (messages_.empty()) return std::nullopt;
     auto message = std::move(messages_.front()); messages_.pop_front(); return message;
 }
+ControlStream::ControlStream(std::string run_id, std::string session, bool fatal, Deliver deliver, Refused refused)
+    : queue_(std::move(run_id), std::move(session)), fatal_(fatal), deliver_(std::move(deliver)), refused_callback_(std::move(refused)) {}
+void ControlStream::start(std::string_view frame) {
+    (void)queue_.push(frame);
+    while (queue_.pop()) {}
+}
+bool ControlStream::refuse(const Error& error, std::string_view frame) {
+    ++refused_;
+    ControlRefusal refusal{error, {}, 0};
+    // Only for the log and the descriptor a video frame may have brought: nothing of a refused frame is acted on.
+    const auto parsed = Json::parse(frame, nullptr, false);
+    if (parsed.is_object()) {
+        if (parsed.contains("op") && token(parsed["op"])) refusal.op = parsed["op"].get<std::string>();
+        if (parsed.contains("request_id") && parsed["request_id"].is_number_unsigned()) refusal.request_id = parsed["request_id"].get<std::uint64_t>();
+    }
+    refused_callback_(refusal);
+    if (fatal_ && !ignorable_control_error(error)) stopped_ = true;
+    return !stopped_;
+}
+bool ControlStream::feed(std::string_view bytes) {
+    if (skipping_) {
+        const auto end = bytes.find('\n');
+        if (end == bytes.npos) return true;
+        bytes.remove_prefix(end + 1);
+        skipping_ = false;
+    }
+    pending_.append(bytes);
+    for (std::size_t nl; (nl = pending_.find('\n')) != std::string::npos;) {
+        const auto frame = pending_.substr(0, nl + 1);
+        pending_.erase(0, nl + 1);
+        const auto pushed = queue_.push(frame);
+        if (const auto* error = std::get_if<Error>(&pushed)) {
+            if (!refuse(*error, frame)) return false;
+            continue;
+        }
+        while (auto message = queue_.pop()) {
+            ++accepted_;
+            deliver_(*message);
+        }
+    }
+    if (pending_.size() > kMaxControlPending) {
+        pending_.clear();
+        skipping_ = true;
+        return refuse({kControlOverflowCode, "Gave up on a control frame with no end"}, {});
+    }
+    return true;
+}
 } // namespace xr

@@ -21,6 +21,7 @@ import unittest
 from tools.native_spike import video, view, web_video as wv, xr_control
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
+from control_wire import in_order
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
 FFMPEG, FFPROBE = shutil.which('ffmpeg'), shutil.which('ffprobe')
@@ -34,6 +35,7 @@ def web(*sources, **kw):
 
 
 def frames(data):
+    in_order(data)
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
 

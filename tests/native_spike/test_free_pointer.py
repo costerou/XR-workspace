@@ -17,6 +17,7 @@ from unittest import mock
 from tools.native_spike import free_pointer as fp, orbit, resize, view, xr_control
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS
 from tools.native_spike.profiles import LayoutStore
+from control_wire import in_order
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads((ROOT / 'tests/native_spike/fixtures/overview_pointer_payloads.json').read_text())
@@ -49,6 +50,7 @@ def dot_frame(pointer, held=False):
 
 
 def frames(data, ops=None):
+    in_order(data)
     out = [json.loads(line) for line in (data or b'').decode().splitlines()]
     return [f for f in out if ops is None or f['op'] in ops]
 

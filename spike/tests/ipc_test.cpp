@@ -1,8 +1,10 @@
 #include "xr/ipc.hpp"
 #include <iostream>
 #include <stdexcept>
+#include <cstdint>
 #include <string>
 #include <variant>
+#include <vector>
 
 void require(bool value) { if (!value) throw std::runtime_error("IPC assertion failed"); }
 std::string wire(unsigned id = 1) {
@@ -373,5 +375,70 @@ int main() {
         const auto too_many = xr::decode_control(binds(many + R"(],"selected":0,"hint":"h","status":"","alert":false})"));
         require(std::holds_alternative<xr::Error>(too_many) && xr::ignorable_control_error(std::get<xr::Error>(too_many)));
     }
-    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, view, recenter, help, placement, placement_menu, binds: PASS\n";
+    {  // ControlStream, what main.cpp runs: one bad frame costs that frame, never the session.
+        const auto named = [](unsigned id, const std::string& op, const std::string& run = "run") {
+            return "{\"schema\":1,\"request_id\":" + std::to_string(id) + ",\"run_id\":\"" + run + "\",\"session\":\"session\",\"op\":\"" + op + "\",\"payload\":{}}\n";
+        };
+        struct Log { std::vector<std::uint64_t> taken; std::vector<xr::ControlRefusal> refused; };
+        const auto stream = [](Log& log, bool fatal) {
+            return xr::ControlStream("run", "session", fatal, [&log](xr::ControlMessage& m) { log.taken.push_back(m.request_id); },
+                                     [&log](const xr::ControlRefusal& r) { log.refused.push_back(r); });
+        };
+        {  // The 2026-11-04 crash: R took an id for its roll frame, then later ones for the frames sent before it.
+            Log log; auto s = stream(log, false);
+            s.start(wire(1));
+            require(log.taken.empty());  // the start frame is main.cpp's
+            require(s.feed(wire(7) + wire(8) + wire(6) + wire(9)));
+            require((log.taken == std::vector<std::uint64_t>{7, 8, 9}));  // the frames either side of it still count
+            require(log.refused.size() == 1 && log.refused[0].error.code == "invalid_control");
+            require(log.refused[0].op == "status" && log.refused[0].request_id == 6);
+            require(s.accepted() == 3 && s.refused() == 1 && !s.stopped());
+        }
+        {  // The start frame is the floor; a replay of it is refused.
+            Log log; auto s = stream(log, false);
+            s.start(wire(5));
+            require(s.feed(wire(5) + wire(4) + wire(6)));
+            require((log.taken == std::vector<std::uint64_t>{6}) && s.refused() == 2);
+        }
+        {  // Nothing of any of these acts, and none stops the stream: a stranger, garbage, an op nobody knows, a bad payload.
+            Log log; auto s = stream(log, false);
+            std::string bad = R"({"schema":1,"request_id":3,"run_id":"run","session":"session","op":"view","payload":{}})";
+            require(s.feed(named(1, "status", "other") + "not json\n\n" + named(2, "exec") + bad + "\n" + wire(4)));
+            require((log.taken == std::vector<std::uint64_t>{4}) && s.refused() == 5);
+            require(log.refused[0].op == "status" && log.refused[1].op.empty() && log.refused[2].op.empty());  // (the blank line is a frame too)
+            require(log.refused[3].op == "exec" && log.refused[4].op == "view" && log.refused[4].request_id == 3);
+            require(log.refused[3].error.code == "invalid_control");
+        }
+        {  // A frame in pieces, in any cut.
+            Log log; auto s = stream(log, false);
+            const auto bytes = wire(1) + wire(2);
+            for (std::size_t i = 0; i < bytes.size(); ++i) require(s.feed(bytes.substr(i, 1)));
+            require((log.taken == std::vector<std::uint64_t>{1, 2}) && s.refused() == 0);
+        }
+        {  // A frame that never ends is given up on once, with what is left of it, and the next one counts.
+            Log log; auto s = stream(log, false);
+            const std::string chunk(4096, 'x');
+            for (std::size_t sent = 0; sent <= xr::kMaxControlPending + 8192; sent += chunk.size()) require(s.feed(chunk));
+            require(s.refused() == 1 && log.refused[0].error.code == xr::kControlOverflowCode && log.refused[0].op.empty());
+            require(s.feed(chunk));                 // more of the same frame
+            require(s.feed("tail\n" + wire(1)));    // its end, then a good one in the same read
+            require((log.taken == std::vector<std::uint64_t>{1}) && s.refused() == 1);
+        }
+        {  // --control-errors fatal: what tests run. Stops on a real protocol error, as the renderer used to.
+            Log log; auto s = stream(log, true);
+            require(s.feed(wire(7) + wire(8)));
+            require(!s.feed(wire(6) + wire(9)));
+            require(s.stopped() && s.refused() == 1 && (log.taken == std::vector<std::uint64_t>{7, 8}));  // and takes nothing after it
+        }
+        {   // A display-only payload is excused there too, but still counted: tests read refused() in the exit report.
+            Log log; auto s = stream(log, true);
+            require(s.feed(menu(R"({"open":true,"desktop":9,"field":"x","placements":)" + three + "}") + wire(2)));
+            require(!s.stopped() && s.refused() == 1 && (log.taken == std::vector<std::uint64_t>{2}));
+        }
+        {   // Overflow stops a fatal stream too.
+            Log log; auto s = stream(log, true);
+            require(!s.feed(std::string(xr::kMaxControlPending + 1, 'x')) && s.stopped());
+        }
+    }
+    std::cout << "strict framing, schema, duplicate/nonfinite rejection, queue/replay, control stream, view, recenter, help, placement, placement_menu, binds: PASS\n";
 }

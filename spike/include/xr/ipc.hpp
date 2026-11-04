@@ -6,6 +6,7 @@
 #include "xr/binds_panel.hpp"
 #include <array>
 #include <deque>
+#include <functional>
 #include <optional>
 #include <string_view>
 #include <string>
@@ -173,9 +174,9 @@ struct ControlMessage {
     ControlPayload payload;
 };
 Result<ControlMessage> decode_control(std::string_view frame);
-// A rejected frame the renderer may drop without stopping: only a malformed placement_menu, resize_handle, move_handle,
-// overview_pointer, roll, environment or binds payload. It
-// carries no action, so its identity and request id are not checked and it does not advance the replay floor.
+// A rejected frame that stops nothing even under --control-errors fatal (ControlStream): only a malformed placement_menu,
+// resize_handle, move_handle, overview_pointer, roll, environment or binds payload. It carries no action, so its identity
+// and request id are not checked and it does not advance the replay floor.
 inline bool ignorable_control_error(const Error& e) {
     return e.code == kInvalidMenuCode || e.code == kInvalidHandleCode || e.code == kInvalidMoveHandleCode ||
            e.code == kInvalidOverviewPointerCode || e.code == kInvalidRollCode || e.code == kInvalidEnvironmentCode ||
@@ -190,5 +191,42 @@ private:
     std::string run_id_, session_;
     std::uint64_t last_ = 0;
     std::deque<ControlMessage> messages_;
+};
+// A frame the stream refused: why, and its op and request id where it has them (never its payload).
+struct ControlRefusal {
+    Error error;
+    std::string op;
+    std::uint64_t request_id = 0;
+};
+constexpr std::size_t kMaxControlPending = 65536;  // bytes with no newline before the stream gives the frame up
+constexpr const char* kControlOverflowCode = "control_overflow";
+// The bytes off the renderer's control socket, frame by frame: what main.cpp runs and what the ctest control_wire feeds the
+// real supervisor's frames. One bad frame costs that frame, never the session: it has no effect, it does not move the replay
+// floor, and `refused` is told. The session is worth more than a redraw, and a frame out of order is no attack on a socket
+// pair only the supervisor holds (R in the placement panel ended a session this way, 2026-11-04).
+// `fatal` (--control-errors fatal) is for tests, so that no bug hides behind that: a frame ignorable_control_error does not
+// excuse stops the stream. Tests also read refused() in the exit report, which counts every frame refused.
+class ControlStream {
+public:
+    using Deliver = std::function<void(ControlMessage&)>;
+    using Refused = std::function<void(const ControlRefusal&)>;
+    ControlStream(std::string run_id, std::string session, bool fatal, Deliver deliver, Refused refused);
+    // The start frame main.cpp has already validated: sets the replay floor.
+    void start(std::string_view frame);
+    // False: stop, `fatal` and a frame it does not excuse.
+    bool feed(std::string_view bytes);
+    bool stopped() const { return stopped_; }
+    std::uint64_t accepted() const { return accepted_; }
+    std::uint64_t refused() const { return refused_; }
+private:
+    bool refuse(const Error& error, std::string_view frame);
+    ControlQueue queue_;
+    bool fatal_;
+    Deliver deliver_;
+    Refused refused_callback_;
+    std::string pending_;
+    bool skipping_ = false;  // the rest of a frame given up on, up to its newline
+    bool stopped_ = false;
+    std::uint64_t accepted_ = 0, refused_ = 0;
 };
 } // namespace xr

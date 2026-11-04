@@ -22,6 +22,7 @@ from tools.native_spike import bind_check, free_pointer as fp, orbit, resize, vi
 from tools.native_spike.geometry import DEFAULT_PLACEMENT, PLACEMENT_BOUNDS, PLACEMENT_KEYS
 from tools.native_spike.ipc import decode_control
 from tools.native_spike.profiles import LayoutStore
+from control_wire import in_order
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads((ROOT / 'tests/native_spike/fixtures/overview_pointer_payloads.json').read_text())
@@ -41,6 +42,7 @@ LUA = shutil.which('lua') or shutil.which('luajit')
 
 
 def frames(data, ops=None):
+    in_order(data)
     out = [json.loads(line) for line in (data or b'').decode().splitlines()]
     return [f for f in out if ops is None or f['op'] in ops]
 

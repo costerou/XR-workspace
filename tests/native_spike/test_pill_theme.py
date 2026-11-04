@@ -14,6 +14,7 @@ from unittest import mock
 from tools.native_spike import video, view
 from tools.native_spike.supervisor import Supervisor
 from tools.native_spike.profiles import LayoutStore
+from control_wire import in_order
 
 NAMES = ['XR-1', 'XR-2', 'XR-3']
 # Hyprland's getoption general:col.active_border replies for borders Omarchy themes set: a plain colour (vantablack's
@@ -25,6 +26,7 @@ THEMES = [({'option': 'general:col.active_border', 'gradient': 'ff8d8d8d 0deg', 
 
 
 def frames(data):
+    in_order(data)
     return [json.loads(line) for line in (data or b'').decode().splitlines()]
 
 
