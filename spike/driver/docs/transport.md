@@ -63,11 +63,36 @@ the host polling, and 12 of 20 reconnects right after a drop were followed by an
 reconnect takes the kernel's re-enumeration plus 2 s, not the ~1 s first asked for, because zero
 drops comes first. A first open never waits.
 
-**Limits on retrying.** Reopening cannot clear a halted endpoint: nothing on the close or claim
-path sends `CLEAR_FEATURE(HALT)`, and we refuse to. So each link that dies with no packet while the
-device stays doubles the hold, up to 16 times `arrival_settle`. The device leaving and returning
-clears that. A device that is there but will not open (busy, no permission) is retried at a
-doubling interval up to 1 s.
+**Limits on retrying (experimental mitigation, November 4).** Reopening does not clear a
+halted endpoint: nothing on the close or claim path sends `CLEAR_FEATURE(HALT)`, and we refuse to.
+Each link that dies before sustained payload traffic doubles the hold while the device remains
+present: 4, 8, 16, then 32 s with defaults. The hold is bounded by the existing rule of 16 times
+`arrival_settle`, with `open_retry_max` as a floor for penalized sessions. The counter saturates.
+Brief successful packets no longer erase this history. Same-device retry, including after EPIPE,
+is still allowed; the transport cannot guarantee that it will repair an endpoint halt.
+
+`TransportConfig::healthy_after` defaults to 2 s (minimum 1 ms; no new CLI option). Nonempty
+payloads must span that interval in one session, with no observed receipt gap greater than
+`min(100 ms, healthy_after)`. A longer gap restarts the interval at the next packet. Once sustained
+traffic qualifies, history clears and a subsequent loss in that session gets only the base 2 s
+hold. This measures transport payload receipt, not valid IMU samples or device timestamps; junk
+or traffic on another configured nondrain endpoint can qualify. Scheduler stalls can delay
+qualification. A first open is still immediate. Observed disappearance clears the history and
+rearrival gets the base hold. A disappearance entirely between scans is not detected; this patch
+adds no identity tracking. Failed opens retain their separate doubling retry interval up to 1 s.
+
+The daemon calls `Link::close()` on loss. After a read error, `TransportLink::read()` has already
+set `link_up_ = false`, so that close is a no-op and Transport's penalty survives. For watchdog
+silence on an otherwise open link, wrapper close still calls `Transport::close()`, clearing its
+history; the daemon's separate silent retry policy applies. **This patch does not solve that
+silent-close path**, nor all command/write failure paths that close a still-marked-up wrapper.
+
+This is a bounded mitigation experiment for recurring short error sessions, not a root-cause fix.
+The supplied incident describes valid `0x81` traffic between repeated `0x85` EPROTO errors on the
+same enumeration. It does not establish that retries cause downstream hub loss. No live validation
+was performed for this patch; only fake USB, pty, and replay tests ran. No install, driver/service
+control, USB reset, clear-halt, configuration change, or endpoint removal is part of the patch.
+See [drop-error-backoff-experiment.md](drop-error-backoff-experiment.md) for red/green evidence.
 
 ## Using it
 

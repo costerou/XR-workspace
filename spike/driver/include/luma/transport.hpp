@@ -103,9 +103,13 @@ struct TransportConfig {
     // no claim, and no queued reads, which start the host polling. It restarts if the device vanishes
     // meanwhile. 2 s is protocol.md's starting value: 12 of 20 reconnects right after a drop were
     // followed by another drop, against 0 of 160 fresh starts (usb-drop-fix). A soak should tune it. A
-    // first open never waits. If links keep dying with no packet while the device stays, the hold
+    // first open never waits. If links keep dying before sustained traffic while the device stays, the hold
     // doubles per link, up to 16 times this and at least open_retry_max.
     std::chrono::milliseconds arrival_settle{2000};
+    // Clear failed-session history only after payloads span this duration (minimum 1 ms).
+    // Gaps over min(100 ms, healthy_after) restart the healthy interval. Transport counts bytes,
+    // not valid IMU samples; this is a bounded retry mitigation, not a device-health diagnosis.
+    std::chrono::milliseconds healthy_after{2000};
     // A device that is there but will not open (busy, no permission) is retried at a doubling
     // interval up to this, not at the rescan rate. Looking for an absent device stays at rescan_interval.
     std::chrono::milliseconds open_retry_max{1000};
